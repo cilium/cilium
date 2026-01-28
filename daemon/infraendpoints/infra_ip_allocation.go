@@ -6,6 +6,7 @@ package infraendpoints
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,7 +22,6 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/common"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -812,7 +812,7 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 				}
 				if ipv4GWUint64 != 0 {
 					bs := make([]byte, net.IPv4len)
-					byteorder.Native.PutUint32(bs, uint32(ipv4GWUint64))
+					binary.NativeEndian.PutUint32(bs, uint32(ipv4GWUint64))
 					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
 					hasIPv4 = true
 				}

@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 func TestDecodePolicyVerdicyNotify(t *testing.T) {
@@ -35,7 +33,7 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 		Cookie:      0x1e_1f_20_21,
 	}
 	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, byteorder.Native, input)
+	err := binary.Write(buf, binary.NativeEndian, input)
 	require.NoError(t, err)
 
 	output := &PolicyVerdictNotify{}
@@ -123,18 +121,18 @@ func TestDecodePolicyVerdictNotifyExtension(t *testing.T) {
 
 	for _, tc := range tcs {
 		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, byteorder.Native, tc.pvn)
+		err := binary.Write(buf, binary.NativeEndian, tc.pvn)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, tc.extension)
+		err = binary.Write(buf, binary.NativeEndian, tc.extension)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		err = binary.Write(buf, binary.NativeEndian, uint32(0xDEADBEEF))
 		require.NoError(t, err)
 
 		output := &PolicyVerdictNotify{}
 		err = output.Decode(buf.Bytes())
 		require.NoError(t, err)
 
-		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+		require.Equal(t, uint32(0xDEADBEEF), binary.NativeEndian.Uint32(buf.Bytes()[output.DataOffset():]))
 	}
 }
 
@@ -142,7 +140,7 @@ func BenchmarkNewDecodePolicyVerdictNotify(b *testing.B) {
 	input := &PolicyVerdictNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -160,7 +158,7 @@ func BenchmarkOldDecodePolicyVerdictNotify(b *testing.B) {
 	input := &PolicyVerdictNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -168,7 +166,7 @@ func BenchmarkOldDecodePolicyVerdictNotify(b *testing.B) {
 
 	for b.Loop() {
 		pvn := &PolicyVerdictNotify{}
-		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, pvn); err != nil {
+		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), binary.NativeEndian, pvn); err != nil {
 			b.Fatal(err)
 		}
 	}
