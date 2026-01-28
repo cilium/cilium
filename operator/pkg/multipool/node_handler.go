@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
-	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -22,15 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type PoolsFromResourceFunc func(*v2.CiliumNode) *types.IPAMPoolSpec
-
 type NodeHandler struct {
 	logger *slog.Logger
 	mutex  lock.Mutex
 
 	poolManager       *PoolAllocator
 	cnClient          cilium_v2.CiliumNodeInterface
-	poolsFromResource PoolsFromResourceFunc
+	poolsFromResource v2.PoolsFromResourceFunc
 
 	name string
 
@@ -49,7 +46,7 @@ func NewNodeHandler(
 	logger *slog.Logger,
 	manager *PoolAllocator,
 	cnClient cilium_v2.CiliumNodeInterface,
-	poolsFromResource PoolsFromResourceFunc,
+	poolsFromResource v2.PoolsFromResourceFunc,
 ) *NodeHandler {
 	return &NodeHandler{
 		logger:                 logger,

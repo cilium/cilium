@@ -233,6 +233,8 @@ type MultiPoolManagerParams struct {
 	CNClient cilium_v2.CiliumNodeInterface
 	JobGroup job.Group
 
+	PoolsFromResource ciliumv2.PoolsFromResourceFunc
+
 	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
@@ -260,6 +262,7 @@ type multiPoolManager struct {
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
 
+	poolsFromResource     ciliumv2.PoolsFromResourceFunc
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
@@ -283,6 +286,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		localNodeUpdateFn: sync.OnceFunc(func() {
 			close(localNodeUpdated)
 		}),
+		poolsFromResource: p.PoolsFromResource,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -388,7 +392,8 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	for _, pool := range newNode.Spec.IPAM.Pools.Allocated {
+	pools := m.poolsFromResource(newNode)
+	for _, pool := range pools.Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
 	}
 
@@ -566,18 +571,22 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
+	newPools := m.poolsFromResource(newNode)
+
 	sort.Slice(requested, func(i, j int) bool {
 		return requested[i].Pool < requested[j].Pool
 	})
 	sort.Slice(allocated, func(i, j int) bool {
 		return allocated[i].Pool < allocated[j].Pool
 	})
-	newNode.Spec.IPAM.Pools.Requested = requested
-	newNode.Spec.IPAM.Pools.Allocated = allocated
+	newPools.Requested = requested
+	newPools.Allocated = allocated
 
 	m.mutex.Unlock()
 
-	if !newNode.Spec.IPAM.DeepEqual(&m.node.Spec.IPAM) {
+	pools := m.poolsFromResource(m.node)
+
+	if !newPools.DeepEqual(pools) {
 		_, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)

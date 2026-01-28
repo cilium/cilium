@@ -15,6 +15,7 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
+	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -69,6 +70,9 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		CNClient:              p.CNClient,
 		JobGroup:              p.JobGroup,
 		SkipMasqueradeForPool: shouldSkipMasqForPool(p.DB, p.PodIPPools, p.OnlyMasqueradeDefaultPool),
+		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
