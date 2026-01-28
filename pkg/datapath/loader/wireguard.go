@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
@@ -21,6 +22,7 @@ import (
 
 func init() {
 	wireguardConfigs.register(config.Wireguard)
+	wireguardRenames.register(defaultWireguardMapRenames)
 }
 
 const (
@@ -32,6 +34,10 @@ const (
 // the wireguard network device.
 var wireguardConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
 
+// wireguardConfigs holds functions that yield BPF map renames for
+// the wireguard network device.
+var wireguardRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // wireguardConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [wireguardConfigs].
 func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
@@ -39,6 +45,21 @@ func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.L
 		configs = append(configs, f(lnc, link))
 	}
 	return configs
+}
+
+// wireguardMapRenames returns the merged map of wireguard map renames yielded by all registered rename providers.
+func wireguardMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range wireguardRenames.all() {
+		maps.Copy(renames, f(lnc, link))
+	}
+	return renames
+}
+
+func defaultWireguardMapRenames(lnc *datapath.LocalNodeConfiguration, device netlink.Link) (renames map[string]string) {
+	return map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
+	}
 }
 
 func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
@@ -53,10 +74,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: wireguardConfiguration(lnc, device),
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
-		},
+		Constants:  wireguardConfiguration(lnc, device),
+		MapRenames: wireguardMapRenames(lnc, device),
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
