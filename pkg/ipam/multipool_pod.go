@@ -102,7 +102,7 @@ func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
 func (c *multiPoolAllocator) Capacity() uint64 {
 	var capacity uint64
 	for _, pool := range c.manager.pools {
-		var p *podCIDRPool
+		var p *cidrPool
 		switch c.family {
 		case IPv4:
 			p = pool.v4
