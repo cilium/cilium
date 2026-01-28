@@ -132,6 +132,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 	if (ret != 0)
 		return ret;
 
+#ifdef ENABLE_IDENTITY_MARK
+	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
+#endif
 	return ipv6_host_delivery(ctx);
 }
 
@@ -281,6 +284,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 				    sizeof(*ip4), false))
 		return DROP_INVALID;
 
+#ifdef ENABLE_IDENTITY_MARK
+	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
+#endif
 	return ipv4_host_delivery(ctx, ip4);
 }
 
