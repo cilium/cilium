@@ -369,10 +369,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		}
 		m.mutex.Unlock()
 
-		// ensure the pool is present in stateDB for checking annotations at allocation time
-		txn := m.db.ReadTxn()
-		_, _, dbWatch, found := m.podIPPools.GetWatch(txn, podippool.ByName(string(poolName)))
-		if poolReady && found {
+		if poolReady {
 			return true
 		}
 
@@ -380,8 +377,6 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		case <-ctx.Done():
 			return false
 		case <-m.poolsUpdated:
-			continue
-		case <-dbWatch:
 			continue
 		case <-time.After(5 * time.Second):
 			m.logger.Info(
