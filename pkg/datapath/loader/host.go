@@ -30,6 +30,7 @@ func init() {
 	ciliumNetConfigs.register(config.CiliumNet)
 	ciliumNetRenames.register(defaultCiliumNetMapRenames)
 	netdevConfigs.register(config.Netdev)
+	netdevRenames.register(defaultNetdevMapRenames)
 }
 
 const (
@@ -209,6 +210,10 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 // attaching instances of bpf_host.c to externally-facing network devices.
 var netdevConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link, netip.Addr, netip.Addr) any]
 
+// netdevRenames holds functions that yield BPF map renames for
+// attaching instances of bpf_host.c to externally-facing network devices.
+var netdevRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // netdevConfiguration returns a slice of host configuration objects yielded
 // by all registered config providers of [netdevConfigs].
 func netdevConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, masq4, masq6 netip.Addr) (configs []any) {
@@ -218,7 +223,16 @@ func netdevConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalN
 	return configs
 }
 
-func netdevMapRenames(ep datapath.EndpointConfiguration, link netlink.Link) map[string]string {
+// netdevMapRenames returns the merged map of netdev map renames yielded by all registered rename providers.
+func netdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range netdevRenames.all() {
+		maps.Copy(renames, f(ep, lnc, link))
+	}
+	return renames
+}
+
+func defaultNetdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
@@ -269,7 +283,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
-			MapRenames:     netdevMapRenames(ep, iface),
+			MapRenames:     netdevMapRenames(ep, lnc, iface),
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
 		})
 		if err != nil {
