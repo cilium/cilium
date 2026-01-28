@@ -29,8 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -267,8 +265,6 @@ type multiPoolManager struct {
 	podIPPools                statedb.Table[podippool.LocalPodIPPool]
 	onlyMasqueradeDefaultPool bool
 }
-
-var _ Allocator = (*multiPoolAllocator)(nil)
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	preallocMap, err := parseMultiPoolPreAllocMap(p.PreAllocPools)
@@ -777,98 +773,4 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 		m.k8sUpdater.Trigger()
 	}
 	return nil
-}
-
-// FIXME: specific for pod IPAM
-func (m *multiPoolManager) Allocator(family Family) Allocator {
-	return &multiPoolAllocator{
-		manager: m,
-		family:  family,
-	}
-}
-
-type multiPoolAllocator struct {
-	manager *multiPoolManager
-	family  Family
-}
-
-func (c *multiPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, false)
-}
-
-func (c *multiPoolAllocator) Release(ip net.IP, pool Pool) error {
-	return c.manager.releaseIP(ip, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateNext(owner, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateNext(owner, pool, c.family, false)
-}
-
-func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
-	return c.manager.dump(c.family)
-}
-
-func (c *multiPoolAllocator) Capacity() uint64 {
-	var capacity uint64
-	for _, pool := range c.manager.pools {
-		var p *podCIDRPool
-		switch c.family {
-		case IPv4:
-			p = pool.v4
-		case IPv6:
-			p = pool.v6
-		}
-		if p == nil {
-			continue
-		}
-		capacity += uint64(p.capacity())
-	}
-	return uint64(capacity)
-}
-
-func (c *multiPoolAllocator) RestoreFinished() {
-	c.manager.restoreFinished(c.family)
-}
-
-func startLocalNodeAllocCIDRsSync(
-	enableIPv4, enableIPv6 bool,
-	jobGroup job.Group,
-	localNode agentK8s.LocalCiliumNodeResource,
-	localNodeStore *node.LocalNodeStore,
-) {
-	jobGroup.Add(
-		job.Observer(
-			"multi-pool-local-node-syncer",
-			func(ctx context.Context, ev resource.Event[*ciliumv2.CiliumNode]) error {
-				defer ev.Done(nil)
-
-				if ev.Kind != resource.Upsert {
-					return nil
-				}
-
-				no := nodeTypes.ParseCiliumNode(ev.Object)
-				localNodeStore.Update(func(n *node.LocalNode) {
-					if enableIPv4 && no.IPv4AllocCIDR != nil {
-						n.IPv4AllocCIDR = no.IPv4AllocCIDR
-						n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
-					}
-					if enableIPv6 && no.IPv6AllocCIDR != nil {
-						n.IPv6AllocCIDR = no.IPv6AllocCIDR
-						n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
-					}
-				})
-
-				return nil
-			},
-			localNode,
-		),
-	)
 }
