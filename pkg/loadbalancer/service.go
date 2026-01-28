@@ -58,6 +58,9 @@ type Service struct {
 	// to the backend. If undefined the default mode is used (--bpf-lb-mode).
 	ForwardingMode SVCForwardingMode
 
+	// SVCScope controls which frontend scopes are programmed into LB BPF maps.
+	SVCScope SVCScope
+
 	// SessionAffinity if true will enable the client IP based session affinity.
 	SessionAffinity bool
 
