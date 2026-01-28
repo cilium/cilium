@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -217,7 +218,7 @@ func l4CreateInfo(n *DebugMsg) string {
 
 func ip4Str(arg1 uint32) string {
 	ip := make(net.IP, 4)
-	byteorder.Native.PutUint32(ip, arg1)
+	binary.NativeEndian.PutUint32(ip, arg1)
 	return ip.String()
 }
 
@@ -269,11 +270,11 @@ func (n *DebugMsg) Decode(data []byte) error {
 
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = byteorder.Native.Uint16(data[2:4])
-	n.Hash = byteorder.Native.Uint32(data[4:8])
-	n.Arg1 = byteorder.Native.Uint32(data[8:12])
-	n.Arg2 = byteorder.Native.Uint32(data[12:16])
-	n.Arg3 = byteorder.Native.Uint32(data[16:20])
+	n.Source = binary.NativeEndian.Uint16(data[2:4])
+	n.Hash = binary.NativeEndian.Uint32(data[4:8])
+	n.Arg1 = binary.NativeEndian.Uint32(data[8:12])
+	n.Arg2 = binary.NativeEndian.Uint32(data[12:16])
+	n.Arg3 = binary.NativeEndian.Uint32(data[16:20])
 
 	return nil
 }
@@ -488,14 +489,14 @@ func (n *DebugCapture) Decode(data []byte) error {
 
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = byteorder.Native.Uint16(data[2:4])
-	n.Hash = byteorder.Native.Uint32(data[4:8])
-	n.OrigLen = byteorder.Native.Uint32(data[8:12])
-	n.Len = byteorder.Native.Uint16(data[12:14])
+	n.Source = binary.NativeEndian.Uint16(data[2:4])
+	n.Hash = binary.NativeEndian.Uint32(data[4:8])
+	n.OrigLen = binary.NativeEndian.Uint32(data[8:12])
+	n.Len = binary.NativeEndian.Uint16(data[12:14])
 	n.Version = data[14]
 	n.ExtVersion = data[15]
-	n.Arg1 = byteorder.Native.Uint32(data[16:20])
-	n.Arg2 = byteorder.Native.Uint32(data[20:24])
+	n.Arg1 = binary.NativeEndian.Uint32(data[16:20])
+	n.Arg2 = binary.NativeEndian.Uint32(data[20:24])
 
 	return nil
 }

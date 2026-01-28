@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/ebpf/perf"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
@@ -134,7 +133,7 @@ func signalCollectMetrics(signalType, signalData, signalStatus string) {
 func (sm *signalManager) signalReceive(msg *perf.Record) {
 	var which SignalType
 	reader := bytes.NewReader(msg.RawSample)
-	if err := binary.Read(reader, byteorder.Native, &which); err != nil {
+	if err := binary.Read(reader, binary.NativeEndian, &which); err != nil {
 		sm.logger.Warn("cannot parse signal type from BPF datapath", logfields.Error, err)
 		return
 	}
@@ -217,7 +216,7 @@ func ChannelHandler[T fmt.Stringer](ch chan<- T) SignalHandler {
 			return "", io.EOF
 		}
 		var data T
-		if err := binary.Read(reader, byteorder.Native, &data); err != nil {
+		if err := binary.Read(reader, binary.NativeEndian, &data); err != nil {
 			return "", err
 		}
 		select {
