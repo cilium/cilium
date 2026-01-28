@@ -437,7 +437,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			var ipv4 uint32
 			for _, addr := range drd.Addrs {
 				if addr.Addr.Is4() {
-					ipv4 = byteorder.NetIPv4ToHost32(addr.AsIP())
+					ipv4 = byteorder.NetIPAddrToHost32(addr.Addr)
 					break
 				}
 			}
