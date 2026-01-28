@@ -16,12 +16,9 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -218,6 +215,12 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 	return len(p[family])
 }
 
+// SkipMasqueradeForPoolFn is the type of a function that, given a pool
+// returns true if the addresses of that pool should be excluded from
+// masquerading, false otherwise.
+// In case the pool is not found a non-nil error is returned.
+type SkipMasqueradeForPoolFn func(Pool) (bool, error)
+
 type MultiPoolManagerParams struct {
 	Logger *slog.Logger
 
@@ -230,9 +233,7 @@ type MultiPoolManagerParams struct {
 	CNClient cilium_v2.CiliumNodeInterface
 	JobGroup job.Group
 
-	DB                        *statedb.DB
-	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
-	OnlyMasqueradeDefaultPool bool
+	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
 type multiPoolManager struct {
@@ -259,9 +260,7 @@ type multiPoolManager struct {
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
 
-	db                        *statedb.DB
-	podIPPools                statedb.Table[podippool.LocalPodIPPool]
-	onlyMasqueradeDefaultPool bool
+	skipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -284,9 +283,12 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		localNodeUpdateFn: sync.OnceFunc(func() {
 			close(localNodeUpdated)
 		}),
-		db:                        p.DB,
-		podIPPools:                p.PodIPPools,
-		onlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
+		skipMasqueradeForPool: func(Pool) (bool, error) {
+			return false, nil
+		},
+	}
+	if p.SkipMasqueradeForPool != nil {
+		mgr.skipMasqueradeForPool = p.SkipMasqueradeForPool
 	}
 
 	mgr.jobGroup.Add(
@@ -693,21 +695,11 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family}
 	}
-	skipMasq := false
-	// If the flag is set, skip masquerade for all non-default pools
-	if m.onlyMasqueradeDefaultPool && poolName != PoolDefault() {
-		skipMasq = true
-	} else {
-		// Lookup the IP pool from stateDB and check if it has the explicit annotations
-		txn := m.db.ReadTxn()
-		podIPPool, _, found := m.podIPPools.Get(txn, podippool.ByName(string(poolName)))
-		if !found {
-			m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-			return nil, fmt.Errorf("IP pool '%s' not found in stateDB table", string(poolName))
-		}
-		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
-			skipMasq = true
-		}
+
+	skipMasq, err := m.skipMasqueradeForPool(poolName)
+	if err != nil {
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
+		return nil, err
 	}
 
 	ip, err := pool.allocateNext()
