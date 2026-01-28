@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"path/filepath"
 
@@ -34,6 +35,7 @@ import (
 
 func init() {
 	epConfigs.register(config.Endpoint)
+	epRenames.register(defaultEndpointMapRenames)
 }
 
 const (
@@ -45,6 +47,9 @@ const (
 // an endpoint.
 var epConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) any]
 
+// epRenames holds functions that yield the map renames for an endpoint
+var epRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) map[string]string]
+
 // endpointConfiguration returns a slice of endpoint configuration objects
 // yielded by all registered config providers.
 func endpointConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (configs []any) {
@@ -52,6 +57,15 @@ func endpointConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loca
 		configs = append(configs, f(ep, lnc))
 	}
 	return configs
+}
+
+// endpointMapRenames returns the merged map of endpoint map renames yielded by all registered rename providers.
+func endpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range epRenames.all() {
+		maps.Copy(renames, f(ep, lnc))
+	}
+	return renames
 }
 
 // ReloadDatapath reloads the BPF datapath programs for the specified endpoint.
@@ -166,8 +180,8 @@ func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfigurati
 	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
 }
 
-// endpointMapRenames returns map rename operations for an endpoint.
-func endpointMapRenames(ep datapath.EndpointConfiguration) map[string]string {
+// defaultEndpointMapRenames returns map rename operations for an endpoint.
+func defaultEndpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) map[string]string {
 	return map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
@@ -189,7 +203,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      endpointConfiguration(ep, lnc),
-		MapRenames:     endpointMapRenames(ep),
+		MapRenames:     endpointMapRenames(ep, lnc),
 		ConfigDumpPath: filepath.Join(ep.StateDir(), endpointConfig),
 	})
 	if err != nil {
