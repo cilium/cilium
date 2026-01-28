@@ -127,6 +127,9 @@ func Test_MultiPoolManager(t *testing.T) {
 		Node:                 fakeK8sCiliumNodeAPI,
 		CNClient:             fakeK8sCiliumNodeAPI,
 		JobGroup:             jg,
+		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	// assert initial CiliumNode upsert has been sent to the events chan
@@ -535,6 +538,9 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
+		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	// Trigger controller immediately when requested by the IPAM trigger
@@ -655,6 +661,9 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
+		PoolsFromResource: func(cn *ciliumv2.CiliumNode) *types.IPAMPoolSpec {
+			return &cn.Spec.IPAM.Pools
+		},
 	})
 
 	// Trigger controller immediately when requested
