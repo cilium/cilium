@@ -21,7 +21,7 @@ inputs:
     default: 'true'
   underlay:
     description: 'Underlay protocol for the VXLAN or GENEVE tunnels'
-    default: 'ipv4'
+    default: 'auto'
   kpr:
     description: 'Enable kube-proxy replacement'
     default: 'false'
