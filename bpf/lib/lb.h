@@ -192,7 +192,7 @@ struct {
 	__type(value, struct lb6_service);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_services_v2 __section_maps_btf;
 
 struct {
@@ -219,7 +219,7 @@ struct {
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB6_SRC_RANGE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb6_source_range __section_maps_btf;
 
 struct {
@@ -238,7 +238,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -264,7 +264,7 @@ struct {
 	__type(value, struct lb4_service);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_services_v2 __section_maps_btf;
 
 struct {
@@ -291,7 +291,7 @@ struct {
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, LB4_SRC_RANGE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb4_source_range __section_maps_btf;
 
 struct {
@@ -310,7 +310,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 	/* Maglev inner map definition */
 	__array(values, struct {
 		__uint(type, BPF_MAP_TYPE_ARRAY);
