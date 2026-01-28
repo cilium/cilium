@@ -67,7 +67,7 @@ func NewEnrolledNamespacesTable(db *statedb.DB) (statedb.RWTable[*EnrolledNamesp
 
 func K8sNamespaceToEnrolledNamespace(ns k8s.Namespace, deleted bool) (*EnrolledNamespace, statedb.DeriveResult) {
 	enrolled := true
-	if mtlsValue, exists := ns.Labels["mtls-enabled"]; !exists || mtlsValue != "true" {
+	if mtlsValue, exists := ns.Labels["io.cilium/mtls-enabled"]; !exists || mtlsValue != "true" {
 		enrolled = false
 	}
 	if deleted || !enrolled {
