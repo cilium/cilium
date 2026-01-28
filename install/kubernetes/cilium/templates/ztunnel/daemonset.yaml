@@ -70,7 +70,7 @@ spec:
             - name: CA_ROOT_CA
               value: "/etc/ztunnel/bootstrap-root.crt"
             - name: CA_ADDRESS
-              value: "unix://localhost/var/run/cilium/xds.sock"
+              value: {{ .Values.encryption.ztunnel.caAddress | quote }}
             {{- end }}
             - name: ISTIO_META_DNS_CAPTURE
               value: "false"
@@ -125,9 +125,11 @@ spec:
             - mountPath: /var/run/cilium
               name: cilium-dir
               readOnly: false
+            {{- if not .Values.authentication.mutual.spire.enabled }}
             - mountPath: /etc/ztunnel
               name: cilium-ztunnel-secrets
               readOnly: true
+            {{- end }}
             {{- if .Values.authentication.mutual.spire.enabled }}
             - name: spire-agent-socket
               mountPath: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
@@ -168,6 +170,7 @@ spec:
           hostPath:
             path: /var/run/cilium
             type: DirectoryOrCreate
+        {{- if not .Values.authentication.mutual.spire.enabled }}
         - name: cilium-ztunnel-secrets
           secret:
             secretName: cilium-ztunnel-secrets
@@ -176,6 +179,7 @@ spec:
               - key: bootstrap-root.crt
                 path: bootstrap-root.crt
                 mode: 420
+        {{- end }}
         {{- if .Values.authentication.mutual.spire.enabled }}
         - name: spire-agent-socket
           hostPath:

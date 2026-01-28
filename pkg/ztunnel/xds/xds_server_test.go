@@ -5,342 +5,302 @@ package xds
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"log/slog"
-	"math/big"
-	"net/netip"
-	"net/url"
-	"sync"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/cell"
+	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/cilium/cilium/api/v1/models"
-	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/ztunnel/pb"
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/pkg/hubble/testutils"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
-// MockEndpointManager is a mock implementation of endpointmanager.EndpointManager
-type MockEndpointManager struct {
-	// these are the actual methods under test.
-	_GetEndpoints                 func() []*endpoint.Endpoint
-	_Subscribe                    func(s endpointmanager.Subscriber)
-	_Unsubscribe                  func(s endpointmanager.Subscriber)
-	_GetEndpointsByServiceAccount func(namespace string, serviceAccount string) []*endpoint.Endpoint
-	_GetEndpointsByNamespace      func(namespace string) []*endpoint.Endpoint
+func TestNewServer(t *testing.T) {
+	t.Run("creates server with correct fields", func(t *testing.T) {
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		socketPath := "/tmp/test-xds.sock"
+
+		server := newServer(log, db, nil, tbl, socketPath)
+
+		require.NotNil(t, server)
+		require.Equal(t, log, server.log)
+		require.Equal(t, db, server.db)
+		require.Equal(t, tbl, server.enrolledNamespaceTable)
+		require.Equal(t, socketPath, server.xdsUnixAddr)
+		require.NotNil(t, server.endpointEventChan)
+		require.Equal(t, 1024, cap(server.endpointEventChan))
+	})
 }
 
-// Ensure MockEndpointManager implements all required interfaces
-var _ endpointmanager.EndpointManager = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointsLookup = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointsModify = (*MockEndpointManager)(nil)
-var _ endpointmanager.EndpointResourceSynchronizer = (*MockEndpointManager)(nil)
+func TestServerServe(t *testing.T) {
+	t.Run("starts and listens on unix socket", func(t *testing.T) {
+		// Create temp directory for socket
+		tmpDir, err := os.MkdirTemp("", "xds-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
 
-func (m *MockEndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
-	panic("MockEndpointManager.Lookup not implemented")
-}
+		socketPath := filepath.Join(tmpDir, "xds.sock")
 
-func (m *MockEndpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCiliumID not implemented")
-}
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
 
-func (m *MockEndpointManager) LookupCNIAttachmentID(id string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCNIAttachmentID not implemented")
-}
+		server := newServer(log, db, nil, tbl, socketPath)
 
-func (m *MockEndpointManager) LookupIPv4(ipv4 string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIPv4 not implemented")
-}
+		// Start the server
+		err = server.Serve()
+		require.NoError(t, err)
+		defer server.GracefulStop()
 
-func (m *MockEndpointManager) LookupIPv6(ipv6 string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIPv6 not implemented")
-}
+		// Verify socket file exists
+		_, err = os.Stat(socketPath)
+		require.NoError(t, err, "Socket file should exist")
 
-func (m *MockEndpointManager) LookupIP(ip netip.Addr) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupIP not implemented")
-}
+		// Verify we can connect to it
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
-func (m *MockEndpointManager) LookupCEPName(name string) *endpoint.Endpoint {
-	panic("MockEndpointManager.LookupCEPName not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByPodName(name string) []*endpoint.Endpoint {
-	panic("MockEndpointManager.GetEndpointsByPodName not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
-	panic("MockEndpointManager.GetEndpointsByContainerID not implemented")
-}
-
-func (m *MockEndpointManager) GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint {
-	return m._GetEndpointsByServiceAccount(namespace, serviceAccount)
-}
-
-func (m *MockEndpointManager) GetEndpoints() []*endpoint.Endpoint {
-	return m._GetEndpoints()
-}
-
-func (m *MockEndpointManager) GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint {
-	return m._GetEndpointsByNamespace(namespace)
-}
-
-func (m *MockEndpointManager) GetEndpointList(params endpointapi.GetEndpointParams) []*models.Endpoint {
-	panic("MockEndpointManager.GetEndpointList not implemented")
-}
-
-func (m *MockEndpointManager) EndpointExists(id uint16) bool {
-	panic("MockEndpointManager.EndpointExists not implemented")
-}
-
-func (m *MockEndpointManager) GetHostEndpoint() *endpoint.Endpoint {
-	panic("MockEndpointManager.GetHostEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) HostEndpointExists() bool {
-	panic("MockEndpointManager.HostEndpointExists not implemented")
-}
-
-func (m *MockEndpointManager) GetIngressEndpoint() *endpoint.Endpoint {
-	panic("MockEndpointManager.GetIngressEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) IngressEndpointExists() bool {
-	panic("MockEndpointManager.IngressEndpointExists not implemented")
-}
-
-// EndpointsModify interface methods
-func (m *MockEndpointManager) AddEndpoint(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.AddEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.RestoreEndpoint not implemented")
-}
-
-func (m *MockEndpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
-	panic("MockEndpointManager.UpdateReferences not implemented")
-}
-
-func (m *MockEndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	panic("MockEndpointManager.RemoveEndpoint not implemented")
-}
-
-// EndpointResourceSynchronizer interface methods
-func (m *MockEndpointManager) RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.Health) {
-	panic("MockEndpointManager.RunK8sCiliumEndpointSync not implemented")
-}
-
-func (m *MockEndpointManager) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-	panic("MockEndpointManager.DeleteK8sCiliumEndpointSync not implemented")
-}
-
-// EndpointManager interface methods
-func (m *MockEndpointManager) Subscribe(s endpointmanager.Subscriber) {
-	m._Subscribe(s)
-}
-
-func (m *MockEndpointManager) Unsubscribe(s endpointmanager.Subscriber) {
-	m._Unsubscribe(s)
-}
-
-func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
-	panic("MockEndpointManager.UpdatePolicyMaps not implemented")
-}
-
-func (m *MockEndpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
-	panic("MockEndpointManager.RegenerateAllEndpoints not implemented")
-}
-
-func (m *MockEndpointManager) TriggerRegenerateAllEndpoints() {
-	panic("MockEndpointManager.TriggerRegenerateAllEndpoints not implemented")
-}
-
-func (m *MockEndpointManager) OverrideEndpointOpts(om option.OptionMap) {
-	panic("MockEndpointManager.OverrideEndpointOpts not implemented")
-}
-
-func (m *MockEndpointManager) InitHostEndpointLabels(ctx context.Context) {
-	panic("MockEndpointManager.InitHostEndpointLabels not implemented")
-}
-
-func (m *MockEndpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	panic("MockEndpointManager.UpdatePolicy not implemented")
-}
-
-//	Serial Number:
-//	    65:09:76:9c:41:d2:d8:ba:5c:f4:2f:df:98:e5:d5:b8
-//	Signature Algorithm: sha256WithRSAEncryption
-//	Issuer: O=cluster.local
-//	Validity
-//	    Not Before: Jun 25 13:49:10 2025 GMT
-//	    Not After : Jun 23 13:49:10 2035 GMT
-//	Subject: O=cluster.local
-//	Subject Public Key Info:
-//	    Public Key Algorithm: rsaEncryption
-//	        Public-Key: (2048 bit)
-//	        Modulus:
-//	        Exponent: 65537 (0x10001)
-//	X509v3 extensions:
-//	    X509v3 Key Usage: critical
-//	        Certificate Sign
-//	    X509v3 Basic Constraints: critical
-//	        CA:TRUE
-//	    X509v3 Subject Key Identifier:
-//	        CA:74:4D:0E:F1:80:03:8A:9A:0D:14:7A:5F:F2:8A:1F:0C:48:D9:62
-//
-// Signature Algorithm: sha256WithRSAEncryption
-// Signature Value:
-func TestCreateCertificate(t *testing.T) {
-	// create an RSA private caKey
-	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate RSA key: %v", err)
-	}
-
-	// create certificate for signing other certs, we need to do a round-trip
-	// through DER encoding to sign the certificate.
-	caSerialNumber := big.NewInt(0xDEADBEEF)
-	caCert := &x509.Certificate{
-		SerialNumber: caSerialNumber,
-		Subject: pkix.Name{
-			Organization: []string{"cluster.local"},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		IsCA:                  true,
-		BasicConstraintsValid: true,
-	}
-	caCertDER, err := x509.CreateCertificate(rand.Reader, caCert, caCert, &caKey.PublicKey, caKey)
-	if err != nil {
-		t.Fatalf("failed to create certificate: %v", err)
-	}
-	caCert, err = x509.ParseCertificate(caCertDER)
-	if err != nil {
-		t.Fatalf("failed to parse certificate: %v", err)
-	}
-	caCertPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: caCertDER,
+		conn, err := grpc.DialContext(ctx, "unix://"+socketPath,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
+		require.NoError(t, err, "Should be able to connect to server")
+		defer conn.Close()
 	})
 
-	s := Server{
-		caCert:    caCert,
-		caKey:     caKey,
-		caCertPEM: string(caCertPEM),
-		epManager: &MockEndpointManager{
-			_GetEndpointsByServiceAccount: func(namespace string, serviceAccount string) []*endpoint.Endpoint {
-				return []*endpoint.Endpoint{{}}
-			},
-		},
-		log: slog.Default(),
-	}
+	t.Run("removes existing socket file", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "xds-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
 
-	// we'll generate a CSR using the simple CSR we see in a default ztunnel
-	// deployment:
-	//         Version: 0 (0x0)
-	//     Subject:
-	//     Subject Public Key Info:
-	//         Public Key Algorithm: id-ecPublicKey
-	//             Public-Key: (256 bit)
-	//             pub:
-	//             ASN1 OID: prime256v1
-	//             NIST CURVE: P-256
-	//     Attributes:
-	//     Requested Extensions:
-	//         X509v3 Subject Alternative Name: critical
-	//             URI:spiffe:///ns/kube-system/sa/default
-	// Signature Algorithm: ecdsa-with-SHA256
-	clientKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("failed to generate private key: %v", err)
-	}
+		socketPath := filepath.Join(tmpDir, "xds.sock")
 
-	uriSAN, err := url.Parse("spiffe:///ns/kube-system/sa/default")
-	if err != nil {
-		t.Fatalf("failed to parse URI: %v", err)
-	}
+		// Create a regular file at socket path
+		f, err := os.Create(socketPath)
+		require.NoError(t, err)
+		f.Close()
 
-	csr := x509.CertificateRequest{
-		Subject:            pkix.Name{},
-		URIs:               []*url.URL{uriSAN},
-		PublicKey:          clientKey.PublicKey,
-		PublicKeyAlgorithm: x509.ECDSA,
-	}
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
 
-	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &csr, clientKey)
-	if err != nil {
-		t.Fatalf("failed to create CSR: %v", err)
-	}
-	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
+		server := newServer(log, db, nil, tbl, socketPath)
 
-	istioCSR := &pb.IstioCertificateRequest{
-		Csr: string(csrPEM),
-	}
+		// Should succeed even with existing file
+		err = server.Serve()
+		require.NoError(t, err)
+		defer server.GracefulStop()
 
-	istioCertResp, err := s.CreateCertificate(t.Context(), istioCSR)
-	if err != nil {
-		t.Fatalf("failed to create certificate: %v", err)
-	}
+		// Verify socket works
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
-	if len(istioCertResp.CertChain) != 2 {
-		t.Fatalf("expected 2 certificates in the chain, got %d", len(istioCertResp.CertChain))
-	}
+		conn, err := grpc.DialContext(ctx, "unix://"+socketPath,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
+		require.NoError(t, err)
+		defer conn.Close()
+	})
 
-	// client certificate must be first per ztunnel's parsing rules
-	clientCertPEM := istioCertResp.CertChain[0]
-	clientCertBlock, _ := pem.Decode([]byte(clientCertPEM))
-	if clientCertBlock == nil || clientCertBlock.Type != "CERTIFICATE" {
-		t.Fatalf("failed to decode client certificate PEM")
-	}
-	clientCert, err := x509.ParseCertificate(clientCertBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse client certificate: %v", err)
-	}
+	t.Run("fails on invalid socket path", func(t *testing.T) {
+		// Use a path in a non-existent directory
+		socketPath := "/nonexistent/directory/xds.sock"
 
-	// trust anchor must be last per ztunnel's parsing rules.
-	rootCertPEM := istioCertResp.CertChain[1]
-	rootCertBlock, _ := pem.Decode([]byte(rootCertPEM))
-	if rootCertBlock == nil || rootCertBlock.Type != "CERTIFICATE" {
-		t.Fatalf("failed to decode root certificate PEM")
-	}
-	rootCert, err := x509.ParseCertificate(rootCertBlock.Bytes)
-	if err != nil {
-		t.Fatalf("failed to parse root certificate: %v", err)
-	}
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
 
-	// validate client certificate's signature
-	if err := clientCert.CheckSignatureFrom(rootCert); err != nil {
-		t.Fatalf("client certificate signature validation failed: %v", err)
-	}
-	// validate client cert's public key algo
-	if clientCert.PublicKeyAlgorithm != x509.ECDSA {
-		t.Fatalf("expected client certificate public key algorithm to be ECDSA, got %v", clientCert.PublicKeyAlgorithm)
-	}
-	// validate client's URI SAN
-	if len(clientCert.URIs) != 1 || clientCert.URIs[0].String() != uriSAN.String() {
-		t.Fatalf("expected client certificate to have URI SAN %s, got %s", uriSAN.String(), clientCert.URIs[0].String())
-	}
+		server := newServer(log, db, nil, tbl, socketPath)
 
-	// we create the CA certificate, so lets just ensure we see the same
-	// certificate serial number, this is enough to know we served the cert
-	// we created above as the root
-	if rootCert.SerialNumber.Cmp(caSerialNumber) != 0 {
-		t.Fatalf("expected root certificate serial number to be %s, got %s", caSerialNumber, rootCert.SerialNumber)
-	}
+		err = server.Serve()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to listen on unix socket")
+	})
+}
 
+func TestServerGracefulStop(t *testing.T) {
+	t.Run("stops server gracefully", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "xds-test-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
+
+		socketPath := filepath.Join(tmpDir, "xds.sock")
+
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		server := newServer(log, db, nil, tbl, socketPath)
+
+		err = server.Serve()
+		require.NoError(t, err)
+
+		// Connect to server
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		conn, err := grpc.DialContext(ctx, "unix://"+socketPath,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
+		require.NoError(t, err)
+
+		// Stop server
+		server.GracefulStop()
+
+		// Connection should now fail for new requests
+		conn.Close()
+
+		// Try to connect again - should fail
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel2()
+
+		_, err = grpc.DialContext(ctx2, "unix://"+socketPath,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock())
+		require.Error(t, err, "Connection should fail after server stop")
+	})
+}
+
+func TestStreamAggregatedResources(t *testing.T) {
+	t.Run("returns unimplemented error", func(t *testing.T) {
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+
+		mockStream := &MockStreamAggregatedResourcesServer{}
+
+		err = server.StreamAggregatedResources(mockStream)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unimplemented")
+	})
+}
+
+func TestDeltaAggregatedResources(t *testing.T) {
+	t.Run("returns immediately on canceled context", func(t *testing.T) {
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+
+		// Create canceled context
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockStream := &MockStream{}
+		mockStream.OnContext = func() context.Context {
+			return ctx
+		}
+
+		err = server.DeltaAggregatedResources(mockStream)
+		require.Error(t, err)
+		require.Equal(t, context.Canceled, err)
+	})
+
+	t.Run("stops when context is canceled", func(t *testing.T) {
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+
+		// Create a context that we'll cancel
+		ctx, cancel := context.WithCancel(context.Background())
+
+		mockStream := &MockStream{}
+		mockStream.OnContext = func() context.Context {
+			return ctx
+		}
+		// Provide a Recv function that blocks until context is canceled
+		mockStream._Recv = func() (*v3.DeltaDiscoveryRequest, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// Start DeltaAggregatedResources in goroutine since it blocks
+		done := make(chan error, 1)
+		go func() {
+			done <- server.DeltaAggregatedResources(mockStream)
+		}()
+
+		// Give it a moment to start
+		time.Sleep(50 * time.Millisecond)
+
+		// Cancel context to stop the stream
+		cancel()
+
+		// Wait for completion
+		select {
+		case err := <-done:
+			require.Error(t, err)
+			require.Equal(t, context.Canceled, err)
+		case <-time.After(2 * time.Second):
+			t.Fatal("DeltaAggregatedResources did not return in time")
+		}
+	})
+}
+
+func TestEndpointEventChannel(t *testing.T) {
+	t.Run("endpoint event channel is accessible", func(t *testing.T) {
+		log := slog.New(slog.DiscardHandler)
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+
+		// Channel should be writable
+		event := &EndpointEvent{
+			Type: CREATE,
+		}
+
+		select {
+		case server.endpointEventChan <- event:
+			// Success
+		default:
+			t.Fatal("Should be able to write to endpoint event channel")
+		}
+
+		// Channel should be readable
+		select {
+		case received := <-server.endpointEventChan:
+			require.Equal(t, CREATE, received.Type)
+		default:
+			t.Fatal("Should be able to read from endpoint event channel")
+		}
+	})
+}
+
+// MockStreamAggregatedResourcesServer implements v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+var _ v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer = (*MockStreamAggregatedResourcesServer)(nil)
+
+type MockStreamAggregatedResourcesServer struct {
+	testutils.FakeGRPCServerStream
+}
+
+func (s *MockStreamAggregatedResourcesServer) Send(*v3.DiscoveryResponse) error {
+	return nil
+}
+
+func (s *MockStreamAggregatedResourcesServer) Recv() (*v3.DiscoveryRequest, error) {
+	return nil, nil
 }
