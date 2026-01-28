@@ -28,6 +28,7 @@ func init() {
 	ciliumHostConfigs.register(config.CiliumHost)
 	ciliumHostRenames.register(defaultCiliumHostMapRenames)
 	ciliumNetConfigs.register(config.CiliumNet)
+	ciliumNetRenames.register(defaultCiliumNetMapRenames)
 	netdevConfigs.register(config.Netdev)
 }
 
@@ -140,6 +141,9 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 // cilium_net.
 var ciliumNetConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) any]
 
+// ciliumNetRenames holds functions that yield BPF map renames for cilium_net.
+var ciliumNetRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // ciliumNetConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [ciliumNetConfigs].
 func ciliumNetConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
@@ -149,7 +153,16 @@ func ciliumNetConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loc
 	return configs
 }
 
-func ciliumNetMapRenames(ep datapath.EndpointConfiguration, link netlink.Link) map[string]string {
+// ciliumHostMapRenames returns the merged map of cilium_net map renames yielded by all registered rename providers.
+func ciliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range ciliumNetRenames.all() {
+		maps.Copy(renames, f(ep, lnc, link))
+	}
+	return renames
+}
+
+func defaultCiliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
@@ -171,7 +184,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
-		MapRenames:     ciliumNetMapRenames(ep, net),
+		MapRenames:     ciliumNetMapRenames(ep, lnc, net),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
 	})
 	if err != nil {
