@@ -422,8 +422,8 @@ type RoutePolicyRequest struct {
 	Policy              *RoutePolicy
 }
 
-// GetPeerStateResponse contains state of peers configured in given instance
-type GetPeerStateResponse struct {
+// GetPeerStateLegacyResponse contains state of peers configured in given instance
+type GetPeerStateLegacyResponse struct {
 	Peers []*models.BgpPeer
 }
 
@@ -549,8 +549,8 @@ type Router interface {
 	// RemoveRoutePolicy removes a routing policy from the underlying router.
 	RemoveRoutePolicy(ctx context.Context, p RoutePolicyRequest) error
 
-	// GetPeerState returns status of BGP peers
-	GetPeerState(ctx context.Context) (GetPeerStateResponse, error)
+	// GetPeerStateLegacy returns status of BGP peers
+	GetPeerStateLegacy(ctx context.Context) (GetPeerStateLegacyResponse, error)
 
 	// GetRoutes retrieves routes from the RIB of underlying router
 	GetRoutes(ctx context.Context, r *GetRoutesRequest) (*GetRoutesResponse, error)

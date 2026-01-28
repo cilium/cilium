@@ -355,7 +355,7 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 	}
 
 	// get peer status
-	peers, err := instance.Router.GetPeerState(ctx)
+	peers, err := instance.Router.GetPeerStateLegacy(ctx)
 	if err != nil {
 		return nil, err
 	}

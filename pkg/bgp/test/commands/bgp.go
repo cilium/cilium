@@ -49,7 +49,7 @@ func BGPPPeersCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					defer f.Close()
 				}
 
-				peers, err := bgpMgr.GetPeers(s.Context())
+				peers, err := bgpMgr.GetPeersLegacy(s.Context())
 				if err != nil {
 					return "", "", err
 				}
