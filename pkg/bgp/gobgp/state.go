@@ -43,6 +43,72 @@ func (g *GoBGPServer) GetBGP(ctx context.Context) (types.GetBGPResponse, error) 
 	}, nil
 }
 
+// GetPeerState retrieves BGP peering state from underlying GoBGP server.
+func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateRequest) (*types.GetPeerStateResponse, error) {
+	var res types.GetPeerStateResponse
+
+	fn := func(peer *gobgp.Peer) {
+		if peer == nil {
+			return
+		}
+
+		state := types.PeerState{}
+
+		if peer.Conf != nil {
+			if peer.Conf.Description != "" {
+				pd := peerDescription{}
+				if err := json.Unmarshal([]byte(peer.Conf.Description), &pd); err == nil {
+					// If unmarshal is not successful, we
+					// ignore and do not set Name field.
+					state.Name = pd.Name
+				}
+			}
+		}
+
+		if peer.State != nil {
+			state.SessionState = toAgentSessionState(peer.State.SessionState)
+
+			// Uptime is time since session got established. It is
+			// calculated by difference in time from uptime
+			// timestamp till now.
+			if peer.State.SessionState == gobgp.PeerState_ESTABLISHED && peer.Timers != nil && peer.Timers.State != nil {
+				state.Uptime = time.Since(peer.Timers.State.Uptime.AsTime())
+			}
+		}
+
+		for _, afiSafi := range peer.AfiSafis {
+			if afiSafi.State == nil || afiSafi.State.Family == nil {
+				continue
+			}
+			state.Families = append(state.Families, toAgentAfiSafiState(afiSafi.State))
+		}
+
+		res.Peers = append(res.Peers, state)
+	}
+
+	// API to get peering list from gobgp, enableAdvertised is set to true
+	// to get count of advertised routes.
+	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{EnableAdvertised: true}, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+// toAgentAfiSafiState translates gobgp structures to cilium bgp models.
+func toAgentAfiSafiState(state *gobgp.AfiSafiState) types.PeerFamilyState {
+	return types.PeerFamilyState{
+		Family: types.Family{
+			Afi:  toAgentAfi(state.Family.Afi),
+			Safi: toAgentSafi(state.Family.Safi),
+		},
+		ReceivedRoutes:   state.Received,
+		AcceptedRoutes:   state.Accepted,
+		AdvertisedRoutes: state.Advertised,
+	}
+}
+
 // GetPeerStateLegacy invokes goBGP ListPeer API to get current peering state.
 func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStateLegacyResponse, error) {
 	var data []*models.BgpPeer
@@ -92,7 +158,7 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 			if afiSafi.State == nil {
 				continue
 			}
-			peerState.Families = append(peerState.Families, toAgentAfiSafiState(afiSafi.State))
+			peerState.Families = append(peerState.Families, toAgentAfiSafiStateLegacy(afiSafi.State))
 		}
 
 		if peer.EbgpMultihop != nil && peer.EbgpMultihop.Enabled {
@@ -140,8 +206,8 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 	}, nil
 }
 
-// toAgentAfiSafiState translates gobgp structures to cilium bgp models.
-func toAgentAfiSafiState(state *gobgp.AfiSafiState) *models.BgpPeerFamilies {
+// toAgentAfiSafiStateLegacy translates gobgp structures to cilium bgp models.
+func toAgentAfiSafiStateLegacy(state *gobgp.AfiSafiState) *models.BgpPeerFamilies {
 	res := &models.BgpPeerFamilies{}
 
 	if state.Family != nil {
