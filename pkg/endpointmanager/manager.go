@@ -200,7 +200,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup
 
-	proxyWaitGroup := completion.NewWaitGroup(ctx)
+	proxyWaitGroup, cancel := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
 	epWG.Add(len(eps))
@@ -214,6 +214,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 		if err := mgr.waitForProxyCompletions(proxyWaitGroup); err != nil {
 			mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 		}
+		cancel()
 
 		// Perform policy update call if required.
 		// This should not block the main flow for Endpoint.

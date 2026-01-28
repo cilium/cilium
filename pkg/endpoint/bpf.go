@@ -400,6 +400,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
+	defer datapathRegenCtxt.proxyWaitGroupCancel()
 
 	err = e.runPreCompilationSteps(regenContext)
 	// Keep track of the side-effects of the regeneration that need to be
