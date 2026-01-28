@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Family is the type describing all address families support by the IP
@@ -140,13 +139,14 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(MultiPoolManagerParams{
+		v4Allocator, v6Allocator := newMultiPoolAllocators(MultiPoolAllocatorParams{
 			Logger:                    ipam.logger,
 			IPv4Enabled:               ipam.config.IPv4Enabled(),
 			IPv6Enabled:               ipam.config.IPv6Enabled(),
 			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
 			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
+			LocalNodeStore:            ipam.localNodeStore,
 			CNClient:                  ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:                  ipam.jg,
 			DB:                        ipam.db,
@@ -154,16 +154,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
 		})
 
-		startLocalNodeAllocCIDRsSync(ipam.config.EnableIPv4, ipam.config.EnableIPv6, ipam.jg, ipam.nodeResource, ipam.localNodeStore)
-
-		// wait for local node to be updated to avoid propagating spurious updates.
-		waitForLocalNodeUpdate(ipam.logger, manager)
-
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = manager.Allocator(IPv6)
+			ipam.ipv6Allocator = v6Allocator
 		}
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = manager.Allocator(IPv4)
+			ipam.ipv4Allocator = v4Allocator
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
@@ -244,15 +239,4 @@ func PoolOrDefault(pool string) Pool {
 // PoolDefault returns the default pool
 func PoolDefault() Pool {
 	return Pool(option.Config.IPAMDefaultIPPool)
-}
-
-func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {
-	for {
-		select {
-		case <-mgr.localNodeUpdated():
-			return
-		case <-time.After(5 * time.Second):
-			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
-		}
-	}
 }
