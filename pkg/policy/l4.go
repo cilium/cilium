@@ -284,6 +284,14 @@ func (a *PerSelectorPolicy) IsDeny() bool {
 	return a.GetVerdict() == types.Deny
 }
 
+// Deny takes precedence over allow and pass, allow takes precedence over pass.
+// Would be simpler if Allow was not the zero value, but changing that would require changing
+// all unit testing code that uses it as the default.
+func (a *PerSelectorPolicy) HasPrecedenceOver(o *PerSelectorPolicy) bool {
+	aVerdict := a.GetVerdict()
+	return aVerdict == types.Deny || aVerdict == types.Allow && o.GetVerdict() == types.Pass
+}
+
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
 type L7DataMap map[CachedSelector]*PerSelectorPolicy
 
