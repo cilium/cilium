@@ -405,7 +405,8 @@ jobs:
         id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }} \
-          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }} \
+          --nodes-without-cilium
 
       - name: Wait for Cilium to be ready
         run: |

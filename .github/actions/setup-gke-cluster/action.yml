@@ -75,7 +75,7 @@ runs:
           --cluster-ipv4-cidr="/21" \
           --services-ipv4-cidr="/24" \
           --image-type COS_CONTAINERD \
-          --num-nodes "${{ inputs.nodes }}" \
+          --num-nodes "$(( ${{ inputs.nodes }} + 1 ))" \
           --machine-type "${{ inputs.machine-type }}" \
           --disk-type pd-standard \
           --disk-size 20GB \
@@ -88,3 +88,6 @@ runs:
 
         native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${{ inputs.zone }}" --format 'value(clusterIpv4Cidr)')
         echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
+
+        node_without_cilium="$(kubectl get nodes -o name | head -n 1)"
+        kubectl patch "$node_without_cilium" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
