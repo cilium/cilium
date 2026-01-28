@@ -594,6 +594,18 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 	    MARK_MAGIC_HEALTH_IPIP_DONE)
 		return CTX_ACT_OK;
 
+	/* See installHostTrafficMarkRule where we install
+	 * an iptables match clause (not matchIPIPHealthCheck
+	 * in HostTrafficMarkRule) to avoid marking host-
+	 * originating traffic. The IPIP encap goes through
+	 * the stack twice, so once at the phys device we must
+	 * skip setting 0xf00 to 0xc00 otherwise we bypass
+	 * above MARK_MAGIC_HEALTH_IPIP_DONE check and keep
+	 * looping traffic to the IPIP device.
+	 */
+	build_bug_on((MARK_MAGIC_HEALTH_IPIP_DONE |
+		      MARK_MAGIC_HEALTH) != 0xf00);
+
 	switch (proto) {
 #if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
