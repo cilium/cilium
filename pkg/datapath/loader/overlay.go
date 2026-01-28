@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
@@ -21,6 +22,7 @@ import (
 
 func init() {
 	overlayConfigs.register(config.Overlay)
+	overlayRenames.register(defaultOverlayMapRenames)
 }
 
 const (
@@ -32,6 +34,9 @@ const (
 // an overlay (tunneling) network device.
 var overlayConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
 
+// overlayConfigs holds functions that yield BPF map renames for an overlay (tunneling) network device.
+var overlayRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // overlayConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [overlayConfigs].
 func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
@@ -39,6 +44,21 @@ func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Lin
 		configs = append(configs, f(lnc, link))
 	}
 	return configs
+}
+
+// overlayMapRenames returns the merged map of overlay map renames yielded by all registered rename providers.
+func overlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range overlayRenames.all() {
+		maps.Copy(renames, f(lnc, link))
+	}
+	return renames
+}
+
+func defaultOverlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	return map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
+	}
 }
 
 func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
@@ -53,10 +73,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: overlayConfiguration(lnc, link),
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
-		},
+		Constants:  overlayConfiguration(lnc, link),
+		MapRenames: overlayMapRenames(lnc, link),
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
