@@ -321,7 +321,7 @@ func TestGetPeerState(t *testing.T) {
 				}
 			}
 
-			res, err := testSC.GetPeerState(context.Background())
+			res, err := testSC.GetPeerStateLegacy(context.Background())
 			require.NoError(t, err)
 
 			// validate neighbors count
@@ -341,7 +341,7 @@ func TestGetPeerState(t *testing.T) {
 				}
 			}
 
-			res, err = testSC.GetPeerState(context.Background())
+			res, err = testSC.GetPeerStateLegacy(context.Background())
 			require.NoError(t, err)
 
 			// validate peers

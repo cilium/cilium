@@ -20,12 +20,16 @@ type BGPRouterManager interface {
 	// and the implementation will configure itself to apply this configuration.
 	ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
 
-	// GetPeers fetches BGP peering state from underlying routing daemon.
+	// GetPeersLegacy fetches BGP peering state from underlying routing
+	// daemon.
 	//
-	// List of all peers will be returned and if there are multiple instances of
-	// BGP daemon running locally, then peers can be differentiated based on
-	// local AS number.
-	GetPeers(ctx context.Context) ([]*models.BgpPeer, error)
+	// List of all peers will be returned and if there are multiple
+	// instances of BGP daemon running locally, then peers can be
+	// differentiated based on local AS number.
+	//
+	// This is a legacy method used by the REST API and will be replaced in
+	// the future.
+	GetPeersLegacy(ctx context.Context) ([]*models.BgpPeer, error)
 
 	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
 	GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
