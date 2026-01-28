@@ -1816,10 +1816,10 @@ struct {
 	__type(value, struct ipv6_nat_target);
 } nat_target_storage __section_maps_btf;
 
-__noinline __weak int
-snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 fraginfo_t fraginfo __maybe_unused,
-			 int l4_off __maybe_unused)
+__noinline int
+snat_v6_needs_masquerade(struct __ctx_buff *ctx,
+			 fraginfo_t fraginfo,
+			 int l4_off)
 {
 	struct ipv6_nat_target *target;
 	struct ipv6_ct_tuple *tuple;
