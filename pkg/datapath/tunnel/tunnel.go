@@ -105,7 +105,14 @@ func newConfig(in newConfigIn) (Config, error) {
 			return configDisabled, fmt.Errorf("underlay protocol set to auto, but neither IPv4 nor IPv6 is enabled")
 		}
 		in.Logger.Info(fmt.Sprintf("Underlay protocol %s automatically selected", selectedUnderlay))
-	case IPv4, IPv6:
+	case IPv4:
+		if !in.DaemonCfg.EnableIPv4 {
+			return configDisabled, fmt.Errorf("underlay protocol set to IPv4, but IPv4 is disabled")
+		}
+	case IPv6:
+		if !in.DaemonCfg.EnableIPv6 {
+			return configDisabled, fmt.Errorf("underlay protocol set to IPv6, but IPv6 is disabled")
+		}
 	default:
 		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
 	}

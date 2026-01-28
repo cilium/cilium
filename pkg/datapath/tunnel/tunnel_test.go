@@ -20,6 +20,7 @@ import (
 var (
 	defaultTestConfig = userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange}
 	daemonCfgIPv46    = &option.DaemonConfig{EnableIPv4: true, EnableIPv6: true}
+	daemonCfgIPv4     = &option.DaemonConfig{EnableIPv4: true, EnableIPv6: false}
 )
 
 func TestConfig(t *testing.T) {
@@ -66,6 +67,13 @@ func TestConfig(t *testing.T) {
 			enablers: []any{enabler(false), enabler(false)},
 			underlay: IPv4,
 			proto:    Disabled,
+		},
+		{
+			name:      "tunnel enabled, disabled underlay",
+			ucfg:      userCfg{UnderlayProtocol: string(IPv6), TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dcfg:      daemonCfgIPv4,
+			enablers:  []any{enabler(true), enabler(false)},
+			shallFail: true,
 		},
 		{
 			name:           "tunnel enabled, vxlan",
