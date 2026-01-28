@@ -535,6 +535,13 @@ func (n *CiliumNode) InstanceID() (instanceID string) {
 	return
 }
 
+// PoolsFromResourceFunc is the type of a function that returns the pool
+// specification in the CiliumNode that should be used by the multi pool
+// manager instance.
+// For multi pool pod IPAM this means referencing the .Spec.IPAM.Pools field
+// in the CiliumNode.
+type PoolsFromResourceFunc func(*CiliumNode) *ipamTypes.IPAMPoolSpec
+
 func (n NodeAddress) ToString() string {
 	return n.IP
 }
