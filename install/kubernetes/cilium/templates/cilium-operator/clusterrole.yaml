@@ -271,7 +271,8 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
-  - ciliumnetworkdriverconfigs.cilium.io
+  - ciliumnetworkdrivernodeconfigs.cilium.io
+  - ciliumnetworkdriverclusterconfigs.cilium.io
 - apiGroups:
   - cilium.io
   resources:
@@ -280,7 +281,7 @@ rules:
   - ciliumbgpclusterconfigs
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
-  - ciliumnetworkdriverconfigs
+  - ciliumnetworkdriverclusterconfigs
   verbs:
   - get
   - list

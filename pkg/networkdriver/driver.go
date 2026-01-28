@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -52,8 +53,9 @@ type Driver struct {
 	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	pods           resource.Resource[*corev1.Pod]
 
-	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
-	config    *v2alpha1.CiliumNetworkDriverConfigSpec
+	configCRD      resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
+	config         *v2alpha1.CiliumNetworkDriverConfigSpec
+	localNodeStore *node.LocalNodeStore
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -198,20 +200,59 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 
 		if driver.configCRD == nil {
 			// disabled
+			driver.logger.DebugContext(
+				ctx, "resource listener is nil",
+			)
+
 			return
 		}
 
 		for ev := range driver.configCRD.Events(ctx) {
 			ev.Done(nil)
 
+			localNode, err := driver.localNodeStore.Get(ctx)
+			if err != nil {
+				driver.logger.ErrorContext(
+					ctx, "failed to retrieve local node",
+					logfields.Error, err,
+				)
+
+				continue
+			}
+
 			switch ev.Kind {
 			case resource.Delete:
+				objName := ev.Object.GetObjectMeta().GetName()
+
+				if objName != localNode.Name {
+					driver.logger.DebugContext(
+						ctx, "deleted network driver configuration not for this node",
+						logfields.NodeName, localNode.Name,
+						logfields.Name, objName,
+					)
+
+					continue
+				}
+
 				cfg = nil
 				upserted = false
+
 				continue
 			case resource.Sync:
 				synced = true
 			case resource.Upsert:
+				objName := ev.Object.GetObjectMeta().GetName()
+
+				if objName != localNode.Name {
+					driver.logger.DebugContext(
+						ctx, "upserted network driver configuration not for this node",
+						logfields.NodeName, localNode.Name,
+						logfields.Name, objName,
+					)
+
+					continue
+				}
+
 				cfg = ev.Object.Spec.DeepCopy()
 				upserted = true
 			}
