@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -19,6 +20,10 @@ type BGPRouterManager interface {
 	// ReconcileInstances evaluates the provided CiliumBGPNodeConfig
 	// and the implementation will configure itself to apply this configuration.
 	ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
+
+	// GetPeers fetches peer states for all BGP instances managed by this
+	// manager. It returns a mapping of instance name to its peer states.
+	GetPeers(ctx context.Context, req *GetPeersRequest) (*GetPeersResponse, error)
 
 	// GetPeersLegacy fetches BGP peering state from underlying routing
 	// daemon.
@@ -39,4 +44,18 @@ type BGPRouterManager interface {
 
 	// Stop will stop all BGP instances and clean up local state.
 	Stop(ctx cell.HookContext) error
+}
+
+// GetPeersRequest is a request for GetPeers method.
+type GetPeersRequest struct{}
+
+// GetPeersResponse is the response type for GetPeers method.
+type GetPeersResponse struct {
+	Instances []InstancePeerStates
+}
+
+// InstancePeerStates holds peer states for a specific BGP instance.
+type InstancePeerStates struct {
+	Name  string
+	Peers []types.PeerState
 }

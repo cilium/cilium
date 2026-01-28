@@ -214,6 +214,29 @@ func (m *BGPRouterManager) reconcileStateWithRetry(ctx context.Context) error {
 	return wait.ExponentialBackoffWithContext(ctx, bo, retryFn)
 }
 
+func (m *BGPRouterManager) GetPeers(ctx context.Context, req *agent.GetPeersRequest) (*agent.GetPeersResponse, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	if !m.running {
+		return nil, fmt.Errorf("bgp router manager is not running")
+	}
+
+	var res agent.GetPeersResponse
+	for _, i := range m.BGPInstances {
+		r, err := i.Router.GetPeerState(ctx, &types.GetPeerStateRequest{})
+		if err != nil {
+			return nil, err
+		}
+		res.Instances = append(res.Instances, agent.InstancePeerStates{
+			Name:  i.Name,
+			Peers: r.Peers,
+		})
+	}
+
+	return &res, nil
+}
+
 // GetPeersLegacy gets peering state from previously initialized bgp instances.
 func (m *BGPRouterManager) GetPeersLegacy(ctx context.Context) ([]*models.BgpPeer, error) {
 	m.RLock()

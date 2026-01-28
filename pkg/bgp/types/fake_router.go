@@ -61,6 +61,10 @@ func (f *FakeRouter) RemoveRoutePolicy(ctx context.Context, p RoutePolicyRequest
 	return nil
 }
 
+func (f *FakeRouter) GetPeerState(ctx context.Context, r *GetPeerStateRequest) (*GetPeerStateResponse, error) {
+	return &GetPeerStateResponse{}, nil
+}
+
 func (f *FakeRouter) GetPeerStateLegacy(ctx context.Context) (GetPeerStateLegacyResponse, error) {
 	return GetPeerStateLegacyResponse{}, nil
 }
