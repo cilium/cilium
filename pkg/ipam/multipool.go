@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -59,17 +60,15 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 	}
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:                    p.Logger,
-		IPv4Enabled:               p.IPv4Enabled,
-		IPv6Enabled:               p.IPv6Enabled,
-		CiliumNodeUpdateRate:      p.CiliumNodeUpdateRate,
-		PreallocMap:               preallocMap,
-		Node:                      p.Node,
-		CNClient:                  p.CNClient,
-		JobGroup:                  p.JobGroup,
-		DB:                        p.DB,
-		PodIPPools:                p.PodIPPools,
-		OnlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
+		Logger:                p.Logger,
+		IPv4Enabled:           p.IPv4Enabled,
+		IPv6Enabled:           p.IPv6Enabled,
+		CiliumNodeUpdateRate:  p.CiliumNodeUpdateRate,
+		PreallocMap:           preallocMap,
+		Node:                  p.Node,
+		CNClient:              p.CNClient,
+		JobGroup:              p.JobGroup,
+		SkipMasqueradeForPool: shouldSkipMasqForPool(p.DB, p.PodIPPools, p.OnlyMasqueradeDefaultPool),
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
@@ -132,6 +131,24 @@ func (c *multiPoolAllocator) Capacity() uint64 {
 
 func (c *multiPoolAllocator) RestoreFinished() {
 	c.manager.restoreFinished(c.family)
+}
+
+func shouldSkipMasqForPool(db *statedb.DB, podIPPools statedb.Table[podippool.LocalPodIPPool], onlyMasqueradeDefaultPool bool) SkipMasqueradeForPoolFn {
+	return func(pool Pool) (bool, error) {
+		// If the flag is set, skip masquerade for all non-default pools
+		if onlyMasqueradeDefaultPool && pool != PoolDefault() {
+			return true, nil
+		}
+		// Lookup the IP pool from stateDB and check if it has the explicit annotations
+		podIPPool, _, found := podIPPools.Get(db.ReadTxn(), podippool.ByName(string(pool)))
+		if !found {
+			return false, fmt.Errorf("IP pool '%s' not found in stateDB table", string(pool))
+		}
+		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
+			return true, nil
+		}
+		return false, nil
+	}
 }
 
 func waitForAllPools(logger *slog.Logger, db *statedb.DB, podIPPools statedb.Table[podippool.LocalPodIPPool], preallocMap preAllocatePerPool) {
