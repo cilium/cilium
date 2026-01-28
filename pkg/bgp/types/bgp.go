@@ -150,22 +150,19 @@ type PeerState struct {
 	// Name of the peer
 	Name string
 
-	// BGP peer operational state as described here
-	// https://www.rfc-editor.org/rfc/rfc4271#section-8.2.2
+	// BGP peer state
 	SessionState SessionState
 
-	// BGP peer connection uptime. The precision depends on the underlying
-	// router implementation.
+	// The rest of the fields are only valid if SessionState is Established
+
+	// Time since the BGP session was established
 	Uptime time.Duration
 
-	// BGP peer address family states
+	// BGP peer address family states. All configured address families are present here.
 	Families []PeerFamilyState
 }
 
 // PeerFamilyState contains status information for a specific address family.
-// The Family field identifies the address family enabled for the peer. When
-// the address family is not enabled on the peer side, all other fields are
-// zeroed.
 type PeerFamilyState struct {
 	Family
 	ReceivedRoutes   uint64
@@ -451,6 +448,14 @@ type RoutePolicyRequest struct {
 	Policy              *RoutePolicy
 }
 
+// GetPeerStateRequest contains parameters for retrieving BGP peer states
+type GetPeerStateRequest struct{}
+
+// GetPeerStateResponse contains state of peers configured in given instances
+type GetPeerStateResponse struct {
+	Peers []PeerState
+}
+
 // GetPeerStateLegacyResponse contains state of peers configured in given instance
 type GetPeerStateLegacyResponse struct {
 	Peers []*models.BgpPeer
@@ -577,6 +582,9 @@ type Router interface {
 
 	// RemoveRoutePolicy removes a routing policy from the underlying router.
 	RemoveRoutePolicy(ctx context.Context, p RoutePolicyRequest) error
+
+	// GetPeerState returns status of BGP peers
+	GetPeerState(ctx context.Context, r *GetPeerStateRequest) (*GetPeerStateResponse, error)
 
 	// GetPeerStateLegacy returns status of BGP peers
 	GetPeerStateLegacy(ctx context.Context) (GetPeerStateLegacyResponse, error)
