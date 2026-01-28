@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -69,7 +70,7 @@ func Test_ParserDispatch(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, flowpb.FlowType_L3_L4, e.GetFlow().GetType())
 	assert.Equal(t, id.String(), e.GetFlow().GetUuid())
-	assert.Equal(t, &flowpb.Emitter{Name: v1.FlowEmitter, Version: v1.FlowEmitterVersion}, e.GetFlow().GetEmitter())
+	assert.Equal(t, &flow.Emitter{Name: v1.FlowEmitter, Version: v1.FlowEmitterVersion}, e.GetFlow().GetEmitter())
 
 	// Test L7 dispatch
 	node := "k8s1"
@@ -87,7 +88,7 @@ func Test_ParserDispatch(t *testing.T) {
 	assert.Equal(t, node, e.GetFlow().GetNodeName())
 	assert.Equal(t, flowpb.FlowType_L7, e.GetFlow().GetType())
 	assert.Equal(t, id.String(), e.GetFlow().GetUuid())
-	assert.Equal(t, &flowpb.Emitter{Name: v1.FlowEmitter, Version: v1.FlowEmitterVersion}, e.GetFlow().GetEmitter())
+	assert.Equal(t, &flow.Emitter{Name: v1.FlowEmitter, Version: v1.FlowEmitterVersion}, e.GetFlow().GetEmitter())
 }
 
 func Test_EventType_RecordLost(t *testing.T) {

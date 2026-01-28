@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -79,11 +80,11 @@ func BenchmarkL7Decode(b *testing.B) {
 	parser, err := New(hivetest.Logger(b), dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(b, err)
 
-	f := &flowpb.Flow{}
+	var f ir.Flow
 	b.ReportAllocs()
 
 	for b.Loop() {
-		_ = parser.Decode(lr, f)
+		_ = parser.Decode(lr, &f)
 	}
 }
 
@@ -108,7 +109,7 @@ func Test_decodeEndpoint(t *testing.T) {
 			"k8s:app.kubernetes.io/part-of=cilium",
 		),
 	}
-	expected := &flowpb.Endpoint{
+	expected := ir.Endpoint{
 		ID:          1234,
 		Identity:    9876,
 		ClusterName: "default",

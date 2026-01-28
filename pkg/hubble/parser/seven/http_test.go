@@ -17,6 +17,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -107,41 +108,40 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
 
-	assert.Equal(t, fakeSourceEndpoint.IPv4, f.GetIP().GetSource())
-	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetSourcePort())
-	assert.Equal(t, []string{"endpoint-4321"}, f.GetSourceNames())
-	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
-	assert.Empty(t, f.GetSource().GetNamespace())
-	assert.Empty(t, f.GetSource().GetPodName())
-	assert.Empty(t, f.GetSourceService().GetNamespace())
-	assert.Empty(t, f.GetSourceService().GetName())
+	assert.Equal(t, fakeSourceEndpoint.IPv4, f.IP.Source.To4().String())
+	assert.Equal(t, uint32(56789), f.L4.TCP.SourcePort)
+	assert.Equal(t, []string{"endpoint-4321"}, f.SourceNames)
+	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.Source.Labels)
+	assert.Empty(t, f.Source.Namespace)
+	assert.Empty(t, f.Source.PodName)
+	assert.Empty(t, f.SourceService.Namespace)
+	assert.Empty(t, f.SourceService.Name)
+	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.IP.Destination.To4().String())
+	assert.Equal(t, uint32(80), f.L4.TCP.DestinationPort)
+	assert.Equal(t, []string{"endpoint-1234"}, f.DestinationNames)
+	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.Destination.Labels)
+	assert.Equal(t, "default", f.Destination.Namespace)
+	assert.Equal(t, "pod-1234", f.Destination.PodName)
+	assert.Equal(t, "default", f.DestinationService.Namespace)
+	assert.Equal(t, "service-1234", f.DestinationService.Name)
 
-	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetDestination())
-	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetDestinationPort())
-	assert.Equal(t, []string{"endpoint-1234"}, f.GetDestinationNames())
-	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
-	assert.Equal(t, "default", f.GetDestination().GetNamespace())
-	assert.Equal(t, "pod-1234", f.GetDestination().GetPodName())
-	assert.Equal(t, "default", f.GetDestinationService().GetNamespace())
-	assert.Equal(t, "service-1234", f.GetDestinationService().GetName())
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.Verdict)
 
-	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
-
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "http://myhost/some/path",
+		URL:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
 			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 		},
-	}, f.GetL7().GetHttp())
-	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+	}, f.L7.HTTP)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.TraceContext.Parent.TraceID)
 }
 
 func TestDecodeL7HTTPRecordResponse(t *testing.T) {
@@ -222,36 +222,35 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), dnsGetter, IPGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
 
-	assert.Equal(t, fakeSourceEndpoint.IPv4, f.GetIP().GetDestination())
-	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetDestinationPort())
-	assert.Equal(t, []string{"endpoint-4321"}, f.GetDestinationNames())
-	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
-	assert.Empty(t, f.GetDestination().GetNamespace())
-	assert.Empty(t, f.GetDestination().GetPodName())
-	assert.Empty(t, f.GetDestinationService().GetNamespace())
-	assert.Empty(t, f.GetDestinationService().GetName())
+	assert.Equal(t, fakeSourceEndpoint.IPv4, f.IP.Destination.To4().String())
+	assert.Equal(t, uint32(56789), f.L4.TCP.DestinationPort)
+	assert.Equal(t, []string{"endpoint-4321"}, f.DestinationNames)
+	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.Destination.Labels)
+	assert.Empty(t, f.Destination.Namespace)
+	assert.Empty(t, f.Destination.PodName)
+	assert.Empty(t, f.DestinationService.Namespace)
+	assert.Empty(t, f.DestinationService.Name)
 
-	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetSource())
-	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetSourcePort())
-	assert.Equal(t, []string{"endpoint-1234"}, f.GetSourceNames())
-	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
-	assert.Equal(t, "default", f.GetSource().GetNamespace())
-	assert.Equal(t, "pod-1234", f.GetSource().GetPodName())
-	assert.Equal(t, "default", f.GetSourceService().GetNamespace())
-	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
+	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.IP.Source.To4().String())
+	assert.Equal(t, uint32(80), f.L4.TCP.SourcePort)
+	assert.Equal(t, []string{"endpoint-1234"}, f.SourceNames)
+	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.Source.Labels)
+	assert.Equal(t, "default", f.Source.Namespace)
+	assert.Equal(t, "pod-1234", f.Source.PodName)
+	assert.Equal(t, "default", f.SourceService.Namespace)
+	assert.Equal(t, "service-1234", f.SourceService.Name)
 
-	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
-
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.Verdict)
+	assert.Equal(t, ir.HTTP{
 		Code:     404,
 		Method:   "POST",
-		Url:      "http://myhost/some/path",
+		URL:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-	}, f.GetL7().GetHttp())
+	}, f.L7.HTTP)
 }
 
 func TestDecodeL7HTTPResponseTime(t *testing.T) {
@@ -287,24 +286,24 @@ func TestDecodeL7HTTPResponseTime(t *testing.T) {
 		HTTP:      httpRecord,
 	}
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(request, f)
+	var f ir.Flow
+	err = parser.Decode(request, &f)
 	require.NoError(t, err)
 	_, ok := parser.timestampCache.Get(requestID)
 	assert.True(t, ok, "request id should be in the cache")
 
-	f.Reset()
-	err = parser.Decode(response, f)
+	f = ir.Flow{}
+	err = parser.Decode(response, &f)
 	require.NoError(t, err)
-	assert.Equal(t, 1*time.Second, time.Duration(f.GetL7().GetLatencyNs()))
+	assert.Equal(t, 1*time.Second, time.Duration(f.L7.LatencyNs))
 	_, ok = parser.timestampCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 
 	// it should handle the case where the request id is not in the cache for response type.
-	f = &flowpb.Flow{}
-	err = parser.Decode(response, f)
+	f = ir.Flow{}
+	err = parser.Decode(response, &f)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0), f.GetL7().GetLatencyNs())
+	assert.Equal(t, uint64(0), f.L7.LatencyNs)
 	_, ok = parser.timestampCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 }
@@ -356,25 +355,25 @@ func TestGetL7HTTPResponseTraceID(t *testing.T) {
 		HTTP:      responseRecord,
 	}
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(request, f)
+	var f ir.Flow
+	err = parser.Decode(request, &f)
 	require.NoError(t, err)
 	_, ok := parser.traceContextCache.Get(requestID)
 	assert.True(t, ok, "request id should be in the cache")
 
-	f.Reset()
-	err = parser.Decode(response, f)
+	f = ir.Flow{}
+	err = parser.Decode(response, &f)
 	require.NoError(t, err)
-	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.TraceContext.Parent.TraceID)
 	_, ok = parser.traceContextCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 
 	// it should handle the case where the request id is not in the cache for response type.
-	f = &flowpb.Flow{}
-	err = parser.Decode(response, f)
+	f = ir.Flow{}
+	err = parser.Decode(response, &f)
 	require.NoError(t, err)
 	// no requestID means no traceID for response
-	assert.Empty(t, f.GetTraceContext().GetParent().GetTraceId())
+	assert.Empty(t, f.TraceContext.Parent.TraceID)
 	_, ok = parser.traceContextCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 }
@@ -417,21 +416,21 @@ func TestDecodeL7HTTPWithInvalidURL(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
 
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "http://myhost%40/some/path",
+		URL:      "http://myhost%40/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
 			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 		},
-	}, f.GetL7().GetHttp())
-	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+	}, f.L7.HTTP)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.TraceContext.Parent.TraceID)
 }
 
 func TestDecodeL7HTTPWithNilURL(t *testing.T) {
@@ -462,21 +461,21 @@ func TestDecodeL7HTTPWithNilURL(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
 
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "",
+		URL:      "",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
 			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 		},
-	}, f.GetL7().GetHttp())
-	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+	}, f.L7.HTTP)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.TraceContext.Parent.TraceID)
 }
 
 func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
@@ -512,19 +511,19 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "http://myhost/some/path",
+		URL:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
 			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 		},
-	}, f.GetL7().GetHttp())
+	}, f.L7.HTTP)
 }
 
 func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
@@ -560,37 +559,37 @@ func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "http://myhost/some/path",
+		URL:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: "myhost"},
 			{Key: "traceparent", Value: defaults.SensitiveValueRedacted},
 		},
-	}, f.GetL7().GetHttp())
+	}, f.L7.HTTP)
 
 	opts = []options.Option{options.WithRedact(true, true, false, []string{}, []string{"host"})}
 	parser, err = New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
-	f = &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	f = ir.Flow{}
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      "http://myhost/some/path",
+		URL:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
+		Headers: []ir.HTTPHeader{
 			{Key: "Host", Value: defaults.SensitiveValueRedacted},
 			{Key: "traceparent", Value: "asdf"},
 		},
-	}, f.GetL7().GetHttp())
+	}, f.L7.HTTP)
 }
 
 func TestFilterHeader(t *testing.T) {
@@ -698,13 +697,13 @@ func TestDecodeL7HTTPRequestPasswordRedact(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	f := ir.Flow{}
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
-	assert.Equal(t, &flowpb.HTTP{
+	assert.Equal(t, ir.HTTP{
 		Code:     0,
 		Method:   "POST",
-		Url:      fmt.Sprintf("http://user:%s@myhost", defaults.SensitiveValueRedacted),
+		URL:      fmt.Sprintf("http://user:%s@myhost", defaults.SensitiveValueRedacted),
 		Protocol: "HTTP/1.1",
-	}, f.GetL7().GetHttp())
+	}, f.L7.HTTP)
 }
