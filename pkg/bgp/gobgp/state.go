@@ -43,8 +43,8 @@ func (g *GoBGPServer) GetBGP(ctx context.Context) (types.GetBGPResponse, error) 
 	}, nil
 }
 
-// GetPeerState invokes goBGP ListPeer API to get current peering state.
-func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateResponse, error) {
+// GetPeerStateLegacy invokes goBGP ListPeer API to get current peering state.
+func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStateLegacyResponse, error) {
 	var data []*models.BgpPeer
 	fn := func(peer *gobgp.Peer) {
 		if peer == nil {
@@ -132,10 +132,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 	// advertised routes.
 	err := g.server.ListPeer(ctx, &gobgp.ListPeerRequest{EnableAdvertised: true}, fn)
 	if err != nil {
-		return types.GetPeerStateResponse{}, err
+		return types.GetPeerStateLegacyResponse{}, err
 	}
 
-	return types.GetPeerStateResponse{
+	return types.GetPeerStateLegacyResponse{
 		Peers: data,
 	}, nil
 }
