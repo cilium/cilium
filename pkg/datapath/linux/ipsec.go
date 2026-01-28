@@ -725,31 +725,6 @@ func (n *linuxNodeHandler) subnetEncryption() bool {
 	return len(n.nodeConfig.IPv4PodSubnets) > 0 || len(n.nodeConfig.IPv6PodSubnets) > 0
 }
 
-func (n *linuxNodeHandler) removeEncryptRules() error {
-	rule := route.Rule{
-		Priority: 1,
-		Mask:     linux_defaults.RouteMarkMask,
-		Table:    linux_defaults.RouteTableIPSec,
-		Protocol: linux_defaults.RTProto,
-	}
-
-	rule.Mark = linux_defaults.RouteMarkEncrypt
-	if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("delete previous IPv4 encrypt rule failed: %w", err)
-		}
-	}
-
-	rule.Mark = linux_defaults.RouteMarkEncrypt
-	if err := route.DeleteRule(netlink.FAMILY_V6, rule); err != nil {
-		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
-			return fmt.Errorf("delete previous IPv6 encrypt rule failed: %w", err)
-		}
-	}
-	return nil
-
-}
-
 func (n *linuxNodeHandler) removeDecryptRules() error {
 	rule := route.Rule{
 		Priority: 1,
