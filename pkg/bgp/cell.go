@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/api"
+	"github.com/cilium/cilium/pkg/bgp/commands"
 	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
@@ -95,6 +96,9 @@ var Cell = cell.Module(
 
 	// BGP state reconcilers
 	reconciler.StateReconcilers,
+
+	// Script commands
+	commands.Cell,
 
 	cell.Invoke(
 		// Invoke bgp controller to trigger the constructor.
