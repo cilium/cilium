@@ -45,6 +45,8 @@ type kprInitializer struct {
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 	if !r.kprCfg.KubeProxyReplacement {
 		option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
+		r.logger.Info(fmt.Sprintf("BPF host routing requires %s=true. Falling back to legacy host routing (%s=true).",
+			option.KubeProxyReplacement, option.EnableHostLegacyRouting))
 	}
 
 	if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
