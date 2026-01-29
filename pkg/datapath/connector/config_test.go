@@ -47,19 +47,52 @@ var (
 
 	// DaemonConfigs
 	daemonConfigVeth = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeVeth,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeVeth,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigVethTproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeVeth,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 	daemonConfigNetkit = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeNetkit,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeNetkit,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigNetkitTproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeNetkit,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 	daemonConfigNetkitL2 = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeNetkitL2,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeNetkitL2,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigNetkitL2Tproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeNetkitL2,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
+	}
+	daemonConfigAuto = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeAuto,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigAutoTproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeAuto,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 
 	// WireguardConfigs
@@ -83,6 +116,14 @@ var (
 	connectorConfigNetkitL2 = ConnectorConfig{
 		configuredMode:  types.ConnectorModeNetkitL2,
 		operationalMode: types.ConnectorModeNetkitL2,
+	}
+	connectorConfigAuto_Veth = ConnectorConfig{
+		configuredMode:  types.ConnectorModeAuto,
+		operationalMode: types.ConnectorModeVeth,
+	}
+	connectorConfigAuto_Netkit = ConnectorConfig{
+		configuredMode:  types.ConnectorModeAuto,
+		operationalMode: types.ConnectorModeNetkit,
 	}
 )
 
@@ -149,6 +190,7 @@ func TestNewConfig(t *testing.T) {
 		tunnelConfig   tunnel.Config
 		expectedConfig *ConnectorConfig
 		shouldError    bool
+		shouldSkip     bool
 	}{
 		{
 			name:           "datapath-veth",
@@ -157,6 +199,16 @@ func TestNewConfig(t *testing.T) {
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigVeth,
 			shouldError:    false,
+			shouldSkip:     false,
+		},
+		{
+			name:           "datapath-veth+tproxy",
+			daemonConfig:   &daemonConfigVethTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigVeth,
+			shouldError:    false,
+			shouldSkip:     false,
 		},
 		{
 			name:           "datapath-netkit",
@@ -165,6 +217,16 @@ func TestNewConfig(t *testing.T) {
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkit,
 			shouldError:    !hostSupportsNetkit(),
+			shouldSkip:     false,
+		},
+		{
+			name:           "datapath-netkit+tproxy",
+			daemonConfig:   &daemonConfigNetkitTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkit,
+			shouldError:    true,
+			shouldSkip:     false,
 		},
 		{
 			name:           "datapath-netkit-l2",
@@ -173,11 +235,62 @@ func TestNewConfig(t *testing.T) {
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkitL2,
 			shouldError:    !hostSupportsNetkit(),
+			shouldSkip:     false,
+		},
+		{
+			name:           "datapath-netkit-l2+tproxy",
+			daemonConfig:   &daemonConfigNetkitL2Tproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkitL2,
+			shouldError:    true,
+			shouldSkip:     false,
+		},
+
+		{
+			name:           "datapath-auto(!netkit)+oper-veth",
+			daemonConfig:   &daemonConfigAuto,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Veth,
+			shouldError:    false,
+			shouldSkip:     hostSupportsNetkit(),
+		},
+		{
+			name:           "datapath-auto(!netkit)+tproxy+oper-veth",
+			daemonConfig:   &daemonConfigAutoTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Veth,
+			shouldError:    false,
+			shouldSkip:     hostSupportsNetkit(),
+		},
+		{
+			name:           "datapath-auto(netkit)+oper-netkit",
+			daemonConfig:   &daemonConfigAuto,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Netkit,
+			shouldError:    false,
+			shouldSkip:     !hostSupportsNetkit(),
+		},
+		{
+			name:           "datapath-auto(netkit)+tproxy+oper-veth",
+			daemonConfig:   &daemonConfigAutoTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Veth,
+			shouldError:    false,
+			shouldSkip:     !hostSupportsNetkit(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
+
 			p := connectorParams{
 				Lifecycle:    &cell.DefaultLifecycle{},
 				Log:          logger,
