@@ -1685,7 +1685,14 @@ int cil_to_host(struct __ctx_buff *ctx)
 
 	check_and_store_ip_trace_id(ctx);
 
-	/* Prefer ctx->mark when it is set to one of the expected values.
+	/* Retrieve values carried only via ctx->mark. */
+#ifdef ENABLE_IDENTITY_MARK
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
+		src_id = get_identity(ctx);
+#endif
+
+	/* Retrieve values carried either via ctx->mark or ctx->cb.
+	 * Prefer ctx->mark when it is set to one of the expected values.
 	 * Also see https://github.com/cilium/cilium/issues/36329.
 	 */
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY)
