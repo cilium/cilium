@@ -23,7 +23,7 @@ var DefaultConfig = Config{
 // while the agent uses this Config struct for dependency injection.
 type Config struct {
 	EnableZTunnel bool
-	EnableSPIRE   bool
+	EnableSPIRE   bool   `mapstructure:"enable-ztunnel-spire"`
 	ZDSUnixAddr   string `mapstructure:"ztunnel-zds-unix-addr"`
 	XDSUnixAddr   string `mapstructure:"ztunnel-xds-unix-addr"`
 }

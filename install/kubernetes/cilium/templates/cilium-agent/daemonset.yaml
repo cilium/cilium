@@ -380,7 +380,7 @@ spec:
         - name: cilium-ipsec-secrets
           mountPath: {{ .Values.encryption.ipsec.mountPath }}
         {{- end }}
-        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (not .Values.authentication.mutual.spire.enabled) }}
         - name: cilium-ztunnel-secrets
           mountPath: /etc/ztunnel
         {{- end }}
@@ -1036,7 +1036,7 @@ spec:
         secret:
           secretName: {{ .Values.encryption.ipsec.secretName }}
       {{- end }}
-      {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+      {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (not .Values.authentication.mutual.spire.enabled) }}
       - name: cilium-ztunnel-secrets
         secret:
           secretName: cilium-ztunnel-secrets

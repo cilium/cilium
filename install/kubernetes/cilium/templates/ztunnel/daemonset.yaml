@@ -58,7 +58,7 @@ spec:
             - ztunnel
           env:
             - name: XDS_ADDRESS
-              value: "unix://localhost/var/run/cilium/xds.sock"
+              value: "unix:///var/run/cilium/xds.sock"
             {{- if .Values.authentication.mutual.spire.enabled }}
             - name: SPIRE_ENABLED
               value: "true"
