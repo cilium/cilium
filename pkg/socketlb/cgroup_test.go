@@ -191,3 +191,86 @@ func TestPrivilegedDetachCGroupWithExistingLink(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Verify that non-Cilium programs (programs without "cil_" prefix) are preserved
+// during cgroup detachment. This is a regression test for issue #43877.
+func TestPrivilegedDetachCGroupPreservesNonCiliumPrograms(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	// Create a program with a name that does NOT start with "cil_"
+	nonCiliumProg, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Name:       "other_app_prog",
+		Type:       ebpf.CGroupSockAddr,
+		AttachType: ebpf.AttachCGroupInet4Connect,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 1), // Return 1 (allow)
+			asm.Return(),
+		},
+		License: "GPL",
+	})
+	if err != nil {
+		t.Skipf("cgroup sockaddr programs not supported: %s", err)
+	}
+	defer nonCiliumProg.Close()
+
+	linkPath := testutils.TempBPFFS(t)
+	cgroupPath := testutils.TempCgroup(t)
+	f, err := os.Open(cgroupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	// Attach the non-Cilium program using PROG_ATTACH
+	if err := link.RawAttachProgram(link.RawAttachProgramOptions{
+		Target:  int(f.Fd()),
+		Program: nonCiliumProg,
+		Attach:  ebpf.AttachCGroupInet4Connect,
+	}); err != nil {
+		t.Fatalf("failed to attach non-Cilium program: %s", err)
+	}
+
+	// Try to detach using Cilium's detachCgroup for Connect4
+	// This should NOT detach the non-Cilium program
+	if err := detachCgroup(logger, Connect4, cgroupPath, linkPath); err != nil {
+		t.Fatalf("detachCgroup failed: %s", err)
+	}
+
+	// Query the cgroup to verify the non-Cilium program is still attached
+	ids, err := link.QueryPrograms(link.QueryOptions{
+		Target: int(f.Fd()),
+		Attach: ebpf.AttachCGroupInet4Connect,
+	})
+	if err != nil {
+		t.Fatalf("failed to query cgroup programs: %s", err)
+	}
+
+	if len(ids.Programs) == 0 {
+		t.Fatal("non-Cilium program was incorrectly detached")
+	}
+
+	// Verify the program is still our non-Cilium program
+	prog, err := ebpf.NewProgramFromID(ids.Programs[0].ID)
+	if err != nil {
+		t.Fatalf("failed to open program by ID: %s", err)
+	}
+	defer prog.Close()
+
+	info, err := prog.Info()
+	if err != nil {
+		t.Fatalf("failed to get program info: %s", err)
+	}
+	if info.Name != "other_app_prog" {
+		t.Fatalf("expected program name 'other_app_prog', got '%s'", info.Name)
+	}
+
+	// Clean up: manually detach the non-Cilium program
+	if err := link.RawDetachProgram(link.RawDetachProgramOptions{
+		Target:  int(f.Fd()),
+		Program: prog,
+		Attach:  ebpf.AttachCGroupInet4Connect,
+	}); err != nil {
+		t.Logf("warning: failed to clean up non-Cilium program: %s", err)
+	}
+}
