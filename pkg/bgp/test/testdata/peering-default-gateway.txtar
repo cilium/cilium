@@ -21,7 +21,7 @@ k8s/add bgp-node-config.yaml bgp-peer-config.yaml
 k8s/add service-lb.yaml
 
 # Validate that there are no BGP peers configured yet
-bgp/peers -o peers.actual
+bgp/peers -o peers.actual --no-uptime
 * cmp bgp-peers-empty.expected peers.actual
 
 # Add device and routes entries into statedb
@@ -35,7 +35,7 @@ gobgp/wait-state -s v4 10.99.0.136 ESTABLISHED
 gobgp/wait-state -s v6 fd00::aa:bb:cc:136 ESTABLISHED
 
 # Validate discovered BGP peers
-bgp/peers -o peers.actual
+bgp/peers -o peers.actual --no-uptime
 * cmp bgp-peers-discovered.expected peers.actual
 
 # Validate routes on v4 server
@@ -180,11 +180,11 @@ status:
     - ip: 172.16.1.1
 
 -- bgp-peers-empty.expected --
-Local AS   Peer AS   Peer Address   Session   Family   Received   Advertised
+Instance   Peer   Session State   Uptime   Family   Received   Accepted   Advertised
 -- bgp-peers-discovered.expected --
-Local AS   Peer AS   Peer Address              Session       Family         Received   Advertised
-65001      65010     10.99.0.135:1790          established   ipv4/unicast   0          2
-65001      65011     fd00::aa:bb:cc:135:1790   established   ipv4/unicast   0          2
+Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+tor        gw-peer-v4   established     -        ipv4-unicast   0          0          2
+           gw-peer-v6   established     -        ipv4-unicast   0          0          2
 -- gobgp-routes-v4.expected --
 Prefix          NextHop       Attrs
 10.244.0.0/24   10.99.0.136   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.136}]
