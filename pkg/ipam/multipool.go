@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 
@@ -16,10 +17,15 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+const waitForPoolInStateDBTimeout = time.Minute
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
@@ -47,12 +53,17 @@ type multiPoolAllocator struct {
 }
 
 func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
+	preallocMap, err := ParseMultiPoolPreAllocMap(p.PreAllocPools)
+	if err != nil {
+		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
+	}
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:                    p.Logger,
 		IPv4Enabled:               p.IPv4Enabled,
 		IPv6Enabled:               p.IPv6Enabled,
 		CiliumNodeUpdateRate:      p.CiliumNodeUpdateRate,
-		PreAllocPools:             p.PreAllocPools,
+		PreallocMap:               preallocMap,
 		Node:                      p.Node,
 		CNClient:                  p.CNClient,
 		JobGroup:                  p.JobGroup,
@@ -60,6 +71,8 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		PodIPPools:                p.PodIPPools,
 		OnlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
 	})
+
+	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
 
 	startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
 
@@ -119,6 +132,40 @@ func (c *multiPoolAllocator) Capacity() uint64 {
 
 func (c *multiPoolAllocator) RestoreFinished() {
 	c.manager.restoreFinished(c.family)
+}
+
+func waitForAllPools(logger *slog.Logger, db *statedb.DB, podIPPools statedb.Table[podippool.LocalPodIPPool], preallocMap preAllocatePerPool) {
+	for pool := range preallocMap {
+		if !waitForPool(logger, db, podIPPools, pool) {
+			return
+		}
+	}
+}
+
+func waitForPool(logger *slog.Logger, db *statedb.DB, podIPPools statedb.Table[podippool.LocalPodIPPool], pool Pool) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), waitForPoolInStateDBTimeout)
+	defer cancel()
+
+	for {
+		txn := db.ReadTxn()
+		_, _, dbWatch, found := podIPPools.GetWatch(txn, podippool.ByName(string(pool)))
+		if found {
+			return true
+		}
+
+		select {
+		case <-ctx.Done():
+			return false
+		case <-dbWatch:
+			continue
+		case <-time.After(5 * time.Second):
+			logger.Info(
+				"Waiting for pod cidr pool to become available in stateDB",
+				logfields.PoolName, pool,
+				logfields.HelpMessage, "Check if cilium-operator pod is running and does not have any warnings or error messages.",
+			)
+		}
+	}
 }
 
 func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {

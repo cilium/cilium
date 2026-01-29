@@ -27,9 +27,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -70,7 +68,7 @@ type poolPair struct {
 
 type preAllocatePerPool map[Pool]int
 
-func parseMultiPoolPreAllocMap(conf map[string]string) (preAllocatePerPool, error) {
+func ParseMultiPoolPreAllocMap(conf map[string]string) (preAllocatePerPool, error) {
 	m := make(map[Pool]int, len(conf))
 	for pool, s := range conf {
 		value, err := strconv.ParseInt(s, 10, 32)
@@ -226,7 +224,7 @@ type MultiPoolManagerParams struct {
 	IPv4Enabled          bool
 	IPv6Enabled          bool
 	CiliumNodeUpdateRate time.Duration
-	PreAllocPools        map[string]string
+	PreallocMap          preAllocatePerPool
 
 	Node     agentK8s.LocalCiliumNodeResource
 	CNClient cilium_v2.CiliumNodeInterface
@@ -267,18 +265,13 @@ type multiPoolManager struct {
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
-	preallocMap, err := parseMultiPoolPreAllocMap(p.PreAllocPools)
-	if err != nil {
-		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
-	}
-
 	localNodeUpdated := make(chan struct{})
 	mgr := &multiPoolManager{
 		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
 		ipv4Enabled:            p.IPv4Enabled,
 		ipv6Enabled:            p.IPv6Enabled,
-		preallocatedIPsPerPool: preallocMap,
+		preallocatedIPsPerPool: p.PreallocMap,
 		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
@@ -369,10 +362,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		}
 		m.mutex.Unlock()
 
-		// ensure the pool is present in stateDB for checking annotations at allocation time
-		txn := m.db.ReadTxn()
-		_, _, dbWatch, found := m.podIPPools.GetWatch(txn, podippool.ByName(string(poolName)))
-		if poolReady && found {
+		if poolReady {
 			return true
 		}
 
@@ -380,8 +370,6 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		case <-ctx.Done():
 			return false
 		case <-m.poolsUpdated:
-			continue
-		case <-dbWatch:
 			continue
 		case <-time.After(5 * time.Second):
 			m.logger.Info(
