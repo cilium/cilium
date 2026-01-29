@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -300,6 +301,7 @@ var NoopDNSGetter = FakeFQDNCache{
 type FakeEndpointGetter struct {
 	OnGetEndpointInfo     func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool)
 	OnGetEndpointInfoByID func(id uint16) (endpoint getters.EndpointInfo, ok bool)
+	OnGetCookie           func(cookie uint32) (*cookie.BakedCookie, bool)
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
@@ -318,12 +320,23 @@ func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint getters.En
 	panic("GetEndpointInfoByID not set")
 }
 
+// GetEndpointInfoByID implements EndpointGetter.GetEndpointInfoByID.
+func (f *FakeEndpointGetter) GetCookie(id uint32) (cookie *cookie.BakedCookie, ok bool) {
+	if f.OnGetCookie != nil {
+		return f.OnGetCookie(id)
+	}
+	panic("GetCookie not set")
+}
+
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
 	OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 		return nil, false
 	},
 	OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		return nil, false
+	},
+	OnGetCookie: func(id uint32) (cookie *cookie.BakedCookie, ok bool) {
 		return nil, false
 	},
 }

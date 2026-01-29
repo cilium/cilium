@@ -34,6 +34,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -855,6 +856,9 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, idsToRegen, true)
 
 	wg.Wait()
+
+	// Active cookies should be marked so now run a sweep.
+	cookie.GetCookieBakery().Sweep()
 }
 
 func (mgr *endpointManager) stopEndpoints() {

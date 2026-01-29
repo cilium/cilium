@@ -72,6 +72,16 @@ func (ro ruleOrigin) LabelsString() labels.LabelArrayListString {
 	return ro.Value().labels
 }
 
+// Logs parses logs to a collection of log strings.
+func (ro ruleOrigin) Logs() []string {
+	v := ro.Value().log
+	if v == "" {
+		return nil
+	}
+
+	return v.List()
+}
+
 func (ro ruleOrigin) LogString() string {
 	out, _ := json.Marshal(ro.Value().log.List())
 	return string(out)

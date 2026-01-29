@@ -25,6 +25,8 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 )
 
 var Cell = cell.Module(
@@ -46,6 +48,7 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 		identityAllocator: params.IdentityAllocator,
 		endpointManager:   params.EndpointManager,
 		ipcache:           params.Ipcache,
+		cookieBakery:      cookie.GetCookieBakery(),
 	}
 	var parserOpts []parserOptions.Option
 	if params.Config.EnableRedact {
@@ -90,6 +93,7 @@ type payloadParserParams struct {
 	Ipcache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
 	LinkCache         *link.LinkCache
+	PolicyRepo        policy.PolicyRepository
 
 	Config config
 	// NOTE: ordering is not guaranteed, do not rely on it.
@@ -104,6 +108,12 @@ type payloadGetters struct {
 	ipcache           *ipcache.IPCache
 	db                *statedb.DB
 	frontends         statedb.Table[*loadbalancer.Frontend]
+	cookieBakery      cookie.PolicyBakery
+}
+
+// GetCookie retrieves policy meta for a given cookie if it exists.
+func (p *payloadGetters) GetCookie(c uint32) (*cookie.BakedCookie, bool) {
+	return p.cookieBakery.Get(c)
 }
 
 // GetIdentity implements IdentityGetter. It looks up identity by ID from

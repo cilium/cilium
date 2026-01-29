@@ -87,7 +87,7 @@ type MapStateEntry struct {
 	// allowed, except for when it explicitly defines authentication is not required.
 	AuthRequirement AuthRequirement
 
-	// Cookie is the policy log cookie. It is non-zero, datapath will pass up the cookie on any
+	// Cookie tracks a policy cookie. It is non-zero, datapath will pass up the cookie on any
 	// policy verdict.
 	Cookie uint32
 }
