@@ -40,13 +40,6 @@ import (
 )
 
 func Test_MultiPoolManager(t *testing.T) {
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
-	insertPool(t, db, poolsTbl, "mars", false)
-	insertPool(t, db, poolsTbl, "jupiter", false)
-
 	fakeConfig := testConfiguration
 	// disable debounce interval to trigger CiliumNode update at each test step
 	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
@@ -474,11 +467,6 @@ func Test_MultiPoolManager(t *testing.T) {
 func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
-
 	fakeConfig := testConfiguration
 	// disable pre-allocation
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
@@ -550,7 +538,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 
 	// Allocate one IPv4 and one IPv6 IP
 	ipInCIDR1 := net.ParseIP("10.0.10.0")
-	_, err = mgr.allocateIP(ipInCIDR1, "pod-a", "default", IPv4, false)
+	_, err := mgr.allocateIP(ipInCIDR1, "pod-a", "default", IPv4, false)
 	assert.NoError(t, err)
 
 	ipInCIDRv61 := net.ParseIP("fd00:10::")
@@ -589,11 +577,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 //   - preAlloc = 1  => neededIPs = 5 (in-use) + 1 (buffer) = 6
 func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	logger := hivetest.Logger(t)
-
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
 
 	// preAlloc buffer of 1 for pool "default"
 	fakeConfig := testConfiguration
