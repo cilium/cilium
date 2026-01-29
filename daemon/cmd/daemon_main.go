@@ -1065,6 +1065,19 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	switch option.Config.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
+		// bpf.tproxy requires use of bpf_sk_assign() helper, which at the time of
+		// writing can only be called from TC ingress. However, netkit programs
+		// run at TC egress, so the helper returns -ENOTSUPP and tproxy cannot
+		// assign skbs to proxy listener sockets.
+		//
+		// Until this is resolved we don't tolerate tproxy and netkit.
+		//
+		// GH issue: https://github.com/cilium/cilium/issues/39892
+		if option.Config.EnableBPFTProxy {
+			logging.Fatal(logger, fmt.Sprintf("--%s=true cannot be used with --%s=%s",
+				option.EnableBPFTProxy, option.DatapathMode, option.Config.DatapathMode))
+		}
+
 		// For netkit we enable also tcx for all non-netkit devices.
 		// The underlying kernel does support it given tcx got merged
 		// before netkit and supporting legacy tc in this context does

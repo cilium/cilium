@@ -376,6 +376,8 @@ General Notes
 * The Cilium datapath will now drop TCP/UDP traffic towards a LoadBalancer or
   ClusterIP allocated by LB-IPAM in the north-south direction if the destination
   port does not match a provisioned service.
+* ``bpf.tproxy=true`` is incompatible with netkit datapath mode. If netkit is also enabled,
+  Cilium will fail to start. You should instead use veth, or disable ``bpf.tproxy``.
 
 Cluster Mesh
 ############

@@ -140,7 +140,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.ctAccounting | bool | `false` | Enable CT accounting for packets and bytes |
 | bpf.ctAnyMax | int | `262144` | Configure the maximum number of entries for the non-TCP connection tracking table. |
 | bpf.ctTcpMax | int | `524288` | Configure the maximum number of entries in the TCP connection tracking table. |
-| bpf.datapathMode | string | `veth` | Mode for Pod devices for the core datapath (veth, netkit, netkit-l2) |
+| bpf.datapathMode | string | `veth` | Mode for Pod devices for the core datapath (veth, netkit, netkit-l2). Note netkit is incompatible with TPROXY (`bpf.tproxy`). |
 | bpf.disableExternalIPMitigation | bool | `false` | Disable ExternalIP mitigation (CVE-2020-8554) |
 | bpf.distributedLRU | object | `{"enabled":false}` | Control to use a distributed per-CPU backend memory for the core BPF LRU maps which Cilium uses. This improves performance significantly, but it is also recommended to increase BPF map sizing along with that. |
 | bpf.distributedLRU.enabled | bool | `false` | Enable distributed LRU backend memory. For compatibility with existing installations it is off by default. |
@@ -172,7 +172,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.policyStatsMapMax | int | `65536` | Configure the maximum number of entries in global policy stats map. @schema type: [null, integer] @schema |
 | bpf.preallocateMaps | bool | `false` | Enables pre-allocation of eBPF map values. This increases memory usage but can reduce latency. |
 | bpf.root | string | `"/sys/fs/bpf"` | Configure the mount point for the BPF filesystem |
-| bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. |
+| bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. Note this is incompatible with netkit (`bpf.datapathMode=netkit`, `bpf.datapathMode=netkit-l2`). |
 | bpf.vlanBypass | list | `[]` | Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering. |
 | bpfClockProbe | bool | `false` | Enable BPF clock source probing for more efficient tick retrieval. |
 | certgen | object | `{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:19921f48ee7e2295ea4dca955878a6cd8d70e6d4219d08f688e866ece9d95d4d","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.3.2","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
