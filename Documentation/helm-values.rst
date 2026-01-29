@@ -361,7 +361,7 @@
      - int
      - ``524288``
    * - :spelling:ignore:`bpf.datapathMode`
-     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
+     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2). Note netkit is incompatible with TPROXY (\ ``bpf.tproxy``\ ).
      - string
      - ``veth``
    * - :spelling:ignore:`bpf.disableExternalIPMitigation`
@@ -489,7 +489,7 @@
      - string
      - ``"/sys/fs/bpf"``
    * - :spelling:ignore:`bpf.tproxy`
-     - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy.
+     - Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. Note this is incompatible with netkit (\ ``bpf.datapathMode=netkit``\ , ``bpf.datapathMode=netkit-l2``\ ).
      - bool
      - ``false``
    * - :spelling:ignore:`bpf.vlanBypass`
