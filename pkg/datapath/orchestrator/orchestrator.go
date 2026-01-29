@@ -201,6 +201,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		retryChan <-chan time.Time
 	)
 	for {
+		var prevConfig *datapath.LocalNodeConfiguration
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
 			option.Config,
@@ -223,10 +224,21 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
+			if request.errChan != nil {
+				select {
+				case request.errChan <- err:
+				default:
+				}
+				close(request.errChan)
+			}
+			if localNodeConfigWatch == nil {
+				retryChan = time.After(reinitRetryDuration)
+			}
+			goto waitReinit
 		}
 
 		// Reinitializeing is expensive, only do so if the configuration has changed.
-		prevConfig := o.latestLocalNodeConfig.Load()
+		prevConfig = o.latestLocalNodeConfig.Load()
 		if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
 			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
 				o.params.Log.Warn("Failed to initialize datapath, retrying later",
@@ -246,8 +258,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			}
 		}
 
+	waitReinit:
 		request = reinitializeRequest{}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
