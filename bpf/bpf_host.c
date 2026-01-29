@@ -1071,7 +1071,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
 			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
-				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}
 		}
@@ -1111,7 +1110,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
-				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}
 		}
@@ -1355,7 +1353,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		send_trace_notify(ctx, TRACE_FROM_STACK,
 				  get_encrypt_identity_meta(ctx), UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, 0, proto);
+				  TRACE_REASON_UNKNOWN, 0, proto);
 #endif /* ENABLE_IPSEC */
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1459,8 +1457,6 @@ skip_host_firewall:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 #endif /* ENABLE_IPSEC */
 
@@ -1490,8 +1486,6 @@ skip_host_firewall:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
 	}
 #endif /* ENABLE_WIREGUARD */
 
