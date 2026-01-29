@@ -2361,6 +2361,12 @@ localRedirectPolicies:
   # type: [null, array]
   # @schema@
   addressMatcherCIDRs: ~
+  # -- Limit the allowed IP range for Local Redirect Policies for ToIP field.
+  # @schema@
+  # type: [null, string]
+  # @schema@
+  # @default -- `169.254.0.0/16`
+  toIPRange: ~
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
