@@ -35,6 +35,9 @@ const (
 	// VxlanDevice is a device of type 'vxlan', created by the agent.
 	VxlanDevice = "cilium_vxlan"
 
+	// ProbeTunnelDevice is a device of type 'geneve', used to probe support for BIG TCP for UDP tunnels.
+	ProbeTunnelDevice = "cilium_probe"
+
 	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
 	CiliumK8sAnnotationPrefix = "cilium.io/"
 

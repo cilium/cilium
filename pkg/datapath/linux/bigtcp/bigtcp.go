@@ -14,7 +14,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -28,9 +30,8 @@ const (
 )
 
 var defaultUserConfig = types.BigTCPUserConfig{
-	EnableIPv6BIGTCP:   false,
-	EnableIPv4BIGTCP:   false,
-	EnableTunnelBIGTCP: false,
+	EnableIPv6BIGTCP: false,
+	EnableIPv4BIGTCP: false,
 }
 
 var Cell = cell.Module(
@@ -173,6 +174,57 @@ func supportsBIGTCPIPv6(log *slog.Logger) bool {
 	return link.Attrs().TSOMaxSize > 0
 }
 
+// Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
+func supportsBIGTCPTunnel(log *slog.Logger, port uint16) bool {
+	dev := &netlink.Geneve{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: defaults.ProbeTunnelDevice,
+		},
+		Dport: port,
+	}
+
+	if err := netlink.LinkAdd(dev); err != nil {
+		log.Warn("Failed to probe kernel support for BIG TCP for UDP tunnels: failed to create a probe GENEVE device",
+			logfields.Error, err,
+		)
+		return false
+	}
+
+	link, err := safenetlink.LinkByName(defaults.ProbeTunnelDevice)
+	if err != nil {
+		log.Warn("Failed to probe kernel support for BIG TCP for UDP tunnels: failed to fetch the probe GENEVE device",
+			logfields.Error, err,
+		)
+		return false
+	}
+
+	// (Pending) Kernel commit XXXXXXXXXXXX ("geneve: Enable BIG TCP packets").
+	//
+	// VXLAN tunnels are less suitable as a probe, because they may call
+	// netif_inherit_tso_max() and inherit tso_max_size from the physical
+	// device, which is likely to be bigger than 64k, even before the kernel
+	// support for BIG TCP for VXLAN has been added. Setting gso_max_size
+	// to a bigger value on such kernels doesn't make it work, but leads to
+	// packet drops instead.
+	//
+	// GENEVE, on the other hand, doesn't do netif_inherit_tso_max(), so we
+	// can reliably check its tso_max_size (65536 meaning pre BIG TCP
+	// support; 524280 meaning post BIG TCP support).
+	support := link.Attrs().TSOMaxSize > defaultMaxSize
+
+	if err := netlink.LinkDel(link); err != nil {
+		log.Warn("Failed to remove the probe GENEVE device",
+			logfields.Error, err,
+		)
+	}
+
+	log.Info("Probed kernel support for BIG TCP for UDP tunnels",
+		logfields.State, support,
+	)
+
+	return support
+}
+
 // Returns the current gso_max_size (IPv6), gso_ipv4_max_size (IPv4) and
 // tso_max_size (the limit for both) for device.
 // If gso_ipv4_max_size is not supported, fall back to gso_max_size.
@@ -231,23 +283,24 @@ type params struct {
 	UserConfig   types.BigTCPUserConfig
 	IPsecConfig  types.IPsecConfig
 	LBConfig     loadbalancer.Config
+	TunnelConfig tunnel.Config
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		// Check all configurations where Cilium creates tunnel devices
 		// that don't support BIG TCP.
 		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
 			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
 		}
-		if !cfg.EnableTunnelBIGTCP {
+		if !bigtcpTunnel {
 			if daemonCfg.TunnelingEnabled() {
-				return errors.New("BIG TCP in tunneling mode requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+				return errors.New("BIG TCP in tunneling mode requires pending kernel support")
 			}
 			if dsrDispatch != loadbalancer.DSRDispatchOption {
-				return errors.New("bpf-lb-dsr-dispatch geneve requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+				return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires pending kernel support")
 			}
 		}
 
@@ -262,7 +315,8 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
-	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch); err != nil {
+	bigtcpTunnel := supportsBIGTCPTunnel(p.Log, p.TunnelConfig.Port()+1)
+	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)
