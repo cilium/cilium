@@ -49,6 +49,7 @@ func init() {
 	statusCmd.Flags().BoolVar(&statusDetails.AllNodes, "all-nodes", false, "Show all nodes, not just localhost")
 	statusCmd.Flags().BoolVar(&statusDetails.AllRedirects, "all-redirects", false, "Show all redirects")
 	statusCmd.Flags().BoolVar(&statusDetails.AllClusters, "all-clusters", false, "Show all clusters")
+	statusCmd.Flags().BoolVar(&statusDetails.KubeProxyReplacementDetails, "kubeproxy-replacement", false, "Show KubeProxy Replacement Details")
 	statusCmd.Flags().BoolVar(&allHealth, "all-health", false, "Show all health status, not just failing")
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&requireK8sConnectivity, "require-k8s-connectivity", true, "If true, when the cilium-agent cannot access the Kubernetes control plane, this status command returns a non-zero exit status.")

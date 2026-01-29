@@ -19,6 +19,7 @@ cilium-dbg status [flags]
       --all-redirects              Show all redirects
       --brief                      Only print a one-line status message
   -h, --help                       help for status
+      --kubeproxy-replacement      Show KubeProxy Replacement Details
   -o, --output string              json| yaml| jsonpath='{}'
       --require-k8s-connectivity   If true, when the cilium-agent cannot access the Kubernetes control plane, this status command returns a non-zero exit status. (default true)
       --timeout duration           Sets the timeout to use when querying for health (default 30s)
