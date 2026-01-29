@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -190,4 +191,49 @@ func TestPrivilegedDetachCGroupWithExistingLink(t *testing.T) {
 	if err := detachCgroup(logger, "test", cgroupPath, linkPath); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Verify that non-Cilium programs (programs without "cil_" prefix) are preserved
+// during cgroup detachment. This is a regression test for issue #43877.
+func TestPrivilegedDetachCGroupPreservesNonCiliumPrograms(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	// mustCgroupProgram creates programs with empty names, which don't start
+	// with "cil_" and therefore simulate non-Cilium programs.
+	nonCiliumProg := mustCgroupProgram(t)
+
+	linkPath := testutils.TempBPFFS(t)
+	cgroupPath := testutils.TempCgroup(t)
+	f, err := os.Open(cgroupPath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	// Attach the non-Cilium program using PROG_ATTACH.
+	err = link.RawAttachProgram(link.RawAttachProgramOptions{
+		Target:  int(f.Fd()),
+		Program: nonCiliumProg,
+		Attach:  ebpf.AttachCGroupInetIngress,
+	})
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = link.RawDetachProgram(link.RawDetachProgramOptions{
+			Target:  int(f.Fd()),
+			Program: nonCiliumProg,
+			Attach:  ebpf.AttachCGroupInetIngress,
+		})
+	})
+
+	// detachCgroup should NOT detach the non-Cilium program.
+	err = detachCgroup(logger, "test", cgroupPath, linkPath)
+	require.NoError(t, err)
+
+	// Verify the non-Cilium program is still attached.
+	ids, err := link.QueryPrograms(link.QueryOptions{
+		Target: int(f.Fd()),
+		Attach: ebpf.AttachCGroupInetIngress,
+	})
+	require.NoError(t, err)
+	require.Len(t, ids.Programs, 1, "non-Cilium program was incorrectly detached")
 }
