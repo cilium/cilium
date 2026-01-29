@@ -753,6 +753,76 @@ func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry, sameKey b
 	}
 }
 
+// isCovered iterates over broader or equal keys and checks if the new entry is covered by
+// an existing entry. It returns true if new entry should not be added to the map store.
+// It will bump the precedence of newEntry if covered by a higher tier PASS verdict.
+func (ms *mapState) isCovered(tierPrecedence types.Precedence, newKey Key, newEntry *mapStateEntry) bool {
+	bail := false
+	var passEntry mapStateEntry
+	var passKey Key
+	for k, v := range ms.BroaderOrEqualKeys(newKey) {
+		// Bump precedence if covered by a higher tier PASS verdict.
+		if v.IsPassEntry() {
+			if v.passPrecedence > newEntry.Precedence {
+				if v.passPrecedence > tierPrecedence {
+					// pass by higher tier
+					if v.passPrecedence > passEntry.passPrecedence {
+						passKey = k
+						passEntry = v
+					}
+				} else {
+					// higher precedence pass entry, but not on higher
+					// tier, so it must be on the same tier. Bail
+					// immediately.
+					return true
+				}
+			}
+			// done if only a pass entry
+			if !v.IsValid() {
+				continue
+			}
+		}
+
+		bail = !newEntry.IsPassEntry() && v.Precedence > newEntry.Precedence ||
+			// For pass entry we compare to the pass precedence instead
+			newEntry.IsPassEntry() && v.Precedence > newEntry.passPrecedence ||
+			// New deny entry is also bailed due to different covering deny key
+			// of the same precedence, equal keys need to be merged
+			newEntry.IsDeny() && v.Precedence == newEntry.Precedence && k != newKey
+	}
+	if passEntry.passPrecedence > 0 {
+		// This entry is covered by a higher tier rule with a PASS verdict.
+		newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
+		bail = false
+	}
+	return bail
+}
+
+// deleteCoveredEntries iterates over narrower or equal keys and deletes covered entries of lower precedence.
+func (ms *mapState) deleteCoveredEntries(newKey Key, newEntry mapStateEntry, changes ChangeState) {
+	for k, v := range ms.NarrowerOrEqualKeys(newKey) {
+		if !v.IsValid() && newEntry.IsAllow() {
+			// 'v' is an unresolved PASS entry.
+			// Only resolve if the PASS entry has higher precedence.
+			if v.passPrecedence > newEntry.Precedence {
+				// Inherit all fields from PASS entry, but set verdict to Allow.
+				// Inherit derivedFromRules from the covered rule.
+				resolvedEntry := newEntry
+				resolvedEntry.MapStateEntry = newEntry.WithDeny(false)
+				resolvedEntry.InheritPassPrecedence(v, k == newKey)
+				ms.updateExisting(k, resolvedEntry)
+			}
+		}
+		// Delete covered entries of lower precedence, and
+		// same precedence deny entries if the keys are different
+		vPrecedence := v.GetPrecedence()
+		if vPrecedence < newEntry.Precedence ||
+			newEntry.IsDeny() && vPrecedence == newEntry.Precedence && k != newKey {
+			ms.deleteExistingWithChanges(k, v, changes)
+		}
+	}
+}
+
 // insertWithChanges contains the most important business logic for policy insertions. It inserts a
 // key and entry into the map only if not covered by an entry of a higher precedence. A higher
 // precedence PASS verdict does not stop inserting covered entries of lower precedence
@@ -802,123 +872,19 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 		)
 	}
 
-	if newEntry.IsPassEntry() {
-		// Bail if covered by a key of a higher precedence (pass or not)
-		for _, v := range ms.BroaderOrEqualKeys(newKey) {
-			if v.GetPrecedence() > newEntry.passPrecedence {
-				return
-			}
-			// Delete covered entries of lower precedence levels.
-			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-				if v.GetPrecedence() < newEntry.passPrecedence {
-					ms.deleteExistingWithChanges(k, v, changes)
-				}
-			}
-		}
-	} else if newEntry.IsDeny() {
-		bail := false
-		var passEntry mapStateEntry
-		var passKey Key
-		// TODO: This could be simplified if the iterator would iterate in LPM order
-		for k, v := range ms.BroaderOrEqualKeys(newKey) {
-			// Bail if covered by a key of higher precedence.
-			// Bump precedence if covered by a higher tier PASS verdict.
-			if v.IsPassEntry() {
-				if v.passPrecedence > newEntry.Precedence {
-					if v.passPrecedence > tierPrecedence {
-						// pass by higher tier
-						if v.passPrecedence > passEntry.passPrecedence {
-							passKey = k
-							passEntry = v
-						}
-					} else {
-						// higher precedence pass entry, but not on higher
-						// tier, so it must be on the same tier. Bail
-						// immediately.
-						return
-					}
-				}
-				// done if only a pass entry
-				if !v.IsValid() {
-					continue
-				}
-			}
-			if v.Precedence > newEntry.Precedence ||
-				// New deny entry is also bailed due to different covering deny key
-				// of the same precedence, equal keys need to be merged
-				v.Precedence == newEntry.Precedence && k != newKey {
-				bail = true
-			}
-		}
-		if passEntry.passPrecedence > 0 {
-			// This entry is covered by a higher tier rule with a PASS verdict.
-			newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
-		} else if bail {
+	// authPreferredInsert takes care for precedence and auth
+	if newEntry.IsAllow() && features.contains(authRules) {
+		ms.authPreferredInsert(newKey, newEntry, features, changes)
+		return
+	}
+
+	if features.contains(precedenceFeatures) {
+		// Delete covered entries of lower precedence levels
+		ms.deleteCoveredEntries(newKey, newEntry, changes)
+
+		// Bail if covered by a key of a higher precedence.
+		if ms.isCovered(tierPrecedence, newKey, &newEntry) {
 			return
-		}
-
-		// Delete covered entries of lower precedence, and
-		// same precedence deny entries if the keys are different
-		for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-			// 'v' can be a pass or combined entry
-			vPrecedence := v.GetPrecedence()
-			if vPrecedence < newEntry.Precedence ||
-				vPrecedence == newEntry.Precedence && k != newKey {
-				ms.deleteExistingWithChanges(k, v, changes)
-			}
-		}
-	} else {
-		// authPreferredInsert takes care for precedence and auth
-		if features.contains(authRules) {
-			ms.authPreferredInsert(newKey, newEntry, features, changes)
-			return
-		}
-
-		// No pruning of allow rules if all rules have the same precedence level.
-		if features.contains(precedenceFeatures) {
-			bail := false
-			var passEntry mapStateEntry
-			var passKey Key
-			// Bail if covered by a key of a higher precedence.
-			for k, v := range ms.BroaderOrEqualKeys(newKey) {
-				// Bump precedence if covered by a higher tier PASS verdict.
-				if v.IsPassEntry() {
-					if v.passPrecedence > newEntry.Precedence {
-						if v.passPrecedence > tierPrecedence {
-							// pass by higher tier
-							if v.passPrecedence > passEntry.passPrecedence {
-								passKey = k
-								passEntry = v
-							}
-						} else {
-							// higher precedence pass entry, but not on higher
-							// tier, so it must be on the same tier. Bail
-							// immediately.
-							return
-						}
-					}
-					// done if only a pass entry
-					if !v.IsValid() {
-						continue
-					}
-				}
-				if v.Precedence > newEntry.Precedence {
-					bail = true
-				}
-			}
-			if passEntry.passPrecedence > 0 {
-				// This entry is covered by a higher tier rule with a PASS verdict.
-				newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
-			} else if bail {
-				return
-			}
-
-			// Delete covered entries of lower precedence levels
-			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-				if v.GetPrecedence() < newEntry.Precedence {
-					ms.deleteExistingWithChanges(k, v, changes)
-				}
-			}
 		}
 	}
 	ms.addKeyWithChanges(newKey, newEntry, changes)

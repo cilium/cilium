@@ -423,8 +423,8 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
 				{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
 				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-				//{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-				//{key: egressKey(identityWorld, 6, 82, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identityWorld, 6, 82, 16), found: true, entry: AllowEntry},
 			},
 		}, {
 			name: "PASS 1.1.1.1 over deny",
@@ -483,12 +483,98 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
+				egressKey(identity1111, 0, 0, 0):  newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1001),
 				// default allow egress
 				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),
 			},
 			probes: []probe{},
+		}, {
+			name:            "PASS 1.1.1.1 to default allow",
+			skipDefaultDeny: true,
+			entries: types.PolicyEntries{
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 6,
+					L3:       selectors1111,
+					Verdict:  types.Pass,
+				},
+			},
+			expected: mapStateMap{
+				// default allow ingress
+				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
+
+				egressKey(identity1111, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1),
+				// default allow egress
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1000),
+			},
+			probes: []probe{
+				{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
+			},
+		}, {
+			name:            "PASS 1.1.1.1 to lower-tier deny with non-consecutive tiers",
+			skipDefaultDeny: true,
+			entries: types.PolicyEntries{
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 10,
+					L3:       selectors1111,
+					Verdict:  types.Pass,
+				},
+				&types.PolicyEntry{
+					Tier:     2,
+					Priority: 10,
+					L3:       selectors1111,
+					Verdict:  types.Deny,
+				},
+			},
+			expected: mapStateMap{
+				// default allow ingress
+				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
+
+				egressKey(identity1111, 0, 0, 0): denyEntry.withLevel(1001).withPassPriority(0, 0),
+				// default allow egress
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),
+			},
+			probes: []probe{
+				{key: egressKey(identity1111, 6, 80, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1100, 6, 80, 16), found: true, entry: AllowEntry},
+			},
+		}, {
+			name:            "PASS 1.1.1.1 with L4 over lower priority wildcard deny with default allow",
+			skipDefaultDeny: true,
+			entries: types.PolicyEntries{
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 75,
+					L3:       selectors1111,
+					L4:       port80,
+					Verdict:  types.Pass,
+				},
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 75.01,
+					L3:       types.ToSelectors(api.WildcardEndpointSelector),
+					Verdict:  types.Deny,
+				},
+			},
+			expected: mapStateMap{
+				// default allow ingress
+				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
+
+				egressKey(identity1111, 6, 80, 16): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1),
+				egressKey(0, 0, 0, 0):              denyEntry.withLevel(11),
+			},
+			probes: []probe{
+				{key: egressKey(identity1111, 6, 80, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: DenyEntry},
+				{key: egressKey(identity1100, 6, 80, 16), found: true, entry: AllowEntry},
+			},
 		}, {
 			name: "allow 1.1.1.1, deny 1.1.1.1",
 			// 0: allow 1.1.1.1
