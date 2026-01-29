@@ -3116,6 +3116,9 @@
           },
           "type": "object"
         },
+        "hostUsers": {
+          "type": "boolean"
+        },
         "listenAddress": {
           "type": "string"
         },
