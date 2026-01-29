@@ -111,3 +111,6 @@ add_type(struct node_value);
 #include "lib/lrp.h"
 add_type(struct skip_lb4_key);
 add_type(struct skip_lb6_key);
+
+#include "lib/network_device.h"
+add_type(struct device_state);

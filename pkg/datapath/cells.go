@@ -123,6 +123,9 @@ var Cell = cell.Module(
 	// DevicesController manages the devices and routes tables
 	linuxdatapath.DevicesControllerCell,
 
+	// Synchronizes selected devices into the cilium_devices BPF map.
+	linuxdatapath.DevicesMapSyncCell,
+
 	// Synchronizes load-balancing backends with the neighbor table.
 	linuxdatapath.BackendNeighborSyncCell,
 
