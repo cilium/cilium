@@ -231,3 +231,11 @@
   {{- end }}
 {{- end }}
 
+{{/* validate we don't run tproxy with netkit - see GH issue 39892 */}}
+{{- if hasKey .Values "bpf" }}
+  {{- if and (hasKey .Values.bpf "tproxy") (hasKey .Values.bpf "datapathMode") }}
+    {{- if and (.Values.bpf.tproxy) (list "netkit" "netkit-l2" | has .Values.bpf.datapathMode) }}
+      {{ fail ".Values.bpf.tproxy cannot be enabled with .Values.bpf.datapathMode=netkit or .Values.bpf.datapathMode=netkit-l2" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
