@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -228,14 +229,23 @@ func detachAll(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) e
 		return nil
 	}
 
-	// cilium owns the cgroup and assumes only one program is attached.
-	// This allows to remove all ids returned in the query phase.
+	// Detach only Cilium-owned programs from the cgroup.
 	for _, id := range ids.Programs {
 		prog, err := ebpf.NewProgramFromID(id.ID)
 		if err != nil {
-			return fmt.Errorf("could not open program id %d: %w", id, err)
+			return fmt.Errorf("could not open program id %d: %w", id.ID, err)
 		}
 		defer prog.Close()
+
+		// Only detach programs that belong to Cilium (name starts with "cil_").
+		// This prevents accidentally detaching programs from other applications.
+		info, err := prog.Info()
+		if err != nil {
+			return fmt.Errorf("could not get info for program id %d: %w", id.ID, err)
+		}
+		if !strings.HasPrefix(info.Name, "cil_") {
+			continue
+		}
 
 		if err := link.RawDetachProgram(link.RawDetachProgramOptions{
 			Target:  int(cg.Fd()),
