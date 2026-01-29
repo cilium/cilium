@@ -71,7 +71,7 @@ gobgp/routes -s test2 -o routes.actual
 * cmp gobgp-routes-all-65002.expected routes.actual
 
 # Validate peers on Cilium
-bgp/peers -o peers.actual
+bgp/peers -o peers.actual --no-uptime
 * cmp cilium-peers.expected peers.actual
 
 # Validate advertised routes on Cilium
@@ -237,10 +237,10 @@ Prefix            NextHop       Attrs
 10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
 10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
 -- cilium-peers.expected --
-Local AS   Peer AS   Peer Address       Session       Family         Received   Advertised
-65001      65010     10.99.0.101:1790   established   ipv4/unicast   0          2
-65001      65011     10.99.0.102:1790   established   ipv4/unicast   0          2
-65002      65012     10.99.0.103:1790   established   ipv4/unicast   0          2
+Instance    Peer           Session State   Uptime   Family         Received   Accepted   Advertised
+tor-65001   gobgp-peer-1   established     -        ipv4-unicast   0          0          2
+            gobgp-peer-2   established     -        ipv4-unicast   0          0          2
+tor-65002   gobgp-peer-3   established     -        ipv4-unicast   0          0          2
 -- cilium-routes.expected --
 VRouter   Peer          Prefix            NextHop       Attrs
 65001     10.99.0.101   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
