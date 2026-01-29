@@ -66,6 +66,8 @@ type HTTPListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
 	TLS []TLSSecret `json:"tls,omitempty"`
+	// FrontendTLSValidation holds mTLS configuration for client certificate validation.
+	FrontendTLSValidation *FrontendTLSValidation `json:"frontend_tls_validation,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
@@ -206,6 +208,15 @@ type FullyQualifiedResource struct {
 type TLSSecret struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// FrontendTLSValidation holds configuration for client certificate validation (mTLS).
+type FrontendTLSValidation struct {
+	// CACertRefs references ConfigMaps containing CA certificates for client validation.
+	CACertRefs []FullyQualifiedResource `json:"ca_cert_refs,omitempty"`
+	// RequireClientCertificate when true requires valid client cert (AllowValidOnly mode).
+	// When false, allows connections without valid cert (AllowInsecureFallback mode).
+	RequireClientCertificate bool `json:"require_client_certificate,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
@@ -586,6 +597,30 @@ func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
 			res[s] = append(res[s], h.Hostname)
+		}
+	}
+	return res
+}
+
+// TLSSecretListenerData holds TLS secret data along with the listener's frontend validation.
+type TLSSecretListenerData struct {
+	Hostnames             []string
+	FrontendTLSValidation *FrontendTLSValidation
+}
+
+// TLSSecretsToHostnamesWithValidation returns a map of TLS secrets to hostnames and frontend validation.
+// This is only for HTTP listeners.
+func (m *Model) TLSSecretsToHostnamesWithValidation() map[TLSSecret]TLSSecretListenerData {
+	res := make(map[TLSSecret]TLSSecretListenerData)
+	for _, h := range m.HTTP {
+		for _, s := range h.TLS {
+			data := res[s]
+			data.Hostnames = append(data.Hostnames, h.Hostname)
+			// Use the first listener's frontend validation (they should be the same for same secret)
+			if data.FrontendTLSValidation == nil {
+				data.FrontendTLSValidation = h.FrontendTLSValidation
+			}
+			res[s] = data
 		}
 	}
 	return res

@@ -104,12 +104,13 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:         httpRoutes,
-			Infrastructure: infra,
-			Service:        toServiceModel(input.GatewayClassConfig),
+			Port:                  uint32(l.Port),
+			Hostname:              toHostname(l.Hostname),
+			TLS:                   toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
+			FrontendTLSValidation: toFrontendTLSValidation(&input.Gateway, l.Port, input.ReferenceGrants),
+			Routes:                httpRoutes,
+			Infrastructure:        infra,
+			Service:               toServiceModel(input.GatewayClassConfig),
 		})
 
 		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
@@ -1013,6 +1014,64 @@ func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1beta1.ReferenceGr
 		})
 	}
 	return res
+}
+
+// toFrontendTLSValidation converts Gateway API FrontendTLSValidation to model.FrontendTLSValidation
+// for client certificate validation (mTLS).
+func toFrontendTLSValidation(
+	gw *gatewayv1.Gateway,
+	listenerPort gatewayv1.PortNumber,
+	grants []gatewayv1beta1.ReferenceGrant,
+) *model.FrontendTLSValidation {
+	if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+		return nil
+	}
+
+	frontend := gw.Spec.TLS.Frontend
+
+	// Check per-port override first
+	var validation *gatewayv1.FrontendTLSValidation
+	for _, perPort := range frontend.PerPort {
+		if perPort.Port == listenerPort && perPort.TLS.Validation != nil {
+			validation = perPort.TLS.Validation
+			break
+		}
+	}
+
+	// Fall back to default
+	if validation == nil && frontend.Default.Validation != nil {
+		validation = frontend.Default.Validation
+	}
+
+	if validation == nil || len(validation.CACertificateRefs) == 0 {
+		return nil
+	}
+
+	// Convert CACertificateRefs (check ReferenceGrants for cross-namespace)
+	var caCertRefs []model.FullyQualifiedResource
+	for _, ref := range validation.CACertificateRefs {
+		refNs := helpers.NamespaceDerefOr(ref.Namespace, gw.Namespace)
+		if refNs != gw.Namespace && !helpers.IsObjectRefAllowed(gw.Namespace, ref,
+			gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+			corev1.SchemeGroupVersion.WithKind("ConfigMap"), grants) {
+			continue
+		}
+		caCertRefs = append(caCertRefs, model.FullyQualifiedResource{
+			Group:     string(ref.Group),
+			Kind:      string(ref.Kind),
+			Name:      string(ref.Name),
+			Namespace: refNs,
+		})
+	}
+
+	if len(caCertRefs) == 0 {
+		return nil
+	}
+
+	return &model.FrontendTLSValidation{
+		CACertRefs:               caCertRefs,
+		RequireClientCertificate: validation.Mode != gatewayv1.AllowInsecureFallback,
+	}
 }
 
 func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
