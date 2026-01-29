@@ -29,9 +29,20 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+const (
+	// ServiceExportReasonNamespaceNotGlobal is used with the "Valid" condition
+	// when the namespace is not marked as global for clustermesh.
+	ServiceExportReasonNamespaceNotGlobal mcsapiv1alpha1.ServiceExportConditionReason = "NamespaceNotGlobal"
+
+	// ServiceImportReasonNamespaceNotGlobal is used with the "Ready" condition
+	// when the namespace is not marked as global for clustermesh.
+	ServiceImportReasonNamespaceNotGlobal mcsapiv1alpha1.ServiceImportConditionReason = "NamespaceNotGlobal"
 )
 
 // mcsAPIServiceImportReconciler is a controller that automatically creates
@@ -48,9 +59,11 @@ type mcsAPIServiceImportReconciler struct {
 
 	enableIPv4 bool
 	enableIPv6 bool
+
+	namespaceManager cmnamespace.Manager
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool, namespaceManager cmnamespace.Manager) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -59,6 +72,7 @@ func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, clu
 		remoteClusterServiceSource: remoteClusterServiceSource,
 		enableIPv4:                 enableIPv4,
 		enableIPv6:                 enableIPv6,
+		namespaceManager:           namespaceManager,
 	}
 }
 
@@ -102,6 +116,10 @@ func (r *mcsAPIServiceImportReconciler) doesNamespaceExist(ctx context.Context, 
 		return false, client.IgnoreNotFound(err)
 	}
 	return true, nil
+}
+
+func (r *mcsAPIServiceImportReconciler) isNamespaceGlobal(namespace string) (bool, error) {
+	return r.namespaceManager.IsGlobalNamespaceByName(namespace)
 }
 
 func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExport *mcsapiv1alpha1.ServiceExport) *mcsapitypes.MCSAPIServiceSpec {
@@ -526,15 +544,38 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
+	isGlobal, err := r.isNamespaceGlobal(req.Namespace)
+	if err != nil {
+		return controllerruntime.Fail(err)
+	}
+
+	if !isGlobal && svcExport != nil {
+		if setInvalidStatus(
+			&svcExport.Status.Conditions,
+			ServiceExportReasonNamespaceNotGlobal,
+			"Namespace is not global, service is not exported to clustermesh",
+		) {
+			if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+				return controllerruntime.Fail(err)
+			}
+		}
+	}
+
 	svcExportByCluster := r.globalServiceExports.GetServiceExportByCluster(req.NamespacedName)
-	if len(svcExportByCluster) == 0 && svcExport == nil {
+
+	if !isGlobal {
+		// Remove local cluster from the export list if present
+		delete(svcExportByCluster, r.cluster)
+	}
+
+	if len(svcExportByCluster) == 0 && (svcExport == nil || !isGlobal) {
 		if svcImportExists {
 			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
 		}
 		return controllerruntime.Success()
 	}
 
-	if svcExport != nil {
+	if svcExport != nil && isGlobal {
 		localSvc, err := r.getLocalService(ctx, req)
 		if err != nil {
 			return controllerruntime.Fail(err)
@@ -643,7 +684,11 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		annotations[mcsapicontrollers.DerivedServiceAnnotation] = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
 	}
 	supportedIPFamilies := r.filterSupportedIPFamilies(svcImport.Spec.IPFamilies)
-	annotations[annotation.SupportedIPFamilies] = mcsapitypes.IPFamiliesToString(supportedIPFamilies)
+	if isGlobal {
+		annotations[annotation.SupportedIPFamilies] = mcsapitypes.IPFamiliesToString(supportedIPFamilies)
+	} else {
+		annotations[annotation.SupportedIPFamilies] = ""
+	}
 	svcImport.Annotations = annotations
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
@@ -657,7 +702,14 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	svcImportStatusOriginal := svcImport.Status.DeepCopy()
 	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
-	if len(supportedIPFamilies) == 0 {
+	if !isGlobal {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			ServiceImportReasonNamespaceNotGlobal,
+			"Namespace is not global, service cannot be imported",
+		))
+	} else if len(supportedIPFamilies) == 0 {
 		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
 			mcsapiv1alpha1.ServiceImportConditionReady,
 			metav1.ConditionFalse,

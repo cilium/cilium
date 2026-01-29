@@ -24,14 +24,52 @@ import (
 	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 const (
 	localClusterName  = "local"
 	remoteClusterName = "remote"
 )
+
+type mockNamespaceManager struct {
+	globalNamespaces map[string]bool
+}
+
+var _ cmnamespace.Manager = (*mockNamespaceManager)(nil)
+
+func newMockNamespaceManager() *mockNamespaceManager {
+	return &mockNamespaceManager{
+		globalNamespaces: map[string]bool{
+			"default": true, // default namespace is global
+		},
+	}
+}
+
+func (m *mockNamespaceManager) IsGlobalNamespaceByName(ns string) (bool, error) {
+	if isGlobal, ok := m.globalNamespaces[ns]; ok {
+		return isGlobal, nil
+	}
+	return true, nil
+}
+
+func (m *mockNamespaceManager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
+	if ns == nil {
+		return false
+	}
+	if isGlobal, ok := m.globalNamespaces[ns.Name]; ok {
+		return isGlobal
+	}
+	return true
+}
+
+func (m *mockNamespaceManager) setNamespaceGlobal(ns string, isGlobal bool) {
+	m.globalNamespaces[ns] = isGlobal
+}
 
 var (
 	olderTime = metav1.NewTime(time.Now().AddDate(0, 0, -1))
@@ -415,6 +453,35 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					TrafficDistribution: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
 				},
 			},
+
+			// Non-global namespace fixtures
+			&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "non-global-ns",
+					Annotations: map[string]string{
+						annotation.GlobalNamespace: "false",
+					},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "non-global-svc",
+					Namespace:         "non-global-ns",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "non-global-svc",
+					Namespace: "non-global-ns",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 8080,
+					}},
+				},
+			},
 		}
 		remoteSvcImportTestFixtures = []*mcsapitypes.MCSAPIServiceSpec{
 			{
@@ -618,6 +685,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 	for _, svcExport := range remoteSvcImportTestFixtures {
 		globalServiceExports.OnUpdate(svcExport)
 	}
+	namespaceManager := newMockNamespaceManager()
 
 	r := &mcsAPIServiceImportReconciler{
 		Client:                     c,
@@ -626,6 +694,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
 		enableIPv4:                 true,
+		namespaceManager:           namespaceManager,
 	}
 
 	t.Run("Service import creation with local-only", func(t *testing.T) {
@@ -947,6 +1016,36 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionReady)))
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
+	})
+
+	t.Run("ServiceExport in non-global namespace", func(t *testing.T) {
+		namespaceManager.setNamespaceGlobal("non-global-ns", false)
+
+		key := types.NamespacedName{
+			Name:      "non-global-svc",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		_, err = getServiceImport(c, key)
+		require.True(t, k8sApiErrors.IsNotFound(err), "ServiceImport should not exist for non-global namespace with no remote exports")
+
+		svcExport, err := getServiceExport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcExport)
+
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionReady)))
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
+
+		validCondition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid))
+		require.NotNil(t, validCondition)
+		require.Equal(t, string(ServiceExportReasonNamespaceNotGlobal), validCondition.Reason)
+		require.Contains(t, validCondition.Message, "not global")
 	})
 
 	conflictTests := []struct {
