@@ -117,7 +117,7 @@ const (
 	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
 	ingressClassesFileName                   = "ingressclasses-<ts>.yaml"
 	k8sResourceFileName                      = "%s-<ts>.yaml"
-	ciliumNetworkDriverConfigFileName        = "cilium-network-driver-configs-<ts>.yaml"
+	ciliumNetworkDriverFileName              = "ciliumnetworkdriver-%s-<ts>.yaml"
 )
 
 const (
