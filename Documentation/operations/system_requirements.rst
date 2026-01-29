@@ -155,6 +155,7 @@ linked, either choice is valid.
 ::
 
         CONFIG_BPF=y
+        CONFIG_BPF_EVENTS=y
         CONFIG_BPF_SYSCALL=y
         CONFIG_NET_CLS_BPF=y
         CONFIG_BPF_JIT=y

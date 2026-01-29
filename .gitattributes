@@ -23,15 +23,47 @@ pkg/k8s/client/listers/** linguist-generated
 #
 # This will configure Git to use the appropriate merge drivers for each file pattern.
 #
-go.mod merge=go-mod-tidy
 go.sum merge=go-mod-tidy
 vendor/** merge=go-mod-tidy
-install/kubernetes/** merge=kubernetes-update
+install/kubernetes/cilium/values.yaml merge=kubernetes-update
+install/kubernetes/cilium/README.md merge=kubernetes-update
+install/kubernetes/cilium/values.schema.json merge=schema-permissions
 Documentation/helm-values.rst merge=helm-values-update
 images/cilium/Dockerfile merge=images-update
 images/operator/Dockerfile merge=images-update
 images/hubble-relay/Dockerfile merge=images-update
 .devcontainer/devcontainer.json merge=images-update
 Documentation/cmdref/** merge=cmdref-update
-install/kubernetes/cilium/values.schema.json merge=schema-permissions
-api/** merge=generate-apis
+
+# OpenAPI generated files
+api/v1/client/** merge=generate-api
+api/v1/server/** merge=generate-api
+api/v1/models/** merge=generate-api
+
+# Health API generate files
+api/v1/health/client/** merge=generate-health-api
+api/v1/health/models/** merge=generate-health-api
+api/v1/health/server/** merge=generate-health-api
+
+# KVStoreMesh API generate files
+api/v1/kvstoremesh/client/** merge=generate-kvstoremesh-api
+api/v1/kvstoremesh/models/** merge=generate-kvstoremesh-api
+api/v1/kvstoremesh/server/** merge=generate-kvstoremesh-api
+
+# Hubble API generate files
+api/v1/flow/**.go merge=generate-hubble-api
+api/v1/flow/README.md merge=generate-hubble-api
+api/v1/observer/**.go merge=generate-hubble-api
+api/v1/observer/README.md merge=generate-hubble-api
+api/v1/peer/**.go merge=generate-hubble-api
+api/v1/peer/README.md merge=generate-hubble-api
+api/v1/relay/**.go merge=generate-hubble-api
+api/v1/relay/README.md merge=generate-hubble-api
+
+# Operator API generate files
+api/v1/operator/client/** merge=generate-operator-api
+api/v1/operator/models/** merge=generate-operator-api
+api/v1/operator/server/** merge=generate-operator-api
+
+# Standalone DNS Proxy generate files
+api/v1/sdp/** merge=generate-sdp-api
