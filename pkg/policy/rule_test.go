@@ -2050,7 +2050,7 @@ func TestL4WildcardMerge(t *testing.T) {
 				td.cachedSelectorC: &PerSelectorPolicy{
 					Verdict:          types.Allow,
 					L7Parser:         "testparser",
-					ListenerPriority: ListenerPriorityProxylib,
+					ListenerPriority: ListenerPriorityNone,
 					L7Rules: api.L7Rules{
 						L7Proto: "testparser",
 						L7:      []api.PortRuleL7{{"Key": "Value"}, {}},

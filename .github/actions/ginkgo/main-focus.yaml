@@ -30,7 +30,7 @@ focus:
 - "f16-datapath-service-ew-2"
 - "f17-datapath-service-ew-kube-proxy"
 - "f18-datapath-lrp"
-- "f19-kafka"
+- "f19-mac-address"
 - "f20-datapath-misc-3"
 include:
   ###
@@ -195,10 +195,9 @@ include:
     cliFocus: "K8sDatapathLRPTests"
 
   ###
-  # K8sKafkaPolicyTest Kafka Policy Tests KafkaPolicies
   # K8sSpecificMACAddressTests Check whether the pod is created Checks the pod's mac address
-  - focus: "f19-kafka"
-    cliFocus: "K8sKafkaPolicyTest|K8sSpecificMACAddressTests"
+  - focus: "f19-mac-address"
+    cliFocus: "K8sSpecificMACAddressTests"
 
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
@@ -311,4 +310,4 @@ exclude:
     focus: "f18-datapath-lrp"
 
   - k8s-version: "1.32"
-    focus: "f19-kafka"
+    focus: "f19-mac-address"
