@@ -47,22 +47,22 @@ Name        Source   PortNames            TrafficPolicy   Flags
 test/echo   k8s      http=80, https=443   Cluster
 
 -- frontends.table --
-Address                Type           ServiceName   PortName   Backends                                 RedirectTo   Status
-0.0.0.0:30781/TCP      NodePort       test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
-0.0.0.0:30782/TCP      NodePort       test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
-10.96.50.104:80/TCP    ClusterIP      test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
-10.96.50.104:443/TCP   ClusterIP      test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
-172.16.1.1:80/TCP      LoadBalancer   test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP                  Done
-172.16.1.1:443/TCP     LoadBalancer   test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP                Done
+Address                Type           ServiceName   PortName   Backends                                 Status
+0.0.0.0:30781/TCP      NodePort       test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP     Done
+0.0.0.0:30782/TCP      NodePort       test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP   Done
+10.96.50.104:80/TCP    ClusterIP      test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP     Done
+10.96.50.104:443/TCP   ClusterIP      test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP   Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo     http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP     Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo     https      10.244.1.1:443/TCP, 10.244.1.2:443/TCP   Done
 
 -- frontends_nobackends.table --
-Address                Type           ServiceName   PortName   Backends   RedirectTo   Status
-0.0.0.0:30781/TCP      NodePort       test/echo     http                               Done
-0.0.0.0:30782/TCP      NodePort       test/echo     https                              Done
-10.96.50.104:80/TCP    ClusterIP      test/echo     http                               Done
-10.96.50.104:443/TCP   ClusterIP      test/echo     https                              Done
-172.16.1.1:80/TCP      LoadBalancer   test/echo     http                               Done
-172.16.1.1:443/TCP     LoadBalancer   test/echo     https                              Done
+Address                Type           ServiceName   PortName   Backends   Status
+0.0.0.0:30781/TCP      NodePort       test/echo     http                  Done
+0.0.0.0:30782/TCP      NodePort       test/echo     https                 Done
+10.96.50.104:80/TCP    ClusterIP      test/echo     http                  Done
+10.96.50.104:443/TCP   ClusterIP      test/echo     https                 Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo     http                  Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo     https                 Done
 
 -- backends.table --
 Address              Instances           Shadows   NodeName
