@@ -232,6 +232,12 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableEncapsulation != other.EnableEncapsulation {
 		return false
 	}
+	if in.TunnelProtocol != other.TunnelProtocol {
+		return false
+	}
+	if in.TunnelPort != other.TunnelPort {
+		return false
+	}
 	if in.EnableAutoDirectRouting != other.EnableAutoDirectRouting {
 		return false
 	}

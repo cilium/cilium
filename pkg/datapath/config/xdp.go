@@ -23,5 +23,8 @@ func XDP(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 
 	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }
