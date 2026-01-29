@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v8"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -26,6 +27,7 @@ const (
 	GetInstance
 	GetInstances
 	GetVpcsAndSubnets
+	GetSubnetsByIDs
 	AssignPrivateIpAddressesVMSS
 	MaxOperation
 )
@@ -189,6 +191,36 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	return vnets, subnets, nil
 }
 
+func (a *API) GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetSubnetsByIDs)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetSubnetsByIDs]; ok {
+		return nil, err
+	}
+
+	subnets := ipamTypes.SubnetMap{}
+
+	// Only return subnets that match the requested subnet IDs
+	subnetIDSet := make(map[string]struct{})
+	for _, id := range nodeSubnetIDs {
+		subnetIDSet[id] = struct{}{}
+	}
+
+	for _, s := range a.subnets {
+		if _, exists := subnetIDSet[s.subnet.ID]; exists {
+			sd := s.subnet.DeepCopy()
+			sd.AvailableAddresses = s.allocator.Free()
+			subnets[sd.ID] = sd
+		}
+	}
+
+	return subnets, nil
+}
+
 func (a *API) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
 	return nil
 }
@@ -261,4 +293,64 @@ func (a *API) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssN
 func (a *API) AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (string, error) {
 	a.rateLimit()
 	return "mock-public-ip-prefix-id", nil
+}
+
+// ListAllNetworkInterfaces returns a dummy slice since mock doesn't use real network interfaces
+// The mock API uses instances directly rather than armnetwork.Interface objects
+func (a *API) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetInstances)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetInstances]; ok {
+		return nil, err
+	}
+
+	// Return an empty slice - the mock doesn't use actual armnetwork.Interface objects
+	// ParseInterfacesIntoInstanceMap will handle returning the mock instances
+	return []*armnetwork.Interface{}, nil
+}
+
+// ParseInterfacesIntoInstanceMap ignores the input and returns the mock's instances
+// The mock API doesn't use real armnetwork.Interface objects
+func (a *API) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.InstanceMap {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	// Return the mock's instances regardless of input
+	return a.instances.DeepCopy()
+}
+
+// ListVMNetworkInterfaces returns a dummy slice since mock doesn't use real network interfaces
+// The mock API uses instances directly rather than armnetwork.Interface objects
+func (a *API) ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetInstance)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetInstance]; ok {
+		return nil, err
+	}
+
+	// Check if instance exists
+	if !a.instances.Exists(instanceID) {
+		return nil, fmt.Errorf("instance %s not found", instanceID)
+	}
+
+	// Return an empty slice - the mock doesn't use actual armnetwork.Interface objects
+	// ParseInterfacesIntoInstance will handle returning the mock instance
+	return []*armnetwork.Interface{}, nil
+}
+
+// ParseInterfacesIntoInstance ignores the input and returns the mock's instance
+// The mock API doesn't use real armnetwork.Interface objects
+func (a *API) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.Instance {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	// The instance will be populated by the caller based on the mock's data
+	// Return a basic structure that will be filled in
+	return &ipamTypes.Instance{Interfaces: map[string]ipamTypes.InterfaceRevision{}}
 }
