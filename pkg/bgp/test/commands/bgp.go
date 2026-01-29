@@ -22,43 +22,9 @@ const (
 
 func BGPScriptCmds(bgpMgr agent.BGPRouterManager) map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"bgp/peers":          BGPPPeersCmd(bgpMgr),
 		"bgp/routes":         BGPPRoutesCmd(bgpMgr),
 		"bgp/route-policies": BGPPRoutePolicies(bgpMgr),
 	}
-}
-
-func BGPPPeersCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "List BGP peers on Cilium",
-			Flags: func(fs *pflag.FlagSet) {
-				addOutFileFlag(fs)
-			},
-			Detail: []string{
-				"List current state of all BGP peers configured in Cilium BGP Control Plane.",
-			},
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			return func(*script.State) (stdout, stderr string, err error) {
-				tw, buf, f, err := getCmdTabWriter(s)
-				if err != nil {
-					return "", "", err
-				}
-				if f != nil {
-					defer f.Close()
-				}
-
-				peers, err := bgpMgr.GetPeersLegacy(s.Context())
-				if err != nil {
-					return "", "", err
-				}
-				api.PrintBGPPeersTable(tw, peers, false)
-
-				return buf.String(), "", err
-			}, nil
-		},
-	)
 }
 
 func BGPPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
