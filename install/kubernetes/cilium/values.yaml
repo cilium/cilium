@@ -225,7 +225,7 @@ image:
   # @schema
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.19.0-rc.1"
+  tag: "v1.19.0"
   pullPolicy: "IfNotPresent"
   # cilium-digest
   digest: ""
@@ -1601,7 +1601,7 @@ hubble:
       # @schema
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.19.0-rc.1"
+      tag: "v1.19.0"
       # hubble-relay-digest
       digest: ""
       useDigest: false
@@ -3013,7 +3013,7 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.19.0-rc.1"
+    tag: "v1.19.0"
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -3348,7 +3348,7 @@ preflight:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.19.0-rc.1"
+    tag: "v1.19.0"
     # cilium-digest
     digest: ""
     useDigest: false
@@ -3607,7 +3607,7 @@ clustermesh:
       # @schema
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.19.0-rc.1"
+      tag: "v1.19.0"
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false
