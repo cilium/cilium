@@ -3969,9 +3969,9 @@
      - string
      - 0-0 to let the kernel driver decide the range
    * - :spelling:ignore:`underlayProtocol`
-     - IP family for the underlay. Possible values:   - "ipv4"   - "ipv6"
+     - IP family for the underlay. Possible values:   - "ipv4"   - "ipv6"   - "auto"
      - string
-     - ``"ipv4"``
+     - ``"auto"``
    * - :spelling:ignore:`updateStrategy`
      - Cilium agent update strategy
      - object
