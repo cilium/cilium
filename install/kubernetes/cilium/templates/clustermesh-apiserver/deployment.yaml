@@ -507,6 +507,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{/* TODO: remove hostAliases once v1.21 is released as this is now handled via a static dialer to avoid pod restart */}}
       {{- if and .Values.clustermesh.config.enabled .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       hostAliases:
       {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}

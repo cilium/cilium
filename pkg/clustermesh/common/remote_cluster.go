@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
@@ -41,6 +43,22 @@ type RemoteCluster interface {
 	RevokeCache(ctx context.Context)
 }
 
+// ClusterMeshAPIServerHost configures a host alias for clustermesh-apiserver
+// when the user provides IPs instead of DNS names, without using Kubernetes
+// Pods HostAliases which require restarting the Pod on any change.
+type ClusterMeshAPIServerHost struct {
+	Hostname string   `json:"hostname" yaml:"hostname"`
+	IPs      []string `json:"ips" yaml:"ips"`
+}
+
+// CiliumEtcdConfig represents Cilium extensions to the etcd client config.
+// These fields are ignored by etcd but we are conveniently embedding those in
+// the etcd client config so that our config watcher can help retriggering the
+// connection if this change too.
+type CiliumEtcdConfig struct {
+	ClusterMeshApiserverHost *ClusterMeshAPIServerHost `json:"cilium-clustermesh-apiserver-host" yaml:"cilium-clustermesh-apiserver-host"`
+}
+
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
 type remoteCluster struct {
@@ -52,6 +70,9 @@ type remoteCluster struct {
 	// configPath is the path to the etcd configuration to be used to
 	// connect to the etcd cluster of the remote cluster
 	configPath string
+
+	// ciliumCfg contains Cilium-specific extensions parsed from the etcd client config file
+	ciliumCfg CiliumEtcdConfig
 
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
@@ -108,6 +129,26 @@ type remoteCluster struct {
 	metricReadinessStatus       prometheus.Gauge
 	metricTotalFailures         prometheus.Gauge
 	metricTotalCacheRevocations prometheus.Gauge
+}
+
+// ParseCiliumConfig reads Cilium specific fields from the etcd client config.
+func ParseCiliumConfig(path string, cfg *CiliumEtcdConfig) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(b, cfg); err != nil {
+		return fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	if cfg.ClusterMeshApiserverHost != nil &&
+		(cfg.ClusterMeshApiserverHost.Hostname == "" || len(cfg.ClusterMeshApiserverHost.IPs) == 0) {
+		// Sanitize invalid configuration
+		cfg.ClusterMeshApiserverHost = nil
+	}
+
+	return nil
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
@@ -353,7 +394,13 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 
 	// Allow to resolve service names without depending on the DNS. This prevents the need
 	// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-	dialOpts = append(dialOpts, grpc.WithContextDialer(dial.NewContextDialer(rc.logger, rc.resolvers...)))
+	dialer := dial.NewContextDialer(rc.logger, rc.resolvers...)
+
+	if cfg := rc.ciliumCfg.ClusterMeshApiserverHost; cfg != nil {
+		dialer = dial.NewStaticContextDialerWithFallback(rc.logger, cfg.Hostname, cfg.IPs, dialer)
+	}
+
+	dialOpts = append(dialOpts, grpc.WithContextDialer(dialer))
 
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,
