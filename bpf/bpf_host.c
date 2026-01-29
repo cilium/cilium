@@ -1132,9 +1132,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 	case bpf_htons(ETH_P_ARP):
-		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
-		    is_defined(ENABLE_ARP_RESPONDER) ||
-		    CONFIG(enable_l2_announcements)) {
+		if (CONFIG(enable_l2_announcements)) {
 			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
 				ret = DROP_INVALID;
 				goto drop_err_ingress;
@@ -1400,11 +1398,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_to_netdev_ipv6(ctx, src_sec_identity,
@@ -1417,6 +1410,9 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 					    &trace, &ext_err);
 		break;
 	}
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
 # endif
 	default:
 		ret = DROP_UNKNOWN_L3;
@@ -1615,11 +1611,6 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 	int ret;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (use_tailcall) {
@@ -1646,6 +1637,9 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 						       &trace, ext_err);
 		}
 
+		break;
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
 		break;
 # endif
 	default:
@@ -1818,11 +1812,6 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 	struct ipv6hdr *ip6 __maybe_unused;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1843,6 +1832,9 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
 		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, ip4, &trace, ext_err);
+		break;
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
 		break;
 # endif
 	default:

@@ -383,10 +383,6 @@ skip_service_lookup:
 #endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV6 */
 
-#if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
-#error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
-#endif
-
 #ifdef ENABLE_IPV4
 static __always_inline void *
 select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
@@ -1604,7 +1600,6 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	return ret;
 }
 
-#ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
  * Respond to IPV4_GATEWAY with CONFIG(interface_mac)
@@ -1641,7 +1636,6 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 
 /* Attachment/entry point is ingress for veth.
@@ -1692,15 +1686,12 @@ int cil_from_container(struct __ctx_buff *ctx)
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
-#ifdef ENABLE_ARP_PASSTHROUGH
 	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
+		if (CONFIG(enable_arp_responder))
+			ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
+		else
+			ret = CTX_ACT_OK;
 		break;
-#elif defined(ENABLE_ARP_RESPONDER)
-	case bpf_htons(ETH_P_ARP):
-		ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
-		break;
-#endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
@@ -2516,11 +2507,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 
 
 	switch (proto) {
-#if defined(ENABLE_ARP_PASSTHROUGH) || defined(ENABLE_ARP_RESPONDER)
-	case bpf_htons(ETH_P_ARP):
-		ret = CTX_ACT_OK;
-		break;
-#endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		sec_label = SECLABEL_IPV6;
@@ -2533,6 +2519,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 		sec_label = SECLABEL_IPV4;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
+		break;
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
