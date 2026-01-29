@@ -4152,6 +4152,13 @@ clustermesh:
           # @schema
           # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (etcd metrics)
           metricRelabelings: ~
+    globalNamespace:
+      # -- Default behavior of namespaces in Clustermesh.
+      # If set to true, all namespaces are considered global unless
+      # annotated otherwise. If set to false, all namespaces are considered
+      # local unless annotated otherwise.
+      # Defaults to true.
+      default: true
 # -- Configure cgroup related configuration
 cgroup:
   autoMount:

@@ -120,6 +120,7 @@ kind-connect-clustermesh: check_deps kind-clustermesh-ready
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
 ENABLE_KVSTOREMESH ?= true
+CLUSTERMESH_GLOBAL_NAMESPACE_DEFAULT ?= true
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
@@ -130,7 +131,8 @@ kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a 
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
 		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
 		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
-		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH) \
+		--set=clustermesh.globalNamespace.default=$(CLUSTERMESH_GLOBAL_NAMESPACE_DEFAULT)
 
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
@@ -142,7 +144,8 @@ kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a 
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
 		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
 		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
-		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH) \
+		--set=clustermesh.globalNamespace.default=$(CLUSTERMESH_GLOBAL_NAMESPACE_DEFAULT)
 
 	$(MAKE) kind-connect-clustermesh
 
@@ -154,7 +157,8 @@ kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready kind-loa
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
-		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH) \
+		--set=clustermesh.globalNamespace.default=$(CLUSTERMESH_GLOBAL_NAMESPACE_DEFAULT)
 
 	@echo "  INSTALL cilium on clustermesh2 cluster"
 	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
@@ -164,7 +168,8 @@ kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready kind-loa
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
-		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH) \
+		--set=clustermesh.globalNamespace.default=$(CLUSTERMESH_GLOBAL_NAMESPACE_DEFAULT)
 
 	$(MAKE) kind-image-fast
 	$(MAKE) kind-connect-clustermesh

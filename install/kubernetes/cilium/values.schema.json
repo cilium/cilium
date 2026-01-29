@@ -1031,6 +1031,14 @@
               "items": {},
               "type": "array"
             },
+            "globalNamespace": {
+              "properties": {
+                "default": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "healthPort": {
               "type": "integer"
             },

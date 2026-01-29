@@ -652,6 +652,10 @@
      - Additional clustermesh-apiserver volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.globalNamespace.default`
+     - Default behavior of namespaces in Clustermesh. If set to true, all namespaces are considered global unless annotated otherwise. If set to false, all namespaces are considered local unless annotated otherwise. Defaults to true.
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.healthPort`
      - TCP port for the clustermesh-apiserver health API.
      - int
