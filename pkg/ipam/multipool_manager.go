@@ -64,8 +64,8 @@ func (e *ErrPoolNotReadyYet) Is(err error) bool {
 }
 
 type poolPair struct {
-	v4 *podCIDRPool
-	v6 *podCIDRPool
+	v4 *cidrPool
+	v6 *cidrPool
 }
 
 type preAllocatePerPool map[Pool]int
@@ -385,7 +385,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 			continue
 		case <-time.After(5 * time.Second):
 			m.logger.Info(
-				"Waiting for podCIDR pool to become available",
+				"Waiting for cidr pool to become available",
 				logfields.PoolName, poolName,
 				logfields.Family, family,
 				logfields.HelpMessage, "Check if cilium-operator pod is running and does not have any warnings or error messages.",
@@ -535,7 +535,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
-	// Write in-use pools to podCIDR. This removes any released pod CIDRs
+	// Write in-use pools to cidr. This removes any released CIDRs
 	for poolName, pool := range m.pools {
 		neededIPs := neededIPsPerPool[poolName]
 
@@ -548,7 +548,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 				freeNeeded4 := max(neededIPs.IPv4Addrs-v4Pool.inUseIPCount(), 0)
 				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4)
 			}
-			v4CIDRs := v4Pool.inUsePodCIDRs()
+			v4CIDRs := v4Pool.inUseCIDRs()
 
 			slices.Sort(v4CIDRs)
 			cidrs = append(cidrs, v4CIDRs...)
@@ -558,7 +558,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 				freeNeeded6 := max(neededIPs.IPv6Addrs-v6Pool.inUseIPCount(), 0)
 				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6)
 			}
-			v6CIDRs := v6Pool.inUsePodCIDRs()
+			v6CIDRs := v6Pool.inUseCIDRs()
 
 			slices.Sort(v6CIDRs)
 			cidrs = append(cidrs, v6CIDRs...)
@@ -599,34 +599,34 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAMCIDR) {
+func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCIDR) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
 		if m.ipv4Enabled {
-			pool.v4 = newPodCIDRPool(m.logger)
+			pool.v4 = newCIDRPool(m.logger)
 		}
 		if m.ipv6Enabled {
-			pool.v6 = newPodCIDRPool(m.logger)
+			pool.v6 = newCIDRPool(m.logger)
 		}
 	}
 
-	var ipv4PodCIDRs, ipv6PodCIDRs []string
-	for _, ipamPodCIDR := range podCIDRs {
-		podCIDR := string(ipamPodCIDR)
-		switch podCIDRFamily(podCIDR) {
+	var ipv4CIDRs, ipv6CIDRs []string
+	for _, ipamCIDR := range cidrs {
+		cidr := string(ipamCIDR)
+		switch cidrFamily(cidr) {
 		case IPv4:
-			ipv4PodCIDRs = append(ipv4PodCIDRs, podCIDR)
+			ipv4CIDRs = append(ipv4CIDRs, cidr)
 		case IPv6:
-			ipv6PodCIDRs = append(ipv6PodCIDRs, podCIDR)
+			ipv6CIDRs = append(ipv6CIDRs, cidr)
 		}
 	}
 
 	if pool.v4 != nil {
-		pool.v4.updatePool(ipv4PodCIDRs)
+		pool.v4.updatePool(ipv4CIDRs)
 	}
 	if pool.v6 != nil {
-		pool.v6.updatePool(ipv6PodCIDRs)
+		pool.v6.updatePool(ipv6CIDRs)
 	}
 
 	m.pools[poolName] = pool
@@ -643,7 +643,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 
 	allocated = map[Pool]map[string]string{}
 	for poolName, pool := range m.pools {
-		var p *podCIDRPool
+		var p *cidrPool
 		switch family {
 		case IPv4:
 			p = pool.v4
@@ -673,7 +673,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))
 }
 
-func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *podCIDRPool {
+func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cidrPool {
 	switch family {
 	case IPv4:
 		pair, ok := m.pools[poolName]
