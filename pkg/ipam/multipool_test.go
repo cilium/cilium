@@ -118,12 +118,15 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.NoError(t, h.Start(tlog, t.Context()))
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
+	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	assert.NoError(t, err)
+
 	c := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:               hivetest.Logger(t),
 		IPv4Enabled:          fakeConfig.EnableIPv4,
 		IPv6Enabled:          fakeConfig.EnableIPv6,
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
-		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		PreallocMap:          preallocMap,
 		Node:                 fakeK8sCiliumNodeAPI,
 		CNClient:             fakeK8sCiliumNodeAPI,
 		JobGroup:             jg,
@@ -528,12 +531,15 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	assert.NoError(t, h.Start(tlog, t.Context()))
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
+	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	assert.NoError(t, err)
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:               logger,
 		IPv4Enabled:          fakeConfig.EnableIPv4,
 		IPv6Enabled:          fakeConfig.EnableIPv6,
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
-		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		PreallocMap:          preallocMap,
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
@@ -650,12 +656,15 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	assert.NoError(t, h.Start(tlog, t.Context()))
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
+	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	assert.NoError(t, err)
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:               logger,
 		IPv4Enabled:          fakeConfig.EnableIPv4,
 		IPv6Enabled:          fakeConfig.EnableIPv6,
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
-		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		PreallocMap:          preallocMap,
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
@@ -1160,12 +1169,15 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	assert.NoError(t, h.Start(tlog, t.Context()))
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
+	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	assert.NoError(t, err)
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:                    hivetest.Logger(t),
 		IPv4Enabled:               fakeConfig.EnableIPv4,
 		IPv6Enabled:               fakeConfig.EnableIPv6,
 		CiliumNodeUpdateRate:      fakeConfig.IPAMCiliumNodeUpdateRate,
-		PreAllocPools:             fakeConfig.IPAMMultiPoolPreAllocation,
+		PreallocMap:               preallocMap,
 		Node:                      fakeK8sAPI,
 		CNClient:                  fakeK8sAPI,
 		JobGroup:                  jg,
