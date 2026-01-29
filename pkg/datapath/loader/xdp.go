@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,13 +23,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
-
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func init() {
 	xdpConfigs.register(config.XDP)
+	xdpRenames.register(defaultXDPMapRenames)
 }
 
 const (
@@ -39,6 +40,10 @@ const (
 // attaching instances of bpf_xdp.c to externally-facing network devices.
 var xdpConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
 
+// xdpRenames holds functions that yield BPF map renames for
+// attaching instances of bpf_xdp.c to externally-facing network devices.
+var xdpRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // xdpConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [xdpConfigs].
 func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
@@ -46,6 +51,21 @@ func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (
 		configs = append(configs, f(lnc, link))
 	}
 	return configs
+}
+
+// xdpMapRenames returns the merged map of XDP map renames yielded by all registered rename providers.
+func xdpMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range xdpRenames.all() {
+		maps.Copy(renames, f(lnc, link))
+	}
+	return renames
+}
+
+func defaultXDPMapRenames(lnc *datapath.LocalNodeConfiguration, iface netlink.Link) (renames map[string]string) {
+	return map[string]string{
+		"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
+	}
 }
 
 func xdpConfigModeToFlag(xdpMode xdp.Mode) link.XDPAttachFlags {
@@ -175,10 +195,8 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: xdpConfiguration(lnc, iface),
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
-		},
+		Constants:  xdpConfiguration(lnc, iface),
+		MapRenames: xdpMapRenames(lnc, iface),
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},

@@ -6,6 +6,7 @@ package loader
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"path/filepath"
 
@@ -25,8 +26,11 @@ import (
 
 func init() {
 	ciliumHostConfigs.register(config.CiliumHost)
+	ciliumHostRenames.register(defaultCiliumHostMapRenames)
 	ciliumNetConfigs.register(config.CiliumNet)
+	ciliumNetRenames.register(defaultCiliumNetMapRenames)
 	netdevConfigs.register(config.Netdev)
+	netdevRenames.register(defaultNetdevMapRenames)
 }
 
 const (
@@ -60,6 +64,9 @@ func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath
 // cilium_host.
 var ciliumHostConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) any]
 
+// ciliumHostRenames holds functions that yield BPF map renames for cilium_host.
+var ciliumHostRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) map[string]string]
+
 // ciliumHostConfiguration returns a slice of host configuration objects yielded
 // by all registered config providers of [ciliumHostConfigs].
 func ciliumHostConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (configs []any) {
@@ -69,7 +76,16 @@ func ciliumHostConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Lo
 	return configs
 }
 
-func ciliumHostMapRenames(ep datapath.EndpointConfiguration) map[string]string {
+// ciliumHostMapRenames returns the merged map of host map renames yielded by all registered rename providers.
+func ciliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range ciliumHostRenames.all() {
+		maps.Copy(renames, f(ep, lnc))
+	}
+	return renames
+}
+
+func defaultCiliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) map[string]string {
 	return map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -91,7 +107,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumHostConfiguration(ep, lnc),
-		MapRenames:     ciliumHostMapRenames(ep),
+		MapRenames:     ciliumHostMapRenames(ep, lnc),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
 	})
 	if err != nil {
@@ -126,6 +142,9 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 // cilium_net.
 var ciliumNetConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) any]
 
+// ciliumNetRenames holds functions that yield BPF map renames for cilium_net.
+var ciliumNetRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // ciliumNetConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [ciliumNetConfigs].
 func ciliumNetConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
@@ -135,7 +154,16 @@ func ciliumNetConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loc
 	return configs
 }
 
-func ciliumNetMapRenames(ep datapath.EndpointConfiguration, link netlink.Link) map[string]string {
+// ciliumHostMapRenames returns the merged map of cilium_net map renames yielded by all registered rename providers.
+func ciliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range ciliumNetRenames.all() {
+		maps.Copy(renames, f(ep, lnc, link))
+	}
+	return renames
+}
+
+func defaultCiliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
@@ -157,7 +185,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
-		MapRenames:     ciliumNetMapRenames(ep, net),
+		MapRenames:     ciliumNetMapRenames(ep, lnc, net),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
 	})
 	if err != nil {
@@ -182,6 +210,10 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 // attaching instances of bpf_host.c to externally-facing network devices.
 var netdevConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link, netip.Addr, netip.Addr) any]
 
+// netdevRenames holds functions that yield BPF map renames for
+// attaching instances of bpf_host.c to externally-facing network devices.
+var netdevRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+
 // netdevConfiguration returns a slice of host configuration objects yielded
 // by all registered config providers of [netdevConfigs].
 func netdevConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, masq4, masq6 netip.Addr) (configs []any) {
@@ -191,7 +223,16 @@ func netdevConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalN
 	return configs
 }
 
-func netdevMapRenames(ep datapath.EndpointConfiguration, link netlink.Link) map[string]string {
+// netdevMapRenames returns the merged map of netdev map renames yielded by all registered rename providers.
+func netdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range netdevRenames.all() {
+		maps.Copy(renames, f(ep, lnc, link))
+	}
+	return renames
+}
+
+func defaultNetdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
@@ -242,7 +283,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
-			MapRenames:     netdevMapRenames(ep, iface),
+			MapRenames:     netdevMapRenames(ep, lnc, iface),
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
 		})
 		if err != nil {
