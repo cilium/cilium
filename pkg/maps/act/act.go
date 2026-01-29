@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -58,16 +59,18 @@ type ActiveConnectionTrackingMap interface {
 }
 
 type actMap struct {
-	m *bpf.Map
-	f *bpf.Map
+	reg *registry.MapRegistry
+	m   *bpf.Map
+	f   *bpf.Map
 }
 
 func newActiveConnectionTrackingMap(in struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Conf      Config
-	LBConfig  loadbalancer.Config
+	Lifecycle   cell.Lifecycle
+	Conf        Config
+	LBConfig    loadbalancer.Config
+	MapRegistry *registry.MapRegistry
 }) (out struct {
 	cell.Out
 
@@ -75,11 +78,7 @@ func newActiveConnectionTrackingMap(in struct {
 	defines.NodeOut
 }, err error) {
 	if !in.Conf.EnableActiveConnectionTracking {
-		// Even when disabled, provide the node defines so that we can compile.
-		out.NodeDefines = map[string]string{
-			"CILIUM_LB_ACT_MAP_MAX_ENTRIES": "1",
-		}
-		return
+		return out, nil
 	}
 
 	svcSize := in.LBConfig.LBServiceMapEntries
@@ -91,42 +90,54 @@ func newActiveConnectionTrackingMap(in struct {
 
 	out.NodeDefines = map[string]string{
 		"ENABLE_ACTIVE_CONNECTION_TRACKING": "1",
-		"CILIUM_LB_ACT_MAP_MAX_ENTRIES":     strconv.Itoa(size),
 	}
 
-	out.MapOut = bpf.NewMapOut(ActiveConnectionTrackingMap(createActiveConnectionTrackingMap(in.Lifecycle, size)))
-	return
+	if err := in.MapRegistry.Modify(ActiveConnectionTrackingMapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(size)
+	}); err != nil {
+		return out, err
+	}
+
+	if err := in.MapRegistry.Modify(FailedConnectionTrackingMapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(size)
+	}); err != nil {
+		return out, err
+	}
+
+	m := &actMap{
+		reg: in.MapRegistry,
+	}
+	in.Lifecycle.Append(m)
+	out.MapOut = bpf.NewMapOut[ActiveConnectionTrackingMap](m)
+
+	return out, nil
 }
 
-func createActiveConnectionTrackingMap(lc cell.Lifecycle, size int) *actMap {
-	m := bpf.NewMap(ActiveConnectionTrackingMapName,
-		ebpf.LRUHash,
-		&ActiveConnectionTrackerKey{},
-		&ActiveConnectionTrackerValue{},
-		size,
-		0,
-	)
-	f := bpf.NewMap(FailedConnectionTrackingMapName,
-		ebpf.LRUHash,
-		&ActiveConnectionTrackerKey{},
-		&FailedConnectionTrackerValue{},
-		size,
-		0,
-	)
+func (m actMap) Start(context cell.HookContext) error {
+	actSpec, err := m.reg.Get(ActiveConnectionTrackingMapName)
+	if err != nil {
+		return fmt.Errorf("get MapSpec: %w", err)
+	}
+	m.m = bpf.NewMapFromSpec(actSpec, &ActiveConnectionTrackerKey{}, &ActiveConnectionTrackerValue{})
 
-	lc.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error {
-			return errors.Join(m.OpenOrCreate(), f.OpenOrCreate())
-		},
-		OnStop: func(context cell.HookContext) error {
-			return errors.Join(m.Close(), f.Close())
-		},
-	})
+	fctSpec, err := m.reg.Get(FailedConnectionTrackingMapName)
+	if err != nil {
+		return fmt.Errorf("get MapSpec: %w", err)
+	}
+	m.f = bpf.NewMapFromSpec(fctSpec, &ActiveConnectionTrackerKey{}, &FailedConnectionTrackerValue{})
 
-	return &actMap{m, f}
+	return errors.Join(m.m.OpenOrCreate(), m.f.OpenOrCreate())
+}
+
+func (m actMap) Stop(context cell.HookContext) error {
+	return errors.Join(m.m.Close(), m.f.Close())
 }
 
 func (m actMap) IterateWithCallback(ctx context.Context, cb ActiveConnectionTrackingIterateCallback) error {
+	if m.m == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		select {
 		case <-ctx.Done():
@@ -141,17 +152,29 @@ func (m actMap) IterateWithCallback(ctx context.Context, cb ActiveConnectionTrac
 }
 
 func (m actMap) Delete(key *ActiveConnectionTrackerKey) error {
+	if m.m == nil || m.f == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	_, err1 := m.m.SilentDelete(key)
 	_, err2 := m.f.SilentDelete(key)
 	return errors.Join(err1, err2)
 }
 
 func (m actMap) SaveFailed(key *ActiveConnectionTrackerKey, count uint64) error {
+	if m.f == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	// We store overflow so that it matches overflown opened/closed counts.
 	return m.f.Update(key, &FailedConnectionTrackerValue{uint32(count)})
 }
 
 func (m actMap) RestoreFailed(key *ActiveConnectionTrackerKey) (uint64, error) {
+	if m.f == nil {
+		return 0, fmt.Errorf("map not started")
+	}
+
 	val, err := m.f.Lookup(key)
 	if errors.Is(err, ebpf.ErrKeyNotExist) {
 		// Ignore not found.

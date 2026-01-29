@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -41,7 +42,8 @@ func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Lin
 	return configs
 }
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
+	lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
 	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -53,7 +55,8 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: overlayConfiguration(lnc, link),
+		MapRegistry: reg,
+		Constants:   overlayConfiguration(lnc, link),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		},
