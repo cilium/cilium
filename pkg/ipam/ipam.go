@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -84,6 +85,8 @@ type NewIPAMParams struct {
 	Sysctl         sysctl.Sysctl
 	IPMasqAgent    *ipmasq.IPMasqAgent
 
+	JobGroup job.Group
+
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
@@ -107,6 +110,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		metadata:                  params.Metadata,
 		sysctl:                    params.Sysctl,
 		ipMasqAgent:               params.IPMasqAgent,
+		jg:                        params.JobGroup,
 		db:                        params.DB,
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
@@ -135,23 +139,26 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(MultiPoolManagerParams{
+		v4Allocator, v6Allocator := newMultiPoolAllocators(MultiPoolAllocatorParams{
 			Logger:                    ipam.logger,
-			Conf:                      ipam.config,
+			IPv4Enabled:               ipam.config.IPv4Enabled(),
+			IPv6Enabled:               ipam.config.IPv6Enabled(),
+			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
+			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
-			Owner:                     ipam.nodeDiscovery,
 			LocalNodeStore:            ipam.localNodeStore,
-			Clientset:                 ipam.clientset.CiliumV2().CiliumNodes(),
+			CNClient:                  ipam.clientset.CiliumV2().CiliumNodes(),
+			JobGroup:                  ipam.jg,
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
 		})
 
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = manager.Allocator(IPv6)
+			ipam.ipv6Allocator = v6Allocator
 		}
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = manager.Allocator(IPv4)
+			ipam.ipv4Allocator = v4Allocator
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")

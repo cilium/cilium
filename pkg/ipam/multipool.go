@@ -14,30 +14,23 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cilium/statedb"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 const (
-	multiPoolControllerName = "ipam-sync-multi-pool"
-	multiPoolTriggerName    = "ipam-sync-multi-pool-trigger"
-
 	waitForPoolTimeout = 3 * time.Minute
 
 	// pendingAllocationTTL is how long we wait for pending allocation to
@@ -67,11 +60,9 @@ func (e *ErrPoolNotReadyYet) Is(err error) bool {
 	return ok
 }
 
-var multiPoolControllerGroup = controller.NewGroup(multiPoolControllerName)
-
 type poolPair struct {
-	v4 *podCIDRPool
-	v6 *podCIDRPool
+	v4 *cidrPool
+	v6 *cidrPool
 }
 
 type preAllocatePerPool map[Pool]int
@@ -226,27 +217,43 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 	return len(p[family])
 }
 
-type nodeUpdater interface {
-	Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-	UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-}
+// SkipMasqueradeForPoolFn is the type of a function that, given a pool
+// returns true if the addresses of that pool should be excluded from
+// masquerading, false otherwise.
+// In case the pool is not found a non-nil error is returned.
+type SkipMasqueradeForPoolFn func(Pool) (bool, error)
+
+// FIXME: use the same type in the operator
+//
+// PoolsFromResourceFunc is the type of a function that returns the pool
+// specification in the CiliumNode that should be used by the multi pool
+// manager instance.
+// For multi pool pod IPAM this means referencing the .Spec.IPAM.Pools field
+// in the CiliumNode.
+type PoolsFromResourceFunc func(*ciliumv2.CiliumNode) *types.IPAMPoolSpec
 
 type MultiPoolManagerParams struct {
-	Logger                    *slog.Logger
-	Conf                      *option.DaemonConfig
-	Node                      agentK8s.LocalCiliumNodeResource
-	Owner                     Owner
-	LocalNodeStore            *node.LocalNodeStore
-	Clientset                 nodeUpdater
-	DB                        *statedb.DB
-	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
-	OnlyMasqueradeDefaultPool bool
+	Logger *slog.Logger
+
+	IPv4Enabled          bool
+	IPv6Enabled          bool
+	CiliumNodeUpdateRate time.Duration
+	PreAllocPools        map[string]string
+
+	Node     agentK8s.LocalCiliumNodeResource
+	CNClient cilium_v2.CiliumNodeInterface
+	JobGroup job.Group
+
+	PoolsFromResource PoolsFromResourceFunc
+
+	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
 type multiPoolManager struct {
 	mutex *lock.Mutex
-	conf  *option.DaemonConfig
-	owner Owner
+
+	ipv4Enabled bool
+	ipv6Enabled bool
 
 	preallocatedIPsPerPool preAllocatePerPool
 	pendingIPsPerPool      *pendingAllocationsPerPool
@@ -256,104 +263,84 @@ type multiPoolManager struct {
 
 	node *ciliumv2.CiliumNode
 
-	controller     *controller.Manager
-	k8sUpdater     *trigger.Trigger
-	localNodeStore *node.LocalNodeStore
-	nodeUpdater    nodeUpdater
+	jobGroup   job.Group
+	k8sUpdater job.Trigger
+	cnClient   cilium_v2.CiliumNodeInterface
 
-	localNodeSynced   chan struct{}
-	localNodeSyncedFn func()
+	localNodeUpdate   chan struct{}
+	localNodeUpdateFn func()
 
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
 
-	db                        *statedb.DB
-	podIPPools                statedb.Table[podippool.LocalPodIPPool]
-	onlyMasqueradeDefaultPool bool
+	poolsFromResource     PoolsFromResourceFunc
+	skipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
-var _ Allocator = (*multiPoolAllocator)(nil)
-
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
-	preallocMap, err := parseMultiPoolPreAllocMap(p.Conf.IPAMMultiPoolPreAllocation)
+	preallocMap, err := parseMultiPoolPreAllocMap(p.PreAllocPools)
 	if err != nil {
 		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
 	}
 
-	k8sController := controller.NewManager()
-	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: p.Conf.IPAMCiliumNodeUpdateRate,
-		TriggerFunc: func(reasons []string) {
-			k8sController.TriggerController(multiPoolControllerName)
-		},
-		Name: multiPoolTriggerName,
-	})
-	if err != nil {
-		logging.Fatal(p.Logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
-	}
-
-	localNodeSynced := make(chan struct{})
-	c := &multiPoolManager{
+	localNodeUpdated := make(chan struct{})
+	mgr := &multiPoolManager{
 		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
-		owner:                  p.Owner,
-		conf:                   p.Conf,
+		ipv4Enabled:            p.IPv4Enabled,
+		ipv6Enabled:            p.IPv6Enabled,
 		preallocatedIPsPerPool: preallocMap,
 		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
 		node:                   nil,
-		controller:             k8sController,
-		k8sUpdater:             k8sUpdater,
-		localNodeStore:         p.LocalNodeStore,
-		nodeUpdater:            p.Clientset,
+		jobGroup:               p.JobGroup,
+		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.CiliumNodeUpdateRate)),
+		cnClient:               p.CNClient,
 		finishedRestore:        map[Family]bool{},
-		localNodeSynced:        localNodeSynced,
-		localNodeSyncedFn: sync.OnceFunc(func() {
-			close(localNodeSynced)
+		localNodeUpdate:        localNodeUpdated,
+		localNodeUpdateFn: sync.OnceFunc(func() {
+			close(localNodeUpdated)
 		}),
-		db:                        p.DB,
-		podIPPools:                p.PodIPPools,
-		onlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
+		poolsFromResource: p.PoolsFromResource,
+		skipMasqueradeForPool: func(Pool) (bool, error) {
+			return false, nil
+		},
+	}
+	if p.SkipMasqueradeForPool != nil {
+		mgr.skipMasqueradeForPool = p.SkipMasqueradeForPool
 	}
 
-	// We don't have a context to use here (as a lot of IPAM doesn't really
-	// carry contexts). Before being refactored to using a resource, the event
-	// handling callbacks were called via the (now removed) CiliumNodeChain,
-	// which was in turn invoked by an informer. While we'd ideally stop this
-	// resource and it's processing if IPAM and other subsytems are being
-	// stopped, there appears to be no such signal available here. Also, don't
-	// retry events - the downstream code isn't setup to handle retries.
-	evs := p.Node.Events(context.TODO(), resource.WithErrorHandler(resource.RetryUpTo(0)))
-	go c.ciliumNodeEventLoop(evs)
-	p.Owner.UpdateCiliumNodeResource()
+	mgr.jobGroup.Add(
+		job.OneShot(
+			"multi-pool-cilium-node-events-handler",
+			func(ctx context.Context, health cell.Health) error {
+				for ev := range p.Node.Events(ctx) {
+					switch ev.Kind {
+					case resource.Upsert:
+						mgr.ciliumNodeUpdated(ev.Object)
+					case resource.Delete:
+						mgr.logger.Debug(
+							"Local CiliumNode deleted. IPAM will continue on last seen version",
+							logfields.Node, ev.Object,
+						)
+					}
+					ev.Done(nil)
+				}
+				return nil
+			},
+		),
+		job.Timer(
+			"multi-pool-cilium-node-updater",
+			mgr.updateLocalNode,
+			refreshPoolInterval,
+			job.WithTrigger(mgr.k8sUpdater),
+		),
+	)
 
-	c.waitForAllPools()
+	mgr.waitForAllPools()
 
-	// wait for local node to be synced to avoid propagating spurious updates.
-	for {
-		select {
-		case <-c.localNodeSynced:
-			return c
-		case <-time.After(5 * time.Second):
-			p.Logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
-		}
-	}
-}
-
-func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*ciliumv2.CiliumNode]) {
-	for ev := range evs {
-		switch ev.Kind {
-		case resource.Upsert:
-			m.ciliumNodeUpdated(ev.Object)
-		case resource.Delete:
-			m.logger.Debug(
-				"Local CiliumNode deleted. IPAM will continue on last seen version",
-				logfields.Node, ev.Object,
-			)
-		}
-		ev.Done(nil)
-	}
+	return mgr
 }
 
 // waitForAllPools waits for all pools in preallocatedIPsPerPool to have IPs available.
@@ -366,10 +353,10 @@ func (m *multiPoolManager) waitForAllPools() {
 		allPoolsReady = true
 		for pool := range m.preallocatedIPsPerPool {
 			ctx, cancel := context.WithTimeout(context.Background(), waitForPoolTimeout)
-			if m.conf.IPv4Enabled() {
+			if m.ipv4Enabled {
 				allPoolsReady = m.waitForPool(ctx, IPv4, pool) && allPoolsReady
 			}
-			if m.conf.IPv6Enabled() {
+			if m.ipv6Enabled {
 				allPoolsReady = m.waitForPool(ctx, IPv6, pool) && allPoolsReady
 			}
 			cancel()
@@ -397,10 +384,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 		}
 		m.mutex.Unlock()
 
-		// ensure the pool is present in stateDB for checking annotations at allocation time
-		txn := m.db.ReadTxn()
-		_, _, dbWatch, found := m.podIPPools.GetWatch(txn, podippool.ByName(string(poolName)))
-		if poolReady && found {
+		if poolReady {
 			return true
 		}
 
@@ -409,11 +393,9 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 			return false
 		case <-m.poolsUpdated:
 			continue
-		case <-dbWatch:
-			continue
 		case <-time.After(5 * time.Second):
 			m.logger.Info(
-				"Waiting for podCIDR pool to become available",
+				"Waiting for cidr pool to become available",
 				logfields.PoolName, poolName,
 				logfields.Family, family,
 				logfields.HelpMessage, "Check if cilium-operator pod is running and does not have any warnings or error messages.",
@@ -423,30 +405,25 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 }
 
 func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
-	// Once allocations are processed update the local node state with the allocated
-	// CIDRs.
-	defer m.updateLocalNodeStore(newNode)
-
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// m.node will only be nil the first time this callback is invoked
-	if m.node == nil {
-		// This enables the upstream sync controller. It requires m.node to be populated.
-		// Note: The controller will only run after m.mutex is unlocked
-		m.controller.UpdateController(multiPoolControllerName,
-			controller.ControllerParams{
-				Group:       multiPoolControllerGroup,
-				DoFunc:      m.updateLocalNode,
-				RunInterval: refreshPoolInterval,
-			})
-	}
-
-	for _, pool := range newNode.Spec.IPAM.Pools.Allocated {
+	pools := m.poolsFromResource(newNode)
+	for _, pool := range pools.Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
 	}
 
+	// m.node will only be nil the first time this callback is invoked
+	// Note: The job will only run after m.mutex is unlocked
+	if m.node == nil {
+		m.k8sUpdater.Trigger()
+	}
+
 	m.node = newNode
+}
+
+func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
+	return m.localNodeUpdate
 }
 
 // neededIPCeil rounds up numIPs to the next but one multiple of preAlloc.
@@ -517,11 +494,11 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	// + preAllocIPs
 	for poolName, preAlloc := range m.preallocatedIPsPerPool {
 		ipv4Addrs := demand[poolName].IPv4Addrs
-		if m.conf.IPv4Enabled() {
+		if m.ipv4Enabled {
 			ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
 		}
 		ipv6Addrs := demand[poolName].IPv6Addrs
-		if m.conf.IPv6Enabled() {
+		if m.ipv6Enabled {
 			ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
 		}
 
@@ -544,22 +521,14 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 	return m.finishedRestore[family]
 }
 
-func (m *multiPoolManager) updateLocalNodeStore(newNode *ciliumv2.CiliumNode) {
-	no := nodeTypes.ParseCiliumNode(newNode)
-	m.localNodeStore.Update(func(n *node.LocalNode) {
-		if option.Config.EnableIPv4 && no.IPv4AllocCIDR != nil {
-			n.IPv4AllocCIDR = no.IPv4AllocCIDR
-			n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
-		}
-		if option.Config.EnableIPv6 && no.IPv6AllocCIDR != nil {
-			n.IPv6AllocCIDR = no.IPv6AllocCIDR
-			n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
-		}
-	})
-}
-
 func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.mutex.Lock()
+
+	if m.node == nil {
+		m.mutex.Unlock()
+		return nil
+	}
+
 	newNode := m.node.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
@@ -590,7 +559,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 				freeNeeded4 := max(neededIPs.IPv4Addrs-v4Pool.inUseIPCount(), 0)
 				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4)
 			}
-			v4CIDRs := v4Pool.inUsePodCIDRs()
+			v4CIDRs := v4Pool.inUseCIDRs()
 
 			slices.Sort(v4CIDRs)
 			cidrs = append(cidrs, v4CIDRs...)
@@ -600,7 +569,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 				freeNeeded6 := max(neededIPs.IPv6Addrs-v6Pool.inUseIPCount(), 0)
 				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6)
 			}
-			v6CIDRs := v6Pool.inUsePodCIDRs()
+			v6CIDRs := v6Pool.inUseCIDRs()
 
 			slices.Sort(v6CIDRs)
 			cidrs = append(cidrs, v6CIDRs...)
@@ -618,25 +587,29 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
+	newPools := m.poolsFromResource(newNode)
+
 	sort.Slice(requested, func(i, j int) bool {
 		return requested[i].Pool < requested[j].Pool
 	})
 	sort.Slice(allocated, func(i, j int) bool {
 		return allocated[i].Pool < allocated[j].Pool
 	})
-	newNode.Spec.IPAM.Pools.Requested = requested
-	newNode.Spec.IPAM.Pools.Allocated = allocated
+	newPools.Requested = requested
+	newPools.Allocated = allocated
 
 	m.mutex.Unlock()
 
-	if !newNode.Spec.IPAM.DeepEqual(&m.node.Spec.IPAM) {
-		_, err := m.nodeUpdater.Update(ctx, newNode, metav1.UpdateOptions{})
+	pools := m.poolsFromResource(m.node)
+
+	if !newPools.DeepEqual(pools) {
+		_, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
 	}
 
-	m.localNodeSyncedFn()
+	m.localNodeUpdateFn()
 
 	return nil
 }
@@ -645,18 +618,18 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAM
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
-		if m.conf.IPv4Enabled() {
-			pool.v4 = newPodCIDRPool(m.logger)
+		if m.ipv4Enabled {
+			pool.v4 = newCIDRPool(m.logger)
 		}
-		if m.conf.IPv6Enabled() {
-			pool.v6 = newPodCIDRPool(m.logger)
+		if m.ipv6Enabled {
+			pool.v6 = newCIDRPool(m.logger)
 		}
 	}
 
 	var ipv4PodCIDRs, ipv6PodCIDRs []string
 	for _, ipamPodCIDR := range podCIDRs {
 		podCIDR := string(ipamPodCIDR)
-		switch podCIDRFamily(podCIDR) {
+		switch cidrFamily(podCIDR) {
 		case IPv4:
 			ipv4PodCIDRs = append(ipv4PodCIDRs, podCIDR)
 		case IPv6:
@@ -679,13 +652,14 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAM
 	}
 }
 
+// FIXME: not needed by resource IPAM but might be nice to have. Can be done later.
 func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	allocated = map[Pool]map[string]string{}
 	for poolName, pool := range m.pools {
-		var p *podCIDRPool
+		var p *cidrPool
 		switch family {
 		case IPv4:
 			p = pool.v4
@@ -715,7 +689,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))
 }
 
-func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *podCIDRPool {
+func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cidrPool {
 	switch family {
 	case IPv4:
 		pair, ok := m.pools[poolName]
@@ -738,7 +712,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 
 	defer func() {
 		if syncUpstream {
-			m.k8sUpdater.TriggerWithReason("allocation of next IP")
+			m.k8sUpdater.Trigger()
 		}
 	}()
 
@@ -747,21 +721,11 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family}
 	}
-	skipMasq := false
-	// If the flag is set, skip masquerade for all non-default pools
-	if m.onlyMasqueradeDefaultPool && poolName != PoolDefault() {
-		skipMasq = true
-	} else {
-		// Lookup the IP pool from stateDB and check if it has the explicit annotations
-		txn := m.db.ReadTxn()
-		podIPPool, _, found := m.podIPPools.Get(txn, podippool.ByName(string(poolName)))
-		if !found {
-			m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-			return nil, fmt.Errorf("IP pool '%s' not found in stateDB table", string(poolName))
-		}
-		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
-			skipMasq = true
-		}
+
+	skipMasq, err := m.skipMasqueradeForPool(poolName)
+	if err != nil {
+		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
+		return nil, err
 	}
 
 	ip, err := pool.allocateNext()
@@ -780,7 +744,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 
 	defer func() {
 		if syncUpstream {
-			m.k8sUpdater.TriggerWithReason("allocation of specific IP")
+			m.k8sUpdater.Trigger()
 		}
 	}()
 
@@ -811,65 +775,7 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 
 	pool.release(ip)
 	if upstreamSync {
-		m.k8sUpdater.TriggerWithReason("release of IP")
+		m.k8sUpdater.Trigger()
 	}
 	return nil
-}
-
-func (m *multiPoolManager) Allocator(family Family) Allocator {
-	return &multiPoolAllocator{
-		manager: m,
-		family:  family,
-	}
-}
-
-type multiPoolAllocator struct {
-	manager *multiPoolManager
-	family  Family
-}
-
-func (c *multiPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, false)
-}
-
-func (c *multiPoolAllocator) Release(ip net.IP, pool Pool) error {
-	return c.manager.releaseIP(ip, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateNext(owner, pool, c.family, true)
-}
-
-func (c *multiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateNext(owner, pool, c.family, false)
-}
-
-func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
-	return c.manager.dump(c.family)
-}
-
-func (c *multiPoolAllocator) Capacity() uint64 {
-	var capacity uint64
-	for _, pool := range c.manager.pools {
-		var p *podCIDRPool
-		switch c.family {
-		case IPv4:
-			p = pool.v4
-		case IPv6:
-			p = pool.v6
-		}
-		if p == nil {
-			continue
-		}
-		capacity += uint64(p.capacity())
-	}
-	return uint64(capacity)
-}
-
-func (c *multiPoolAllocator) RestoreFinished() {
-	c.manager.restoreFinished(c.family)
 }

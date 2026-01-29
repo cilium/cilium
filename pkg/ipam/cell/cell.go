@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
@@ -83,6 +84,7 @@ type ipamParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	IPMasqAgent         *ipmasq.IPMasqAgent
 
+	JobGroup   job.Group
 	DB         *statedb.DB
 	PodIPPools statedb.Table[podippool.LocalPodIPPool]
 }
@@ -105,6 +107,7 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 		Sysctl:                    params.Sysctl,
 		IPMasqAgent:               params.IPMasqAgent,
 		DB:                        params.DB,
+		JobGroup:                  params.JobGroup,
 		PodIPPools:                params.PodIPPools,
 		OnlyMasqueradeDefaultPool: c.OnlyMasqueradeDefaultPool,
 	})

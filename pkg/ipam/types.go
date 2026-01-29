@@ -9,6 +9,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -130,6 +131,8 @@ type IPAM struct {
 	nodeDiscovery  Owner
 	sysctl         sysctl.Sysctl
 	ipMasqAgent    *ipmasq.IPMasqAgent
+
+	jg job.Group
 
 	db         *statedb.DB
 	podIPPools statedb.Table[podippool.LocalPodIPPool]
