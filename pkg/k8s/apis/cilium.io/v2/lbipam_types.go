@@ -21,7 +21,7 @@ import (
 // +kubebuilder:storageversion
 
 // CiliumLoadBalancerIPPool is a Kubernetes third-party resource which
-// is used to defined pools of IPs which the operator can use to to allocate
+// is used to defined pools of IPs which the operator can use to allocate
 // and advertise IPs for Services of type LoadBalancer.
 type CiliumLoadBalancerIPPool struct {
 	// +deepequal-gen=false

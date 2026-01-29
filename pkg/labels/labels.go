@@ -77,7 +77,7 @@ const (
 	// IDNameUnmanaged is the label used to identify unmanaged endpoints
 	IDNameUnmanaged = "unmanaged"
 
-	// IDNameUnknown is the label used to to identify an endpoint with an
+	// IDNameUnknown is the label used to identify an endpoint with an
 	// unknown identity.
 	IDNameUnknown = "unknown"
 )
@@ -180,7 +180,7 @@ type Label struct {
 	cidr *netip.Prefix `json:"-"`
 }
 
-// GetCIDRPrefix returns the cidr of of the Label, or nil if none.
+// GetCIDRPrefix returns the cidr of the Label, or nil if none.
 func (l *Label) GetCIDRPrefix() *netip.Prefix {
 	return l.cidr
 }

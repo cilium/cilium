@@ -2162,7 +2162,7 @@ func (c *DaemonConfig) validateContainerIPLocalReservedPorts() error {
 		return nil
 	}
 
-	return fmt.Errorf("Invalid comma separated list of of ranges for %s option", ContainerIPLocalReservedPorts)
+	return fmt.Errorf("Invalid comma separated list of ranges for %s option", ContainerIPLocalReservedPorts)
 }
 
 // Validate validates the daemon configuration
