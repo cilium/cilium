@@ -224,6 +224,11 @@ func TestClient_Upsert(t *testing.T) {
 			c := &Client{
 				cfg:   cfg,
 				entry: tt.fields.entry,
+				entryCfg: SpireEntryConfig{
+					ParentID:      defaultParentID,
+					PathFunc:      toPath,
+					SelectorsFunc: func(id string) []*types.Selector { return defaultSelectors },
+				},
 			}
 			if err := c.Upsert(t.Context(), tt.args.id); (err != nil) != tt.wantErr {
 				t.Errorf("Upsert() error = %v, wantErr %v", err, tt.wantErr)
@@ -405,6 +410,11 @@ func TestClient_Delete(t *testing.T) {
 			c := &Client{
 				cfg:   cfg,
 				entry: tt.fields.entry,
+				entryCfg: SpireEntryConfig{
+					ParentID:      defaultParentID,
+					PathFunc:      toPath,
+					SelectorsFunc: func(id string) []*types.Selector { return defaultSelectors },
+				},
 			}
 			if err := c.Delete(t.Context(), tt.args.id); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)

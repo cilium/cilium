@@ -4,42 +4,53 @@
 package xds
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
 var Cell = cell.Module(
 	"ztunnel-xds",
-	"ztunnel certificate authority and control plane",
-	cell.Invoke(NewServer),
+	"ztunnel xDS control plane server",
+	cell.Provide(NewServer),
+	cell.Provide(func(x *Server) chan *EndpointEvent {
+		return x.endpointEventChan
+	}),
+	metrics.Metric(NewMetrics),
 )
 
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle  cell.Lifecycle
-	Logger     *slog.Logger
-	EPManager  endpointmanager.EndpointManager
-	K8sWatcher *watchers.K8sWatcher
-	Config     config.Config
+	Lifecycle              cell.Lifecycle
+	DB                     *statedb.DB
+	Logger                 *slog.Logger
+	K8sWatcher             *watchers.K8sWatcher
+	Config                 config.Config
+	EnrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
+	Metrics                *Metrics
 }
 
-func NewServer(params xdsServerParams) (*Server, error) {
+func NewServer(params xdsServerParams) *Server {
 	if !params.Config.EnableZTunnel {
-		return nil, nil
+		return nil
 	}
 
-	server, err := newServer(params.Logger, params.EPManager, params.K8sWatcher.GetK8sCiliumEndpointsWatcher())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ztunnel gRPC server: %w", err)
-	}
+	server := newServer(
+		params.Logger,
+		params.DB,
+		params.K8sWatcher.GetK8sCiliumEndpointsWatcher(),
+		params.EnrolledNamespaceTable,
+		params.Config.XDSUnixAddr,
+		params.Metrics,
+	)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
@@ -54,5 +65,5 @@ func NewServer(params xdsServerParams) (*Server, error) {
 		},
 	})
 
-	return server, nil
+	return server
 }

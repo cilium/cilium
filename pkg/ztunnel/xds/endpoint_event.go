@@ -123,7 +123,7 @@ func (e *EndpointEvent) ToXDSAddress() (*pb.Address, error) {
 
 	ipAddresses := make([][]byte, 0)
 
-	//TODO(hemanthmalla): Add proper validation for Addressing
+	// TODO(hemanthmalla): Add proper validation for Addressing
 
 	for _, addr := range e.Networking.Addressing {
 		if addr.IPV4 != "" {

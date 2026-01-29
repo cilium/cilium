@@ -323,6 +323,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		multicast{},
 		strictModeEncryption{},
 		ipsecKeyDerivation{},
+		ztunnel{},
 	}
 	return injectTests(tests, connTests...)
 }

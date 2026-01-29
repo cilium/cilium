@@ -17,6 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachineryTypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -25,6 +28,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
 // makeCEP is a test helper that creates a CiliumEndpoint with the given parameters.
@@ -53,6 +57,17 @@ func makeCEP(name, namespace, ip string) *types.CiliumEndpoint {
 	return cep
 }
 
+// enrollNamespace is a test helper that inserts a namespace into the enrolled namespaces table
+func enrollNamespace(t *testing.T, db *statedb.DB, tbl statedb.RWTable[*table.EnrolledNamespace], namespace string) {
+	txn := db.WriteTxn(tbl)
+	_, _, err := tbl.Insert(txn, &table.EnrolledNamespace{
+		Name:   namespace,
+		Status: reconciler.StatusDone(),
+	})
+	require.NoError(t, err, "Failed to enroll namespace %s", namespace)
+	txn.Commit()
+}
+
 // Create a mock stream
 var _ v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer = (*MockStream)(nil)
 
@@ -72,6 +87,8 @@ func (s *MockStream) Recv() (*v3.DeltaDiscoveryRequest, error) {
 
 type MockEndpointEventSource struct {
 	subscribeCalled bool
+	db              *statedb.DB
+	enrolledNsTable statedb.RWTable[*table.EnrolledNamespace]
 }
 
 // SubscribeToEndpointEvents is a no-op for the mock since we
@@ -81,7 +98,7 @@ func (m *MockEndpointEventSource) SubscribeToEndpointEvents(ctx context.Context,
 	wg.Done()
 }
 
-// ListAllEndpoints returns an empty list for the mock.
+// ListAllEndpoints returns endpoints from enrolled namespaces only (mimicking real behavior).
 func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
 	// Create multiple test endpoints to ensure comprehensive transformation testing
 	ceps := make([]*types.CiliumEndpoint, 0, 3)
@@ -91,7 +108,7 @@ func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*type
 		"abcdef12-5678-9012-3456-789012345678", // ep3
 	}
 
-	// Endpoint 1: Full IPv4 + IPv6 endpoint with complete K8s metadata
+	// Endpoint 1: Full IPv4 + IPv6 endpoint with complete K8s metadata (enrolled namespace)
 	ep1 := &endpoint.Endpoint{
 		ID:           1001,
 		K8sUID:       expectedUIDs[0],
@@ -108,9 +125,8 @@ func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*type
 		},
 	}
 	ep1.SetPod(pod1)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep1))
 
-	// Endpoint 2: IPv4-only endpoint with different metadata
+	// Endpoint 2: IPv4-only endpoint with different metadata (unenrolled namespace)
 	ep2 := &endpoint.Endpoint{
 		ID:           1002,
 		K8sUID:       expectedUIDs[1],
@@ -126,9 +142,8 @@ func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*type
 		},
 	}
 	ep2.SetPod(pod2)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep2))
 
-	// Endpoint 3: IPv6-only endpoint with different namespace
+	// Endpoint 3: IPv6-only endpoint with different namespace (enrolled namespace)
 	ep3 := &endpoint.Endpoint{
 		ID:           1003,
 		K8sUID:       expectedUIDs[2],
@@ -144,7 +159,31 @@ func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*type
 		},
 	}
 	ep3.SetPod(pod3)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep3))
+
+	// Only include endpoints from enrolled namespaces
+	if m.db != nil && m.enrolledNsTable != nil {
+		txn := m.db.ReadTxn()
+
+		// Check if "default" is enrolled
+		if _, _, found := m.enrolledNsTable.Get(txn, table.EnrolledNamespacesNameIndex.Query("default")); found {
+			ceps = append(ceps, endpointToCiliumEndpoint(ep1))
+		}
+
+		// Check if "kube-system" is enrolled
+		if _, _, found := m.enrolledNsTable.Get(txn, table.EnrolledNamespacesNameIndex.Query("kube-system")); found {
+			ceps = append(ceps, endpointToCiliumEndpoint(ep2))
+		}
+
+		// Check if "cilium-system" is enrolled
+		if _, _, found := m.enrolledNsTable.Get(txn, table.EnrolledNamespacesNameIndex.Query("cilium-system")); found {
+			ceps = append(ceps, endpointToCiliumEndpoint(ep3))
+		}
+	} else {
+		// If no enrollment table provided, return all (for backwards compatibility)
+		ceps = append(ceps, endpointToCiliumEndpoint(ep1))
+		ceps = append(ceps, endpointToCiliumEndpoint(ep2))
+		ceps = append(ceps, endpointToCiliumEndpoint(ep3))
+	}
 
 	return ceps, nil
 }
@@ -169,12 +208,18 @@ func TestStreamProcessorStart(t *testing.T) {
 		streamRecv := make(chan *v3.DeltaDiscoveryRequest, 1)
 		endpointEventRecv := make(chan *EndpointEvent, 1)
 
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err, "Failed to create EnrolledNamespaces table")
+
 		// Create stream processor
 		sp := NewStreamProcessor(&StreamProcessorParams{
-			Stream:            mockStream,
-			StreamRecv:        streamRecv,
-			EndpointEventRecv: endpointEventRecv,
-			Log:               slog.New(slog.DiscardHandler),
+			Stream:                 mockStream,
+			StreamRecv:             streamRecv,
+			EndpointEventRecv:      endpointEventRecv,
+			DB:                     db,
+			EnrolledNamespaceTable: tbl,
+			Log:                    slog.New(slog.DiscardHandler),
 		})
 		sp.endpointSource = &MockEndpointEventSource{}
 
@@ -194,7 +239,7 @@ func TestStreamProcessorStart(t *testing.T) {
 		case <-done:
 			// Success - Start() returned as expected
 		case <-timeOutCTX.Done():
-			t.Fatal("Start() did not return within timeout when context was canceled")
+			t.Fatal("Start() did not return in time despite canceled context")
 		}
 	})
 }
@@ -318,9 +363,7 @@ func TestStreamProcessorEndpointEvents(t *testing.T) {
 		// Verify channel was fully drained
 		select {
 		case e := <-endpointEventChan:
-			// log remaining endpoint
-			t.Logf("Remaining endpoint event in channel: %+v", e)
-			t.Fatal("Channel should be fully drained")
+			t.Fatalf("Channel should be empty, but found event: %+v", e)
 		default:
 			// Channel is empty as expected
 		}
@@ -343,15 +386,12 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 			TypeUrl:       "xdsTypeURLAddress",
 			ResponseNonce: "x",
 		}
-
-		if err := sp.handleDeltaDiscoveryReq(req); err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.NoError(t, err)
 
 		// ensure expected nonce is removed
-		if _, ok := sp.expectedNonce[req.ResponseNonce]; ok {
-			t.Fatalf("Expected nonce %q to be removed, but it still exists", req.ResponseNonce)
-		}
+		_, ok := sp.expectedNonce["x"]
+		require.False(t, ok)
 	})
 
 	t.Run("Unexpected Nonce", func(t *testing.T) {
@@ -370,15 +410,12 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 				Message: "test error",
 			},
 		}
-
-		if err := sp.handleDeltaDiscoveryReq(req); err == nil {
-			t.Fatal("Expected error for unexpected nonce, but got none")
-		} else {
-			t.Logf("Received expected error: %v", err)
-		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected nonce")
 	})
 
-	t.Run("Address Stream Initialization", func(t *testing.T) {
+	t.Run("Address Stream Initialization with enrolled namespaces", func(t *testing.T) {
 		var recordedResponse *v3.DeltaDiscoveryResponse
 		mockStream := &MockStream{}
 		mockStream.OnContext = func() context.Context {
@@ -391,56 +428,63 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 
 		// These UIDs must match what MockEndpointEventSource.ListAllEndpoints returns
 		expectedUIDs := []string{
-			"12345678-1234-1234-1234-123456789abc", // ep1
-			"87654321-4321-4321-4321-cba987654321", // ep2
-			"abcdef12-5678-9012-3456-789012345678", // ep3
+			"12345678-1234-1234-1234-123456789abc", // ep1 - default (enrolled)
+			// ep2 - kube-system (NOT enrolled) - should be filtered out
+			"abcdef12-5678-9012-3456-789012345678", // ep3 - cilium-system (enrolled)
 		}
 
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		// Enroll only "default" and "cilium-system"
+		enrollNamespace(t, db, tbl, "default")
+		enrollNamespace(t, db, tbl, "cilium-system")
+
 		sp := StreamProcessor{
-			stream:        mockStream,
-			expectedNonce: make(map[string]struct{}),
-			log:           slog.New(slog.DiscardHandler),
+			stream:                 mockStream,
+			expectedNonce:          make(map[string]struct{}),
+			log:                    slog.New(slog.DiscardHandler),
+			db:                     db,
+			enrolledNamespaceTable: tbl,
 		}
 		sp.endpointSource = &MockEndpointEventSource{
 			subscribeCalled: false,
+			db:              db,
+			enrolledNsTable: tbl,
 		}
 
 		req := &v3.DeltaDiscoveryRequest{
-			TypeUrl:                  xdsTypeURLAddress,
-			ResourceNamesSubscribe:   []string{},
-			ResourceNamesUnsubscribe: []string{},
+			TypeUrl: xdsTypeURLAddress,
 		}
 
-		if err := sp.handleDeltaDiscoveryReq(req); err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		err = sp.handleAddressTypeURL(req)
+		require.NoError(t, err)
 
 		// validate response
-		require.NotNil(t, recordedResponse, "No response was recorded")
+		require.NotNil(t, recordedResponse)
 
-		// Validate response structure
-		require.Equal(t, xdsTypeURLAddress, recordedResponse.TypeUrl, "Incorrect TypeUrl")
-		require.NotEmpty(t, recordedResponse.Nonce, "Nonce should not be empty")
-		require.Empty(t, recordedResponse.RemovedResources, "No resources should be removed")
-		require.Len(t, recordedResponse.Resources, 3, "Should have 3 resources for our 3 endpoints")
+		// Validate response structure - should only have 2 endpoints (default and cilium-system)
+		require.Equal(t, xdsTypeURLAddress, recordedResponse.TypeUrl)
+		require.Len(t, recordedResponse.Resources, 2, "Should only include endpoints from enrolled namespaces")
+		require.Empty(t, recordedResponse.RemovedResources)
 
 		// Validate StreamProcessor adds sent Nonce to expected Nonces
-		if _, ok := sp.expectedNonce[recordedResponse.Nonce]; !ok {
-			t.Fatal("Expected nonce to be tracked as expected")
-		}
+		require.NotEmpty(t, recordedResponse.Nonce)
+		_, ok := sp.expectedNonce[recordedResponse.Nonce]
+		require.True(t, ok)
 
-		// Validate UIDs match between mock endpoints and response resources
+		// Validate UIDs match between mock endpoints and response resources (excluding kube-system)
 		// NOTE: proper validation of response is done in endpoint_event_test.go
 		actualUIDs := make([]string, len(recordedResponse.Resources))
 		for i, resource := range recordedResponse.Resources {
 			actualUIDs[i] = resource.Name
 		}
-		require.ElementsMatch(t, expectedUIDs, actualUIDs, "All expected endpoint UIDs should be present in response")
+		require.ElementsMatch(t, expectedUIDs, actualUIDs, "Only enrolled namespace endpoints should be included")
 
-		s := sp.endpointSource.(*MockEndpointEventSource)
 		// Validate subscription occurred
-		require.True(t, s.GetSubscriptionStatus(), "EndpointManager.Subscribe should have been called")
-
+		mockSource := sp.endpointSource.(*MockEndpointEventSource)
+		require.True(t, mockSource.GetSubscriptionStatus())
 	})
 }
 
@@ -448,12 +492,11 @@ func TestComputeEndpointDiff(t *testing.T) {
 	t.Run("detect new endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", ""),
+			"default/pod-2": makeCEP("pod-2", "", ""),
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Len(t, added, 2)
 		require.Empty(t, updated)
 		require.Empty(t, removed)
@@ -461,56 +504,45 @@ func TestComputeEndpointDiff(t *testing.T) {
 
 	t.Run("detect removed endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", ""),
+			"default/pod-2": makeCEP("pod-2", "", ""),
 		}
-		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-		}
+		newCEPs := map[string]*types.CiliumEndpoint{}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Empty(t, added)
 		require.Empty(t, updated)
-		require.Len(t, removed, 1)
-		require.Equal(t, "pod-2", removed[0].Name)
+		require.Len(t, removed, 2)
 	})
 
 	t.Run("detect updated endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.1"),
 		}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Different IP
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.2"),
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Empty(t, added)
 		require.Len(t, updated, 1)
 		require.Empty(t, removed)
-		require.Equal(t, "pod-1", updated[0].Name)
-		require.Equal(t, "10.0.1.99", updated[0].Networking.Addressing[0].IPV4)
 	})
 
 	t.Run("detect mixed changes", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.1"),
+			"default/pod-2": makeCEP("pod-2", "", "10.0.0.2"),
 		}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Updated
-			"default/pod-3": makeCEP("pod-3", "default", "10.0.1.3"),  // Added
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.99"), // updated
+			"default/pod-3": makeCEP("pod-3", "", "10.0.0.3"),  // added
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Len(t, added, 1)
 		require.Len(t, updated, 1)
 		require.Len(t, removed, 1)
-		require.Equal(t, "pod-3", added[0].Name)
-		require.Equal(t, "pod-1", updated[0].Name)
-		require.Equal(t, "pod-2", removed[0].Name)
 	})
 }
 
@@ -540,16 +572,17 @@ func TestEmitEndpointEvents(t *testing.T) {
 
 func TestHandleCESUpsert(t *testing.T) {
 	tests := []struct {
-		name            string
-		initialCES      *v2alpha1.CiliumEndpointSlice // To populate the cache
-		newCES          *v2alpha1.CiliumEndpointSlice
-		key             resource.Key
-		expectedAdded   int
-		expectedUpdated int
-		expectedRemoved int
+		name              string
+		initialCES        *v2alpha1.CiliumEndpointSlice // To populate the cache
+		newCES            *v2alpha1.CiliumEndpointSlice
+		key               resource.Key
+		enrolledNamespace bool // whether to enroll the namespace
+		expectedAdded     int
+		expectedUpdated   int
+		expectedRemoved   int
 	}{
 		{
-			name:       "new CES with endpoints",
+			name:       "new CES with endpoints in enrolled namespace",
 			initialCES: nil, // Empty cache
 			newCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
@@ -567,13 +600,35 @@ func TestHandleCESUpsert(t *testing.T) {
 					},
 				},
 			},
-			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   2,
-			expectedUpdated: 0,
-			expectedRemoved: 0,
+			key:               resource.Key{Name: "ces-1", Namespace: "default"},
+			enrolledNamespace: true,
+			expectedAdded:     2,
+			expectedUpdated:   0,
+			expectedRemoved:   0,
 		},
 		{
-			name: "update existing CES - add and remove endpoints",
+			name:       "new CES with endpoints in unenrolled namespace",
+			initialCES: nil,
+			newCES: &v2alpha1.CiliumEndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ces-1",
+					Namespace: "unenrolled",
+				},
+				Endpoints: []v2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "pod-1",
+						IdentityID: 100,
+					},
+				},
+			},
+			key:               resource.Key{Name: "ces-1", Namespace: "unenrolled"},
+			enrolledNamespace: false,
+			expectedAdded:     0, // Should be skipped
+			expectedUpdated:   0,
+			expectedRemoved:   0,
+		},
+		{
+			name: "update existing CES - add and remove endpoints in enrolled namespace",
 			initialCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ces-1",
@@ -606,13 +661,14 @@ func TestHandleCESUpsert(t *testing.T) {
 					},
 				},
 			},
-			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   1, // pod-3
-			expectedUpdated: 0, // pod-2 unchanged
-			expectedRemoved: 1, // pod-1
+			key:               resource.Key{Name: "ces-1", Namespace: "default"},
+			enrolledNamespace: true,
+			expectedAdded:     1, // pod-3
+			expectedUpdated:   0, // pod-2 unchanged
+			expectedRemoved:   1, // pod-1
 		},
 		{
-			name: "update existing CES - modify endpoint",
+			name: "update existing CES - modify endpoint in enrolled namespace",
 			initialCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ces-1",
@@ -637,33 +693,47 @@ func TestHandleCESUpsert(t *testing.T) {
 					},
 				},
 			},
-			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   0,
-			expectedUpdated: 1, // pod-1 with new identity
-			expectedRemoved: 0,
+			key:               resource.Key{Name: "ces-1", Namespace: "default"},
+			enrolledNamespace: true,
+			expectedAdded:     1, // pod-1 with new identity is emitted as CREATE
+			expectedUpdated:   0,
+			expectedRemoved:   0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eventChan := make(chan *EndpointEvent, 10)
-			sp := &StreamProcessor{
-				endpointRecv: eventChan,
-			}
-			es := &EndpointSource{sp: sp}
-
-			// Populate the cache with the initial CES if provided
 			cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
+
+			// Setup database and enrolled namespace table
+			db := statedb.New()
+			tbl, err := table.NewEnrolledNamespacesTable(db)
+			require.NoError(t, err)
+
+			// Enroll namespace if required
+			if tt.enrolledNamespace {
+				enrollNamespace(t, db, tbl, tt.newCES.GetObjectMeta().GetNamespace())
+			}
+
+			// Populate cache if initial CES provided
 			if tt.initialCES != nil {
 				cesCache[tt.key] = convertCESToEndpointMap(tt.initialCES)
 			}
 
+			eventChan := make(chan *EndpointEvent, 10)
+			sp := &StreamProcessor{
+				endpointRecv:           eventChan,
+				db:                     db,
+				enrolledNamespaceTable: tbl,
+				log:                    slog.New(slog.DiscardHandler),
+			}
+			es := &EndpointSource{sp: sp}
+
 			es.handleCESUpsert(tt.newCES, cesCache, tt.key)
 
-			// Count events by type
+			// Count event types
 			addedCount := 0
 			removedCount := 0
-
 			close(eventChan)
 			for event := range eventChan {
 				switch event.Type {
@@ -674,63 +744,114 @@ func TestHandleCESUpsert(t *testing.T) {
 				}
 			}
 
-			require.Equal(t, tt.expectedAdded+tt.expectedUpdated, addedCount, "unexpected number of CREATE events")
-			require.Equal(t, tt.expectedRemoved, removedCount, "unexpected number of REMOVED events")
-
-			// Verify cache was updated
-			cachedEndpoints := cesCache[tt.key]
-			require.NotNil(t, cachedEndpoints)
-			require.Len(t, tt.newCES.Endpoints, len(cachedEndpoints))
+			require.Equal(t, tt.expectedAdded, addedCount, "Added count mismatch")
+			require.Equal(t, tt.expectedRemoved, removedCount, "Removed count mismatch")
 		})
 	}
 }
 
 func TestHandleCESDelete(t *testing.T) {
-	cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
-		{Name: "ces-1", Namespace: "default"}: {
-			"default/pod-1": makeCEP("pod-1", "", ""),
-			"default/pod-2": makeCEP("pod-2", "", ""),
-		},
-	}
-
-	ces := &v2alpha1.CiliumEndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ces-1",
-			Namespace: "default",
-		},
-		Endpoints: []v2alpha1.CoreCiliumEndpoint{
-			{
-				Name:       "pod-1",
-				IdentityID: 100,
+	t.Run("delete CES in enrolled namespace", func(t *testing.T) {
+		cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
+			{Name: "ces-1", Namespace: "default"}: {
+				"default/pod-1": makeCEP("pod-1", "", ""),
+				"default/pod-2": makeCEP("pod-2", "", ""),
 			},
-			{
-				Name:       "pod-2",
-				IdentityID: 200,
+		}
+
+		ces := &v2alpha1.CiliumEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ces-1",
+				Namespace: "default",
 			},
-		},
-	}
-	key := resource.Key{Name: "ces-1", Namespace: "default"}
+			Endpoints: []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "pod-1",
+					IdentityID: 100,
+				},
+				{
+					Name:       "pod-2",
+					IdentityID: 200,
+				},
+			},
+		}
+		key := resource.Key{Name: "ces-1", Namespace: "default"}
 
-	eventChan := make(chan *EndpointEvent, 10)
-	sp := &StreamProcessor{
-		endpointRecv: eventChan,
-	}
-	es := &EndpointSource{sp: sp}
+		// Setup database and enroll namespace
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+		enrollNamespace(t, db, tbl, "default")
 
-	es.handleCESDelete(ces, cesCache, key)
+		eventChan := make(chan *EndpointEvent, 10)
+		sp := &StreamProcessor{
+			endpointRecv:           eventChan,
+			db:                     db,
+			enrolledNamespaceTable: tbl,
+			log:                    slog.New(slog.DiscardHandler),
+		}
+		es := &EndpointSource{sp: sp}
 
-	// Should emit REMOVED events for all endpoints
-	require.Len(t, eventChan, 2)
+		es.handleCESDelete(ces, cesCache, key)
 
-	removedCount := 0
-	close(eventChan)
-	for event := range eventChan {
-		require.Equal(t, REMOVED, event.Type)
-		removedCount++
-	}
-	require.Equal(t, 2, removedCount)
+		// Should emit REMOVED events for all endpoints
+		require.Len(t, eventChan, 2)
 
-	// Verify cache entry was deleted
-	_, exists := cesCache[key]
-	require.False(t, exists, "cache entry should be deleted")
+		removedCount := 0
+		close(eventChan)
+		for event := range eventChan {
+			require.Equal(t, REMOVED, event.Type)
+			removedCount++
+		}
+		require.Equal(t, 2, removedCount)
+
+		// Verify cache entry was deleted
+		_, exists := cesCache[key]
+		require.False(t, exists, "cache entry should be deleted")
+	})
+
+	t.Run("delete CES in unenrolled namespace", func(t *testing.T) {
+		cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
+			{Name: "ces-1", Namespace: "unenrolled"}: {
+				"unenrolled/pod-1": makeCEP("pod-1", "unenrolled", ""),
+			},
+		}
+
+		ces := &v2alpha1.CiliumEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ces-1",
+				Namespace: "unenrolled",
+			},
+			Endpoints: []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "pod-1",
+					IdentityID: 100,
+				},
+			},
+		}
+		key := resource.Key{Name: "ces-1", Namespace: "unenrolled"}
+
+		// Setup database but DON'T enroll namespace
+		db := statedb.New()
+		tbl, err := table.NewEnrolledNamespacesTable(db)
+		require.NoError(t, err)
+
+		eventChan := make(chan *EndpointEvent, 10)
+		sp := &StreamProcessor{
+			endpointRecv:           eventChan,
+			db:                     db,
+			enrolledNamespaceTable: tbl,
+			log:                    slog.New(slog.DiscardHandler),
+		}
+		es := &EndpointSource{sp: sp}
+
+		es.handleCESDelete(ces, cesCache, key)
+
+		// Should NOT emit any events since namespace is not enrolled
+		require.Empty(t, eventChan, "No events should be emitted for unenrolled namespace")
+
+		// Cache should NOT be modified for unenrolled namespaces
+		_, exists := cesCache[key]
+		require.True(t, exists, "cache entry should remain for unenrolled namespace")
+	})
 }

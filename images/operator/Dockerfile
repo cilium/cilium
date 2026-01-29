@@ -21,6 +21,9 @@ ARG TARGETARCH
 ARG OPERATOR_VARIANT
 # MODIFIERS are extra arguments to be passed to make at build time.
 ARG MODIFIERS
+# ZTUNNEL_IMAGE can be overridden at build time to specify a custom ztunnel image
+ARG ZTUNNEL_IMAGE="acnpublic.azurecr.io/prism/ztunnel:v0.0.34-dev"
+
 
 WORKDIR /go/src/github.com/cilium/cilium
 
@@ -29,7 +32,7 @@ WORKDIR /go/src/github.com/cilium/cilium
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} $(echo $MODIFIERS | tr -d '"') NOSTRIP=1 \
+    make GOARCH=${TARGETARCH} ZTUNNEL_IMAGE="${ZTUNNEL_IMAGE}" DESTDIR=/out/${TARGETOS}/${TARGETARCH} $(echo $MODIFIERS | tr -d '"') NOSTRIP=1 \
     build-container-${OPERATOR_VARIANT} install-container-binary-${OPERATOR_VARIANT}
 
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
@@ -44,14 +47,14 @@ RUN set -xe && \
     export D=/tmp/debug/${TARGETOS}/${TARGETARCH} && \
     cd /out/${TARGETOS}/${TARGETARCH} && \
     find . -type f \
-      -executable \
-      -exec sh -c \
-        'filename=$(basename ${0}) && \
-         objcopy --only-keep-debug ${0} ${0}.debug && \
-         if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
-         mkdir -p $(dirname ${D}/${0}) && \
-         mv -v ${0}.debug ${D}/${0}.debug' \
-      {} \;
+    -executable \
+    -exec sh -c \
+    'filename=$(basename ${0}) && \
+    objcopy --only-keep-debug ${0} ${0}.debug && \
+    if ! echo "$MODIFIERS" | grep "NOSTRIP=1" ; then objcopy --strip-all ${0} && (cd $(dirname ${0}) && objcopy --add-gnu-debuglink=${filename}.debug ${filename}) ; fi && \
+    mkdir -p $(dirname ${D}/${0}) && \
+    mv -v ${0}.debug ${D}/${0}.debug' \
+    {} \;
 
 # Check debug symbols are present
 RUN for f in $(find /tmp/debug -type f -name '*.debug' -not -name 'debug-wrapper.debug') ; do readelf -S ${f} | grep -q \\.symtab || \
