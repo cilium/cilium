@@ -5,7 +5,6 @@ Alibaba
 Aquantia
 Attestor
 Bertin
-blackhole
 Blanco
 Borkmann
 Brenden
@@ -759,6 +758,7 @@ skb
 snat
 socknat
 spinlock
+sriov
 srv
 ssl
 stacktrace

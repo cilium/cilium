@@ -220,6 +220,10 @@ func miscSystemCommands() []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 		"find /sys/fs/bpf -ls",
+
+		// sr-iov devlink
+		"devlink dev info",
+		"devlink port",
 	}
 }
 
@@ -438,6 +442,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg troubleshoot kvstore",
 		"cilium-dbg troubleshoot clustermesh",
 		"cilium-dbg bpf frag list",
+		"cilium-dbg sriov info",
 	}
 
 	if len(host) == 0 {
