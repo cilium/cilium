@@ -57,6 +57,7 @@ type Parameters struct {
 	SingleNode                bool
 	PrintFlows                bool
 	ForceDeploy               bool
+	CleanupOnly               bool
 	Hubble                    bool
 	HubbleServer              string
 	K8sLocalHostTest          bool
