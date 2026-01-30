@@ -21,6 +21,7 @@ import (
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type k8sNodeMock struct {
@@ -92,6 +93,8 @@ func GetIPAMPools(cn *v2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 }
 
 func TestNodeHandler(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
 	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
@@ -242,9 +245,13 @@ func TestNodeHandler(t *testing.T) {
 
 	nh.Delete(node1Update.node)
 	nh.Delete(node2Update.node)
+
+	nh.Stop()
 }
 
 func TestOrphanCIDRsAfterRestart(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
 	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	onUpdateArgs := make(chan mockArgs)
@@ -369,9 +376,13 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 			},
 		},
 	}, backend.nodes)
+
+	nh.Stop()
 }
 
 func TestOrphanCIDRsReleased(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
 	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := backend.UpsertPool("test-pool",
 		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
@@ -473,4 +484,6 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 		t.Fatal("Update should not have been called after releasing orphan CIDRs")
 	default:
 	}
+
+	nh.Stop()
 }
