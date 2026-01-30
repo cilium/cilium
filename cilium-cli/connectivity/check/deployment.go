@@ -2388,6 +2388,40 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	return nil
 }
 
+// CleanupConnectivityTest removes all connectivity test artifacts from all configured clients.
+// This includes test namespaces (cilium-test-*), CCNP namespaces (cilium-test-ccnp1/2),
+// and all associated resources (deployments, services, policies, etc.).
+func (ct *ConnectivityTest) CleanupConnectivityTest(ctx context.Context) error {
+	if ct.clients == nil {
+		if err := ct.initClients(ctx); err != nil {
+			return err
+		}
+	}
+
+	for _, client := range ct.Clients() {
+		ct.Logf("🧹 [%s] Starting cleanup of connectivity test artifacts...", client.ClusterName())
+
+		// Delete main test deployments and namespace
+		if err := ct.deleteDeployments(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete deployments: %v", client.ClusterName(), err)
+		}
+
+		// Delete connection disruption test artifacts
+		if err := ct.DeleteConnDisruptTestDeployment(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete connection disruption test deployments: %v", client.ClusterName(), err)
+		}
+
+		// Delete CCNP test environments
+		if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
+			ct.Warnf("[%s] Failed to delete CCNP test environment: %v", client.ClusterName(), err)
+		}
+
+		ct.Logf("✅ [%s] Cleanup complete", client.ClusterName())
+	}
+
+	return nil
+}
+
 func (ct *ConnectivityTest) validateDeploymentCommon(ctx context.Context, srcDeployments, dstDeployments []string) error {
 	ct.Debug("Validating Deployments...")
 
