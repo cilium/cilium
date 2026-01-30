@@ -17,6 +17,7 @@ cilium connectivity test [flags]
       --assume-cilium-version string                          Assume Cilium version for connectivity tests
       --chart-directory string                                Helm chart directory
       --cilium-pod-selector string                            Label selector matching all cilium-related pods (default "app.kubernetes.io/part-of=cilium")
+      --cleanup                                               Cleanup all connectivity test artifacts (namespaces, deployments, services) without running tests
       --collect-sysdump-on-failure                            Collect sysdump after a test fails
       --conn-disrupt-dispatch-interval duration               TCP packet dispatch interval
       --conn-disrupt-test-restarts-path string                Conn disrupt test temporary result file (used internally) (default "/tmp/cilium-conn-disrupt-restarts")
