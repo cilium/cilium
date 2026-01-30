@@ -1099,7 +1099,7 @@ func (s *BgpServer) getPossibleBest(peer *peer, family bgp.RouteFamily) []*table
 	return peer.localRib.GetBestPathList(peer.TableID(), peer.AS(), []bgp.RouteFamily{family})
 }
 
-func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily) ([]*table.Path, []*table.Path) {
+func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily, addEOR bool) ([]*table.Path, []*table.Path) {
 	pathList := []*table.Path{}
 	filtered := []*table.Path{}
 
@@ -1130,7 +1130,7 @@ func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily) ([]*t
 			}
 		}
 	}
-	if peer.isGracefulRestartEnabled() {
+	if addEOR && peer.isGracefulRestartEnabled() {
 		for _, family := range rfList {
 			pathList = append(pathList, table.NewEOR(family))
 		}
@@ -1251,7 +1251,7 @@ func (s *BgpServer) handleRouteRefresh(peer *peer, e *fsmMsg) []*table.Path {
 		return nil
 	}
 	rfList := []bgp.RouteFamily{rf}
-	accepted, _ := s.getBestFromLocal(peer, rfList)
+	accepted, _ := s.getBestFromLocal(peer, rfList, true)
 	return accepted
 }
 
@@ -1324,7 +1324,7 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 				if path.IsWithdraw {
 					// Note: The paths to be withdrawn are filtered because the
 					// given RT on RTM NLRI is already removed from adj-RIB-in.
-					_, candidates = s.getBestFromLocal(peer, fs)
+					_, candidates = s.getBestFromLocal(peer, fs, true)
 				} else {
 					// https://github.com/osrg/gobgp/issues/1777
 					// Ignore duplicate Membership announcements
@@ -1728,7 +1728,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				notPeerRestarting := !peer.fsm.pConf.GracefulRestart.State.PeerRestarting
 				peer.fsm.lock.RUnlock()
 				if y && notPeerRestarting && c.RouteTargetMembership.Config.DeferralTime > 0 {
-					pathList, _ = s.getBestFromLocal(peer, []bgp.RouteFamily{bgp.RF_RTC_UC})
+					pathList, _ = s.getBestFromLocal(peer, []bgp.RouteFamily{bgp.RF_RTC_UC}, true)
 					t := c.RouteTargetMembership.Config.DeferralTime
 					for _, f := range peer.negotiatedRFList() {
 						if f != bgp.RF_RTC_UC {
@@ -1736,7 +1736,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 						}
 					}
 				} else {
-					pathList, _ = s.getBestFromLocal(peer, peer.negotiatedRFList())
+					pathList, _ = s.getBestFromLocal(peer, peer.negotiatedRFList(), true)
 				}
 
 				if len(pathList) > 0 {
@@ -1768,7 +1768,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 						if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 							continue
 						}
-						paths, _ := s.getBestFromLocal(p, p.configuredRFlist())
+						paths, _ := s.getBestFromLocal(p, p.configuredRFlist(), true)
 						if len(paths) > 0 {
 							sendfsmOutgoingMsg(p, paths, nil, false)
 						}
@@ -1910,7 +1910,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 							if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 								continue
 							}
-							paths, _ := s.getBestFromLocal(p, p.negotiatedRFList())
+							paths, _ := s.getBestFromLocal(p, p.negotiatedRFList(), true)
 							if len(paths) > 0 {
 								sendfsmOutgoingMsg(p, paths, nil, false)
 							}
@@ -1960,7 +1960,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 							families = append(families, f)
 						}
 					}
-					if paths, _ := s.getBestFromLocal(peer, families); len(paths) > 0 {
+					if paths, _ := s.getBestFromLocal(peer, families, true); len(paths) > 0 {
 						sendfsmOutgoingMsg(peer, paths, nil, false)
 					}
 				}
@@ -2670,7 +2670,7 @@ func (s *BgpServer) softResetOut(addr string, family bgp.RouteFamily, deferral b
 			}
 		}
 
-		pathList, _ := s.getBestFromLocal(peer, families)
+		pathList, _ := s.getBestFromLocal(peer, families, true)
 		if len(pathList) > 0 {
 			if deferral {
 				pathList = func() []*table.Path {
@@ -2836,7 +2836,7 @@ func (s *BgpServer) getAdjRib(addr string, family bgp.RouteFamily, in bool, enab
 					pathList = append(pathList, path)
 				}
 			} else {
-				pathList, _ = s.getBestFromLocal(peer, peer.configuredRFlist())
+				pathList, _ = s.getBestFromLocal(peer, peer.configuredRFlist(), true)
 			}
 			toUpdate = make([]*table.Path, 0, len(pathList))
 			for _, path := range pathList {
@@ -2984,7 +2984,7 @@ func (s *BgpServer) getAdjRibInfo(addr string, family bgp.RouteFamily, in bool) 
 			adjRib = peer.adjRibIn
 		} else {
 			adjRib = table.NewAdjRib(s.logger, peer.configuredRFlist())
-			accepted, _ := s.getBestFromLocal(peer, peer.configuredRFlist())
+			accepted, _ := s.getBestFromLocal(peer, peer.configuredRFlist(), false)
 			adjRib.UpdateAdjRibOut(accepted)
 		}
 		info, err = adjRib.TableInfo(family)
@@ -3183,7 +3183,7 @@ func (s *BgpServer) ListPeer(ctx context.Context, r *api.ListPeerRequest, fn fun
 							received = uint64(peer.adjRibIn.Count(flist))
 							accepted = uint64(peer.adjRibIn.Accepted(flist))
 							if getAdvertised {
-								pathList, _ := s.getBestFromLocal(peer, flist)
+								pathList, _ := s.getBestFromLocal(peer, flist, false)
 								advertised = uint64(len(pathList))
 							}
 						}
