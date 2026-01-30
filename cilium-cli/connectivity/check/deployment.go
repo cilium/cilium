@@ -64,6 +64,9 @@ const (
 	client3DeploymentName = "client3"
 	clientCPDeployment    = "client-cp"
 
+	ccnpTestNamespace1 = "cilium-test-ccnp1"
+	ccnpTestNamespace2 = "cilium-test-ccnp2"
+
 	DNSTestServerContainerName = "dns-test-server"
 
 	echoSameNodeDeploymentName                 = "echo-same-node"
@@ -734,18 +737,18 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 		obj  *corev1.Namespace
 	}{
 		{
-			name: "cilium-test-ccnp1",
+			name: ccnpTestNamespace1,
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp1",
+					Name: ccnpTestNamespace1,
 				},
 			},
 		},
 		{
-			name: "cilium-test-ccnp2",
+			name: ccnpTestNamespace2,
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp2",
+					Name: ccnpTestNamespace2,
 				},
 			},
 		},
@@ -1547,7 +1550,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 func (ct *ConnectivityTest) DeleteCCNPTestEnv(ctx context.Context, client *k8s.Client) error {
 
-	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
+	namespaces := []string{ccnpTestNamespace1, ccnpTestNamespace2}
 
 	for _, ns := range namespaces {
 		_, err := client.GetDeployment(ctx, ns, ccnpDeploymentName, metav1.GetOptions{})
@@ -2482,7 +2485,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 	if ct.Features[features.CCNP].Enabled {
 
-		namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
+		namespaces := []string{ccnpTestNamespace1, ccnpTestNamespace2}
 		for _, ns := range namespaces {
 			if err := WaitForDeployment(ctx, ct, ct.clients.src, ns, ccnpDeploymentName); err != nil {
 				return err
