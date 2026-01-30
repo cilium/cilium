@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type cidrPool struct {
@@ -96,7 +95,10 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
-	logger  *slog.Logger
+	logger *slog.Logger
+
+	ipv4Enabled, ipv6Enabled bool
+
 	mutex   lock.RWMutex
 	pools   map[string]cidrPool    // poolName -> pool
 	nodes   map[string]poolToCIDRs // nodeName -> pool -> cidrs
@@ -104,12 +106,14 @@ type PoolAllocator struct {
 	ready   bool
 }
 
-func NewPoolAllocator(logger *slog.Logger) *PoolAllocator {
+func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool) *PoolAllocator {
 	return &PoolAllocator{
-		logger:  logger,
-		pools:   map[string]cidrPool{},
-		nodes:   map[string]poolToCIDRs{},
-		orphans: map[string]poolToCIDRs{},
+		logger:      logger,
+		ipv4Enabled: enableIPv4,
+		ipv6Enabled: enableIPv6,
+		pools:       map[string]cidrPool{},
+		nodes:       map[string]poolToCIDRs{},
+		orphans:     map[string]poolToCIDRs{},
 	}
 }
 
@@ -401,7 +405,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 	for _, reqPool := range pools.Requested {
 		allocatedCIDRs := p.nodes[nodeName][reqPool.Pool]
 
-		if option.Config.EnableIPv4 {
+		if p.ipv4Enabled {
 			neededIPv4Addrs := big.NewInt(int64(reqPool.Needed.IPv4Addrs))
 			toAllocate := neededIPv4Addrs.Sub(neededIPv4Addrs, allocatedCIDRs.v4.availableAddrs())
 
@@ -411,7 +415,7 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpe
 						nodeName, reqPool.Pool, allocErr))
 			}
 		}
-		if option.Config.EnableIPv6 {
+		if p.ipv6Enabled {
 			neededIPv6Addrs := big.NewInt(int64(reqPool.Needed.IPv6Addrs))
 			toAllocate := neededIPv6Addrs.Sub(neededIPv6Addrs, allocatedCIDRs.v6.availableAddrs())
 

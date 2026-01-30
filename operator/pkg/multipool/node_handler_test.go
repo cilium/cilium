@@ -92,7 +92,7 @@ func GetIPAMPools(cn *v2.CiliumNode) *ipamTypes.IPAMPoolSpec {
 }
 
 func TestNodeHandler(t *testing.T) {
-	backend := NewPoolAllocator(hivetest.Logger(t))
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
 	assert.NoError(t, err)
 
@@ -245,7 +245,7 @@ func TestNodeHandler(t *testing.T) {
 }
 
 func TestOrphanCIDRsAfterRestart(t *testing.T) {
-	backend := NewPoolAllocator(hivetest.Logger(t))
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	onUpdateArgs := make(chan mockArgs)
 
@@ -372,7 +372,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 }
 
 func TestOrphanCIDRsReleased(t *testing.T) {
-	backend := NewPoolAllocator(hivetest.Logger(t))
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := backend.UpsertPool("test-pool",
 		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
 		nil, 0)

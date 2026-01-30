@@ -17,7 +17,7 @@ import (
 )
 
 func TestPoolAllocator(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 	err := p.UpsertPool("default",
 		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
 		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
@@ -233,7 +233,7 @@ func TestPoolAllocator(t *testing.T) {
 }
 
 func TestPoolAllocator_PoolErrors(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 	p.RestoreFinished()
 
 	node := &v2.CiliumNode{
@@ -351,7 +351,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 }
 
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
@@ -504,7 +504,7 @@ func Test_addrsInPrefix(t *testing.T) {
 // TestUpdateCIDRSets_ShrinkPool ensures that shrinking a pool does not
 // trigger a nil dereference in updateCIDRSets.
 func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	// Initial pool with two IPv4 CIDRs
 	err := p.UpsertPool("shrink-test",
@@ -527,7 +527,7 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 }
 
 func TestPoolUpdateWithCIDRInUse(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -600,7 +600,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 }
 
 func TestOrphanCIDRs(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -932,7 +932,7 @@ func TestOrphanCIDRs(t *testing.T) {
 }
 
 func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -1029,7 +1029,7 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 }
 
 func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t))
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
 
 	err := p.UpsertPool("test-pool",
 		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
