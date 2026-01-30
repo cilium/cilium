@@ -165,6 +165,7 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: green-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -203,6 +204,7 @@ spec:
       - needed:
           ipv4-addrs: 36
         pool: red-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -233,6 +235,7 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: green-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -263,6 +266,7 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: blue-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}

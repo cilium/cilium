@@ -11,6 +11,7 @@ cilium-operator-azure hive [flags]
 ### Options
 
 ```
+      --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag) (default [])
       --azure-resource-group string                                Resource group containing the cluster nodes, defaults to cilium operator's own resource group retrieved via Azure Instance Metadata Service (IMDS)
       --azure-subscription-id string                               Subscription ID to access Azure API
       --azure-use-primary-address                                  Use Azure IP address from interface's primary IPConfigurations

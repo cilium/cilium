@@ -91,6 +91,7 @@ spec:
         - 10.244.1.0/24
         - fd00::/124
         pool: custom-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -118,6 +119,7 @@ spec:
         - 10.244.2.0/24
         - fd00::10/124
         pool: custom-pool
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
