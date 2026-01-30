@@ -1,0 +1,209 @@
+hive start
+
+# Add green IP pool
+k8s/add ippool-green.yaml
+
+# Add red IP pool
+k8s/add ippool-red.yaml
+
+# Add "test-node" node requesting CIDRs from the green pool
+k8s/add test-node-v1.yaml
+
+# CIDRs from the green pool have been assigned to "test-node" node
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual.yaml
+* cmp expected-v1.yaml actual.yaml
+
+# Update "test-node" node to request CIDRs from the red pool too
+k8s/add test-node-v2.yaml
+
+# Check that CIDRs from the red pool have been assigned to "test-node" node
+k8s/get cilium.io.v2.ciliumnodes test-node -o actual.yaml
+* cmp expected-v2.yaml actual.yaml
+
+# Add "test-node-2" node requesting CIDRs from the green pool
+k8s/add testnode-2-v1.yaml
+
+# Check that CIDRs from the green pool have been assigned to "test-node-2" node
+k8s/get cilium.io.v2.ciliumnodes test-node-2 -o actual.yaml
+* cmp expected-v3.yaml actual.yaml
+
+# ----
+
+-- ippool-green.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceIPPool
+metadata:
+  name: green-pool
+spec:
+  ipv4:
+    cidrs:
+    - 10.10.0.0/16
+    maskSize: 24
+
+-- ippool-red.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceIPPool
+metadata:
+  name: red-pool
+spec:
+  ipv4:
+    cidrs:
+    - 10.20.0.0/16
+    maskSize: 28
+
+-- test-node-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+  labels:
+    kubernetes.io/hostname: test-node
+spec:
+  ipam:
+    resourcepools:
+      requested:
+        - pool: "green-pool"
+          needed:
+            ipv4-addrs: 4
+
+-- expected-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+  resourceVersion: "4"
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcepools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- test-node-v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+  labels:
+    kubernetes.io/hostname: test-node
+spec:
+  ipam:
+    resourcepools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+      - needed:
+          ipv4-addrs: 36
+        pool: red-pool
+
+-- expected-v2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node
+  name: test-node
+  resourceVersion: "6"
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcepools:
+      allocated:
+      - cidrs:
+        - 10.10.0.0/24
+        pool: green-pool
+      - cidrs:
+        - 10.20.0.0/28
+        - 10.20.0.16/28
+        - 10.20.0.32/28
+        pool: red-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+      - needed:
+          ipv4-addrs: 36
+        pool: red-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- testnode-2-v1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node-2
+  labels:
+    kubernetes.io/hostname: test-node-2
+spec:
+  ipam:
+    resourcepools:
+      requested:
+        - pool: "green-pool"
+          needed:
+            ipv4-addrs: 4
+
+-- expected-v3.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: test-node-2
+  name: test-node-2
+  resourceVersion: "8"
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcepools:
+      allocated:
+      - cidrs:
+        - 10.10.1.0/24
+        pool: green-pool
+      requested:
+      - needed:
+          ipv4-addrs: 4
+        pool: green-pool
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
