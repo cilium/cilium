@@ -145,26 +145,6 @@ func TestToGoBGPPeer(t *testing.T) {
 			},
 		},
 		{
-			name: "RouteReflector",
-			neighbor: &types.Neighbor{
-				Address: netip.MustParseAddr("10.0.0.1"),
-				RouteReflector: &types.NeighborRouteReflector{
-					Client:    true,
-					ClusterID: "255.0.0.1",
-				},
-			},
-			expected: &gobgp.Peer{
-				Conf: &gobgp.PeerConf{
-					NeighborAddress: "10.0.0.1",
-				},
-				RouteReflector: &gobgp.RouteReflector{
-					RouteReflectorClient:    true,
-					RouteReflectorClusterId: "255.0.0.1",
-				},
-				AfiSafis: defaultAfiSafi,
-			},
-		},
-		{
 			name: "Timers",
 			neighbor: &types.Neighbor{
 				Address: netip.MustParseAddr("10.0.0.1"),

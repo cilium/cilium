@@ -72,7 +72,6 @@ type Neighbor struct {
 	ASN             uint32
 	AuthPassword    string
 	EbgpMultihop    *NeighborEbgpMultihop
-	RouteReflector  *NeighborRouteReflector
 	Timers          *NeighborTimers
 	Transport       *NeighborTransport
 	GracefulRestart *NeighborGracefulRestart
@@ -98,11 +97,6 @@ type NeighborTimers struct {
 type NeighborGracefulRestart struct {
 	Enabled     bool
 	RestartTime uint32
-}
-
-type NeighborRouteReflector struct {
-	Client    bool
-	ClusterID string
 }
 
 // SoftResetDirection defines the direction in which a BGP soft reset should be performed
