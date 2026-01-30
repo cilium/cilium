@@ -108,8 +108,8 @@ github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.7.0 h1:4EKBtTweQrJoD4q45qDGu8udulmYMo48Y0BhEbrB1jc=
 github.com/cilium/fake v0.7.0/go.mod h1:hA1YsEjgIs5Gdeq/DVrDWGuhLCoVok7THTvQaGDO5bc=
-github.com/cilium/gobgp/v3 v3.0.0-20251113221723-3540251c0674 h1:RPXlDz/YCj2qscehc5oVFwHgUTDQGYHIgTxlN65F8R8=
-github.com/cilium/gobgp/v3 v3.0.0-20251113221723-3540251c0674/go.mod h1:kVHVFy1/fyZHJ8P32+ctvPeJogn9qKwa1YCeMRXXrP0=
+github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6 h1:JiuFG0n56b113TIYlP5Hdj+F2egjK3kZsskF3RQ5hBE=
+github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6/go.mod h1:kVHVFy1/fyZHJ8P32+ctvPeJogn9qKwa1YCeMRXXrP0=
 github.com/cilium/hive v0.0.0-20260108104938-97756f6ff54c h1:mP/Z+oVplgbg3oV1lwsAC86NPLWioN/TqlmZ6+BI2I0=
 github.com/cilium/hive v0.0.0-20260108104938-97756f6ff54c/go.mod h1:4/8FBMcTjVdkrNNWaB7t3QqaU4kZDJLJ1leKVP9GjEI=
 github.com/cilium/linters v0.3.0 h1:XZzur3mcyM04YSnDeoKSb1l+9W7k3kvUoL0yF8ICCQA=
