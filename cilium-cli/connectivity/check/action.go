@@ -264,7 +264,7 @@ func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byt
 	pod := a.src
 
 	output, err := pod.K8sClient.ExecInPod(ctx,
-		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
+		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name,
 		[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s", encodedData, filePath)})
 
 	if err != nil {
@@ -300,7 +300,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	// output.
 	for i := 1; i <= testCommandRetries; i++ {
 		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
-			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
+			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd)
 		a.cmdOutput = output.String()
 		// Check for inconclusive results.
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
