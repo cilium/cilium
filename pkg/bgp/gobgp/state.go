@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 
@@ -63,6 +64,11 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 					state.Name = pd.Name
 				}
 			}
+			// We can just ignore error here. In that case, the
+			// addr is invalid. Caller is responsible for handling
+			// the invalid case.
+			addr, _ := netip.ParseAddr(peer.Conf.NeighborAddress)
+			state.Address = addr
 		}
 
 		if peer.State != nil {
