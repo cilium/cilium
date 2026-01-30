@@ -28,7 +28,7 @@ func (h *getRoutesHandler) Handle(params restapi.GetBgpRoutesParams) middleware.
 	if h.controller == nil {
 		return api.Error(http.StatusNotImplemented, agent.ErrBGPControlPlaneDisabled)
 	}
-	routes, err := h.controller.BGPMgr.GetRoutes(params.HTTPRequest.Context(), params)
+	routes, err := h.controller.BGPMgr.GetRoutesLegacy(params.HTTPRequest.Context(), params)
 	if err != nil {
 		return api.Error(http.StatusInternalServerError, fmt.Errorf("failed to get routes: %w", err))
 	}

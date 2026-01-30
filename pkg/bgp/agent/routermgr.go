@@ -36,8 +36,8 @@ type BGPRouterManager interface {
 	// the future.
 	GetPeersLegacy(ctx context.Context) ([]*models.BgpPeer, error)
 
-	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
-	GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	// GetRoutesLegacy fetches BGP routes from underlying routing daemon's RIBs.
+	GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 
 	// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
 	GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
