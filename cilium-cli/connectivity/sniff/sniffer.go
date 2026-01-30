@@ -200,7 +200,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 
 	dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
 		target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
-	if _, err := target.K8sClient.ExecInPod(ctx, target.Pod.Namespace, target.Pod.Name, "", sniffer.cmd); err != nil {
+	if _, err := target.K8sClient.ExecInPod(ctx, target.Pod.Namespace, target.Pod.Name, target.Pod.Spec.Containers[0].Name, sniffer.cmd); err != nil {
 		err = fmt.Errorf("Failed to execute tcpdump: %w", err)
 		if errors.Is(err, context.Canceled) {
 			// Child/Parent context has been canceled, we now stop the remote
@@ -270,7 +270,7 @@ func (sniffer *Sniffer) stop() (err error) {
 		defer cancel()
 
 		// Stop tcpdump and store output.
-		sniffer.out, err = sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, "", sniffer.stopCmd)
+		sniffer.out, err = sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, sniffer.target.Pod.Spec.Containers[0].Name, sniffer.stopCmd)
 		if err != nil {
 			err = fmt.Errorf("Failed to stop tcpdump on %s (%s): %w", sniffer.target.String(), sniffer.target.NodeName(), err)
 		}

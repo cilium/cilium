@@ -94,7 +94,7 @@ func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
 		// See https://coredns.io/plugins/local/ for more info.
 		target := "localhost"
 		stdout, err := src.K8sClient.ExecInPod(ctx, src.Namespace(), src.NameWithoutNamespace(),
-			"", []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
+			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
 
 		if err == nil {
 			return nil
@@ -123,7 +123,7 @@ func WaitForCoreDNS(ctx context.Context, log Logger, client Pod) error {
 	for {
 		target := "kubernetes.default"
 		stdout, err := client.K8sClient.ExecInPod(ctx, client.Namespace(), client.NameWithoutNamespace(),
-			"", []string{"nslookup", target})
+			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target})
 		if err == nil {
 			return nil
 		}
@@ -177,7 +177,7 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 
 	for {
 		stdout, err := client.K8sClient.ExecInPod(ctx,
-			client.Namespace(), client.NameWithoutNamespace(), "",
+			client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
 		// Lookup successful.
@@ -299,7 +299,7 @@ func WaitForNodePorts(ctx context.Context, log Logger, client Pod, nodeIP string
 			client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name())
 		for {
 			stdout, err := client.K8sClient.ExecInPod(ctx,
-				client.Namespace(), client.NameWithoutNamespace(), "",
+				client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
 				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
 			if err == nil {
 				break
