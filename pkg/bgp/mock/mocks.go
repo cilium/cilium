@@ -39,7 +39,7 @@ type MockBGPRouterManager struct {
 	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
 	GetPeers_           func(ctx context.Context, req *agent.GetPeersRequest) (*agent.GetPeersResponse, error)
 	GetPeersLegacy_     func(ctx context.Context) ([]*models.BgpPeer, error)
-	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	GetRoutesLegacy_    func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 	Stop_               func(cell.HookContext) error
 }
@@ -56,8 +56,8 @@ func (m *MockBGPRouterManager) GetPeersLegacy(ctx context.Context) ([]*models.Bg
 	return m.GetPeersLegacy_(ctx)
 }
 
-func (m *MockBGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
-	return m.GetRoutes_(ctx, params)
+func (m *MockBGPRouterManager) GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	return m.GetRoutesLegacy_(ctx, params)
 }
 
 func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {

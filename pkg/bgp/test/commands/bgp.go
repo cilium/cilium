@@ -86,7 +86,7 @@ func BGPPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					asn64 := int64(asn)
 					params.RouterAsn = &asn64
 				}
-				routes, err := bgpMgr.GetRoutes(s.Context(), params)
+				routes, err := bgpMgr.GetRoutesLegacy(s.Context(), params)
 				if err != nil {
 					return "", "", err
 				}
