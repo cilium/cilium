@@ -562,7 +562,6 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 
 	newPeer.Conf = toGoBGPPeerConf(n, oldPeer)
 	newPeer.EbgpMultihop = toGoBGPEbgpMultihop(n.EbgpMultihop)
-	newPeer.RouteReflector = toGoBGPRouteReflector(n.RouteReflector)
 	newPeer.Timers = toGoBGPTimers(n.Timers)
 	newPeer.Transport = toGoBGPTransport(n.Transport, oldPeer, v4)
 	newPeer.GracefulRestart = toGoBGPGracefulRestart(n.GracefulRestart)
@@ -620,16 +619,6 @@ func toGoBGPEbgpMultihop(n *types.NeighborEbgpMultihop) *gobgp.EbgpMultihop {
 	return &gobgp.EbgpMultihop{
 		Enabled:     true,
 		MultihopTtl: n.TTL,
-	}
-}
-
-func toGoBGPRouteReflector(n *types.NeighborRouteReflector) *gobgp.RouteReflector {
-	if n == nil {
-		return nil
-	}
-	return &gobgp.RouteReflector{
-		RouteReflectorClient:    n.Client,
-		RouteReflectorClusterId: n.ClusterID,
 	}
 }
 
