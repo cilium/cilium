@@ -144,6 +144,9 @@ type PeerState struct {
 	// Name of the peer
 	Name string
 
+	// Address of the peer
+	Address netip.Addr
+
 	// BGP peer state
 	SessionState SessionState
 
