@@ -98,6 +98,10 @@ func (n *NodeHandler) Resync(context.Context, time.Time) {
 	n.nodesPendingAllocation = nil
 }
 
+func (n *NodeHandler) Stop() {
+	n.controllerManager.RemoveAllAndWait()
+}
+
 func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
