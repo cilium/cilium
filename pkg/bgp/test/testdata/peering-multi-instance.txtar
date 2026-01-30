@@ -238,9 +238,9 @@ Prefix            NextHop       Attrs
 10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
 -- cilium-peers.expected --
 Local AS   Peer AS   Peer Address       Session       Family         Received   Advertised
-65001      65010     10.99.0.101:1790   established   ipv4/unicast   0          3
-65001      65011     10.99.0.102:1790   established   ipv4/unicast   0          3
-65002      65012     10.99.0.103:1790   established   ipv4/unicast   0          3
+65001      65010     10.99.0.101:1790   established   ipv4/unicast   0          2
+65001      65011     10.99.0.102:1790   established   ipv4/unicast   0          2
+65002      65012     10.99.0.103:1790   established   ipv4/unicast   0          2
 -- cilium-routes.expected --
 VRouter   Peer          Prefix            NextHop       Attrs
 65001     10.99.0.101   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
