@@ -82,7 +82,7 @@ func TestToGoBGPPeer(t *testing.T) {
 				Conf: &gobgp.PeerConf{
 					NeighborAddress: "10.0.0.1",
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -94,7 +94,7 @@ func TestToGoBGPPeer(t *testing.T) {
 				Conf: &gobgp.PeerConf{
 					NeighborAddress: "fd00::1",
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestToGoBGPPeer(t *testing.T) {
 					NeighborAddress: "10.0.0.1",
 					PeerAsn:         65000,
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -122,7 +122,7 @@ func TestToGoBGPPeer(t *testing.T) {
 					NeighborAddress: "10.0.0.1",
 					AuthPassword:    "password",
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestToGoBGPPeer(t *testing.T) {
 					Enabled:     true,
 					MultihopTtl: 10,
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -161,7 +161,7 @@ func TestToGoBGPPeer(t *testing.T) {
 					RouteReflectorClient:    true,
 					RouteReflectorClusterId: "255.0.0.1",
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -186,7 +186,7 @@ func TestToGoBGPPeer(t *testing.T) {
 						IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
 					},
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{
@@ -208,7 +208,7 @@ func TestToGoBGPPeer(t *testing.T) {
 					LocalPort:    1179,
 					RemotePort:   1179,
 				},
-				AfiSafis: defaultSafiAfi,
+				AfiSafis: defaultAfiSafi,
 			},
 		},
 		{

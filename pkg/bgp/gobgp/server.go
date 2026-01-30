@@ -59,7 +59,7 @@ var (
 		},
 	}
 	// The default S/Afi pair to use if not provided by the user.
-	defaultSafiAfi = []*gobgp.AfiSafi{
+	defaultAfiSafi = []*gobgp.AfiSafi{
 		{
 			Config: &gobgp.AfiSafiConfig{
 				Family: GoBGPIPv4Family,
