@@ -259,6 +259,11 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 							Safi: gobgpapi.Family_Safi(types.ParseSafi(afiSafiArr[1])),
 						},
 					},
+					AddPaths: &gobgpapi.AddPaths{
+						Config: &gobgpapi.AddPathsConfig{
+							Receive: true,
+						},
+					},
 				})
 			}
 
@@ -556,6 +561,9 @@ func printPathHeader(w *tabwriter.Writer) {
 
 func printPath(w *tabwriter.Writer, dst *gobgpapi.Destination) {
 	aPaths, _ := gobgp.ToAgentPaths(dst.Paths)
+	sort.Slice(aPaths, func(i, j int) bool {
+		return fmt.Sprint(aPaths[i].PathAttributes) < fmt.Sprint(aPaths[j].PathAttributes)
+	})
 	for _, path := range aPaths {
 		fmt.Fprintf(w, "%s\t%s\t%s\n", dst.Prefix, api.NextHopFromPathAttributes(path.PathAttributes), path.PathAttributes)
 	}
