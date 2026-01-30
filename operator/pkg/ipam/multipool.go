@@ -77,7 +77,7 @@ func startMultiPoolAllocator(p multiPoolParams) {
 
 	logger := p.Logger.With([]any{logfields.LogSubsys, "ipam-allocator-multi-pool"}...)
 
-	allocator := multipool.NewPoolAllocator(logger)
+	allocator := multipool.NewPoolAllocator(logger, p.DaemonCfg.EnableIPv4, p.DaemonCfg.EnableIPv6)
 
 	p.Lifecycle.Append(
 		cell.Hook{
