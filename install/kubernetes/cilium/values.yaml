@@ -3159,7 +3159,9 @@ operator:
   # -- Additional cilium-operator container arguments.
   extraArgs: []
   # -- Additional cilium-operator environment variables.
-  extraEnv: []
+  extraEnv:
+    - name: GOPS_CONFIG_DIR
+      value: /tmp
   # -- Additional cilium-operator hostPath mounts.
   extraHostPathMounts: []
   # - name: host-mnt-data
@@ -3170,9 +3172,13 @@ operator:
   #   mountPropagation: HostToContainer
 
   # -- Additional cilium-operator volumes.
-  extraVolumes: []
+  extraVolumes:
+    - name: tmp
+      emptyDir: {}
   # -- Additional cilium-operator volumeMounts.
-  extraVolumeMounts: []
+  extraVolumeMounts:
+    - name: tmp
+      mountPath: /tmp
   # -- Annotations to be added to all top-level cilium-operator objects (resources under templates/cilium-operator)
   annotations: {}
   # -- HostNetwork setting
@@ -3224,6 +3230,7 @@ operator:
       drop:
         - ALL
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
   # runAsUser: 0
 
   # -- Interval for endpoint garbage collection.
