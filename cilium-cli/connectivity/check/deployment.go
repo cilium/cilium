@@ -712,24 +712,22 @@ func (ct *ConnectivityTest) forceDeploy(ctx context.Context) error {
 	return nil
 }
 
-// deployNamespace sets up the test namespace.
-func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
-	for _, client := range ct.Clients() {
+// deployNamespace sets up the specified test namespace.
+func (ct *ConnectivityTest) deployNamespace(ctx context.Context, client *k8s.Client, namespaceName string) error {
 
-		_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
+	_, err := client.GetNamespace(ctx, namespaceName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ct.params.TestNamespace)
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        namespaceName,
+				Annotations: ct.params.NamespaceAnnotations,
+				Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
+			},
+		}
+		_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ct.params.TestNamespace)
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        ct.params.TestNamespace,
-					Annotations: ct.params.NamespaceAnnotations,
-					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
-				},
-			}
-			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %w", ct.params.TestNamespace, err)
-			}
+			return fmt.Errorf("unable to create namespace %s: %w", namespaceName, err)
 		}
 	}
 
@@ -738,42 +736,14 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 
 func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 
-	namespaceConfigs := []struct {
-		name string
-		obj  *corev1.Namespace
-	}{
-		{
-			name: ccnpTestNamespace1,
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: ccnpTestNamespace1,
-				},
-			},
-		},
-		{
-			name: ccnpTestNamespace2,
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: ccnpTestNamespace2,
-				},
-			},
-		},
-	}
-
-	for _, nsConfig := range namespaceConfigs {
+	for _, namespaceName := range []string{ccnpTestNamespace1, ccnpTestNamespace2} {
 
 		clientccnp := ct.clients.src
 		var err error
 
-		_, err = clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
-		if err != nil {
-			_, err = clientccnp.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
-			}
-		}
+		ct.deployNamespace(ctx, clientccnp, namespaceName)
 
-		_, err = clientccnp.GetDeployment(ctx, nsConfig.name, ccnpDeploymentName, metav1.GetOptions{})
+		_, err = clientccnp.GetDeployment(ctx, namespaceName, ccnpDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			clientDeployment := newDeployment(deploymentParameters{
 				Name:         ccnpDeploymentName,
@@ -784,13 +754,13 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 				Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
 				NodeSelector: ct.params.NodeSelector,
 			})
-			_, err = clientccnp.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(ccnpDeploymentName), metav1.CreateOptions{})
+			_, err = clientccnp.CreateServiceAccount(ctx, namespaceName, k8s.NewServiceAccount(ccnpDeploymentName), metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create service account %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
+				return fmt.Errorf("unable to create service account %s in namespace %s: %w", ccnpDeploymentName, namespaceName, err)
 			}
-			_, err = clientccnp.CreateDeployment(ctx, nsConfig.name, clientDeployment, metav1.CreateOptions{})
+			_, err = clientccnp.CreateDeployment(ctx, namespaceName, clientDeployment, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
+				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", ccnpDeploymentName, namespaceName, err)
 			}
 		}
 
@@ -806,8 +776,10 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		ct.forceDeploy(ctx)
 	}
 
-	if err := ct.deployNamespace(ctx); err != nil {
-		return err
+	for _, client := range ct.Clients() {
+		if err := ct.deployNamespace(ctx, client, ct.params.TestNamespace); err != nil {
+			return err
+		}
 	}
 
 	// Deploy test-conn-disrupt actors (only in the first
@@ -2074,8 +2046,10 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.forceDeploy(ctx)
 	}
 
-	if err := ct.deployNamespace(ctx); err != nil {
-		return err
+	for _, client := range ct.Clients() {
+		if err := ct.deployNamespace(ctx, client, ct.params.TestNamespace); err != nil {
+			return err
+		}
 	}
 
 	nodeSelectorServer := labels.SelectorFromSet(ct.params.PerfParameters.NodeSelectorServer).String()
