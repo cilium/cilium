@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func BGPPPeersCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
+func BGPPeersCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
 			Summary: "List BGP peers on Cilium",
@@ -73,18 +73,6 @@ func PrintPeerStates(tw *tabwriter.Writer, instances []agent.InstancePeerStates,
 	}
 
 	var rows []row
-
-	rows = append(rows, row{
-		Instance:     "Instance",
-		Peer:         "Peer",
-		SessionState: "Session State",
-		Uptime:       "Uptime",
-		Family:       "Family",
-		Received:     "Received",
-		Accepted:     "Accepted",
-		Advertised:   "Advertised",
-	})
-
 	for _, instance := range instances {
 		for _, peer := range instance.Peers {
 			for _, family := range peer.Families {
@@ -115,6 +103,17 @@ func PrintPeerStates(tw *tabwriter.Writer, instances []agent.InstancePeerStates,
 		return strings.Compare(a.Family, b.Family)
 	})
 
+	rows = slices.Insert(rows, 0, row{
+		Instance:     "Instance",
+		Peer:         "Peer",
+		SessionState: "Session State",
+		Uptime:       "Uptime",
+		Family:       "Family",
+		Received:     "Received",
+		Accepted:     "Accepted",
+		Advertised:   "Advertised",
+	})
+
 	prevInstance := ""
 	prevPeer := ""
 	for i, row := range rows {
@@ -127,7 +126,7 @@ func PrintPeerStates(tw *tabwriter.Writer, instances []agent.InstancePeerStates,
 				row.Instance = ""
 			}
 
-			if row.Peer == prevPeer {
+			if row.Instance == "" && row.Peer == prevPeer {
 				// Deduplicate Peer name. Also per-peer information like
 				// Session State and Uptime doesn't need to be repeated.
 				row.Peer = ""
@@ -148,8 +147,15 @@ func PrintPeerStates(tw *tabwriter.Writer, instances []agent.InstancePeerStates,
 				row.Advertised = "-"
 			}
 
-			prevInstance = row.Instance
-			prevPeer = row.Peer
+			if row.Instance != "" {
+				// Don't update prevPeer if Instance is deduplicated
+				prevInstance = row.Instance
+			}
+
+			if row.Peer != "" {
+				// Don't update prevPeer if Peer is deduplicated
+				prevPeer = row.Peer
+			}
 		}
 
 		fmt.Fprintf(tw, "%s\n", strings.Join([]string{
