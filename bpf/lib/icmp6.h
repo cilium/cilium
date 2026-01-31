@@ -590,7 +590,7 @@ struct ipv6_pseudo_header_t {
 };
 
 static __always_inline
-int __tail_no_service_ipv6(struct __ctx_buff *ctx)
+int generate_icmp6_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code)
 {
 	void *data, *data_end;
 	struct ethhdr *ethhdr;
@@ -679,8 +679,8 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 
 	/* Write reversed icmp header */
 	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
-	icmphdr->icmp6_type = ICMPV6_DEST_UNREACH;
-	icmphdr->icmp6_code = ICMPV6_PORT_UNREACH;
+	icmphdr->icmp6_type = icmp_type;
+	icmphdr->icmp6_code = icmp_code;
 	icmphdr->icmp6_cksum = 0;
 	icmphdr->icmp6_dataun.un_data32[0] = 0;
 

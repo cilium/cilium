@@ -281,7 +281,7 @@ int tc_nodeport_lb6_wildcard_drop_not_unknown2_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_lb6_wildcard_drop_not_unknown2")
 int tc_nodeport_lb6_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 {
-	if (__tail_no_service_ipv6(ctx))
+	if (generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH))
 		return TEST_ERROR;
 
 	setup_services(ctx);
