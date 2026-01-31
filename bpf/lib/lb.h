@@ -2118,11 +2118,13 @@ lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
 }
+#endif /* ENABLE_IPV4 */
 
 /* Because we use tail calls and this file is included in bpf_sock.h */
 #ifndef SKIP_CALLS_MAP
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 
+#ifdef ENABLE_IPV4
 __declare_tail(CILIUM_CALL_IPV4_NO_SERVICE)
 int tail_no_service_ipv4(struct __ctx_buff *ctx)
 {
@@ -2143,17 +2145,9 @@ int tail_no_service_ipv4(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* SERVICE_NO_BACKEND_RESPONSE */
-#endif /* SKIP_CALLS_MAP */
-
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-
-/* Because we use tail calls and this file is included in bpf_sock.h */
-#ifndef SKIP_CALLS_MAP
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-
 __declare_tail(CILIUM_CALL_IPV6_NO_SERVICE)
 int tail_no_service_ipv6(struct __ctx_buff *ctx)
 {
@@ -2190,9 +2184,10 @@ drop_err:
 
 	return ret;
 }
+#endif /* ENABLE_IPV6 */
+
 #endif /* SERVICE_NO_BACKEND_RESPONSE */
 #endif /* SKIP_CALLS_MAP */
-#endif /* ENABLE_IPV6 */
 
 static __always_inline
 int handle_nonroutable_endpoints_v4(const struct lb4_service *svc)
