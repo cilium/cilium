@@ -64,9 +64,10 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 # include "bpf_wireguard.c"
 # include "lib/endpoint.h"
 
-const union macaddr router_mac = { .addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
+#define TEST_ROUTER_MAC_ADDR { .addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} }
+const union macaddr router_mac = TEST_ROUTER_MAC_ADDR;
 
-ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
+ASSIGN_CONFIG(union macaddr, interface_mac, TEST_ROUTER_MAC_ADDR)
 #endif
 
 #if defined(IS_BPF_HOST)
