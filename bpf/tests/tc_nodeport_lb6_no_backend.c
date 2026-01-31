@@ -34,7 +34,7 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 PKTGEN("tc", "tc_nodeport_no_backend")
 int nodeport_no_backend_pktgen(struct __ctx_buff *ctx)
 {
-struct pktgen builder;
+	struct pktgen builder;
 	struct tcphdr *l4;
 	void *data;
 
