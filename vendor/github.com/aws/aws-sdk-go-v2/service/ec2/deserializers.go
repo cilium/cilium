@@ -128014,6 +128014,23 @@ func awsEc2query_deserializeDocumentNetworkCardInfo(v **types.NetworkCardInfo, d
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("additionalFlexibleNetworkInterfaces", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.AdditionalFlexibleNetworkInterfaces = ptr.Int32(int32(i64))
+			}
+
 		case strings.EqualFold("baselineBandwidthInGbps", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -209943,6 +209960,19 @@ func awsEc2query_deserializeOpDocumentSearchTransitGatewayRoutesOutput(v **Searc
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.AdditionalRoutesAvailable = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("nextToken", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NextToken = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("routeSet", t.Name.Local):

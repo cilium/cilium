@@ -15367,6 +15367,11 @@ type NetworkBandwidthGbpsRequest struct {
 // Describes the network card support of the instance type.
 type NetworkCardInfo struct {
 
+	// The number of additional network interfaces that can be attached to an instance
+	// when using flexible Elastic Network Adapter (ENA) queues. This number is in
+	// addition to the base number specified by maximumNetworkInterfaces .
+	AdditionalFlexibleNetworkInterfaces *int32
+
 	// The baseline network performance of the network card, in Gbps.
 	BaselineBandwidthInGbps *float64
 
