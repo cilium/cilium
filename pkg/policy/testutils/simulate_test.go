@@ -17,10 +17,8 @@ import (
 )
 
 var (
-	selA   = types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("id=a"))
-	selB   = types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("id=b"))
-	selFoo = types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("foo=bar"))
-	selWC  = types.WildcardSelector
+	selA  = types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("id=a"))
+	selWC = types.WildcardSelector
 
 	idA = identity.NewIdentityFromLabelArray(1001, labels.ParseSelectLabelArray("k8s:id=a", "k8s:foo=bar"))
 	idB = identity.NewIdentityFromLabelArray(1002, labels.ParseSelectLabelArray("k8s:id=b", "k8s:foo=bar"))
