@@ -126,7 +126,7 @@ jobs:
              gc=false
 
       - name: Login to quay.io for CI
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -193,7 +193,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -304,7 +304,7 @@ jobs:
           fi
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee # v0.22.0
+        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
         if: ${{ matrix.name != 'cilium-cli' }}
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -313,7 +313,7 @@ jobs:
 
       - name: Generate SBOM (race)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee # v0.22.0
+        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -321,7 +321,7 @@ jobs:
 
       - name: Generate SBOM (unstripped)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee # v0.22.0
+        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
