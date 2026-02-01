@@ -10,6 +10,7 @@ set -eu
 
 
 ln -s "$SRC"/cilium/pkg/policy/distillery_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/fuzz_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_filter_deny_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_filter_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_test{,_fuzz}.go
@@ -19,6 +20,7 @@ ln -s "$SRC"/cilium/pkg/policy/repository_deny_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/repository_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/resolve_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/resolve_deny_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/simulate_fuzz_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/rule_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/selectorcache_test{,_fuzz}.go
 
@@ -42,4 +44,5 @@ compile_native_go_fuzzer github.com/cilium/cilium/pkg/loadbalancer FuzzJSONServi
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/monitor/format FuzzFormatEvent FuzzFormatEvent
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzAccumulateMapChange FuzzAccumulateMapChange
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDenyPreferredInsert FuzzDenyPreferredInsert
+compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzDistillPolicy FuzzDistillPolicy
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/policy FuzzResolvePolicy FuzzResolvePolicy
