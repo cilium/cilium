@@ -119,7 +119,7 @@ jobs:
           go-version: 1.24.12
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -129,7 +129,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -205,7 +205,7 @@ jobs:
           go-version: 1.24.12
 
       - name: Load hubble-cli Golang cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: hubble-cache
         with:
           path: /tmp/.cache/hubble-cli
@@ -215,7 +215,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
@@ -299,7 +299,7 @@ jobs:
           go-version: 1.24.12
 
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -309,7 +309,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Load ccache cache build from GitHub
-        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: ccache-cache
         with:
           path: /tmp/.cache/ccache
