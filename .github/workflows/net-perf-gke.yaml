@@ -70,7 +70,7 @@ env:
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 553.0.0
+  gcloud_version: 554.0.0
 
 jobs:
   echo-inputs:
