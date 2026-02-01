@@ -29,6 +29,7 @@ ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/icmp.h"
 
 /* Test that a SVC without backends returns a TCP RST or ICMP error */
 PKTGEN("tc", "tc_nodeport_no_backend")
@@ -80,82 +81,26 @@ int nodeport_no_backend_setup(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
-{
-	void *data, *data_end;
-	__u32 *status_code;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
-	struct icmp6hdr *l4;
-	struct ratelimit_value *value;
-
-	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	test_log("Status code: %d", *status_code);
-	assert(*status_code == retval);
-
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 header out of bounds");
-
-	assert(memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) == 0);
-	assert(memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) == 0);
-	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 header out of bounds");
-
-	assert(!memcmp(&l3->saddr, (const void *)FRONTEND_IP, sizeof(l3->saddr)));
-	assert(!memcmp(&l3->daddr, (const void *)CLIENT_IP, sizeof(l3->daddr)));
-
-	assert(l3->hop_limit == 64);
-	assert(l3->version == 6);
-	assert(l3->nexthdr == IPPROTO_ICMPV6);
-
-	l4 = data + sizeof(__u32) + sizeof(struct ethhdr) + sizeof(struct ipv6hdr);
-	if ((void *) l4 + sizeof(struct icmp6hdr) > data_end)
-		test_fatal("l4 header out of bounds");
-
-	assert(l4->icmp6_type == ICMPV6_DEST_UNREACH);
-	assert(l4->icmp6_code == ICMPV6_PORT_UNREACH);
-
-	/* reference checksum is calculated with wireshark by dumping the
-	 * context with the runner option and importing the packet into
-	 * wireshark
-	 */
-	assert(l4->icmp6_cksum == bpf_htons(0x9e14));
-
-	struct ratelimit_key key = {
-		.usage = RATELIMIT_USAGE_ICMPV6,
-		.key = {
-			.icmpv6 = {
-				.netdev_idx = 1,
-			},
-		},
+validate_icmpv6_reply_return(const struct __ctx_buff *ctx, __u32 retval) {
+	struct validate_icmpv6_reply_args args = {
+		.ctx = ctx,
+		.src_mac = (__u8 *)lb_mac,
+		.dst_mac = (__u8 *)client_mac,
+		.src_ip = (__u8 *)FRONTEND_IP,
+		.dst_ip = (__u8 *)CLIENT_IP,
+		.icmp_type = ICMPV6_DEST_UNREACH,
+		.icmp_code = ICMPV6_PORT_UNREACH,
+		.checksum = 0x9e14,
+		.dst_idx = 1,
+		.retval = retval,
 	};
-
-	value = map_lookup_elem(&cilium_ratelimit, &key);
-	if (!value)
-		test_fatal("ratelimit map lookup failed");
-
-	assert(value->tokens > 0);
-
-	test_finish();
+	return validate_icmpv6_reply(&args);
 }
 
 CHECK("tc", "tc_nodeport_no_backend")
 int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return validate_icmp_reply(ctx, CTX_ACT_REDIRECT);
+	return validate_icmpv6_reply_return(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Test that the ICMP error message leaves the node */
@@ -178,5 +123,5 @@ int nodeport_no_backend2_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_nodeport_no_backend2_reply")
 int nodeport_no_backend2_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return validate_icmp_reply(ctx, CTX_ACT_OK);
+	return validate_icmpv6_reply_return(ctx, CTX_ACT_OK);
 }
