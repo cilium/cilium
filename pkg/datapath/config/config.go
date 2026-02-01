@@ -46,12 +46,10 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = false
 	}
 
-	if lnc.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
-		node.NodeportPortMin = lnc.LBConfig.NodePortMin
-		node.NodeportPortMax = lnc.LBConfig.NodePortMax
-		node.NodeportPortMinNAT = lnc.LBConfig.NodePortMax + 1
-		node.NodeportPortMaxNAT = NodePortMaxNAT
-	}
+	node.NodeportPortMin = lnc.LBConfig.NodePortMin
+	node.NodeportPortMax = lnc.LBConfig.NodePortMax
+	node.NodeportPortMinNAT = lnc.LBConfig.NodePortMax + 1
+	node.NodeportPortMaxNAT = NodePortMaxNAT
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
