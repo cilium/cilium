@@ -290,16 +290,10 @@ enum metric_dir {
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-/* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
- * being mutual exclusive given former is only under DSR. Used to push health
- * probe packets to ipip tunnel device & to avoid looping back.
+/* Note, MARK_MAGIC_HEALTH is user-facing UAPI for LB! The tcx datapath will
+ * not see the MARK_MAGIC_HEALTH value given sock_lb is going to reset it.
  */
-#define MARK_MAGIC_HEALTH_IPIP_DONE	MARK_MAGIC_SNAT_DONE
-
-/* MARK_MAGIC_HEALTH can overlap with MARK_MAGIC_DECRYPT with both being
- * mutual exclusive. Note, MARK_MAGIC_HEALTH is user-facing UAPI for LB!
- */
-#define MARK_MAGIC_HEALTH		MARK_MAGIC_DECRYPT
+#define MARK_MAGIC_HEALTH		0x0D00
 
 /* MARK_MAGIC_CLUSTER_ID shouldn't interfere with MARK_MAGIC_TO_PROXY. Lower
  * 8bits carries cluster_id, and when extended via the 'max-connected-clusters'
@@ -317,7 +311,7 @@ enum metric_dir {
 #define TC_INDEX_F_FROM_INGRESS_PROXY	1
 #define TC_INDEX_F_FROM_EGRESS_PROXY	2
 #define TC_INDEX_F_SKIP_NODEPORT	4
-#define TC_INDEX_F_UNUSED		8
+#define TC_INDEX_F_SKIP_HEALTH_CHECK	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
 #define CB_NAT_FLAGS_REVDNAT_ONLY	(1 << 0)

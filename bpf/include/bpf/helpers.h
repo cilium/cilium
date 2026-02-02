@@ -97,6 +97,9 @@ static struct bpf_sock *BPF_FUNC(sk_lookup_udp, void *ctx,
 static int BPF_FUNC_REMAP(get_socket_opt, void *ctx, int level, int optname,
 			  void *optval, int optlen) =
 	(void *)BPF_FUNC_getsockopt;
+static int BPF_FUNC_REMAP(set_socket_opt, void *ctx, int level, int optname,
+			  void *optval, int optlen) =
+	(void *)BPF_FUNC_setsockopt;
 
 static __u64 BPF_FUNC(get_current_cgroup_id);
 

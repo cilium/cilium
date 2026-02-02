@@ -590,8 +590,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 	__sock_cookie key __maybe_unused;
 	int ret __maybe_unused;
 
-	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
-	    MARK_MAGIC_HEALTH_IPIP_DONE)
+	if (ctx->tc_index & TC_INDEX_F_SKIP_HEALTH_CHECK)
 		return CTX_ACT_OK;
 
 	switch (proto) {
@@ -615,7 +614,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 			ret = dsr_set_ipip4_dev(ctx, val->peer.address, 0);
 			if (ret != 0)
 				return ret;
-			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+			ctx->tc_index |= TC_INDEX_F_SKIP_HEALTH_CHECK;
 		}
 
 		return ctx_redirect(ctx, ENCAP4_IFINDEX, flags);
@@ -641,7 +640,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 			ret = dsr_set_ipip6_dev(ctx, &val->peer.address, 0);
 			if (ret != 0)
 				return ret;
-			ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
+			ctx->tc_index |= TC_INDEX_F_SKIP_HEALTH_CHECK;
 		}
 
 		return ctx_redirect(ctx, ENCAP6_IFINDEX, flags);

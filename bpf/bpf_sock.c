@@ -104,6 +104,22 @@ bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 }
 
 static __always_inline __maybe_unused
+void sock_reset_health_check_marker(struct bpf_sock_addr *ctx __maybe_unused)
+{
+	/* connect() has been called at this point, so therefore we
+	 * can now reset the marker so that this does not leak into
+	 * the tcx datapath and looks like regular host traffic. We
+	 * cannot do much other than to proceed if resetting back to
+	 * zero should fail.
+	 */
+#ifdef ENABLE_HEALTH_CHECK
+	int val = 0;
+
+	set_socket_opt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val));
+#endif
+}
+
+static __always_inline __maybe_unused
 __u64 sock_select_slot(struct bpf_sock_addr *ctx)
 {
 	return ctx_protocol(ctx) == IPPROTO_TCP ?
@@ -420,10 +436,10 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-#ifdef ENABLE_HEALTH_CHECK
-	if (sock_is_health_check(ctx))
+	if (sock_is_health_check(ctx)) {
+		sock_reset_health_check_marker(ctx);
 		return SYS_PROCEED;
-#endif /* ENABLE_HEALTH_CHECK */
+	}
 
 	err = __sock4_xlate_fwd(ctx, ctx, false, true);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
@@ -1100,10 +1116,10 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-#ifdef ENABLE_HEALTH_CHECK
-	if (sock_is_health_check(ctx))
+	if (sock_is_health_check(ctx)) {
+		sock_reset_health_check_marker(ctx);
 		return SYS_PROCEED;
-#endif /* ENABLE_HEALTH_CHECK */
+	}
 
 	err = __sock6_xlate_fwd(ctx, false, true);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
