@@ -422,7 +422,7 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host
-            make GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
+            make TMPDIR=/var/tmp GOCACHE="/go-caches/go-build" GOMODCACHE="/go-caches/pkg" SKIP_COVERAGE=1 LOG_CODEOWNERS=1 JUNIT_PATH="test/${{ env.job_name }}.xml" tests-privileged-only GO=go${{ env.go-version }}
 
       - name: Copy Go cache to host
         id: copy-go-cache
