@@ -137,11 +137,16 @@ type getMapNameHandler struct {
 
 func (h *getMapNameHandler) Handle(params restapi.GetMapNameParams) middleware.Responder {
 	m := bpf.GetMap(h.logger, params.Name)
-	if m == nil {
-		return restapi.NewGetMapNameNotFound()
+	if m != nil {
+		return restapi.NewGetMapNameOK().WithPayload(m.GetModel())
 	}
 
-	return restapi.NewGetMapNameOK().WithPayload(m.GetModel())
+	em := ebpf.GetMap(h.logger, params.Name)
+	if em != nil {
+		return restapi.NewGetMapNameOK().WithPayload(em.GetModel())
+	}
+
+	return restapi.NewGetMapNameNotFound()
 }
 
 type getMapHandler struct{}
