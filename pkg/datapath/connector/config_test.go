@@ -4,18 +4,16 @@
 package connector
 
 import (
-	"errors"
-	"math"
+	"fmt"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -24,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -127,57 +126,9 @@ var (
 	}
 )
 
-type fakeLinkAttributes struct {
-	Name       string
-	Headroom   uint16
-	Tailroom   uint16
-	WasCreated bool
-}
-
 func hostSupportsNetkit() bool {
 	err := probes.HaveNetkit()
 	return err == nil
-}
-
-// Reuseable logic to create a test device link via netlink
-func createFakeLink(ifLink netlink.Link) (*fakeLinkAttributes, error) {
-	fakeAttr := &fakeLinkAttributes{Name: ifLink.Attrs().Name}
-
-	// Attempt to create the device that allows our tests to run. It's
-	// possible we're running in parallel with another test, so this could
-	// already exist. Allow EEXIST errors to flow through.
-	err := netlink.LinkAdd(ifLink)
-	if err != nil {
-		if !errors.Is(err, unix.EEXIST) {
-			return nil, err
-		}
-	} else {
-		fakeAttr.WasCreated = true
-	}
-
-	// Re-query the kernel for the device attributes so we know what we
-	// expect the connector config logic to produce.
-	//
-	// This is necessary because we might be on a kernel that doesn't
-	// report the IFLA_HEADROOM and IFLA_TAILROOM. Or, perhaps a driver
-	// changes its internal headroom/tailroom reservations at some
-	// point in the future.
-	fakeLink, err := safenetlink.LinkByName(fakeAttr.Name)
-	if err != nil {
-		destroyFakeLink(fakeAttr)
-		return nil, err
-	}
-
-	fakeAttr.Headroom = fakeLink.Attrs().Headroom
-	fakeAttr.Tailroom = fakeLink.Attrs().Tailroom
-	return fakeAttr, nil
-}
-
-func destroyFakeLink(fakeAttr *fakeLinkAttributes) error {
-	if fakeAttr.WasCreated {
-		return link.DeleteByName(fakeAttr.Name)
-	}
-	return nil
 }
 
 func TestNewConfig(t *testing.T) {
@@ -320,43 +271,42 @@ func TestUseTunedBufferMargins(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	tests := []struct {
-		name              string
-		daemonConfig      *option.DaemonConfig
-		configShouldError bool
-		expectedResult    bool
+		name           string
+		daemonConfig   *option.DaemonConfig
+		shouldSkip     bool
+		expectedResult bool
 	}{
 		{
-			name:              "datapath-veth",
-			daemonConfig:      &daemonConfigVeth,
-			configShouldError: false,
-			expectedResult:    false,
+			name:           "datapath-veth",
+			daemonConfig:   &daemonConfigVeth,
+			shouldSkip:     false,
+			expectedResult: false,
 		},
 		{
-			name:              "datapath-netkit",
-			daemonConfig:      &daemonConfigNetkit,
-			configShouldError: !hostSupportsNetkit(),
-			expectedResult:    true,
+			name:           "datapath-netkit",
+			daemonConfig:   &daemonConfigNetkit,
+			shouldSkip:     !hostSupportsNetkit(),
+			expectedResult: true,
 		},
 		{
-			name:              "datapath-netkit-l2",
-			daemonConfig:      &daemonConfigNetkitL2,
-			configShouldError: !hostSupportsNetkit(),
-			expectedResult:    true,
+			name:           "datapath-netkit-l2",
+			daemonConfig:   &daemonConfigNetkitL2,
+			shouldSkip:     !hostSupportsNetkit(),
+			expectedResult: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
 			p := connectorParams{
 				Log:          logger,
 				Lifecycle:    &cell.DefaultLifecycle{},
 				DaemonConfig: tt.daemonConfig,
 			}
-
 			connector, err := newConfig(p)
-			if tt.configShouldError {
-				t.Skip()
-			}
 
 			assert.NoError(t, err)
 			if assert.NotNil(t, connector) {
@@ -367,238 +317,251 @@ func TestUseTunedBufferMargins(t *testing.T) {
 	}
 }
 
+type ifBufferMargin struct {
+	Headroom uint16
+	Tailroom uint16
+}
+
+func (m *ifBufferMargin) query(attr netlink.Link) error {
+	err := netlink.LinkAdd(attr)
+	if err != nil {
+		return fmt.Errorf("create fake link: %w", err)
+	}
+
+	defer netlink.LinkDel(attr)
+
+	link, err := safenetlink.LinkByName(attr.Attrs().Name)
+	if err != nil {
+		return fmt.Errorf("query fake link: %w", err)
+	}
+
+	m.Headroom = link.Attrs().Headroom
+	m.Tailroom = link.Attrs().Tailroom
+	return nil
+}
+
 func TestPrivilegedCalculateTunedBufferMargins(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
-	// Setup fake devices so we know the underlying magins of each driver
-	// on the system we're running on.
-	wgAttr, err := createFakeLink(fakeLinkWireguard)
-	if err != nil {
-		t.Fatalf("failed to create fake device %+v: %s", fakeLinkWireguard, err)
-	}
-	defer destroyFakeLink(wgAttr)
-	geneveAttr, err := createFakeLink(fakeLinkGeneve)
-	if err != nil {
-		t.Fatalf("failed to create fake device %+v: %s", fakeLinkGeneve, err)
-	}
-	defer destroyFakeLink(geneveAttr)
-	vxlanAttr, err := createFakeLink(fakeLinkVxlan)
-	if err != nil {
-		t.Fatalf("failed to create fake device %+v: %s", fakeLinkVxlan, err)
-	}
-	defer destroyFakeLink(vxlanAttr)
+	wgMargins := &ifBufferMargin{}
+	geneveMargins := &ifBufferMargin{}
+	vxlanMargins := &ifBufferMargin{}
 
-	// Verify nothing overflows before we test
-	assert.NotNil(t, wgAttr)
-	assert.NotNil(t, geneveAttr)
-	assert.NotNil(t, vxlanAttr)
-	assert.Less(t,
-		uint32(wgAttr.Headroom+geneveAttr.Headroom+vxlanAttr.Headroom),
-		uint32(math.MaxUint16))
-	assert.Less(t,
-		uint32(wgAttr.Tailroom+geneveAttr.Tailroom+vxlanAttr.Tailroom),
-		uint32(math.MaxUint16))
+	// In order to run the following tests, we need to establish the base head
+	// and tailroom buffer margins for the kernel we're running on.
+	ns := netns.NewNetNS(t)
+	require.NoError(t, ns.Do(func() error {
+		if err := wgMargins.query(fakeLinkWireguard); err != nil {
+			return fmt.Errorf("query fake wireguard: %w", err)
+		}
+		if err := geneveMargins.query(fakeLinkGeneve); err != nil {
+			return fmt.Errorf("query fake geneve: %w", err)
+		}
+		if err := vxlanMargins.query(fakeLinkVxlan); err != nil {
+			return fmt.Errorf("query fake vxlan: %w", err)
+		}
+		return nil
+	}))
 
 	tests := []struct {
-		name              string
-		daemonConfig      *option.DaemonConfig
-		wgAgent           *fakeTypes.WireguardAgent
-		tunnelConfig      tunnel.Config
-		configShouldError bool // newConfig() error
-		calcShouldError   bool // calcTunedBufferMargins() error
-		expectedHeadroom  uint16
-		expectedTailroom  uint16
+		name             string
+		daemonConfig     *option.DaemonConfig
+		wgAgent          *fakeTypes.WireguardAgent
+		tunnelConfig     tunnel.Config
+		shouldSkip       bool
+		expectedHeadroom uint16
+		expectedTailroom uint16
 	}{
 		// veth
 		{
-			name:              "veth+native-routing",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+native-routing",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "veth+native-routing+wireguard",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+native-routing+wireguard",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "veth+geneve-routing",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+geneve-routing",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "veth+geneve-routing+wireguard",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+geneve-routing+wireguard",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "veth+vxlan-routing",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+vxlan-routing",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "veth+vxlan-routing+wireguard",
-			daemonConfig:      &daemonConfigVeth,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: false,
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "veth+vxlan-routing+wireguard",
+			daemonConfig:     &daemonConfigVeth,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       false,
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 
 		// netkit
 		{
-			name:              "netkit+native-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "netkit+native-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "netkit+native-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  wgAttr.Headroom,
-			expectedTailroom:  wgAttr.Tailroom,
+			name:             "netkit+native-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: wgMargins.Headroom,
+			expectedTailroom: wgMargins.Tailroom,
 		},
 		{
-			name:              "netkit+geneve-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  geneveAttr.Headroom,
-			expectedTailroom:  geneveAttr.Tailroom,
+			name:             "netkit+geneve-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: geneveMargins.Headroom,
+			expectedTailroom: geneveMargins.Tailroom,
 		},
 		{
-			name:              "netkit+geneve-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  geneveAttr.Headroom + wgAttr.Headroom,
-			expectedTailroom:  geneveAttr.Tailroom + wgAttr.Tailroom,
+			name:             "netkit+geneve-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: geneveMargins.Headroom + wgMargins.Headroom,
+			expectedTailroom: geneveMargins.Tailroom + wgMargins.Tailroom,
 		},
 		{
-			name:              "netkit+vxlan-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  vxlanAttr.Headroom,
-			expectedTailroom:  vxlanAttr.Tailroom,
+			name:             "netkit+vxlan-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: vxlanMargins.Headroom,
+			expectedTailroom: vxlanMargins.Tailroom,
 		},
 		{
-			name:              "netkit+vxlan-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  vxlanAttr.Headroom + wgAttr.Headroom,
-			expectedTailroom:  vxlanAttr.Tailroom + wgAttr.Tailroom,
+			name:             "netkit+vxlan-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: vxlanMargins.Headroom + wgMargins.Headroom,
+			expectedTailroom: vxlanMargins.Tailroom + wgMargins.Tailroom,
 		},
 
 		// netkit-l2
 		{
-			name:              "netkit-l2+native-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  0,
-			expectedTailroom:  0,
+			name:             "netkit-l2+native-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: 0,
+			expectedTailroom: 0,
 		},
 		{
-			name:              "netkit-l2+native-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigNative,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  wgAttr.Headroom,
-			expectedTailroom:  wgAttr.Tailroom,
+			name:             "netkit-l2+native-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigNative,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: wgMargins.Headroom,
+			expectedTailroom: wgMargins.Tailroom,
 		},
 		{
-			name:              "netkit-l2+geneve-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  geneveAttr.Headroom,
-			expectedTailroom:  geneveAttr.Tailroom,
+			name:             "netkit-l2+geneve-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: geneveMargins.Headroom,
+			expectedTailroom: geneveMargins.Tailroom,
 		},
 		{
-			name:              "netkit-l2+geneve-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigGeneve,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  geneveAttr.Headroom + wgAttr.Headroom,
-			expectedTailroom:  geneveAttr.Tailroom + wgAttr.Tailroom,
+			name:             "netkit-l2+geneve-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigGeneve,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: geneveMargins.Headroom + wgMargins.Headroom,
+			expectedTailroom: geneveMargins.Tailroom + wgMargins.Tailroom,
 		},
 		{
-			name:              "netkit-l2+vxlan-routing",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigDisabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  vxlanAttr.Headroom,
-			expectedTailroom:  vxlanAttr.Tailroom,
+			name:             "netkit-l2+vxlan-routing",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: vxlanMargins.Headroom,
+			expectedTailroom: vxlanMargins.Tailroom,
 		},
 		{
-			name:              "netkit-l2+vxlan-routing+wireguard",
-			daemonConfig:      &daemonConfigNetkit,
-			wgAgent:           fakeTypes.NewTestAgent(wgConfigEnabled),
-			tunnelConfig:      tunnelConfigVxlan,
-			configShouldError: !hostSupportsNetkit(),
-			calcShouldError:   false,
-			expectedHeadroom:  vxlanAttr.Headroom + wgAttr.Headroom,
-			expectedTailroom:  vxlanAttr.Tailroom + wgAttr.Tailroom,
+			name:             "netkit-l2+vxlan-routing+wireguard",
+			daemonConfig:     &daemonConfigNetkit,
+			wgAgent:          fakeTypes.NewTestAgent(wgConfigEnabled),
+			tunnelConfig:     tunnelConfigVxlan,
+			shouldSkip:       !hostSupportsNetkit(),
+			expectedHeadroom: vxlanMargins.Headroom + wgMargins.Headroom,
+			expectedTailroom: vxlanMargins.Tailroom + wgMargins.Tailroom,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
+
+			ns := netns.NewNetNS(t)
+			require.NoError(t, ns.Do(func() error {
+				if err := netlink.LinkAdd(fakeLinkWireguard); err != nil {
+					return fmt.Errorf("create fake wireguard: %w", err)
+				}
+				if err := netlink.LinkAdd(fakeLinkGeneve); err != nil {
+					return fmt.Errorf("create fake geneve: %w", err)
+				}
+				if err := netlink.LinkAdd(fakeLinkVxlan); err != nil {
+					return fmt.Errorf("create fake vxlan: %w", err)
+				}
+				return nil
+			}))
+
 			p := connectorParams{
 				Lifecycle:    &cell.DefaultLifecycle{},
 				Log:          logger,
@@ -607,25 +570,14 @@ func TestPrivilegedCalculateTunedBufferMargins(t *testing.T) {
 				TunnelConfig: tt.tunnelConfig,
 			}
 
-			uninitialisedConnector := &ConnectorConfig{}
-
 			connector, err := newConfig(p)
-			if tt.configShouldError {
-				t.Skip()
-			}
 
 			assert.NoError(t, err)
-			assert.NotNil(t, connector)
+			if assert.NotNil(t, connector) {
+				require.NoError(t, ns.Do(func() error {
+					return connector.calculateTunedBufferMargins()
+				}))
 
-			err = connector.calculateTunedBufferMargins()
-
-			switch tt.calcShouldError {
-			case true:
-				assert.Error(t, err)
-				assert.Equal(t, uninitialisedConnector, connector)
-
-			case false:
-				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedHeadroom, connector.podDeviceHeadroom)
 				assert.Equal(t, tt.expectedTailroom, connector.podDeviceTailroom)
 			}
