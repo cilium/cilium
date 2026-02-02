@@ -15,6 +15,7 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -38,6 +39,7 @@ var Cell = cell.Module(
 		resourceClaimResource,
 		podResource,
 	),
+	resourceIPAM,
 	cell.Invoke(registerNetworkDriver),
 )
 
@@ -51,6 +53,8 @@ type networkDriverParams struct {
 	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
 	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	Pods           resource.Resource[*corev1.Pod]
+	MultiPoolMgr   *ipam.MultiPoolManager
+	DaemonCfg      *option.DaemonConfig
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -119,6 +123,9 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:      params.Configs,
 		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		multiPoolMgr:   params.MultiPoolMgr,
+		ipv4Enabled:    params.DaemonCfg.IPv4Enabled(),
+		ipv6Enabled:    params.DaemonCfg.IPv6Enabled(),
 	}
 
 	params.Lifecycle.Append(driver)

@@ -23,6 +23,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -60,6 +61,10 @@ type Driver struct {
 	allocations map[kube_types.UID]map[kube_types.UID][]allocation
 	// manager_type: devices
 	devices map[types.DeviceManagerType][]types.Device
+
+	multiPoolMgr *ipam.MultiPoolManager
+	ipv4Enabled  bool
+	ipv6Enabled  bool
 }
 
 type allocation struct {
@@ -286,6 +291,11 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) 
 		}
 		podUID := claim.Status.ReservedFor[0].UID
 
+		if alloc.Config.IPPool == "" {
+			// no need to allocate from pool in case of static addresses
+			continue
+		}
+
 		var claimAllocs map[kube_types.UID][]allocation
 		claimAllocs, found := driver.allocations[podUID]
 		if !found {
@@ -293,12 +303,48 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) 
 			driver.allocations[podUID] = claimAllocs
 		}
 		claimAllocs[claim.UID] = append(claimAllocs[claim.UID], alloc)
+
+		if driver.ipv4Enabled {
+			if _, err := driver.multiPoolMgr.AllocateIP(
+				alloc.Config.IPv4Addr.Addr().AsSlice(),
+				alloc.Device.IfName(),
+				ipam.Pool(alloc.Config.IPPool),
+				ipam.IPv4,
+				false,
+			); err != nil {
+				errs = append(errs,
+					fmt.Errorf("failed to restore device IP address %s from pool %s: %w",
+						alloc.Config.IPv4Addr.Addr(), alloc.Config.IPPool, err),
+				)
+			}
+		}
+
+		if driver.ipv6Enabled {
+			if _, err := driver.multiPoolMgr.AllocateIP(
+				alloc.Config.IPv6Addr.Addr().AsSlice(),
+				alloc.Device.IfName(),
+				ipam.Pool(alloc.Config.IPPool),
+				ipam.IPv6,
+				false,
+			); err != nil {
+				errs = append(errs,
+					fmt.Errorf("failed to restore device IP address %s from pool %s: %w",
+						alloc.Config.IPv6Addr.Addr(), alloc.Config.IPPool, err),
+				)
+			}
+		}
+
 	}
 
 	return errors.Join(errs...)
 }
 
 func (driver *Driver) restoreDevices(ctx context.Context) error {
+	// wait for local node to be updated so that the in use CIDRs of the IP
+	// pools are restored. The pools status must be up to date before restoring
+	// the IP addresses of the allocated devices.
+	waitForLocalNodeUpdate(driver.logger, driver.multiPoolMgr)
+
 	podsStore, err := driver.pods.Store(ctx)
 	if err != nil {
 		return err
@@ -342,6 +388,16 @@ func (driver *Driver) restoreDevices(ctx context.Context) error {
 			errs = append(errs, fmt.Errorf("failed to restore allocated devices from claim %s/%s: %w", claim.Namespace, claim.Name, err))
 		}
 	}
+
+	// All IP addresses of previously allocated devices are restored,
+	// mark the IPAM status as ready to allocate addresses for new devices.
+	if driver.ipv4Enabled {
+		driver.multiPoolMgr.RestoreFinished(ipam.IPv4)
+	}
+	if driver.ipv6Enabled {
+		driver.multiPoolMgr.RestoreFinished(ipam.IPv6)
+	}
+
 	return errors.Join(errs...)
 }
 
@@ -468,4 +524,15 @@ func (driver *Driver) Stop(ctx cell.HookContext) error {
 	driver.logger.DebugContext(ctx, "Network driver stopped")
 
 	return nil
+}
+
+func waitForLocalNodeUpdate(logger *slog.Logger, mgr *ipam.MultiPoolManager) {
+	for {
+		select {
+		case <-mgr.LocalNodeUpdated():
+			return
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to be updated")
+		}
+	}
 }
