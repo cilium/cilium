@@ -1679,6 +1679,10 @@ int cil_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IDENTITY_MARK
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
 		src_id = get_identity(ctx);
+# ifdef ENABLE_WIREGUARD
+	else if (ctx_is_decrypt(ctx))
+		src_id = get_identity(ctx);
+# endif
 #endif
 
 	/* Retrieve values carried either via ctx->mark or ctx->cb.
