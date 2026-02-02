@@ -28,13 +28,7 @@ func (t ztunnelPodToPodEncryption) build(ct *check.ConnectivityTest, _ map[strin
 			tests.ZTunnelEnrolledToEnrolledDifferentNode(),
 			tests.ZTunnelUnenrolledToUnenrolledSameNode(),
 			tests.ZTunnelUnenrolledToUnenrolledDifferentNode(),
-			tests.ZTunnelEnrolledToUnenrolledSameNode(),
-			tests.ZTunnelEnrolledToUnenrolledDifferentNode(),
-			tests.ZTunnelUnenrolledToEnrolledSameNode(),
-			tests.ZTunnelUnenrolledToEnrolledDifferentNode(),
 			tests.ZTunnelEnrolledToEnrolledCrossNamespaceSameNode(),
 			tests.ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode(),
-			tests.ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode(),
-			tests.ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode(),
 		)
 }

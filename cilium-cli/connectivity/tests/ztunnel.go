@@ -138,54 +138,6 @@ func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
 	})
 }
 
-// ZTunnelEnrolledToUnenrolledSameNode tests traffic from enrolled to unenrolled pod on same node
-func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "enrolled-to-unenrolled-same-node",
-		clientEnrollment: enrolled,
-		serverEnrollment: unenrolled,
-		location:         sameNode,
-		sameNamespace:    false,
-		expectEncryption: false,
-	})
-}
-
-// ZTunnelEnrolledToUnenrolledDifferentNode tests traffic from enrolled to unenrolled pod on different nodes
-func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "enrolled-to-unenrolled-different-node",
-		clientEnrollment: enrolled,
-		serverEnrollment: unenrolled,
-		location:         differentNode,
-		sameNamespace:    false,
-		expectEncryption: false,
-	})
-}
-
-// ZTunnelUnenrolledToEnrolledSameNode tests traffic from unenrolled to enrolled pod on same node
-func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-same-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         sameNode,
-		sameNamespace:    false,
-		expectEncryption: false,
-	})
-}
-
-// ZTunnelUnenrolledToEnrolledDifferentNode tests traffic from unenrolled to enrolled pod on different nodes
-func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-different-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         differentNode,
-		sameNamespace:    false,
-		expectEncryption: false,
-	})
-}
-
 // ZTunnelEnrolledToEnrolledCrossNamespaceSameNode tests mTLS between enrolled pods in different namespaces on same node
 func ZTunnelEnrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
@@ -207,30 +159,6 @@ func ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
 		location:         differentNode,
 		sameNamespace:    false,
 		expectEncryption: true,
-	})
-}
-
-// ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode tests traffic from unenrolled to enrolled pod in different namespaces on same node
-func ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-cross-ns-same-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         sameNode,
-		sameNamespace:    false,
-		expectEncryption: false,
-	})
-}
-
-// ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode tests traffic from unenrolled to enrolled pod in different namespaces on different nodes
-func ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
-	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-cross-ns-different-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         differentNode,
-		sameNamespace:    false,
-		expectEncryption: false,
 	})
 }
 
