@@ -173,6 +173,10 @@ Validate the Setup
 Limitations
 ===========
 
+* Traffic between workloads is only supported when both the source and
+  destination endpoints are enrolled in ztunnel. Communication between an
+  enrolled workload and a non-enrolled workload is not supported.
+
 * The ztunnel integration currently only supports enrollment via namespace
   labels. Pod-level enrollment is not supported.
 
