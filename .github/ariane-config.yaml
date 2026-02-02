@@ -127,44 +127,44 @@ workflows:
   conformance-aws-cni.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-clustermesh.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-delegated-ipam.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ipsec.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ipsec-e2e.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-eks.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-gateway-api.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ginkgo.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ingress.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kpr.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kubespray.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-l3-l4.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-l7.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-multi-pool.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-race.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-runtime.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   integration-test.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   tests-clustermesh-upgrade.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images|.github/actions/cl2-modules|pkg/datapath/loader)/
   tests-e2e-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
