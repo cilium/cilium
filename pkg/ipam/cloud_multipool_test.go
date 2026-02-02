@@ -55,7 +55,7 @@ func newTestCloudMultiPoolAllocator(t *testing.T, resolver RoutingMetadataResolv
 	t.Helper()
 
 	logger := hivetest.Logger(t)
-	mgr := &multiPoolManager{
+	mgr := &MultiPoolManager{
 		logger:            logger,
 		ipv4Enabled:       true,
 		pools:             map[Pool]*poolPair{},

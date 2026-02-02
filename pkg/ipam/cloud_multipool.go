@@ -117,7 +117,7 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
 	}
 
-	mgr := newMultiPoolManager(MultiPoolManagerParams{
+	mgr := NewMultiPoolManager(MultiPoolManagerParams{
 		Logger:               p.Logger,
 		IPv4Enabled:          p.IPv4Enabled,
 		IPv6Enabled:          p.IPv6Enabled,
