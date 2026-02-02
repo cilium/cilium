@@ -126,6 +126,7 @@ spec:
           ipv4-addrs: 16
           ipv6-addrs: 16
         pool: default
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -158,6 +159,7 @@ spec:
           ipv4-addrs: 24
           ipv6-addrs: 24
         pool: default
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -214,6 +216,7 @@ spec:
           ipv4-addrs: 24
           ipv6-addrs: 24
         pool: default
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
@@ -248,6 +251,7 @@ spec:
           ipv4-addrs: 32
           ipv6-addrs: 32
         pool: default
+    resourcepools: {}
 status:
   alibaba-cloud: {}
   azure: {}
