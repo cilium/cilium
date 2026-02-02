@@ -474,7 +474,7 @@ jobs:
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           fi
 
-          cilium status --wait --interactive=false
+          cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
