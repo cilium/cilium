@@ -1442,7 +1442,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 	if (!nodeport_skip_xlate6(svc)) {
 		ret = lb6_dnat_request(ctx, backend, l3_off, fraginfo,
-				       l4_off, key, tuple, false);
+				       l4_off, tuple, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -2843,7 +2843,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		if (!nodeport_skip_xlate4(svc))
 			ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo,
-					       l4_off, key, tuple, false);
+					       l4_off, tuple, false);
 	}
 
 	if (IS_ERR(ret))
