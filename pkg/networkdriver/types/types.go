@@ -141,13 +141,17 @@ type RouteSet map[netip.Prefix]AddrSet
 type AddrSet map[netip.Prefix]struct{}
 
 type DeviceConfig struct {
-	Ipv4Addr netip.Prefix `json:"ipv4Addr"`
+	IPv4Addr netip.Prefix `json:"ipv4Addr"`
+	IPv6Addr netip.Prefix `json:"ipv6Addr"`
+	IPPool   string       `json:"ip-pool"`
 	Routes   RouteSet
 	Vlan     uint16
 }
 
 func (d *DeviceConfig) Empty() bool {
-	return d.Ipv4Addr == (netip.Prefix{}) &&
+	return d.IPv4Addr == (netip.Prefix{}) &&
+		d.IPv6Addr == (netip.Prefix{}) &&
+		d.IPPool == "" &&
 		d.Routes == nil &&
 		d.Vlan == 0
 }
