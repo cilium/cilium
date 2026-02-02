@@ -17,6 +17,7 @@ to learn how to level up through the project.
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
+ * [David Bimmler] (Isovalent)
  * [Deepesh Pathak] (Isovalent)
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
@@ -89,6 +90,7 @@ project.
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
+[David Bimmler]: https://github.com/bimmlerd
 [Deepesh Pathak]: https://github.com/fristonio
 [Dorde Lapcevic]: https://github.com/dlapcevic
 [Dylan Reimerink]: https://github.com/dylandreimerink
