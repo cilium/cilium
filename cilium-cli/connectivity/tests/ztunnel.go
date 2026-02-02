@@ -12,6 +12,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
@@ -30,23 +31,23 @@ const (
 	curlRetryDelay      = 2 * time.Second
 
 	// Namespace enrollment label for Cilium's ztunnel mTLS
-	mtlsEnabledLabel = "mtls-enabled"
+	mtlsEnabledLabel = "io.cilium/mtls-enabled"
 )
 
 // podLocation defines whether pods are on the same or different nodes
 type podLocation int
 
 const (
-	SameNode podLocation = iota
-	DifferentNode
+	sameNode podLocation = iota
+	differentNode
 )
 
 // enrollmentStatus defines whether a pod is enrolled in ztunnel mTLS
 type enrollmentStatus int
 
 const (
-	Enrolled enrollmentStatus = iota
-	Unenrolled
+	enrolled enrollmentStatus = iota
+	unenrolled
 )
 
 // scenarioConfig defines the configuration for a ztunnel test scenario
@@ -69,14 +70,14 @@ type ztunnelTestBase struct {
 	namespace string
 
 	// pods under test
-	client *check.Pod
-	server *check.Pod
+	client check.Pod
+	server check.Pod
 
 	// host network namespace pods
-	clientHostNS *check.Pod
-	serverHostNS *check.Pod
+	clientHostNS check.Pod
+	serverHostNS check.Pod
 
-	// ztunnel pods
+	// ztunnel pods (pointers since we check for nil during setup)
 	clientZTunnel *check.Pod
 	serverZTunnel *check.Pod
 
@@ -89,17 +90,13 @@ type ztunnelTestBase struct {
 	finalizers []func() error
 }
 
-// ================================================================================
-// Factory Functions for All Test Scenarios
-// ================================================================================
-
 // ZTunnelEnrolledToEnrolledSameNode tests mTLS encryption between enrolled pods on same node
 func ZTunnelEnrolledToEnrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-enrolled-same-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Enrolled,
-		location:         SameNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: enrolled,
+		location:         sameNode,
 		sameNamespace:    true,
 		expectEncryption: true,
 	})
@@ -109,9 +106,9 @@ func ZTunnelEnrolledToEnrolledSameNode() check.Scenario {
 func ZTunnelEnrolledToEnrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-enrolled-different-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Enrolled,
-		location:         DifferentNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: enrolled,
+		location:         differentNode,
 		sameNamespace:    true,
 		expectEncryption: true,
 	})
@@ -121,9 +118,9 @@ func ZTunnelEnrolledToEnrolledDifferentNode() check.Scenario {
 func ZTunnelUnenrolledToUnenrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-unenrolled-same-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Unenrolled,
-		location:         SameNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: unenrolled,
+		location:         sameNode,
 		sameNamespace:    true,
 		expectEncryption: false,
 	})
@@ -133,9 +130,9 @@ func ZTunnelUnenrolledToUnenrolledSameNode() check.Scenario {
 func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-unenrolled-different-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Unenrolled,
-		location:         DifferentNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: unenrolled,
+		location:         differentNode,
 		sameNamespace:    true,
 		expectEncryption: false,
 	})
@@ -145,9 +142,9 @@ func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
 func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-unenrolled-same-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Unenrolled,
-		location:         SameNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: unenrolled,
+		location:         sameNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -157,9 +154,9 @@ func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
 func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-unenrolled-different-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Unenrolled,
-		location:         DifferentNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: unenrolled,
+		location:         differentNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -169,9 +166,9 @@ func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
 func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-enrolled-same-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Enrolled,
-		location:         SameNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         sameNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -181,9 +178,9 @@ func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
 func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-enrolled-different-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Enrolled,
-		location:         DifferentNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         differentNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -193,9 +190,9 @@ func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
 func ZTunnelEnrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-enrolled-cross-ns-same-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Enrolled,
-		location:         SameNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: enrolled,
+		location:         sameNode,
 		sameNamespace:    false,
 		expectEncryption: true,
 	})
@@ -205,9 +202,9 @@ func ZTunnelEnrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 func ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "enrolled-to-enrolled-cross-ns-different-node",
-		clientEnrollment: Enrolled,
-		serverEnrollment: Enrolled,
-		location:         DifferentNode,
+		clientEnrollment: enrolled,
+		serverEnrollment: enrolled,
+		location:         differentNode,
 		sameNamespace:    false,
 		expectEncryption: true,
 	})
@@ -217,9 +214,9 @@ func ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
 func ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-enrolled-cross-ns-same-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Enrolled,
-		location:         SameNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         sameNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -229,9 +226,9 @@ func ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 func ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
 		name:             "unenrolled-to-enrolled-cross-ns-different-node",
-		clientEnrollment: Unenrolled,
-		serverEnrollment: Enrolled,
-		location:         DifferentNode,
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         differentNode,
 		sameNamespace:    false,
 		expectEncryption: false,
 	})
@@ -249,24 +246,20 @@ func (s *ztunnelTestBase) Name() string {
 	return s.config.name
 }
 
-// ================================================================================
-// Pod Selection Logic
-// ================================================================================
-
 // getNamespaceForEnrollment determines which namespace to use based on enrollment and pod type.
 //
 // Namespace distribution strategy:
 // - All 3 test namespaces (enrolled-0, enrolled-1, unenrolled) start without the mtls-enabled label
 // - During test execution, namespaces are dynamically labeled based on enrollment requirements
-// - Unenrolled pods use "cilium-test-ztunnel-unenrolled"
-// - Enrolled pods in same-namespace tests use "cilium-test-ztunnel-enrolled-0"
-// - Enrolled pods in cross-namespace tests:
+// - unenrolled pods use "cilium-test-ztunnel-unenrolled"
+// - enrolled pods in same-namespace tests use "cilium-test-ztunnel-enrolled-0"
+// - enrolled pods in cross-namespace tests:
 //   - Client pods → "cilium-test-ztunnel-enrolled-0"
 //   - Server pods → "cilium-test-ztunnel-enrolled-1"
 //
 // This ensures we test both intra-namespace and inter-namespace mTLS scenarios.
 func (s *ztunnelTestBase) getNamespaceForEnrollment(enrollment enrollmentStatus, podType string) string {
-	if enrollment == Unenrolled {
+	if enrollment == unenrolled {
 		return unenrolledNamespace
 	}
 
@@ -291,8 +284,8 @@ func (s *ztunnelTestBase) getNamespaceForEnrollment(enrollment enrollmentStatus,
 //
 // Deployments are labeled with "name=<deployment-name>", so we list all pods with that label
 // and then filter by node location requirements:
-// - SameNode: Pod must be on the same node as referenceNode
-// - DifferentNode: Pod must be on a different node than referenceNode
+// - sameNode: Pod must be on the same node as referenceNode
+// - differentNode: Pod must be on a different node than referenceNode
 func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment enrollmentStatus, podType string, referenceNode string, location podLocation) *check.Pod {
 	namespace := s.getNamespaceForEnrollment(enrollment, podType)
 
@@ -325,7 +318,7 @@ func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment 
 	}
 
 	// Find a pod matching the location requirements
-	pod := s.filterPodsByLocation(&pods.Items, referenceNode, location)
+	pod := s.filterPodsByLocation(pods.Items, referenceNode, location)
 	if pod == nil {
 		t.Fatalf("Failed to find %s pod matching node location requirements in namespace %s (selector: %s, referenceNode: %s, location: %s, found %d pods)",
 			podType, namespace, labelSelector, referenceNode, locationName(location), len(pods.Items))
@@ -339,19 +332,21 @@ func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment 
 
 // filterPodsByLocation finds the first pod matching the specified node location constraint.
 // Returns nil if no matching pod is found.
-func (s *ztunnelTestBase) filterPodsByLocation(pods *[]corev1.Pod, referenceNode string, location podLocation) *corev1.Pod {
-	for i := range *pods {
-		pod := &(*pods)[i]
-		if location == SameNode && referenceNode != "" {
-			if pod.Spec.NodeName == referenceNode {
-				return pod
-			}
-		} else if location == DifferentNode && referenceNode != "" {
-			if pod.Spec.NodeName != referenceNode {
-				return pod
-			}
-		} else {
-			// No location constraint, return first pod
+func (s *ztunnelTestBase) filterPodsByLocation(pods []corev1.Pod, referenceNode string, location podLocation) *corev1.Pod {
+	// No location constraint, return first pod
+	if referenceNode == "" {
+		if len(pods) > 0 {
+			return &pods[0]
+		}
+		return nil
+	}
+
+	for i := range pods {
+		pod := &pods[i]
+		if location == sameNode && pod.Spec.NodeName == referenceNode {
+			return pod
+		}
+		if location == differentNode && pod.Spec.NodeName != referenceNode {
 			return pod
 		}
 	}
@@ -361,24 +356,20 @@ func (s *ztunnelTestBase) filterPodsByLocation(pods *[]corev1.Pod, referenceNode
 // setupTestPods configures client and server pods based on test configuration
 func (s *ztunnelTestBase) setupTestPods(ctx context.Context, t *check.Test) {
 	// Get client pod
-	s.client = s.getPod(ctx, t, s.config.clientEnrollment, "client", "", SameNode)
+	s.client = *s.getPod(ctx, t, s.config.clientEnrollment, "client", "", sameNode)
 
 	// Get server pod based on location and enrollment
 	serverPodType := "echo-same-node"
-	if s.config.location == DifferentNode {
+	if s.config.location == differentNode {
 		serverPodType = "echo-other-node"
 	}
 
-	s.server = s.getPod(ctx, t, s.config.serverEnrollment, serverPodType, s.client.Pod.Spec.NodeName, s.config.location)
+	s.server = *s.getPod(ctx, t, s.config.serverEnrollment, serverPodType, s.client.Pod.Spec.NodeName, s.config.location)
 
 	t.Debugf("Selected pods: client=%s (node=%s, ns=%s), server=%s (node=%s, ns=%s)",
 		s.client.Pod.Name, s.client.Pod.Spec.NodeName, s.client.Pod.Namespace,
 		s.server.Pod.Name, s.server.Pod.Spec.NodeName, s.server.Pod.Namespace)
 }
-
-// ================================================================================
-// Host Network and Ztunnel Pod Helpers
-// ================================================================================
 
 // getHostNSPods acquires host namespace pods for packet capture on client and server nodes.
 //
@@ -394,13 +385,13 @@ func (s *ztunnelTestBase) getHostNSPods(t *check.Test) {
 	if !ok {
 		t.Fatalf("Failed to acquire host namespace pod on %s (client's node)", s.client.Pod.Spec.NodeName)
 	}
-	s.clientHostNS = &clientHostNS
+	s.clientHostNS = clientHostNS
 
 	serverHostNS, ok := s.ct.HostNetNSPodsByNode()[s.server.Pod.Spec.NodeName]
 	if !ok {
 		t.Fatalf("Failed to acquire host namespace pod on %s (server's node)", s.server.Pod.Spec.NodeName)
 	}
-	s.serverHostNS = &serverHostNS
+	s.serverHostNS = serverHostNS
 }
 
 // getZTunnelPods acquires ztunnel pods running on the same nodes as client and server
@@ -433,10 +424,6 @@ func (s *ztunnelTestBase) getZTunnelPods(ctx context.Context, t *check.Test) {
 	}
 }
 
-// ================================================================================
-// Ztunnel State Validation
-// ================================================================================
-
 // workload represents a workload in the ztunnel dump_config output
 type workload struct {
 	Name           string   `json:"name"`
@@ -456,7 +443,7 @@ type ztunnelDumpConfig struct {
 // validateZTunnelState checks that ztunnels have workload information for enrolled pods
 func (s *ztunnelTestBase) validateZTunnelState(ctx context.Context, t *check.Test) {
 	// Skip validation if neither pod is enrolled
-	if s.config.clientEnrollment == Unenrolled && s.config.serverEnrollment == Unenrolled {
+	if s.config.clientEnrollment == unenrolled && s.config.serverEnrollment == unenrolled {
 		t.Debugf("Skipping ztunnel state validation - no enrolled pods")
 		return
 	}
@@ -481,40 +468,52 @@ func (s *ztunnelTestBase) validateZTunnelState(ctx context.Context, t *check.Tes
 		return config.Workloads, nil
 	}
 
+	hasWorkload := func(workloads []workload, uid string) bool {
+		for _, wl := range workloads {
+			if wl.UID == uid {
+				return true
+			}
+		}
+		return false
+	}
+
+	sameNode := s.clientHostNS.Pod.Name == s.serverHostNS.Pod.Name
+
 	validated := false
 	for ctx.Err() == nil {
-		clientWorkloads, err := fetchWorkloads(s.clientHostNS)
+		// Fetch workloads from client's ztunnel
+		clientWorkloads, err := fetchWorkloads(&s.clientHostNS)
 		if err != nil {
 			t.Fatalf("Failed to fetch workloads from client ztunnel: %v", err)
 		}
 
-		// Check for enrolled client
-		if s.config.clientEnrollment == Enrolled {
-			found := false
-			for _, wl := range clientWorkloads {
-				if wl.UID == string(s.client.Pod.UID) {
-					found = true
-					break
-				}
-			}
-			if !found {
+		// Check client ztunnel has enrolled client workload
+		if s.config.clientEnrollment == enrolled {
+			if !hasWorkload(clientWorkloads, string(s.client.Pod.UID)) {
 				t.Debugf("Client ztunnel missing client workload, retrying")
 				time.Sleep(1 * time.Second)
 				continue
 			}
 		}
 
-		// Check for enrolled server
-		if s.config.serverEnrollment == Enrolled {
-			found := false
-			for _, wl := range clientWorkloads {
-				if wl.UID == string(s.server.Pod.UID) {
-					found = true
-					break
-				}
-			}
-			if !found {
+		// Check client ztunnel has enrolled server workload
+		if s.config.serverEnrollment == enrolled {
+			if !hasWorkload(clientWorkloads, string(s.server.Pod.UID)) {
 				t.Debugf("Client ztunnel missing server workload, retrying")
+				time.Sleep(1 * time.Second)
+				continue
+			}
+		}
+
+		// For different node scenarios, also validate server's ztunnel
+		if !sameNode && s.config.serverEnrollment == enrolled {
+			serverWorkloads, err := fetchWorkloads(&s.serverHostNS)
+			if err != nil {
+				t.Fatalf("Failed to fetch workloads from server ztunnel: %v", err)
+			}
+
+			if !hasWorkload(serverWorkloads, string(s.server.Pod.UID)) {
+				t.Debugf("Server ztunnel missing server workload, retrying")
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -530,27 +529,15 @@ func (s *ztunnelTestBase) validateZTunnelState(ctx context.Context, t *check.Tes
 	t.Debugf("Ztunnel workload validation complete")
 }
 
-// ================================================================================
-// Namespace Enrollment Management
-// ================================================================================
-
 // enrollNamespace adds the mtls-enabled label to a namespace to enroll it in ztunnel mTLS.
 func (s *ztunnelTestBase) enrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
 	t.Debugf("Enrolling namespace %s in ztunnel mTLS", namespace)
 
-	ns, err := s.ct.K8sClient().GetNamespace(ctx, namespace, metav1.GetOptions{})
+	patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"true"}}}`, mtlsEnabledLabel))
+	_, err := s.ct.K8sClient().Clientset.CoreV1().Namespaces().Patch(
+		ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
-	}
-
-	if ns.Labels == nil {
-		ns.Labels = make(map[string]string)
-	}
-	ns.Labels[mtlsEnabledLabel] = "true"
-
-	_, err = s.ct.K8sClient().Clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to update namespace %s with enrollment label: %w", namespace, err)
+		return fmt.Errorf("failed to patch namespace %s with enrollment label: %w", namespace, err)
 	}
 
 	t.Debugf("Namespace %s enrolled", namespace)
@@ -561,27 +548,16 @@ func (s *ztunnelTestBase) enrollNamespace(ctx context.Context, t *check.Test, na
 func (s *ztunnelTestBase) disenrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
 	t.Debugf("Disenrolling namespace %s from ztunnel mTLS", namespace)
 
-	ns, err := s.ct.K8sClient().GetNamespace(ctx, namespace, metav1.GetOptions{})
+	patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, mtlsEnabledLabel))
+	_, err := s.ct.K8sClient().Clientset.CoreV1().Namespaces().Patch(
+		ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
-	}
-
-	if ns.Labels != nil {
-		delete(ns.Labels, mtlsEnabledLabel)
-	}
-
-	_, err = s.ct.K8sClient().Clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to update namespace %s to remove enrollment label: %w", namespace, err)
+		return fmt.Errorf("failed to patch namespace %s to remove enrollment label: %w", namespace, err)
 	}
 
 	t.Debugf("Namespace %s disenrolled", namespace)
 	return nil
 }
-
-// ================================================================================
-// Traffic Filters and Sniffers
-// ================================================================================
 
 // createTrafficFiltersForFamily creates tcpdump filters for a specific IP family and port.
 // For same-node scenarios, it creates bidirectional filters since both pods share the same host network.
@@ -615,7 +591,7 @@ func createTrafficFiltersForFamily(clientIP, serverIP, suffix string, port int, 
 // 2. Plain text filters: Detect traffic on port 8080 (direct HTTP to echo server)
 //
 // Based on enrollment status, tests assert:
-// - Enrolled→Enrolled: MUST see port 15008, MUST NOT see port 8080
+// - enrolled→enrolled: MUST see port 15008, MUST NOT see port 8080
 // - Other scenarios: MUST NOT see port 15008, MUST see port 8080
 func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[string]string, err error) {
 	encrypted = make(map[string]string)
@@ -648,6 +624,18 @@ func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[strin
 	return encrypted, plainText, nil
 }
 
+// startSniffer starts a tcpdump sniffer on the given host network pod.
+func (s *ztunnelTestBase) startSniffer(ctx context.Context, t *check.Test, mode sniff.Mode,
+	hostNS *check.Pod, filter, name string,
+) (*sniff.Sniffer, error) {
+	sniffer, cancel, err := sniff.Sniff(ctx, name, hostNS, "any", filter, mode, sniff.SniffKillTimeout, t)
+	if err != nil {
+		return nil, err
+	}
+	s.finalizers = append(s.finalizers, cancel)
+	return sniffer, nil
+}
+
 // startSnifferForFamily starts tcpdump sniffers for a specific IP family.
 // Returns a map of sniffers keyed by "client-<suffix>" and "server-<suffix>".
 // For same-node scenarios, the server sniffer reuses the client sniffer since both pods
@@ -656,7 +644,6 @@ func (s *ztunnelTestBase) startSnifferForFamily(ctx context.Context, t *check.Te
 	filters map[string]string, name, suffix string, sameNode bool,
 ) (map[string]*sniff.Sniffer, error) {
 	sniffers := make(map[string]*sniff.Sniffer)
-	captureInterface := "any"
 
 	clientKey := "client-" + suffix
 	serverKey := "server-" + suffix
@@ -665,21 +652,19 @@ func (s *ztunnelTestBase) startSnifferForFamily(ctx context.Context, t *check.Te
 
 	// Start client sniffer (always needed)
 	if clientFilter != "" {
-		sniffer, cancel, err := sniff.Sniff(ctx, name, s.clientHostNS, captureInterface, clientFilter, mode, sniff.SniffKillTimeout, t)
+		sniffer, err := s.startSniffer(ctx, t, mode, &s.clientHostNS, clientFilter, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start client sniffer for %s: %w", suffix, err)
 		}
-		s.finalizers = append(s.finalizers, cancel)
 		sniffers[clientKey] = sniffer
 	}
 
 	// Start server sniffer only if on different node
 	if !sameNode && serverFilter != "" {
-		sniffer, cancel, err := sniff.Sniff(ctx, name, s.serverHostNS, captureInterface, serverFilter, mode, sniff.SniffKillTimeout, t)
+		sniffer, err := s.startSniffer(ctx, t, mode, &s.serverHostNS, serverFilter, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start server sniffer for %s: %w", suffix, err)
 		}
-		s.finalizers = append(s.finalizers, cancel)
 		sniffers[serverKey] = sniffer
 	} else if sameNode && serverFilter != "" {
 		// For same node, reuse the client sniffer for server validation.
@@ -717,10 +702,6 @@ func (s *ztunnelTestBase) startSniffers(ctx context.Context, t *check.Test, mode
 
 	return allSniffers, nil
 }
-
-// ================================================================================
-// Traffic Generation and Validation
-// ================================================================================
 
 // executeTrafficTest performs curl from client to server with retry and validates sniffers
 func (s *ztunnelTestBase) executeTrafficTest(ctx context.Context, t *check.Test,
@@ -779,7 +760,7 @@ func (s *ztunnelTestBase) executeTrafficForIPFamily(ctx context.Context, t *chec
 		suffix = "ipv6"
 	}
 
-	action := t.NewAction(s, fmt.Sprintf("curl-%s", ipFamily), s.client, s.server, ipFamily)
+	action := t.NewAction(s, fmt.Sprintf("curl-%s", ipFamily), &s.client, &s.server, ipFamily)
 	action.Run(func(a *check.Action) {
 		// Track validated sniffers to avoid validating the same sniffer twice
 		validated := make(map[*sniff.Sniffer]bool)
@@ -810,20 +791,12 @@ func (s *ztunnelTestBase) executeTrafficForIPFamily(ctx context.Context, t *chec
 	})
 }
 
-// ================================================================================
-// Daemonset Wait Helper
-// ================================================================================
-
 // waitOnZTunnelDS waits for the ztunnel daemonset to be ready
 func (s *ztunnelTestBase) waitOnZTunnelDS(ctx context.Context, t *check.Test) {
 	if err := check.WaitForDaemonSet(ctx, t, s.ct.K8sClient(), s.namespace, "ztunnel-cilium"); err != nil {
 		t.Fatalf("Failed to wait for ztunnel-cilium daemonset: %s", err)
 	}
 }
-
-// ================================================================================
-// Main Test Run Method
-// ================================================================================
 
 func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 	s.ct = t.Context()
@@ -873,7 +846,7 @@ func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 	namespacesToEnroll := make(map[string]bool)
 	namespacesToDisenroll := make([]string, 0)
 
-	if s.config.clientEnrollment == Enrolled {
+	if s.config.clientEnrollment == enrolled {
 		ns := s.client.Pod.Namespace
 		if !namespacesToEnroll[ns] {
 			t.Infof("Enrolling client namespace: %s", ns)
@@ -885,7 +858,7 @@ func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	if s.config.serverEnrollment == Enrolled {
+	if s.config.serverEnrollment == enrolled {
 		ns := s.server.Pod.Namespace
 		if !namespacesToEnroll[ns] {
 			t.Infof("Enrolling server namespace: %s", ns)
@@ -962,19 +935,15 @@ func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 	t.Info("Test complete")
 }
 
-// ================================================================================
-// Helper Functions
-// ================================================================================
-
 func enrollmentName(e enrollmentStatus) string {
-	if e == Enrolled {
+	if e == enrolled {
 		return "enrolled"
 	}
 	return "unenrolled"
 }
 
 func locationName(l podLocation) string {
-	if l == SameNode {
+	if l == sameNode {
 		return "same-node"
 	}
 	return "different-node"
