@@ -195,7 +195,8 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		}
 
 		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
+			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil ||
+				probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnSetsockopt) != nil {
 				option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath = false
 				if !option.Config.EnableIPIPTermination &&
 					option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
