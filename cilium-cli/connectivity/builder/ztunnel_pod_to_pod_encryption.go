@@ -21,7 +21,7 @@ func (t ztunnelPodToPodEncryption) build(ct *check.ConnectivityTest, _ map[strin
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithFeatureRequirements(features.RequireEnabled(features.Ztunnel)).
 		WithSetupFunc(func(ctx context.Context, t *check.Test, testCtx *check.ConnectivityTest) error {
-			return nil
+			return check.DeployZtunnelTestEnv(ctx, t, testCtx)
 		}).
 		WithScenarios(
 			tests.ZTunnelEnrolledToEnrolledSameNode(),

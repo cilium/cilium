@@ -132,11 +132,9 @@ const (
 	perfPodRoleProfiling = perfPodRole("profiling")
 )
 
-var (
-	appLabels = map[string]string{
-		"app.kubernetes.io/name": "cilium-cli",
-	}
-)
+var appLabels = map[string]string{
+	"app.kubernetes.io/name": "cilium-cli",
+}
 
 type deploymentParameters struct {
 	Name                          string
@@ -173,7 +171,8 @@ func (p *deploymentParameters) args() []string {
 func (p *deploymentParameters) ports() (ports []corev1.ContainerPort) {
 	if p.Port != 0 {
 		ports = append(ports, corev1.ContainerPort{
-			Name: p.namedPort(), ContainerPort: int32(p.Port), HostPort: int32(p.HostPort)})
+			Name: p.namedPort(), ContainerPort: int32(p.Port), HostPort: int32(p.HostPort),
+		})
 	}
 
 	return ports
@@ -727,8 +726,232 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
+// DeployZtunnelTestEnv deploys the test infrastructure for ztunnel e2e tests.
+// This is exported so it can be called from the test's WithSetupFunc.
+func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) error {
+	namespaceConfigs := []struct {
+		name string
+		obj  *corev1.Namespace
+	}{
+		{
+			name: "cilium-test-ztunnel-enrolled-0",
+			obj: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cilium-test-ztunnel-enrolled-0",
+				},
+			},
+		},
+		{
+			name: "cilium-test-ztunnel-enrolled-1",
+			obj: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cilium-test-ztunnel-enrolled-1",
+				},
+			},
+		},
+		{
+			name: "cilium-test-ztunnel-unenrolled",
+			obj: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cilium-test-ztunnel-unenrolled",
+				},
+			},
+		},
+	}
 
+	client := ct.K8sClient()
+
+	for _, nsConfig := range namespaceConfigs {
+		var err error
+
+		// Create namespace
+		_, err = client.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Creating namespace %s...", client.ClusterName(), nsConfig.name)
+			_, err = client.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
+			}
+		}
+
+		// Create client deployment
+		_, err = client.GetDeployment(ctx, nsConfig.name, clientDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), clientDeploymentName, nsConfig.name)
+			var clientAffinity *corev1.Affinity
+			if nsConfig.name == "cilium-test-ztunnel-enrolled-0" {
+				// First namespace - just use node affinity
+				clientAffinity = &corev1.Affinity{
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
+				}
+			} else {
+				// Subsequent namespaces - add pod affinity to first namespace's client
+				clientAffinity = &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      "name",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{clientDeploymentName},
+										},
+									},
+								},
+								Namespaces:  []string{"cilium-test-ztunnel-enrolled-0"},
+								TopologyKey: corev1.LabelHostname,
+							},
+						},
+					},
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
+				}
+			}
+
+			clientDeployment := newDeployment(deploymentParameters{
+				Name:         clientDeploymentName,
+				Kind:         kindClientName,
+				Image:        ct.params.CurlImage,
+				Command:      []string{"/usr/bin/pause"},
+				Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
+				Affinity:     clientAffinity,
+				NodeSelector: ct.params.NodeSelector,
+				Tolerations:  ct.params.GetTolerations(),
+			})
+			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s in namespace %s: %w", clientDeploymentName, nsConfig.name, err)
+			}
+			_, err = client.CreateDeployment(ctx, nsConfig.name, clientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", clientDeploymentName, nsConfig.name, err)
+			}
+		}
+
+		// Create echo-same-node deployment
+		_, err = client.GetDeployment(ctx, nsConfig.name, echoSameNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), echoSameNodeDeploymentName, nsConfig.name)
+			containerPort := 8080
+			echoSameNodeDeployment := newDeployment(deploymentParameters{
+				Name:        echoSameNodeDeploymentName,
+				Kind:        kindEchoName,
+				Port:        containerPort,
+				NamedPort:   "http-8080",
+				Image:       ct.params.JSONMockImage,
+				Labels:      map[string]string{"other": "echo"},
+				Annotations: ct.params.DeploymentAnnotations.Match(echoSameNodeDeploymentName),
+				Affinity: &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+									},
+								},
+								TopologyKey: corev1.LabelHostname,
+							},
+						},
+					},
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
+				},
+				Tolerations:    ct.params.GetTolerations(),
+				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+			})
+			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
+			}
+			_, err = client.CreateDeployment(ctx, nsConfig.name, echoSameNodeDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
+			}
+		}
+
+		// Create service for echo-same-node
+		_, err = client.GetService(ctx, nsConfig.name, echoSameNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), echoSameNodeDeploymentName, nsConfig.name)
+			svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
+			_, err = client.CreateService(ctx, nsConfig.name, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
+			}
+		}
+
+		// Create echo-other-node deployment
+		_, err = client.GetDeployment(ctx, nsConfig.name, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), echoOtherNodeDeploymentName, nsConfig.name)
+			containerPort := 8080
+			echoOtherNodeDeployment := newDeployment(deploymentParameters{
+				Name:        echoOtherNodeDeploymentName,
+				Kind:        kindEchoName,
+				NamedPort:   "http-8080",
+				Port:        containerPort,
+				Image:       ct.params.JSONMockImage,
+				Labels:      map[string]string{"first": "echo"},
+				Annotations: ct.params.DeploymentAnnotations.Match(echoOtherNodeDeploymentName),
+				Affinity: &corev1.Affinity{
+					PodAntiAffinity: &corev1.PodAntiAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+									},
+								},
+								TopologyKey: corev1.LabelHostname,
+							},
+						},
+					},
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
+				},
+				NodeSelector:   ct.params.NodeSelector,
+				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+				Tolerations:    ct.params.GetTolerations(),
+			})
+			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(echoOtherNodeDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
+			}
+			_, err = client.CreateDeployment(ctx, nsConfig.name, echoOtherNodeDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
+			}
+		}
+
+		// Create service for echo-other-node
+		_, err = client.GetService(ctx, nsConfig.name, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), echoOtherNodeDeploymentName, nsConfig.name)
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
+			_, err = client.CreateService(ctx, nsConfig.name, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
+			}
+		}
+	}
+
+	// Wait for deployments to be ready
+	namespaces := []string{"cilium-test-ztunnel-enrolled-0", "cilium-test-ztunnel-enrolled-1", "cilium-test-ztunnel-unenrolled"}
+	for _, ns := range namespaces {
+		if err := WaitForDeployment(ctx, ct, client, ns, clientDeploymentName); err != nil {
+			return err
+		}
+		if err := WaitForDeployment(ctx, ct, client, ns, echoSameNodeDeploymentName); err != nil {
+			return err
+		}
+		if err := WaitForDeployment(ctx, ct, client, ns, echoOtherNodeDeploymentName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 	namespaceConfigs := []struct {
 		name string
 		obj  *corev1.Namespace
@@ -788,7 +1011,6 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 	}
 
 	return nil
-
 }
 
 // deploy ensures the test Namespace, Services and Deployments are running on the cluster.
@@ -1194,7 +1416,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			svcHeadless.Spec.Type = corev1.ServiceTypeClusterIP
 			svcHeadless.ObjectMeta.Annotations["service.cilium.io/global-sync-endpoint-slices"] = "true"
 			_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.GetOptions{})
-
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), EchoOtherNodeDeploymentHeadlessServiceName)
 				_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svcHeadless, metav1.CreateOptions{})
@@ -1546,7 +1767,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) DeleteCCNPTestEnv(ctx context.Context, client *k8s.Client) error {
-
 	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
 
 	for _, ns := range namespaces {
@@ -1570,7 +1790,6 @@ func (ct *ConnectivityTest) DeleteCCNPTestEnv(ctx context.Context, client *k8s.C
 	}
 
 	return nil
-
 }
 
 func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
@@ -1605,7 +1824,8 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.Context, deployName, kind string, replicas int, svcName, appLabel string,
-	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy, protocol string) error {
+	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy, protocol string,
+) error {
 	command := []string{"tcd-server", "8000"}
 	if len(protocol) != 0 {
 		command = []string{"tcd-server", "--protocol", protocol, "8000"}
@@ -1851,7 +2071,6 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 	slices.Sort(workerNodes)
 
 	return workerNodes[0], workerNodes[1], nil
-
 }
 
 func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) netip.Addr {
@@ -2098,8 +2317,8 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.params.PerfParameters.HostNet = false
 
 		// TODO: Merge with existing annotations
-		var lowPrioDeployAnnotations = annotations{bwPrioAnnotationString: "5"}
-		var highPrioDeployAnnotations = annotations{bwPrioAnnotationString: "6"}
+		lowPrioDeployAnnotations := annotations{bwPrioAnnotationString: "5"}
+		highPrioDeployAnnotations := annotations{bwPrioAnnotationString: "6"}
 
 		ct.params.DeploymentAnnotations.Set(`{
 				"` + perClientLowPriorityDeploymentName + `": ` + lowPrioDeployAnnotations.String() + `,
@@ -2126,8 +2345,8 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.params.PerfParameters.SameNode = false
 		ct.params.PerfParameters.OtherNode = false
 
-		var egressBandwidthAnnotations = annotations{egressBandwidth: "10M"}
-		var ingressBandwidthAnnotations = annotations{ingressBandwidth: "10M"}
+		egressBandwidthAnnotations := annotations{egressBandwidth: "10M"}
+		ingressBandwidthAnnotations := annotations{ingressBandwidth: "10M"}
 		ct.params.DeploymentAnnotations.Set(`{
 				"` + perClientEgressDeploymentName + `": ` + egressBandwidthAnnotations.String() + `,
 			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
@@ -2209,7 +2428,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		srcList = append(srcList, perClientLowPriorityDeploymentName)
 		srcList = append(srcList, perClientHighPriorityDeploymentName)
 		srcList = append(srcList, perfServerDeploymentName)
-		return
+		return srcList, dstList
 	}
 
 	if ct.params.PerfParameters.Bandwidth {
@@ -2217,7 +2436,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		srcList = append(srcList, perClientIngressDeploymentName)
 		srcList = append(srcList, perServerEgressDeploymentName)
 		srcList = append(srcList, perServerIngressDeploymentName)
-		return
+		return srcList, dstList
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
@@ -2251,7 +2470,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		}
 	}
 
-	return
+	return srcList, dstList
 }
 
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
@@ -2516,7 +2735,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				K8sClient: ct.client,
 				Pod:       pod.DeepCopy(),
 			}
-
 		}
 	}
 
