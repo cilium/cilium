@@ -232,7 +232,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
-	record, err := h.proxyAccessLogger.NewLogRecord(logContext, flowType, false,
+	record, err := h.proxyAccessLogger.NewLogRecord(context.Background(), flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
