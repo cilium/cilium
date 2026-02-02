@@ -48,6 +48,7 @@ type Server struct {
 	db                        *statedb.DB
 	enrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	endpointEventChan         chan *EndpointEvent
+	metrics                   *Metrics
 	// xdsUnixAddr is the unix socket path for the XDS server.
 	xdsUnixAddr string
 	v3.UnimplementedAggregatedDiscoveryServiceServer
@@ -59,6 +60,7 @@ func newServer(
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
 	xdsUnixAddr string,
+	metrics *Metrics,
 ) *Server {
 	return &Server{
 		log:                       log,
@@ -67,6 +69,7 @@ func newServer(
 		db:                        db,
 		enrolledNamespaceTable:    enrolledNamespaceTable,
 		xdsUnixAddr:               xdsUnixAddr,
+		metrics:                   metrics,
 	}
 }
 
@@ -161,6 +164,7 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 		Log:                       x.log,
 		EnrolledNamespaceTable:    x.enrolledNamespaceTable,
 		DB:                        x.db,
+		Metrics:                   x.metrics,
 	}
 
 	x.log.Debug("begin processing DeltaAggregatedResources stream")

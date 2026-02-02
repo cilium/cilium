@@ -31,7 +31,7 @@ func TestNewServer(t *testing.T) {
 
 		socketPath := "/tmp/test-xds.sock"
 
-		server := newServer(log, db, nil, tbl, socketPath)
+		server := newServer(log, db, nil, tbl, socketPath, NewMetrics())
 
 		require.NotNil(t, server)
 		require.Equal(t, log, server.log)
@@ -57,7 +57,7 @@ func TestServerServe(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, socketPath)
+		server := newServer(log, db, nil, tbl, socketPath, NewMetrics())
 
 		// Start the server
 		err = server.Serve()
@@ -96,7 +96,7 @@ func TestServerServe(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, socketPath)
+		server := newServer(log, db, nil, tbl, socketPath, NewMetrics())
 
 		// Should succeed even with existing file
 		err = server.Serve()
@@ -123,7 +123,7 @@ func TestServerServe(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, socketPath)
+		server := newServer(log, db, nil, tbl, socketPath, NewMetrics())
 
 		err = server.Serve()
 		require.Error(t, err)
@@ -144,7 +144,7 @@ func TestServerGracefulStop(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, socketPath)
+		server := newServer(log, db, nil, tbl, socketPath, NewMetrics())
 
 		err = server.Serve()
 		require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestStreamAggregatedResources(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock", NewMetrics())
 
 		mockStream := &MockStreamAggregatedResourcesServer{}
 
@@ -199,7 +199,7 @@ func TestDeltaAggregatedResources(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock", NewMetrics())
 
 		// Create canceled context
 		ctx, cancel := context.WithCancel(context.Background())
@@ -221,7 +221,7 @@ func TestDeltaAggregatedResources(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock", NewMetrics())
 
 		// Create a context that we'll cancel
 		ctx, cancel := context.WithCancel(context.Background())
@@ -266,7 +266,7 @@ func TestEndpointEventChannel(t *testing.T) {
 		tbl, err := table.NewEnrolledNamespacesTable(db)
 		require.NoError(t, err)
 
-		server := newServer(log, db, nil, tbl, "/tmp/test.sock")
+		server := newServer(log, db, nil, tbl, "/tmp/test.sock", NewMetrics())
 
 		// Channel should be writable
 		event := &EndpointEvent{

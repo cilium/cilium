@@ -38,6 +38,7 @@ type StreamProcessorParams struct {
 	DB                        *statedb.DB
 	EnrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	Log                       *slog.Logger
+	Metrics                   *Metrics
 }
 
 // StreamProcessor implements the logic for handling xDS streams to zTunnel.
@@ -53,6 +54,7 @@ type StreamProcessor struct {
 	endpointSource         EndpointEventSource
 	db                     *statedb.DB
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
+	metrics                *Metrics
 }
 
 // EndpointSource provides data for XDS server from different data sources in the agent.
@@ -84,6 +86,7 @@ func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 		expectedNonce:          make(map[string]struct{}),
 		db:                     params.DB,
 		enrolledNamespaceTable: params.EnrolledNamespaceTable,
+		metrics:                params.Metrics,
 	}
 	sp.endpointSource = NewEndpointSource(params.K8sCiliumEndpointsWatcher, sp)
 	return sp
@@ -326,6 +329,7 @@ func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) e
 
 	resp := collection.ToDeltaDiscoveryResponse()
 	if err := sp.stream.SendMsg(resp); err != nil {
+		sp.metrics.EnrollmentFailures.WithLabelValues("send_failed").Inc()
 		return err
 	}
 
@@ -357,6 +361,7 @@ func (sp *StreamProcessor) handleAuthorizationTypeURL(_ *v3.DeltaDiscoveryReques
 	sp.expectedNonce["0"] = struct{}{}
 
 	if err := sp.stream.SendMsg(resp); err != nil {
+		sp.metrics.EnrollmentFailures.WithLabelValues("send_failed").Inc()
 		return err
 	}
 
@@ -377,6 +382,7 @@ func (sp *StreamProcessor) handleDeltaDiscoveryReq(req *v3.DeltaDiscoveryRequest
 		delete(sp.expectedNonce, req.ResponseNonce)
 
 		if req.ErrorDetail != nil {
+			sp.metrics.EnrollmentFailures.WithLabelValues("nack_received").Inc()
 			sp.log.Error("Nack received from ztunnel",
 				logfields.Error,
 				req.ErrorDetail.Message,
