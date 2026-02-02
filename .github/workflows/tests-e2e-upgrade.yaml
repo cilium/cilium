@@ -198,6 +198,11 @@ jobs:
 
     timeout-minutes: 55
     steps:
+      - name: Log Matrix Configuration
+        run: |
+          echo "Current matrix configuration:"
+          echo '${{ toJSON(matrix) }}'
+
       - name: Set commit status to pending
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
