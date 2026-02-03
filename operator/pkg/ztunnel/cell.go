@@ -5,25 +5,14 @@ package ztunnel
 
 import (
 	"github.com/cilium/hive/cell"
-	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/operator/pkg/ztunnel/config"
 )
-
-var DefaultConfig = Config{
-	EnableZTunnel: false,
-}
-
-type Config struct {
-	EnableZTunnel bool
-}
-
-func (c Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-ztunnel", false, "Use zTunnel as Cilium's encryption infrastructure")
-}
 
 // Cell provides ztunnel configuration.
 var Cell = cell.Module(
 	"ztunnel",
 	"ZTunnel Configuration",
 
-	cell.Config(DefaultConfig),
+	cell.Config(config.DefaultConfig),
 )
