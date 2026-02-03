@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -40,6 +41,9 @@ func sendMetrics(stats statistics, metric metric.Vec[metric.Observer]) {
 }
 
 type regenerationStatistics struct {
+	regenReason        regeneration.Reason
+	regenFailureReason regenerationFailureReason
+
 	success                    bool
 	endpointID                 uint16
 	policyStatus               models.EndpointPolicyEnabled
@@ -75,11 +79,11 @@ func (s *regenerationStatistics) SendMetrics() {
 
 	if !s.success {
 		// Endpoint regeneration failed, increase on failed metrics
-		metrics.EndpointRegenerationTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.EndpointRegenerationTotal.WithLabelValues(s.regenReason, metrics.LabelValueOutcomeFail, s.regenFailureReason.String()).Inc()
 		return
 	}
 
-	metrics.EndpointRegenerationTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.EndpointRegenerationTotal.WithLabelValues(s.regenReason, metrics.LabelValueOutcomeSuccess, s.regenFailureReason.String()).Inc()
 
 	sendMetrics(s, metrics.EndpointRegenerationTimeStats)
 }

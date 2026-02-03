@@ -312,7 +312,8 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 
 	if reason != "" {
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
-			Reason:            reason,
+			Reason:            regeneration.ReasonEndpointUpdate,
+			Message:           reason,
 			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		if !<-ep.Regenerate(regenMetadata) {

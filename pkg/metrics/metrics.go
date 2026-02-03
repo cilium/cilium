@@ -94,6 +94,9 @@ const (
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
+	// LabelReason indicates the reason that triggered the operation.
+	LabelReason = "reason"
+
 	// LabelAttempts is the number of attempts it took to complete the operation
 	LabelAttempts = "attempts"
 
@@ -747,18 +750,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Buckets:   prometheus.ExponentialBucketsRange(0.01, 60*10, 10),
 		}, []string{LabelScope}),
 
-		EndpointRegenerationTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
+		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
 
 			Namespace: Namespace,
 			Name:      "endpoint_regenerations_total",
-			Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
-		}, metric.Labels{
-			{
-				Name:   LabelOutcome,
-				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail),
-			},
-		}),
+			Help:      "Count of all endpoint regenerations that have completed, tagged by reason, outcome and error",
+		}, []string{LabelReason, LabelOutcome, LabelError}),
 
 		EndpointStateCount: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_endpoint_state",

@@ -1568,7 +1568,8 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 		l4.users[user] = struct{}{}
 	} else {
 		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-			Reason:            "selector policy has changed because of another endpoint with the same identity",
+			Reason:            regeneration.ReasonSelectorPolicyStale,
+			Message:           "selector policy has changed because of another endpoint with the same identity",
 			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 		})
 	}
@@ -1727,7 +1728,8 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 		for ePolicy := range l4.users {
 			if endpointID != ePolicy.PolicyOwner.GetID() {
 				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            "selector policy has changed because of another endpoint with the same identity",
+					Reason:            regeneration.ReasonSelectorPolicyStale,
+					Message:           "selector policy has changed because of another endpoint with the same identity",
 					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 				})
 			}
