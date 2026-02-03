@@ -1331,6 +1331,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.setState(StateDisconnected, "Endpoint removed")
 
 	endpointPolicyStatus.Remove(e.ID)
+	e.status.Clear()
 	e.getLogger().Info("Removed endpoint")
 
 	return errs

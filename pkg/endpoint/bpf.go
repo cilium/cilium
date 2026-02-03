@@ -1081,11 +1081,19 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
 		metrics.EndpointDetachedSelectorPolicyTimeStats.WithLabelValues("incremental-update").Observe(time.Since(t).Seconds())
 	}
-	return e.applyPolicyMapChangesLocked(&regenerationContext{
+	err := e.applyPolicyMapChangesLocked(&regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
 			proxyWaitGroup: proxyWaitGroup,
 		},
 	}, false)
+
+	if err != nil {
+		e.logStatusLocked(Policy, Failure, err.Error())
+	} else {
+		e.LogStatusOKLocked(Policy, "Policy Map changes applied")
+	}
+
+	return err
 }
 
 // applyPolicyMapChangesLocked applies any incremental policy map changes

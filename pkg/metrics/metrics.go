@@ -288,6 +288,10 @@ var (
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
 
+	// EndpointComponentStatus is the metric to indicate number of endpoints in particular state of
+	// configured components(BPF, Policy).
+	EndpointComponentStatus = NoOpGaugeVec
+
 	// EndpointDetachedSelectorPolicyTimeStats is tracking the amount of time endpoints have had detached selector
 	// when various updates occur.
 	EndpointDetachedSelectorPolicyTimeStats = NoOpObserverVec
@@ -632,6 +636,7 @@ type LegacyMetrics struct {
 	NodeHealthConnectivityStatus            metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency           metric.Vec[metric.Observer]
 	Endpoint                                metric.GaugeFunc
+	EndpointComponentStatus                 metric.Vec[metric.Gauge]
 	EndpointDetachedSelectorPolicyTimeStats metric.Vec[metric.Observer]
 	EndpointRegenerationTotal               metric.Vec[metric.Counter]
 	EndpointStateCount                      metric.Vec[metric.Gauge]
@@ -723,6 +728,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "api_process_time_seconds",
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
+
+		EndpointComponentStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_endpoint_component_status",
+			Namespace:  Namespace,
+			Name:       "endpoint_component_status",
+			Help:       "Number of endpoints tagged by different endpoint components type and their status",
+		},
+			[]string{LabelType, LabelStatus},
+		),
 
 		EndpointDetachedSelectorPolicyTimeStats: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_endpoint_detached_selector_policy_time_stats_seconds",
@@ -1309,6 +1323,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
+	EndpointComponentStatus = lm.EndpointComponentStatus
 	EndpointDetachedSelectorPolicyTimeStats = lm.EndpointDetachedSelectorPolicyTimeStats
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
