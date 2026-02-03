@@ -247,7 +247,6 @@
 /api/v1/peer/ @cilium/sig-hubble-api
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
-/Documentation/security/network/encryption-ztunnel.rst @cilium/ztunnel @cilium/docs-structure
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
 /images/builder/install-protoplugins.sh @cilium/sig-hubble-api
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
