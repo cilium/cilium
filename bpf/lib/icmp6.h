@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#if !defined(__LIB_ICMP6__) && defined(ENABLE_IPV6)
-#define __LIB_ICMP6__
+#pragma once
 
 #include <linux/icmpv6.h>
 #include <linux/in.h>
@@ -573,5 +572,3 @@ bool icmp6_ndisc_validate(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 
 	return true;
 }
-
-#endif
