@@ -43,6 +43,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  host-fw: 'true'
   # L7 testing: WireGuard strict mode + Ingress controller - critical for proxy traffic encryption
   test-l7: 'true'
 - name: 'wireguard-4'
