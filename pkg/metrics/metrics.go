@@ -331,6 +331,9 @@ var (
 	// directly added to policy maps without a full policy recalculation.
 	PolicyIncrementalUpdateDuration = NoOpObserverVec
 
+	// Total number of proxy redirects missing when calculating endpoint policies.
+	PolicyMissingProxyRedirects = NoOpGaugeVec
+
 	// Identity
 
 	// Identity is the number of identities currently in use on the node by type
@@ -636,6 +639,7 @@ type LegacyMetrics struct {
 	PolicyEndpointStatus                    metric.Vec[metric.Gauge]
 	PolicyImplementationDelay               metric.Vec[metric.Observer]
 	PolicyIncrementalUpdateDuration         metric.Vec[metric.Observer]
+	PolicyMissingProxyRedirects             metric.Vec[metric.Gauge]
 	Identity                                metric.Vec[metric.Gauge]
 	IdentityLabelSources                    metric.Vec[metric.Gauge]
 	EventTS                                 metric.Vec[metric.Gauge]
@@ -811,6 +815,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Time between learning about a new identity and it being fully added to all policies.",
 			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
 		}, []string{"scope"}),
+
+		PolicyMissingProxyRedirects: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_policy_missing_proxy_redirects",
+
+			Namespace: Namespace,
+			Name:      "policy_missing_proxy_redirects",
+			Help:      "Total number of proxy redirects missing in endpoint policies",
+		}, []string{}),
 
 		Identity: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_identity",
@@ -1295,6 +1307,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
+	PolicyMissingProxyRedirects = lm.PolicyMissingProxyRedirects
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
