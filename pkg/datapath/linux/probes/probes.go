@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -600,3 +601,33 @@ func HaveBatchAPI() error {
 	}
 	return nil
 }
+
+// Probes whether the kernel supports BIG TCP IPv4.
+var HaveBIGTCPIPv4 = sync.OnceValue(func() error {
+	link, err := safenetlink.LinkByName("lo")
+	if err != nil {
+		return err
+	}
+	// Kernel commit 9eefedd58ae1 ("net: add gso_ipv4_max_size and gro_ipv4_max_size per device").
+	// Patch 09/10 of the series "net: support ipv4 big tcp".
+	if link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0 {
+		return nil
+	} else {
+		return ErrNotSupported
+	}
+})
+
+// Probes whether the kernel supports BIG TCP IPv6.
+var HaveBIGTCPIPv6 = sync.OnceValue(func() error {
+	link, err := safenetlink.LinkByName("lo")
+	if err != nil {
+		return err
+	}
+	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
+	// Patch 01/13 of the series "tcp: BIG TCP implementation".
+	if link.Attrs().TSOMaxSize > 0 {
+		return nil
+	} else {
+		return ErrNotSupported
+	}
+})
