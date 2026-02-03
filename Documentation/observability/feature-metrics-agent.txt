@@ -314,7 +314,7 @@
   * - ``config``
     - ``configured_mode``
     - ``"auto"``
-    - Datapath config mode enabled on the agent
+    - Datapath config mode enabled on the agent on no i broke the docs
     - gauge
   * -
     -
