@@ -16,10 +16,6 @@
 #include "linux/bpf.h"
 #include "lib/encap.h"
 
-/* the below structures are define outside of an IFDEF guard to satisfy
- * enterprise_bpf_alignchecker.c requirement
- */
-
 /* mcast_subscriber flags */
 enum {
 	/* indicates subscriber is remote and ifindex is the exit interface */
