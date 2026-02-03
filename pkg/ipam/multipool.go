@@ -116,6 +116,9 @@ func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
 }
 
 func (c *multiPoolAllocator) Capacity() uint64 {
+	c.manager.mutex.Lock()
+	defer c.manager.mutex.Unlock()
+
 	var capacity uint64
 	for _, pool := range c.manager.pools {
 		var p *cidrPool
