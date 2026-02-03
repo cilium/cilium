@@ -20,4 +20,5 @@ spec:
         protocol: TCP
       - port: "8472"
         protocol: UDP
-      - protocol: VRRP
+      - port: "0"
+        protocol: VRRP
