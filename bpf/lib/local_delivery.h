@@ -177,7 +177,6 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	return tail_call_policy(ctx, ep->lxc_id);
 }
 
-#ifdef ENABLE_IPV6
 /* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
  * Depending on the configuration, it may also enforce ingress policies for the
@@ -202,7 +201,6 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 			      from_tunnel, 0);
 }
-#endif /* ENABLE_IPV6 */
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.

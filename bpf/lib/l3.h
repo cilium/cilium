@@ -9,7 +9,6 @@
 #include "eth.h"
 #include "icmp6.h"
 
-#ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   __u8 __maybe_unused direction)
@@ -32,7 +31,6 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_IPV6 */
 
 static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
