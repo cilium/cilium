@@ -600,6 +600,7 @@ Name                                       Labels                               
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ``policy_selector_match_count_max``        ``class``                                          Enabled    The maximum number of identities selected by a network policy selector
 ``policy_incremental_update_duration``     ``scope``                                          Enabled    The time taken for newly learned identities to be added to the policy system, including BPF policy maps and L7 proxies.
+``policy_missing_proxy_redirects``                                                            Enabled    Total number of proxy redirects missing in endpoint policies
 ========================================== ================================================== ========== ========================================================
 
 Policy L7 (HTTP/Kafka/FQDN)

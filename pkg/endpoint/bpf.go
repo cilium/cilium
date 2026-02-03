@@ -251,9 +251,9 @@ func (p *proxyPolicy) GetListener() string {
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Only called after a new selector policy has been computed.
-func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, rf revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]uint16, skipped uint, rf revert.RevertFunc) {
 	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	desiredRedirects = make(map[string]uint16)
@@ -278,6 +278,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			// with different port values. The redirect will be created
 			// when the mapping is available or when the port name
 			// conflicts have been resolved in POD specs.
+			skipped++
 			continue
 		}
 		// desiredRedirects starts out empty, so we can use it check
@@ -300,6 +301,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 				logfields.Error, err,
 				logfields.Listener, pp.GetListener(),
 			)
+			skipped++
 			continue
 		}
 		revertStack.Push(revertFunc)
@@ -324,7 +326,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 		return nil
 	})
 
-	return desiredRedirects, revertStack.Revert
+	return desiredRedirects, skipped, revertStack.Revert
 }
 
 // Must be called with endpoint.mutex locked for writing, as this calls back to
