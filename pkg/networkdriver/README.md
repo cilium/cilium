@@ -38,14 +38,14 @@ enabled via the `networkDriver.enabled` helm flag.
 ### Provide an agent configuration
 
 Once enabled, Cilium can be passed a configuration
-by deploying a `CiliumNetworkDriverConfig` CRD specifying the managers to be enabled:
+by deploying a `CiliumNetworkDriverNodeConfig` CRD specifying the managers to be enabled:
 
 ```
 ---
 apiVersion: cilium.io/v2alpha1
-kind: CiliumNetworkDriverConfig
+kind: CiliumNetworkDriverNodeConfig
 metadata:
-  name: cilium-network-driver-config
+  name: examplenode
 spec:
   driverName: "sriov.cilium.k8s.io"
   deviceManagerConfigs:
@@ -54,13 +54,16 @@ spec:
 
 ```
 
+Note that the cilium agent will look for a configuration with a `metadata.name` field matching
+the hostname of the node.
+
 In order to publish ResourceSlices, the pools need to be specified along with a filter to match devices:
 ```
 ---
 apiVersion: cilium.io/v2alpha1
-kind: CiliumNetworkDriverConfig
+kind: CiliumNetworkDriverNodeConfig
 metadata:
-  name: cilium-network-driver-config
+  name:  examplenode
 spec:
   driverName: "sriov.cilium.k8s.io"
   pools:

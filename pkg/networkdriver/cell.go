@@ -48,19 +48,23 @@ type networkDriverParams struct {
 	Lifecycle      cell.Lifecycle
 	ClientSet      k8sClient.Clientset
 	JobGroup       job.Group
-	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
 	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	Pods           resource.Resource[*corev1.Pod]
 }
 
-func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverConfig] {
+func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
 	if !cs.IsEnabled() || !daemonCfg.EnableCiliumNetworkDriver {
 		return nil
 	}
 
-	return resource.New[*v2alpha1.CiliumNetworkDriverConfig](
+	return resource.New[*v2alpha1.CiliumNetworkDriverNodeConfig](
 		lc,
-		utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumNetworkDriverConfigs()),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumNetworkDriverNodeConfigs()),
+			func(opts *metav1.ListOptions) {
+				opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodetypes.GetName()).String()
+			}),
 		mp,
 		resource.WithMetric("CiliumNetworkDriverConfig"),
 	)
