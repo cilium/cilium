@@ -1520,3 +1520,55 @@ func TestUpdateDynamicNodeConfig(t *testing.T) {
 		})
 	}
 }
+func TestUpdateKernelVersion(t *testing.T) {
+	tests := []struct {
+		name           string
+		withEnvVersion bool
+		enabled        bool
+		expected       float64
+	}{
+		{
+			name:           "Kernel version metric withEnvVersion=true",
+			withEnvVersion: true,
+			enabled:        true,
+			expected:       1,
+		},
+		{
+			name:           "Kernel version metric withEnvVersion=false",
+			withEnvVersion: false,
+			enabled:        false,
+			expected:       0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metrics := NewMetrics(true, tt.withEnvVersion)
+
+			config := &option.DaemonConfig{
+				IPAM:                   defaultIPAMModes[0],
+				IdentityAllocationMode: defaultIdentityAllocationModes[0],
+				DatapathMode:           defaultConfiguredDatapathMode,
+				NodePortAcceleration:   defaultNodePortModeAccelerations[0],
+				EnableIPv4:             true,
+			}
+
+			lbConfig := loadbalancer.DefaultConfig
+			lbConfig.LBAlgorithm = defaultNodePortModeAlgorithms[0]
+			lbConfig.LBMode = defaultNodePortModes[0]
+
+			params := mockFeaturesParams{
+				KernelVersionString: "3.2.1",
+			}
+
+			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+
+			counter, err := metrics.DPKernelVersion.GetMetricWithLabelValues(params.KernelVersion())
+			assert.NoError(t, err)
+			assert.Equal(t, tt.enabled, counter.IsEnabled())
+
+			counterValue := counter.Get()
+			assert.Equal(t, tt.expected, counterValue, "Expected version %s to be %f", params.KernelVersion(), tt.expected)
+		})
+	}
+}
