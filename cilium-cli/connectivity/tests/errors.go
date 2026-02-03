@@ -437,7 +437,7 @@ const (
 	endpointRestoreFailed       stringMatcher = "Unable to restore endpoint, ignoring"                                   // cf. https://github.com/cilium/cilium/issues/29716
 	unableRestoreRouterIP       stringMatcher = "Unable to restore router IP from filesystem"                            // cf. https://github.com/cilium/cilium/issues/29715
 	routerIPReallocated         stringMatcher = "Router IP could not be re-allocated"                                    // cf. https://github.com/cilium/cilium/issues/29715
-	cantFindIdentityInCache     stringMatcher = "unable to release identity: unable to find key in local cache"          // cf. https://github.com/cilium/cilium/issues/29732
+	cantFindIdentityInCache     stringMatcher = "unable to find key in local cache"                                      // cf. https://github.com/cilium/cilium/issues/29732
 	keyAllocFailedFoundMaster   stringMatcher = "Found master key after proceeding with new allocation"                  // cf. https://github.com/cilium/cilium/issues/29738
 	cantRecreateMasterKey       stringMatcher = "unable to re-create missing master key"                                 // cf. https://github.com/cilium/cilium/issues/29738
 	cantUpdateCRDIdentity       stringMatcher = "Unable update CRD identity information with a reference for this node"  // cf. https://github.com/cilium/cilium/issues/29739
