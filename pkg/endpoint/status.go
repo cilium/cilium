@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,6 +29,17 @@ const (
 	Policy StatusType = 100
 	Other  StatusType = 0
 )
+
+func (st StatusType) String() string {
+	switch st {
+	case BPF:
+		return "BPF"
+	case Policy:
+		return "Policy"
+	default:
+		return "Other"
+	}
+}
 
 type Status struct {
 	Code  StatusCode `json:"code"`
@@ -122,6 +134,20 @@ func NewEndpointStatus() *EndpointStatus {
 	}
 }
 
+func (e *EndpointStatus) Clear() {
+	e.indexMU.Lock()
+	defer e.indexMU.Unlock()
+
+	for typ, sLog := range e.CurrentStatuses {
+		metrics.EndpointComponentStatus.
+			WithLabelValues(typ.String(), sLog.Status.Code.String()).Dec()
+	}
+
+	e.Log = e.Log[:0]
+	e.Index = 0
+	clear(e.CurrentStatuses)
+}
+
 func (e *EndpointStatus) lastIndex() int {
 	lastIndex := e.Index - 1
 	if lastIndex < 0 {
@@ -165,7 +191,22 @@ func (e *EndpointStatus) getAndIncIdx() int {
 // The CurrentStatus map, ensures non of the failure messages are deleted for
 // higher priority messages and vice versa.
 func (e *EndpointStatus) addStatusLog(s *statusLogMsg) {
+	// Emit component status metric only if it changed or not present.
+	emitStatus := true
+	if curStatus, ok := e.CurrentStatuses[s.Status.Type]; ok {
+		if s.Status.Code == curStatus.Status.Code {
+			emitStatus = false
+		} else {
+			metrics.EndpointComponentStatus.
+				WithLabelValues(curStatus.Status.Type.String(), curStatus.Status.Code.String()).Dec()
+		}
+	}
+
 	e.CurrentStatuses[s.Status.Type] = s
+	if emitStatus {
+		metrics.EndpointComponentStatus.
+			WithLabelValues(s.Status.Type.String(), s.Status.Code.String()).Inc()
+	}
 	idx := e.getAndIncIdx()
 	if len(e.Log) < maxLogs {
 		e.Log = append(e.Log, s)

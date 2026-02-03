@@ -629,12 +629,23 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 			logAttrs = append(logAttrs, logfields.Error, err)
 			scopedLog.Warn("Regeneration of endpoint failed", logAttrs...)
 		}
-		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+
+		e.unconditionalLock()
+		e.logStatusLocked(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+		e.logStatusLocked(Policy, Failure, "Endpoint Regeneration failed: "+err.Error())
+		e.unlock()
+
 		return
 	}
 
+	statusMsg := fmt.Sprintf("Successfully regenerated endpoint program (Reason: %s)", ctx.Reason)
 	scopedLog.Debug("Completed endpoint regeneration", logAttrs...)
-	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+ctx.Reason+")")
+
+	e.unconditionalLock()
+	e.LogStatusOKLocked(BPF, statusMsg)
+	// Endpoint policy handling is primarily part of endpoint regeneration, log status here.
+	e.LogStatusOKLocked(Policy, statusMsg)
+	e.unlock()
 }
 
 // SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
@@ -643,9 +654,7 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 func (e *Endpoint) SetRegenerateStateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) (bool, error) {
 	regen := false
 	err := e.lockAlive()
-	if err != nil {
-		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
+	if err == nil {
 		regen = e.setRegenerateStateLocked(regenMetadata)
 		e.unlock()
 	}
