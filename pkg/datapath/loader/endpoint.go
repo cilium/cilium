@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"maps"
 	"net/netip"
 	"path/filepath"
 
@@ -60,10 +59,9 @@ func endpointConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loca
 }
 
 // endpointMapRenames returns the merged map of endpoint map renames yielded by all registered rename providers.
-func endpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
-	renames = make(map[string]string)
+func endpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
 	for f := range epRenames.all() {
-		maps.Copy(renames, f(ep, lnc))
+		renames = append(renames, f(ep, lnc))
 	}
 	return renames
 }

@@ -6,7 +6,6 @@ package loader
 import (
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/netip"
 	"path/filepath"
 
@@ -77,10 +76,9 @@ func ciliumHostConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Lo
 }
 
 // ciliumHostMapRenames returns the merged map of host map renames yielded by all registered rename providers.
-func ciliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
-	renames = make(map[string]string)
+func ciliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
 	for f := range ciliumHostRenames.all() {
-		maps.Copy(renames, f(ep, lnc))
+		renames = append(renames, f(ep, lnc))
 	}
 	return renames
 }
@@ -155,10 +153,9 @@ func ciliumNetConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loc
 }
 
 // ciliumHostMapRenames returns the merged map of cilium_net map renames yielded by all registered rename providers.
-func ciliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
-	renames = make(map[string]string)
+func ciliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
 	for f := range ciliumNetRenames.all() {
-		maps.Copy(renames, f(ep, lnc, link))
+		renames = append(renames, f(ep, lnc, link))
 	}
 	return renames
 }
@@ -224,10 +221,9 @@ func netdevConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalN
 }
 
 // netdevMapRenames returns the merged map of netdev map renames yielded by all registered rename providers.
-func netdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
-	renames = make(map[string]string)
+func netdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
 	for f := range netdevRenames.all() {
-		maps.Copy(renames, f(ep, lnc, link))
+		renames = append(renames, f(ep, lnc, link))
 	}
 	return renames
 }
