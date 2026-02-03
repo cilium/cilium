@@ -9,7 +9,6 @@ on:
       - v1.19
       - v1.18
       - v1.17
-      - v1.16
 
 jobs:
   external-contributions:
