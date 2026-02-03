@@ -77,12 +77,7 @@ type ztunnelTestBase struct {
 	clientHostNS check.Pod
 	serverHostNS check.Pod
 
-	// ztunnel pods (pointers since we check for nil during setup)
-	clientZTunnel *check.Pod
-	serverZTunnel *check.Pod
-
 	// feature flags
-	encryptMode features.Status
 	ipv4Enabled features.Status
 	ipv6Enabled features.Status
 
@@ -214,16 +209,13 @@ func (s *ztunnelTestBase) getNamespaceForEnrollment(enrollment enrollmentStatus,
 // and then filter by node location requirements:
 // - sameNode: Pod must be on the same node as referenceNode
 // - differentNode: Pod must be on a different node than referenceNode
-func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment enrollmentStatus, podType string, referenceNode string, location podLocation) *check.Pod {
+func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment enrollmentStatus, podType string, referenceNode string, location podLocation) check.Pod {
 	namespace := s.getNamespaceForEnrollment(enrollment, podType)
 
-	// Determine label selector based on pod type
-	// The deployment creates pods with label "name=<deployment-name>"
-	var labelSelector string
-	if podType == "client" {
-		labelSelector = "name=client"
-	} else {
-		// For echo pods, use the full deployment name
+	// Determine label selector based on podType
+	// For echo pods, use the full deployment name
+	labelSelector := "name=client"
+	if podType != "client" {
 		labelSelector = fmt.Sprintf("name=%s", podType)
 	}
 
@@ -246,13 +238,13 @@ func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment 
 	}
 
 	// Find a pod matching the location requirements
-	pod := s.filterPodsByLocation(pods.Items, referenceNode, location)
+	pod := filterPodsByLocation(pods.Items, referenceNode, location)
 	if pod == nil {
 		t.Fatalf("Failed to find %s pod matching node location requirements in namespace %s (selector: %s, referenceNode: %s, location: %s, found %d pods)",
 			podType, namespace, labelSelector, referenceNode, locationName(location), len(pods.Items))
 	}
 
-	return &check.Pod{
+	return check.Pod{
 		K8sClient: s.ct.K8sClient(),
 		Pod:       pod,
 	}
@@ -260,17 +252,12 @@ func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment 
 
 // filterPodsByLocation finds the first pod matching the specified node location constraint.
 // Returns nil if no matching pod is found.
-func (s *ztunnelTestBase) filterPodsByLocation(pods []corev1.Pod, referenceNode string, location podLocation) *corev1.Pod {
-	// No location constraint, return first pod
-	if referenceNode == "" {
-		if len(pods) > 0 {
-			return &pods[0]
-		}
-		return nil
-	}
-
+func filterPodsByLocation(pods []corev1.Pod, referenceNode string, location podLocation) *corev1.Pod {
 	for i := range pods {
 		pod := &pods[i]
+		if referenceNode == "" {
+			return pod
+		}
 		if location == sameNode && pod.Spec.NodeName == referenceNode {
 			return pod
 		}
@@ -284,7 +271,7 @@ func (s *ztunnelTestBase) filterPodsByLocation(pods []corev1.Pod, referenceNode 
 // setupTestPods configures client and server pods based on test configuration
 func (s *ztunnelTestBase) setupTestPods(ctx context.Context, t *check.Test) {
 	// Get client pod
-	s.client = *s.getPod(ctx, t, s.config.clientEnrollment, "client", "", sameNode)
+	s.client = s.getPod(ctx, t, s.config.clientEnrollment, "client", "", sameNode)
 
 	// Get server pod based on location and enrollment
 	serverPodType := "echo-same-node"
@@ -292,14 +279,14 @@ func (s *ztunnelTestBase) setupTestPods(ctx context.Context, t *check.Test) {
 		serverPodType = "echo-other-node"
 	}
 
-	s.server = *s.getPod(ctx, t, s.config.serverEnrollment, serverPodType, s.client.Pod.Spec.NodeName, s.config.location)
+	s.server = s.getPod(ctx, t, s.config.serverEnrollment, serverPodType, s.client.Pod.Spec.NodeName, s.config.location)
 
 	t.Debugf("Selected pods: client=%s (node=%s, ns=%s), server=%s (node=%s, ns=%s)",
 		s.client.Pod.Name, s.client.Pod.Spec.NodeName, s.client.Pod.Namespace,
 		s.server.Pod.Name, s.server.Pod.Spec.NodeName, s.server.Pod.Namespace)
 }
 
-// getHostNSPods acquires host namespace pods for packet capture on client and server nodes.
+// assignHostNSPods acquires host namespace pods for packet capture on client and server nodes.
 //
 // Ztunnel runs as a DaemonSet in the host network namespace, so encrypted traffic between
 // nodes flows through the host network stack, not the pod network. To capture this traffic
@@ -308,7 +295,7 @@ func (s *ztunnelTestBase) setupTestPods(ctx context.Context, t *check.Test) {
 // 2. NET_ADMIN capability to run tcpdump
 //
 // These host network pods are deployed by the connectivity test framework.
-func (s *ztunnelTestBase) getHostNSPods(t *check.Test) {
+func (s *ztunnelTestBase) assignHostNSPods(t *check.Test) {
 	clientHostNS, ok := s.ct.HostNetNSPodsByNode()[s.client.Pod.Spec.NodeName]
 	if !ok {
 		t.Fatalf("Failed to acquire host namespace pod on %s (client's node)", s.client.Pod.Spec.NodeName)
@@ -320,36 +307,6 @@ func (s *ztunnelTestBase) getHostNSPods(t *check.Test) {
 		t.Fatalf("Failed to acquire host namespace pod on %s (server's node)", s.server.Pod.Spec.NodeName)
 	}
 	s.serverHostNS = serverHostNS
-}
-
-// getZTunnelPods acquires ztunnel pods running on the same nodes as client and server
-func (s *ztunnelTestBase) getZTunnelPods(ctx context.Context, t *check.Test) {
-	ztunnelPods, err := s.ct.K8sClient().ListPods(ctx, s.namespace, metav1.ListOptions{
-		LabelSelector: "app=ztunnel-cilium",
-	})
-	if err != nil {
-		t.Fatalf("Failed to list ztunnel pods: %s", err)
-	}
-	if len(ztunnelPods.Items) == 0 {
-		t.Fatalf("No ztunnel pods found in namespace %s", s.namespace)
-	}
-
-	for i := range ztunnelPods.Items {
-		pod := &ztunnelPods.Items[i]
-		if pod.Status.HostIP == s.client.Pod.Status.HostIP {
-			s.clientZTunnel = &check.Pod{Pod: pod}
-		}
-		if pod.Status.HostIP == s.server.Pod.Status.HostIP {
-			s.serverZTunnel = &check.Pod{Pod: pod}
-		}
-	}
-
-	if s.clientZTunnel == nil {
-		t.Fatalf("Failed to acquire ztunnel pod on client node")
-	}
-	if s.serverZTunnel == nil {
-		t.Fatalf("Failed to acquire ztunnel pod on server node")
-	}
 }
 
 // workload represents a workload in the ztunnel dump_config output
@@ -461,7 +418,7 @@ func (s *ztunnelTestBase) validateZTunnelState(ctx context.Context, t *check.Tes
 func (s *ztunnelTestBase) enrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
 	t.Debugf("Enrolling namespace %s in ztunnel mTLS", namespace)
 
-	patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"true"}}}`, mtlsEnabledLabel))
+	patch := fmt.Appendf(nil, `{"metadata":{"labels":{"%s":"true"}}}`, mtlsEnabledLabel)
 	_, err := s.ct.K8sClient().Clientset.CoreV1().Namespaces().Patch(
 		ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
@@ -476,7 +433,7 @@ func (s *ztunnelTestBase) enrollNamespace(ctx context.Context, t *check.Test, na
 func (s *ztunnelTestBase) disenrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
 	t.Debugf("Disenrolling namespace %s from ztunnel mTLS", namespace)
 
-	patch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, mtlsEnabledLabel))
+	patch := fmt.Appendf(nil, `{"metadata":{"labels":{"%s":null}}}`, mtlsEnabledLabel)
 	_, err := s.ct.K8sClient().Clientset.CoreV1().Namespaces().Patch(
 		ctx, namespace, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
@@ -521,7 +478,7 @@ func createTrafficFiltersForFamily(clientIP, serverIP, suffix string, port int, 
 // Based on enrollment status, tests assert:
 // - enrolled→enrolled: MUST see port 15008, MUST NOT see port 8080
 // - Other scenarios: MUST NOT see port 15008, MUST see port 8080
-func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[string]string, err error) {
+func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[string]string) {
 	encrypted = make(map[string]string)
 	plainText = make(map[string]string)
 
@@ -549,7 +506,7 @@ func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[strin
 		maps.Copy(plainText, createTrafficFiltersForFamily(clientIPv6, serverIPv6, "ipv6", echoServerPort, sameNode))
 	}
 
-	return encrypted, plainText, nil
+	return encrypted, plainText
 }
 
 // startSniffer starts a tcpdump sniffer on the given host network pod.
@@ -749,11 +706,6 @@ func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 	if !ok {
 		t.Fatalf("Failed to detect IPv6 feature")
 	}
-	s.encryptMode, ok = s.ct.Feature(features.EncryptionPod)
-	if !ok {
-		t.Fatalf("Failed to detect encryption mode")
-	}
-
 	if !s.ipv4Enabled.Enabled && !s.ipv6Enabled.Enabled {
 		t.Fatalf("Test requires at least one IP family to be enabled")
 	}
@@ -813,18 +765,14 @@ func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 		}
 	}()
 
-	s.getHostNSPods(t)
-	s.getZTunnelPods(ctx, t)
+	s.assignHostNSPods(t)
 
 	timeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	s.validateZTunnelState(timeout, t)
 
 	// Create traffic filters
-	encryptedFilters, plainTextFilters, err := s.createTrafficFilters()
-	if err != nil {
-		t.Fatalf("Failed to create traffic filters: %v", err)
-	}
+	encryptedFilters, plainTextFilters := s.createTrafficFilters()
 
 	// Determine sniffer modes based on expected encryption
 	var encryptedMode, plainTextMode sniff.Mode
