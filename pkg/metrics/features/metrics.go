@@ -238,8 +238,9 @@ var (
 )
 
 // NewMetrics returns all feature metrics. If 'withDefaults' is set, then
-// all metrics will have defined all of their possible values.
-func NewMetrics(withDefaults bool) Metrics {
+// all metrics will have defined all of their possible values. If 'withEnvVersion'
+// is set, then we include things like version information from the host.
+func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 	return Metrics{
 		CPIPAM: metric.NewGaugeVecWithLabels(metric.GaugeOpts{
 			Help:      "IPAM mode enabled on the agent",
@@ -1034,7 +1035,6 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.DPEndpointRoutes.Set(1)
 	}
 
-	// Get kernel version - this would need to be implemented to detect actual kernel version
 	kernelVersion, err := version.GetKernelVersion()
 	if err != nil || kernelVersion.String() == "" {
 		m.DPKernelVersion.WithLabelValues(kernelVersionUnknown).Set(1)

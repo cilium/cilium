@@ -44,7 +44,7 @@ func TestLRPConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddLRPConfig(tt.args.lrpID)
 
 			assert.Equalf(t, tt.want.wantMetrics.npLRPConfigIngested, metrics.NPLRPIngested.WithLabelValues(actionAdd).Get(), "NPLRPIngested different")
@@ -91,7 +91,7 @@ func TestInternalTrafficPolicy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddService(&tt.args.svc)
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbInternalTrafficPolicyIngested, metrics.ACLBInternalTrafficPolicyIngested.WithLabelValues(actionAdd).Get(), "ACLBInternalTrafficPolicyIngested different")
@@ -136,7 +136,7 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumEnvoyConfigIngested, metrics.ACLBCiliumEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumEnvoyConfigIngested different")
@@ -181,7 +181,7 @@ func TestCiliumClusterwideEnvoyConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddCCEC()
 
 			assert.Equalf(t, tt.want.wantMetrics.aclbCiliumClusterwideEnvoyConfigIngested, metrics.ACLBCiliumClusterwideEnvoyConfigIngested.WithLabelValues(actionAdd).Get(), "ACLBCiliumClusterwideEnvoyConfigIngested different")
@@ -226,7 +226,7 @@ func TestCNP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddCNP(&tt.args.cnp)
 
 			assert.Equalf(t, tt.want.wantMetrics.npCNPIngested, metrics.NPCNPIngested.WithLabelValues(actionAdd).Get(), "NPCNPIngested different")
@@ -271,7 +271,7 @@ func TestCCNP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddCCNP(&tt.args.cnp)
 
 			assert.Equalf(t, tt.want.wantMetrics.npCCNPIngested, metrics.NPCCNPIngested.WithLabelValues(actionAdd).Get(), "NPCCNPIngested different")
@@ -310,7 +310,7 @@ func TestClusterMesh(t *testing.T) {
 			for _, mode := range defaultClusterMeshMode {
 				for _, maxClusters := range defaultClusterMeshMaxConnectedClusters {
 
-					metrics := NewMetrics(true)
+					metrics := NewMetrics(true, false)
 					metrics.AddClusterMeshConfig(tt.mode, tt.maxClusters)
 
 					counter, err := metrics.ACLBClusterMeshEnabled.GetMetricWithLabelValues(mode, maxClusters)
