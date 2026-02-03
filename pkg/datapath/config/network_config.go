@@ -9,14 +9,9 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
-	// Port number used for the overlay network.
-	TunnelPort uint16 `config:"tunnel_port"`
-	// The identifier of the tunnel protocol used for the overlay network.
-	TunnelProtocol uint8 `config:"tunnel_protocol"`
-
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{0x0, 0x0, node}
+	return &BPFNetwork{node}
 }
