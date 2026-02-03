@@ -207,30 +207,10 @@ func (f *fakeSkipLBMap) DeleteLB4(key *lbmaps.SkipLB4Key) error {
 	return nil
 }
 
-// DeleteLB4ByAddrPort implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
-	panic("unimplemented")
-}
-
-// DeleteLB4ByNetnsCookie implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
-	panic("unimplemented")
-}
-
 // DeleteLB6 implements lbmap.SkipLBMap.
 func (f *fakeSkipLBMap) DeleteLB6(key *lbmaps.SkipLB6Key) error {
 	f.entries.Delete(*key)
 	return nil
-}
-
-// DeleteLB6ByAddrPort implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
-	panic("unimplemented")
-}
-
-// DeleteLB6ByNetnsCookie implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
-	panic("unimplemented")
 }
 
 var _ lbmaps.SkipLBMap = &fakeSkipLBMap{}
