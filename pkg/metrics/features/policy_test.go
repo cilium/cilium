@@ -502,7 +502,7 @@ func Test_ruleType(t *testing.T) {
 			rt := ruleType(tt.args.r)
 			assert.Equalf(t, tt.want.wantRF, rt, "ruleType(%v)", tt.args.r)
 
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			metrics.AddRule(tt.args.r)
 
 			assert.Equalf(t, tt.want.wantMetrics.npL3Ingested, metrics.NPL3Ingested.WithLabelValues(actionAdd).Get(), "NPL3Ingested different")

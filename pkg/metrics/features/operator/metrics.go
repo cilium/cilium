@@ -25,8 +25,9 @@ const (
 )
 
 // NewMetrics returns all feature metrics. If 'withDefaults' is set, then
-// all metrics will have defined all of their possible values.
-func NewMetrics(withDefaults bool) Metrics {
+// all metrics will have defined all of their possible values.  If 'withEnvVersion'
+// is set, then we include things like version information from the host.
+func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 	return Metrics{
 		ACLBGatewayAPIEnabled: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.Namespace,

@@ -112,7 +112,7 @@ func TestUpdateNetworkMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -166,7 +166,7 @@ func TestUpdateIPAMMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				EnableIPv4:             true,
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
@@ -218,7 +218,7 @@ func TestUpdateCNIChainingMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -280,7 +280,7 @@ func TestUpdateInternetProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
@@ -332,7 +332,7 @@ func TestUpdateIdentityAllocationMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -386,7 +386,7 @@ func TestUpdateCiliumEndpointSlices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                      defaultIPAMModes[0],
 				EnableIPv4:                true,
@@ -460,7 +460,7 @@ func TestUpdateDeviceMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -518,7 +518,7 @@ func TestUpdateHostFirewall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -563,7 +563,7 @@ func TestUpdateLocalRedirectPolicies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                      defaultIPAMModes[0],
 				EnableIPv4:                true,
@@ -608,7 +608,7 @@ func TestUpdateMutualAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -654,7 +654,7 @@ func TestUpdateNonDefaultDeny(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                         defaultIPAMModes[0],
 				EnableIPv4:                   true,
@@ -697,7 +697,7 @@ func TestUpdateCIDRPolicyModeToNode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -820,7 +820,7 @@ func TestUpdateEncryptionMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                             defaultIPAMModes[0],
 				EnableIPv4:                       true,
@@ -883,7 +883,7 @@ func TestUpdateKubeProxyReplacement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -939,7 +939,7 @@ func TestUpdateNodePortConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -999,7 +999,7 @@ func TestUpdateBGP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -1045,7 +1045,7 @@ func TestUpdateIPv4EgressGateway(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -1092,7 +1092,7 @@ func TestUpdateBandwidthManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -1138,7 +1138,7 @@ func TestUpdateSCTP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				EnableSCTP:             tt.enableSCTP,
 				IPAM:                   defaultIPAMModes[0],
@@ -1184,7 +1184,7 @@ func TestUpdateVTEP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				EnableVTEP:             tt.enableVTEP,
 				IPAM:                   defaultIPAMModes[0],
@@ -1230,7 +1230,7 @@ func TestUpdateEnvoyConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				EnableEnvoyConfig:      tt.enableEnvoyConfig,
 				IPAM:                   defaultIPAMModes[0],
@@ -1283,7 +1283,7 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				IdentityAllocationMode: defaultIdentityAllocationModes[0],
@@ -1342,7 +1342,7 @@ func TestUpdateL2Announcements(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				EnableL2Announcements:  tt.enableL2Announcements,
 				IPAM:                   defaultIPAMModes[0],
@@ -1388,7 +1388,7 @@ func TestUpdateL2PodAnnouncements(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,
@@ -1434,7 +1434,7 @@ func TestUpdateExtEnvoyProxyMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				ExternalEnvoyProxy:     tt.externalEnvoyProxy,
 				IPAM:                   defaultIPAMModes[0],
@@ -1490,7 +1490,7 @@ func TestUpdateDynamicNodeConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.DaemonConfig{
 				IPAM:                   defaultIPAMModes[0],
 				EnableIPv4:             true,

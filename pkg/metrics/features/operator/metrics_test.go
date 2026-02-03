@@ -59,7 +59,7 @@ func TestUpdateGatewayAPI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{
 				EnableGatewayAPI: tt.enableGatewayAPI,
 			}
@@ -94,7 +94,7 @@ func TestUpdateIngressControllerEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -129,7 +129,7 @@ func TestUpdateLBIPAMEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -164,7 +164,7 @@ func TestUpdateLoadBalancerL7(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -199,7 +199,7 @@ func TestUpdateNodeIPAMEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -227,7 +227,7 @@ func TestUpdateKubernetesVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, true)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
