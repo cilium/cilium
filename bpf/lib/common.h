@@ -280,7 +280,9 @@ enum metric_dir {
 #define MARK_MAGIC_PROXY_INGRESS	0x0A00 /* source identity (upstream traffic only) */
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00 /* source identity (upstream traffic only) */
 #define MARK_MAGIC_HOST			0x0C00
-#define MARK_MAGIC_DECRYPT		0x0D00
+#define MARK_MAGIC_DECRYPT		0x0D00 /* IPSec: source node ID (ingress encrypted traffic)
+						* WireGuard: source identity (ingress decrypted traffic)
+						*/
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* source identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
