@@ -723,11 +723,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *datapath.L
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if e.IsHost() {
-		// Only used to differentiate between host endpoint template and other templates.
-		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
-	}
-
 	// Local delivery metrics should always be set for endpoint programs.
 	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
 
