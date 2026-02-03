@@ -206,7 +206,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
-	bool is_untracked_fragment = false;
+	bool is_untracked_fragment;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
 
@@ -226,12 +226,11 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
 
-#  ifndef ENABLE_IPV6_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	is_untracked_fragment = ipfrag_is_fragment(ct_buffer->fraginfo);
-#  endif
+	is_untracked_fragment = !CONFIG(enable_ipv6_fragments) &&
+				ipfrag_is_fragment(ct_buffer->fraginfo);
 
 	/* Perform policy lookup */
 	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off,
@@ -481,7 +480,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	const struct remote_endpoint_info *info;
-	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -502,13 +500,14 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
 
-#  ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	fraginfo = ipfrag_encode_ipv4(ip4);
-	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
-#  endif
+	if (!CONFIG(enable_ipv4_fragments)) {
+		fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
+
+		is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+	}
 
 	/* Perform policy lookup */
 	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off,
