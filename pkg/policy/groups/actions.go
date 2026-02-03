@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -63,24 +64,26 @@ func UpdateDerivativePolicyIfNeeded(logger *slog.Logger, clientset client.Client
 			"delete-derivative-policy-"+oldCNP.ObjectMeta.Name,
 			controller.ControllerParams{
 				Group: deleteDerivativePolicyControllerGroup,
-				DoFunc: func(ctx context.Context) error {
+				DoFunc: func(ctx context.Context) (err error) {
+					defer reportDerivedPolicyChangeMetrics(metrics.LabelValueUpdateOperation, err)
+
 					if !clusterScoped {
-						if err := clientset.CiliumV2().CiliumNetworkPolicies(oldCNP.ObjectMeta.Namespace).DeleteCollection(
+						if err = clientset.CiliumV2().CiliumNetworkPolicies(oldCNP.ObjectMeta.Namespace).DeleteCollection(
 							ctx,
 							v1.DeleteOptions{},
 							v1.ListOptions{LabelSelector: parentCNP + "=" + string(oldCNP.ObjectMeta.UID)}); err != nil {
-							return err
+							return
 						}
 					} else {
-						if err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
+						if err = clientset.CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
 							ctx,
 							v1.DeleteOptions{},
 							v1.ListOptions{LabelSelector: parentCNP + "=" + string(oldCNP.ObjectMeta.UID)}); err != nil {
-							return err
+							return
 						}
 					}
 					DeleteDerivativeFromCache(oldCNP)
-					return nil
+					return
 				},
 			})
 		return false
@@ -107,7 +110,7 @@ func DeleteDerivativeFromCache(cnp *cilium_v2.CiliumNetworkPolicy) {
 	groupsCNPCache.DeleteCNP(cnp)
 }
 
-func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset client.Clientset, clusterName string, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) error {
+func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset client.Clientset, clusterName string, cnp *cilium_v2.CiliumNetworkPolicy, clusterScoped bool) (retErr error) {
 	var (
 		scopedLog          *slog.Logger
 		derivativePolicy   v1.Object
@@ -126,6 +129,8 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 		)
 	}
 
+	defer reportDerivedPolicyChangeMetrics(metrics.LabelValueUpdateOperation, retErr)
+
 	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
 	// the derivative status in the parent policy  will be updated with the
 	// error.
@@ -138,7 +143,6 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 	}
 
 	if derivativeErr != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.Error("Cannot create derivative rule. Installing deny-all rule.", logfields.Error, derivativeErr)
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
@@ -157,16 +161,22 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 	if err != nil {
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
-			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 			scopedLog.Error("Cannot update status for derivative policy", logfields.Error, err)
 		}
 		return statusErr
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 	err = updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), nil, clusterScoped)
 	if err != nil {
 		scopedLog.Error("Cannot update status for derivative policy", logfields.Error, err)
 	}
 	return err
+}
+
+func reportDerivedPolicyChangeMetrics(op string, err error) {
+	if err != nil {
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Generated), op, metrics.LabelValueOutcomeFail).Inc()
+	} else {
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Generated), op, metrics.LabelValueOutcomeSuccess).Inc()
+	}
 }
