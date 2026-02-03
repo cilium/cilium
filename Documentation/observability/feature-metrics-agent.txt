@@ -175,6 +175,16 @@
     - ``"true"``
     -
     -
+  * - ``transparent_encryption``
+    - ``strict_mode_enabled``
+    - ``"false"``
+    -
+    -
+  * -
+    -
+    - ``"true"``
+    -
+    -
   * - ``vtep_enabled``
     - *None*
     - *None*
@@ -296,11 +306,21 @@
     - ``"none"``
     -
     -
+  * -
+    -
+    - ``"portmap"``
+    -
+    -
   * - ``config``
-    - ``mode``
-    - ``"netkit"``
+    - ``configured_mode``
+    - ``"auto"``
     - Datapath config mode enabled on the agent
     - gauge
+  * -
+    -
+    - ``"netkit"``
+    -
+    -
   * -
     -
     - ``"netkit-l2"``
@@ -311,6 +331,26 @@
     - ``"veth"``
     -
     -
+  * - ``config``
+    - ``operational_mode``
+    - ``"netkit"``
+    -
+    -
+  * -
+    -
+    - ``"netkit-l2"``
+    -
+    -
+  * -
+    -
+    - ``"veth"``
+    -
+    -
+  * - ``endpoint_routes_enabled``
+    - *None*
+    - *None*
+    - Endpoint Routes enabled in the datapath
+    - gauge
   * - ``internet_protocol``
     - ``address_family``
     - ``"ipv4-ipv6-dual-stack"``
@@ -356,14 +396,9 @@
     - Type
   * - ``cidr_policies``
     - ``mode``
-    - ``"remote-node"``
+    - ``"nodes"``
     - Mode to apply CIDR Policies to Nodes
     - gauge
-  * -
-    -
-    - ``"world"``
-    -
-    -
   * - ``cilium_clusterwide_envoy_config_total``
     - ``action``
     - ``"add"``
