@@ -155,7 +155,7 @@ const (
 	// LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
 
-	// LabelPolicySource is the label used to see the enforcement status
+	// LabelPolicySource is the label used to see the source of policy.
 	LabelPolicySource = "source"
 
 	LabelSource = "source"
@@ -247,6 +247,9 @@ const (
 	LabelReachable          = "reachable"
 	LabelUnreachable        = "unreachable"
 	LabelUnknown            = "unknown"
+
+	LabelValueUpdateOperation = "update"
+	LabelValueDeleteOperation = "delete"
 )
 
 var (
@@ -775,8 +778,16 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_change_total",
-			Help:      "Number of policy changes by outcome",
+			Help:      "Number of policy changes by source, operation and outcome",
 		}, metric.Labels{
+			{
+				Name:   LabelPolicySource,
+				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.Directory)),
+			},
+			{
+				Name:   LabelOperation,
+				Values: metric.NewValues(LabelValueUpdateOperation, LabelValueDeleteOperation),
+			},
 			{
 				Name:   LabelOutcome,
 				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
