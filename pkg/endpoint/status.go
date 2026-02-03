@@ -14,10 +14,9 @@ import (
 type StatusCode int
 
 const (
-	OK       StatusCode = 0
-	Warning  StatusCode = -1
-	Failure  StatusCode = -2
-	Disabled StatusCode = -3
+	OK      StatusCode = 0
+	Warning StatusCode = -1
+	Failure StatusCode = -2
 )
 
 // StatusType represents the type for the given status, higher the value, higher
@@ -45,8 +44,6 @@ func (sc StatusCode) String() string {
 		return "Warning"
 	case Failure:
 		return "Failure"
-	case Disabled:
-		return "Disabled"
 	default:
 		return "Unknown code"
 	}
@@ -57,14 +54,6 @@ func (s Status) String() string {
 		return s.Code.String()
 	}
 	return s.Code.String() + " - " + s.Msg
-}
-
-type StatusResponse struct {
-	KVStore    Status              `json:"kvstore"`
-	Docker     Status              `json:"docker"`
-	Kubernetes Status              `json:"kubernetes"`
-	Cilium     Status              `json:"cilium"`
-	IPAMStatus map[string][]string `json:",omitempty"`
 }
 
 // statusLogMsg represents a log message.
