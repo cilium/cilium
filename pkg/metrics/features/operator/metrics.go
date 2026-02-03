@@ -25,8 +25,9 @@ const (
 )
 
 // NewMetrics returns all feature metrics. If 'withDefaults' is set, then
-// all metrics will have defined all of their possible values.
-func NewMetrics(withDefaults bool) Metrics {
+// all metrics will have defined all of their possible values.  If 'withHostInfo'
+// is set, then we include things like version information from the host.
+func NewMetrics(withDefaults bool, withHostInfo bool) Metrics {
 	return Metrics{
 		ACLBGatewayAPIEnabled: metric.NewGauge(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
@@ -68,6 +69,7 @@ func NewMetrics(withDefaults bool) Metrics {
 			Subsystem: subsystemCP,
 			Help:      "Kubernetes version detected by the operator",
 			Name:      "kubernetes_version",
+			Disabled:  !withHostInfo,
 		}, metric.Labels{
 			{
 				Name: "version",
@@ -96,7 +98,9 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	if params.IsNodeIPAMEnabled() {
 		m.ACLBNodeIPAMEnabled.Set(1)
 	}
-	if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
-		m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Set(1)
+	if m.CPKubernetesVersion.IsEnabled() {
+		if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
+			m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Set(1)
+		}
 	}
 }

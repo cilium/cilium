@@ -22,6 +22,10 @@ import (
 var (
 	// withDefaults will set enable all default metrics in the operator.
 	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
+
+	// withoutHostInfo can be used to disable any metric that expresses
+	// host-specific data, such as kernel version info.
+	withoutHostInfo = os.Getenv("CILIUM_FEATURE_METRICS_WITHOUT_HOST_INFO")
 )
 
 // Cell will retrieve information from all other cells /
@@ -38,10 +42,9 @@ var Cell = cell.Module(
 		},
 	),
 	metrics.Metric(func() Metrics {
-		if withDefaults != "" {
-			return NewMetrics(true)
-		}
-		return NewMetrics(false)
+		showDefaults := withDefaults != ""
+		showHostInfo := withoutHostInfo == ""
+		return NewMetrics(showDefaults, showHostInfo)
 	}),
 )
 
