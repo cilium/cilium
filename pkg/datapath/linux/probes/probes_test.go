@@ -111,3 +111,13 @@ func TestPrivilegedHaveFibLookupSkipNeigh(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "6.6", "BPF_FIB_LOOKUP_SKIP_NEIGH")
 	assert.NoError(t, HaveFibLookupSkipNeigh())
 }
+
+func TestBIGTCPIPv4(t *testing.T) {
+	testutils.SkipOnOldKernel(t, "6.3", "BIG TCP IPv4")
+	assert.NoError(t, HaveBIGTCPIPv4())
+}
+
+func TestBIGTCPIPv6(t *testing.T) {
+	testutils.SkipOnOldKernel(t, "5.19", "BIG TCP IPv6")
+	assert.NoError(t, HaveBIGTCPIPv6())
+}
