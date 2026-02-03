@@ -121,7 +121,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 {
 	bool use_fast_redirect;
 
-#ifdef LOCAL_DELIVERY_METRICS
+#if defined(IS_BPF_LXC) || defined(IS_BPF_HOST)
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up

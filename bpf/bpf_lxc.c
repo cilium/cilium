@@ -1974,9 +1974,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV6);
 
-#ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
-#endif
 
 	ret = ipv6_policy(ctx, ip6, src_sec_identity, NULL, &ext_err,
 			  &proxy_port, false);
@@ -2291,9 +2289,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL_IPV4);
 
-#ifdef LOCAL_DELIVERY_METRICS
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
-#endif
 
 	ret = ipv4_policy(ctx, ip4, src_sec_identity, NULL, &ext_err,
 			  &proxy_port, false);
