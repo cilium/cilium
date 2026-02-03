@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
@@ -47,10 +46,9 @@ func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Lin
 }
 
 // overlayMapRenames returns the merged map of overlay map renames yielded by all registered rename providers.
-func overlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
-	renames = make(map[string]string)
+func overlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
 	for f := range overlayRenames.all() {
-		maps.Copy(renames, f(lnc, link))
+		renames = append(renames, f(lnc, link))
 	}
 	return renames
 }

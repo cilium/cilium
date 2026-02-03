@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,10 +53,9 @@ func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (
 }
 
 // xdpMapRenames returns the merged map of XDP map renames yielded by all registered rename providers.
-func xdpMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
-	renames = make(map[string]string)
+func xdpMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
 	for f := range xdpRenames.all() {
-		maps.Copy(renames, f(lnc, link))
+		renames = append(renames, f(lnc, link))
 	}
 	return renames
 }

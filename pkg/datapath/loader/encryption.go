@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -42,10 +41,9 @@ func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []an
 }
 
 // encryptionMapRenames returns the merged map of encryption map renames yielded by all registered rename providers.
-func encryptionMapRenames(lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
-	renames = make(map[string]string)
+func encryptionMapRenames(lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
 	for f := range encryptionRenames.all() {
-		maps.Copy(renames, f(lnc))
+		renames = append(renames, f(lnc))
 	}
 	return renames
 }
