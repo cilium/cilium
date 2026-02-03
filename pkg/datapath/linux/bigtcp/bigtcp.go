@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -23,8 +24,6 @@ import (
 const (
 	defaultMaxSize = 65536
 	bigTCPMaxSize  = 196608
-
-	probeDevice = "lo"
 )
 
 var defaultUserConfig = types.BigTCPUserConfig{
@@ -151,26 +150,24 @@ func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 
 // Probes whether the kernel supports BIG TCP IPv4.
 func supportsBIGTCPIPv4(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
-	if err != nil {
-		log.Warn("Failed to probe kernel support for BIG TCP IPv4")
+	if err := probes.HaveBIGTCPIPv4(); err != nil {
+		if !errors.Is(err, probes.ErrNotSupported) {
+			log.Warn("Failed to probe kernel support for BIG TCP IPv4: " + err.Error())
+		}
 		return false
 	}
-	// Kernel commit 9eefedd58ae1 ("net: add gso_ipv4_max_size and gro_ipv4_max_size per device").
-	// Patch 09/10 of the series "net: support ipv4 big tcp".
-	return link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0
+	return true
 }
 
 // Probes whether the kernel supports BIG TCP IPv6.
 func supportsBIGTCPIPv6(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
-	if err != nil {
-		log.Warn("Failed to probe kernel support for BIG TCP IPv6")
+	if err := probes.HaveBIGTCPIPv6(); err != nil {
+		if !errors.Is(err, probes.ErrNotSupported) {
+			log.Warn("Failed to probe kernel support for BIG TCP IPv6: " + err.Error())
+		}
 		return false
 	}
-	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
-	// Patch 01/13 of the series "tcp: BIG TCP implementation".
-	return link.Attrs().TSOMaxSize > 0
+	return true
 }
 
 // Returns the current gso_max_size (IPv6), gso_ipv4_max_size (IPv4) and
