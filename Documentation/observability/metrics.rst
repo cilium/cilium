@@ -595,7 +595,7 @@ Name                                       Labels                               
 ========================================== ================================================== ========== ========================================================
 ``policy``                                                                                    Enabled    Number of policies currently loaded
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
-``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
+``policy_change_total``                    ``source``, ``operation``, ``outcome``             Enabled    Number of policy changes by source, operation and outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ``policy_selector_match_count_max``        ``class``                                          Enabled    The maximum number of identities selected by a network policy selector
@@ -1661,4 +1661,3 @@ Name                                          Labels                            
 ============================================= ======================================== ========== ==========================================================================================================================================
 ``controller_duration_seconds``                                                         Enabled    Histogram of processing times for local redirect policies
 ============================================= ======================================== ========== ==========================================================================================================================================
-

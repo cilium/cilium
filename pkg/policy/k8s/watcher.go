@@ -24,6 +24,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
@@ -247,10 +248,11 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				switch event.Kind {
 				case resource.Upsert:
 					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, cnpDone)
+					reportCNPChangeMetrics(metrics.LabelValueUpdateOperation, err)
 				case resource.Delete:
 					p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, cnpDone)
+					reportCNPChangeMetrics(metrics.LabelValueDeleteOperation, err)
 				}
-				reportCNPChangeMetrics(err)
 				event.Done(err)
 			case event, ok := <-ccnpEvents:
 				if !ok {
@@ -283,10 +285,11 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				switch event.Kind {
 				case resource.Upsert:
 					err = p.onUpsert(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID, ccnpDone)
+					reportCNPChangeMetrics(metrics.LabelValueUpdateOperation, err)
 				case resource.Delete:
 					p.onDelete(slimCNP, event.Key, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, resourceID, ccnpDone)
+					reportCNPChangeMetrics(metrics.LabelValueDeleteOperation, nil)
 				}
-				reportCNPChangeMetrics(err)
 				event.Done(err)
 			case event, ok := <-cidrGroupEvents:
 				if !ok {
