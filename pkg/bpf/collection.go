@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -141,7 +142,7 @@ type CollectionOptions struct {
 
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
-	MapRenames map[string]string
+	MapRenames []map[string]string
 
 	// MapReplacements passes along the inner map to MapReplacements inside
 	// the embedded ebpf.CollectionOptions struct.
@@ -279,14 +280,22 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 }
 
 // renameMaps applies renames to coll.
-func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
-	for name, rename := range renames {
-		mapSpec := coll.Maps[name]
-		if mapSpec == nil {
-			return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
-		}
+func renameMaps(coll *ebpf.CollectionSpec, allRenames []map[string]string) error {
+	alreadyRenamed := make(sets.Set[string])
+	for _, renames := range allRenames {
+		for name, rename := range renames {
+			spec := coll.Maps[name]
+			if spec == nil {
+				return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
+			}
 
-		mapSpec.Name = rename
+			if alreadyRenamed.Has(name) {
+				return fmt.Errorf("map %q already renamed to %q (conflicts with: %q)", name, spec.Name, rename)
+			}
+
+			spec.Name = rename
+			alreadyRenamed.Insert(name)
+		}
 	}
 
 	return nil
