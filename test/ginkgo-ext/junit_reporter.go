@@ -309,8 +309,6 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/chaos.go"
 	case "K8sAgentFQDNTest":
 		return "test/k8s/fqdn.go"
-	case "RuntimeAgentFQDNPolicies":
-		return "test/runtime/fqdn.go"
 	case "K8sAgentHubbleTest":
 		return "test/k8s/hubble.go"
 	case "K8sAgentPolicyTest":
@@ -319,8 +317,6 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/config.go"
 	case "K8sPolicyTestExtended":
 		return "test/k8s/net_policies.go"
-	case "RuntimeAgentPolicies":
-		return "test/runtime/net_policies.go"
 	case "K8sDatapathBandwidthTest":
 		return "test/k8s/bandwidth.go"
 	case "K8sDatapathConfig":
