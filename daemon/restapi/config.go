@@ -187,7 +187,8 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 	reason := strings.Join(reasons, ", ")
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            reason,
+		Reason:            regeneration.ReasonDaemonConfigUpdate,
+		Message:           reason,
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 	h.endpointManager.RegenerateAllEndpoints(regenerationMetadata)

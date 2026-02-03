@@ -152,7 +152,8 @@ func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context
 			Group: endpointGCControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				wg := mgr.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
-					Reason:            "periodic endpoint regeneration",
+					Reason:            regeneration.ReasonPeriodicRegeneration,
+					Message:           "periodic endpoint regeneration",
 					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 				})
 
@@ -616,7 +617,7 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	eps := mgr.GetEndpoints()
 	wg.Add(len(eps))
 
-	mgr.logger.Debug("regenerating all endpoints", logfields.Reason, regenMetadata.Reason)
+	mgr.logger.Debug("regenerating all endpoints", logfields.Reason, regenMetadata.GetRegenerationReason())
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateIfAlive(regenMetadata)

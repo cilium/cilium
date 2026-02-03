@@ -5,6 +5,7 @@ package regeneration
 
 import (
 	"context"
+	"fmt"
 )
 
 // DatapathRegenerationLevel determines what is expected of the datapath when
@@ -38,16 +39,45 @@ func (r DatapathRegenerationLevel) String() string {
 	return "BUG: Unknown DatapathRegenerationLevel"
 }
 
+// Reason represents the cause of Regeneration.
+type Reason = string
+
+const (
+	ReasonDaemonConfigUpdate         = "DaemonConfigUpdate"
+	ReasonDeviceConfigurationChanged = "DeviceConfigurationChanged"
+	ReasonPeriodicRegeneration       = "PeriodicRegeneration"
+	ReasonEndpointUpdate             = "EndpointUpdate"
+	ReasonEndpointInit               = "EndpointInit"
+	ReasonEndpointRestore            = "EndpointRestore"
+	ReasonLabelsUpdate               = "LabelsUpdate"
+	ReasonAnnotationsUpdate          = "AnnotationsUpdate"
+	ReasonPolicyUpdate               = "PolicyUpdate"
+	ReasonSelectorPolicyStale        = "SelectorPolicyStale"
+	ReasonRegenerationFailure        = "RegenerationFailure"
+
+	// Custom Triggers for regeneration.
+	ReasonDaemonTrigger = "DeamonTrigger"
+)
+
 // ExternalRegenerationMetadata contains any information about a regeneration that
 // the endpoint subsystem should be made aware of for a given endpoint.
 type ExternalRegenerationMetadata struct {
-	// Reason provides context to source for the regeneration, which is
-	// used to generate useful log messages.
-	Reason string
+	// Reason provides context to source for the regeneration.
+	Reason Reason
+
+	// Message contains additional context for regeneration.
+	Message string
 
 	// RegenerationLevel forces datapath regeneration according to the
 	// levels defined in the DatapathRegenerationLevel description.
 	RegenerationLevel DatapathRegenerationLevel
 
 	ParentContext context.Context
+}
+
+func (m *ExternalRegenerationMetadata) GetRegenerationReason() string {
+	if len(m.Message) == 0 {
+		return m.Reason
+	}
+	return fmt.Sprintf("%s: %s", m.Reason, m.Message)
 }
