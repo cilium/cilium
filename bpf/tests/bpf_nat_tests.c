@@ -9,6 +9,7 @@
 #define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
+#include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
 #define DEBUG
