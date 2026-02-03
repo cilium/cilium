@@ -9,9 +9,14 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{false, false, node}
 }
