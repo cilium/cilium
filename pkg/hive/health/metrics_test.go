@@ -41,9 +41,9 @@ func Test_Metrics(t *testing.T) {
 			newHealthV2Provider,
 			statedb.RWTable[types.Status].ToTable,
 		),
-		cell.Provide(func(lc cell.Lifecycle, p types.Provider, jr job.Registry) job.Group {
+		cell.Provide(func(p types.Provider, jr job.Registry) job.Group {
 			h := p.ForModule(cell.FullModuleID{"test"})
-			return jr.NewGroup(h, lc)
+			return jr.NewGroup(h)
 		}),
 
 		cell.Module("health-metrics-test", "hive module health metrics test",
