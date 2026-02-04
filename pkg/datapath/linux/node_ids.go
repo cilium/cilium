@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node"
@@ -50,9 +52,12 @@ func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
 }
 
 func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
-	localNodeV4 := node.GetIPv4(n.log)
-	localNodeV6 := node.GetIPv6(n.log)
-	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
+	ln, err := n.localNodeStore.Get(context.Background())
+	if err != nil {
+		logging.Fatal(n.log, "failed to retrieve local node")
+	}
+
+	if ln.GetNodeIP(false).Equal(nodeIP) || ln.GetNodeIP(true).Equal(nodeIP) {
 		return 0, true
 	}
 
