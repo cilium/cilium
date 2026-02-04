@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -719,28 +720,28 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 				svc.bes = append(svc.bes, bep)
 			}
 
-			feIP := net.ParseIP(p.HostIP)
-			if feIP != nil && feIP.IsLoopback() && !netnsCookie() {
+			feIP, err := netip.ParseAddr(p.HostIP)
+			if err == nil && feIP.IsLoopback() && !netnsCookie() {
 				log.Warn("The requested loopback address for hostIP is not supported for kernels which don't provide netns cookies. Ignoring.",
 					logfields.HostIP, feIP)
 				continue
 			}
 
-			feIPs := []net.IP{}
+			feIPs := []netip.Addr{}
 
 			// When HostIP is explicitly set, then we need to expose *only*
 			// on this address but not via other addresses. When it's not set,
 			// then expose via all local addresses. Same when the user provides
 			// an unspecified address (0.0.0.0 / [::]).
-			if feIP != nil && !feIP.IsUnspecified() {
+			if !feIP.IsUnspecified() {
 				// Migrate the loopback address into a 0.0.0.0 / [::]
 				// surrogate, thus internal datapath handling can be
 				// streamlined. It's not exposed for traffic from outside.
 				if feIP.IsLoopback() {
-					if feIP.To4() != nil {
-						feIP = net.IPv4zero
+					if feIP.Is4() {
+						feIP = netip.IPv4Unspecified()
 					} else {
-						feIP = net.IPv6zero
+						feIP = netip.IPv6Unspecified()
 					}
 					svc.service.LoopbackHostPort = true
 				} else if svc.service.LoopbackHostPort {
@@ -750,17 +751,17 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 					continue
 				}
 				feIPs = append(feIPs, feIP)
-			} else if feIP == nil {
+			} else if !feIP.IsValid() {
 				if ipv4 {
-					feIPs = append(feIPs, net.IPv4zero)
+					feIPs = append(feIPs, netip.IPv4Unspecified())
 				}
 				if ipv6 {
-					feIPs = append(feIPs, net.IPv6zero)
+					feIPs = append(feIPs, net.IPv6Unspecified())
 				}
 			}
 
 			for _, feIP := range feIPs {
-				addr := cmtypes.MustAddrClusterFromIP(feIP)
+				addr := cmtypes.AddrClusterFrom(feIP, 0)
 				fe := loadbalancer.FrontendParams{
 					Type:        loadbalancer.SVCTypeHostPort,
 					ServiceName: serviceName,
