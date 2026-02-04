@@ -14,6 +14,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/containerd/nri/pkg/stub"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -62,9 +64,12 @@ type Driver struct {
 	// manager_type: devices
 	devices map[types.DeviceManagerType][]types.Device
 
-	multiPoolMgr *ipam.MultiPoolManager
-	ipv4Enabled  bool
-	ipv6Enabled  bool
+	multiPoolMgr    *ipam.MultiPoolManager
+	ipv4Enabled     bool
+	ipv6Enabled     bool
+	db              *statedb.DB
+	resourceIPPools statedb.Table[resourceIPPool]
+	localNodeStore  *node.LocalNodeStore
 }
 
 type allocation struct {
