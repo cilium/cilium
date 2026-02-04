@@ -6,6 +6,7 @@ package maglev
 import (
 	"encoding/binary"
 	"fmt"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -64,7 +65,7 @@ func mkAddr(i int32) loadbalancer.L3n4Addr {
 	intToAddr := func(i int32) cmtypes.AddrCluster {
 		var addr [4]byte
 		binary.BigEndian.PutUint32(addr[:], uint32(i))
-		addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
+		addrCluster, _ := cmtypes.AddrClusterFrom(netip.AddrFrom4(addr))
 		return addrCluster
 	}
 	a := loadbalancer.NewL3n4Addr(

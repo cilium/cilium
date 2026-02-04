@@ -6,6 +6,7 @@ package writer
 import (
 	"encoding/binary"
 	"fmt"
+	"net/netip"
 	"slices"
 	"testing"
 
@@ -40,7 +41,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 		name := loadbalancer.NewServiceName("test-existing", fmt.Sprintf("svc-%d", i))
 		var addr1 [4]byte
 		binary.BigEndian.PutUint32(addr1[:], 0x02000000+uint32(i))
-		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
+		addrCluster, _ := types.AddrClusterFrom(netip.AddrFrom4(addr1), 0)
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
 			&loadbalancer.Service{
@@ -65,7 +66,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 			name := loadbalancer.NewServiceName("test-new", fmt.Sprintf("svc-%d", i))
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i))
-			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
+			addrCluster, _ := types.AddrClusterFrom(netip.AddrFrom4(addr1), 0)
 			p.Writer.UpsertServiceAndFrontends(
 				wtxn,
 				&loadbalancer.Service{
