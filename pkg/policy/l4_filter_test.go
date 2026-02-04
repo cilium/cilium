@@ -87,16 +87,16 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td.repo.subjectSelectorCache = td.subjectSc
 	td.testPolicyContext.sc = td.sc
 
-	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
-	td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
 	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
-		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels, types.ToSelector(cidr))
+		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))
 		return css[0]
 	}(api.CIDR("10.1.1.1"))
 
 	td.cachedSelectorCIDR0 = func(cidr api.CIDR) CachedSelector {
-		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels, types.ToSelector(cidr))
+		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))
 		return css[0]
 	}(api.CIDR("0.0.0.0/0"))
 
@@ -123,7 +123,7 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 }
 
 func (td *testData) getCachedSelectorForTest(es api.EndpointSelector) CachedSelector {
-	cs, _ := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, es)
+	cs, _ := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, es)
 	return cs
 }
 
@@ -178,7 +178,7 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 }
 
 func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
-	_, added := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, sel)
+	_, added := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, sel)
 	return added
 }
 

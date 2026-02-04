@@ -214,15 +214,15 @@ var (
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
-	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID1Selector)
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
-	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID2Selector)
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID2Selector)
 	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
-	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID3Selector)
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID3Selector)
 	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
-	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID4Selector)
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID4Selector)
 
-	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
+	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
 	epID1            = uint64(111)
 	epID2            = uint64(222)

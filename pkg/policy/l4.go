@@ -852,8 +852,16 @@ func (l4 *L4Filter) IsPeerSelector() bool {
 	return true
 }
 
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelectorForTest(l4, lbls, sel)
+func (l4 *L4Filter) GetRuleLabels(cs CachedSelector) labels.LabelArrayList {
+	ro, exists := l4.RuleOrigin[cs]
+	if exists && ro != NilRuleOrigin {
+		return ro.GetLabelArrayList()
+	}
+	return nil
+}
+
+func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
+	cs, added := selectorCache.AddIdentitySelectorForTest(l4, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
@@ -979,7 +987,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 		peerEndpoints = types.WildcardSelectors
 	}
 
-	css, _ := selectorCache.AddSelectorsTxn(l4, origin.stringLabels(), peerEndpoints...)
+	css, _ := selectorCache.AddSelectorsTxn(l4, peerEndpoints...)
 	for _, cs := range css {
 		if cs.IsWildcard() {
 			l4.wildcard = cs
@@ -1137,7 +1145,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				// Add the cached host selector to the PerSelectorPolicies, if not
 				// already there. Use empty string labels due to this selector being
 				// added due to agent config rather than any specific rule.
-				l4.cacheIdentitySelector(host, EmptyStringLabels, ctx.GetSelectorCache())
+				l4.cacheIdentitySelector(host, ctx.GetSelectorCache())
 			}
 
 			// collect redirect types (if any)

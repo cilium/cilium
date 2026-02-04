@@ -226,7 +226,7 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	css, _ := p.subjectSelectorCache.AddSelectors(r, makeStringLabels(r.Labels), r.Subject)
+	css, _ := p.subjectSelectorCache.AddSelectors(r, r.Subject)
 	r.subjectSelector = css[0]
 	return r
 }
