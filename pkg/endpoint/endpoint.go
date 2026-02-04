@@ -461,6 +461,7 @@ type Endpoint struct {
 	isHost    bool
 
 	noTrackPort uint16
+	fibTableID  uint32
 
 	// mutable! must hold the endpoint lock to read
 	ciliumEndpointUID k8sTypes.UID
@@ -1786,8 +1787,9 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 //     operation will be done in the background and 'regenTriggered'
 //     will always be 'false'.
 //
-//   - bwm - the bandwidth manager used to update the bandwidth policy for this
-//     endpoint.
+//   - baseLabels - optional set of labels to use as a base. Labels resolved
+//     from Kubernetes are merged into these. If empty, only the k8s-sourced
+//     labels are applied.
 //
 //   - resolveMetadata - the metadata resolver that will be used to retrieve this
 //     endpoint's metadata.
@@ -1852,6 +1854,13 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
 	)
+	if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
+		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
+			e.SetFibTableID(uint32(tidInt))
+		}
+	} else {
+		e.SetFibTableID(0)
+	}
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
 	// labels from k8s. Thus, we should only replace the labels that have their
@@ -2707,6 +2716,18 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 // GetCreatedAt returns the endpoint creation time.
 func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
+}
+
+func (e *Endpoint) GetFibTableID() uint32 {
+	e.mutex.RWMutex.RLock()
+	defer e.mutex.RWMutex.RUnlock()
+	return e.fibTableID
+}
+
+func (e *Endpoint) SetFibTableID(id uint32) {
+	e.mutex.RWMutex.Lock()
+	defer e.mutex.RWMutex.Unlock()
+	e.fibTableID = id
 }
 
 // GetPropertyValue returns the endpoint property value for this key.

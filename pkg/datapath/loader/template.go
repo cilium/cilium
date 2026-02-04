@@ -109,6 +109,10 @@ func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
 	return templatePolicyVerdictFilter
 }
 
+func (*templateCfg) GetFibTableID() uint32 {
+	return 0
+}
+
 func (*templateCfg) GetPropertyValue(key string) any {
 	return nil
 }

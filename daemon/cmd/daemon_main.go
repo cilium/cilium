@@ -219,6 +219,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
 
+	flags.Bool(option.EnableFibTableIDAnnotation, defaults.EnableFibTableIDAnnotation, "Enable parsing of the network.cilium.io/fib-table-id pod annotation for pod egress routing")
+	flags.MarkHidden(option.EnableFibTableIDAnnotation)
+	option.BindEnv(vp, option.EnableFibTableIDAnnotation)
+
 	flags.String(option.SRv6EncapModeName, defaults.SRv6EncapMode, "Encapsulation mode for SRv6 (\"srh\" or \"reduced\")")
 	flags.MarkHidden(option.SRv6EncapModeName)
 	option.BindEnv(vp, option.SRv6EncapModeName)
