@@ -104,7 +104,7 @@ func TestOriginMerge(t *testing.T) {
 			td.cachedSelectorB: nil,
 		},
 		RuleOrigin: OriginLogsForTest(map[CachedSelector]string{
-			td.cachedSelectorB: "rule1\x1frule2",
+			td.cachedSelectorB: "rule2",
 		}),
 	}})
 

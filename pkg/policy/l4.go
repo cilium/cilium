@@ -1232,16 +1232,6 @@ func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext,
 		return err
 	}
 
-	// To keep the rule origin tracking correct, merge the rule label arrays for each
-	// CachedSelector we know about. New CachedSelectors are added.
-	for cs, newLabels := range filterToMerge.RuleOrigin {
-		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
-			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels)
-		} else {
-			existingFilter.RuleOrigin[cs] = newLabels
-		}
-	}
-
 	resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), existingFilter)
 	return nil
 }
