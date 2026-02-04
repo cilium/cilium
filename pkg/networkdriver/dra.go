@@ -21,6 +21,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
@@ -146,17 +147,81 @@ func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi
 	return devicesCfg, nil
 }
 
-func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg types.DeviceConfig, v4Needed, v6Needed bool) (netip.Addr, netip.Addr, error) {
-	var v4Addr, v6Addr netip.Addr
-
-	if cfg.IPPool == "" {
-		return netip.Addr{}, netip.Addr{}, fmt.Errorf("no IP pool found in config for device %s", device)
+func (driver *Driver) ipPoolForDevice(ctx context.Context, poolName string, device string) (string, error) {
+	node, err := driver.localNodeStore.Get(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get local node: %w", err)
 	}
+
+	txn := driver.db.ReadTxn()
+
+	// if a pool is specified, verify that its NodeSelector is empty or it matches the current node.
+	if poolName != "" {
+		pool, _, found := driver.resourceIPPools.Get(txn, ResourceIPPoolByName(poolName))
+		if !found {
+			driver.logger.Error("requested IP pool not found",
+				logfields.Device, device,
+				logfields.PoolName, poolName,
+			)
+			return "", fmt.Errorf("requested CiliumResourceIPPools %s not found", poolName)
+		}
+
+		// note that an empty NodeSelector (that is, a pool that is usable by all nodes) is translated
+		// in the pool internal model as a labels.Nothing() selector. In that case, allocation from
+		// the pool is allowed.
+		if labels.MatchesNothing(pool.NodeSelector) {
+			return poolName, nil
+		}
+
+		if !pool.NodeSelector.Matches(labels.Set(node.Labels)) {
+			driver.logger.Error("requested IP pool has a NodeSelector that does not match current node",
+				logfields.Device, device,
+				logfields.PoolName, poolName,
+				logfields.Selector, pool.NodeSelector,
+			)
+			return "", fmt.Errorf("requested CiliumResourceIPPools %s has a NodeSelector not matching current node", poolName)
+		}
+		return poolName, nil
+	}
+
+	// auto select a pool with a non-empty NodeSelector that matches the current node.
+	var matches []string
+	for pool := range driver.resourceIPPools.All(txn) {
+		if pool.NodeSelector.Matches(labels.Set(node.Labels)) {
+			matches = append(matches, pool.Name)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		// Fallback to default pool
+		driver.logger.Debug("device pool selector: no matches, falling back to default pool",
+			logfields.Device, device,
+		)
+		return ipam.PoolDefault().String(), nil
+	case 1:
+		driver.logger.Debug("device pool selector: found matching pool",
+			logfields.Device, device,
+			logfields.PoolName, matches[0],
+		)
+		return matches[0], nil
+	default:
+		// If multiple pools match, fail the allocation
+		driver.logger.Error("device pool selector: multiple pools matched; refusing to choose a pool",
+			logfields.Device, device,
+			logfields.Matches, matches,
+		)
+		return "", fmt.Errorf("multiple CiliumResourceIPPools matching node: %v", matches)
+	}
+}
+
+func (driver *Driver) addrsForDevice(ctx context.Context, device string, pool string, v4Needed, v6Needed bool) (netip.Addr, netip.Addr, error) {
+	var v4Addr, v6Addr netip.Addr
 
 	if err := resiliency.Retry(ctx, AddrAddRetryInterval, AddrAddMaxRetries, func(ctx context.Context, retries int) (bool, error) {
 		var errs []error
 		if v4Needed {
-			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(cfg.IPPool), ipam.IPv4, true)
+			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(pool), ipam.IPv4, true)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -168,7 +233,7 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg typ
 			}
 		}
 		if v6Needed {
-			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(cfg.IPPool), ipam.IPv6, true)
+			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(pool), ipam.IPv6, true)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -183,14 +248,14 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg typ
 			driver.logger.WarnContext(
 				ctx, "failed to get IP addresses for device, will retry",
 				logfields.Device, device,
-				logfields.PoolName, cfg.IPPool,
+				logfields.PoolName, pool,
 				logfields.Error, errors.Join(errs...),
 			)
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		return netip.Addr{}, netip.Addr{}, fmt.Errorf("failed to get IP addresses for device %s from pool %s", device, cfg.IPPool)
+		return netip.Addr{}, netip.Addr{}, fmt.Errorf("failed to get IP addresses for device %s from pool %s", device, pool)
 	}
 	return v4Addr, v6Addr, nil
 }
@@ -256,16 +321,26 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		v4Needed := driver.ipv4Enabled && thisAlloc.Config.IPv4Addr.Addr() == zeroAddr
 		v6Needed := driver.ipv6Enabled && thisAlloc.Config.IPv6Addr.Addr() == zeroAddr
 		if v4Needed || v6Needed {
-			v4Addr, v6Addr, err = driver.addrsForDevice(ctx, result.Device, cfg, v4Needed, v6Needed)
+			// if no pool is specified, look for a pool with a NodeSelector matching current node or use the default pool
+			poolForNode, err := driver.ipPoolForDevice(ctx, thisAlloc.Config.IPPool, result.Device)
+			if err != nil {
+				return kubeletplugin.PrepareResult{
+					Err: fmt.Errorf("failed to get IP pool for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err),
+				}
+			}
+			thisAlloc.Config.IPPool = poolForNode
+
+			// allocate addresses from selected pool
+			v4Addr, v6Addr, err = driver.addrsForDevice(ctx, result.Device, thisAlloc.Config.IPPool, v4Needed, v6Needed)
 			if err != nil {
 				driver.logger.ErrorContext(
 					ctx, "failed to get IP addresses for device",
 					logfields.Device, result.Device,
-					logfields.PoolName, cfg.IPPool,
+					logfields.PoolName, thisAlloc.Config.IPPool,
 					logfields.Error, err,
 				)
 				return kubeletplugin.PrepareResult{
-					Err: fmt.Errorf("failed to get IP addresses for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err),
+					Err: fmt.Errorf("failed to get IP addresses for device %s from pool %s in claim %s: %w", result.Device, thisAlloc.Config.IPPool, path.Join(claim.Namespace, claim.Name), err),
 				}
 			}
 		}
