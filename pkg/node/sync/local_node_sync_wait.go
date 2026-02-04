@@ -75,21 +75,10 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 	return n
 }
 
-// useNodeCIDR sets the ipv4-range and ipv6-range values values from the
-// addresses defined in the given node.
-func (ini *localNodeSynchronizer) useNodeCIDR(n *nodeTypes.Node) {
-	if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
-		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
-	}
-	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		node.SetIPv6NodeRange(n.IPv6AllocCIDR)
-	}
-}
-
 // WaitForNodeInformation retrieves the node information via the CiliumNode or
 // Kubernetes Node resource. This function will block until the information is
 // received.
-func (ini *localNodeSynchronizer) WaitForNodeInformation(ctx context.Context) error {
+func (ini *localNodeSynchronizer) WaitForNodeInformation(ctx context.Context, store *node.LocalNodeStore) error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -139,7 +128,17 @@ func (ini *localNodeSynchronizer) WaitForNodeInformation(ctx context.Context) er
 				"This may cause connectivity disruption for Endpoints that attempt to communicate using IPv6")
 		}
 
-		ini.useNodeCIDR(n)
+		// Set allocation CIDRs
+		if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
+			store.Update(func(ln *node.LocalNode) {
+				ln.IPv4AllocCIDR = n.IPv4AllocCIDR
+			})
+		}
+		if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
+			store.Update(func(ln *node.LocalNode) {
+				ln.IPv6AllocCIDR = n.IPv6AllocCIDR
+			})
+		}
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
