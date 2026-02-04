@@ -54,5 +54,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
 
+	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
+	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1
+
 	return node
 }
