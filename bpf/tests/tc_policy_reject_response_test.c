@@ -7,24 +7,14 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
-#include <bpf/config/node.h>
+
+#include "lib/bpf_lxc.h"
+
 ASSIGN_CONFIG(bool, policy_deny_response_enabled, true)
 
-#include <bpf_lxc.c>
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_container,
-	},
-};
 
 #define CLIENT_IP v4_pod_one
 #define TARGET_IP v4_ext_one
@@ -69,10 +59,7 @@ int policy_reject_response_setup(struct __ctx_buff *ctx)
 	/* Add policy that denies egress to target */
 	policy_add_egress_deny_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "policy_reject_response_v4")
