@@ -64,6 +64,9 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 	return CTX_ACT_DROP;
 }
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 /*
  * Include entrypoint into host stack
  */
@@ -294,7 +297,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 
 	/*
 	 * The SNAT stack prefers to reuse the source port of the packet for SNAT if the port is
-	 * available for use and in the range [nodeport_port_min_nat, nodeport_port_max_nat].
+	 * available for use and in the range [NODEPORT_PORT_MIN_NAT, NODEPORT_PORT_MAX_NAT].
 	 * If the port is not available, or not in the NAT range, then the source port will be
 	 * mapped to an available port in the NAT range.
 	 *

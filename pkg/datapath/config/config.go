@@ -10,8 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-const NodePortMaxNAT = 65535
-
 func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node := *NewNode()
 	node.ClusterIDBits = identity.GetClusterIDBits()
@@ -48,8 +46,6 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.NodeportPortMin = lnc.LBConfig.NodePortMin
 	node.NodeportPortMax = lnc.LBConfig.NodePortMax
-	node.NodeportPortMinNAT = lnc.LBConfig.NodePortMax + 1
-	node.NodeportPortMaxNAT = NodePortMaxNAT
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
