@@ -175,26 +175,6 @@ func setDefaultPrefix(logger *slog.Logger, cfg *option.DaemonConfig, device stri
 	}
 }
 
-func clone(ip net.IP) net.IP {
-	if ip == nil {
-		return nil
-	}
-	dup := make(net.IP, len(ip))
-	copy(dup, ip)
-	return dup
-}
-
-// GetIPv4 returns one of the IPv4 node address available with the following
-// priority:
-// - NodeInternalIP
-// - NodeExternalIP
-// - other IP address type.
-// It must be reachable on the network.
-func GetIPv4(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeIP(false))
-}
-
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
@@ -271,12 +251,6 @@ func ValidatePostInit(logger *slog.Logger) error {
 	}
 
 	return nil
-}
-
-// GetIPv6 returns the IPv6 address of the node
-func GetIPv6(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeIP(true))
 }
 
 // GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
