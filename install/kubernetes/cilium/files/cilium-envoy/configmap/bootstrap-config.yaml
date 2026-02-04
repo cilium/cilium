@@ -167,6 +167,8 @@ staticResources:
     circuitBreakers:
       thresholds:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+        maxConnections: {{ .Values.envoy.clusterMaxConnections }}
+        maxRequests: {{ .Values.envoy.clusterMaxRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -183,6 +185,8 @@ staticResources:
     circuitBreakers:
       thresholds:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+        maxConnections: {{ .Values.envoy.clusterMaxConnections }}
+        maxRequests: {{ .Values.envoy.clusterMaxRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -204,6 +208,8 @@ staticResources:
     circuitBreakers:
       thresholds:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+        maxConnections: {{ .Values.envoy.clusterMaxConnections }}
+        maxRequests: {{ .Values.envoy.clusterMaxRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -220,6 +226,8 @@ staticResources:
     circuitBreakers:
       thresholds:
       - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+        maxConnections: {{ .Values.envoy.clusterMaxConnections }}
+        maxRequests: {{ .Values.envoy.clusterMaxRequests }}
     lbPolicy: "CLUSTER_PROVIDED"
     typedExtensionProtocolOptions:
       envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
