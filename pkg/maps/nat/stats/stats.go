@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/stream"
 
-	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -125,6 +124,8 @@ type params struct {
 	Health    cell.Health
 }
 
+const nodePortMaxNAT = 65535
+
 func newStats(params params) (*Stats, error) {
 	if params.Config.NATMapStatInterval == 0 {
 		return nil, nil
@@ -138,7 +139,7 @@ func newStats(params params) (*Stats, error) {
 
 	// number of available source-ports is ephemeral range subtracting those
 	// used by node-ports.
-	maxAvailPorts := config.NodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
+	maxAvailPorts := nodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
 	m := &Stats{
 		logger:   params.Logger,
 		metrics:  params.Metrics,

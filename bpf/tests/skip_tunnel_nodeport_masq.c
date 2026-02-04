@@ -31,6 +31,9 @@
 #define DST_IPV6 v6_node_two
 #define DST_PORT tcp_svc_one
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 /*
  * Include entrypoint into host stack
  */
@@ -221,7 +224,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if (snat) {
 		__be16 p = bpf_ntohs(l4->source);
 
-		if (p < CONFIG(nodeport_port_min_nat) || p > CONFIG(nodeport_port_max_nat))
+		if (p < NODEPORT_PORT_MIN_NAT || p > NODEPORT_PORT_MAX_NAT)
 			test_fatal("src port was not snatted");
 	} else {
 		if (l4->source != SRC_PORT)

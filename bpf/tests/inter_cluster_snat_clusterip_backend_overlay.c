@@ -51,8 +51,8 @@
 #undef IPV4_INTER_CLUSTER_SNAT
 #define IPV4_INTER_CLUSTER_SNAT BACKEND_NODE_IP
 
-/* SNAT should always select nodeport_port_min_nat as a source */
-#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(CONFIG(nodeport_port_min_nat))
+/* SNAT should always select NODEPORT_PORT_MIN_NAT as a source */
+#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT)
 
 /* Mock out get_tunnel_key to emulate input from tunnel device */
 #define skb_get_tunnel_key mock_skb_get_tunnel_key
