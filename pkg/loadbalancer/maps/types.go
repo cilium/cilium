@@ -54,7 +54,7 @@ type ServiceKey interface {
 	GetScope() uint8
 
 	// Get frontend IP address
-	GetAddress() net.IP
+	GetAddress() netip.Addr
 
 	// Get frontend port
 	GetPort() uint16
@@ -178,7 +178,7 @@ func (k *Service4Key) SetBackendSlot(slot int) { k.BackendSlot = uint16(slot) }
 func (k *Service4Key) GetBackendSlot() int     { return int(k.BackendSlot) }
 func (k *Service4Key) SetScope(scope uint8)    { k.Scope = scope }
 func (k *Service4Key) GetScope() uint8         { return k.Scope }
-func (k *Service4Key) GetAddress() net.IP      { return k.Address.IP() }
+func (k *Service4Key) GetAddress() netip.Addr  { return k.Address.Addr() }
 func (k *Service4Key) GetPort() uint16         { return k.Port }
 func (k *Service4Key) GetProtocol() uint8      { return k.Proto }
 
@@ -336,7 +336,7 @@ func (k *Service6Key) SetBackendSlot(slot int) { k.BackendSlot = uint16(slot) }
 func (k *Service6Key) GetBackendSlot() int     { return int(k.BackendSlot) }
 func (k *Service6Key) SetScope(scope uint8)    { k.Scope = scope }
 func (k *Service6Key) GetScope() uint8         { return k.Scope }
-func (k *Service6Key) GetAddress() net.IP      { return k.Address.IP() }
+func (k *Service6Key) GetAddress() netip.Addr  { return k.Address.Addr() }
 func (k *Service6Key) GetPort() uint16         { return k.Port }
 func (k *Service6Key) GetProtocol() uint8      { return k.Proto }
 

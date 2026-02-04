@@ -66,7 +66,7 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCl
 	svcCB := func(svcKey ServiceKey, svcValue ServiceValue) {
 		svcKey = svcKey.ToHost()
 		svcValue = svcValue.ToHost()
-		addr := types.MustAddrClusterFromIP(svcKey.GetAddress())
+		addr := types.AddrClusterFrom(svcKey.GetAddress(), 0)
 		addrS := customizeAddr(addr, svcKey.GetPort())
 		addrS += "/" + loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
@@ -112,10 +112,10 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCl
 
 		switch v := revValue.(type) {
 		case *RevNat4Value:
-			addr = customizeAddr(types.MustAddrClusterFromIP(v.Address.IP()), v.Port)
+			addr = customizeAddr(types.AddrClusterFrom(v.Address.Addr(), 0), v.Port)
 
 		case *RevNat6Value:
-			addr = customizeAddr(types.MustAddrClusterFromIP(v.Address.IP()), v.Port)
+			addr = customizeAddr(types.AddrClusterFrom(v.Address.Addr(), 0), v.Port)
 		}
 
 		out = append(out, fmt.Sprintf("REV: ID=%s ADDR=%s",
