@@ -59,7 +59,8 @@ type linuxNodeHandler struct {
 	nodes             map[nodeTypes.Identity]*nodeTypes.Node
 	ipsecUpdateNeeded map[nodeTypes.Identity]bool
 
-	nodeMap nodemap.MapV2
+	localNodeStore *node.LocalNodeStore
+	nodeMap        nodemap.MapV2
 	// Pool of available IDs for nodes.
 	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
@@ -95,13 +96,14 @@ func NewNodeHandler(
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
+	localNodeStore *node.LocalNodeStore,
 ) (datapath.NodeHandler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{})
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{}, localNodeStore)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -125,12 +127,14 @@ func newNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
 	ipsecCfg datapath.IPsecConfig,
+	localNodeStore *node.LocalNodeStore,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
 		datapathConfig:       datapathConfig,
 		nodeConfig:           datapath.LocalNodeConfiguration{},
 		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
+		localNodeStore:       localNodeStore,
 		nodeMap:              nodeMap,
 		nodeIDs:              idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:         map[string]uint16{},
