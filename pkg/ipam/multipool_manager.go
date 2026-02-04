@@ -239,18 +239,19 @@ type MultiPoolManagerParams struct {
 }
 
 type multiPoolManager struct {
-	mutex *lock.Mutex
-
 	ipv4Enabled bool
 	ipv6Enabled bool
 
 	preallocatedIPsPerPool preAllocatePerPool
 	pendingIPsPerPool      *pendingAllocationsPerPool
 
-	pools        map[Pool]*poolPair
-	poolsUpdated chan struct{}
+	poolsMutex      lock.Mutex
+	pools           map[Pool]*poolPair
+	poolsUpdated    chan struct{}
+	finishedRestore map[Family]bool
 
-	node *ciliumv2.CiliumNode
+	nodeMutex lock.Mutex
+	node      *ciliumv2.CiliumNode
 
 	jobGroup   job.Group
 	k8sUpdater job.Trigger
@@ -259,8 +260,7 @@ type multiPoolManager struct {
 	localNodeUpdate   chan struct{}
 	localNodeUpdateFn func()
 
-	finishedRestore map[Family]bool
-	logger          *slog.Logger
+	logger *slog.Logger
 
 	poolsFromResource     ciliumv2.PoolsFromResourceFunc
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
@@ -270,14 +270,12 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	localNodeUpdated := make(chan struct{})
 	mgr := &multiPoolManager{
 		logger:                 p.Logger,
-		mutex:                  &lock.Mutex{},
 		ipv4Enabled:            p.IPv4Enabled,
 		ipv6Enabled:            p.IPv6Enabled,
 		preallocatedIPsPerPool: p.PreallocMap,
 		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
-		node:                   nil,
 		jobGroup:               p.JobGroup,
 		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.CiliumNodeUpdateRate)),
 		cnClient:               p.CNClient,
@@ -354,7 +352,7 @@ func (m *multiPoolManager) waitForAllPools() {
 // the local node has IPs assigned to it in the given pool.
 func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolName Pool) (ready bool) {
 	for {
-		m.mutex.Lock()
+		m.poolsMutex.Lock()
 		poolReady := false
 		switch family {
 		case IPv4:
@@ -366,7 +364,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 				poolReady = true
 			}
 		}
-		m.mutex.Unlock()
+		m.poolsMutex.Unlock()
 
 		if poolReady {
 			return true
@@ -389,21 +387,20 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 }
 
 func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
 
 	pools := m.poolsFromResource(newNode)
 	for _, pool := range pools.Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
 	}
 
-	// m.node will only be nil the first time this callback is invoked
-	// Note: The job will only run after m.mutex is unlocked
-	if m.node == nil {
+	// node will only be nil the first time this callback is invoked
+	// Note: The job will only run after m.poolsMutex is unlocked
+	oldNode := m.setNode(newNode)
+	if oldNode == nil {
 		m.k8sUpdater.Trigger()
 	}
-
-	m.node = newNode
 }
 
 func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
@@ -496,9 +493,9 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 }
 
 func (m *multiPoolManager) restoreFinished(family Family) {
-	m.mutex.Lock()
+	m.poolsMutex.Lock()
 	m.finishedRestore[family] = true
-	m.mutex.Unlock()
+	m.poolsMutex.Unlock()
 }
 
 func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
@@ -506,14 +503,15 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 }
 
 func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
-	m.mutex.Lock()
+	m.poolsMutex.Lock()
 
-	if m.node == nil {
-		m.mutex.Unlock()
+	curNode := m.getNode()
+	if curNode == nil {
+		m.poolsMutex.Unlock()
 		return nil
 	}
 
-	newNode := m.node.DeepCopy()
+	newNode := curNode.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
 
@@ -582,9 +580,9 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	newPools.Requested = requested
 	newPools.Allocated = allocated
 
-	m.mutex.Unlock()
+	m.poolsMutex.Unlock()
 
-	pools := m.poolsFromResource(m.node)
+	pools := m.poolsFromResource(curNode)
 
 	if !newPools.DeepEqual(pools) {
 		_, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
@@ -637,8 +635,8 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 }
 
 func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
 
 	allocated = map[Pool]map[string]string{}
 	for poolName, pool := range m.pools {
@@ -690,8 +688,8 @@ func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cid
 }
 
 func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
 
 	defer func() {
 		if syncUpstream {
@@ -722,8 +720,8 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 }
 
 func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
 
 	defer func() {
 		if syncUpstream {
@@ -748,8 +746,8 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 }
 
 func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
 
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
@@ -761,4 +759,19 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 		m.k8sUpdater.Trigger()
 	}
 	return nil
+}
+
+func (m *multiPoolManager) getNode() *ciliumv2.CiliumNode {
+	m.nodeMutex.Lock()
+	defer m.nodeMutex.Unlock()
+	return m.node
+}
+
+func (m *multiPoolManager) setNode(node *ciliumv2.CiliumNode) *ciliumv2.CiliumNode {
+	m.nodeMutex.Lock()
+	defer m.nodeMutex.Unlock()
+
+	oldNode := m.node
+	m.node = node
+	return oldNode
 }
