@@ -4,10 +4,10 @@
 package cgroups
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 
-	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/mountinfo"
@@ -61,8 +61,9 @@ func GetCgroupID(cgroupPath string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("NameToHandleAt failed: %w", err)
 	}
-	b := handle.Bytes()[:8]
-	cgID := nl.NativeEndian().Uint64(b)
-
-	return cgID, nil
+	b := handle.Bytes()
+	if len(b) < 8 {
+		return 0, fmt.Errorf("handle returned by NameToHandleAt is too small (%v bytes)", len(b))
+	}
+	return binary.NativeEndian.Uint64(b[:8]), nil
 }
