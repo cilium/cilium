@@ -139,6 +139,12 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
 
+	// If legacy routing mode was enabled, we do not support dynamic pod egress
+	// routing.
+	if params.DaemonConfig.EnableFibTableIDAnnotation && params.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
+		return fmt.Errorf("legacy routing mode does not support dynamic pod egress routing (disable with --%s)", option.EnableFibTableIDAnnotation)
+	}
+
 	return nil
 }
 

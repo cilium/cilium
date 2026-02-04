@@ -198,6 +198,10 @@ const (
 	// EnableSRv6 is the default value for the SRv6 support enablement.
 	EnableSRv6 = false
 
+	// EnableFibTableIDAnnotation is the default value for the
+	// fib-table-id-annotation option.
+	EnableFibTableIDAnnotation = false
+
 	// SRv6EncapMode is the encapsulation mode for SRv6.
 	SRv6EncapMode = "reduced"
 
