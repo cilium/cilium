@@ -330,7 +330,7 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.7.0
 ## explicit; go 1.22
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.1
+# github.com/cilium/hive v0.0.2-0.20260205124014-b5eb30be4a84
 ## explicit; go 1.23.0
 github.com/cilium/hive
 github.com/cilium/hive/cell
@@ -354,7 +354,7 @@ github.com/cilium/lumberjack/v2
 ## explicit; go 1.23.0
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.6.3
+# github.com/cilium/statedb v0.6.3-0.20260206095053-0c424479d356
 ## explicit; go 1.25
 github.com/cilium/statedb
 github.com/cilium/statedb/index

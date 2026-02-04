@@ -6,7 +6,7 @@ package job
 import (
 	"context"
 	"errors"
-	"sync"
+	"fmt"
 	"time"
 
 	"github.com/cilium/hive"
@@ -102,9 +102,11 @@ type jobOneShot struct {
 	shutdownOnError bool
 }
 
-func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, health cell.Health, options options) {
-	defer wg.Done()
+func (jos *jobOneShot) info() string {
+	return fmt.Sprintf("%s (%s)", jos.name, internal.FuncNameAndLocation(jos.fn))
+}
 
+func (jos *jobOneShot) start(ctx context.Context, health cell.Health, options options) {
 	for _, opt := range jos.opts {
 		opt(jos)
 	}

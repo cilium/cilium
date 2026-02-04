@@ -26,8 +26,9 @@ func WithLeaderLifecycle(cells ...cell.Cell) cell.Cell {
 			func() *LeaderLifecycle { return &LeaderLifecycle{} },
 		),
 		cell.Decorate(
-			func(reg job.Registry, h cell.Health, logger *slog.Logger, llc *LeaderLifecycle, mid cell.ModuleID) (cell.Lifecycle, job.Group) {
-				return llc, reg.NewGroup(h, llc,
+			func(reg job.Registry, h cell.Health, logger *slog.Logger, llc *LeaderLifecycle, mid cell.ModuleID) (cell.Lifecycle, job.Registry, job.Group) {
+				reg = reg.WithLifecycle(llc)
+				return llc, reg, reg.NewGroup(h,
 					job.WithLogger(logger),
 					job.WithPprofLabels(pprof.Labels("cell", string(mid))))
 			},
