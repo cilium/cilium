@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -706,23 +707,38 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 			}
 		}
 
-		_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
+		namespace, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ct.params.TestNamespace)
-			namespace := &corev1.Namespace{
+			namespace = &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        ct.params.TestNamespace,
 					Annotations: ct.params.NamespaceAnnotations,
 					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 				},
 			}
+		}
+		if !ct.Features[features.DefaultGlobalNamespace].Enabled {
+			// Mark the namespace as global to ensure resources under this
+			// namespace are treated as global. This is required for
+			// multi-cluster tests.
+			if namespace.Annotations == nil {
+				namespace.Annotations = make(map[string]string)
+			}
+			namespace.Annotations[annotation.GlobalNamespace] = "true"
+		}
+		if err == nil { // Namespace already exists.
+			_, err = client.UpdateNamespace(ctx, namespace, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to update namespace %s: %w", ct.params.TestNamespace, err)
+			}
+		} else {
 			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %w", ct.params.TestNamespace, err)
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -957,9 +973,26 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 		clientccnp := ct.clients.src
 		var err error
 
-		_, err = clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
-		if err != nil {
-			_, err = clientccnp.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
+		namespace, err := clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
+		if err != nil { // Namespace does not exist.
+			namespace = nsConfig.obj
+		}
+		if !ct.Features[features.DefaultGlobalNamespace].Enabled {
+			// Mark the namespace as global to ensure resources under this
+			// namespace are treated as global. This is required for
+			// multi-cluster tests.
+			if namespace.Annotations == nil {
+				namespace.Annotations = make(map[string]string)
+			}
+			namespace.Annotations[annotation.GlobalNamespace] = "true"
+		}
+		if err == nil { // Namespace already exists.
+			_, err = clientccnp.UpdateNamespace(ctx, namespace, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to update namespace %s: %w", nsConfig.name, err)
+			}
+		} else {
+			_, err = clientccnp.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
 			}
