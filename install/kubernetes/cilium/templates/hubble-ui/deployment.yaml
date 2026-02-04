@@ -176,7 +176,8 @@ spec:
         {{- if .Values.hubble.ui.tmpVolume }}
           {{- toYaml .Values.hubble.ui.tmpVolume | nindent 8 }}
         {{- else }}
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 256Mi
         {{- end }}
       {{- if .Values.hubble.relay.tls.server.enabled }}
       - name: hubble-ui-client-certs
