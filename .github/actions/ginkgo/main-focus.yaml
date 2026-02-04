@@ -195,10 +195,9 @@ include:
     cliFocus: "K8sDatapathLRPTests"
 
   ###
-  # K8sKafkaPolicyTest Kafka Policy Tests KafkaPolicies
   # K8sSpecificMACAddressTests Check whether the pod is created Checks the pod's mac address
   - focus: "f19-kafka"
-    cliFocus: "K8sKafkaPolicyTest|K8sSpecificMACAddressTests"
+    cliFocus: "K8sSpecificMACAddressTests"
 
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
@@ -310,5 +309,4 @@ exclude:
   - k8s-version: "1.32"
     focus: "f18-datapath-lrp"
 
-  - k8s-version: "1.32"
-    focus: "f19-kafka"
+
