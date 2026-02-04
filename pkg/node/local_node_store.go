@@ -23,7 +23,7 @@ import (
 type LocalNodeSynchronizer interface {
 	InitLocalNode(context.Context, *LocalNode) error
 	SyncLocalNode(context.Context, *LocalNodeStore)
-	WaitForNodeInformation(context.Context) error
+	WaitForNodeInformation(context.Context, *LocalNodeStore) error
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore instance.
@@ -215,7 +215,7 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 }
 
 func (s *LocalNodeStore) WaitForNodeInformation(ctx context.Context) error {
-	return s.sync.WaitForNodeInformation(ctx)
+	return s.sync.WaitForNodeInformation(ctx, s)
 }
 
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
@@ -253,7 +253,7 @@ func (n nopLocalNodeSynchronizer) SyncLocalNode(context.Context, *LocalNodeStore
 }
 
 // WaitForNodeInformation implements [LocalNodeSynchronizer].
-func (n nopLocalNodeSynchronizer) WaitForNodeInformation(context.Context) error {
+func (n nopLocalNodeSynchronizer) WaitForNodeInformation(context.Context, *LocalNodeStore) error {
 	return nil
 }
 

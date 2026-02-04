@@ -821,7 +821,7 @@ func (t testLocalNodeSync) SyncLocalNode(context.Context, *node.LocalNodeStore) 
 }
 
 // WaitForNodeInformation implements [node.LocalNodeSynchronizer].
-func (t testLocalNodeSync) WaitForNodeInformation(context.Context) error {
+func (t testLocalNodeSync) WaitForNodeInformation(context.Context, *node.LocalNodeStore) error {
 	return nil
 }
 
