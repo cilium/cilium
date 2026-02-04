@@ -62,5 +62,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
+	cfg.FIBTableID = ep.GetFibTableID()
+
 	return cfg
 }
