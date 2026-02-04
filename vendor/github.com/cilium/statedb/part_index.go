@@ -321,7 +321,7 @@ func (r *partIndexTxn) len() int {
 }
 
 // modify implements tableIndexTxn.
-func (r *partIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, hadOld bool, watch <-chan struct{}) {
+func (r *partIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool, watch <-chan struct{}) {
 	return r.tx.ModifyWatch(key, obj, mod)
 }
 

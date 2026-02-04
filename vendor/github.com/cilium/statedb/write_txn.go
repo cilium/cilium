@@ -139,7 +139,9 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 	if merge == nil {
 		oldObj, oldExists, watch = idIndexTxn.insert(idKey, obj)
 	} else {
-		oldObj, oldExists, watch = idIndexTxn.modify(idKey, obj, merge)
+		// Insert the object into the primary index. This returns the merged new
+		// object which we'll then insert into the secondary indexes.
+		oldObj, obj, oldExists, watch = idIndexTxn.modify(idKey, obj, merge)
 	}
 
 	// Sanity check: is the same object being inserted back and thus the
