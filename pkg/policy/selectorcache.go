@@ -317,7 +317,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 			Selector:   key,
 			Identities: ids,
 			Users:      int64(sel.numUsers()),
-			Labels:     labelArrayToModel(sel.GetMetadataLabels()),
+			Labels:     labelArrayListToModel(sel.GetMetadataLabels()),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
@@ -354,14 +354,18 @@ func (sc *SelectorCache) Stats() selectorStats {
 	return result
 }
 
-func labelArrayToModel(arr labels.LabelArray) models.LabelArray {
-	lbls := make(models.LabelArray, 0, len(arr))
-	for _, l := range arr {
-		lbls = append(lbls, &models.Label{
-			Key:    l.Key,
-			Value:  l.Value,
-			Source: l.Source,
-		})
+func labelArrayListToModel(list labels.LabelArrayList) models.LabelArrayList {
+	lbls := make(models.LabelArrayList, 0, len(list))
+	for _, arr := range list {
+		lblArray := make(models.LabelArray, 0, len(arr))
+		for _, l := range arr {
+			lblArray = append(lblArray, &models.Label{
+				Key:    l.Key,
+				Value:  l.Value,
+				Source: l.Source,
+			})
+		}
+		lbls = append(lbls, lblArray)
 	}
 	return lbls
 }

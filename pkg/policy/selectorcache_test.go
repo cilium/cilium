@@ -307,7 +307,7 @@ func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) identity.Numeric
 	return cs.selections
 }
 
-func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArray {
+func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArrayList {
 	return nil
 }
 func (cs *testCachedSelector) Selects(nid identity.NumericIdentity) bool {

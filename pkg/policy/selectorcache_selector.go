@@ -148,16 +148,14 @@ func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) identity.
 	return selectors.Get(i.id)
 }
 
-func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
+func (i *identitySelector) GetMetadataLabels() labels.LabelArrayList {
+	list := labels.LabelArrayList{}
 	// pull labels from all the current users
 	for user := range i.users {
-		labels := user.GetRuleLabels(i)
-		for _, array := range labels {
-			// XXX: Only returning the first labels array of the one user
-			return array
-		}
+		lal := user.GetRuleLabels(i)
+		list.MergeSorted(lal)
 	}
-	return nil
+	return list
 }
 
 // Selects return 'true' if the CachedSelector selects the given

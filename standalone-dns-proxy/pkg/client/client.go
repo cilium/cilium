@@ -602,6 +602,6 @@ func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) identity.Num
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetMetadataLabels() labels.LabelArray {
+func (d *DNSServerIdentity) GetMetadataLabels() labels.LabelArrayList {
 	return nil
 }

@@ -215,7 +215,7 @@ func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) identity.Num
 	return nil
 }
 
-func (m MockCachedSelector) GetMetadataLabels() labels.LabelArray {
+func (m MockCachedSelector) GetMetadataLabels() labels.LabelArrayList {
 	panic("implement me")
 }
 
