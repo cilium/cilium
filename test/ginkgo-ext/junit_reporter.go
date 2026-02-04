@@ -315,8 +315,6 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/hubble.go"
 	case "K8sAgentPolicyTest":
 		return "test/k8s/net_policies.go"
-	case "K8sAgentPerNodeConfigTest":
-		return "test/k8s/config.go"
 	case "K8sPolicyTestExtended":
 		return "test/k8s/net_policies.go"
 	case "RuntimeAgentPolicies":

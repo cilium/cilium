@@ -45,9 +45,8 @@ include:
   # K8sAgentFQDNTest Restart Cilium validate that FQDN is still working
   # K8sAgentFQDNTest Validate that FQDN policy continues to work after being updated
   # K8sAgentFQDNTest Validate that multiple specs are working correctly
-  # K8sAgentPerNodeConfigTest Correctly computes config overrides with CNC v2
   - focus: "f02-agent-fqdn"
-    cliFocus: "K8sAgentFQDNTest|K8sAgentPerNodeConfigTest"
+    cliFocus: "K8sAgentFQDNTest"
 
   ###
   # K8sAgentPolicyTest Clusterwide policies Test clusterwide connectivity with policies
