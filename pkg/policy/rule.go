@@ -157,13 +157,31 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 
 	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
 		newPriority := newL7Rules.GetPriority()
+		newRuleOrigin := filterToMerge.RuleOrigin[cs]
 
 		// 'cs' will be merged or moved (see below), either way it needs
-		// to be removed from the map it is in now.
+		// to be removed from the maps it is in now.
 		delete(filterToMerge.PerSelectorPolicies, cs)
+		delete(filterToMerge.RuleOrigin, cs)
 
-		if l7Rules, ok := existingFilter.PerSelectorPolicies[cs]; ok {
-			// existing filter already has 'cs', release and merge L7 rules
+		if l7Rules, ok := existingFilter.PerSelectorPolicies[cs]; !ok {
+			// 'cs' is not in the existing filter yet
+
+			// Update selector owner to the existing filter
+			selectorCache.ChangeUser(cs, filterToMerge, existingFilter)
+
+			// Move L7 rules over.
+			existingFilter.PerSelectorPolicies[cs] = newL7Rules
+
+			// add rule origin for 'cs' to the existing filter
+			existingFilter.RuleOrigin[cs] = newRuleOrigin
+
+			if cs.IsWildcard() {
+				existingFilter.wildcard = cs
+			}
+		} else {
+			// existing filter already has 'cs', release duplicate cached selector and
+			// merge per-selector policies
 			selectorCache.RemoveSelector(cs, filterToMerge)
 
 			// skip merging for reserved:none, as it is never
@@ -175,24 +193,34 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 				continue
 			}
 
+			existingRuleOrigin := existingFilter.RuleOrigin[cs]
+
 			if l7Rules.Equal(newL7Rules) {
-				continue // identical rules need no merging
+				// identical rules for the same selector need no merging, but could
+				// still have different rule origin so merge them
+				existingFilter.RuleOrigin[cs] = existingRuleOrigin.Merge(newRuleOrigin)
+				continue
 			}
 
 			priority := l7Rules.GetPriority()
 			// Check if either rule takes precedence due to precedence level or deny.
 			if priority < newPriority || (priority == newPriority && l7Rules.IsDeny()) {
-				// Later level newL7Rules has no effect.
+				// Lower precedence newL7Rules has no effect.
 				// Same level deny takes takes precedence over any other rule.
+				// Rule origins are not merged, existingRuleOrigin is retained.
 				continue
 			} else if priority > newPriority || (priority == newPriority && newL7Rules.IsDeny()) {
 				// Earlier level (or same level deny) newL7Rules takes precedence.
 				// Overwrite existing filter.
 				existingFilter.PerSelectorPolicies[cs] = newL7Rules
+				existingFilter.RuleOrigin[cs] = newRuleOrigin
 				continue
 			}
 
 			// Merge two non-identical sets of allow rules on the same precedence level
+
+			// Merge the rule origin metadata
+			existingFilter.RuleOrigin[cs] = existingRuleOrigin.Merge(newRuleOrigin)
 
 			// One of the rules may be a nil rule, expand it to an empty non-nil rule
 			if l7Rules == nil {
@@ -307,16 +335,6 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 			}
 			// Update the pointer in the map in case it was newly allocated
 			existingFilter.PerSelectorPolicies[cs] = l7Rules
-		} else { // 'cs' is not in the existing filter yet
-			// Update selector owner to the existing filter
-			selectorCache.ChangeUser(cs, filterToMerge, existingFilter)
-
-			// Move L7 rules over.
-			existingFilter.PerSelectorPolicies[cs] = newL7Rules
-
-			if cs.IsWildcard() {
-				existingFilter.wildcard = cs
-			}
 		}
 	}
 
