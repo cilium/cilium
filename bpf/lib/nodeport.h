@@ -1134,8 +1134,8 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS) static __always_inline
 	int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct ipv6_nat_target target = {
-		.min_port = CONFIG(nodeport_port_min_nat),
-		.max_port = CONFIG(nodeport_port_max_nat),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -1218,8 +1218,8 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS) static __always_inline
 		},
 	};
 	struct ipv6_nat_target target = {
-		.min_port = CONFIG(nodeport_port_min_nat),
-		.max_port = CONFIG(nodeport_port_max_nat),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = IPV6_DIRECT_ROUTING,
 	};
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
@@ -2473,8 +2473,8 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS) static __always_inline
 	int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct ipv4_nat_target target = {
-		.min_port = CONFIG(nodeport_port_min_nat),
-		.max_port = CONFIG(nodeport_port_max_nat),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -2570,8 +2570,8 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS) static __always_inline
 		},
 	};
 	struct ipv4_nat_target target = {
-		.min_port = CONFIG(nodeport_port_min_nat),
-		.max_port = CONFIG(nodeport_port_max_nat),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
 		 * So we need to assume that the direct routing device is going to be
 		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.

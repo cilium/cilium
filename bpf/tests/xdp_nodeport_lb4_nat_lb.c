@@ -45,6 +45,9 @@ static volatile const __u8 *remote_backend_mac = mac_five;
 #include <linux/bpf.h>
 #include <linux/types.h>
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 struct mock_settings {
 	__be16 nat_source_port;
 	bool fail_fib;

@@ -51,5 +51,3 @@ NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
 NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
-NODE_CONFIG(__u16, nodeport_port_min_nat, "Nodeport NAT minimum port value.")
-NODE_CONFIG(__u16, nodeport_port_max_nat, "Nodeport NAT maximum port value.")

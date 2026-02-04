@@ -45,7 +45,7 @@
 #define BACKEND_IP		v4_pod_two
 #define CLIENT_NODE_IP		v4_ext_one
 #define BACKEND_NODE_IP		v4_ext_two
-#define CLIENT_PORT		__bpf_htons(CONFIG(nodeport_port_max_nat) + 1)
+#define CLIENT_PORT		__bpf_htons(NODEPORT_PORT_MAX_NAT + 1)
 #define BACKEND_PORT		tcp_svc_one
 #define BACKEND_CLUSTER_ID	2
 #define BACKEND_IDENTITY	(0x00000000 | (BACKEND_CLUSTER_ID << 16) | 0xff01)
@@ -53,8 +53,8 @@
 #undef IPV4_INTER_CLUSTER_SNAT
 #define IPV4_INTER_CLUSTER_SNAT CLIENT_NODE_IP
 
-/* SNAT should always select nodeport_port_min_nat as a source */
-#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(CONFIG(nodeport_port_min_nat))
+/* SNAT should always select NODEPORT_PORT_MIN_NAT as a source */
+#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT)
 
 /* Mock out get_tunnel_key to emulate input from tunnel device */
 #define skb_get_tunnel_key mock_skb_get_tunnel_key
