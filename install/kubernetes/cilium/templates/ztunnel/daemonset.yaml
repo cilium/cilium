@@ -88,6 +88,7 @@ spec:
             httpGet:
               path: /healthz/ready
               port: {{ .Values.encryption.ztunnel.healthPort }}
+              host: "127.0.0.1"
               scheme: HTTP
             initialDelaySeconds: {{ .Values.encryption.ztunnel.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.encryption.ztunnel.readinessProbe.periodSeconds }}
