@@ -414,7 +414,7 @@ type tableIndexTxn interface {
 	tableIndex
 
 	insert(key index.Key, obj object) (old object, hadOld bool, watch <-chan struct{})
-	modify(key index.Key, obj object, mod func(old, new object) object) (old object, hadOld bool, watch <-chan struct{})
+	modify(key index.Key, obj object, mod func(old, new object) object) (old object, new object, hadOld bool, watch <-chan struct{})
 	delete(key index.Key) (old object, hadOld bool)
 	reindex(primaryKey index.Key, old object, new object)
 }
