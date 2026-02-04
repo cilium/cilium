@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -20,4 +21,8 @@ func (d *DummySelectorCacheUser) IdentitySelectionCommit(logger *slog.Logger, tx
 
 func (d *DummySelectorCacheUser) IsPeerSelector() bool {
 	return true
+}
+
+func (d *DummySelectorCacheUser) GetRuleLabels(cs types.CachedSelector) labels.LabelArrayList {
+	return nil
 }
