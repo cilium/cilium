@@ -66,12 +66,11 @@ type identitySelector struct {
 	id               types.SelectorId
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
-	metadataLbls     stringLabels
 }
 
 var lastSelectorId types.SelectorId
 
-func newIdentitySelector(sc *SelectorCache, key string, source Selector, lbls stringLabels) *identitySelector {
+func newIdentitySelector(sc *SelectorCache, key string, source Selector) *identitySelector {
 	lastSelectorId++
 	return &identitySelector{
 		selectorCache:    sc,
@@ -80,7 +79,6 @@ func newIdentitySelector(sc *SelectorCache, key string, source Selector, lbls st
 		users:            make(map[CachedSelectionUser]struct{}),
 		cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		source:           source,
-		metadataLbls:     lbls,
 	}
 }
 
@@ -151,7 +149,15 @@ func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) identity.
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
-	return labels.LabelArrayFromString(string(i.metadataLbls.Value()))
+	// pull labels from all the current users
+	for user := range i.users {
+		labels := user.GetRuleLabels(i)
+		for _, array := range labels {
+			// XXX: Only returning the first labels array of the one user
+			return array
+		}
+	}
+	return nil
 }
 
 // Selects return 'true' if the CachedSelector selects the given

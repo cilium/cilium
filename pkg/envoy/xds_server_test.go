@@ -196,24 +196,24 @@ var (
 	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
 	EndpointSelector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 	)
-	cachedSelector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector1)
+	cachedSelector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, EndpointSelector1)
 
 	// EndpointSelector1 with FromRequires("k8s:version=v2") folded in
 	RequiresV2Selector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 	)
-	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, RequiresV2Selector1)
+	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, RequiresV2Selector1)
 
 	EndpointSelector2 = api.NewESFromLabels(
 		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	)
-	cachedSelector2, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector2)
+	cachedSelector2, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, EndpointSelector2)
 )
 
 var L7Rules12 = &policy.PerSelectorPolicy{

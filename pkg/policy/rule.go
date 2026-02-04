@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -43,6 +44,16 @@ func (d *rule) IdentitySelectionCommit(*slog.Logger, SelectorSnapshot) {
 
 func (r *rule) IsPeerSelector() bool {
 	return false
+}
+
+func (r *rule) GetRuleLabels(cs CachedSelector) labels.LabelArrayList {
+	if cs == r.subjectSelector {
+		ro := r.origin()
+		if ro != NilRuleOrigin {
+			return ro.GetLabelArrayList()
+		}
+	}
+	return nil
 }
 
 func (r *rule) String() string {

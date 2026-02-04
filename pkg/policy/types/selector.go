@@ -680,4 +680,7 @@ type CachedSelectionUser interface {
 	// engine for selecting traffic for remote peers. False if used for
 	// selecting policy subjects.
 	IsPeerSelector() bool
+
+	// GetLabels is used for debugging
+	GetRuleLabels(cs CachedSelector) labels.LabelArrayList
 }
