@@ -471,6 +471,8 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	fakeConfig := testConfiguration
+	// disable debounce interval to trigger CiliumNode update at each test step
+	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
 	// disable pre-allocation
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
 	events := make(chan string, 2)
@@ -537,9 +539,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		},
 	})
 
-	// Trigger controller immediately when requested by the IPAM trigger
-	mgr.k8sUpdater = job.NewTrigger()
-
 	<-events // first upsert (initial node)
 
 	// Allocate one IPv4 and one IPv6 IP
@@ -586,9 +585,12 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 
 	// preAlloc buffer of 1 for pool "default"
 	fakeConfig := testConfiguration
+	// disable debounce interval to trigger CiliumNode update at each test step
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{
 		"default": "1",
 	}
+	// disable debounce interval to trigger CiliumNode update at each test step
+	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
 
 	events := make(chan string, 2)
 	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
@@ -657,9 +659,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 			return &cn.Spec.IPAM.Pools
 		},
 	})
-
-	// Trigger controller immediately when requested
-	mgr.k8sUpdater = job.NewTrigger()
 
 	<-events // first upsert (initial node)
 
