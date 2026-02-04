@@ -185,7 +185,7 @@ func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
 func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMaps, availableIDs ...identity.NumericIdentity) {
 	t.Helper()
 
-	require.Len(t, expected, len(actual))
+	require.Len(t, actual, len(expected))
 	for i := range expected {
 		require.Equal(t, expected[i].Len(), actual[i].Len())
 		expected[i].ForEach(func(l4 *L4Filter) bool {
@@ -216,27 +216,30 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 			require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
 
 			for k, v := range l4.PerSelectorPolicies {
-				found := false
-				for bK, bV := range l4B.PerSelectorPolicies {
-					if k.String() == bK.String() {
-						require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
-
-						selActual := bK.(*identitySelector).cachedSelections
-						selExpected := make(map[identity.NumericIdentity]struct{})
-						for id := range k.(*identitySelector).cachedSelections {
-							if slices.Contains(availableIDs, id) {
-								selExpected[id] = struct{}{}
-							}
-						}
-
-						require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
-						found = true
-					}
-				}
-
+				bV, found := l4B.PerSelectorPolicies[k]
 				require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s (%v)", k.String(), l4B.PerSelectorPolicies)
+				if found {
+					require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
+
+					selActual := k.(*identitySelector).cachedSelections
+					selExpected := make(map[identity.NumericIdentity]struct{})
+					for id := range k.(*identitySelector).cachedSelections {
+						if slices.Contains(availableIDs, id) {
+							selExpected[id] = struct{}{}
+						}
+					}
+
+					require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
+				}
 			}
 
+			// Verify rule origins
+			require.Len(t, l4B.RuleOrigin, len(l4.RuleOrigin), "Actual RuleOrigin length does not match expected")
+			for k, v := range l4.RuleOrigin {
+				bV, found := l4B.RuleOrigin[k]
+				require.True(t, found, "Failed to find expected rule origin: %s (%v)", k.String(), l4B.RuleOrigin)
+				require.Equal(t, v, bV)
+			}
 			return true
 		})
 	}
@@ -2500,7 +2503,7 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
 		},
 	})
 
@@ -2570,7 +2573,7 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyIngress}}),
 		},
 	})
 
@@ -2639,7 +2642,7 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyIngress}}),
 		},
 	})
 
@@ -2708,7 +2711,7 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
 		},
 	})
 

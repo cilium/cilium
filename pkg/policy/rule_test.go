@@ -1076,6 +1076,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+				td.wildcardCachedSelector: {nil},
+			}),
 		},
 		"0/igmp": {
 			Port:     0,
@@ -1086,6 +1089,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+				td.wildcardCachedSelector: {nil},
+			}),
 		},
 	})
 
@@ -1098,6 +1104,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
 	}})
 
 	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
