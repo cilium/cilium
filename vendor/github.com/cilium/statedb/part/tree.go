@@ -127,7 +127,7 @@ func (t *Tree[T]) Insert(key []byte, value T) (old T, hadOld bool, tree Tree[T])
 // Returns the old value if it exists.
 func (t *Tree[T]) Modify(key []byte, value T, mod func(T, T) T) (old T, hadOld bool, tree Tree[T]) {
 	txn := t.Txn()
-	old, hadOld = txn.Modify(key, value, mod)
+	old, _, hadOld = txn.Modify(key, value, mod)
 	tree = txn.CommitAndNotify()
 	return
 }

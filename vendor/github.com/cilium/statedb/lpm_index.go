@@ -312,7 +312,7 @@ func (l *lpmIndexTxn) insert(key index.Key, obj object) (old object, hadOld bool
 }
 
 // modify implements tableIndexTxn.
-func (l *lpmIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, hadOld bool, watch <-chan struct{}) {
+func (l *lpmIndexTxn) modify(key index.Key, obj object, mod func(old, new object) object) (old object, newObj object, hadOld bool, watch <-chan struct{}) {
 	panic("LPM index cannot be the primary index")
 }
 
