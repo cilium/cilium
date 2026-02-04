@@ -4,6 +4,7 @@
 package ipcache
 
 import (
+	"context"
 	"log/slog"
 	"net"
 
@@ -11,6 +12,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -40,15 +42,18 @@ type BPFListener struct {
 
 	// tunnelConf holds the tunneling configuration.
 	tunnelConf tunnel.Config
+
+	localNodeStore *node.LocalNodeStore
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(m Map, mn monitorNotify, tunnelConf tunnel.Config, logger *slog.Logger) *BPFListener {
+func NewListener(m Map, mn monitorNotify, tunnelConf tunnel.Config, logger *slog.Logger, localNodeStore *node.LocalNodeStore) *BPFListener {
 	return &BPFListener{
-		logger:        logger,
-		bpfMap:        m,
-		monitorNotify: mn,
-		tunnelConf:    tunnelConf,
+		logger:         logger,
+		bpfMap:         m,
+		monitorNotify:  mn,
+		tunnelConf:     tunnelConf,
+		localNodeStore: localNodeStore,
 	}
 }
 
@@ -122,18 +127,24 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	case ipcache.Upsert:
 		var tunnelEndpoint net.IP
 		if newHostIP != nil {
+
+			ln, err := l.localNodeStore.Get(context.Background())
+			if err != nil {
+				logging.Fatal(l.logger, "Failed to retrieve local node")
+			}
+
 			// If the hostIP is specified and it doesn't point to
 			// the local host, then the ipcache should be populated
 			// with the hostIP so that this traffic can be guided
 			// to a tunnel endpoint destination.
 			switch l.tunnelConf.UnderlayProtocol() {
 			case tunnel.IPv4:
-				nodeIPv4 := node.GetIPv4(l.logger)
+				nodeIPv4 := ln.GetNodeIP(false)
 				if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
 					tunnelEndpoint = ip4
 				}
 			case tunnel.IPv6:
-				nodeIPv6 := node.GetIPv6(l.logger)
+				nodeIPv6 := ln.GetNodeIP(true)
 				if !newHostIP.Equal(nodeIPv6) {
 					tunnelEndpoint = newHostIP
 				}
