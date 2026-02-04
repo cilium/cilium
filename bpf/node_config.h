@@ -51,9 +51,6 @@
 
 #define ENABLE_IDENTITY_MARK 1
 
-#define HASH_INIT4_SEED 0xcafe
-#define HASH_INIT6_SEED 0xeb9f
-
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a
