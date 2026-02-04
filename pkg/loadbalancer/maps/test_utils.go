@@ -143,7 +143,7 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCl
 		key = key.ToHost()
 		out = append(out, fmt.Sprintf("SRCRANGE: ID=%s CIDR=%s",
 			sanitizeID(key.GetRevNATID(), sanitizeIDs),
-			key.GetCIDR(),
+			key.GetPrefix(),
 		))
 	}
 	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
