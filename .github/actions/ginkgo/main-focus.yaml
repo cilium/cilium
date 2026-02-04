@@ -196,7 +196,7 @@ include:
 
   ###
   # K8sSpecificMACAddressTests Check whether the pod is created Checks the pod's mac address
-  - focus: "f19-kafka"
+  - focus: "f19-mac"
     cliFocus: "K8sSpecificMACAddressTests"
 
 exclude:
