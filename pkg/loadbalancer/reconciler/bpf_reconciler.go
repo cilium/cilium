@@ -640,10 +640,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		// CIDR is part of the current set.
 		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
 		if ok {
-			cidr := key.GetCIDR()
-			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-			ones, _ := cidr.Mask.Size()
-			prefix := netip.PrefixFrom(cidrAddr, ones)
+			prefix := key.GetPrefix()
 			var cidrs sets.Set[netip.Prefix]
 			cidrs, ok = ops.prevSourceRanges[addr]
 			ok = ok && cidrs.Has(prefix)
@@ -651,7 +648,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
 				logfields.ID, key.GetRevNATID(),
-				logfields.CIDR, key.GetCIDR())
+				logfields.CIDR, key.GetPrefix())
 			toDelete = append(toDelete, key)
 		}
 	}
