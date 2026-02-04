@@ -176,6 +176,17 @@ const (
 
 	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
 	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium VTEP Config (CVTEP)
+
+	// CVTEPPluralName is the plural name of Cilium VTEP Config
+	CVTEPPluralName = "ciliumvtepconfigs"
+
+	// CVTEPKindDefinition is the kind name of Cilium VTEP Config
+	CVTEPKindDefinition = "CiliumVTEPConfig"
+
+	// CVTEPName is the full name of Cilium VTEP Config
+	CVTEPName = CVTEPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -253,6 +264,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPNodeConfigOverrideList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
+		&CiliumVTEPConfig{},
+		&CiliumVTEPConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

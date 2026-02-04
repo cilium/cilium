@@ -456,3 +456,19 @@ func ciliumEndpointSliceLocalPodIndexFunc(logger *slog.Logger, obj any) ([]strin
 	}
 	return indices, nil
 }
+
+// CiliumVTEPConfigResource builds the Resource[CiliumVTEPConfig] object for watching
+// VTEP configuration CRDs.
+func CiliumVTEPConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumVTEPConfig], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumVTEPConfigList](params.ClientSet.CiliumV2().CiliumVTEPConfigs()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumVTEPConfig](params.Lifecycle, lw, params.MetricsProvider,
+		resource.WithMetric("CiliumVTEPConfig"),
+		resource.WithCRDSync(params.CRDSyncPromise),
+	), nil
+}

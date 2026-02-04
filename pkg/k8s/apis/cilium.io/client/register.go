@@ -90,6 +90,9 @@ const (
 	CPIPCRDName = k8sconstv2alpha1.CPIPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 	// CGCCCRDName is the full name of the CiliumGatewayClassConfig CRD.
 	CGCCCRDName = k8sconstv2alpha1.CGCCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CVTEPCRDName is the full name of the CiliumVTEPConfig CRD.
+	CVTEPCRDName = k8sconstv2.CVTEPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 type CRDList struct {
@@ -183,6 +186,10 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 		synced.CRDResourceName(k8sconstv2alpha1.CGCCName): {
 			Name:     CGCCCRDName,
 			FullName: k8sconstv2alpha1.CGCCName,
+		},
+		synced.CRDResourceName(k8sconstv2.CVTEPName): {
+			Name:     CVTEPCRDName,
+			FullName: k8sconstv2.CVTEPName,
 		},
 	}
 }

@@ -39,6 +39,7 @@ var (
 			k8s.CiliumNodeResource,
 			k8s.CiliumSlimEndpointResource,
 			k8s.CiliumEndpointSliceResource,
+			k8s.CiliumVTEPConfigResource,
 		),
 	)
 
