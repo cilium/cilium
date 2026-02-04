@@ -1447,7 +1447,7 @@ func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericId
 	panic("implement me")
 }
 
-func (t selectorMock) GetMetadataLabels() labels.LabelArray {
+func (t selectorMock) GetMetadataLabels() labels.LabelArrayList {
 	panic("implement me")
 }
 

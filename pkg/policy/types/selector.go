@@ -600,10 +600,9 @@ type CachedSelector interface {
 	// be modified, as it is shared among multiple users.
 	GetSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice
 
-	// GetMetadataLabels returns metadata labels for additional context
-	// surrounding the selector. These are typically the labels associated with
-	// Cilium rules.
-	GetMetadataLabels() labels.LabelArray
+	// GetMetadataLabels returns the labels of the rules currently
+	// using the selector.
+	GetMetadataLabels() labels.LabelArrayList
 
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity on the latest version of the selector.

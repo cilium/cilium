@@ -2696,8 +2696,8 @@ definitions:
         description: string form of selector
         type: string
       labels:
-        description: Labels are the metadata labels associated with the selector
-        "$ref": "#/definitions/LabelArray"
+        description: Labels is a list of labels of the policy rules currently using this selector
+        "$ref": "#/definitions/LabelArrayList"
       identities:
         description: identities mapping to this selector
         type: array
@@ -3920,3 +3920,8 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Label"
+  LabelArrayList:
+    description: LabelArrayList is an array of LabelArrays forming a set
+    type: array
+    items:
+      "$ref": "#/definitions/LabelArray"
