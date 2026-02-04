@@ -5,6 +5,7 @@ package identitycachecell
 
 import (
 	"cmp"
+	"context"
 	"log/slog"
 	"net"
 
@@ -64,9 +65,10 @@ type CachingIdentityAllocator interface {
 type identityAllocatorParams struct {
 	cell.In
 
-	Log       *slog.Logger
-	Lifecycle cell.Lifecycle
-	IDUpdater policycell.IdentityUpdater
+	Log            *slog.Logger
+	Lifecycle      cell.Lifecycle
+	IDUpdater      policycell.IdentityUpdater
+	LocalNodeStore *node.LocalNodeStore
 
 	IdentityHandlers []identity.UpdateIdentities `group:"identity-handlers"`
 
@@ -106,6 +108,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	iao := &identityAllocatorOwner{
 		IdentityUpdater: params.IDUpdater,
 		logger:          params.Log,
+		localNodeStore:  params.LocalNodeStore,
 	}
 
 	var idAlloc CachingIdentityAllocator
@@ -156,7 +159,8 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 
 type identityAllocatorOwner struct {
 	policycell.IdentityUpdater
-	logger *slog.Logger
+	logger         *slog.Logger
+	localNodeStore *node.LocalNodeStore
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
@@ -164,11 +168,16 @@ type identityAllocatorOwner struct {
 func (iao *identityAllocatorOwner) GetNodeSuffix() string {
 	var ip net.IP
 
+	ln, err := iao.localNodeStore.Get(context.Background())
+	if err != nil {
+		logging.Fatal(iao.logger, "Failed to retrieve local node")
+	}
+
 	switch {
 	case option.Config.EnableIPv4:
-		ip = node.GetIPv4(iao.logger)
+		ip = ln.GetNodeIP(false)
 	case option.Config.EnableIPv6:
-		ip = node.GetIPv6(iao.logger)
+		ip = ln.GetNodeIP(true)
 	}
 
 	if ip == nil {
