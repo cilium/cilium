@@ -25,8 +25,8 @@ type SelectorIdentityMapping struct {
 	// identities mapping to this selector
 	Identities []int64 `json:"identities"`
 
-	// Labels are the metadata labels associated with the selector
-	Labels LabelArray `json:"labels,omitempty"`
+	// Labels is a list of labels of the policy rules currently using this selector
+	Labels LabelArrayList `json:"labels,omitempty"`
 
 	// string form of selector
 	Selector string `json:"selector,omitempty"`

@@ -81,10 +81,6 @@ func (ro ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
 	return labels.LabelArrayListFromString(ro.LabelsString())
 }
 
-func (ro ruleOrigin) stringLabels() stringLabels {
-	return newStringLabels(ro.LabelsString())
-}
-
 func (rm RuleMeta) Log() []string {
 	return rm.log.List()
 }
