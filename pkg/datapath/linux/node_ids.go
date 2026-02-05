@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -211,9 +212,9 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[str
 // Node Manager and in the corresponding BPF map. If any of those map updates
 // fail, both are cancelled and the function returns an error.
 func (n *linuxNodeHandler) mapNodeID(ip string, id uint16, SPI uint8) error {
-	nodeIP := net.ParseIP(ip)
-	if nodeIP == nil {
-		return fmt.Errorf("invalid node IP %s", ip)
+	nodeIP, err := netip.ParseAddr(ip)
+	if err != nil {
+		return fmt.Errorf("invalid node IP %s: %w", ip, err)
 	}
 
 	if err := n.nodeMap.Update(nodeIP, id, SPI); err != nil {
@@ -236,9 +237,9 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	if _, exists := n.nodeIDsByIPs[ip]; !exists {
 		return fmt.Errorf("cannot remove IP %s from node ID map as it doesn't exist", ip)
 	}
-	nodeIP := net.ParseIP(ip)
-	if nodeIP == nil {
-		return fmt.Errorf("invalid node IP %s", ip)
+	nodeIP, err := netip.ParseAddr(ip)
+	if err != nil {
+		return fmt.Errorf("invalid node IP %s: %w", ip, err)
 	}
 
 	if err := n.nodeMap.Delete(nodeIP); err != nil {
