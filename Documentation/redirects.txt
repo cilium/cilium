@@ -47,3 +47,4 @@
 "cmdref/cilium-dbg_policy_delete.md" "operations/upgrade.rst"
 "cmdref/cilium-dbg_policy_import.md" "operations/upgrade.rst"
 "cmdref/cilium-dbg_policy_validate.md" "operations/upgrade.rst"
+"security/policy/language.rst" "security/policy/index.rst"
