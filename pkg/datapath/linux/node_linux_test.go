@@ -91,8 +91,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 
-	node.SetTestLocalNodeStore()
-
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 
@@ -180,7 +178,6 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 }
 
 func tearDownTest(_ testing.TB) {
-	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 }

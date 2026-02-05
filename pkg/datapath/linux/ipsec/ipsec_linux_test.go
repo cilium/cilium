@@ -20,13 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	testutils.PrivilegedTest(tb)
-	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 	log = hivetest.Logger(tb)
@@ -42,10 +40,6 @@ func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 		_, remote, err = net.ParseCIDR("2001:0:0:1234::/64")
 		require.NoError(tb, err)
 	}
-
-	tb.Cleanup(func() {
-		node.UnsetTestLocalNodeStore()
-	})
 }
 
 const (

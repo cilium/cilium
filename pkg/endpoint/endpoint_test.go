@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -74,13 +73,10 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	client := kvstore.SetupDummy(tb, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-s.mgr.InitIdentityAllocator(nil, client)
-	node.SetTestLocalNodeStore()
 
 	tb.Cleanup(func() {
 		metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(false)
-
 		s.mgr.Close()
-		node.UnsetTestLocalNodeStore()
 	})
 
 	return s
