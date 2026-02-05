@@ -1380,11 +1380,7 @@ data:
 
 {{- if .Values.operator.unmanagedPodWatcher.restart }}
   {{- $interval := .Values.operator.unmanagedPodWatcher.intervalSeconds }}
-  {{- if kindIs "float64" $interval }}
   unmanaged-pod-watcher-interval: {{ printf "%ds" (int $interval) | quote }}
-  {{- else }}
-  unmanaged-pod-watcher-interval: {{ $interval | quote }}
-  {{- end }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
