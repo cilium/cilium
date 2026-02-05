@@ -29,7 +29,7 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(
 		registerReconciler,
-		bpf.RegisterTablePressureMetricsJob[Edt, throttleMap],
+		bpf.TablePressureMetrics[Edt, throttleMap],
 	),
 )
 

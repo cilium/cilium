@@ -5,6 +5,8 @@ package bpf
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -31,20 +33,60 @@ type mapPressureMetricsOps interface {
 	MaxEntries() uint32
 }
 
-// RegisterTablePressureMetricsJob adds a timer job to track the map pressure of a BPF map
+// isZeroValue returns an error if the provided value is a nil pointer or if its
+// underlying type has the zero value. Otherwise, it returns nil.
+//
+// This is mainly useful for validating interface values, since we cannot
+// enforce interfaces being implemented with pointer receivers.
+func isZeroValue(m any) error {
+	v := reflect.ValueOf(m)
+	switch v.Kind() {
+	case reflect.Invalid:
+		return fmt.Errorf("provided a nil interface")
+	case reflect.Pointer:
+		if v.IsNil() {
+			return fmt.Errorf("provided a nil %T", m)
+		}
+	default:
+		if v.IsZero() {
+			return fmt.Errorf("provided a zero %T", m)
+		}
+	}
+
+	return nil
+}
+
+func jobName(name string) string {
+	return "pressure-metric-" + name
+}
+
+// TablePressureMetrics adds a timer job to track the map pressure of a BPF map
 // where the desired state is stored in a StateDB table.
 //
 // Example usage:
 //
 //	type myBPFMap struct { *bpf.Map }
 //	cell.Invoke(
-//	  bpf.RegisterTablePressureMetricsJob[MyObj, myBPFMap],
+//	  bpf.TablePressureMetrics[MyObj, myBPFMap],
 //	)
-func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.Group, registry *metrics.Registry, db *statedb.DB, table statedb.Table[Obj], m Map) {
+//
+// The provided map must be a non-nil pointer or a non-zero value.
+//
+// If m is a non-nil pointer, its *bpf.Map may be populated later when the Hive
+// is started.
+//
+// If m is provided by-value and has a zero value, like a struct wrapping a nil
+// *bpf.Map, an error is returned. Since m was passed by-value, it can no longer
+// be backfilled on Hive start.
+func TablePressureMetrics[Obj any, Map mapPressureMetricsOps](
+	g job.Group, registry *metrics.Registry, db *statedb.DB, table statedb.Table[Obj], m Map) error {
+	if err := isZeroValue(m); err != nil {
+		return fmt.Errorf("invalid provided map: %w", err)
+	}
+
 	name := m.NonPrefixedName()
 	var pressureGauge *metrics.GaugeWithThreshold
-	g.Add(job.Timer(
-		"pressure-metric-"+name,
+	g.Add(job.Timer(jobName(name),
 		func(context.Context) error {
 			if !m.IsOpen() {
 				// Map not opened, do nothing.
@@ -62,4 +104,5 @@ func RegisterTablePressureMetricsJob[Obj any, Map mapPressureMetricsOps](g job.G
 		tablePressureMetricsInterval,
 	))
 
+	return nil
 }
