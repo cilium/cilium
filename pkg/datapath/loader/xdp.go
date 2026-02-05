@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -174,40 +175,106 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	}
 
 	if err := loadAssignAttach(logger, xdpMode, iface, spec, lnc); err != nil {
-		// Usually, a jumbo MTU causes the invalid argument error, e.g.:
-		// "create link: invalid argument" or "update link: invalid argument"
-		if !errors.Is(err, unix.EINVAL) {
-			return err
-		}
-
-		// The following retry might be helpful if the NIC driver is XDP Fragment aware
-		logger.Error("loading eBPF program failed, setting XDP frags and retrying", logfields.Error, err)
-		for _, prog := range spec.Programs {
-			prog.Flags |= unix.BPF_F_XDP_HAS_FRAGS
-		}
-		return loadAssignAttach(logger, xdpMode, iface, spec, lnc)
+		return err
 	}
+
 	return nil
 }
 
-func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
-	var obj xdpObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants:  xdpConfiguration(lnc, iface),
-		MapRenames: xdpMapRenames(lnc, iface),
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-		},
-		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-	})
-	if err != nil {
-		return err
+// xdpPermutations returns a sequence of CollectionSpecs with all combinations
+// of ProgramSpec.AttachType set to AttachXDP or AttachNone, as well the
+// BPF_F_XDP_HAS_FRAGS flag in on and off states.
+func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionSpec] {
+	type xdpPerms struct {
+		flipAttach bool
+		flipFrags  bool
 	}
-	defer obj.Close()
 
-	if err := attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
-		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
-		return fmt.Errorf("interface %s: %w", iface.Attrs().Name, err)
+	perms := []xdpPerms{
+		{flipAttach: false, flipFrags: false},
+		{flipAttach: true, flipFrags: false},
+		{flipAttach: false, flipFrags: true},
+		{flipAttach: true, flipFrags: false},
+	}
+
+	return func(yield func(int, *ebpf.CollectionSpec) bool) {
+		for i, p := range perms {
+			for _, prog := range spec.Programs {
+				if prog.Type != ebpf.XDP {
+					continue
+				}
+
+				if p.flipAttach {
+					switch prog.AttachType {
+					case ebpf.AttachXDP:
+						prog.AttachType = ebpf.AttachNone
+					case ebpf.AttachNone:
+						prog.AttachType = ebpf.AttachXDP
+					}
+				}
+
+				if p.flipFrags {
+					prog.Flags ^= unix.BPF_F_XDP_HAS_FRAGS
+				}
+			}
+
+			if !yield(i, spec) {
+				return
+			}
+		}
+	}
+}
+
+func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
+	var (
+		obj    xdpObjects
+		commit func() error
+		err    error
+	)
+	for i, spec := range xdpPermutations(spec) {
+		commit, err = bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+			Constants:  xdpConfiguration(lnc, iface),
+			MapRenames: xdpMapRenames(lnc, iface),
+			CollectionOptions: ebpf.CollectionOptions{
+				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+			},
+			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
+		})
+		if err != nil {
+			return err
+		}
+		defer obj.Close()
+
+		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
+			bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
+		if errors.Is(err, unix.EINVAL) {
+			// EINVAL during attachment can have multiple causes. There are two common
+			// cases we can handle:
+			//
+			// * The configured MTU on the device is so large that the driver
+			// requires loading XDP programs with BPF_F_XDP_HAS_FRAGS. In that case,
+			// retry with the flag set.
+			//
+			// * The interface has an existing BPF link with a different attach
+			// type. Try the other attach type.
+			//
+			// Neither of these properties can be probed, so try all permutations
+			// until they've been exhausted.
+			prog := spec.Programs[symbolFromHostNetdevXDP]
+			logger.Info("attaching XDP program failed",
+				logfields.Error, err,
+				logfields.Attempt, i,
+				logfields.AttachType, prog.AttachType,
+				logfields.WithFrags, prog.Flags&unix.BPF_F_XDP_HAS_FRAGS != 0,
+			)
+			continue
+		}
+
+		// Error is nil or unrecoverable, exit the loop.
+		break
+	}
+	if err != nil {
+		return fmt.Errorf("attaching XDP program: %w", err)
 	}
 
 	if err := commit(); err != nil {

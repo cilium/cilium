@@ -5,12 +5,16 @@ package loader
 
 import (
 	"errors"
+	"iter"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -247,4 +251,43 @@ func getLink(tb testing.TB, link netlink.Link) netlink.Link {
 	require.NoError(tb, err)
 
 	return req
+}
+
+func TestXDPPermutations(t *testing.T) {
+	spec := &ebpf.CollectionSpec{
+		Programs: map[string]*ebpf.ProgramSpec{
+			"xdp": {Type: ebpf.XDP},
+			// Make sure non-XDP programs are not modified by the permutations.
+			"other": {Type: ebpf.SocketFilter},
+		},
+	}
+
+	expected := []struct {
+		attachType ebpf.AttachType
+		flags      uint32
+	}{
+		{attachType: ebpf.AttachNone, flags: 0},
+		{attachType: ebpf.AttachXDP, flags: 0},
+		{attachType: ebpf.AttachXDP, flags: unix.BPF_F_XDP_HAS_FRAGS},
+		{attachType: ebpf.AttachNone, flags: unix.BPF_F_XDP_HAS_FRAGS},
+	}
+
+	next, stop := iter.Pull2(xdpPermutations(spec))
+	defer stop()
+
+	for _, exp := range expected {
+		_, got, ok := next()
+		assert.True(t, ok)
+
+		xdp := got.Programs["xdp"]
+		assert.Equal(t, exp.attachType, xdp.AttachType)
+		assert.Equal(t, exp.flags, xdp.Flags)
+
+		other := got.Programs["other"]
+		assert.Equal(t, ebpf.AttachNone, other.AttachType)
+		assert.Equal(t, uint32(0), other.Flags)
+	}
+
+	_, _, ok := next()
+	assert.False(t, ok)
 }
