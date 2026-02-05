@@ -47,7 +47,7 @@ bgp/peers [-o] [--out=string]
 	List BGP peers on Cilium
 bgp/route-policies [-or] [--out=string] [--router-asn=uint32]
 	List BGP route policies on Cilium
-bgp/routes [-opr] [--out=string] [--peer=string] [--router-asn=uint32] [available|advertised] [afi] [safi]
+bgp/routes [--no-age] <table type> <afi> <safi>
 	List BGP routes on Cilium
 ```
 
