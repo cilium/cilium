@@ -38,7 +38,7 @@ var Cell = cell.Module(
 	),
 	cell.Invoke(
 		registerReconciler,
-		bpf.RegisterTablePressureMetricsJob[SubnetTableEntry, subnetMap],
+		bpf.TablePressureMetrics[SubnetTableEntry, subnetMap],
 	),
 )
 
