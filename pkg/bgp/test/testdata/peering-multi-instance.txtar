@@ -75,7 +75,7 @@ bgp/peers -o peers.actual --no-uptime
 * cmp cilium-peers.expected peers.actual
 
 # Validate advertised routes on Cilium
-bgp/routes -o routes.actual advertised
+bgp/routes -o routes.actual --no-age out ipv4 unicast
 * cmp cilium-routes.expected routes.actual
 
 # Validate route-policies on Cilium
@@ -242,13 +242,13 @@ tor-65001   gobgp-peer-1   established     -        ipv4-unicast   0          0 
             gobgp-peer-2   established     -        ipv4-unicast   0          0          2
 tor-65002   gobgp-peer-3   established     -        ipv4-unicast   0          0          2
 -- cilium-routes.expected --
-VRouter   Peer          Prefix            NextHop       Attrs
-65001     10.99.0.101   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
-65001     10.99.0.101   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
-65001     10.99.0.102   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
-65001     10.99.0.102   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.110}]
-65002     10.99.0.103   10.244.0.0/24     10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
-65002     10.99.0.103   10.96.50.104/32   10.99.0.110   [{Origin: i} {AsPath: 65002} {Nexthop: 10.99.0.110}]
+Instance    Peer           Prefix            NextHop       Age
+tor-65001   gobgp-peer-1   10.244.0.0/24     10.99.0.110   -
+                           10.96.50.104/32   10.99.0.110   -
+            gobgp-peer-2   10.244.0.0/24     10.99.0.110   -
+                           10.96.50.104/32   10.99.0.110   -
+tor-65002   gobgp-peer-3   10.244.0.0/24     10.99.0.110   -
+                           10.96.50.104/32   10.99.0.110   -
 -- cilium-route-policies.expected --
 VRouter   Policy Name                                     Type     Match Peers   Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
 65001     allow-local                                     import                                                                  accept       
