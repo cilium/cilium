@@ -257,6 +257,58 @@ func (m *BGPRouterManager) GetPeersLegacy(ctx context.Context) ([]*models.BgpPee
 	return res, nil
 }
 
+// GetRoutes retrieves routes from the RIB of underlying routers.
+func (m *BGPRouterManager) GetRoutes(ctx context.Context, req *agent.GetRoutesRequest) (*agent.GetRoutesResponse, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	if !m.running {
+		return nil, fmt.Errorf("BGP router manager is not running")
+	}
+	if req == nil {
+		return nil, fmt.Errorf("get routes request is nil")
+	}
+
+	var res agent.GetRoutesResponse
+	for _, i := range m.BGPInstances {
+		switch req.TableType {
+		case types.TableTypeAdjRIBIn, types.TableTypeAdjRIBOut:
+			peerState, err := i.Router.GetPeerState(ctx, &types.GetPeerStateRequest{})
+			if err != nil {
+				return nil, err
+			}
+			for _, peer := range peerState.Peers {
+				rs, err := i.Router.GetRoutes(ctx, &types.GetRoutesRequest{
+					TableType: req.TableType,
+					Family:    req.Family,
+					Neighbor:  peer.Address,
+				})
+				if err != nil {
+					return nil, err
+				}
+				res.Instances = append(res.Instances, agent.InstanceRoutes{
+					InstanceName: i.Name,
+					NeighborName: peer.Name,
+					Routes:       rs.Routes,
+				})
+			}
+		default:
+			rs, err := i.Router.GetRoutes(ctx, &types.GetRoutesRequest{
+				TableType: req.TableType,
+				Family:    req.Family,
+			})
+			if err != nil {
+				return nil, err
+			}
+			res.Instances = append(res.Instances, agent.InstanceRoutes{
+				InstanceName: i.Name,
+				Routes:       rs.Routes,
+			})
+		}
+	}
+	return &res, nil
+}
+
 // GetRoutesLegacy retrieves routes from the RIB of underlying router
 func (m *BGPRouterManager) GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
 	m.RLock()
