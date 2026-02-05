@@ -15,6 +15,7 @@ var Cell = cell.Provide(BGPCommands)
 
 func BGPCommands(bgpMgr agent.BGPRouterManager) hive.ScriptCmdsOut {
 	return hive.NewScriptCmds(map[string]script.Cmd{
-		"bgp/peers": BGPPeersCmd(bgpMgr),
+		"bgp/peers":  BGPPeersCmd(bgpMgr),
+		"bgp/routes": BGPRoutesCmd(bgpMgr),
 	})
 }
