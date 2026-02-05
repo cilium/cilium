@@ -33,7 +33,12 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	// Check for local node ID explicitly as local node IPs are not in our maps!
 	if nodeID == 0 {
 		// Returns local node's IPv4 address if available, IPv6 address otherwise.
-		return node.GetCiliumEndpointNodeIP(n.log)
+		ln, err := n.localNodeStore.Get(context.Background())
+		if err != nil {
+			logging.Fatal(n.log, "failed to retrieve local node")
+		}
+
+		return node.GetCiliumEndpointNodeIP(ln)
 	}
 
 	// Otherwise, return one of the IPs matching the given ID.

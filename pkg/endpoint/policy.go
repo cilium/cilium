@@ -1050,8 +1050,6 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return nil
 				}
-				logger := e.getLogger()
-
 				ln, err := e.localNodeStore.Get(ctx)
 				if err != nil {
 					e.runlock()
@@ -1059,7 +1057,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				}
 
 				ID := e.SecurityIdentity.ID
-				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(logger))
+				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(ln))
 				if err != nil {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
