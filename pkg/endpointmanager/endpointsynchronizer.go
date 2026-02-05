@@ -122,6 +122,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return fmt.Errorf("Kubernetes apiserver is not available")
 				}
 
+				ln, err := epSync.localNodeStore.Get(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to get local node: %w", err)
+				}
+
 				cepOwner := e.GetCEPOwner()
 				if cepOwner.IsNil() {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s namespace")
@@ -171,7 +176,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								if err != nil {
 									scopedLog.Debug("Error getting CES store", logfields.Error, err)
 								} else {
-									nodeIP := node.GetCiliumEndpointNodeIP(scopedLog)
+									nodeIP := node.GetCiliumEndpointNodeIP(ln)
 									// Get all CES objects for this node
 									objs, err := cesStore.ByIndex("localNode", nodeIP)
 									if err != nil {
@@ -202,7 +207,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								if err != nil {
 									scopedLog.Debug("Error getting CEP store", logfields.Error, err)
 								} else {
-									nodeIP := node.GetCiliumEndpointNodeIP(scopedLog)
+									nodeIP := node.GetCiliumEndpointNodeIP(ln)
 									objs, err := cepStore.ByIndex("localNode", nodeIP)
 									if err != nil {
 										scopedLog.Debug("Error getting indexed CiliumEndpoint from store", logfields.Error, err)
