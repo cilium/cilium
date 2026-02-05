@@ -34,6 +34,12 @@ var slogLeveler = func() *slog.LevelVar {
 	return &levelVar
 }()
 
+// GetGlobalLevel gets the currently set level, as it is set in the global
+// slog leveler reference.
+func GetGlobalLevel() slog.Level {
+	return slogLeveler.Level()
+}
+
 var defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 	os.Stderr,
 	slogHandlerOpts,
