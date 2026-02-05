@@ -34,6 +34,7 @@ to learn how to level up through the project.
  * [Liz Rice] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
+ * [Mahé Tardy] (Isovalent)
  * [Marcel Zięba] (Isovalent)
  * [Marco Hofstetter] (Isovalent)
  * [Marco Iorio] (Isovalent)
@@ -112,6 +113,7 @@ project.
 [Lorenz Bauer]: https://github.com/lmb
 [Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
+[Mahé Tardy]: https://github.com/mtardy
 [Marcel Zięba]: https://github.com/marseel
 [Marco Hofstetter]: https://github.com/mhofstetter
 [Marco Iorio]: https://github.com/giorio94
