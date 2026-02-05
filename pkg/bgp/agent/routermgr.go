@@ -39,6 +39,9 @@ type BGPRouterManager interface {
 	// GetRoutesLegacy fetches BGP routes from underlying routing daemon's RIBs.
 	GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 
+	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
+	GetRoutes(ctx context.Context, req *GetRoutesRequest) (*GetRoutesResponse, error)
+
 	// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
 	GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 
@@ -58,4 +61,22 @@ type GetPeersResponse struct {
 type InstancePeerStates struct {
 	Name  string
 	Peers []types.PeerState
+}
+
+// GetRoutesRequest is a request for GetRoutes method.
+type GetRoutesRequest struct {
+	TableType types.TableType
+	Family    types.Family
+}
+
+// GetRoutesResponse is the response type for GetRoutes method.
+type GetRoutesResponse struct {
+	Instances []InstanceRoutes
+}
+
+// InstanceRoutes holds routes for a specific BGP instance.
+type InstanceRoutes struct {
+	InstanceName string
+	NeighborName string
+	Routes       []*types.Route
 }
