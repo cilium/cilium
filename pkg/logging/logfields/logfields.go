@@ -1867,4 +1867,8 @@ const (
 	BackendTLSPolicyName = "backendTLSPolicyName"
 
 	ConfigMapName = "configMapName"
+
+	AttachType = "attachType"
+
+	WithFrags = "withFrags"
 )

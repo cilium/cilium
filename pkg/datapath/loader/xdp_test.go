@@ -16,6 +16,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -247,4 +249,71 @@ func getLink(tb testing.TB, link netlink.Link) netlink.Link {
 	require.NoError(tb, err)
 
 	return req
+}
+
+func TestPrivilegedChangeAttachType(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	cases := []struct {
+		from ebpf.AttachType
+		to   ebpf.AttachType
+	}{
+		{from: ebpf.AttachNone, to: ebpf.AttachXDP},
+		{from: ebpf.AttachXDP, to: ebpf.AttachXDP},
+		{from: ebpf.AttachNone, to: ebpf.AttachNone},
+		{from: ebpf.AttachXDP, to: ebpf.AttachNone},
+	}
+
+	for _, c := range cases {
+		t.Run(c.from.String()+"-to-"+c.to.String(), func(t *testing.T) {
+			// Disable load time config and map renaming, we don't need it for this test.
+			defer func(fns []func(*types.LocalNodeConfiguration, netlink.Link) any) {
+				xdpConfigs.funcs = fns
+			}(xdpConfigs.funcs)
+			xdpConfigs.funcs = nil
+
+			defer func(fns []func(*types.LocalNodeConfiguration, netlink.Link) map[string]string) {
+				xdpRenames.funcs = fns
+			}(xdpRenames.funcs)
+			xdpRenames.funcs = nil
+
+			// Set the state dir to a temp dir so it does not write files into our workdir.
+			option.Config.StateDir = t.TempDir()
+
+			ns := netns.NewNetNS(t)
+
+			ns.Do(func() error {
+				veth := &netlink.Veth{
+					LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+					PeerName:  "veth1",
+				}
+				err := netlink.LinkAdd(veth)
+				require.NoError(t, err)
+
+				coll := &ebpf.CollectionSpec{
+					Programs: map[string]*ebpf.ProgramSpec{
+						"cil_xdp_entry": defaultXDPProgramSpec("cil_xdp_entry"),
+					},
+				}
+
+				coll.Programs["cil_xdp_entry"].AttachType = c.from
+				err = loadAssignAttach(logger, xdp.ModeLinkGeneric, veth, coll, &types.LocalNodeConfiguration{})
+				require.NoError(t, err)
+
+				coll.Programs["cil_xdp_entry"].AttachType = c.to
+				err = loadAssignAttach(logger, xdp.ModeLinkGeneric, veth, coll, &types.LocalNodeConfiguration{})
+				require.NoError(t, err)
+
+				// Detach the program.
+				err = DetachXDP(veth.Attrs().Name, bpf.CiliumPath(), "cil_xdp_entry")
+				require.NoError(t, err)
+
+				err = netlink.LinkDel(veth)
+				require.NoError(t, err)
+
+				return nil
+			})
+		})
+	}
 }
