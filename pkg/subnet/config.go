@@ -14,7 +14,7 @@ var DefaultConfig = Config{
 }
 
 type Config struct {
-	Subnets string `json:"subnet-topology,omitempty"`
+	Subnets string `mapstructure:"subnet-topology,omitempty"`
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
