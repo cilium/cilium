@@ -52,8 +52,9 @@ be achieved by defining an egress policy which either completely disallows
 traffic to ``reserved:world`` identities, or only allows egress traffic
 to addresses outside of the cluster to a certain subset of trusted IP
 addresses using ``toCIDR``, ``toCIDRSet`` and ``toFQDN`` rules.
-See :ref:`policy_examples` for more details about how to write network
-policies that restrict egress traffic to certain endpoints.
+See the :ref:`chapter on network policies <network_policy>` for more details
+about how to write network policies that restrict egress traffic to certain
+endpoints.
 
 Another way to mitigate this issue is to set
 ``encryption.strictMode.egress.enabled`` to ``true`` and the expected pod

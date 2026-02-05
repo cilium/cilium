@@ -103,8 +103,8 @@ Status
 Examples
 ========
 
-See :ref:`policy_examples`, :ref:`l4_policy` and :ref:`l7_policy` for
-detailed lists of example policies.
+See :ref:`l3_policy`, :ref:`l4_policy` and :ref:`l7_policy` for detailed lists
+of example policies.
 
 
 .. _CiliumClusterwideNetworkPolicy:
