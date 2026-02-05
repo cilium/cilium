@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -29,11 +30,11 @@ const (
 type MapV2 interface {
 	// Update inserts or updates the node map object associated with the provided
 	// IP, node id, and SPI.
-	Update(ip net.IP, nodeID uint16, SPI uint8) error
+	Update(ip netip.Addr, nodeID uint16, SPI uint8) error
 
 	// Delete deletes the node map object associated with the provided
 	// IP.
-	Delete(ip net.IP) error
+	Delete(ip netip.Addr) error
 
 	// IterateWithCallback iterates through all the keys/values of a node map,
 	// passing each key/value pair to the cb callback.
@@ -85,14 +86,19 @@ func (k *NodeKey) String() string {
 	return "<unknown>"
 }
 
-func newNodeKey(ip net.IP) NodeKey {
+func newNodeKey(ip netip.Addr) NodeKey {
 	result := NodeKey{}
-	if ip4 := ip.To4(); ip4 != nil {
+	if !ip.IsValid() {
+		return result
+	}
+	if ip.Is4() {
+		ip4 := ip.As4()
 		result.Family = bpf.EndpointKeyIPv4
-		copy(result.IP[:], ip4)
+		copy(result.IP[:], ip4[:])
 	} else {
+		ip6 := ip.As16()
 		result.Family = bpf.EndpointKeyIPv6
-		copy(result.IP[:], ip)
+		copy(result.IP[:], ip6[:])
 	}
 	return result
 }
@@ -103,7 +109,7 @@ type NodeValueV2 struct {
 	Pad    uint8
 }
 
-func (m *nodeMapV2) Update(ip net.IP, nodeID uint16, SPI uint8) error {
+func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8) error {
 	key := newNodeKey(ip)
 	val := NodeValueV2{NodeID: nodeID, SPI: SPI}
 	if err := m.bpfMap.Update(key, val, 0); err != nil {
@@ -117,7 +123,7 @@ func (m *nodeMapV2) Size() uint32 {
 	return m.conf.NodeMapMax
 }
 
-func (m *nodeMapV2) Delete(ip net.IP) error {
+func (m *nodeMapV2) Delete(ip netip.Addr) error {
 	key := newNodeKey(ip)
 	if err := m.bpfMap.Delete(key); err != nil {
 		return fmt.Errorf("failed to delete node map: %w", err)
