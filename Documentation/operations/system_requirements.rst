@@ -310,6 +310,7 @@ Cilium Feature                                         Minimum Kernel Version
 IPv6 BIG TCP support                                   >= 5.19
 :ref:`enable_multicast` (AArch64)                      >= 6.0
 IPv4 BIG TCP support                                   >= 6.3
+:ref:`netkit`                                          >= 6.8
 ====================================================== ===============================
 
 .. _req_kvstore:
