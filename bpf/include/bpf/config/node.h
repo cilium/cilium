@@ -54,3 +54,8 @@ NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
 
 NODE_CONFIG(__u32, hash_init4_seed, "Cluster-wide IPv4 tuple hash seed sourced")
 NODE_CONFIG(__u32, hash_init6_seed, "Cluster-wide IPv6 tuple hash seed sourced")
+
+NODE_CONFIG(__u32, events_map_rate_limit,
+	    "The sustained message rate for the BPF events map in messages per second")
+NODE_CONFIG(__u32, events_map_burst_limit,
+	    "Maximum number of messages that can be written to BPF events map in 1 second")
