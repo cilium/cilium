@@ -584,10 +584,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		if ingress && !TestAllowIngressListener {
 			return fmt.Errorf("Listener is not allowed on ingress (%s)", listener.Name)
 		}
-		// There is no quarantee that Listener will support Cilium policy enforcement.  Even
-		// now proxylib-based enforcement (e.g, Kafka) may work, but has not been tested.
-		// TODO (jrajahalme): Lift this limitation in follow-up work for proxylib based
-		// parsers if needed and when tested.
+		// There is no guarantee that Listener will support Cilium policy enforcement.
 		if !pr.Rules.IsEmpty() {
 			return fmt.Errorf("Listener is not allowed with L7 rules (%s)", listener.Name)
 		}

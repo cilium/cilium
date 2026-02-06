@@ -36,8 +36,6 @@ func TestRedirectType(t *testing.T) {
 	require.Equal(t, redirectTypeNone, redirectTypes(0))
 	require.Equal(t, redirectTypeDNS, redirectTypes(0x1))
 	require.Equal(t, redirectTypeEnvoy, redirectTypes(0x2))
-	require.Equal(t, redirectTypes(0x4)|redirectTypeEnvoy, redirectTypeProxylib)
-	require.Equal(t, redirectTypeEnvoy, redirectTypeProxylib&redirectTypeEnvoy)
 }
 
 func TestParserTypeMerge(t *testing.T) {
@@ -468,7 +466,6 @@ func TestJSONMarshal(t *testing.T) {
 	}
 
 	require.True(t, policy.HasEnvoyRedirect())
-	require.True(t, policy.HasProxylibRedirect())
 }
 
 // TestL4PolicyMapPortRangeOverlaps tests the Upsert, ExactLookup,

@@ -520,22 +520,10 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 	}
 
 	// 2. Add Cilium Network filter.
-	var ciliumConfig *cilium.NetworkFilter
-	if filterName == "" {
-		// Use proxylib by default
-		ciliumConfig = &cilium.NetworkFilter{
-			Proxylib: "libcilium.so",
-			ProxylibParams: map[string]string{
-				"access-log-path": s.accessLogPath,
-				"xds-path":        s.socketPath,
-			},
-		}
-	} else {
-		// Envoy metadata logging requires accesslog path
-		ciliumConfig = &cilium.NetworkFilter{
-			AccessLogPath: s.accessLogPath,
-		}
+	var ciliumConfig = &cilium.NetworkFilter{
+		AccessLogPath: s.accessLogPath,
 	}
+
 	filters = append(filters, &envoy_config_listener.Filter{
 		Name: "cilium.network",
 		ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -994,13 +982,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		// Add a TLS variant
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true, isIngress))
 	} else {
-		// Default TCP chain, takes care of all parsers in proxylib
-		// The proxylib is deprecated and will be removed in the future
-		// https://github.com/cilium/cilium/issues/38224
-		s.logger.Warn("The support for Envoy Go Extensions (proxylib) has been deprecated due to lack of maintainers. If you are interested in helping to maintain, please reach out on GitHub or the official Cilium slack",
-			logfields.URL, "https://slack.cilium.io")
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
-
 		// Add a TLS variant
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(tlsClusterName, "", nil, true))
 
@@ -1706,13 +1688,6 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 
 	// Host proxy uses "127.0.0.1" as the nodeID
 	nodeIDs = append(nodeIDs, "127.0.0.1")
-	// Require additional ACK from proxylib if policy has proxylib redirects
-	// Note that if a previous policy had a proxylib redirect and this one does not,
-	// we only wait for the ACK from the main Envoy node ID.
-	if policy.HasProxylibRedirect() {
-		// Proxylib uses "127.0.0.2" as the nodeID
-		nodeIDs = append(nodeIDs, "127.0.0.2")
-	}
 	return nodeIDs
 }
 
