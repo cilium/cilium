@@ -33,12 +33,12 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumbgpnodeconfigs \
                 ciliumbgpnodeconfigoverrides \
                 ciliumcidrgroups \
-                ciliumloadbalancerippools"
+                ciliumloadbalancerippools \
+                ciliumpodippools"
 
 # Set CRDS_CILIUM_V2ALPHA1 with the list of CRDs for v2alpha1
 CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
                       ciliuml2announcementpolicies \
-                      ciliumpodippools \
                       ciliumgatewayclassconfigs"
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
