@@ -18,6 +18,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -303,7 +304,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << cmtypes.DefaultClusterInfo.GetClusterIDShift())),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
