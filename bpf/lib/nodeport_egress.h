@@ -664,7 +664,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 		   __s8 *ext_err __maybe_unused)
 {
 	bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
-			    (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+			    (CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 			    (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && is_defined(ENABLE_INTER_CLUSTER_SNAT)) ||
 			    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST));
 	int ret = CTX_ACT_OK;
