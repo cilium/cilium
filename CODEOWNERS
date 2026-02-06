@@ -704,7 +704,6 @@ Makefile* @cilium/build
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
 /test/k8s/lrp.go @cilium/sig-lb
 # Datapath tests
-/test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 # Policy tests
 /test/k8s/chaos.go @cilium/sig-policy

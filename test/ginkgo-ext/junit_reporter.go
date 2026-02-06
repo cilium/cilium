@@ -317,8 +317,6 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/config.go"
 	case "K8sPolicyTestExtended":
 		return "test/k8s/net_policies.go"
-	case "K8sDatapathBandwidthTest":
-		return "test/k8s/bandwidth.go"
 	case "K8sDatapathConfig":
 		return "test/k8s/datapath_configuration.go"
 	case "RuntimeDatapathMonitorTest":
