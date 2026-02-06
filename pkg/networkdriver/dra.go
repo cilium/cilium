@@ -290,9 +290,13 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		var thisAlloc allocation
 
 		cfg, ok := deviceClaimConfigs[result.Request]
-		if ok {
-			thisAlloc.Config = cfg
+		if !ok {
+			return kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("unable to find configuration for device %s and request %s in ResourceClaim %s Status",
+					result.Device, result.Request, path.Join(claim.Namespace, claim.Name)),
+			}
 		}
+		thisAlloc.Config = cfg
 
 		var found bool
 
