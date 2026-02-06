@@ -66,7 +66,7 @@ type mockResult struct {
 
 func TestNodeHandler(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
-	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
+	err := backend.UpsertPool("default", []PoolCIDRWithReserved{{CIDR: "10.0.0.0/8"}}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	onUpdateArgs := make(chan mockArgs)
@@ -326,7 +326,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	}
 
 	// Previous CIDRs should be unorphaned if test-pool is restored
-	err := backend.UpsertPool("test-pool", []string{"10.0.0.0/16"}, 24, nil, 0)
+	err := backend.UpsertPool("test-pool", []PoolCIDRWithReserved{{CIDR: "10.0.0.0/16"}}, 24, nil, 0)
 	assert.NoError(t, err)
 
 	assert.Empty(t, backend.orphans)
@@ -347,7 +347,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 func TestOrphanCIDRsReleased(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
 	err := backend.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/28"}, {CIDR: "10.0.0.16/28"}, {CIDR: "10.0.0.32/28"}, {CIDR: "10.0.0.48/28"}}, 28,
 		nil, 0)
 	assert.NoError(t, err)
 
@@ -406,7 +406,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 
 	// Shrink the pool and remove two CIDRs still in use by the node
 	err = backend.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/28"}, {CIDR: "10.0.0.16/28"}}, 28,
 		nil, 0)
 	assert.NoError(t, err)
 

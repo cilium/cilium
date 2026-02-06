@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	k8sv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
@@ -952,7 +952,7 @@ func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.Loca
 	}
 
 	poolObj := podippool.LocalPodIPPool{
-		CiliumPodIPPool: &k8sv2alpha1.CiliumPodIPPool{
+		CiliumPodIPPool: &k8sv2.CiliumPodIPPool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
 				Annotations: ann,

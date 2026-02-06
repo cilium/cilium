@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/ipam/allocator/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -35,14 +36,15 @@ func init() {
 type multiPoolParams struct {
 	cell.In
 
-	Logger             *slog.Logger
-	Lifecycle          cell.Lifecycle
-	JobGroup           job.Group
-	Clientset          k8sClient.Clientset
-	MetricsRegistry    *metrics.Registry
-	DaemonCfg          *option.DaemonConfig
-	CiliumPodIPPools   resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
-	NodeWatcherFactory nodeWatcherJobFactory
+	Logger                   *slog.Logger
+	Lifecycle                cell.Lifecycle
+	JobGroup                 job.Group
+	Clientset                k8sClient.Clientset
+	MetricsRegistry          *metrics.Registry
+	DaemonCfg                *option.DaemonConfig
+	CiliumPodIPPoolsV2alpha1 resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
+	CiliumPodIPPoolsV2       resource.Resource[*cilium_v2.CiliumPodIPPool]
+	NodeWatcherFactory       nodeWatcherJobFactory
 }
 
 func startMultiPoolAllocator(p multiPoolParams) {
@@ -59,10 +61,13 @@ func startMultiPoolAllocator(p multiPoolParams) {
 					return fmt.Errorf("unable to init AWS allocator: %w", err)
 				}
 
-				// The following operation will block until all pools are restored, thus it
-				// is safe to continue starting node allocation right after return.
+				watchers.StartIPPoolMigrator(
+					ctx, p.Clientset, p.CiliumPodIPPoolsV2alpha1,
+					p.Logger.With(logfields.LogSubsys, "ip-pool-migrator"),
+				)
+
 				watchers.StartIPPoolAllocator(
-					ctx, p.Clientset, allocator, p.CiliumPodIPPools,
+					ctx, p.Clientset, allocator, p.CiliumPodIPPoolsV2,
 					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
 				)
 

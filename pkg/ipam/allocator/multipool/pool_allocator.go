@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"slices"
 	"sort"
+	"strings"
 
 	"go4.org/netipx"
 
@@ -243,10 +244,10 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 	return cidrSets, errors.Join(errs...)
 }
 
-func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
+func parseCIDRStrings(cidrStrs []PoolCIDRWithReserved) ([]netip.Prefix, error) {
 	prefixes := make([]netip.Prefix, 0, len(cidrStrs))
 	for _, cidrStr := range cidrStrs {
-		prefix, err := netip.ParsePrefix(cidrStr)
+		prefix, err := netip.ParsePrefix(cidrStr.CIDR)
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +256,74 @@ func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
 	return prefixes, nil
 }
 
-func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
+func parseIPRange(rangeStr string) (netip.Addr, netip.Addr, error) {
+	parts := strings.Split(rangeStr, "-")
+	if len(parts) != 2 {
+		return netip.Addr{}, netip.Addr{}, fmt.Errorf("invalid format, expected 'startIP-endIP'")
+	}
+
+	start, err := netip.ParseAddr(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return netip.Addr{}, netip.Addr{}, err
+	}
+
+	end, err := netip.ParseAddr(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return netip.Addr{}, netip.Addr{}, err
+	}
+
+	return start, end, nil
+}
+
+// occupyReservedRanges marks reserved IP ranges as occupied in the CIDR allocators.
+func (p *PoolAllocator) occupyReservedRanges(cidrSets []cidralloc.CIDRAllocator, cidrsWithReserved []PoolCIDRWithReserved, maskSize int) error {
+	for _, c := range cidrsWithReserved {
+		if c.ReservedRange == "" {
+			continue
+		}
+
+		startIP, endIP, err := parseIPRange(c.ReservedRange)
+		if err != nil {
+			return fmt.Errorf("invalid reserved range %q: %w", c.ReservedRange, err)
+		}
+
+		for ip := startIP; ip.Compare(endIP) <= 0; {
+			prefix, err := ip.Prefix(maskSize)
+			if err != nil {
+				return fmt.Errorf("failed to create prefix from IP %s: %w", ip, err)
+			}
+
+			for _, allocator := range cidrSets {
+				cidr := netipx.PrefixIPNet(prefix)
+				if err := allocator.Occupy(cidr); err != nil {
+					p.logger.Warn(
+						"Failed to occupy reserved CIDR",
+						logfields.CIDR, cidr,
+						logfields.Error, err,
+					)
+				} else {
+					p.logger.Info(
+						"Reserved CIDR block occupied",
+						logfields.CIDR, cidr,
+					)
+				}
+				break
+			}
+
+			// Jump to the start of the next block
+			lastIP := netipx.PrefixLastIP(prefix)
+			ip = lastIP.Next()
+
+			// Check for overflow or finish
+			if !ip.IsValid() {
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []PoolCIDRWithReserved, ipv4MaskSize int, ipv6CIDRs []PoolCIDRWithReserved, ipv6MaskSize int) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -285,6 +353,10 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		return err
 	}
 
+	if err := p.occupyReservedRanges(v4, ipv4CIDRs, ipv4MaskSize); err != nil {
+		return fmt.Errorf("failed to occupy IPv4 reserved ranges: %w", err)
+	}
+
 	var v6Prev []cidralloc.CIDRAllocator
 	if exists {
 		v6Prev = pool.v6
@@ -292,6 +364,10 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
+	}
+
+	if err := p.occupyReservedRanges(v6, ipv6CIDRs, ipv6MaskSize); err != nil {
+		return fmt.Errorf("failed to occupy IPv6 reserved ranges: %w", err)
 	}
 
 	p.pools[poolName] = cidrPool{

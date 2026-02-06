@@ -18,14 +18,13 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/types"
 	ipamtypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 var (
-	redPoolCIDRv4        = v2alpha1.PoolCIDR("10.0.0.0/16")
-	redPoolCIDRv6        = v2alpha1.PoolCIDR("2001:db8::/64")
+	redPoolCIDRv4        = "10.0.0.0/16"
+	redPoolCIDRv6        = "2001:db8::/64"
 	redPoolNodePrefix1v4 = ipamtypes.IPAMPodCIDR("10.0.1.0/24")
 	redPoolNodePrefix2v4 = ipamtypes.IPAMPodCIDR("10.0.2.0/24")
 	redPoolNodePrefix1v6 = ipamtypes.IPAMPodCIDR("2001:db8:0:0:1234::/96")
@@ -36,18 +35,18 @@ var (
 	redNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
 		podIPPoolNameLabel: redPoolName,
 	}}
-	redPool = &v2alpha1.CiliumPodIPPool{
+	redPool = &v2.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   redPoolName,
 			Labels: redLabelSelector.MatchLabels,
 		},
-		Spec: v2alpha1.IPPoolSpec{
-			IPv4: &v2alpha1.IPv4PoolSpec{
-				CIDRs:    []v2alpha1.PoolCIDR{redPoolCIDRv4},
+		Spec: v2.IPPoolSpec{
+			IPv4: &v2.IPv4PoolSpec{
+				CIDRs:    []v2.PoolCIDR{{CIDR: redPoolCIDRv4}},
 				MaskSize: 24,
 			},
-			IPv6: &v2alpha1.IPv6PoolSpec{
-				CIDRs:    []v2alpha1.PoolCIDR{redPoolCIDRv6},
+			IPv6: &v2.IPv6PoolSpec{
+				CIDRs:    []v2.PoolCIDR{{CIDR: redPoolCIDRv6}},
 				MaskSize: 96,
 			},
 		},
@@ -121,41 +120,41 @@ var (
 		},
 	}
 
-	bluePoolCIDR1v4       = v2alpha1.PoolCIDR("10.1.0.0/16")
+	bluePoolCIDR1v4       = "10.1.0.0/16"
 	bluePoolNodePrefix1v4 = ipamtypes.IPAMPodCIDR("10.1.1.0/24")
-	bluePoolCIDR2v4       = v2alpha1.PoolCIDR("10.2.0.0/16")
+	bluePoolCIDR2v4       = "10.2.0.0/16"
 	bluePoolNodePrefix2v4 = ipamtypes.IPAMPodCIDR("10.2.1.0/24")
-	bluePoolCIDR3v4       = v2alpha1.PoolCIDR("10.3.0.0/16")
-	bluePoolCIDR1v6       = v2alpha1.PoolCIDR("2001:db8:1::/64")
+	bluePoolCIDR3v4       = "10.3.0.0/16"
+	bluePoolCIDR1v6       = "2001:db8:1::/64"
 	bluePoolNodePrefix1v6 = ipamtypes.IPAMPodCIDR("2001:db8:1:0:1234::/96")
-	bluePoolCIDR2v6       = v2alpha1.PoolCIDR("2001:db8:2::/64")
+	bluePoolCIDR2v6       = "2001:db8:2::/64"
 	bluePoolNodePrefix2v6 = ipamtypes.IPAMPodCIDR("2001:db8:2:0:1234::/96")
-	bluePoolCIDR3v6       = v2alpha1.PoolCIDR("2001:db8:3::/64")
+	bluePoolCIDR3v6       = "2001:db8:3::/64"
 
 	bluePoolName       = "blue-pool"
 	blueLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "blue"}}
 	blueNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
 		podIPPoolNameLabel: bluePoolName,
 	}}
-	bluePool = &v2alpha1.CiliumPodIPPool{
+	bluePool = &v2.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   bluePoolName,
 			Labels: blueLabelSelector.MatchLabels,
 		},
-		Spec: v2alpha1.IPPoolSpec{
-			IPv4: &v2alpha1.IPv4PoolSpec{
-				CIDRs: []v2alpha1.PoolCIDR{
-					bluePoolCIDR1v4,
-					bluePoolCIDR2v4,
-					bluePoolCIDR3v4,
+		Spec: v2.IPPoolSpec{
+			IPv4: &v2.IPv4PoolSpec{
+				CIDRs: []v2.PoolCIDR{
+					{CIDR: bluePoolCIDR1v4},
+					{CIDR: bluePoolCIDR2v4},
+					{CIDR: bluePoolCIDR3v4},
 				},
 				MaskSize: 24,
 			},
-			IPv6: &v2alpha1.IPv6PoolSpec{
-				CIDRs: []v2alpha1.PoolCIDR{
-					bluePoolCIDR1v6,
-					bluePoolCIDR2v6,
-					bluePoolCIDR3v6,
+			IPv6: &v2.IPv6PoolSpec{
+				CIDRs: []v2.PoolCIDR{
+					{CIDR: bluePoolCIDR1v6},
+					{CIDR: bluePoolCIDR2v6},
+					{CIDR: bluePoolCIDR3v6},
 				},
 				MaskSize: 96,
 			},
@@ -236,7 +235,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 		name                     string
 		peerConfig               []*v2.CiliumBGPPeerConfig
 		advertisements           []*v2.CiliumBGPAdvertisement
-		pools                    []*v2alpha1.CiliumPodIPPool
+		pools                    []*v2.CiliumPodIPPool
 		preconfiguredPoolAFPaths map[resource.Key]map[types.Family]map[string]struct{}
 		preconfiguredRPs         ResourceRoutePolicyMap
 		testCiliumNode           *v2.CiliumNode
@@ -254,7 +253,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redLabelSelector),
 				blueAdvertWithSelector(&blueLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -340,7 +339,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redNameNSSelector),
 				blueAdvertWithSelector(&blueNameNSSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -426,7 +425,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvert,  // no selector matching red pool
 				blueAdvert, // no selector matching blue pool
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -480,7 +479,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redAdvertWithSelector(&redLabelSelector),
 				blueAdvertWithSelector(&blueLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 				bluePool,
 			},
@@ -524,7 +523,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 			advertisements: []*v2.CiliumBGPAdvertisement{
 				redAdvertWithSelector(&redLabelSelector),
 			},
-			pools: []*v2alpha1.CiliumPodIPPool{
+			pools: []*v2.CiliumPodIPPool{
 				redPool,
 			},
 			preconfiguredPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
@@ -610,7 +609,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 						PeerConfigStore: store.InitMockStore[*v2.CiliumBGPPeerConfig](tt.peerConfig),
 						AdvertStore:     store.InitMockStore[*v2.CiliumBGPAdvertisement](tt.advertisements),
 					}),
-				PoolStore: store.InitMockStore[*v2alpha1.CiliumPodIPPool](tt.pools),
+				PoolStore: store.InitMockStore[*v2.CiliumPodIPPool](tt.pools),
 			}
 			podIPPoolReconciler := NewPodIPPoolReconciler(params).Reconciler.(*PodIPPoolReconciler)
 

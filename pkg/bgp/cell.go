@@ -22,7 +22,6 @@ import (
 	bgp_option "github.com/cilium/cilium/pkg/bgp/option"
 	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -66,7 +65,7 @@ var Cell = cell.Module(
 		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool],
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
-		store.NewBGPCPResourceStore[*v2alpha1.CiliumPodIPPool],
+		store.NewBGPCPResourceStore[*v2.CiliumPodIPPool],
 
 		// BGP resource stores
 		store.NewBGPCPResourceStore[*v2.CiliumBGPPeerConfig],
@@ -119,7 +118,7 @@ func newLoadBalancerIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *op
 		), mp, resource.WithMetric("CiliumLoadBalancerIPPool"))
 }
 
-func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2alpha1.CiliumPodIPPool] {
+func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumPodIPPool] {
 	// Do not create this resource if:
 	//   1. The BGP Control Plane is disabled.
 	//   2. Kubernetes support is disabled and the clientset cannot be used.
@@ -128,9 +127,9 @@ func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *optio
 		return nil
 	}
 
-	return resource.New[*v2alpha1.CiliumPodIPPool](
-		lc, utils.ListerWatcherFromTyped[*v2alpha1.CiliumPodIPPoolList](
-			c.CiliumV2alpha1().CiliumPodIPPools(),
+	return resource.New[*v2.CiliumPodIPPool](
+		lc, utils.ListerWatcherFromTyped[*v2.CiliumPodIPPoolList](
+			c.CiliumV2().CiliumPodIPPools(),
 		), mp, resource.WithMetric("CiliumPodIPPool"))
 }
 

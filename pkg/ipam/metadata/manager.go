@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
 	consts "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -237,7 +237,7 @@ func (m *manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string
 }
 
 // handlePoolEvent handles individual CiliumPodIPPool events and maintains internal selector state.
-func (m *manager) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_v2alpha1.CiliumPodIPPool]) error {
+func (m *manager) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_v2.CiliumPodIPPool]) error {
 	defer func() {
 		event.Done(nil)
 	}()
@@ -259,7 +259,7 @@ func (m *manager) handlePoolEvent(ctx context.Context, event resource.Event[*cil
 	return nil
 }
 
-func (m *manager) compilePool(p *cilium_v2alpha1.CiliumPodIPPool) {
+func (m *manager) compilePool(p *cilium_v2.CiliumPodIPPool) {
 	// Compile selectors
 	var podSelector slim_labels.Selector
 	var namespaceSelector slim_labels.Selector

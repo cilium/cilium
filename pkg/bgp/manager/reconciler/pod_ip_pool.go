@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -40,13 +39,13 @@ type PodIPPoolReconcilerIn struct {
 
 	Logger     *slog.Logger
 	PeerAdvert *CiliumPeerAdvertisement
-	PoolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+	PoolStore  store.BGPCPResourceStore[*v2.CiliumPodIPPool]
 }
 
 type PodIPPoolReconciler struct {
 	logger     *slog.Logger
 	peerAdvert *CiliumPeerAdvertisement
-	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+	poolStore  store.BGPCPResourceStore[*v2.CiliumPodIPPool]
 	metadata   map[string]PodIPPoolReconcilerMetadata
 }
 
@@ -258,7 +257,7 @@ func (r *PodIPPoolReconciler) getDesiredPodIPPoolRoutePolicies(p ReconcileParams
 	return desiredPodIPPoolRoutePolicies, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicies(p ReconcileParams, pool *v2alpha1.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (RoutePolicyMap, error) {
+func (r *PodIPPoolReconciler) getPodIPPoolPolicies(p ReconcileParams, pool *v2.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (RoutePolicyMap, error) {
 	desiredRoutePolicies := make(RoutePolicyMap)
 
 	for peer, afAdverts := range desiredPeerAdverts {
@@ -306,7 +305,7 @@ func (r *PodIPPoolReconciler) populateLocalPools(localNode *v2.CiliumNode) map[s
 	return lp
 }
 
-func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (AFPathsMap, error) {
+func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2.CiliumPodIPPool, desiredPeerAdverts PeerAdvertisements, lp map[string][]netip.Prefix) (AFPathsMap, error) {
 	// Calculate desired paths per address family, collapsing per-peer advertisements into per-family advertisements.
 	desiredFamilyAdverts := make(AFPathsMap)
 
@@ -358,7 +357,7 @@ func (r *PodIPPoolReconciler) getDesiredAFPaths(pool *v2alpha1.CiliumPodIPPool, 
 	return desiredFamilyAdverts, nil
 }
 
-func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Family, pool *v2alpha1.CiliumPodIPPool, advert v2.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
+func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Family, pool *v2.CiliumPodIPPool, advert v2.BGPAdvertisement, lp map[string][]netip.Prefix) (*types.RoutePolicy, error) {
 	if peer.Address == "" {
 		return nil, nil
 	}
@@ -415,7 +414,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Famil
 	return CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 }
 
-func podIPPoolLabelSet(pool *v2alpha1.CiliumPodIPPool) labels.Labels {
+func podIPPoolLabelSet(pool *v2.CiliumPodIPPool) labels.Labels {
 	poolLabels := maps.Clone(pool.Labels)
 	if poolLabels == nil {
 		poolLabels = make(map[string]string)

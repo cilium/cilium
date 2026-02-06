@@ -19,8 +19,8 @@ import (
 func TestPoolAllocator(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t))
 	err := p.UpsertPool("default",
-		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
-		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}, {CIDR: "10.200.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}, {CIDR: "fc00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	defaultPool, exists := p.pools["default"]
@@ -261,7 +261,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `cannot allocate from non-existing pool: no-exist`)
 
 	err = p.UpsertPool("ipv4-only",
-		[]string{"10.0.0.0/16"}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/16"}}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -278,13 +278,13 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 	assert.ErrorContains(t, err, `pool empty`)
 
 	err = p.UpsertPool("ipv4-only-same-cidr",
-		[]string{"10.0.0.0/16"}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/16"}}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
 	err = p.UpsertPool("ipv6-only",
 		nil, 0,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	node.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
@@ -356,8 +356,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
 	err := p.UpsertPool("jupiter",
-		[]string{"10.100.0.0/16", "10.200.0.0/16"}, 24,
-		[]string{"fd00:100::/80", "fc00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}, {CIDR: "10.200.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}, {CIDR: "fc00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	_, exists = p.pools["jupiter"]
@@ -376,8 +376,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	_, exists = p.pools["mars"]
 	assert.False(t, exists)
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.20.0.0/16"}, 24,
-		[]string{"fe00:100::/80", "fb00:200::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.10.0.0/16"}, {CIDR: "10.20.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fe00:100::/80"}, {CIDR: "fb00:200::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists := p.pools["mars"]
@@ -391,8 +391,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv4 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.10.0.0/16", "10.30.0.0/16"}, 25,
-		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+		[]PoolCIDRWithReserved{{CIDR: "10.10.0.0/16"}, {CIDR: "10.30.0.0/16"}}, 25,
+		[]PoolCIDRWithReserved{{CIDR: "fa00:100::/80"}, {CIDR: "fb00:200::/80"}}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -406,8 +406,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// IPv6 mask size cannot be changed on existing pool
 	err = p.UpsertPool("mars",
-		[]string{"10.1.0.0/16", "10.3.0.0/16"}, 24,
-		[]string{"fa00:100::/80", "fb00:200::/80"}, 97,
+		[]PoolCIDRWithReserved{{CIDR: "10.1.0.0/16"}, {CIDR: "10.3.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fa00:100::/80"}, {CIDR: "fb00:200::/80"}}, 97,
 	)
 	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
@@ -421,8 +421,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	// Changes in pool CIDRs are reflected in internal bookkeeping after upsert
 	err = p.UpsertPool("mars",
-		[]string{"10.1.0.0/16", "10.3.0.0/16", "10.10.0.0/16"}, 24,
-		[]string{"fa00:100::/80", "fc00:200::/80", "fe00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.1.0.0/16"}, {CIDR: "10.3.0.0/16"}, {CIDR: "10.10.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fa00:100::/80"}, {CIDR: "fc00:200::/80"}, {CIDR: "fe00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	mars, exists = p.pools["mars"]
@@ -508,7 +508,7 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 
 	// Initial pool with two IPv4 CIDRs
 	err := p.UpsertPool("shrink-test",
-		[]string{"10.0.0.0/16", "10.1.0.0/16"}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/16"}, {CIDR: "10.1.0.0/16"}}, 24,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -559,8 +559,8 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -584,7 +584,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -679,8 +679,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// upsert new pool test-pool
 	err := p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 	testPool, exists := p.pools["test-pool"]
@@ -768,8 +768,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// insert again "test-pool"
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -809,7 +809,7 @@ func TestOrphanCIDRs(t *testing.T) {
 	// remove v4 CIDRs from "test-pool"
 	err = p.UpsertPool("test-pool",
 		nil, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -871,8 +871,8 @@ func TestOrphanCIDRs(t *testing.T) {
 
 	// update "test-pool" to restore v4 CIDRs
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -996,8 +996,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// upsert new pool "another-test-pool" that contains orphan CIDRs from "test-pool"
 	// this should fail, since we don't allow another pool to "steal" orphan CIDRs
 	err = p.UpsertPool("another-test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.ErrorContains(t, err, `unable to mark orphaned CIDR 10.100.0.0/24 still used by node node1 as allocated`)
 	assert.ErrorContains(t, err, `cannot reuse from non-existing pool: test-pool`)
@@ -1005,8 +1005,8 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 	// restore the original "test-pool"
 	// this should succeed, and it should unorphan the CIDRs
 	err = p.UpsertPool("test-pool",
-		[]string{"10.100.0.0/16"}, 24,
-		[]string{"fd00:100::/80"}, 96,
+		[]PoolCIDRWithReserved{{CIDR: "10.100.0.0/16"}}, 24,
+		[]PoolCIDRWithReserved{{CIDR: "fd00:100::/80"}}, 96,
 	)
 	assert.NoError(t, err)
 
@@ -1032,7 +1032,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	p := NewPoolAllocator(hivetest.Logger(t))
 
 	err := p.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28"}, 28,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/28"}, {CIDR: "10.0.0.16/28"}, {CIDR: "10.0.0.32/28"}, {CIDR: "10.0.0.48/28"}}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -1071,7 +1071,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	}, p.AllocatedPools(node.Name))
 
 	err = p.UpsertPool("test-pool",
-		[]string{"10.0.0.0/28", "10.0.0.16/28"}, 28,
+		[]PoolCIDRWithReserved{{CIDR: "10.0.0.0/28"}, {CIDR: "10.0.0.16/28"}}, 28,
 		nil, 0,
 	)
 	assert.NoError(t, err)
@@ -1080,4 +1080,147 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 	assert.True(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.16/28")))
 	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.32/28")))
 	assert.False(t, pool.hasCIDR(netip.MustParsePrefix("10.0.0.48/28")))
+}
+
+func TestParseIPRange(t *testing.T) {
+	tests := []struct {
+		name      string
+		rangeStr  string
+		wantStart netip.Addr
+		wantEnd   netip.Addr
+		wantErr   bool
+	}{
+		{
+			name:      "valid range",
+			rangeStr:  "10.0.0.1-10.0.0.99",
+			wantStart: netip.MustParseAddr("10.0.0.1"),
+			wantEnd:   netip.MustParseAddr("10.0.0.99"),
+			wantErr:   false,
+		},
+		{
+			name:      "valid range with spaces",
+			rangeStr:  "10.0.0.1 - 10.0.0.99",
+			wantStart: netip.MustParseAddr("10.0.0.1"),
+			wantEnd:   netip.MustParseAddr("10.0.0.99"),
+			wantErr:   false,
+		},
+		{
+			name:     "invalid format - no dash",
+			rangeStr: "10.0.0.1",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid format - multiple dashes",
+			rangeStr: "10.0.0.1-10.0.0.50-10.0.0.99",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid start IP",
+			rangeStr: "invalid-10.0.0.99",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid end IP",
+			rangeStr: "10.0.0.1-invalid",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end, err := parseIPRange(tt.rangeStr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantStart, start)
+				assert.Equal(t, tt.wantEnd, end)
+			}
+		})
+	}
+}
+
+func TestOccupyReservedRanges(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// Create a pool with a reserved range
+	err := p.UpsertPool("test-pool",
+		[]PoolCIDRWithReserved{
+			{CIDR: "10.0.0.0/24", ReservedRange: "10.0.0.0-10.0.0.9"},
+		}, 28,
+		nil, 0,
+	)
+	assert.NoError(t, err)
+
+	p.RestoreFinished()
+
+	// Create a node that requests allocation
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = p.AllocateToNode(node)
+	assert.NoError(t, err)
+
+	allocatedPools := p.AllocatedPools(node.Name)
+	assert.Len(t, allocatedPools, 1)
+	assert.Equal(t, "test-pool", allocatedPools[0].Pool)
+	assert.Equal(t, ipamTypes.IPAMPodCIDR("10.0.0.16/28"), allocatedPools[0].CIDRs[0])
+}
+
+func TestOccupyReservedRanges_EmptyReservedRange(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	err := p.UpsertPool("test-pool",
+		[]PoolCIDRWithReserved{
+			{CIDR: "10.0.0.0/24"},
+		}, 28,
+		nil, 0,
+	)
+	assert.NoError(t, err)
+
+	p.RestoreFinished()
+
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = p.AllocateToNode(node)
+	assert.NoError(t, err)
+
+	allocatedPools := p.AllocatedPools(node.Name)
+	assert.Len(t, allocatedPools, 1)
+	assert.Equal(t, ipamTypes.IPAMPodCIDR("10.0.0.0/28"), allocatedPools[0].CIDRs[0])
 }
