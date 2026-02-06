@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -501,6 +502,162 @@ func BenchmarkL34Decode(b *testing.B) {
 	}
 }
 
+func BenchmarkCookieL34Decode(b *testing.B) {
+	var flags uint8
+	flags |= monitorAPI.PolicyEgress
+	flags |= monitorAPI.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	pvn := monitor.PolicyVerdictNotify{
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+		SubType:     0,
+		Flags:       flags,
+		RemoteLabel: 5678,
+		Verdict:     0, // CTX_ACT_OK
+		Source:      12,
+		Cookie:      42,
+	}
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP("1.2.3.4"),
+		DstIP:    net.ParseIP("5.6.7.8"),
+		Protocol: layers.IPProtocolTCP,
+	}
+	tcp := layers.TCP{
+		DstPort: layers.TCPPort(443),
+	}
+	data, err := testutils.CreateL3L4Payload(pvn, &eth, &ip, &tcp)
+	require.NoError(b, err)
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	policyKey := policy.EgressKey().WithIdentity(5678).WithTCPPort(uint16(443))
+	ep := testutils.FakeEndpointInfo{
+		ID:           12,
+		Identity:     1234,
+		IPv4:         net.ParseIP("1.2.3.4"),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policyTypes.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+
+	const cookieLbls labels.LabelArrayListString = "[" +
+		"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy" + " " +
+		"k8s:io.cilium.k8s.policy.name=web-policy" + " " +
+		"k8s:io.cilium.k8s.policy.namespace=foo-namespace" + " " +
+		"k8s:io.cilium.k8s.policy.uid=1234-5678" +
+		"]"
+	cookieLogs := []string{"blee", "blah"}
+	endpointGetter := testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr("1.2.3.4") {
+				return &ep, true
+			}
+			return nil, false
+		},
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return &ep, true
+			}
+			return nil, false
+		},
+		OnGetCookie: func(c uint32) (*cookie.BakedCookie, bool) {
+			if c == 0 {
+				return nil, false
+			}
+			return cookie.NewBakedCookie(cookieLbls, cookieLogs), true
+		},
+	}
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+
+	parser, err := New(hivetest.Logger(b), &endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(b, err)
+
+	var f flowpb.Flow
+	for b.Loop() {
+		_ = parser.Decode(data, &f)
+	}
+}
+
+func BenchmarkNoCookieL34Decode(b *testing.B) {
+	var flags uint8
+	flags |= monitorAPI.PolicyEgress
+	flags |= monitorAPI.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	pvn := monitor.PolicyVerdictNotify{
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+		SubType:     0,
+		Flags:       flags,
+		RemoteLabel: 5678,
+		Verdict:     0, // CTX_ACT_OK
+		Source:      12,
+	}
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP("1.2.3.4"),
+		DstIP:    net.ParseIP("5.6.7.8"),
+		Protocol: layers.IPProtocolTCP,
+	}
+	tcp := layers.TCP{
+		DstPort: layers.TCPPort(443),
+	}
+	data, err := testutils.CreateL3L4Payload(pvn, &eth, &ip, &tcp)
+	require.NoError(b, err)
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	policyKey := policy.EgressKey().WithIdentity(5678).WithTCPPort(uint16(443))
+	ep := testutils.FakeEndpointInfo{
+		ID:           12,
+		Identity:     1234,
+		IPv4:         net.ParseIP("1.2.3.4"),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policyTypes.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+
+	endpointGetter := testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr("1.2.3.4") {
+				return &ep, true
+			}
+			return nil, false
+		},
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return &ep, true
+			}
+			return nil, false
+		},
+	}
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	identityCache := &testutils.NoopIdentityGetter
+
+	parser, err := New(hivetest.Logger(b), &endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, &testutils.NoopLinkGetter)
+	require.NoError(b, err)
+
+	var f flowpb.Flow
+	for b.Loop() {
+		_ = parser.Decode(data, &f)
+	}
+}
+
 func TestDecodeTraceNotify(t *testing.T) {
 	testCases := []struct {
 		Name       string
@@ -778,6 +935,18 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 			}
 			return nil, false
 		},
+		OnGetCookie: func(c uint32) (*cookie.BakedCookie, bool) {
+			if c == 0 {
+				return nil, false
+			}
+			lbls := "[" +
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy" + " " +
+				"k8s:io.cilium.k8s.policy.name=web-policy" + " " +
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace" + " " +
+				"k8s:io.cilium.k8s.policy.uid=1234-5678" +
+				"]"
+			return cookie.NewBakedCookie(labels.LabelArrayListString(lbls), []string{"blee", "blah"}), true
+		},
 	}
 
 	parser, err := New(hivetest.Logger(t), endpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
@@ -794,6 +963,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		RemoteLabel: remoteIdentity,
 		Verdict:     0, // CTX_ACT_OK
 		Source:      uint16(localID),
+		Cookie:      42,
 	}
 	eth := layers.Ethernet{
 		EthernetType: layers.EthernetTypeIPv4,
@@ -832,7 +1002,6 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
 				"k8s:io.cilium.k8s.policy.uid=1234-5678",
 			},
-			Revision: 1,
 		},
 	}
 	if diff := cmp.Diff(expectedPolicy, f.GetEgressAllowedBy(), protocmp.Transform()); diff != "" {

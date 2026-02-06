@@ -22,6 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+func (e mapStateEntry) withLabelsAndLogs(lbls labels.LabelArrayList, logs []string) mapStateEntry {
+	e.derivedFromRules = makeRuleOrigin(lbls, logs)
+	return e
+}
+
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
 	return e
@@ -834,6 +839,54 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(changes)
 		require.Truef(t, ms.Equal(&tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.ms))
+	}
+}
+
+func TestMapState_insertWithChangesWithLabelsAndLogs(t *testing.T) {
+	uu := map[string]struct {
+		k1, k2, k Key
+		entry     MapStateEntry
+		e1, e2    mapStateEntry
+	}{
+		"accumulate-allow": {
+			e1: NewMapStateEntry(AllowEntry).
+				withLabelsAndLogs(
+					labels.LabelArrayListFromString("[b=c]"),
+					[]string{"blee", "blah"},
+				),
+			e2: NewMapStateEntry(AllowEntry).
+				withLabelsAndLogs(
+					labels.LabelArrayListFromString("[a=b], [b=c]"),
+					[]string{"blee", "blah", "zorg"},
+				),
+			k1:    AnyIngressKey(),
+			k2:    ingressKey(0, 0, 0, 0),
+			k:     IngressKey(),
+			entry: AllowEntry,
+		},
+	}
+
+	for k, u := range uu {
+		t.Run(k, func(t *testing.T) {
+			changes := ChangeState{
+				Adds:    make(Keys),
+				Deletes: make(Keys),
+				old:     make(mapStateMap),
+			}
+			ms := testMapState(t, mapStateMap{
+				u.k1: u.e1,
+			})
+			want := testMapState(t, mapStateMap{
+				u.k2: u.e2,
+			})
+
+			entry := NewMapStateEntry(u.entry).
+				withLabelsAndLogs(labels.LabelArrayListFromString("[a=b]"), []string{"zorg"})
+			ms.insertWithChanges(types.Priority(0).ToPassPrecedence(), u.k, entry, denyRules, changes)
+			ms.validatePortProto(t)
+			require.Truef(t, ms.Equal(&want), "%s: MapState mismatch:\n%s", k, ms.diff(&want))
+
+		})
 	}
 }
 
