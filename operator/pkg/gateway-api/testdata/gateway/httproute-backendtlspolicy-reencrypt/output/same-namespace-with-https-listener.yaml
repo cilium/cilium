@@ -32,6 +32,32 @@ spec:
             kind: Secret
             name: tls-validity-checks-certificate
             namespace: gateway-conformance-infra
+    - name: https-with-wildcard-hostname
+      port: 443
+      hostname: "*.wildcard.org"
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-validity-checks-certificate
+            namespace: gateway-conformance-infra
+    - name: https-with-hostname-matching-wildcard
+      port: 443
+      hostname: "fourth-example.wildcard.org"
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-validity-checks-certificate
+            namespace: gateway-conformance-infra
 status:
   addresses:
     - type: IPAddress
@@ -89,6 +115,52 @@ status:
           status: "True"
           type: Programmed
       name: https-with-hostname
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+    - attachedRoutes: 0
+      conditions:
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: https-with-wildcard-hostname
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+    - attachedRoutes: 0
+      conditions:
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: https-with-hostname-matching-wildcard
       supportedKinds:
         - group: gateway.networking.k8s.io
           kind: HTTPRoute

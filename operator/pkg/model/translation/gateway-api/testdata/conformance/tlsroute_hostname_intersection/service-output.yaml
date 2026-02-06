@@ -1,0 +1,22 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    gateway.networking.k8s.io/gateway-name: gw-tlsroute-empty-hostname-x-4
+    io.cilium.gateway/owning-gateway: gw-tlsroute-empty-hostname-x-4
+  name: cilium-gateway-gw-tlsroute-empty-hostname-x-4
+  namespace: gateway-conformance-infra
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      controller: true
+      kind: Gateway
+      name: gw-tlsroute-empty-hostname-x-4
+      uid: ""
+spec:
+  ports:
+    - name: port-443
+      port: 443
+      protocol: TCP
+      targetPort: 0
+  type: LoadBalancer
+status:
+  loadBalancer: {}

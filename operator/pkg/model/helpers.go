@@ -60,6 +60,20 @@ func ComputeHosts(routeHostnames []string, listenerHostname *string, otherListen
 		case listenerHostnameVal == routeHostname:
 			hostnames = append(hostnames, routeHostname)
 
+		case strings.HasPrefix(listenerHostnameVal, allHosts) &&
+			strings.HasPrefix(routeHostname, allHosts) &&
+			wildcardHostnamesIntersect(routeHostname, listenerHostnameVal) &&
+			!checkHostNameIsolation(routeHostname, listenerHostnameVal, otherListenerHosts):
+
+			// In this case, we need to append whichever hostname has more dns labels.
+			splitRouteHostname := strings.Split(routeHostname, ".")
+			splitListenerHostname := strings.Split(*listenerHostname, ".")
+			if len(splitListenerHostname) > len(splitRouteHostname) {
+				hostnames = append(hostnames, *listenerHostname)
+			} else {
+				hostnames = append(hostnames, routeHostname)
+			}
+
 		// Listener has a wildcard hostname: check if the route hostname matches.
 		case strings.HasPrefix(listenerHostnameVal, allHosts):
 			if hostnameMatchesWildcardHostname(routeHostname, listenerHostnameVal) &&
@@ -75,8 +89,74 @@ func ComputeHosts(routeHostnames []string, listenerHostname *string, otherListen
 		}
 	}
 
-	slices.Sort(hostnames)
+	slices.SortStableFunc(hostnames, sortHostnamesByWildcards)
 	return hostnames
+}
+
+func sortHostnamesByWildcards(a, b string) int {
+	if a == b {
+		return 0
+	}
+
+	aOnlyWildcard := a == "*"
+	bOnlyWildcard := b == "*"
+
+	if aOnlyWildcard {
+		// A is "*", B is not.
+		// A is less than B (global wildcard greater than anything)
+		return 1
+	}
+
+	if bOnlyWildcard {
+		// B is "*", A is not.
+		// A is greater than B (global wildcard greater than anything)
+		return -1
+	}
+
+	//
+	aLabels := strings.Split(a, ".")
+	bLabels := strings.Split(b, ".")
+
+	if len(aLabels) < len(bLabels) {
+		// B is longer.
+		if bLabels[0] == "*" && aLabels[0] != "*" {
+			// If the first element of B is a wildcard, and A is not,
+			// then B is _less_ specific, so A is first.
+			return -1
+		}
+		return 1
+	}
+
+	if len(aLabels) > len(bLabels) {
+		// A is longer.
+		if aLabels[0] == "*" && bLabels[0] != "*" {
+			// If the first element of A is a wildcard, and B is not,
+			// then A is _less_ specific, so B is first.
+			return 1
+		}
+		return -1
+	}
+
+	// Trim the wildcards, then compare lengths again.
+	if aLabels[0] == "*" {
+		aLabels = slices.Delete(aLabels, 0, 1)
+	}
+
+	if bLabels[0] == "*" {
+		bLabels = slices.Delete(bLabels, 0, 1)
+	}
+
+	if len(aLabels) < len(bLabels) {
+		return 1
+	}
+
+	if len(aLabels) > len(bLabels) {
+		return -1
+	}
+
+	// Either both had wildcards did, or neither.
+	// In either case we lexically sort the strings.
+	return strings.Compare(a, b)
 }
 
 func checkHostNameIsolation(routeHostname string, listenerHostName string, excludedListenerHostnames []string) bool {
@@ -107,4 +187,68 @@ func hostnameMatchesWildcardHostname(hostname, wildcardHostname string) bool {
 
 	wildcardMatch := strings.TrimSuffix(hostname, strings.TrimPrefix(wildcardHostname, allHosts))
 	return len(wildcardMatch) > 0
+}
+
+func wildcardHostnamesIntersect(routeHostname, listenerHostname string) bool {
+	// Check for global wildcards.
+	matchAnyRoute := false
+	if routeHostname == "*" {
+		matchAnyRoute = true
+	}
+	matchAnyListener := false
+	if listenerHostname == "*" {
+		matchAnyListener = true
+	}
+
+	if matchAnyRoute || matchAnyListener {
+		return true
+	}
+
+	// Check wildcards are properly formed (that is, that they have at least one other label)
+	cutRouteHostname, found := strings.CutPrefix(routeHostname, "*.")
+	if !found {
+		// One of the hostnames is incorrectly formed, this shouldn't happen, but return false anyway
+		return false
+	}
+	if len(cutRouteHostname) == 0 {
+		// Malformed wildcard
+		return false
+	}
+	// Check wildcards are properly formed (that is, that they have at least one other label)
+	cutListenerHostname, found := strings.CutPrefix(listenerHostname, "*.")
+	if !found {
+		// One of the hostnames is incorrectly formed, this shouldn't happen, but return false anyway
+		return false
+	}
+	if len(cutListenerHostname) == 0 {
+		// Malformed wildcard
+		return false
+	}
+
+	// reversing the slices lets us traverse them right-to-left.
+	routeSlice := strings.Split(routeHostname, ".")
+	listenerSlice := strings.Split(listenerHostname, ".")
+	slices.Reverse(routeSlice)
+	slices.Reverse(listenerSlice)
+
+	if len(routeSlice) == 0 || len(listenerSlice) == 0 {
+		return false
+	}
+
+	maxLength := max(len(routeSlice), len(listenerSlice))
+
+	matchingLabels := 0
+
+	for i := 0; i < maxLength; i++ {
+		if routeSlice[i] == "*" || listenerSlice[i] == "*" {
+			break
+		}
+		if routeSlice[i] == listenerSlice[i] {
+			matchingLabels++
+		} else {
+			return false
+		}
+	}
+
+	return matchingLabels > 0
 }

@@ -1,0 +1,52 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gw-tlsroute-less-specific-wc-hostname-x-3
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "cilium"
+  listeners:
+    - name: listener-less-specific-wc-hostname
+      protocol: TLS
+      port: 443
+      hostname: "*.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough
+status:
+  conditions:
+    - type: "Accepted"
+      status: "True"
+      reason: "Accepted"
+      message: "Gateway successfully scheduled"
+    - type: "Programmed"
+      status: "False"
+      reason: "AddressNotAssigned"
+      message: "Gateway waiting for address"
+  listeners:
+    - attachedRoutes: 2
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:29:32Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: listener-less-specific-wc-hostname
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: TLSRoute
