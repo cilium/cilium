@@ -38,8 +38,8 @@
           port:
             port: 8080
       hostnames:
-        - bar.wildcard.io
         - foo.bar.wildcard.io
+        - bar.wildcard.io
         - foo.wildcard.io
       path_match:
         prefix: /s2
