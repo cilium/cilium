@@ -1,0 +1,190 @@
+#! --test-peering-ips=fd00:10:99:7::1,fd00:10:99:7::2,fd00:10:99:7::3,fd00:10:99:7::4,fd00:10:99:7::5,fd00:10:99:7::6
+
+# Start the hive
+hive start
+
+# Configure GoBGP servers
+gobgp/add-server server0 65000 fd00:10:99:7::1 1790 --router-id 10.99.7.1
+gobgp/add-server server1 65000 fd00:10:99:7::2 1790 --router-id 10.99.7.2
+gobgp/add-server server2 65001 fd00:10:99:7::3 1790 --router-id 10.99.7.3
+gobgp/add-server server3 65001 fd00:10:99:7::4 1790 --router-id 10.99.7.4
+
+# Configure peers on GoBGP
+gobgp/add-peer -s server0 fd00:10:99:7::5 65000
+gobgp/add-peer -s server1 fd00:10:99:7::5 65000
+gobgp/add-peer -s server2 fd00:10:99:7::6 65001
+gobgp/add-peer -s server3 fd00:10:99:7::6 65001
+
+# Advertise routes on GoBGP
+gobgp/advertise-route -s server0 10.0.0.0/24
+gobgp/advertise-route -s server1 10.0.0.0/24
+gobgp/advertise-route -s server2 10.0.1.0/24
+gobgp/advertise-route -s server3 10.0.2.0/24
+gobgp/advertise-route -s server0 fd00:10:0::/64
+gobgp/advertise-route -s server1 fd00:10:0::/64
+gobgp/advertise-route -s server2 fd00:10:1::/64
+gobgp/advertise-route -s server3 fd00:10:2::/64
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peerings to be established
+gobgp/wait-state -s server0 fd00:10:99:7::5 ESTABLISHED
+gobgp/wait-state -s server1 fd00:10:99:7::5 ESTABLISHED
+gobgp/wait-state -s server2 fd00:10:99:7::6 ESTABLISHED
+gobgp/wait-state -s server3 fd00:10:99:7::6 ESTABLISHED
+
+# Test peers
+bgp/peers --no-uptime -o bgp-peers.actual
+* cmp bgp-peers.expected bgp-peers.actual
+
+# Test IPv4 loc-rib
+bgp/routes loc ipv4 unicast --no-age -o bgp-routes-loc-ipv4-unicast.actual
+* cmp bgp-routes-loc-ipv4-unicast.expected bgp-routes-loc-ipv4-unicast.actual
+
+# Test IPv6 loc-rib
+bgp/routes loc ipv6 unicast --no-age -o bgp-routes-loc-ipv6-unicast.actual
+* cmp bgp-routes-loc-ipv6-unicast.expected bgp-routes-loc-ipv6-unicast.actual
+
+# Test IPv4 adj-rib-out
+bgp/routes out ipv4 unicast --no-age -o bgp-routes-out-ipv4-unicast.actual
+* cmp bgp-routes-out-ipv4-unicast.expected bgp-routes-out-ipv4-unicast.actual
+
+# Test IPv6 adj-rib-out
+bgp/routes out ipv6 unicast --no-age -o bgp-routes-out-ipv6-unicast.actual
+* cmp bgp-routes-out-ipv6-unicast.expected bgp-routes-out-ipv6-unicast.actual
+
+# Test IPv4 adj-rib-in
+bgp/routes in ipv4 unicast --no-age -o bgp-routes-in-ipv4-unicast.actual
+* cmp bgp-routes-in-ipv4-unicast.expected bgp-routes-in-ipv4-unicast.actual
+
+# Test IPv6 adj-rib-in
+bgp/routes in ipv6 unicast --no-age -o bgp-routes-in-ipv6-unicast.actual
+* cmp bgp-routes-in-ipv6-unicast.expected bgp-routes-in-ipv6-unicast.actual
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+    - fd00:10:244::/64
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - name: instance0
+    localASN: 65000
+    routerID: 10.99.7.5
+    peers:
+    - name: peer0
+      peerASN: 65000
+      peerAddress: fd00:10:99:7::1
+      localAddress: fd00:10:99:7::5
+      peerConfigRef:
+        name: test-peer-config
+    - name: peer1
+      peerASN: 65000
+      peerAddress: fd00:10:99:7::2
+      localAddress: fd00:10:99:7::5
+      peerConfigRef:
+        name: test-peer-config
+  - name: instance1
+    localASN: 65001
+    routerID: 10.99.7.6
+    peers:
+    - name: peer0
+      peerASN: 65001
+      peerAddress: fd00:10:99:7::3
+      localAddress: fd00:10:99:7::6
+      peerConfigRef:
+        name: test-peer-config
+    - name: peer1
+      peerASN: 65001
+      peerAddress: fd00:10:99:7::4
+      localAddress: fd00:10:99:7::6
+      peerConfigRef:
+        name: test-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: test-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: test-advertisement
+  labels:
+    advertise: bgp
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- bgp-peers.expected --
+Instance    Peer    Session State   Uptime   Family         Received   Accepted   Advertised
+instance0   peer0   established     -        ipv4-unicast   1          1          1
+                                             ipv6-unicast   1          1          1
+            peer1   established     -        ipv4-unicast   1          1          1
+                                             ipv6-unicast   1          1          1
+instance1   peer0   established     -        ipv4-unicast   1          1          1
+                                             ipv6-unicast   1          1          1
+            peer1   established     -        ipv4-unicast   1          1          1
+                                             ipv6-unicast   1          1          1
+-- bgp-routes-loc-ipv4-unicast.expected --
+Instance    Prefix          NextHop   Best   Age
+instance0   10.244.0.0/24   0.0.0.0   true   -
+instance1   10.244.0.0/24   0.0.0.0   true   -
+-- bgp-routes-loc-ipv6-unicast.expected --
+Instance    Prefix             NextHop   Best   Age
+instance0   fd00:10:244::/64   ::        true   -
+instance1   fd00:10:244::/64   ::        true   -
+-- bgp-routes-out-ipv4-unicast.expected --
+Instance    Peer    Prefix          NextHop           Age
+instance0   peer0   10.244.0.0/24   fd00:10:99:7::5   -
+            peer1   10.244.0.0/24   fd00:10:99:7::5   -
+instance1   peer0   10.244.0.0/24   fd00:10:99:7::6   -
+            peer1   10.244.0.0/24   fd00:10:99:7::6   -
+-- bgp-routes-out-ipv6-unicast.expected --
+Instance    Peer    Prefix             NextHop           Age
+instance0   peer0   fd00:10:244::/64   fd00:10:99:7::5   -
+            peer1   fd00:10:244::/64   fd00:10:99:7::5   -
+instance1   peer0   fd00:10:244::/64   fd00:10:99:7::6   -
+            peer1   fd00:10:244::/64   fd00:10:99:7::6   -
+-- bgp-routes-in-ipv4-unicast.expected --
+Instance    Peer    Prefix        NextHop           Age
+instance0   peer0   10.0.0.0/24   fd00:10:99:7::1   -
+            peer1   10.0.0.0/24   fd00:10:99:7::2   -
+instance1   peer0   10.0.1.0/24   fd00:10:99:7::3   -
+            peer1   10.0.2.0/24   fd00:10:99:7::4   -
+-- bgp-routes-in-ipv6-unicast.expected --
+Instance    Peer    Prefix           NextHop           Age
+instance0   peer0   fd00:10::/64     fd00:10:99:7::1   -
+            peer1   fd00:10::/64     fd00:10:99:7::2   -
+instance1   peer0   fd00:10:1::/64   fd00:10:99:7::3   -
+            peer1   fd00:10:2::/64   fd00:10:99:7::4   -
