@@ -42,6 +42,9 @@ const (
 // pure data struct rather than complex APIs. When this data changes a new
 // LocalNodeConfiguration instance is generated. Previous LocalNodeConfiguration
 // is never mutated in-place.
+//
+// The returned channel will be closed for recoverable errors once the state of
+// failing condition changes.
 func newLocalNodeConfig(
 	ctx context.Context,
 	config *option.DaemonConfig,
@@ -90,7 +93,9 @@ func newLocalNodeConfig(
 	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgAgent.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
-			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
+			// If the direct routing device is not present return the watch channel along with an error.
+			// Watch channel will be closed when there is an update to the DirectRouting device configuration.
+			return datapath.LocalNodeConfiguration{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
 		}
 
 		watchChans = append(watchChans, directRoutingDevWatch)
