@@ -93,9 +93,9 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 	if (verdict == 0)
 		verdict = (int)proxy_port;
 
-	if (EVENTS_MAP_RATE_LIMIT > 0) {
-		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
-		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+	if (CONFIG(events_map_rate_limit) > 0) {
+		settings.bucket_size = CONFIG(events_map_burst_limit);
+		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}

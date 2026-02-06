@@ -68,5 +68,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.EnableTproxy = option.Config.EnableBPFTProxy
 
+	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
+	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
+
 	return node
 }
