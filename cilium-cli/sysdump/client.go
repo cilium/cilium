@@ -68,6 +68,7 @@ type KubernetesClient interface {
 	ListCiliumNodeConfigs(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error)
 	ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumPodIPPoolList, error)
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
+	ListDeployment(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DeploymentList, error)
 	ListEvents(ctx context.Context, o metav1.ListOptions) (*corev1.EventList, error)
 	ListEndpoints(ctx context.Context, o metav1.ListOptions) (*corev1.EndpointsList, error)
 	ListEndpointSlices(ctx context.Context, o metav1.ListOptions) (*discoveryv1.EndpointSliceList, error)

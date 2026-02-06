@@ -512,6 +512,10 @@ func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetO
 	return nil, nil
 }
 
+func (c *fakeClient) ListDeployment(_ context.Context, _ string, _ metav1.ListOptions) (*appsv1.DeploymentList, error) {
+	return &appsv1.DeploymentList{}, nil
+}
+
 func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ corev1.PodLogOptions, _ io.Writer) error {
 	panic("implement me")
 }

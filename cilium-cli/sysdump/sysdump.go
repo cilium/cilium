@@ -1023,16 +1023,20 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble Relay deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
+				deployments, err := c.Client.ListDeployment(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.HubbleRelayLabelSelector,
+				})
 				if err != nil {
-					if k8sErrors.IsNotFound(err) {
-						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble is not enabled", hubbleRelayDeploymentName, c.Options.CiliumNamespace)
-						return nil
-					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
-				if err := c.WriteYAML(hubbleRelayDeploymentFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
+				if len(deployments.Items) == 0 {
+					c.logWarn("Deployment with label %q not found in namespace %q - this is expected if Hubble is not enabled", c.Options.HubbleRelayLabelSelector, c.Options.CiliumNamespace)
+					return nil
+				}
+				for i := range deployments.Items {
+					if err := c.WriteYAML(hubbleRelayDeploymentFileName, &deployments.Items[i]); err != nil {
+						return fmt.Errorf("failed to collect the Hubble Relay deployment %q: %w", deployments.Items[i].Name, err)
+					}
 				}
 				return nil
 			},
@@ -1041,16 +1045,20 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble UI deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleUIDeploymentName, metav1.GetOptions{})
+				deployments, err := c.Client.ListDeployment(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.HubbleUILabelSelector,
+				})
 				if err != nil {
-					if k8sErrors.IsNotFound(err) {
-						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble UI is not enabled", hubbleUIDeploymentName, c.Options.CiliumNamespace)
-						return nil
-					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
-				if err := c.WriteYAML(hubbleUIDeploymentFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
+				if len(deployments.Items) == 0 {
+					c.logWarn("Deployment with label %q not found in namespace %q - this is expected if Hubble UI is not enabled", c.Options.HubbleUILabelSelector, c.Options.CiliumNamespace)
+					return nil
+				}
+				for i := range deployments.Items {
+					if err := c.WriteYAML(hubbleUIDeploymentFileName, &deployments.Items[i]); err != nil {
+						return fmt.Errorf("failed to collect the Hubble UI deployment %q: %w", deployments.Items[i].Name, err)
+					}
 				}
 				return nil
 			},

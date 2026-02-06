@@ -33,8 +33,6 @@ const (
 	ciliumEnvoyConfigMapName           = defaults.EnvoyConfigMapName
 	hubbleRelayConfigMapName           = defaults.RelayConfigMapName
 	hubbleRelayContainerName           = defaults.RelayContainerName
-	hubbleRelayDeploymentName          = defaults.RelayDeploymentName
-	hubbleUIDeploymentName             = defaults.HubbleUIDeploymentName
 	hubbleGenerateCertsCronJob         = defaults.HubbleGenerateCertsCronJobName
 	spireServerContainerName           = "spire-server"
 	redacted                           = "XXXXXX"
