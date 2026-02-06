@@ -1,3 +1,4 @@
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -58,16 +59,19 @@ spec:
             name: tls-validity-checks-certificate
             namespace: gateway-conformance-infra
 status:
+  addresses:
+    - type: IPAddress
+      value: 172.18.255.197
   conditions:
-    - lastTransitionTime: "2025-07-01T14:29:32Z"
+    - lastTransitionTime: "2025-08-18T04:34:43Z"
       message: Gateway successfully scheduled
       reason: Accepted
       status: "True"
       type: Accepted
-    - lastTransitionTime: "2025-07-01T05:06:15Z"
-      message: Gateway waiting for address
-      reason: AddressNotAssigned
-      status: "False"
+    - lastTransitionTime: "2025-08-18T04:35:05Z"
+      message: Gateway Programmed
+      reason: Programmed
+      status: "True"
       type: Programmed
   listeners:
     - attachedRoutes: 1
@@ -82,10 +86,10 @@ status:
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
-          message: Address not ready yet
-          reason: Pending
-          status: "False"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
           type: Programmed
       name: https
       supportedKinds:
@@ -93,7 +97,7 @@ status:
           kind: HTTPRoute
         - group: gateway.networking.k8s.io
           kind: GRPCRoute
-    - attachedRoutes: 1
+    - attachedRoutes: 0
       conditions:
         - lastTransitionTime: "2025-07-01T05:06:15Z"
           message: Resolved Refs
@@ -105,10 +109,10 @@ status:
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
-          message: Address not ready yet
-          reason: Pending
-          status: "False"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
           type: Programmed
       name: https-with-hostname
       supportedKinds:
@@ -128,10 +132,10 @@ status:
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
-          message: Address not ready yet
-          reason: Pending
-          status: "False"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
           type: Programmed
       name: https-with-wildcard-hostname
       supportedKinds:
@@ -151,10 +155,10 @@ status:
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
-          message: Address not ready yet
-          reason: Pending
-          status: "False"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
           type: Programmed
       name: https-with-hostname-matching-wildcard
       supportedKinds:

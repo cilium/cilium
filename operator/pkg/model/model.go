@@ -544,15 +544,31 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
-// TLSBackendsToHostnames returns a map of TLS backends to hostnames.
-// This is only for TLS Passthrough listeners.
-func (m *Model) TLSBackendsToHostnames() map[string][]string {
-	res := make(map[string][]string)
+type TLSBackendDetails struct {
+	BackendKey string
+	Hostnames  []string
+}
+
+// TLSBackends returns a slice of TLSBackendDetails.
+// This is only used for TLS Passthrough listeners.
+//
+// The slice keeps the ordering of the model Listeners,
+// as the model Listeners are correctly sorted by hostname,
+// in decreasing order of specificity.
+//
+// This ensures that the rules that end up generated in the translation
+// process are in the correct most-specific to least-specific order.
+func (m *Model) TLSBackends() []TLSBackendDetails {
+	res := []TLSBackendDetails{}
+
 	for _, h := range m.TLSPassthrough {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
 				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				res[key] = append(res[key], route.Hostnames...)
+				res = append(res, TLSBackendDetails{
+					BackendKey: key,
+					Hostnames:  route.Hostnames,
+				})
 			}
 		}
 	}
