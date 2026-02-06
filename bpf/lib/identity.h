@@ -7,6 +7,22 @@
 
 #include "dbg.h"
 #include "clustermesh.h"
+
+/**
+ * Minimal numeric identity value for a local (CIDR) identity.
+ *
+ * It must be in sync with the constant identity.MinLocalIdentity
+ * defined in the numericidentity.go file.
+ */
+#define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
+/**
+ * Maximal numeric identity value for a local (CIDR) identity.
+ *
+ * It must be in sync with the constant identity.MaxLocalIdentity
+ * defined in the numericidentity.go file.
+ */
+#define CIDR_IDENTITY_RANGE_END ((1 << 24) + (1 << 16) - 1)
+
 /**
  * get_identity - returns source identity from the mark field
  *
