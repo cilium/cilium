@@ -59,6 +59,10 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/httproute_request_redirect_with_multi_httplisteners"},
 		{name: "conformance/httproute_backend_protocol_h_2_c_app_protocol"},
 
+		// TLSRoute related tests
+
+		{name: "conformance/tlsroute_hostname_intersection"},
+
 		// GAMMA related tests
 		{name: "conformance/gamma/mesh_frontend"},
 		{name: "conformance/gamma/mesh_ports"},
