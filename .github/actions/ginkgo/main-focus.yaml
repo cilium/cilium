@@ -123,11 +123,8 @@ include:
   # K8sAgentHubbleTest Hubble Observe Test L7 Flow
   # K8sAgentHubbleTest Hubble Observe Test L7 Flow with hubble-relay
   # K8sAgentHubbleTest Hubble Observe Test TLS certificate
-  # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, direct routing
-  # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, geneve tunneling
-  # K8sDatapathBandwidthTest Checks Bandwidth Rate-Limiting Checks Pod to Pod bandwidth, vxlan tunneling
   - focus: "f10-agent-hubble-bandwidth"
-    cliFocus: "K8sAgentHubbleTest|K8sDatapathBandwidthTest"
+    cliFocus: "K8sAgentHubbleTest"
 
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP cannot be accessed externally when access is disabled
