@@ -33,6 +33,9 @@ db/cmp desired-routes expected-desired-3.table
 route/list --table=2000
 * cmp stdout expected-routes.txt
 
+# Stop hive properly
+hive/stop
+
 -- eth0-200-101.yaml --
 table: 2000
 prefix: "10.2.3.4/32"

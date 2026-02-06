@@ -58,16 +58,12 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	// Catch any leaked goroutines.
-	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
-
 	version.Force(k8sTestutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{

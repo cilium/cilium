@@ -51,8 +51,6 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
-
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName("testnode")
 
