@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/cilium/hive/script"
 	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/osrg/gobgp/v3/pkg/apiutil"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/spf13/pflag"
 
@@ -93,12 +96,13 @@ func (ctx *GoBGPCmdContext) Cleanup() {
 
 func GoBGPScriptCmds(ctx *GoBGPCmdContext) map[string]script.Cmd {
 	return map[string]script.Cmd{
-		"gobgp/add-server":    GoBGPAddServerCmd(ctx),
-		"gobgp/delete-server": GoBGPDeleteServerCmd(ctx),
-		"gobgp/add-peer":      GoBGPAddPeerCmd(ctx),
-		"gobgp/wait-state":    GoBGPWaitStateCmd(ctx),
-		"gobgp/peers":         GoBGPPeersCmd(ctx),
-		"gobgp/routes":        GoBGPRoutesCmd(ctx),
+		"gobgp/add-server":      GoBGPAddServerCmd(ctx),
+		"gobgp/delete-server":   GoBGPDeleteServerCmd(ctx),
+		"gobgp/add-peer":        GoBGPAddPeerCmd(ctx),
+		"gobgp/wait-state":      GoBGPWaitStateCmd(ctx),
+		"gobgp/peers":           GoBGPPeersCmd(ctx),
+		"gobgp/routes":          GoBGPRoutesCmd(ctx),
+		"gobgp/advertise-route": GoBGPAdvertiseRouteCmd(ctx),
 	}
 }
 
@@ -458,6 +462,62 @@ func GoBGPRoutesCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 				}
 				tw.Flush()
 				return buf.String(), "", err
+			}, nil
+		},
+	)
+}
+
+func GoBGPAdvertiseRouteCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Advertise route on the GoBGP server",
+			Args:    "<prefix>",
+			Flags: func(fs *pflag.FlagSet) {
+				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
+			},
+		},
+		func(s *script.State, args ...string) (waitFunc script.WaitFunc, err error) {
+			if len(args) < 1 {
+				return nil, fmt.Errorf("invalid command format, should be: 'gobgp/advertise-route <prefix>'")
+			}
+
+			prefix, err := netip.ParsePrefix(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("could not parse prefix: %w", err)
+			}
+
+			gobgpServer, err := getGoBGPServer(s, cmdCtx)
+			if err != nil {
+				return nil, err
+			}
+
+			return func(s *script.State) (stdout, stderr string, err error) {
+				originAttr := bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP)
+
+				var path *gobgpapi.Path
+				switch {
+				case prefix.Addr().Is4():
+					nlri := bgp.NewIPAddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
+					nextHopAttr := bgp.NewPathAttributeNextHop("0.0.0.0")
+					path, err = apiutil.NewPath(nlri, false, []bgp.PathAttributeInterface{originAttr, nextHopAttr}, time.Now())
+					if err != nil {
+						return "", "", fmt.Errorf("could not create path: %w", err)
+					}
+				case prefix.Addr().Is6():
+					nlri := bgp.NewIPv6AddrPrefix(uint8(prefix.Bits()), prefix.Addr().String())
+					mpReachNLRIAttr := bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{nlri})
+					path, err = apiutil.NewPath(nlri, false, []bgp.PathAttributeInterface{originAttr, mpReachNLRIAttr}, time.Now())
+					if err != nil {
+						return "", "", fmt.Errorf("could not create path: %w", err)
+					}
+				}
+
+				_, err = gobgpServer.AddPath(s.Context(), &gobgpapi.AddPathRequest{
+					TableType: gobgpapi.TableType_GLOBAL,
+					Path:      path,
+				})
+
+				return "", "", err
 			}, nil
 		},
 	)
