@@ -27,7 +27,9 @@ type WaitGroup struct {
 	pendingCompletions []*Completion
 }
 
-// NewWaitGroup returns a new WaitGroup using the given context.
+// NewWaitGroup returns a new WaitGroup using the given context. It also returns a cancel function
+// to cancel the new context created for this waitGroup. It's important to always close it to avoid
+// leaking resources
 func NewWaitGroup(ctx context.Context) (*WaitGroup, context.CancelFunc) {
 	ctx2, cancel := context.WithCancel(ctx)
 	return &WaitGroup{ctx: ctx2, cancel: cancel}, cancel
@@ -78,7 +80,7 @@ func updateError(old, new error) error {
 }
 
 // Wait blocks until all completions added by calling AddCompletion are
-// completed, or the context is canceled, whichever happens first.
+// completed, or the context or waitGroup is canceled, whichever happens first.
 // Returns the context's error if it is cancelled, nil otherwise.
 // No callbacks of the completions in this wait group will be called after
 // this returns.
