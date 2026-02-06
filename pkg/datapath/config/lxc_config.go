@@ -31,6 +31,8 @@ type BPFLXC struct {
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Enable trace notifications.
+	EnableTraceNotify bool `config:"enable_trace_notify"`
 	// The endpoint's security ID.
 	EndpointID uint16 `config:"endpoint_id"`
 	// The endpoint's IPv4 address.
