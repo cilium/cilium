@@ -1138,6 +1138,11 @@ encryption:
     # -- Maximum duration of the IPsec key rotation. The previous key will be
     # removed after that delay.
     keyRotationDuration: "5m"
+    # -- Enable random jitter before loading new IPsec keys to prevent
+    # thundering herd on the K8s API server during key rotations in large
+    # clusters. When enabled, jitter is randomly selected from
+    # [0, keyRotationDuration/2].
+    keyRotationJitter: false
     # -- Enable IPsec encrypted overlay
     encryptedOverlay: false
   wireguard:

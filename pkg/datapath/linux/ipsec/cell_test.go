@@ -162,6 +162,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 								},
 								EnableIPsecKeyWatcher:                    true,
 								EnableIPsecXfrmStateCaching:              true,
+								EnableIPsecKeyRotationJitter:             true,
 								UseCiliumInternalIPForIPsec:              false,
 								DNSProxyInsecureSkipTransparentModeCheck: false,
 								IPsecKeyFile:                             keyFile,
@@ -327,4 +328,50 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			return nil
 		})
 	})
+}
+
+func TestMaxKeyRotationJitter(t *testing.T) {
+	tests := []struct {
+		name             string
+		rotationDuration time.Duration
+		jitterEnabled    bool
+		expectedJitter   time.Duration
+	}{
+		{
+			name:             "jitter is half of rotation duration when enabled",
+			rotationDuration: 10 * time.Second,
+			jitterEnabled:    true,
+			expectedJitter:   5 * time.Second,
+		},
+		{
+			name:             "jitter with default rotation duration",
+			rotationDuration: 5 * time.Minute,
+			jitterEnabled:    true,
+			expectedJitter:   2*time.Minute + 30*time.Second,
+		},
+		{
+			name:             "jitter returns 0 when disabled",
+			rotationDuration: 5 * time.Minute,
+			jitterEnabled:    false,
+			expectedJitter:   0,
+		},
+		{
+			name:             "jitter returns 0 when rotation duration is 0",
+			rotationDuration: 0,
+			jitterEnabled:    true,
+			expectedJitter:   0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			config := Config{
+				UserConfig: UserConfig{
+					IPsecKeyRotationDuration:     tc.rotationDuration,
+					EnableIPsecKeyRotationJitter: tc.jitterEnabled,
+				},
+			}
+			assert.Equal(t, tc.expectedJitter, config.MaxKeyRotationJitter())
+		})
+	}
 }

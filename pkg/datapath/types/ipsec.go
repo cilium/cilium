@@ -84,6 +84,10 @@ const (
 	// previous IPsec key from the node.
 	IPsecKeyRotationDuration = "ipsec-key-rotation-duration"
 
+	// EnableIPsecKeyRotationJitter enables random jitter before loading new
+	// IPsec keys to prevent thundering herd on the K8s API server.
+	EnableIPsecKeyRotationJitter = "enable-ipsec-key-rotation-jitter"
+
 	// Enable watcher for IPsec key. If disabled, a restart of the agent will
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = "enable-ipsec-key-watcher"
