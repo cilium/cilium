@@ -22,7 +22,7 @@ permissions:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.221.0
+  eksctl_version: v0.222.0
 
 jobs:
   generate-cleanup-matrix:
@@ -83,7 +83,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -254,7 +254,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -332,7 +332,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -518,7 +518,7 @@ jobs:
       matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
