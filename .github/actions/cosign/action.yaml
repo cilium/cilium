@@ -54,7 +54,7 @@ runs:
 
     - name: Generate SBOM
       if: ${{ inputs.generate_sbom == 'true' }}
-      uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+      uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
       with:
         artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json

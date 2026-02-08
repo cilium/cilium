@@ -319,7 +319,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ matrix.name != 'cilium-cli' }}
-        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -327,7 +327,7 @@ jobs:
 
       - name: Generate SBOM (race)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -335,7 +335,7 @@ jobs:
 
       - name: Generate SBOM (unstripped)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json

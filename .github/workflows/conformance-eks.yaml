@@ -114,7 +114,7 @@ env:
   test_concurrency: ${{ inputs.test-concurrency || 3 }}
   clusterNamePrefix: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.221.0
+  eksctl_version: v0.222.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.35.0
 
@@ -193,7 +193,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -376,7 +376,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}

@@ -65,11 +65,11 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.6
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.221.0
+  eksctl_version: v0.222.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.35.0
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 554.0.0
+  gcloud_version: 555.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -274,7 +274,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -527,7 +527,7 @@ jobs:
       # Refresh credentials
       - name: Set up AWS CLI credentials
         if:  ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
