@@ -1331,6 +1331,9 @@ func addVxlanAttrs(vxlan *Vxlan, linkInfo *nl.RtAttr) {
 	if vxlan.FlowBased {
 		data.AddRtAttr(nl.IFLA_VXLAN_FLOWBASED, boolAttr(vxlan.FlowBased))
 	}
+	if vxlan.VniFilter {
+		data.AddRtAttr(nl.IFLA_VXLAN_VNIFILTER, boolAttr(vxlan.VniFilter))
+	}
 	if vxlan.NoAge {
 		data.AddRtAttr(nl.IFLA_VXLAN_AGEING, nl.Uint32Attr(0))
 	} else if vxlan.Age > 0 {
@@ -3087,6 +3090,8 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 			vxlan.GBP = true
 		case nl.IFLA_VXLAN_FLOWBASED:
 			vxlan.FlowBased = int8(datum.Value[0]) != 0
+		case nl.IFLA_VXLAN_VNIFILTER:
+			vxlan.VniFilter = int8(datum.Value[0]) != 0
 		case nl.IFLA_VXLAN_AGEING:
 			vxlan.Age = int(native.Uint32(datum.Value[0:4]))
 			vxlan.NoAge = vxlan.Age == 0

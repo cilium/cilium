@@ -197,7 +197,7 @@ func (filter *Flower) encode(parent *nl.RtAttr) error {
 	if filter.SkipSw {
 		flags |= nl.TCA_CLS_FLAGS_SKIP_SW
 	}
-	parent.AddRtAttr(nl.TCA_FLOWER_FLAGS, htonl(flags))
+	parent.AddRtAttr(nl.TCA_FLOWER_FLAGS, nl.Uint32Attr(flags))
 
 	actionsAttr := parent.AddRtAttr(nl.TCA_FLOWER_ACT, nil)
 	if err := EncodeActions(actionsAttr, filter.Actions); err != nil {

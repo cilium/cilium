@@ -505,6 +505,7 @@ type Vxlan struct {
 	NoAge          bool
 	GBP            bool
 	FlowBased      bool
+	VniFilter      bool
 	Age            int
 	Limit          int
 	Port           int
