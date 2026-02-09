@@ -1405,6 +1405,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			if (CONFIG(policy_deny_response_enabled) &&
 			    (verdict == DROP_POLICY || verdict == DROP_POLICY_DENY)) {
 				ctx_store_meta(ctx, CB_VERDICT, verdict);
+				ctx_store_meta(ctx, CB_POLICY_DENY_DIR, METRIC_EGRESS);
+				ctx_store_meta(ctx, CB_POLICY_DENY_SRC_ID, SECLABEL_IPV4);
+#if defined(TUNNEL_MODE)
+				ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
+#endif
 				return tail_call_internal(ctx, CILIUM_CALL_IPV4_POLICY_DENIED,
 							ext_err);
 			}
@@ -2134,8 +2139,23 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 						   verdict, *proxy_port, policy_match_type, audited,
 						   auth_type, cookie);
 
-		if (verdict != CTX_ACT_OK)
+		if (verdict != CTX_ACT_OK) {
+			/* If policy_deny_response_enabled is set and the packet has been denied,
+			 * respond with an ICMPv4 "Destination Unreachable"
+			 */
+			if (CONFIG(policy_deny_response_enabled) &&
+			    (verdict == DROP_POLICY || verdict == DROP_POLICY_DENY)) {
+				ctx_store_meta(ctx, CB_VERDICT, verdict);
+				ctx_store_meta(ctx, CB_POLICY_DENY_DIR, METRIC_INGRESS);
+				ctx_store_meta(ctx, CB_POLICY_DENY_SRC_ID, src_label);
+#if defined(TUNNEL_MODE)
+				ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
+#endif
+				return tail_call_internal(ctx, CILIUM_CALL_IPV4_POLICY_DENIED,
+							ext_err);
+			}
 			return verdict;
+		}
 
 		break;
 	}
@@ -2541,21 +2561,74 @@ out:
 __declare_tail(CILIUM_CALL_IPV4_POLICY_DENIED)
 int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 {
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct ct_state ct_state_local = {};
+	#if defined(TUNNEL_MODE)
+    ct_state_local.from_tunnel = ctx_load_and_clear_meta(ctx, CB_FROM_TUNNEL) ? 1 : 0;
+    #endif
+	const struct remote_endpoint_info *info;
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_POLICY,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	int ret;
+	__s8 ext_err = 0;
 	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
+	__u8 metric_dir = (__u8)ctx_load_meta(ctx, CB_POLICY_DENY_DIR);
+	__u32 src_label = metric_dir == METRIC_EGRESS ?
+			  SECLABEL_IPV4 : ctx_load_meta(ctx, CB_POLICY_DENY_SRC_ID);
+	__u32 dst_sec_identity = WORLD_IPV4_ID;
 
 	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PKT_FILTERED);
 	if (!ret) {
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
-		ret = redirect_self(ctx);
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
 
-		if (!IS_ERR(ret)) {
-			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, __DROP_REASON(verdict));
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (info)
+			dst_sec_identity = info->sec_identity;
+
+		/* Forward the ICMP packet to its destination following the same
+		 * path as regular egress traffic from the pod would take.
+		 */
+		ret = ipv4_forward_to_destination(ctx, ip4, NULL, dst_sec_identity,
+						  &ct_state_local, CT_NEW, info, false, false,
+						  false, 0, 0, &trace, &ext_err);
+		if (ret == CTX_ACT_REDIRECT) {
+			update_metrics(ctx_full_len(ctx), metric_dir,
+				       __DROP_REASON(verdict));
 			return ret;
 		}
+
+#if !defined(ENABLE_HOST_ROUTING) && !defined(ENABLE_ROUTING)
+		/* If the shared helper returned CTX_ACT_OK (pass to stack) but
+		 * routing is disabled, we need to redirect the ICMP response
+		 * back out the same interface it came from instead.
+		 */
+		if (ret == CTX_ACT_OK) {
+			ret = redirect_self(ctx);
+			if (!IS_ERR(ret)) {
+				update_metrics(ctx_full_len(ctx), metric_dir,
+					       __DROP_REASON(verdict));
+				return ret;
+			}
+		}
+#else
+		if (ret == CTX_ACT_OK) {
+			update_metrics(ctx_full_len(ctx), metric_dir,
+				       __DROP_REASON(verdict));
+			return ret;
+		}
+#endif
 	}
 
-	return send_drop_notify_error(ctx, SECLABEL_IPV4, ret, METRIC_EGRESS);
+drop_err:
+	return send_drop_notify_error(ctx, src_label, ret, metric_dir);
 }
 #endif /* ENABLE_IPV4 */
 
