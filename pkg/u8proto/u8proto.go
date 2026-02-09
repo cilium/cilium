@@ -71,3 +71,7 @@ func FromNumber(proto uint8) (U8proto, error) {
 	}
 	return U8proto(proto), nil
 }
+
+func (p U8proto) IsICMP() bool {
+	return p == ICMP || p == ICMPv6
+}
