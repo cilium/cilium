@@ -112,9 +112,10 @@ func TestResource_WithFakeClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Create(
+	curr, err := fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Create(
 		ctx,
 		node.DeepCopy(), metav1.CreateOptions{})
+	require.NoError(t, err, "Nodes.Create")
 
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
@@ -158,11 +159,12 @@ func TestResource_WithFakeClient(t *testing.T) {
 
 	// Update the node and check the update event
 	node.Status.Phase = "update1"
-	node.ObjectMeta.ResourceVersion = "1"
+	node.ObjectMeta.ResourceVersion = curr.ResourceVersion
 
-	fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
+	curr, err = fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
 		ctx,
 		node.DeepCopy(), metav1.UpdateOptions{})
+	require.NoError(t, err, "Nodes.Update")
 
 	ev, ok = <-events
 	require.True(t, ok, "events channel closed unexpectedly")
@@ -193,10 +195,12 @@ func TestResource_WithFakeClient(t *testing.T) {
 		for i := 2; i <= 10; i++ {
 			node.Status.Phase = corev1.NodePhase(fmt.Sprintf("update%d", i))
 			node.ObjectMeta.Generation = int64(i)
+			node.ObjectMeta.ResourceVersion = curr.ResourceVersion
 
-			fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
+			curr, err = fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
 				ctx,
 				node.DeepCopy(), metav1.UpdateOptions{})
+			require.NoError(t, err, "Nodes.Update")
 			ev2, ok := <-events2
 			require.True(t, ok, "events channel closed unexpectedly")
 			require.Equal(t, resource.Upsert, ev2.Kind)
