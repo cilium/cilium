@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	"encoding/json"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -16,7 +17,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumpodippool",path="ciliumpodippools",scope="Cluster",shortName={cpip}
 // +kubebuilder:object:root=true
-// +kubebuilder:deprecatedversion:warning="cilium.io/v2alpha1 CiliumPodIPPool is deprecated; use cilium.io/v2 CiliumPodIPPool"
+// +kubebuilder:storageversion
 
 // CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM
 // mode).
@@ -73,7 +74,7 @@ type IPPoolSpec struct {
 type IPv4PoolSpec struct {
 	// CIDRs is a list of IPv4 CIDRs that are part of the pool.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
 	CIDRs []PoolCIDR `json:"cidrs"`
 
@@ -89,7 +90,7 @@ type IPv4PoolSpec struct {
 type IPv6PoolSpec struct {
 	// CIDRs is a list of IPv6 CIDRs that are part of the pool.
 	//
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MinItems=1
 	CIDRs []PoolCIDR `json:"cidrs"`
 
@@ -102,12 +103,21 @@ type IPv6PoolSpec struct {
 	MaskSize uint8 `json:"maskSize"`
 }
 
-// PoolCIDR is an IP pool CIDR.
-//
-// +kubebuilder:validation:Format=cidr
-type PoolCIDR string
+// PoolCIDR is the new struct for individual CIDR configuration
+type PoolCIDR struct {
+	// CIDR is the network CIDR
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	CIDR string `json:"cidr"`
 
-// It supports both string format (v2alpha1) and object format (v2) for backward compatibility.
+	// ReservedRange is the range of IPs to reserve
+	//
+	// +kubebuilder:validation:Optional
+	ReservedRange string `json:"reservedRange,omitempty"`
+}
+
+// It supports both object format (v2) and string format (v2alpha1) for backward compatibility.
 func (p *PoolCIDR) UnmarshalJSON(data []byte) error {
 	// v2alpha1 format
 	if len(data) > 0 && data[0] == '"' {
@@ -115,18 +125,23 @@ func (p *PoolCIDR) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return err
 		}
-		*p = PoolCIDR(s)
+		if s == "" {
+			return fmt.Errorf("CIDR cannot be empty")
+		}
+		p.CIDR = s
 		return nil
 	}
 
 	// v2 format
-	var obj struct {
-		CIDR string `json:"cidr"`
-	}
+	type poolCIDRAlias PoolCIDR
+	var obj poolCIDRAlias
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return err
 	}
-	*p = PoolCIDR(obj.CIDR)
+	if obj.CIDR == "" {
+		return fmt.Errorf("CIDR cannot be empty")
+	}
+	*p = PoolCIDR(obj)
 	return nil
 }
 

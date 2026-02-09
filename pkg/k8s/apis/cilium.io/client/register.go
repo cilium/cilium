@@ -260,11 +260,11 @@ var (
 	//go:embed crds/v2/ciliumcidrgroups.yaml
 	crdsv2CiliumCIDRGroups []byte
 
+	//go:embed crds/v2/ciliumpodippools.yaml
+	crdsv2CiliumPodIPPools []byte
+
 	//go:embed crds/v2alpha1/ciliuml2announcementpolicies.yaml
 	crdsv2Alpha1CiliumL2AnnouncementPolicies []byte
-
-	//go:embed crds/v2alpha1/ciliumpodippools.yaml
-	crdsv2Alpha1CiliumPodIPPools []byte
 
 	//go:embed crds/v2alpha1/ciliumgatewayclassconfigs.yaml
 	crdsv2Alpha1CiliumGatewayClassConfigs []byte
@@ -321,7 +321,7 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	case L2AnnouncementCRDName:
 		crdBytes = crdsv2Alpha1CiliumL2AnnouncementPolicies
 	case CPIPCRDName:
-		crdBytes = crdsv2Alpha1CiliumPodIPPools
+		crdBytes = crdsv2CiliumPodIPPools
 	case CGCCCRDName:
 		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	default:
