@@ -599,8 +599,32 @@ func (l4 *L4Filter) GetIngress() bool {
 }
 
 // GetPort returns the port at which the L4Filter applies as a uint16.
+// May return 0 if this is a L3-only match **or** there is a named port.
+//
+// Use ResolvePort to handle the named-port case as well.
 func (l4 *L4Filter) GetPort() uint16 {
 	return l4.Port
+}
+
+// GetEndPort returns the end port of the filter's port range.
+// Returns 0 if this is a L3-only match or there is a named port.
+func (l4 *L4Filter) GetEndPort() uint16 {
+	if l4.EndPort == 0 {
+		return l4.GetPort()
+	}
+	return l4.EndPort
+}
+
+type LookupNamedPortFunc func(ingress bool, name string, proto u8proto.U8proto) uint16
+
+// ResolvePort returns either the explicit numeric port or the
+// named port from the supplied owner. Returns the port number, and a boolean
+// set to false if a desired
+func (l4 *L4Filter) ResolvePort(lnp LookupNamedPortFunc) uint16 {
+	if l4.U8Proto != u8proto.ANY && l4.Port == 0 && l4.PortName != "" {
+		return lnp(l4.Ingress, l4.PortName, l4.U8Proto)
+	}
+	return l4.GetPort()
 }
 
 // Equals returns true if two L4Filters are equal
@@ -962,7 +986,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 	l4 := &L4Filter{
 		Tier:                tier,
 		Port:                uint16(p),            // 0 for L3-only rules and named ports
-		EndPort:             uint16(port.EndPort), // 0 for a single port, >= 'Port' for a range
+		EndPort:             uint16(port.EndPort), // 0 for a single port, > 'Port' for a range
 		PortName:            portName,             // non-"" for named ports
 		Protocol:            port.Protocol,
 		U8Proto:             u8p,
@@ -1595,7 +1619,6 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
-	port := uint16(l4.Port)
 	proto := l4.U8Proto
 	derivedFrom := l4.RuleOrigin[cs]
 
@@ -1626,6 +1649,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	defer l4Policy.mutex.RUnlock()
 
 	for epPolicy := range l4Policy.users {
+		port := l4.Port
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
 			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)

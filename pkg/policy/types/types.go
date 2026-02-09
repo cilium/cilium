@@ -168,9 +168,13 @@ func (k LPMKey) IsEgress() bool {
 	return k.TrafficDirection() == trafficdirection.Egress
 }
 
+func (k LPMKey) StartPort() uint16 {
+	return k.DestPort
+}
+
 // EndPort returns the end-port of the Key based on the Mask.
 func (k LPMKey) EndPort() uint16 {
-	return k.DestPort + uint16(0xffff)>>k.PortPrefixLen()
+	return k.StartPort() + uint16(0xffff)>>k.PortPrefixLen()
 }
 
 // Covers returns true if 'k' matches all traffic that 'c' matcches.
