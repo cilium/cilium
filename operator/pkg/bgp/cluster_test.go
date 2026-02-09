@@ -1606,12 +1606,14 @@ func TestRouterIDAllocation(t *testing.T) {
 }
 
 func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *v2.CiliumNode) {
-	_, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
+	existing, err := f.nodeClient.Get(ctx, node.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.nodeClient.Create(ctx, node, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		node = node.DeepCopy()
+		node.SetResourceVersion(existing.GetResourceVersion())
 		_, err = f.nodeClient.Update(ctx, node, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -1629,6 +1631,7 @@ func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc
 		req.Fail(err.Error())
 	} else {
 		bgpcc.SetUID(existing.GetUID())
+		bgpcc.SetResourceVersion(existing.GetResourceVersion())
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
@@ -1639,22 +1642,26 @@ func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc
 		return
 	}
 
-	_, err := f.bgpcClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
+	existing, err := f.bgpcClient.Get(ctx, bgppc.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgppcClient.Create(ctx, bgppc, meta_v1.CreateOptions{})
 	} else if err != nil {
 		req.Fail(err.Error())
 	} else {
+		bgppc = bgppc.DeepCopy()
+		bgppc.SetResourceVersion(existing.ResourceVersion)
 		_, err = f.bgppcClient.Update(ctx, bgppc, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
 }
 
 func upsertNodeOverrides(req *require.Assertions, ctx context.Context, f *fixture, nodeOverride *v2.CiliumBGPNodeConfigOverride) {
-	_, err := f.bgpncoClient.Get(ctx, nodeOverride.Name, meta_v1.GetOptions{})
+	existing, err := f.bgpncoClient.Get(ctx, nodeOverride.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpncoClient.Create(ctx, nodeOverride, meta_v1.CreateOptions{})
 	} else {
+		nodeOverride = nodeOverride.DeepCopy()
+		nodeOverride.SetResourceVersion(existing.ResourceVersion)
 		_, err = f.bgpncoClient.Update(ctx, nodeOverride, meta_v1.UpdateOptions{})
 	}
 	req.NoError(err)
