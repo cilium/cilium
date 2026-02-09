@@ -64,7 +64,7 @@ jobs:
           # Needed to detect missing redirects
           fetch-depth: 0
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:6854c3d4369213074055acea3231e7a956b26c3e@sha256:26c0906c1ae1e39ae854ecc6104e336b292093d9be022ceb9f74fd65bd951809
+        uses: docker://quay.io/cilium/docs-builder:65ef418b704ac0930667274f8aec4c692bbd5565@sha256:5ffcfe9a6093eef7b93a1cb21f104e4c9fb9da24bda94f7a6f0df49af3865ae6
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
