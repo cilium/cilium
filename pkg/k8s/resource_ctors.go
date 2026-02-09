@@ -236,7 +236,18 @@ func CiliumCIDRGroupResource(params CiliumResourceParams, opts ...func(*metav1.L
 	return resource.New[*cilium_api_v2.CiliumCIDRGroup](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumCIDRGroup"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
-func CiliumPodIPPoolResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool], error) {
+func CiliumPodIPPoolResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumPodIPPool], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumPodIPPoolList](params.ClientSet.CiliumV2().CiliumPodIPPools()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumPodIPPool](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumPodIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+}
+
+func CiliumPodIPPoolV2Alpha1Resource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}

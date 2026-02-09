@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
-	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/time"
@@ -22,7 +22,7 @@ import (
 
 // LocalPodIPPool is an internal model of pod IP pools on the cluster
 type LocalPodIPPool struct {
-	*api_v2alpha1.CiliumPodIPPool
+	*api_v2.CiliumPodIPPool
 
 	// UpdatedAt is the time when [LocalPodIPPool] was last updated, e.g. it
 	// shows when the pool change was received from the api-server.
@@ -47,7 +47,7 @@ func (p LocalPodIPPool) TableRow() []string {
 	if p.Spec.IPv4 != nil {
 		v4Cidrs = make([]string, len(p.Spec.IPv4.CIDRs))
 		for i := range p.Spec.IPv4.CIDRs {
-			v4Cidrs[i] = string(p.Spec.IPv4.CIDRs[i])
+			v4Cidrs[i] = p.Spec.IPv4.CIDRs[i].CIDR
 		}
 		v4MaskSize = strconv.FormatUint(uint64(p.Spec.IPv4.MaskSize), 10)
 	} else {
@@ -60,7 +60,7 @@ func (p LocalPodIPPool) TableRow() []string {
 	if p.Spec.IPv6 != nil {
 		v6Cidrs = make([]string, len(p.Spec.IPv6.CIDRs))
 		for i := range p.Spec.IPv6.CIDRs {
-			v6Cidrs[i] = string(p.Spec.IPv6.CIDRs[i])
+			v6Cidrs[i] = p.Spec.IPv6.CIDRs[i].CIDR
 		}
 		v6MaskSize = strconv.FormatUint(uint64(p.Spec.IPv6.MaskSize), 10)
 	} else {
@@ -144,7 +144,7 @@ func NewTable(db *statedb.DB) (statedb.RWTable[LocalPodIPPool], error) {
 
 func reflectorConfig(cs client.Clientset, podIPPools statedb.RWTable[LocalPodIPPool]) k8s.ReflectorConfig[LocalPodIPPool] {
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumPodIPPools()),
+		utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumPodIPPools()),
 	)
 	return k8s.ReflectorConfig[LocalPodIPPool]{
 		Name:          reflectorName,
@@ -152,7 +152,7 @@ func reflectorConfig(cs client.Clientset, podIPPools statedb.RWTable[LocalPodIPP
 		ListerWatcher: lw,
 		MetricScope:   "PodIPPool",
 		Transform: func(_ statedb.ReadTxn, obj any) (LocalPodIPPool, bool) {
-			pool, ok := obj.(*api_v2alpha1.CiliumPodIPPool)
+			pool, ok := obj.(*api_v2.CiliumPodIPPool)
 			if !ok {
 				return LocalPodIPPool{}, false
 			}

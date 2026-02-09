@@ -42,6 +42,7 @@ var (
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
+			k8s.CiliumPodIPPoolV2Alpha1Resource,
 			CiliumBGPClusterConfigResource,
 			k8s.CiliumBGPAdvertisementResource,
 			k8s.CiliumBGPPeerConfigResource,
@@ -62,17 +63,18 @@ var (
 type Resources struct {
 	cell.In
 
-	Services             resource.Resource[*slim_corev1.Service]
-	ServiceExports       resource.Resource[*mcsapiv1alpha1.ServiceExport]
-	Endpoints            resource.Resource[*k8s.Endpoints]
-	LBIPPools            resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool]
-	Identities           resource.Resource[*cilium_api_v2.CiliumIdentity]
-	CiliumPodIPPools     resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
-	CiliumEndpoints      resource.Resource[*cilium_api_v2.CiliumEndpoint]
-	CiliumEndpointSlices resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
-	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
-	Pods                 resource.Resource[*slim_corev1.Pod]
-	Namespaces           resource.Resource[*slim_corev1.Namespace]
+	Services                 resource.Resource[*slim_corev1.Service]
+	ServiceExports           resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	Endpoints                resource.Resource[*k8s.Endpoints]
+	LBIPPools                resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool]
+	Identities               resource.Resource[*cilium_api_v2.CiliumIdentity]
+	CiliumPodIPPools         resource.Resource[*cilium_api_v2.CiliumPodIPPool]
+	CiliumPodIPPoolsV2Alpha1 resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
+	CiliumEndpoints          resource.Resource[*cilium_api_v2.CiliumEndpoint]
+	CiliumEndpointSlices     resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
+	CiliumNodes              resource.Resource[*cilium_api_v2.CiliumNode]
+	Pods                     resource.Resource[*slim_corev1.Pod]
+	Namespaces               resource.Resource[*slim_corev1.Namespace]
 }
 
 // HasCEWithIdentity returns true or false if the Cilium Endpoint store has

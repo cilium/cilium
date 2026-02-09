@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
 	consts "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sresource "github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -232,24 +232,24 @@ func TestManager_handlePoolEvent_UpsertAndDelete(t *testing.T) {
 	ctx := t.Context()
 
 	// Create ipv4 pool with selector
-	p1 := &v2alpha1api.CiliumPodIPPool{
+	p1 := &v2api.CiliumPodIPPool{
 		ObjectMeta: v1.ObjectMeta{Name: "p1"},
-		Spec: v2alpha1api.IPPoolSpec{
-			IPv4:        &v2alpha1api.IPv4PoolSpec{},
+		Spec: v2api.IPPoolSpec{
+			IPv4:        &v2api.IPv4PoolSpec{},
 			PodSelector: &slim_meta_v1.LabelSelector{MatchLabels: map[string]string{"team": "blue"}},
 		},
 	}
 	// poolsSynced is false, should not compile pool
 	_, err = m.GetIPPoolForPod("p1", ipam.IPv4)
 	require.ErrorIs(t, err, ErrManagerPoolsNotSynced)
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Sync, Object: p1, Done: func(error) {}})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Sync, Object: p1, Done: func(error) {}})
 	require.NoError(t, err)
 	// pool should be marked as synced now
 	pool, err := m.GetIPPoolForPod("p1", ipam.IPv4)
 	require.NoError(t, err)
 	require.Equal(t, "default", pool)
 
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1, Done: func(error) {}})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1, Done: func(error) {}})
 	require.NoError(t, err)
 	cp, ok := m.getCompiledPool("p1")
 	require.True(t, ok, "p1 should be present in compiledPools")
@@ -258,19 +258,19 @@ func TestManager_handlePoolEvent_UpsertAndDelete(t *testing.T) {
 	require.NotNil(t, cp.podSelector)
 
 	// remove selector
-	p1NoSel := &v2alpha1api.CiliumPodIPPool{ObjectMeta: v1.ObjectMeta{Name: "p1"}, Spec: v2alpha1api.IPPoolSpec{IPv4: &v2alpha1api.IPv4PoolSpec{}}}
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1NoSel, Done: func(error) {}})
+	p1NoSel := &v2api.CiliumPodIPPool{ObjectMeta: v1.ObjectMeta{Name: "p1"}, Spec: v2api.IPPoolSpec{IPv4: &v2api.IPv4PoolSpec{}}}
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1NoSel, Done: func(error) {}})
 	require.NoError(t, err)
 	_, exists := m.getCompiledPool("p1")
 	require.False(t, exists, "p1 should have been removed from compiledPools")
 
 	// add it back and delete it again
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1, Done: func(error) {}})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: p1, Done: func(error) {}})
 	require.NoError(t, err)
 	cp, ok = m.getCompiledPool("p1")
 	require.True(t, ok, "p1 should be added back to compiledPools")
 
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Delete, Object: p1, Done: func(error) {}})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Delete, Object: p1, Done: func(error) {}})
 	require.NoError(t, err)
 	_, exists = m.getCompiledPool("p1")
 	require.False(t, exists, "p1 should have been removed from compiledPools")
@@ -302,10 +302,10 @@ func TestManager_handlePoolEvent_BadSelectorIgnored(t *testing.T) {
 			Values:   []string{},
 		}},
 	}
-	bad := &v2alpha1api.CiliumPodIPPool{
+	bad := &v2api.CiliumPodIPPool{
 		ObjectMeta: v1.ObjectMeta{Name: "bad"},
-		Spec: v2alpha1api.IPPoolSpec{
-			IPv4:        &v2alpha1api.IPv4PoolSpec{},
+		Spec: v2api.IPPoolSpec{
+			IPv4:        &v2api.IPv4PoolSpec{},
 			PodSelector: badSel,
 		},
 	}
@@ -314,7 +314,7 @@ func TestManager_handlePoolEvent_BadSelectorIgnored(t *testing.T) {
 		require.NoError(t, err, "handlePoolEvent should not return errors")
 	}
 
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: bad, Done: done})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: bad, Done: done})
 	require.NoError(t, err)
 
 	// bad selector should be ignored and not compiled
@@ -329,14 +329,14 @@ func TestManager_handlePoolEvent_BadSelectorIgnored(t *testing.T) {
 			Values:   []string{},
 		}},
 	}
-	badNS := &v2alpha1api.CiliumPodIPPool{
+	badNS := &v2api.CiliumPodIPPool{
 		ObjectMeta: v1.ObjectMeta{Name: "bad-ns"},
-		Spec: v2alpha1api.IPPoolSpec{
-			IPv4:              &v2alpha1api.IPv4PoolSpec{},
+		Spec: v2api.IPPoolSpec{
+			IPv4:              &v2api.IPv4PoolSpec{},
 			NamespaceSelector: badNsSel,
 		},
 	}
-	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2alpha1api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: badNS, Done: done})
+	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Upsert, Object: badNS, Done: done})
 	require.NoError(t, err)
 	_, ok = m.getCompiledPool("bad-ns")
 	require.False(t, ok, "bad namespace selector should be ignored and not compiled")
