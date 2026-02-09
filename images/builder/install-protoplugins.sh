@@ -9,7 +9,7 @@ set -o pipefail
 set -o nounset
 
 # renovate: datasource=github-tags depName=grpc/grpc-go
-GRPC_VERSION=cmd/protoc-gen-go-grpc/v1.6.0
+GRPC_VERSION=cmd/protoc-gen-go-grpc/v1.6.1
 
 GRPC_VERSION=${GRPC_VERSION#cmd/protoc-gen-go-grpc/}
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_VERSION}
@@ -23,7 +23,7 @@ go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 
 BUF_BIN="buf"
 # renovate: datasource=github-release-attachments depName=bufbuild/buf
-BUF_VERSION=v1.64.0
+BUF_VERSION=v1.65.0
 BUF_VARIANT="Linux-$(uname --machine)"
 
 curl --fail --show-error --silent --location \
