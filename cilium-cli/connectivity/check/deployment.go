@@ -869,17 +869,6 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 			}
 		}
 
-		// Create service for echo-same-node
-		_, err = client.GetService(ctx, nsConfig.name, echoSameNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), echoSameNodeDeploymentName, nsConfig.name)
-			svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
-			_, err = client.CreateService(ctx, nsConfig.name, svc, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
-			}
-		}
-
 		// Create echo-other-node deployment
 		_, err = client.GetDeployment(ctx, nsConfig.name, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -919,17 +908,6 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 			_, err = client.CreateDeployment(ctx, nsConfig.name, echoOtherNodeDeployment, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
-			}
-		}
-
-		// Create service for echo-other-node
-		_, err = client.GetService(ctx, nsConfig.name, echoOtherNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), echoOtherNodeDeploymentName, nsConfig.name)
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
-			_, err = client.CreateService(ctx, nsConfig.name, svc, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
 			}
 		}
 	}
