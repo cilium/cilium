@@ -164,7 +164,7 @@ cilium-agent [flags]
       --enable-k8s                                                Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                  Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-l2-announcements                                   Enable L2 announcements
-      --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec
+      --enable-l2-neigh-discovery                                 Enables L2 neighbor discovery, even when XDP acceleration is disabled
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-l7-proxy                                           Enable L7 proxy for L7 policy enforcement (default true)
       --enable-lb-ipam                                            Enable LB IPAM (default true)
