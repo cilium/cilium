@@ -344,12 +344,17 @@ Changes to Metrics
 Added Metrics
 #############
 
-* TODO
+* ``cilium_policy_missing_proxy_redirects`` was added and reports the total number of
+  proxy redirects that were missing during endpoint policy calculation.
+* ``cilium_endpoint_component_status`` was added and reports the number of endpoints
+  tagged by the status (``OK``, ``Warning``, ``Failure``) of each component (``BPF``, ``Policy``).
 
 Changed Metrics
 ###############
 
-* TODO
+* The metric ``policy_change_total`` now reports additional ``source`` (directory, k8s, custom, generated)
+  and ``operation`` (update, delete) dimensions.
+* The metric ``endpoint_regeneration_total`` now reports additional ``reason`` and ``error`` dimensions.
 
 Deprecated Metrics
 ##################
