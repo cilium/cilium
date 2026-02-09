@@ -1,0 +1,39 @@
+#!
+
+hive/start
+
+# Add object
+k8s/add service.v1.yaml
+
+# By default, updates ignore the resource version and shall succeed.
+k8s/update service.v2.yaml
+
+# Updates in strict mode shall fail if the resource version does not match.
+! k8s/update --strict service.v1.yaml
+! k8s/update --strict service.v2.yaml
+
+# Updates in strict mode shall succeed if the resource version does match.
+k8s/get v1.services test/echo -o service.v3.yaml
+replace 10.96.1.2 10.96.1.3 service.v3.yaml
+k8s/update --strict service.v3.yaml
+
+###
+
+-- service.v1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.1.1
+
+-- service.v2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "foo"
+spec:
+  clusterIP: 10.96.1.2
