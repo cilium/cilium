@@ -34,33 +34,78 @@ type Registry interface {
 	// NewGroup creates a new group of jobs which can be started and stopped together as part of the cells lifecycle.
 	// The provided scope is used to report health status of the jobs. A `cell.Scope` can be obtained via injection
 	// an object with the correct scope is provided by the closest `cell.Module`.
-	NewGroup(health cell.Health, lc cell.Lifecycle, opts ...groupOpt) Group
+	NewGroup(health cell.Health, opts ...groupOpt) Group
+
+	// WithLifecycle creates a new registry for jobs with the given lifecycle.
+	WithLifecycle(lifecycle cell.Lifecycle) Registry
 }
 
 type registry struct {
 	logger     *slog.Logger
 	shutdowner hive.Shutdowner
 
-	mu     sync.Mutex
-	groups []Group
+	mu      sync.Mutex
+	groups  []*group
+	started bool
+
+	lifecycle cell.Lifecycle
+	dynamicLC *cell.DefaultLifecycle
 }
+
+var _ cell.HookInterface = (*registry)(nil)
 
 func newRegistry(
 	logger *slog.Logger,
 	shutdowner hive.Shutdowner,
+	lc cell.Lifecycle,
 ) Registry {
-	return &registry{
+	r := &registry{
 		logger:     logger,
 		shutdowner: shutdowner,
+		lifecycle:  lc,
+	}
+	lc.Append(r)
+	return r
+}
+
+func (c *registry) Start(cell.HookContext) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.started {
+		return nil
+	}
+	c.started = true
+	c.dynamicLC = cell.NewDefaultLifecycle(nil, 0, 0)
+	return nil
+}
+
+func (c *registry) Stop(ctx cell.HookContext) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.started {
+		return nil
+	}
+	c.started = false
+	c.dynamicLC.Stop(c.logger, ctx)
+	return nil
+}
+
+func (c *registry) WithLifecycle(lifecycle cell.Lifecycle) Registry {
+	return &registry{
+		logger:     c.logger,
+		shutdowner: c.shutdowner,
+		lifecycle:  lifecycle,
 	}
 }
 
 // NewGroup creates a new Group with the given `opts` options, which allows you to customize the behavior for the
 // group as a whole. For example by allowing you to add pprof labels to the group or by customizing the logger.
 //
-// Jobs added to the group before it is started will be appended to the provided lifecycle. Jobs added
-// after starting are started immediately.
-func (c *registry) NewGroup(health cell.Health, lc cell.Lifecycle, opts ...groupOpt) Group {
+// Jobs added to the group before it is started will be appended to the registry's lifecycle.
+// Jobs added after starting are started immediately and stopped sequentially in reverse order
+// when registry is stopped.
+func (c *registry) NewGroup(health cell.Health, opts ...groupOpt) Group {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -73,19 +118,43 @@ func (c *registry) NewGroup(health cell.Health, lc cell.Lifecycle, opts ...group
 	}
 
 	g := &group{
-		options:   options,
-		lifecycle: lc,
-		wg:        &sync.WaitGroup{},
-		health:    health,
+		registry: c,
+		options:  options,
+		health:   health,
 	}
-	// Append the lifecycle hooks for the group. The start hook sets up a context
-	// for the dynamical jobs (jobs added after starting) and a stop hook to cancel
-	// the context and wait for the jobs to finish.
-	lc.Append((*groupHooks)(g))
 
 	c.groups = append(c.groups, g)
 
 	return g
+}
+
+func (c *registry) addJobs(health cell.Health, opts options, jobs ...Job) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.started {
+		for _, job := range jobs {
+			c.lifecycle.Append(&queuedJob{
+				registry: c,
+				job:      job,
+				health:   health,
+				options:  opts,
+			})
+		}
+		return
+	}
+
+	for _, job := range jobs {
+		qj := &queuedJob{
+			registry: c,
+			job:      job,
+			health:   health,
+			options:  opts,
+		}
+		c.dynamicLC.Append(qj)
+		// Start the newly appended job immediately.
+		c.dynamicLC.Start(c.logger, context.Background())
+	}
 }
 
 // Group aims to streamline the management of work within a cell.
@@ -104,43 +173,44 @@ type Group interface {
 // Job in an interface that describes a unit of work which can be added to a Group. This interface contains unexported
 // methods and thus can only be implemented by functions in this package such as OneShot, Timer, or Observer.
 type Job interface {
-	start(ctx context.Context, wg *sync.WaitGroup, health cell.Health, options options)
+	start(ctx context.Context, health cell.Health, options options)
+	info() string
 }
 
 type queuedJob struct {
-	job     Job
-	health  cell.Health
-	options options
-
-	wq     sync.WaitGroup
-	cancel context.CancelFunc
+	registry *registry
+	job      Job
+	health   cell.Health
+	options  options
+	cancel   context.CancelFunc
+	done     chan struct{}
 }
 
 // Start implements cell.HookInterface.
 func (qj *queuedJob) Start(cell.HookContext) error {
-	qj.wq.Add(1)
-
-	var ctx context.Context
-	ctx, qj.cancel = context.WithCancel(context.Background())
+	qj.done = make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	qj.cancel = cancel
 	pprof.Do(ctx, qj.options.pprofLabels, func(ctx context.Context) {
-		go qj.job.start(ctx, &qj.wq, qj.health, qj.options)
+		go func() {
+			defer close(qj.done)
+			qj.job.start(ctx, qj.health, qj.options)
+		}()
 	})
 	return nil
+}
+
+func (qj *queuedJob) HookInfo() string {
+	return qj.job.info()
 }
 
 // Stop implements cell.HookInterface.
 func (qj *queuedJob) Stop(ctx cell.HookContext) error {
 	qj.cancel()
-
-	stopped := make(chan struct{})
-	go func() {
-		qj.wq.Wait()
-		close(stopped)
-	}()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-stopped:
+	case <-qj.done:
 		return nil
 	}
 }
@@ -148,17 +218,9 @@ func (qj *queuedJob) Stop(ctx cell.HookContext) error {
 var _ cell.HookInterface = &queuedJob{}
 
 type group struct {
-	options   options
-	lifecycle cell.Lifecycle
-
-	// wg is a wait group for "dynamic" jobs added after starting.
-	wg *sync.WaitGroup
-
-	mu     sync.Mutex
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	health cell.Health
+	registry *registry
+	options  options
+	health   cell.Health
 }
 
 type options struct {
@@ -192,77 +254,12 @@ func WithMetrics(metrics Metrics) groupOpt {
 	}
 }
 
-var _ cell.HookInterface = (*groupHooks)(nil)
-
-// groupHooks implements the Hive start and stop hooks. Hidden as these
-// are appended by NewGroup.
-type groupHooks group
-
-// Start implements the cell.HookInterface interface
-func (gh *groupHooks) Start(_ cell.HookContext) error {
-	jg := (*group)(gh)
-	jg.mu.Lock()
-	defer jg.mu.Unlock()
-
-	// Create a context for the dynamically started jobs.
-	jg.ctx, jg.cancel = context.WithCancel(context.Background())
-	return nil
-}
-
-// Stop implements the cell.HookInterface interface
-func (gh *groupHooks) Stop(stopCtx cell.HookContext) error {
-	jg := (*group)(gh)
-	jg.mu.Lock()
-	defer jg.mu.Unlock()
-
-	// Stop all dynamically started jobs.
-	done := make(chan struct{})
-	go func() {
-		jg.wg.Wait()
-		close(done)
-	}()
-
-	jg.cancel()
-
-	select {
-	case <-stopCtx.Done():
-		jg.options.logger.Error("Stop hook context expired before job group was done")
-	case <-done:
-	}
-
-	return nil
-}
-
 func (jg *group) Add(jobs ...Job) {
 	jg.add(jg.health, jobs...)
 }
 
 func (jg *group) add(health cell.Health, jobs ...Job) {
-	jg.mu.Lock()
-	defer jg.mu.Unlock()
-
-	// The context is only set once the group has been started.
-	// If we have not yet started append hooks for the jobs to be started as part
-	// of the normal lifecycle. This makes sure that the start order reflects the
-	// order in which the jobs are added and avoids e.g. starting a job before its
-	// dependencies.
-	if jg.ctx == nil {
-		for _, job := range jobs {
-			jg.lifecycle.Append(&queuedJob{
-				job:     job,
-				health:  health,
-				options: jg.options,
-			})
-		}
-		return
-	}
-
-	for _, j := range jobs {
-		jg.wg.Add(1)
-		pprof.Do(jg.ctx, jg.options.pprofLabels, func(ctx context.Context) {
-			go j.start(ctx, jg.wg, health, jg.options)
-		})
-	}
+	jg.registry.addJobs(health, jg.options, jobs...)
 }
 
 // Scoped creates a scoped group, jobs added to this scoped group will appear as a sub-scope in the health reporter

@@ -78,9 +78,8 @@ func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Log
 	lc := &cell.DefaultLifecycle{}
 	// Job group for the reflector that will be started when the table
 	// is acquired.
-	jg := jobs.NewGroup(
+	jg := jobs.WithLifecycle(lc).NewGroup(
 		health,
-		lc,
 		job.WithLogger(log),
 	)
 
