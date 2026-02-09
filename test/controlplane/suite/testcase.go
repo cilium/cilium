@@ -183,7 +183,11 @@ func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPl
 				accepted = true
 
 				if _, err := td.tracker.Get(gvr, ns, name); err == nil {
-					if err := td.tracker.Update(gvr, obj, ns); err != nil {
+					// We use Patch, instead of Update, as the latter additionally
+					// enforces optimistic concurrency control (i.e., it returns
+					// an error if the resource version does not match), which we
+					// don't need in this context.
+					if err := td.tracker.Patch(gvr, obj, ns); err != nil {
 						t.Fatalf("Failed to update object %T: %s", obj, err)
 					}
 				} else {
