@@ -296,7 +296,14 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				case "add":
 					trackerErr = tc.tracker.Add(o)
 				case "update":
-					trackerErr = tc.tracker.Update(gvr, o, ns)
+					strict, _ := s.Flags.GetBool("strict")
+					if strict {
+						trackerErr = tc.tracker.Update(gvr, o, ns)
+					} else {
+						// Patch does not check for conflicts.
+						trackerErr = tc.tracker.Patch(gvr, o, ns)
+					}
+
 				case "delete":
 					trackerErr = tc.tracker.Delete(gvr, ns, name)
 				}
@@ -339,6 +346,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			script.CmdUsage{
 				Summary: "Update K8s object(s) in the object trackers",
 				Args:    "files...",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Bool("strict", false,
+						"Enable strict optimistic concurrency control")
+				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				if len(args) == 0 {
