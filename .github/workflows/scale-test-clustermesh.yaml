@@ -61,7 +61,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.6
+  go_version: 1.25.7
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 555.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
