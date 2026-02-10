@@ -40,7 +40,7 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 }
 
 var params = check.Parameters{
-	ExternalDeploymentPort: 8080,
+	ExternalDeploymentPort: 8090,
 	EchoServerHostPort:     4000,
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
