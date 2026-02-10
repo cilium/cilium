@@ -38,7 +38,7 @@ __id_for_file(const char *const header_name)
 	_strcase_(3, "bpf_overlay.c");
 	_strcase_(4, "bpf_xdp.c");
 	_strcase_(5, "bpf_sock.c");
-	_strcase_(6, "bpf_network.c");
+	/* _strcase_(6, "available"); */
 	_strcase_(7, "bpf_wireguard.c");
 
 	/* header files from bpf/lib/ */

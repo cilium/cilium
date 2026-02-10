@@ -520,16 +520,9 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 		}
 		for _, f := range filters {
 			if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
-				// iproute2 uses the filename and section (bpf_overlay.o:[from-overlay])
-				// as the filter name.
-				if strings.Contains(bpfFilter.Name, "bpf_netdev") ||
-					strings.Contains(bpfFilter.Name, "bpf_network") ||
-					strings.Contains(bpfFilter.Name, "bpf_host") ||
-					strings.Contains(bpfFilter.Name, "bpf_lxc") ||
-					strings.Contains(bpfFilter.Name, "bpf_overlay") ||
-					// Filters created by the Go bpf loader contain the bpf function and
-					// interface name, like cil_from_netdev-eth0.
-					strings.Contains(bpfFilter.Name, "cil_") ||
+				// Filters created by the Go bpf loader contain the bpf function and
+				// interface name, like cil_from_netdev-eth0.
+				if strings.Contains(bpfFilter.Name, "cil_") ||
 					// Filters created by the cilium agent whose version is lower than 1.13.1
 					// are prefixed with cilium
 					strings.Contains(bpfFilter.Name, "cilium") {
