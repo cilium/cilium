@@ -192,12 +192,10 @@ func (s *statedbObjectTracker) addList(obj runtime.Object) error {
 
 // fillTypeMetaIfNeeded sets the [metav1.TypeMeta] in the object if it's not already set based
 // on the GroupVersionKind found from the schema.
-func fillTypeMetaIfNeeded(obj runtime.Object, gvk schema.GroupVersionKind) runtime.Object {
+func fillTypeMetaIfNeeded(obj runtime.Object, gvk schema.GroupVersionKind) {
 	if obj.GetObjectKind().GroupVersionKind().Empty() {
-		obj = obj.DeepCopyObject()
 		obj.GetObjectKind().SetGroupVersionKind(gvk)
 	}
-	return obj
 }
 
 // Add adds an object to the tracker. If object being added
@@ -244,7 +242,7 @@ func (s *statedbObjectTracker) Add(obj runtime.Object) error {
 			gvr.Version = ""
 		}
 
-		obj = fillTypeMetaIfNeeded(obj, gvk)
+		fillTypeMetaIfNeeded(obj, gvk)
 
 		s.log.Debug(
 			"Add",
@@ -342,7 +340,7 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 		newMeta.SetNamespace(ns)
 	}
 
-	obj = fillTypeMetaIfNeeded(obj, gvks[0])
+	fillTypeMetaIfNeeded(obj, gvks[0])
 
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1
@@ -525,7 +523,7 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 		newMeta.SetNamespace(ns)
 	}
 
-	obj = fillTypeMetaIfNeeded(obj, gvks[0])
+	fillTypeMetaIfNeeded(obj, gvks[0])
 
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1

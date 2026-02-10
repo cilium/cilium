@@ -45,6 +45,7 @@ func TestStateDBObjectTracker_fillTypeMeta(t *testing.T) {
 	n := nodeAny.(*v1.Node)
 	require.Equal(t, "Node", n.TypeMeta.Kind)
 	require.Equal(t, "v1", n.TypeMeta.APIVersion)
+	require.Equal(t, "1", n.GetResourceVersion())
 
 	node.Name = "test2"
 
@@ -55,14 +56,18 @@ func TestStateDBObjectTracker_fillTypeMeta(t *testing.T) {
 	n = nodeAny.(*v1.Node)
 	require.Equal(t, "Node", n.TypeMeta.Kind)
 	require.Equal(t, "v1", n.TypeMeta.APIVersion)
+	require.Equal(t, "2", n.GetResourceVersion())
 
-	err = ot.Update(gvr, node.DeepCopy(), "")
+	update := node.DeepCopy()
+	update.SetResourceVersion(n.GetResourceVersion())
+	err = ot.Update(gvr, update, "")
 	require.NoError(t, err, "Update")
 	nodeAny, err = ot.Get(gvr, "", "test2")
 	require.NoError(t, err)
 	n = nodeAny.(*v1.Node)
 	require.Equal(t, "Node", n.TypeMeta.Kind)
 	require.Equal(t, "v1", n.TypeMeta.APIVersion)
+	require.Equal(t, "3", n.GetResourceVersion())
 
 	// A cilium node without the TypeMeta. This tests that the
 	// APIVersion is correctly set when Group is non-empty.
@@ -83,5 +88,6 @@ func TestStateDBObjectTracker_fillTypeMeta(t *testing.T) {
 	cn := ciliumNodeAny.(*ciliumv2.CiliumNode)
 	require.Equal(t, "CiliumNode", cn.TypeMeta.Kind)
 	require.Equal(t, "cilium.io/v2", cn.TypeMeta.APIVersion)
+	require.Equal(t, "4", cn.GetResourceVersion())
 
 }
