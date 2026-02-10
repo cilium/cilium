@@ -912,7 +912,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}
@@ -942,7 +942,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}
@@ -2179,7 +2179,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}

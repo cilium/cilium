@@ -217,13 +217,20 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
+		__u32 tbid)
 {
 	int ret;
 	struct bpf_fib_lookup_padded fib_params = {0};
 	int fib_result;
+	int flags = 0;
 
-	fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
+	if (tbid) {
+		fib_params.l.tbid = tbid;
+		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
+	}
+
+	fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, flags);
 	switch (fib_result) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
@@ -267,13 +274,20 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
+		__u32 tbid)
 {
 	int ret;
 	struct bpf_fib_lookup_padded fib_params = {0};
 	int fib_result;
+	int flags = 0;
 
-	fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
+	if (tbid) {
+		fib_params.l.tbid = tbid;
+		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
+	}
+
+	fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, flags);
 	switch (fib_result) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
