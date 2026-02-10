@@ -377,7 +377,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}}),
 		},
 		"8/ICMP": {
-			Port:     8,
+			Port:     0xff08,
 			Protocol: api.ProtoICMP,
 			U8Proto:  0x1,
 			PerSelectorPolicies: L7DataMap{
@@ -387,7 +387,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
-			Port:     128,
+			Port:     0xff80,
 			Protocol: api.ProtoICMPv6,
 			U8Proto:  0x3A,
 			PerSelectorPolicies: L7DataMap{
@@ -719,7 +719,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsHTTP}}),
 		},
 		"8/ICMP": {
-			Port:     8,
+			Port:     0xff08,
 			Protocol: api.ProtoICMP,
 			U8Proto:  0x1,
 			PerSelectorPolicies: L7DataMap{
@@ -729,7 +729,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsICMP}}),
 		},
 		"128/ICMPV6": {
-			Port:     128,
+			Port:     0xff80,
 			Protocol: api.ProtoICMPv6,
 			U8Proto:  0x3A,
 			PerSelectorPolicies: L7DataMap{

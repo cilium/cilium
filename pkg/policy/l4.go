@@ -548,9 +548,9 @@ type L4Filter struct {
 	U8Proto u8proto.U8proto `json:"-"`
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port uint16 `json:"port"`
+	Port types.PaddedPort `json:"port"`
 	// EndPort is zero for a singular port
-	EndPort uint16 `json:"endPort,omitempty"`
+	EndPort types.PaddedPort `json:"endPort,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
 	PortName string      `json:"port-name,omitempty"`
@@ -603,7 +603,7 @@ func (l4 *L4Filter) GetIngress() bool {
 //
 // Use ResolvePort to handle the named-port case as well.
 func (l4 *L4Filter) GetPort() uint16 {
-	return l4.Port
+	return l4.Port.Unpad(l4.U8Proto)
 }
 
 // GetEndPort returns the end port of the filter's port range.
@@ -612,7 +612,7 @@ func (l4 *L4Filter) GetEndPort() uint16 {
 	if l4.EndPort == 0 {
 		return l4.GetPort()
 	}
-	return l4.EndPort
+	return l4.EndPort.Unpad(l4.U8Proto)
 }
 
 type LookupNamedPortFunc func(ingress bool, name string, proto u8proto.U8proto) uint16
@@ -678,7 +678,7 @@ func (c *ChangeState) Size() int {
 }
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
-func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, tierPriority, nextTierPriority types.Priority) mapStateEntry {
+func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port types.PaddedPort, tierPriority, nextTierPriority types.Priority) mapStateEntry {
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
@@ -691,11 +691,13 @@ func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *Endpoi
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
-func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy, tierPriority, nextTierPriority types.Priority) mapStateEntry {
+// note: port here is required, as it may be the result of a named port resolution. Don't read
+// from l4.Port.
+func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port types.PaddedPort, cs CachedSelector, currentRule *PerSelectorPolicy, tierPriority, nextTierPriority types.Priority) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
 		var err error
-		proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, currentRule.GetListener())
+		proxyPort, err = p.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port.Unpad(l4.U8Proto), currentRule.GetListener())
 		if err != nil {
 			// Skip unrealized redirects; this happens routineously just
 			// before new redirects are realized. Once created, we are called
@@ -749,10 +751,11 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-		if port == 0 {
+		np := p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+		if np == 0 {
 			return // nothing to be done for undefined named port
 		}
+		port = types.PadPort(proto, np)
 	}
 
 	tierMaxPrecedence := tierPriority.ToTierMaxPrecedence()
@@ -760,7 +763,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 		keysToAdd = append(keysToAdd,
-			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+			KeyForDirection(direction).WithPaddedPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
 	// Compute the wildcard entry, if present.
@@ -970,29 +973,29 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 	origin := policyCtx.Origin()
 	tier, priority := policyCtx.Priority()
 
-	portName := ""
-	p := uint64(0)
-	if iana.IsSvcName(port.Port) {
-		portName = port.Port
-	} else {
-		// already validated via PortRule.Validate()
-		p, _ = strconv.ParseUint(port.Port, 0, 16)
-	}
-
-	// already validated via L4Proto.Validate(), never "ANY"
-	// NOTE: "ANY" for wildcarded port/proto!
-	u8p, _ := u8proto.ParseProtocol(string(port.Protocol))
-
 	l4 := &L4Filter{
 		Tier:                tier,
-		Port:                uint16(p),            // 0 for L3-only rules and named ports
-		EndPort:             uint16(port.EndPort), // 0 for a single port, > 'Port' for a range
-		PortName:            portName,             // non-"" for named ports
 		Protocol:            port.Protocol,
-		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
 		RuleOrigin:          make(map[CachedSelector]ruleOrigin), // Filled in below.
 		Ingress:             entry.Ingress,
+	}
+
+	// At this point, the Protocol will never be ANY except for L3 wildcard with no port.
+	if port.Protocol != api.ProtoAny {
+		// already validated
+		l4.U8Proto, _ = u8proto.ParseProtocol(string(port.Protocol))
+
+		if iana.IsSvcName(port.Port) {
+			l4.PortName = port.Port
+		} else {
+			// already validated via PortRule.Validate()
+			p, _ := strconv.ParseUint(port.Port, 0, 16)
+			l4.Port = types.PadPort(l4.U8Proto, uint16(p))
+			if port.EndPort > 0 {
+				l4.EndPort = types.PadPort(l4.U8Proto, uint16(port.EndPort))
+			}
+		}
 	}
 
 	peerEndpoints := entry.L3
@@ -1326,7 +1329,7 @@ func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
 }
 
 type portProtoKey struct {
-	Port, EndPort uint16
+	Port, EndPort types.PaddedPort
 	Proto         uint8
 }
 
@@ -1357,8 +1360,8 @@ func parsePortProtocol(port, protocol string) (uint16, uint8) {
 // makePolicyMapKey creates a protocol-port uint32 with the
 // upper 16 bits containing the protocol and the lower 16
 // bits containing the port.
-func makePolicyMapKey(port, mask uint16, proto uint8) uint32 {
-	return (uint32(proto) << 16) | uint32(port&mask)
+func makePolicyMapKey(port types.PaddedPort, mask uint16, proto uint8) uint32 {
+	return (uint32(proto) << 16) | uint32(uint16(port)&mask)
 }
 
 // Upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
@@ -1370,8 +1373,8 @@ func (l4M *L4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 
 
 	portU, protoU := parsePortProtocol(port, protocol)
 	ppK := portProtoKey{
-		Port:    portU,
-		EndPort: endPort,
+		Port:    types.PadPort(u8proto.U8proto(protoU), portU),
+		EndPort: types.PadPort(u8proto.U8proto(protoU), endPort),
 		Proto:   protoU,
 	}
 	_, indexExists := l4M.RangePortMap[ppK]
@@ -1379,7 +1382,7 @@ func (l4M *L4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 
 	// We do not need to reindex a key that already exists,
 	// even if the filter changed.
 	if !indexExists {
-		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
+		for _, mp := range PortRangeToMaskedPorts(ppK.Port, ppK.EndPort) {
 			k := makePolicyMapKey(mp.port, mp.mask, protoU)
 			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
 			portProtoSet, ok := l4M.RangePortIndex.ExactLookup(prefix, k)
@@ -1401,15 +1404,15 @@ func (l4M *L4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 
 	portU, protoU := parsePortProtocol(port, protocol)
 	ppK := portProtoKey{
-		Port:    portU,
-		EndPort: endPort,
+		Port:    types.PadPort(u8proto.U8proto(protoU), portU),
+		EndPort: types.PadPort(u8proto.U8proto(protoU), endPort),
 		Proto:   protoU,
 	}
 	_, indexExists := l4M.RangePortMap[ppK]
 	delete(l4M.RangePortMap, ppK)
 	// Only delete the index if the key exists.
 	if indexExists {
-		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
+		for _, mp := range PortRangeToMaskedPorts(ppK.Port, ppK.EndPort) {
 			k := makePolicyMapKey(mp.port, mp.mask, protoU)
 			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
 			portProtoSet, ok := l4M.RangePortIndex.ExactLookup(prefix, k)
@@ -1432,8 +1435,8 @@ func (l4M *L4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 
 	portU, protoU := parsePortProtocol(port, protocol)
 	ppK := portProtoKey{
-		Port:    portU,
-		EndPort: endPort,
+		Port:    types.PadPort(u8proto.U8proto(protoU), portU),
+		EndPort: types.PadPort(u8proto.U8proto(protoU), endPort),
 		Proto:   protoU,
 	}
 	return l4M.RangePortMap[ppK]
@@ -1652,15 +1655,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 		port := l4.Port
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+			np := epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
 			if port == 0 {
 				continue
 			}
+			port = types.PadPort(l4.U8Proto, np)
 		}
 		var proxyPort uint16
 		if redirect {
 			var err error
-			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
+			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port.Unpad(l4.U8Proto), listener)
 			if err != nil {
 				logger.Warn(
 					"AccumulateMapChanges: Missing redirect.",
@@ -1679,7 +1683,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 		var keysToAdd []Key
 		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 			keysToAdd = append(keysToAdd,
-				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+				KeyForDirection(direction).WithPaddedPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
 
 		value := newMapStateEntry(priority, tierPriority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
