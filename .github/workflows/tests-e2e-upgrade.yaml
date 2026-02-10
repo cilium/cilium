@@ -187,9 +187,9 @@ jobs:
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }})'
+    name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }}, ${{ matrix.kernel }})'
     env:
-      job_name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }})'
+      job_name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }}, ${{ matrix.kernel }})'
     strategy:
       fail-fast: false
       max-parallel: 100
