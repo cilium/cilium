@@ -167,7 +167,6 @@ ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)
  * The following cases are handled:
  * 1. Encrypted IPSec/WireGuard packets pre-decryption in from-netdev.
  * 2. Encrypted IPSec/WireGuard packets post-encryption in to-netdev.
- * 3. Encrypted IPSec packets pre-decryption in from-network.
  *
  * The TRACE_{FROM,TO}_CRYPTO in bpf_wireguard are explicitly ignored, given
  * they handle post-decryption/pre-encryption packets. This can come at hand in
@@ -188,10 +187,6 @@ ctx_is_encrypted_by_point(struct __ctx_buff *ctx __maybe_unused,
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_IPSEC) &&
 	    (obs_point == TRACE_FROM_STACK || obs_point == TRACE_POINT_UNKNOWN))
 		return ctx_is_encrypt(ctx);
-
-	if (is_defined(IS_BPF_NETWORK) && is_defined(ENABLE_IPSEC) &&
-	    (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_TO_HOST || obs_point == TRACE_POINT_UNKNOWN))
-		return ctx_is_decrypt(ctx);
 #endif
 
 	return false;
