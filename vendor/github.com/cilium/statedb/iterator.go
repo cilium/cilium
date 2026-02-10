@@ -166,7 +166,7 @@ type changeIterator[Obj any] struct {
 }
 
 func (it *changeIterator[Obj]) refresh(txn ReadTxn) {
-	tableEntry := txn.root()[it.table.tablePos()]
+	tableEntry := txn.committedRoot()[it.table.tablePos()]
 	if it.iter != nil && tableEntry.locked {
 		var obj Obj
 		panic(fmt.Sprintf("Table[%T].Changes().Next() called with the target table locked. This is not supported.", obj))
