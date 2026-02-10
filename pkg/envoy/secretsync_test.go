@@ -400,7 +400,7 @@ type fakeXdsServer struct {
 	nrOfUpserts   int
 }
 
-var _ XDSServer = &fakeXdsServer{}
+var _ xds.XDSServer = &fakeXdsServer{}
 
 func (r *fakeXdsServer) Reset() {
 	r.nrOfUpdates = 0
@@ -408,7 +408,7 @@ func (r *fakeXdsServer) Reset() {
 	r.nrOfDeletions = 0
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old Resources, new Resources) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to update envoy resources")
 	}
@@ -417,7 +417,7 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old Resources,
 	return nil
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to delete envoy resources")
 	}
@@ -426,7 +426,7 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources Reso
 	return nil
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
+func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to upsert envoy resources")
 	}
@@ -435,15 +435,15 @@ func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources Reso
 	return nil
 }
 
-func (*fakeXdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) AddAdminListener(port uint16, wg *completion.WaitGroup) {
+func (*fakeXdsServer) AddAdminListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
+func (*fakeXdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 
@@ -451,15 +451,15 @@ func (*fakeXdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*ci
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveAllNetworkPolicies() {
+func (*fakeXdsServer) RemoveAllNetworkPolicies(ctx context.Context) {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+func (*fakeXdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
+func (*fakeXdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
 	panic("unimplemented")
 }
 

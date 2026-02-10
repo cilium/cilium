@@ -32,7 +32,8 @@ import (
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
+	util "github.com/cilium/cilium/pkg/envoy/util"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/hive"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -70,7 +71,7 @@ type DaemonSuite struct {
 	identityAllocator  identitycell.CachingIdentityAllocator
 	policyRepository   policy.PolicyRepository
 	PolicyImporter     policycell.PolicyImporter
-	envoyXdsServer     envoy.XDSServer
+	envoyXdsServer     xds.XDSServer
 	endpointManager    endpointmanager.EndpointManager
 	endpointAPIManager endpointapi.EndpointAPIManager
 	endpointCreator    endpointcreator.EndpointCreator
@@ -88,7 +89,7 @@ func setupTestDirectories() string {
 		panic("Mkdir failed")
 	}
 
-	socketDir := envoy.GetSocketDir(tempRunDir)
+	socketDir := util.GetSocketDir(tempRunDir)
 	err = os.MkdirAll(socketDir, 0o700)
 	if err != nil {
 		panic("creating envoy socket directory failed")
@@ -162,7 +163,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
 		}),
-		cell.Invoke(func(envoyXdsServer envoy.XDSServer) {
+		cell.Invoke(func(envoyXdsServer xds.XDSServer) {
 			ds.envoyXdsServer = envoyXdsServer
 		}),
 		cell.Invoke(func(endpointAPIManager endpointapi.EndpointAPIManager) {
