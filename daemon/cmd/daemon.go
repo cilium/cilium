@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -68,21 +67,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		if !params.DaemonConfig.EnableCiliumNodeCRD {
 			return fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
 		}
-	}
-
-	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
-	// that may be added or removed at runtime.
-	if params.IPSecConfig.Enabled() &&
-		!params.DaemonConfig.TunnelingEnabled() &&
-		len(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface) == 0 &&
-		// Load bpf_host onto physical devices as chosen by configuration.
-		!params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WireguardConfig.Enabled(), params.IPSecConfig.Enabled()) &&
-		params.DaemonConfig.IPAM != ipamOption.IPAMENI {
-		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
-		if err != nil {
-			return fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
-		}
-		params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface = append(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface, link)
 	}
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
