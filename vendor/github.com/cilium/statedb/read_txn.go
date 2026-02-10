@@ -36,6 +36,11 @@ func (r *readTxn) root() dbRoot {
 	return dbRoot(*r)
 }
 
+// committedRoot implements ReadTxn.
+func (r *readTxn) committedRoot() dbRoot {
+	return dbRoot(*r)
+}
+
 // WriteJSON marshals out the database as JSON into the given writer.
 // If tables are given then only these tables are written.
 func (r *readTxn) WriteJSON(w io.Writer, tables ...string) error {

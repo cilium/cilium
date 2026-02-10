@@ -139,8 +139,8 @@ github.com/cilium/lumberjack/v2 v2.4.1 h1:tU92KFJmLQ4Uls5vTgok5b5RbfxpawRia7L14y
 github.com/cilium/lumberjack/v2 v2.4.1/go.mod h1:yfbtPGmg4i//5oEqzaMxDqSWqgfZFmMoV70Mc2k6v0A=
 github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1 h1:SOOtIfQmW/pF1iW1I4hVUx1pvgX7Xh2E8jHv+itBXQ0=
 github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1/go.mod h1:Kwyyx+cC2H67Aj1sDuqBLvPn6TEmEJRPvULIrJ/kBRo=
-github.com/cilium/statedb v0.6.2 h1:pgLlz4tEmPEuY9PRPtN+JvSqwJjmjzcxPmu2uxW9bQ8=
-github.com/cilium/statedb v0.6.2/go.mod h1:2mLzaSUFAmsM7IoBauszr0YQHUjVV1YcIFFQxnJDlfc=
+github.com/cilium/statedb v0.6.3 h1:SfZ8c/34BseSeKkx2rINeHP8fCzyCUrcKbMlxqI/uxs=
+github.com/cilium/statedb v0.6.3/go.mod h1:2mLzaSUFAmsM7IoBauszr0YQHUjVV1YcIFFQxnJDlfc=
 github.com/cilium/stream v0.0.1 h1:82zuM/WwkLiac2Jg5FrzPxZHvIBbxXTi4VY7M+EYLs0=
 github.com/cilium/stream v0.0.1/go.mod h1:/e83AwqvNKpyg4n3C41qmnmj1x2G9DwzI+jb7GkF4lI=
 github.com/cilium/workerpool v1.3.0 h1:7BhHxoqNtpqtmce6MxZdgWODze4lYHbWkEUQ+3xEu8M=
