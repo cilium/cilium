@@ -318,7 +318,8 @@ func TestUpdatePodLabels(t *testing.T) {
 	}
 
 	// Create the first pod.
-	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
+	current, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{})
+	if err != nil {
 		t.Fatalf("create pod: %v", err)
 	}
 
@@ -333,6 +334,7 @@ func TestUpdatePodLabels(t *testing.T) {
 	ev.Done(nil)
 
 	// Update labels of the first pod.
+	pod1b.SetResourceVersion(current.GetResourceVersion())
 	if _, err := fakeClient.Slim().CoreV1().Pods(pod1b.Namespace).Update(ctx, pod1b, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("update pod: %v", err)
 	}
