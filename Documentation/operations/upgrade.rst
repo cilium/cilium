@@ -309,9 +309,6 @@ The following options have been introduced in this version of Cilium:
   side effect of splitting the datapath-mode into "configured mode" and "operational mode"
   in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
   but may change in future releases.
-* ``bpf.tproxy=true`` is incompatible with netkit datapath mode. If netkit is also enabled,
-  Cilium will fail to start. If auto-detect datapath mode is used, Cilium will revert to
-  veth mode, even if netkit support is present.
 
 Changed Options
 ###############
@@ -319,7 +316,9 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* ``bpf.tproxy=true`` is incompatible with netkit datapath mode. If netkit is also enabled,
+  Cilium will fail to start. If auto-detect datapath mode is used, Cilium will revert to
+  veth mode, even if netkit support is present.
 
 Deprecated Options
 ##################
