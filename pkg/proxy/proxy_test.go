@@ -205,7 +205,7 @@ func (*fakeXdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpo
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UseCurrentNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
+func (*fakeXdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 

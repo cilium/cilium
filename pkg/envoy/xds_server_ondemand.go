@@ -47,7 +47,7 @@ func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind 
 		)
 	}
 
-	return o.XDSServer.AddListener(name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
+	return o.XDSServer.AddListener(ctx, name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
 }
 
 func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
