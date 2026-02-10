@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	ciliumebpf "github.com/cilium/ebpf"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -123,8 +124,7 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.TCGlobalsPath(),
 	}
 
-	m.spec.Flags |= bpf.GetMapMemoryFlags(m.spec.Type)
-
+	memoryFlags := bpf.GetMapMemoryFlags(m.spec.Type)
 	path := bpf.MapPath(m.logger, m.spec.Name)
 
 	if m.spec.Pinning == ciliumebpf.PinByName {
@@ -139,7 +139,30 @@ func (m *Map) OpenOrCreate() error {
 				}
 			}
 		}
+
+		// On upgrade (no flag -> flag): remove BPF_F_RDONLY_PROG from spec
+		// to reuse the existing map, since the datapath functions correctly
+		// with a more privileged (read-write) map.
+		// On downgrade (flag -> no flag): unpin the existing map to force
+		// recreation without the flag, since BPF programs need write access.
+		if existing, err := ciliumebpf.LoadPinnedMap(path, nil); err == nil {
+			if info, err := existing.Info(); err == nil {
+				const bpfFRdonlyProg = unix.BPF_F_RDONLY_PROG
+				switch {
+				case m.spec.Flags&bpfFRdonlyProg != 0 && info.Flags&bpfFRdonlyProg == 0:
+					// Upgrade: strip flag from spec to reuse existing map.
+					m.spec.Flags &^= bpfFRdonlyProg
+				case m.spec.Flags&bpfFRdonlyProg == 0 && info.Flags&bpfFRdonlyProg != 0:
+					// Downgrade: unpin to force recreation without the flag.
+					existing.Unpin()
+				}
+			}
+			existing.Close()
+		}
 	}
+
+	// Add memory flags after compatibility check
+	m.spec.Flags |= memoryFlags
 
 	newMap, err := ciliumebpf.NewMapWithOptions(m.spec, opts)
 	if err != nil {
