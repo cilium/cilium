@@ -447,7 +447,9 @@ jobs:
         if: ${{ steps.check-pool.outputs.should_create == 'true' }}
         run: |
           TIMESTAMP=$(date +%s)
-          CLUSTER_NAME="cilium-pool-${{ matrix.version }}-${{ matrix.addons_name }}-${TIMESTAMP}"
+          # Add random suffix to prevent race conditions when multiple jobs run in parallel
+          RANDOM_SUFFIX=$(head -c 4 /dev/urandom | xxd -p)
+          CLUSTER_NAME="cilium-pool-${{ matrix.version }}-${{ matrix.addons_name }}-${TIMESTAMP}-${RANDOM_SUFFIX}"
           # Sanitize cluster name (replace dots with dashes)
           CLUSTER_NAME="${CLUSTER_NAME//./-}"
           echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
@@ -544,7 +546,7 @@ jobs:
           echo "Removing lock file: s3://${S3_BUCKET}/${LOCK_KEY}"
           aws s3 rm "s3://${S3_BUCKET}/${LOCK_KEY}" --region ${REGION} || true
 
-      - name: Cleanup lock file on failure
+      - name: Cleanup on failure
         if: ${{ failure() && steps.check-pool.outputs.should_create == 'true' }}
         env:
           S3_BUCKET: ${{ steps.check-pool.outputs.s3_bucket }}
@@ -553,9 +555,63 @@ jobs:
           TIMESTAMP: ${{ steps.cluster-name.outputs.timestamp }}
           REGION: ${{ matrix.region }}
         run: |
+          echo "Cleaning up after failure for cluster: ${CLUSTER_NAME}"
+
+          # Remove lock file
           LOCK_KEY="locks/${KUBECONFIG_PATH_SAFE}/${CLUSTER_NAME}-${TIMESTAMP}.lock"
-          echo "Removing lock file after failure: s3://${S3_BUCKET}/${LOCK_KEY}"
+          echo "Removing lock file: s3://${S3_BUCKET}/${LOCK_KEY}"
           aws s3 rm "s3://${S3_BUCKET}/${LOCK_KEY}" --region ${REGION} || true
+
+          # Delete any CloudFormation stacks created for this cluster
+          echo "Checking for CloudFormation stacks to clean up..."
+          for stack in $(aws cloudformation list-stacks --region ${REGION} \
+            --stack-status-filter CREATE_COMPLETE CREATE_IN_PROGRESS CREATE_FAILED ROLLBACK_COMPLETE ROLLBACK_IN_PROGRESS \
+            --query "StackSummaries[?starts_with(StackName, 'eksctl-${CLUSTER_NAME}')].StackName" \
+            --output text 2>/dev/null || echo ""); do
+            if [ -n "${stack}" ]; then
+              echo "Deleting CloudFormation stack: ${stack}"
+              aws cloudformation delete-stack --stack-name "${stack}" --region ${REGION} || true
+            fi
+          done
+
+          # Clean up orphaned IAM roles for this cluster
+          echo "Checking for orphaned IAM roles..."
+          for role in $(aws iam list-roles --query "Roles[?starts_with(RoleName, 'eksctl-${CLUSTER_NAME}')].RoleName" --output text 2>/dev/null || echo ""); do
+            if [ -n "${role}" ]; then
+              echo "Cleaning up IAM role: ${role}"
+
+              # Detach managed policies
+              for policy in $(aws iam list-attached-role-policies --role-name "${role}" --query "AttachedPolicies[].PolicyArn" --output text 2>/dev/null || echo ""); do
+                if [ -n "${policy}" ]; then
+                  echo "  Detaching policy: ${policy}"
+                  aws iam detach-role-policy --role-name "${role}" --policy-arn "${policy}" || true
+                fi
+              done
+
+              # Delete inline policies
+              for policy in $(aws iam list-role-policies --role-name "${role}" --query "PolicyNames[]" --output text 2>/dev/null || echo ""); do
+                if [ -n "${policy}" ]; then
+                  echo "  Deleting inline policy: ${policy}"
+                  aws iam delete-role-policy --role-name "${role}" --policy-name "${policy}" || true
+                fi
+              done
+
+              # Remove from instance profiles
+              for profile in $(aws iam list-instance-profiles-for-role --role-name "${role}" --query "InstanceProfiles[].InstanceProfileName" --output text 2>/dev/null || echo ""); do
+                if [ -n "${profile}" ]; then
+                  echo "  Removing from instance profile: ${profile}"
+                  aws iam remove-role-from-instance-profile --role-name "${role}" --instance-profile-name "${profile}" || true
+                  aws iam delete-instance-profile --instance-profile-name "${profile}" || true
+                fi
+              done
+
+              # Delete the role
+              echo "  Deleting role: ${role}"
+              aws iam delete-role --role-name "${role}" || true
+            fi
+          done
+
+          echo "Cleanup complete"
 
   report-status:
     name: Report pool status
