@@ -634,7 +634,7 @@ func TestGetNetworkPolicy(t *testing.T) {
 		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
-}
+} 
 
 func TestGetNetworkPolicyWildcard(t *testing.T) {
 	xds := testXdsServer(t)

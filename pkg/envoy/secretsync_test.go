@@ -463,7 +463,7 @@ func (*fakeXdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpo
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (*fakeXdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
 	panic("unimplemented")
 }
 

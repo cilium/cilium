@@ -762,6 +762,7 @@
       // as we need to update cilium-envoy accordingly.
       "matchPackageNames": [
         "github.com/envoyproxy/go-control-plane/envoy",
+        "github.com/envoyproxy/go-control-plane",
       ],
       "matchUpdateTypes": [
         "patch",

@@ -140,8 +140,8 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		filePath:                       bootstrapFilePath,
 		nodeId:                         "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
 		cluster:                        ingressClusterName,
-		adminPath:                      getAdminSocketPath(GetSocketDir(config.runDir)),
-		xdsSock:                        getXDSSocketPath(GetSocketDir(config.runDir)),
+		adminPath:                      util.GetAdminSocketPath(util.GetSocketDir(config.runDir)),
+		xdsSock:                        util.GetXDSSocketPath(util.GetSocketDir(config.runDir)),
 		egressClusterName:              egressClusterName,
 		ingressClusterName:             ingressClusterName,
 		connectTimeout:                 config.connectTimeout,
