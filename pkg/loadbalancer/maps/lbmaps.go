@@ -6,6 +6,7 @@ package maps
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"math/rand/v2"
 	"net"
@@ -144,6 +145,13 @@ type BPFLBMaps struct {
 
 	openMapsMu lock.Mutex
 	openMaps   []*bpf.Map
+
+	preservedEntries map[string][]preservedEntry
+}
+
+type preservedEntry struct {
+	key   bpf.MapKey
+	value bpf.MapValue
 }
 
 //
@@ -383,6 +391,10 @@ func NewMaglevInnerMapSpec(tableSize uint) *ebpf.MapSpec {
 func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 	r.maglevInnerMapSpec = NewMaglevInnerMapSpec(r.MaglevCfg.TableSize)
 	mapsToCreate, mapsToDelete := r.allMaps()
+
+	if r.Pinned {
+		r.snapshotMapsForUpgrade(mapsToCreate)
+	}
 	openedMaps := make([]*bpf.Map, 0, len(mapsToCreate))
 	for _, desc := range mapsToCreate {
 		m := desc.ctor(desc.maxEntries)
@@ -412,7 +424,103 @@ func (r *BPFLBMaps) Start(ctx cell.HookContext) (err error) {
 			r.Log.Warn("Unpin failed", logfields.Error, err)
 		}
 	}
+
+	r.restorePreservedEntries()
 	return nil
+}
+
+func (r *BPFLBMaps) snapshotMapsForUpgrade(descs []mapDesc) {
+	r.preservedEntries = make(map[string][]preservedEntry)
+
+	for _, desc := range descs {
+		m := desc.ctor(desc.maxEntries)
+		entries, err := snapshotPinnedMap(m)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			r.Log.Debug(
+				"Snapshot skipped",
+				logfields.BPFMapName, m.Name(),
+				logfields.Error, err,
+			)
+			continue
+		}
+		if len(entries) > 0 {
+			r.preservedEntries[m.Name()] = entries
+		}
+	}
+}
+
+func (r *BPFLBMaps) restorePreservedEntries() {
+	for name, entries := range r.preservedEntries {
+		m := r.mapByName(name)
+		if m == nil {
+			r.Log.Debug("Skipping restore for unknown map", logfields.BPFMapName, name)
+			continue
+		}
+		for _, entry := range entries {
+			if err := m.Update(entry.key, entry.value); err != nil {
+				r.Log.Warn(
+					"Failed to restore entry",
+					logfields.BPFMapName, name,
+					logfields.Error, err,
+				)
+			}
+		}
+	}
+}
+
+func (r *BPFLBMaps) mapByName(name string) *bpf.Map {
+	switch name {
+	case Service4MapV2Name:
+		return r.service4Map
+	case Service6MapV2Name:
+		return r.service6Map
+	case Backend4MapV3Name:
+		return r.backend4Map
+	case Backend6MapV3Name:
+		return r.backend6Map
+	case RevNat4MapName:
+		return r.revNat4Map
+	case RevNat6MapName:
+		return r.revNat6Map
+	case SourceRange4MapName:
+		return r.sourceRange4Map
+	case SourceRange6MapName:
+		return r.sourceRange6Map
+	case MaglevOuter4MapName:
+		return r.maglev4Map
+	case MaglevOuter6MapName:
+		return r.maglev6Map
+	case SockRevNat4MapName:
+		return r.sockRevNat4Map
+	case SockRevNat6MapName:
+		return r.sockRevNat6Map
+	case AffinityMatchMapName:
+		return r.affinityMatchMap
+	case Affinity4MapName:
+		return r.affinity4Map
+	case Affinity6MapName:
+		return r.affinity6Map
+	default:
+		return nil
+	}
+}
+
+func snapshotPinnedMap(m *bpf.Map) ([]preservedEntry, error) {
+	if err := m.Open(); err != nil {
+		return nil, err
+	}
+	defer m.Close()
+
+	entries := []preservedEntry{}
+	if err := m.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		entries = append(entries, preservedEntry{key: key, value: value})
+	}); err != nil {
+		return nil, err
+	}
+	return entries, nil
 }
 
 // forEachOpenMap calls [fn] for each open map. The maps cannot close during this.
