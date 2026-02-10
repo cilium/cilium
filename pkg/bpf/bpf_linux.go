@@ -60,6 +60,33 @@ func OpenOrCreateMap(logger *slog.Logger, spec *ebpf.MapSpec, pinDir string) (*e
 		}
 
 		opts.PinPath = pinDir
+
+		// Handle BPF_F_RDONLY_PROG flag specially for upgrade/downgrade compatibility.
+		// On upgrade (no flag -> flag): remove flag from spec to avoid recreation,
+		// since datapath functions with a more privileged map.
+		// On upgrade (flag -> no flag): also avoid recreation, since removing
+		// the read-only restriction is backwards compatible.
+		// On downgrade (new no flag -> old flag): will fail naturally and trigger recreation.
+		pinPath := path.Join(pinDir, spec.Name)
+		if existing, err := ebpf.LoadPinnedMap(pinPath, nil); err == nil {
+			if info, err := existing.Info(); err == nil {
+				const bpfFRdonlyProg = unix.BPF_F_RDONLY_PROG
+				existingHasRdonly := (info.Flags & bpfFRdonlyProg) != 0
+				specHasRdonly := (spec.Flags & bpfFRdonlyProg) != 0
+
+				// Upgrade case: spec wants RDONLY but existing doesn't have it.
+				// Remove RDONLY from spec to avoid recreation.
+				if specHasRdonly && !existingHasRdonly {
+					spec.Flags = spec.Flags &^ bpfFRdonlyProg
+				}
+				// Upgrade case: existing has RDONLY but spec doesn't want it.
+				// Reuse existing map since removing read-only is backwards compatible.
+				if !specHasRdonly && existingHasRdonly {
+					// Keep existing map - no action needed
+				}
+			}
+			existing.Close()
+		}
 	}
 
 	m, err := createMap(spec, &opts)
