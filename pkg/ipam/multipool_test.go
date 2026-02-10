@@ -769,7 +769,7 @@ func Test_LocalNodeCIDRsSyncer(t *testing.T) {
 	startLocalNodeAllocCIDRsSync(true, true, jg, localNode, localNodeStore)
 
 	// create local node
-	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), currentNode, metav1.CreateOptions{})
+	currentNode, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), currentNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
 	// Check that the local node store has been updated
@@ -806,7 +806,7 @@ func Test_LocalNodeCIDRsSyncer(t *testing.T) {
 	)
 
 	// update local node
-	_, err = clientset.CiliumV2().CiliumNodes().Update(t.Context(), currentNode, metav1.UpdateOptions{})
+	currentNode, err = clientset.CiliumV2().CiliumNodes().Update(t.Context(), currentNode, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 
 	// Check that the local node store has been updated
