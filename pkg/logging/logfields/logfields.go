@@ -476,6 +476,8 @@ const (
 	// Envoy secrets
 	ResourceSecrets = "secrets"
 
+	ResourceType = "resourceType"
+
 	// Size of the buffer
 	BufferSize = "buffer-size"
 
@@ -1152,6 +1154,10 @@ const (
 	OptionalGVK = "optionalGVK"
 
 	ClusterConfig = "clusterConfig"
+
+	ListenerName = "listenerName"
+
+	ListenerConfig = "listenerConfig"
 
 	NodeConfig = "nodeConfig"
 

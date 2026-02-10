@@ -475,7 +475,7 @@ func (s *xdsServer) getTcpFilterChainProto(clusterName string, filterName string
 	}
 
 	// 2. Add Cilium Network filter.
-	var ciliumConfig = &cilium.NetworkFilter{
+	ciliumConfig := &cilium.NetworkFilter{
 		AccessLogPath: s.accessLogPath,
 	}
 
@@ -1117,6 +1117,22 @@ var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
 							ClusterName: CiliumXDSClusterName,
 						},
 					},
+				},
+			},
+		},
+	},
+}
+
+var CiliumAdsConfigSource = &envoy_config_core.ApiConfigSource{
+	RequestTimeout:            &durationpb.Duration{Seconds: 30},
+	ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
+	TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+	SetNodeOnFirstMessageOnly: true,
+	GrpcServices: []*envoy_config_core.GrpcService{
+		{
+			TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
+					ClusterName: CiliumXDSClusterName,
 				},
 			},
 		},
