@@ -1483,7 +1483,7 @@ type recordingRemoveNetworkPolicyProxy struct {
 	lastEndpointID uint64
 }
 
-func (p *recordingRemoveNetworkPolicyProxy) RemoveNetworkPolicy(ep proxyendpoint.EndpointInfoSource) {
+func (p *recordingRemoveNetworkPolicyProxy) RemoveNetworkPolicy(ctx context.Context, ep proxyendpoint.EndpointInfoSource) {
 	p.calls++
 	p.lastEndpointID = ep.GetID()
 }
