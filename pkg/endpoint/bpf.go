@@ -1153,7 +1153,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		if hasNewPolicy || hasEnvoyRedirect || e.isIngress {
 			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
-			proxyErr, rf, ff := e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
+			proxyErr, rf, ff := e.proxy.UpdateNetworkPolicy(context.Background(), e, e.desiredPolicy, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(proxyErr == nil)
 
 			// UpdateNetworkPolicy only returns revert/finalize func if there is no

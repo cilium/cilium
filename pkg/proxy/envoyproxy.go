@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -58,7 +59,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false
 	}
-	err := p.xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, cb)
+	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, cb)
 
 	return redirect, err
 }
@@ -67,12 +68,12 @@ func (p *envoyProxyIntegration) changeLogLevel(level slog.Level) error {
 	return p.adminClient.ChangeLogLevel(level)
 }
 
-func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
-	return p.xdsServer.UpdateNetworkPolicy(ep, policy, wg)
+func (p *envoyProxyIntegration) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+	return p.xdsServer.UpdateNetworkPolicy(ctx, ep, policy, wg)
 }
 
-func (p *envoyProxyIntegration) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
-	p.xdsServer.RemoveNetworkPolicy(ep)
+func (p *envoyProxyIntegration) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
+	p.xdsServer.RemoveNetworkPolicy(ctx, ep)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the xDS cache.
@@ -82,5 +83,5 @@ func (k *envoyRedirect) UpdateRules(rules policy.L7DataMap) (revert.RevertFunc, 
 
 // Close the redirect.
 func (r *envoyRedirect) Close() {
-	r.xdsServer.RemoveListener(r.listenerName, nil)
+	r.xdsServer.RemoveListener(context.Background(), r.listenerName, nil)
 }

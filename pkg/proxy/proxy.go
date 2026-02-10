@@ -330,12 +330,12 @@ func (p *Proxy) removeRedirect(id string) {
 	}
 }
 
-func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
-	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, wg)
+func (p *Proxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+	return p.envoyIntegration.UpdateNetworkPolicy(ctx, ep, policy, wg)
 }
 
-func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
-	p.envoyIntegration.RemoveNetworkPolicy(ep)
+func (p *Proxy) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
+	p.envoyIntegration.RemoveNetworkPolicy(ctx, ep)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the Cilium log 'level'.

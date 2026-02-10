@@ -148,7 +148,7 @@ func (p *recordingEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 
 
 func (p *recordingEndpointProxy) RemoveRedirect(id string) {}
 
-func (p *recordingEndpointProxy) UpdateNetworkPolicy(ep proxyendpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+func (p *recordingEndpointProxy) UpdateNetworkPolicy(ctx context.Context, ep proxyendpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	endpointID := ep.GetID()
 
 	p.mu.Lock()
@@ -181,7 +181,8 @@ func (p *recordingEndpointProxy) UpdateNetworkPolicy(ep proxyendpoint.EndpointUp
 		}
 }
 
-func (p *recordingEndpointProxy) RemoveNetworkPolicy(ep proxyendpoint.EndpointInfoSource) {}
+func (p *recordingEndpointProxy) RemoveNetworkPolicy(ctx context.Context, ep proxyendpoint.EndpointInfoSource) {
+}
 
 func (p *recordingEndpointProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
 }

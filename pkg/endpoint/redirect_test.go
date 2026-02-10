@@ -116,12 +116,13 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
 }
 
 // UpdateNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
 	return nil, nil, nil
 }
 
 // RemoveNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
+func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
+}
 
 // UpdateSDP does nothing.
 func (r *RedirectSuiteProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
