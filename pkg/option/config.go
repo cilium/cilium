@@ -131,9 +131,6 @@ const (
 	// Add unreachable routes on pod deletion
 	EnableUnreachableRoutes = "enable-unreachable-routes"
 
-	// EncryptInterface enables encryption on specified interface
-	EncryptInterface = "encrypt-interface"
-
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
@@ -1181,8 +1178,6 @@ type UnsafeDaemonConfig struct {
 
 	BPFSocketLBHostnsOnly bool
 
-	EncryptInterface []string // Set of network facing interface to encrypt over
-
 	// AllowLocalhost defines when to allows the local stack to local endpoints
 	// values: { auto | always | policy }
 	AllowLocalhost string
@@ -1197,14 +1192,13 @@ type DaemonConfig struct {
 	shaSum [32]byte
 
 	CreationTime       time.Time
-	BpfDir             string   // BPF template files directory
-	LibDir             string   // Cilium library files directory
-	RunDir             string   // Cilium runtime directory
-	ExternalEnvoyProxy bool     // Whether Envoy is deployed as external DaemonSet or not
-	EnableXDPPrefilter bool     // Enable XDP-based prefiltering
-	EnableTCX          bool     // Enable attaching endpoint programs using tcx if the kernel supports it
-	EncryptInterface   []string // Set of network facing interface to encrypt over
-	EncryptNode        bool     // Set to true for encrypting node IP traffic
+	BpfDir             string // BPF template files directory
+	LibDir             string // Cilium library files directory
+	RunDir             string // Cilium runtime directory
+	ExternalEnvoyProxy bool   // Whether Envoy is deployed as external DaemonSet or not
+	EnableXDPPrefilter bool   // Enable XDP-based prefiltering
+	EnableTCX          bool   // Enable attaching endpoint programs using tcx if the kernel supports it
+	EncryptNode        bool   // Set to true for encrypting node IP traffic
 
 	DatapathMode string // Datapath mode
 	RoutingMode  string // Routing mode
@@ -2449,7 +2443,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
-	c.UnsafeDaemonConfigOption.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.CiliumIdentityMaxJitter = vp.GetDuration(CiliumIdentityMaxJitter)
@@ -3313,7 +3306,6 @@ func (c *DaemonConfig) checksum() [32]byte {
 	sumConfig := *c
 	// Ignore variable parts
 	sumConfig.Opts = nil
-	sumConfig.UnsafeDaemonConfigOption.EncryptInterface = nil
 	cBytes, err := json.Marshal(&sumConfig)
 	if err != nil {
 		return [32]byte{}
@@ -3370,8 +3362,7 @@ func (c *DaemonConfig) diffFromFile() error {
 
 		diff = cmp.Diff(&config, c, opts,
 			cmpopts.IgnoreTypes(&IntOptions{}),
-			cmpopts.IgnoreTypes(&OptionLibrary{}),
-			cmpopts.IgnoreFields(DaemonConfig{}, "EncryptInterface"))
+			cmpopts.IgnoreTypes(&OptionLibrary{}))
 	}
 	return fmt.Errorf("Config differs:\n%s", diff)
 }
