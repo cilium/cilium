@@ -153,6 +153,7 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 		policyMapState := emptyMapState(logger)
 		epPolicy.policyMapState = policyMapState
 
+		features := precedenceFeatures
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -169,11 +170,15 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(x.level, types.MaxPriority, NilRuleOrigin, proxyPort, 0, verdict, x.authReq)
+			// pass verdict not used in this test
+			if x.authReq != NoAuthRequirement {
+				features |= authRules
+			}
+			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
-		policyMaps.consumeMapChanges(epPolicy, allFeatures)
+		policyMaps.consumeMapChanges(epPolicy, features)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 	}
@@ -242,7 +247,6 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	allowEntry := NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 	DenyEntry := types.DenyEntry()
 	denyEntry := NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
-	passEntry := PassEntry(0, types.MaxPriority, NilRuleOrigin).withLabels(labels.LabelArrayList{nil})
 
 	identityCache := identity.IdentityMap{
 		identityFoo:       labelsFoo,
@@ -366,8 +370,8 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				// default allow ingress
 				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
 
-				egressKey(0, 0, 0, 0):            denyEntry.withLevel(11),
-				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 1000),
+				egressKey(0, 0, 0, 0):            denyEntry.withLevel(2001),
+				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 0, 3000),
 			},
 			probes: []probe{
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -414,10 +418,10 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):           newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(0, 6, 80, 0):           denyEntry.withLevel(11),
-				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 1000),
-				egressKey(identity1100, 0, 0, 0): denyEntry.withLevel(2).withPassPriority(0, 1000),
-				egressKey(0, 0, 0, 0):            denyEntry.withLevel(2000),
+				egressKey(0, 6, 80, 0):           denyEntry.withLevel(3001),
+				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 0, 4000),
+				egressKey(identity1100, 0, 0, 0): denyEntry.withLevel(2).withPassPriority(0, 0, 4000),
+				egressKey(0, 0, 0, 0):            denyEntry.withLevel(5000),
 			},
 			probes: []probe{
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -451,8 +455,12 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			},
 			expected: mapStateMap{
 				// default allow ingress
-				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
+
+				// default deny egress
+				egressKey(0, 0, 0, 0): newDenyEntryWithLabels(LabelsDenyAnyEgress).withLevel(4000),
+
+				egressKey(identity1111, 0, 0, 0):  newDenyEntryWithLabels(LabelsDenyAnyEgress).withLevel(1001).withPassPriority(0, 0, 3000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
 			},
 			probes: []probe{},
@@ -483,10 +491,10 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				egressKey(identity1111, 0, 0, 0):  newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1001).withPassPriority(0, 0, 3000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
 				// default allow egress
-				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(4000),
 			},
 			probes: []probe{},
 		}, {

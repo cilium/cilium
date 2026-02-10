@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -139,8 +140,8 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 }
 
 type DummyOwner struct {
-	logger       *slog.Logger
-	mapStateSize int
+	logger      *slog.Logger
+	previousMap *mapState
 }
 
 func (d DummyOwner) CreateRedirects(*L4Filter) {
@@ -162,8 +163,8 @@ func (d DummyOwner) IsHost() bool {
 	return false
 }
 
-func (d DummyOwner) MapStateSize() int {
-	return d.mapStateSize
+func (d DummyOwner) PreviousMapState() *MapState {
+	return d.previousMap
 }
 
 func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
@@ -218,11 +219,11 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 
 	for b.Loop() {
 		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
-		owner.mapStateSize = epPolicy.policyMapState.Len()
+		owner.previousMap = epPolicy.GetMapState()
 		epPolicy.Ready()
 	}
 	ip.detach(true, 0)
-	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
+	assert.Equal(b, 44596, owner.previousMap.Len())
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
@@ -1062,7 +1063,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test non-empty mapstate
 	p.policyMapState = emptyMapState(log).withState(mapStateMap{
-		key1: newMapStateEntry(0, types.MaxPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
+		key1: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
 	})
 
 	rm, err := p.GetRuleMeta(key1)

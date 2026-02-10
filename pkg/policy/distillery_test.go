@@ -1387,6 +1387,11 @@ func Test_AllowAll(t *testing.T) {
 	}
 }
 
+// newDenyEntryWithLabels creates an deny entry with the specified labels.
+func newDenyEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
+	return newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, ""), 0, 0, types.Deny, NoAuthRequirement)
+}
+
 var (
 	ruleAllowAllIngress = api.NewRule().WithIngressRules([]api.IngressRule{{
 		IngressCommonRule: api.IngressCommonRule{
@@ -2231,11 +2236,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
 					flow.Dport = i
-					verdict := api.Denied
-					if rt.isAllow {
-						verdict = api.Allowed
-					}
-					checkFlow(t, td.repo, td.identityManager, flow, verdict)
+					checkFlow(t, td.repo, td.identityManager, flow, rt.isAllow)
 				}
 			}
 		})

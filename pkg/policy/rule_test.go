@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/testutils"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1076,6 +1077,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+				td.wildcardCachedSelector: {nil},
+			}),
 		},
 		"0/igmp": {
 			Port:     0,
@@ -1086,6 +1090,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: nil,
 			},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+				td.wildcardCachedSelector: {nil},
+			}),
 		},
 	})
 
@@ -1098,6 +1105,9 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
 	}})
 
 	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
@@ -1316,8 +1326,11 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*types.CIDRSelector).Matches(cidrLabels); matches {
-								break
+							cidr, ok := sel.(*identitySelector).source.(*types.CIDRSelector)
+							if ok {
+								if matches = cidr.Matches(cidrLabels); matches {
+									break
+								}
 							}
 						}
 						require.True(t, matches, "%s: expected cidr %s to match filter %+v", test.description, cidr, filter)
@@ -1514,15 +1527,15 @@ func TestRuleLog(t *testing.T) {
 
 	// endpoint b should have all 3 rules
 	td.repo.MustAddList(rules)
-	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToB, nil, nil)
+	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToB)
 	require.NoError(t, err)
-	require.Equal(t, api.Allowed, verdict)
+	require.True(t, verdict.Allowed())
 	require.Equal(t, []string{"rule1", "rule2", "rule3"}, egress.Log())
 
 	// endpoint c should have just rule3
-	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToC, nil, nil)
+	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToC)
 	require.NoError(t, err)
-	require.Equal(t, api.Allowed, verdict)
+	require.True(t, verdict.Allowed())
 	require.Equal(t, []string{"rule3"}, egress.Log())
 
 }
@@ -1530,6 +1543,7 @@ func TestRuleLog(t *testing.T) {
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+		labels.NewLabel("name", "idA", labels.LabelSourceK8s),
 		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idA               = identity.NewIdentity(1001, labelsA.Labels())
@@ -1539,6 +1553,7 @@ var (
 	labelsB = labels.LabelArray{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "t", labels.LabelSourceK8s),
+		labels.NewLabel("name", "idB", labels.LabelSourceK8s),
 		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idB               = identity.NewIdentity(1002, labelsB.Labels())
@@ -1546,18 +1561,19 @@ var (
 
 	labelsC = labels.LabelArray{
 		labels.NewLabel("id", "t", labels.LabelSourceK8s),
+		labels.NewLabel("name", "idC", labels.LabelSourceK8s),
 		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
 	}
 	idC               = identity.NewIdentity(1003, labelsC.Labels())
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
 	labelSelectorC    = types.NewLabelSelector(endpointSelectorC)
 
-	flowAToB   = Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 80}
-	flowAToC   = Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 80}
-	flowAToC90 = Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 90}
+	flowAToB   = types.Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 80}
+	flowAToC   = types.Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 80}
+	flowAToC90 = types.Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 90}
 
-	flowAToWorld80 = Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 80}
-	flowAToWorld90 = Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 90}
+	flowAToWorld80 = types.Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 80}
+	flowAToWorld90 = types.Flow{From: idA, To: identity.LookupReservedIdentity(identity.ReservedIdentityWorld), Proto: u8proto.TCP, Dport: 90}
 
 	ruleTestIDs = identity.IdentityMap{
 		idA.ID: idA.LabelArray,
@@ -1577,22 +1593,20 @@ var (
 	}
 )
 
-func checkFlow(t *testing.T, repo *Repository, idManager identitymanager.IDManager, flow Flow, verdict api.Decision) {
+func checkFlow(t *testing.T, repo *Repository, idManager identitymanager.IDManager, flow types.Flow, allowed bool) {
 	t.Helper()
+	flow.NamedPortsTCP = namedPorts
 
-	srcEP := &EndpointInfo{
-		ID:            1,
-		TCPNamedPorts: namedPorts,
-	}
-
-	dstEP := &EndpointInfo{
-		ID:            2,
-		TCPNamedPorts: namedPorts,
-	}
-
-	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, idManager, flow, srcEP, dstEP)
+	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, idManager, flow)
 	require.NoError(t, err)
-	require.Equal(t, verdict, actual)
+	require.Equal(t, allowed, actual.Allowed())
+
+	// Verify that the iterative policy engine matches.
+	// This is to test that the policy iteration system is in aggrement. If this assertion fails,
+	// it means the iterative simulator has a bug.
+	entries := repo.searchRLocked()
+	simulateVerdict, _, _ := testutils.IteratePolicy(entries, flow)
+	require.Equal(t, actual.Allowed(), simulateVerdict.Allowed(), "Validation of the policy simulator failed.")
 }
 
 func TestIngressAllowAll(t *testing.T) {
@@ -1609,10 +1623,10 @@ func TestIngressAllowAll(t *testing.T) {
 			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}})
 
-	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, false)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
 
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, true)
 }
 
 func TestIngressAllowAllL4Overlap(t *testing.T) {
@@ -1643,8 +1657,8 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, true)
 }
 
 func TestIngressAllowAllNamedPort(t *testing.T) {
@@ -1667,9 +1681,9 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToB, false)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 }
 
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
@@ -1699,8 +1713,8 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 			}},
 		},
 	})
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, true)
 }
 
 func TestIngressL4AllowAll(t *testing.T) {
@@ -1721,8 +1735,8 @@ func TestIngressL4AllowAll(t *testing.T) {
 			}},
 		},
 	})
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
@@ -1755,8 +1769,8 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
@@ -1790,9 +1804,9 @@ func TestEgressAllowAll(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToB, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, true)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, true)
 
 }
 
@@ -1814,9 +1828,9 @@ func TestEgressL4AllowAll(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToB, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToB, true)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1853,12 +1867,12 @@ func TestEgressL4AllowWorld(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, false)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Denied)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, false)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1893,12 +1907,12 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, false)
 
 	// Pod to pod must be allowed on port 80, denied on port 90 (all identity)
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1928,12 +1942,12 @@ func TestEgressL3AllowWorld(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, true)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Denied)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, false)
+	checkFlow(t, repo, td.identityManager, flowAToC90, false)
 }
 
 func TestEgressL3AllowAllEntity(t *testing.T) {
@@ -1952,12 +1966,12 @@ func TestEgressL3AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, true)
 
 	// Pod to pod must be allowed on both port 80 and 90 (L3 only rule)
-	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
-	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, true)
+	checkFlow(t, repo, td.identityManager, flowAToC90, true)
 }
 
 func TestL4WildcardMerge(t *testing.T) {

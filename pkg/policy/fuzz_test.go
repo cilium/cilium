@@ -37,7 +37,7 @@ func FuzzResolvePolicy(f *testing.F) {
 		if err != nil {
 			return
 		}
-		sp.DistillPolicy(logger, &EndpointInfo{ID: uint64(idA.ID)}, nil)
+		sp.DistillPolicy(logger, &endpointInfo{ID: uint64(idA.ID)}, nil)
 	})
 }
 
@@ -49,7 +49,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
-		keys.insertWithChanges(types.Priority(0).ToPassPrecedence(), key, entry, allFeatures, ChangeState{})
+		keys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), key, entry, allFeatures, ChangeState{})
 	})
 }
 
@@ -87,7 +87,7 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if deny {
 			verdict = types.Deny
 		}
-		value := newMapStateEntry(0, types.MaxPriority, NilRuleOrigin, proxyPort, 0, verdict, NoAuthRequirement)
+		value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, NoAuthRequirement)
 		policyMaps := MapChanges{logger: slog.New(slog.DiscardHandler)}
 		policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())

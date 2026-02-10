@@ -29,6 +29,7 @@ import (
 // lest ye find yourself with hundreds of unnecessary imports.
 type Key = types.Key
 type Keys = types.Keys
+type LPMKeys = types.LPMKeys
 type MapStateEntry = types.MapStateEntry
 type MapStateMap = types.MapStateMap
 
@@ -63,14 +64,20 @@ const (
 	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
 	LabelAllowLocalHostIngress = "allow-localhost-ingress"
 	LabelAllowAnyIngress       = "allow-any-ingress"
+	LabelDenyAnyIngress        = "deny-any-ingress"
 	LabelAllowAnyEgress        = "allow-any-egress"
+	LabelDenyAnyEgress         = "deny-any-egress"
 )
 
 var (
 	LabelsAllowAnyIngress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved)}
+	LabelsDenyAnyIngress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelDenyAnyIngress, labels.LabelSourceReserved)}
 	LabelsAllowAnyEgress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved)}
+	LabelsDenyAnyEgress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelDenyAnyEgress, labels.LabelSourceReserved)}
 	LabelsLocalHostIngress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved)}
 )
@@ -98,6 +105,8 @@ type mapState struct {
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[types.LPMKey, IDSet]
+	// idIndex indexes entries by ID
+	byId map[identity.NumericIdentity]LPMKeys
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -126,6 +135,16 @@ func (ms *mapState) upsert(k Key, e mapStateEntry) {
 			ms.trie.Upsert(k.PrefixLength(), k.LPMKey, idSet)
 		}
 		idSet[k.Identity] = struct{}{}
+
+		// update byId if in use
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys == nil {
+				keys = make(LPMKeys)
+				ms.byId[k.Identity] = keys
+			}
+			keys[k.LPMKey] = struct{}{}
+		}
 	}
 }
 
@@ -139,6 +158,16 @@ func (ms *mapState) delete(k Key) {
 			delete(idSet, k.Identity)
 			if len(idSet) == 0 {
 				ms.trie.Delete(k.PrefixLength(), k.LPMKey)
+			}
+		}
+
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys != nil {
+				delete(keys, k.LPMKey)
+				if len(keys) == 0 {
+					delete(ms.byId, k.Identity)
+				}
 			}
 		}
 	}
@@ -186,6 +215,19 @@ func (ms *mapState) forIDs(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) 
 	return true
 }
 
+// forIDs calls 'f' for each non-wildcard ID in 'idSet' with port/proto from 'k'.
+func (ms *mapState) forNonWildcardIDs(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
+	for id := range idSet {
+		if id != 0 {
+			k.Identity = id
+			if !ms.forKey(k, f) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // forID calls 'f' for 'k' if 'k.Identity' exists in 'idSet'.
 func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) bool {
 	if _, exists := idSet[k.Identity]; exists {
@@ -196,15 +238,16 @@ func (ms *mapState) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) bool) b
 	return true
 }
 
-// BroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the same
-// or wildcard ID) in the trie.
-func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+// CoveringBroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the
+// same or wildcard ID) in the trie.
+func (ms *mapState) CoveringBroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey}
 
-			// ANY identity is broader or equal to all identities, visit it first if it exists
+			// ANY identity is broader or equal to all identities, visit it first if it
+			// exists
 			if !ms.forID(k.WithIdentity(0), idSet, yield) {
 				return
 			}
@@ -218,10 +261,41 @@ func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	}
 }
 
-// NarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
+// BroaderOrEqualKeys iterates over broader or equal (broader or equal port/proto and the same
+// or wildcard ID) in the trie.
+// If a key is a wildcard key then also keys with any specific IDs are iterated!
+func (ms *mapState) BroaderOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	return func(yield func(Key, mapStateEntry) bool) {
+		iter := ms.trie.AncestorIterator(key.PrefixLength(), key.LPMKey)
+		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
+			k := Key{LPMKey: lpmKey}
+
+			// ANY identity is broader or equal to all identities, visit it first if it
+			// exists
+			if !ms.forID(k.WithIdentity(0), idSet, yield) {
+				return
+			}
+
+			// Visit key with the same identity, if it exists.
+			// ANY identity was already visited above.
+			if key.Identity != 0 && !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
+			}
+
+			// Last, Visit all identities for an ANY key
+			if key.Identity == 0 {
+				if !ms.forNonWildcardIDs(k, idSet, yield) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// CoveredNarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
 // Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
 // state that allows iteration to be continued even if the current trie node is removed.
-func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+func (ms *mapState) CoveredNarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
@@ -242,8 +316,40 @@ func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	}
 }
 
-// CoveringKeysWithSameID iterates over broader or equal port/proto entries in the trie in LPM order,
-// with most specific match with the same ID as in 'key' being returned first.
+// NarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
+// Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
+// state that allows iteration to be continued even if the current trie node is removed.
+// If a key is a non-wildcard key then also the wildcard key is iterated!
+func (ms *mapState) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+	return func(yield func(Key, mapStateEntry) bool) {
+		iter := ms.trie.DescendantIterator(key.PrefixLength(), key.LPMKey)
+		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
+			k := Key{LPMKey: lpmKey}
+
+			// All identities are narrower or equal to ANY identity.
+			if key.Identity == 0 {
+				if !ms.forIDs(k, idSet, yield) {
+					return
+				}
+			} else { // key has a specific identity
+				// Need to visit the key with the same identity, if it exists.
+				if !ms.forID(k.WithIdentity(key.Identity), idSet, yield) {
+					return
+				}
+			}
+
+			// Last, Visit ANY identity for a specific identity
+			if key.Identity != 0 {
+				if !ms.forID(k.WithIdentity(0), idSet, yield) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// CoveringKeysWithSameID iterates over broader or equal port/proto entries in the trie in LPM
+// order, with most specific match with the same ID as in 'key' being returned first.
 func (ms *mapState) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := ms.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key.LPMKey)
@@ -396,20 +502,126 @@ func (ms *mapState) Len() int {
 	return len(ms.entries)
 }
 
+// Pass verdict related metadata can not be fully resolved at the L4Filter level due to named port
+// mapping not existing at that level.
+type passMeta struct {
+	// precedence is the precedence of a PASS verdict on the key of this entry.
+	// This is separate from the MapStateEntry.Precedence, as an allow or deny entry may
+	// have the same key, and both need to be kept
+	precedence types.Precedence
+
+	// tierMinPrecedence is the last precedence on this tier.
+	// This is used when bumping lower tier entry precedences due to a covering pass entry,
+	// and to discern if a given new entry is on the same tier as the pass entry.
+	tierMaxPrecedence, tierMinPrecedence types.Precedence
+}
+
+func (pm passMeta) String() string {
+	return strconv.FormatUint(uint64(pm.precedence.Priority()), 10) + "/" +
+		strconv.FormatUint(uint64(pm.tierMaxPrecedence.Priority()), 10) + ":" +
+		strconv.FormatUint(uint64(pm.tierMinPrecedence.Priority()), 10)
+}
+
+// passMetas is a slice of pass metadata, where there may be at most one entry for each tier (as
+// identified by 'tierMinPrecedence'), ordered by increasing precedence.
+type passMetas []passMeta
+
+// Collect adds the given pass metadata to its place in ascending tier order, unless there already
+// is metadata for the same tier. In that case the higher precedence pass metadata is retained.
+func (pm *passMetas) Collect(pass passMeta) {
+	if pass.precedence == 0 || pass.precedence < pass.tierMinPrecedence || pass.precedence > pass.tierMaxPrecedence {
+		return
+	}
+
+	var i int
+	for i = 0; i < len(*pm); i++ {
+		m := (*pm)[i]
+		if m.tierMinPrecedence > pass.tierMinPrecedence {
+			break
+		}
+		if m.tierMinPrecedence == pass.tierMinPrecedence {
+			if pass.precedence > m.precedence {
+				(*pm)[i] = pass
+			}
+			return
+		}
+	}
+	// empty slice (i == 0) or only lower tiers before index 'i'
+	*pm = slices.Insert(*pm, i, pass)
+}
+
+// isDifferentTierOrHigherPrecedence returns true if 'pass' if of a different tier or higher
+// precedence than the given 'precedence'.
+func (pass passMeta) isDifferentTierOrHigherPrecedence(precedence types.Precedence) bool {
+	sameTier := pass.tierMinPrecedence <= precedence &&
+		precedence <= pass.tierMaxPrecedence
+	return !sameTier || pass.precedence > precedence
+}
+
+// Delete returns a new slice with lower precedence entries in the same tier removed
+func (old passMetas) Delete(precedence types.Precedence) passMetas {
+	new := make(passMetas, 0, len(old))
+	for i := range old {
+		if old[i].isDifferentTierOrHigherPrecedence(precedence) {
+			new = append(new, old[i])
+		}
+	}
+	return new
+}
+
+// Merge combines pass metadata from 'old' and 'other', reusing the 'old' slice.
+func (old passMetas) Merge(other passMetas) passMetas {
+	// Merge pass metadata keeping only the highest precedence entry at each tier.
+	// Each passMeta slice has at most one entry on each tier.
+	// Elements are sorted in the order if increasing precedence.
+	var i, j int
+	for ; j < len(other); j++ {
+		// keep old[i] if lower tier
+		for ; i < len(old) && old[i].tierMinPrecedence < other[j].tierMinPrecedence; i++ {
+		}
+		if i == len(old) {
+			break
+		}
+		// old[i] is now equal or higher tier than other[j]
+		if old[i].tierMinPrecedence > other[j].tierMinPrecedence {
+			// 'j' is lower tier, insert
+			old = slices.Insert(old, i, other[j])
+		} else if old[i].precedence < other[j].precedence {
+			// same tier, 'j' if higher precedence, keep 'j'
+			old[i] = other[j]
+		}
+	}
+	if i == len(old) && j < len(other) {
+		return append(old, other[j:]...)
+	}
+	return old
+}
+
+// MergeClone returns either 'old' or 'other' unmodified, or clones the slice '*old' and returns
+// a pointer to the newly merged slice of pass metadata.
+func (old *passMetas) MergeClone(other *passMetas) *passMetas {
+	if old == nil || len(*old) == 0 {
+		return other
+	}
+	if other == nil || len(*other) == 0 {
+		return old
+	}
+	if slices.Equal(*old, *other) {
+		return old
+	}
+
+	new := slices.Clone(*old).Merge(*other)
+	return &new
+}
+
 // mapStateEntry is the entry type with additional internal bookkeping of the relation between
 // explicitly and implicitly added entries.
 type mapStateEntry struct {
 	MapStateEntry
 
-	// passPrecedence is the precedence of a PASS verdict on the key of this entry.
-	// This is separate from the MapStateEntry.Precedence, as an allow or deny entry may
-	// have the same key, and both need to be kept
-	passPrecedence types.Precedence
-
-	// nextTierPrecedence is the base precedence of the next tier.
-	// This is used when bumping lower tier entry precedences due to a covering pass entry,
-	// and to discern if a given new entry is on the same tier as the pass enrty.
-	nextTierPrecedence types.Precedence
+	// pass metadata is stored via a pointer to limit the overhead on entries without any pass
+	// metadata.
+	passes *passMetas
 
 	// derivedFromRules tracks the policy rules this entry derives from.
 	// Must be initialized explicitly, zero-intialization does not work with unique.Handle[].
@@ -417,33 +629,39 @@ type mapStateEntry struct {
 }
 
 func (e mapStateEntry) IsPassEntry() bool {
-	return e.passPrecedence != 0
+	return e.passes != nil
 }
 
-// Precedence returns the precedence of the entry, which is the highest of the passPrecedence
-// and MapStateEntry.Precedence if both are valid.
-// Returns zero for for an invalid entry that is not a pass entry.
-func (e mapStateEntry) GetPrecedence() types.Precedence {
-	precedence := e.passPrecedence
-	if e.IsValid() && e.Precedence > precedence {
-		precedence = e.Precedence
+// Passes iterates over the pass metadata in the entry.
+func (e mapStateEntry) Passes() iter.Seq[passMeta] {
+	return func(yield func(passMeta) bool) {
+		if e.passes != nil {
+			for _, meta := range *e.passes {
+				if !yield(meta) {
+					return
+				}
+			}
+		}
 	}
-	return precedence
 }
 
-// PassEntry returns a MapStateEntry with maximum precedence for a pass entry
-func PassEntry(priority, nextTierPriority types.Priority, derivedFrom ruleOrigin) mapStateEntry {
+// PassEntry returns a pass entry with a single pass metadata initialized from the parameter values.
+func PassEntry(priority, tierPriority, nextTierPriority types.Priority, derivedFrom ruleOrigin) mapStateEntry {
 	return mapStateEntry{
-		passPrecedence:     priority.ToPassPrecedence(),
-		nextTierPrecedence: nextTierPriority.ToPassPrecedence(),
-		MapStateEntry:      types.InvalidEntry(),
-		derivedFromRules:   derivedFrom,
+		passes: &passMetas{{
+			precedence:        priority.ToPassPrecedence(),
+			tierMaxPrecedence: tierPriority.ToTierMaxPrecedence(),
+			tierMinPrecedence: nextTierPriority.ToPassPrecedence() + 0x100,
+		}},
+		MapStateEntry:    types.InvalidEntry(),
+		derivedFromRules: derivedFrom,
 	}
 }
 
 // newMapStateEntry creates a map state entry.
 func newMapStateEntry(
 	priority types.Priority,
+	tierPriority types.Priority,
 	nextTierPriority types.Priority,
 	derivedFrom ruleOrigin,
 	proxyPort uint16,
@@ -452,7 +670,7 @@ func newMapStateEntry(
 	authReq AuthRequirement,
 ) mapStateEntry {
 	if verdict == types.Pass {
-		return PassEntry(priority, nextTierPriority, derivedFrom)
+		return PassEntry(priority, tierPriority, nextTierPriority, derivedFrom)
 	}
 	return mapStateEntry{
 		MapStateEntry:    types.NewMapStateEntry(priority, verdict == types.Deny, proxyPort, listenerPriority, authReq),
@@ -469,7 +687,7 @@ func makeInvalidEntry() mapStateEntry {
 // newAllowEntryWithLabels creates an allow entry with the specified labels.
 // Used for adding allow-all entries when policy enforcement is not wanted.
 func newAllowEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
-	return newMapStateEntry(0, types.MaxPriority, makeSingleRuleOrigin(lbls, ""), 0, 0, types.Allow, NoAuthRequirement)
+	return newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, ""), 0, 0, types.Allow, NoAuthRequirement)
 }
 
 func NewMapStateEntry(e MapStateEntry) mapStateEntry {
@@ -480,15 +698,36 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 }
 
 func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, 0)
+	return newMapState(logger, nil, 0)
 }
 
-func newMapState(logger *slog.Logger, size int) mapState {
-	return mapState{
+// newMapState returns a new mapState with capacities from the given old mapState (if non-nil),
+// according to the given policy features.
+func newMapState(logger *slog.Logger, old *mapState, features policyFeatures) mapState {
+	var nEntries int
+
+	if old != nil {
+		nEntries = len(old.entries)
+	}
+
+	ms := mapState{
 		logger:  logger,
-		entries: make(mapStateMap, size),
+		entries: make(mapStateMap, nEntries),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
+
+	if features&passRules != 0 {
+		if old == nil {
+			ms.byId = make(map[identity.NumericIdentity]LPMKeys)
+		} else {
+			ms.byId = make(map[identity.NumericIdentity]LPMKeys, len(old.byId))
+			// preallocate id index keysets to their current sizes, if any
+			for k, v := range old.byId {
+				ms.byId[k] = make(LPMKeys, len(v))
+			}
+		}
+	}
+	return ms
 }
 
 // Get the MapStateEntry that matches the Key.
@@ -553,7 +792,7 @@ func (msA *mapState) Equal(msB *mapState) bool {
 	}
 	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
 		vB, ok := msB.get(kA)
-		return ok && (&vB).Equal(&vA)
+		return ok && vB.Equal(vA)
 	})
 }
 
@@ -588,7 +827,7 @@ func (obtained *mapState) diff(expected *mapState) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	expected.forEach(func(kE Key, vE mapStateEntry) bool {
 		if vO, ok := obtained.get(kE); ok {
-			if !(&vO).Equal(&vE) {
+			if !vO.Equal(vE) {
 				res += "- " + kE.String() + ": " + vE.String() + "\n"
 				res += "+ " + kE.String() + ": " + vO.String() + "\n"
 			}
@@ -616,21 +855,26 @@ func (ms mapState) String() (res string) {
 
 // Equal returns true of two entries are equal.
 // This is used for testing only via mapState.Equal and mapState.Diff.
-func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
-	if e == nil || o == nil {
-		return e == o
-	}
-
-	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules && e.passPrecedence == o.passPrecedence && e.nextTierPrecedence == o.nextTierPrecedence
+func (e mapStateEntry) Equal(o mapStateEntry) bool {
+	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules &&
+		(e.passes == o.passes || (e.passes != nil && o.passes != nil &&
+			slices.Equal(*e.passes, *o.passes)))
 }
 
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
 	var pass string
-	if e.passPrecedence != 0 {
-		pass = ",pass=" + strconv.FormatUint(uint64(e.passPrecedence.Priority()), 10) +
-			",nextTier=" + strconv.FormatUint(uint64(e.nextTierPrecedence.Priority()), 10)
+	if e.passes != nil {
+		pass += ",pass=["
+		for _, passMeta := range *e.passes {
+			if len(pass) > 7 {
+				pass += ","
+			}
+			pass += passMeta.String()
+		}
+		pass += "]"
 	}
+
 	var nilRuleOrigin ruleOrigin
 	var labelText string
 	if e.derivedFromRules != nilRuleOrigin {
@@ -650,7 +894,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 	// Pass entries are always overridden without merging the MapStateEntries,
 	if exists {
 		// Do nothing if entries are equal
-		if entry.Equal(&oldEntry) {
+		if entry.Equal(oldEntry) {
 			return false // nothing to do
 		}
 
@@ -661,25 +905,29 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		// place!
 		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
 
-		// keep the highest pass precedence (0 == not a pass entry)
-		if entry.passPrecedence > oldEntry.passPrecedence {
-			oldEntry.passPrecedence = entry.passPrecedence
-			oldEntry.nextTierPrecedence = entry.nextTierPrecedence
-		}
+		oldPass := oldEntry.passes
+		oldEntry.passes = oldEntry.passes.MergeClone(entry.passes)
+		passUpdated := oldEntry.passes != oldPass
 
 		// Figure out which MapStateEntry to keep
 		if !oldEntry.IsValid() {
 			oldEntry.MapStateEntry = entry.MapStateEntry
+			oldEntry.derivedFromRules = entry.derivedFromRules
 		} else if entry.IsValid() {
 			// both are valid
 			if oldEntry.Precedence.ProxyPortPrecedenceMayDiffer(entry.Precedence) {
+				// entries on same priority level are merged
 				oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
+				oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
 			} else if oldEntry.Precedence < entry.Precedence {
+				// higher precedence entry takes over
 				oldEntry.MapStateEntry = entry.MapStateEntry
+				oldEntry.derivedFromRules = entry.derivedFromRules
+			} else if !passUpdated {
+				// Do not record and incremental add if nothing was done
+				return false
 			}
 		}
-
-		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
 	} else {
@@ -721,6 +969,17 @@ func (ms *mapState) deleteKeyWithChanges(key Key, changes ChangeState) {
 	}
 }
 
+// deleteIdWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
+func (ms *mapState) deleteIdWithChanges(id identity.NumericIdentity, changes ChangeState) {
+	if lpmKeys, exists := ms.byId[id]; exists {
+		key := Key{Identity: id}
+		for lpmKey := range lpmKeys {
+			key.LPMKey = lpmKey
+			ms.deleteKeyWithChanges(key, changes)
+		}
+	}
+}
+
 // RevertChanges undoes changes to 'keys' as indicated by 'changes.adds' and 'changes.old' collected
 // via insertWithChanges().
 func (ms *mapState) revertChanges(changes ChangeState) {
@@ -733,31 +992,378 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 	}
 }
 
-// InheritPassPrecedence bumps the precedence of the given entry to follow the given
-// 'passPrecedence', retaining the lowest bits for deny and proxy port precedence.
-// The given passPrecedence is also stored in e.passPrecedence so this entry can safely overwrite
-// the pass entry with the same key.
-func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry, sameKey bool) {
-	// Both passPrecedence and nextTierPrcedence have the low 8 bits all set, so those bits
-	// cancel out and the deny and proxy port precedence bits are retained intact.
-	e.Precedence -= passEntry.nextTierPrecedence
-	e.Precedence += passEntry.passPrecedence
-	// passed to entries are on priority level lower than the pass entry itself
-	e.Precedence -= 0x100
+func (e *mapStateEntry) InheritPassPrecedence(passes passMetas) types.Precedence {
+	precedence := e.Precedence
+	for _, pass := range passes {
+		// Both pass.precedence and tierMinPrcedence have the low 8 bits zeroed, so
+		// those bits cancel out and the deny and proxy port precedence bits are
+		// retained intact.
+		precedence -= pass.tierMinPrecedence
+		precedence += pass.precedence
+	}
+	return precedence
+}
 
-	// Mark pass metadata on the entry to retain them if the pass entry key is overwritten by
-	// any passed-to entry.
-	if sameKey {
-		e.passPrecedence = passEntry.passPrecedence
-		e.nextTierPrecedence = passEntry.nextTierPrecedence
+// pruneCoveredNarrowerKey deletes all or part of the entry 'v' depending on the given covering key
+// 'k' and precedence.
+func (ms *mapState) pruneCoveredNarrowerKey(k Key, v mapStateEntry, key Key, precedence types.Precedence, changes ChangeState) {
+	// Delete lower precedence pass metadata on the same tier
+	deletePassMeta := true
+	deletePassEntry := false
+	for pass := range v.Passes() {
+		if pass.isDifferentTierOrHigherPrecedence(precedence) {
+			// a pass must be kept, so the whole can not be deleted
+			deletePassMeta = false
+		} else {
+			// a pass must be deleted
+			deletePassEntry = true
+		}
+	}
+
+	// Delete lower precedence allow/deny verdict.
+	// Equal precedence entries [[[deny implied]]] are to be merged
+	deleteEntry := !v.IsValid() ||
+		(v.Precedence < precedence ||
+			v.IsDeny() && v.Precedence == precedence && k != key)
+
+	// Delete whole entry?
+	if deletePassMeta && deleteEntry {
+		ms.deleteExistingWithChanges(k, v, changes)
+	} else if deletePassMeta || deletePassEntry || deleteEntry {
+		// Have to keep the entry for either pass or allow/deny
+		if deletePassMeta {
+			v.passes = nil
+		} else if deletePassEntry {
+			// *v.passes may be shared, must create a new slice
+			passes := v.passes.Delete(precedence)
+			v.passes = &passes
+		}
+		if deleteEntry {
+			v.Invalidate()
+		}
+		ms.updateExisting(k, v)
+	}
+}
+
+type keySlice []Key
+
+func (sp *keySlice) addNewKey(key Key, doneKeys *Keys) {
+	if !doneKeys.Has(key) {
+		*sp = append(*sp, key)
+		doneKeys.Insert(key) // mark as added
+	}
+}
+
+func (sp *keySlice) addNewKeys(l34Keys, doneKeys *Keys) {
+	for k := range *l34Keys {
+		sp.addNewKey(k, doneKeys)
+	}
+}
+
+// collectNarrowerPasses adds the narrower key 'k' (with identity from 'key' if narrower) to 'm' if
+// 'v' has a higher precedence pass.
+func (sp *keySlice) collectNarrowerPasses(tierMaxPrecedence types.Precedence, k Key, v mapStateEntry, key Key, doneKeys *Keys) {
+	// k has narrower L4, but the narrower identity may be on 'key'
+	if k.Identity == 0 {
+		k.Identity = key.Identity
+	}
+	if k != key {
+		// Narrower higher precedence pass entry on a higher tier?
+		for pass := range v.Passes() {
+			if pass.precedence > tierMaxPrecedence {
+				sp.addNewKey(k, doneKeys)
+				break // skip remaining passes of higher tiers
+			}
+		}
+	}
+}
+
+// All iterates over the keys in '*sp', allowing the iteration body (yield) to push new keys to it.
+func (sp *keySlice) All() iter.Seq[Key] {
+	return func(yield func(Key) bool) {
+		for len(*sp) > 0 {
+			// get the first key
+			key := (*sp)[0]
+			// shrink the slice to not iterate this key again
+			*sp = (*sp)[1:]
+			// reset empty slice to reuse the data from the beginning, if new keys are
+			// pushed while yielding
+			if len(*sp) == 0 {
+				*sp = (*sp)[:0]
+			}
+			if !yield(key) {
+				return
+			}
+		}
+	}
+}
+
+// insertWithPasses contains the most important business logic for pass policy insertions. It
+// inserts a key and entry into the map only if not covered by an entry of a higher precedence. This
+// allows the datapath to perform a longest-prefix-match lookup which always results into the
+// highest precedence match for the given L4 fields (protocol and port). Two lookups are necessary
+// to find if both a wildcard ID and specific ID matches exist, in which case the precedence values
+// in the found entries are used to determine the final verdict.
+//
+// A higher precedence PASS verdict is managed as metadata alongside the MapStateEntry and does not
+// stop inserting covered entries of lower precedence. The PASS entries are not inserted into the
+// datapath so the invariant described above is not violated.
+//
+// PASS metadata for wildcard ID entries is always inserted in the tiered order, higher precedence
+// tiers first, starting from tier 0. Incremental updates are only ever done due to newly added or
+// deleted identities while wildcard ID entries are always added during the initial full mapstate
+// generation. This means that when adding non-wildcard ID pass entries lower-precedence PASS
+// entries with the wildcard ID may already exist. In both cases, already existing entries (PASS
+// included) may have more or less specific L4 match (i.e., can appear up or down in the LPM trie).
+//
+// Inserted entry may be a Pass entry, and while mapState can merge pass entries with allow/deny,
+// the new entry passed in is never such a combination.
+//
+// Incremental changes performed are recorded in 'changes'.
+func (ms *mapState) insertWithPasses(tierMaxPrecedence types.Precedence, key Key, entry mapStateEntry, changes ChangeState) {
+	if tierMaxPrecedence&0xff != 0xff || entry.IsValid() && entry.Precedence > tierMaxPrecedence {
+		ms.logger.Error(
+			"invalid tierMaxPrecedence",
+			logfields.PolicyPrecedence, tierMaxPrecedence,
+			logfields.PolicyKey, key,
+			logfields.PolicyEntry, entry,
+			logfields.Stacktrace, hclog.Stacktrace(),
+		)
+		return
+	}
+
+	// Add a new pass entry?
+	if entry.IsPassEntry() {
+		// Newly inserted pass entry has exactly one pass entry
+		if len(*entry.passes) != 1 || (*entry.passes)[0].precedence > tierMaxPrecedence {
+			ms.logger.Error(
+				"invalid new pass entry",
+				logfields.PolicyPrecedence, tierMaxPrecedence,
+				logfields.PolicyKey, key,
+				logfields.PolicyEntry, entry,
+				logfields.Stacktrace, hclog.Stacktrace(),
+			)
+			return
+		}
+		newPass := (*entry.passes)[0]
+
+		// Bail if covered by a higher or equal precedence pass/allow/deny on the same tier
+		for _, v := range ms.CoveringBroaderOrEqualKeys(key) {
+			// bail if covered by a higher precedence allow/deny on the same tier
+			if v.IsValid() && tierMaxPrecedence >= v.Precedence && v.Precedence > newPass.precedence {
+				return
+			}
+			// bail if covered by a higher or equal precedence PASS entry on the same
+			// tier
+			for pass := range v.Passes() {
+				if pass.tierMinPrecedence == newPass.tierMinPrecedence &&
+					pass.precedence >= newPass.precedence {
+					return
+				}
+			}
+		}
+		// Delete covered entries of lower or same precedence levels at the same tier.
+		// Note that this pass entry is always added before any possibly passed-to lower
+		// tier entries, so we are not accidentallly deleting any already passed to entries
+		// here.
+		for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
+			ms.pruneCoveredNarrowerKey(k, v, key, newPass.precedence, changes)
+		}
+		ms.addKeyWithChanges(key, entry, changes)
+		return
+	}
+
+	// Allow/Deny entry, iterate over the LPM ancestors of the given key, and add the possibly
+	// updated ("passed-to") entry to the mapState, unless bailed.
+	//
+	// While iterating make note of any pass metadata:
+	//   - for covering pass entries elevates the precedence of the new entry to follow that of
+	//     the pass entry.
+	//   - for non-covering pass entries, where the new key has a wildcard identity and the pass
+	//     key has a specific identity, a new key is added with the ID from the pass key and the
+	//     more specific L4 key from the new key, with precedence elevated to follow the pass
+	//     entry.
+	//
+	// Additional subset keys may need to be added due to higher tier pass entries:
+	//   - for key.Identity == 0, additional keys with specific IDs from pass entries must be
+	//     added
+	//   - narrower L3/L4 pass entries must be added for all higher tier pass entries with
+	//     narrower L4 match.
+	//
+	// In many cases the given key is actually not added (is "bailed out"), and only those
+	// additional L3/4 entries remain.
+
+	var passes passMetas
+	var l34Keys, doneKeys Keys
+	var bailPrecedence types.Precedence
+	var keys keySlice
+
+	// Find the covering pass and bail entries and pass if the found
+	// passPrecedence is higher than the bailPrecedence, else bail if found.
+	//
+	// On any found pass, add new L3/4 entries for non-covering keys.
+	//
+	// Note that BroaderOrEqualKeys iterates in random order, we can not assume entries to be
+	// iterated in any LPM order or in the order of precedence.
+	for k, v := range ms.BroaderOrEqualKeys(key) {
+		isCoveringKey := key.Identity != 0 || k.Identity == 0
+		// Bump precedence if covered by a higher tier PASS verdict.
+		for pass := range v.Passes() {
+			// is the pass from a higher tier?
+			if pass.tierMinPrecedence > entry.Precedence {
+				// A new L3/4 entry may need to be inserted non-covering
+				// pass key. Collect them.
+				if !isCoveringKey {
+					l34Keys.Insert(key.WithIdentity(k.Identity))
+					break // skip remaining passes of higher tiers
+				}
+				// else keep the highest precedence covering pass key for each tier
+				passes.Collect(pass)
+			} else if isCoveringKey && pass.precedence > entry.Precedence {
+				// higher precedence covering pass entry, but not on
+				// higher tier, so it must be on the same tier. Bail
+				// the new allow/deny entry immediately.
+				return
+			}
+		}
+		// Bail if covered by an allow/deny key of higher precedence.
+		if v.IsValid() && (v.Precedence > entry.Precedence ||
+			// New deny entry is also bailed due to different covering deny key
+			// of the same precedence, equal keys need to be merged
+			entry.IsDeny() && v.Precedence == entry.Precedence && k != key) {
+			if isCoveringKey {
+				// bail immediately for a covering key on the same tier
+				if v.Precedence <= tierMaxPrecedence {
+					return
+				}
+				// store the highest bail precedence for higher tier
+				// covering keys
+				if v.Precedence > bailPrecedence {
+					bailPrecedence = v.Precedence
+				}
+			} else if v.Precedence <= tierMaxPrecedence {
+				// non-covering bail on the same tier, prevents processing
+				// this narrower key
+				doneKeys.Insert(key.WithIdentity(k.Identity))
+			}
+		}
+	}
+
+	// Add new L34 keys to 'keys', unless done or bailed
+	keys.addNewKeys(&l34Keys, &doneKeys)
+
+	bail := bailPrecedence > 0 // bailed unless passed
+
+	// Iterate over all LPM descendants of the key and remove all lower precedence
+	// entries, unless the new entry is to be bailed out. Even if bailed, there may be a
+	// higher tier narrower pass to be considered.
+	for k, v := range ms.NarrowerOrEqualKeys(key) {
+		isCoveringKey := key.Identity == 0 || k.Identity == key.Identity
+		if !bail && isCoveringKey {
+			ms.pruneCoveredNarrowerKey(k, v, key, entry.Precedence, changes)
+		}
+		keys.collectNarrowerPasses(tierMaxPrecedence, k, v, key, &doneKeys)
+	}
+
+	// Pass to a higher tier?
+	if len(passes) > 0 {
+		// This entry is covered by one or more higher tier rules with a PASS verdict.
+		// All covering passes are processed at once.
+		precedence := entry.InheritPassPrecedence(passes)
+		if precedence > bailPrecedence {
+			// 'entry' must be kept unmodified
+			passed := entry
+			passed.Precedence = precedence
+
+			// Iterate over all LPM descendants of the key and remove all lower
+			// precedence entries.
+			for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
+				ms.pruneCoveredNarrowerKey(k, v, key, precedence, changes)
+			}
+			ms.addKeyWithChanges(key, passed, changes)
+			bail = true
+		}
+	}
+	if !bail {
+		ms.addKeyWithChanges(key, entry, changes)
+	}
+
+	// Loop over covered keys added due applicable passes found on the main key above.  All
+	// these subset keys would be trivially bailed due to the main key just added above, so we
+	// don't even try adding them here, only adding the applicable passes if not bailed.
+	for key := range keys.All() {
+		// clear temporary storage for the processing of the subkey
+		bailPrecedence = 0
+		passes = passes[:0]
+		clear(l34Keys)
+
+		// Find the applicable pass entries, and the highest precedence bailing entry.
+		// Note that since 'key' here is narrower than the parameter 'key', it is possible
+		// we find additional entries to the ones found earlier.
+		for k, v := range ms.BroaderOrEqualKeys(key) {
+			isCoveringKey := key.Identity != 0 || k.Identity == 0
+			// Bump precedence if covered by a higher tier PASS verdict.
+			for pass := range v.Passes() {
+				// is the pass from a higher tier?
+				if pass.tierMinPrecedence > entry.Precedence {
+					// A new L3/4 entry may need to be inserted non-covering
+					// pass key. Collect them.
+					if !isCoveringKey {
+						l34Keys.Insert(key.WithIdentity(k.Identity))
+						break // skip remaining passes of higher tiers
+					}
+					// else keep the highest precedence covering pass key for
+					// each tier
+					passes.Collect(pass)
+				}
+			}
+			// Bail if covered by an allow/deny key of higher precedence on a higher
+			// tier.
+			if v.IsValid() && (v.Precedence > entry.Precedence ||
+				// New deny entry is also bailed due to different covering deny key
+				// of the same precedence, equal keys need to be merged
+				entry.IsDeny() && v.Precedence == entry.Precedence && k != key) {
+				if isCoveringKey {
+					// store the highest bail precedence for higher tier
+					// covering keys
+					if v.Precedence > tierMaxPrecedence && v.Precedence > bailPrecedence {
+						bailPrecedence = v.Precedence
+					}
+				} else if v.Precedence <= tierMaxPrecedence {
+					// non-covering bail on the same tier, prevents insertion of
+					// l3Passes on the narrower key
+					doneKeys.Insert(key.WithIdentity(k.Identity))
+				}
+			}
+		}
+
+		// Add new L34 keys to 'keys', unless done or bailed
+		keys.addNewKeys(&l34Keys, &doneKeys)
+
+		// This entry is covered by one or more higher tier rules with a PASS verdict.
+		// All covering passes are processed at once.
+		precedence := entry.InheritPassPrecedence(passes)
+		if precedence > bailPrecedence {
+			// 'entry' must be kept unmodified
+			passed := entry
+			passed.Precedence = precedence
+
+			// Iterate over all LPM descendants of the key and remove all lower
+			// precedence entries.
+			for k, v := range ms.CoveredNarrowerOrEqualKeys(key) {
+				ms.pruneCoveredNarrowerKey(k, v, key, precedence, changes)
+			}
+			ms.addKeyWithChanges(key, passed, changes)
+		}
 	}
 }
 
 // insertWithChanges contains the most important business logic for policy insertions. It inserts a
-// key and entry into the map only if not covered by an entry of a higher precedence. A higher
-// precedence PASS verdict does not stop inserting covered entries of lower precedence
-// The PASS entries are not inserted into the datapath, but are
-// required in the mapState during map state computation.
+// key and entry into the map only if not covered by an entry of a higher precedence. This allows
+// the datapath to perform a longest-prefix-match lookup which always results into the highest
+// precedence match for the given L4 fields (protocol and port). Two lookups are necessary to find
+// if both a wildcard ID and specific ID matches exist, in which case the precedence values in the
+// found entries are used to determine the final verdict.
 //
 // Whenever the bpf datapath finds both L4-only and L3/L4 matching policy entries for a given
 // packet, it uses the following logic to choose the policy entry:
@@ -791,79 +1397,31 @@ func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry, sameKey b
 // the new entry passed in is never such a combination.
 //
 // Incremental changes performed are recorded in 'changes'.
-func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
-	if tierPrecedence&0xff != 0 {
-		ms.logger.Error(
-			"invalid tierPrecedence",
-			logfields.Stacktrace, hclog.Stacktrace(),
-			logfields.PolicyKey, newKey,
-			logfields.PolicyEntry, newEntry,
-			logfields.PolicyPrecedence, tierPrecedence,
-		)
+func (ms *mapState) insertWithChanges(tierMaxPrecedence types.Precedence, newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
+	if features.contains(passRules) {
+		if features.contains(authRules) {
+			ms.logger.Error("Pass rules are not supported with auth rules")
+		}
+		ms.insertWithPasses(tierMaxPrecedence, newKey, newEntry, changes)
+		return
 	}
 
-	if newEntry.IsPassEntry() {
-		// Bail if covered by a key of a higher precedence (pass or not)
-		for _, v := range ms.BroaderOrEqualKeys(newKey) {
-			if v.GetPrecedence() > newEntry.passPrecedence {
-				return
-			}
-			// Delete covered entries of lower precedence levels.
-			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-				if v.GetPrecedence() < newEntry.passPrecedence {
-					ms.deleteExistingWithChanges(k, v, changes)
-				}
-			}
-		}
-	} else if newEntry.IsDeny() {
-		bail := false
-		var passEntry mapStateEntry
-		var passKey Key
-		// TODO: This could be simplified if the iterator would iterate in LPM order
-		for k, v := range ms.BroaderOrEqualKeys(newKey) {
-			// Bail if covered by a key of higher precedence.
-			// Bump precedence if covered by a higher tier PASS verdict.
-			if v.IsPassEntry() {
-				if v.passPrecedence > newEntry.Precedence {
-					if v.passPrecedence > tierPrecedence {
-						// pass by higher tier
-						if v.passPrecedence > passEntry.passPrecedence {
-							passKey = k
-							passEntry = v
-						}
-					} else {
-						// higher precedence pass entry, but not on higher
-						// tier, so it must be on the same tier. Bail
-						// immediately.
-						return
-					}
-				}
-				// done if only a pass entry
-				if !v.IsValid() {
-					continue
-				}
-			}
-			if v.Precedence > newEntry.Precedence ||
+	if newEntry.IsDeny() {
+		for k, v := range ms.CoveringBroaderOrEqualKeys(newKey) {
+			// Bail if covered by an allow/deny key of higher precedence
+			if v.IsValid() && (v.Precedence > newEntry.Precedence ||
 				// New deny entry is also bailed due to different covering deny key
 				// of the same precedence, equal keys need to be merged
-				v.Precedence == newEntry.Precedence && k != newKey {
-				bail = true
+				v.Precedence == newEntry.Precedence && k != newKey) {
+				return
 			}
-		}
-		if passEntry.passPrecedence > 0 {
-			// This entry is covered by a higher tier rule with a PASS verdict.
-			newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
-		} else if bail {
-			return
 		}
 
 		// Delete covered entries of lower precedence, and
 		// same precedence deny entries if the keys are different
-		for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-			// 'v' can be a pass or combined entry
-			vPrecedence := v.GetPrecedence()
-			if vPrecedence < newEntry.Precedence ||
-				vPrecedence == newEntry.Precedence && k != newKey {
+		for k, v := range ms.CoveredNarrowerOrEqualKeys(newKey) {
+			if v.Precedence < newEntry.Precedence ||
+				v.Precedence == newEntry.Precedence && k != newKey {
 				ms.deleteExistingWithChanges(k, v, changes)
 			}
 		}
@@ -876,46 +1434,17 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 
 		// No pruning of allow rules if all rules have the same precedence level.
 		if features.contains(precedenceFeatures) {
-			bail := false
-			var passEntry mapStateEntry
-			var passKey Key
-			// Bail if covered by a key of a higher precedence.
-			for k, v := range ms.BroaderOrEqualKeys(newKey) {
-				// Bump precedence if covered by a higher tier PASS verdict.
-				if v.IsPassEntry() {
-					if v.passPrecedence > newEntry.Precedence {
-						if v.passPrecedence > tierPrecedence {
-							// pass by higher tier
-							if v.passPrecedence > passEntry.passPrecedence {
-								passKey = k
-								passEntry = v
-							}
-						} else {
-							// higher precedence pass entry, but not on higher
-							// tier, so it must be on the same tier. Bail
-							// immediately.
-							return
-						}
-					}
-					// done if only a pass entry
-					if !v.IsValid() {
-						continue
-					}
+			for _, v := range ms.CoveringBroaderOrEqualKeys(newKey) {
+				// Bail if covered by an allow/deny key of higher precedence
+				if v.IsValid() && v.Precedence > newEntry.Precedence {
+					return
 				}
-				if v.Precedence > newEntry.Precedence {
-					bail = true
-				}
-			}
-			if passEntry.passPrecedence > 0 {
-				// This entry is covered by a higher tier rule with a PASS verdict.
-				newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
-			} else if bail {
-				return
 			}
 
-			// Delete covered entries of lower precedence levels
-			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-				if v.GetPrecedence() < newEntry.Precedence {
+			// Delete covered entries of lower precedence, and
+			// same precedence deny entries if the keys are different
+			for k, v := range ms.CoveredNarrowerOrEqualKeys(newKey) {
+				if v.Precedence < newEntry.Precedence {
 					ms.deleteExistingWithChanges(k, v, changes)
 				}
 			}
@@ -1055,17 +1584,18 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 // from the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the localhost is allowed to communicate with the
 // endpoint. Authentication for localhost traffic is not required.
-func (ms *mapState) determineAllowLocalhostIngress() {
+func (ms *mapState) determineAllowLocalhostIngress(features policyFeatures) {
 	if option.Config.AlwaysAllowLocalhost() {
 		entry := newAllowEntryWithLabels(LabelsLocalHostIngress)
-		ms.insertWithChanges(types.Priority(0).ToPassPrecedence(), localHostKey, entry, allFeatures, ChangeState{})
+		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), localHostKey, entry, features, ChangeState{})
 	}
 }
 
 // allowAllIdentities translates all identities in selectorCache to their
 // corresponding Keys in the specified direction (ingress, egress) which allows
 // all at L3.
-// Note that this is used when policy is not enforced, so authentication is explicitly not required.
+// Note that this is used when policy is not enforced, so authentication is explicitly not required,
+// and priority is left at 0.
 func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 	if ingress {
 		ms.upsert(allKey[trafficdirection.Ingress], newAllowEntryWithLabels(LabelsAllowAnyIngress))
@@ -1088,11 +1618,11 @@ type MapChanges struct {
 }
 
 type mapChange struct {
-	Add            bool // false deletes
-	Tier           types.Tier
-	BasePrecedence types.Precedence
-	Key            Key
-	Value          mapStateEntry
+	Add               bool // false deletes
+	Tier              types.Tier
+	TierMaxPrecedence types.Precedence
+	Key               Key
+	Value             mapStateEntry
 }
 
 type MapChange struct {
@@ -1111,18 +1641,18 @@ type MapChange struct {
 // need to be added/deleted for that identity are accumulated before 'SyncMapChanges' is called, so
 // that when the changes are applied, all keys for that identity are applied at the same time.
 func (mc *MapChanges) AccumulateMapChanges(tier types.Tier, basePriority types.Priority, adds, deletes []identity.NumericIdentity, keys []Key, value mapStateEntry) {
-	basePrecedence := basePriority.ToPassPrecedence()
+	tierMaxPrecedence := basePriority.ToTierMaxPrecedence()
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
 	for _, id := range adds {
 		for _, k := range keys {
 			k.Identity = id
 			mc.changes = append(mc.changes, mapChange{
-				Add:            true,
-				Tier:           tier,
-				BasePrecedence: basePrecedence,
-				Key:            k,
-				Value:          value,
+				Add:               true,
+				Tier:              tier,
+				TierMaxPrecedence: tierMaxPrecedence,
+				Key:               k,
+				Value:             value,
 			})
 		}
 	}
@@ -1130,11 +1660,11 @@ func (mc *MapChanges) AccumulateMapChanges(tier types.Tier, basePriority types.P
 		for _, k := range keys {
 			k.Identity = id
 			mc.changes = append(mc.changes, mapChange{
-				Add:            false,
-				Tier:           tier,
-				BasePrecedence: basePrecedence,
-				Key:            k,
-				Value:          value,
+				Add:               false,
+				Tier:              tier,
+				TierMaxPrecedence: tierMaxPrecedence,
+				Key:               k,
+				Value:             value,
 			})
 		}
 	}
@@ -1192,16 +1722,22 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	for i := range mc.synced {
 		key := mc.synced[i].Key
 		entry := mc.synced[i].Value
-		basePrecedence := mc.synced[i].BasePrecedence
+		tierMaxPrecedence := mc.synced[i].TierMaxPrecedence
 
 		if mc.synced[i].Add {
 			// Insert the key to and collect the incremental changes to the overall
 			// state in 'changes'
-			p.policyMapState.insertWithChanges(basePrecedence, key, entry, features, changes)
+			p.policyMapState.insertWithChanges(tierMaxPrecedence, key, entry, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental
 			// changes
-			p.policyMapState.deleteKeyWithChanges(key, changes)
+			if p.policyMapState.byId != nil {
+				// incremental delete only happens when an identity is deleted,
+				// delete all keys for this identity if we have the id index
+				p.policyMapState.deleteIdWithChanges(key.Identity, changes)
+			} else {
+				p.policyMapState.deleteKeyWithChanges(key, changes)
+			}
 		}
 	}
 
