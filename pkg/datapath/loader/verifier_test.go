@@ -105,15 +105,6 @@ func TestPrivilegedVerifier(t *testing.T) {
 		}
 	})
 
-	t.Run("Network", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_network", kv, networkLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "network", networkProg, networkObj, i, &records))
-			i++
-		}
-	})
-
 	t.Run("Overlay", func(t *testing.T) {
 		t.Parallel()
 		i := 1

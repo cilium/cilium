@@ -75,9 +75,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	if params.IPSecConfig.Enabled() &&
 		!params.DaemonConfig.TunnelingEnabled() &&
 		len(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface) == 0 &&
-		// If devices are required, we don't look at the EncryptInterface, as we
-		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
-		// bpf_host onto physical devices as chosen by configuration.
+		// Load bpf_host onto physical devices as chosen by configuration.
 		!params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WireguardConfig.Enabled(), params.IPSecConfig.Enabled()) &&
 		params.DaemonConfig.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)

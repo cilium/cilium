@@ -82,16 +82,6 @@ func (o *overlayObjects) Close() {
 	bpfClose(o.FromOverlay, o.ToOverlay)
 }
 
-// networkObjects receives eBPF objects for attaching to IPsec interfaces.
-// Objects originate from bpf_network.c.
-type networkObjects struct {
-	FromNetwork *ebpf.Program `ebpf:"cil_from_network"`
-}
-
-func (o *networkObjects) Close() {
-	bpfClose(o.FromNetwork)
-}
-
 // wireguardObjects receives eBPF objects for attaching to Wireguard interfaces.
 // Objects originate from bpf_wireguard.c.
 type wireguardObjects struct {
