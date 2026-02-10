@@ -48,9 +48,9 @@ Caveats
   Ingress or Gateway API controllers have
   ``cilium.io/use-original-source-address`` set to ``"false"``, but all other CECs
   are assumed to have this label set to ``"true"``.)
-*  For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway),
-   one could override default usage of the original source address/port in Envoy by
-   setting flag ``--proxy-use-original-source-address`` to ``false``.
+* For cases when ``CiliumEnvoyConfig`` is not used directly (Ingress, Gateway),
+  you can override the default usage of the original source address/port in Envoy by
+  setting flag ``--proxy-use-original-source-address`` to ``false``.
 
 
 .. include:: installation.rst
