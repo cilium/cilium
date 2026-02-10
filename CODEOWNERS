@@ -505,7 +505,11 @@ Makefile* @cilium/build
 /MAINTAINERS.md @cilium/committers
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/auth @cilium/sig-servicemesh
 /operator/doublewrite @cilium/metrics
+/operator/endpointgc @cilium/endpoint
+/operator/identitygc @cilium/endpoint
+/operator/metrics @cilium/metrics
 /operator/pkg/bgp @cilium/sig-bgp
 /operator/pkg/ciliumendpointslice @cilium/sig-scalability
 /operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
@@ -516,12 +520,17 @@ Makefile* @cilium/build
 /operator/pkg/ipam/alibabacloud.go @cilium/sig-ipam @cilium/alibabacloud
 /operator/pkg/ipam/aws.go @cilium/sig-ipam @cilium/aws
 /operator/pkg/ipam/azure.go @cilium/sig-ipam @cilium/azure
+/operator/pkg/kvstore @cilium/kvstore
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
+/operator/pkg/multipool @cilium/sig-ipam
 /operator/pkg/networkpolicy @cilium/sig-policy
+/operator/pkg/nodeipam @cilium/sig-lb
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/workqueuemetrics @cilium/metrics
 /operator/pkg/ztunnel @cilium/ztunnel
+/operator/policyderivative @cilium/sig-policy
+/operator/watchers @cilium/sig-k8s
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
