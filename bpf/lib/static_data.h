@@ -13,6 +13,19 @@
  * CONFIG() macro.
  */
 #define DECLARE_CONFIG(type, name, description) \
+	DECLARE_CONFIG_KIND("object", type, name, description)
+
+/* Declare a global node-level configuration variable that is emitted to a
+ * separate Go config struct embedded into all individual object configs. Access
+ * the variable using the CONFIG() macro.
+ */
+#define NODE_CONFIG(type, name, description) \
+	/* Tag this variable as being a node-level variable. dpgen will emit
+	 * these to a node-specific Go struct that can be embedded into
+	 * object-level configuration structs. */ \
+	DECLARE_CONFIG_KIND("node", type, name, description)
+
+#define DECLARE_CONFIG_KIND(kind, type, name, description) \
 	/* Emit the variable to the .rodata.config section. The compiler will emit a
 	 * BTF Datasec referring to all variables in this section, making them
 	 * convenient to iterate through for generating config scaffolding in Go.
@@ -23,7 +36,7 @@
 	 * selects only these variables. Node configs use a different kind and
 	 * are emitted to another struct.
 	 */ \
-	__attribute__((btf_decl_tag("kind:object"))) \
+	__attribute__((btf_decl_tag("kind:" kind))) \
 	/* Assign the config variable a BTF decl tag containing its description. This
 	 * allows including doc comments in code generated from BTF.
 	 */ \
@@ -32,19 +45,6 @@
 	 * prevent the compiler from eliding all accesses, which would also
 	 * omit it from the ELF.
 	 */ \
-	volatile const type __config_##name;
-
-/* Declare a global node-level configuration variable that is emitted to a
- * separate Go config struct embedded into all individual object configs. Access
- * the variable using the CONFIG() macro.
- */
-#define NODE_CONFIG(type, name, description) \
-	__section(__CONFIG_SECTION) \
-	/* Tag this variable as being a node-level variable. dpgen will emit
-	 * these to a node-specific Go struct that can be embedded into
-	 * object-level configuration structs. */ \
-	__attribute__((btf_decl_tag("kind:node"))) \
-	__attribute__((btf_decl_tag(description))) \
 	volatile const type __config_##name;
 
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
