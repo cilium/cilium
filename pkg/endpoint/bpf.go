@@ -1157,7 +1157,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
-			err, rf = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
+			err, rf = e.proxy.UpdateNetworkPolicy(context.Background(), e, e.desiredPolicy, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(err == nil)
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
@@ -1165,7 +1165,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		} else if hasEnvoyRedirect {
 			// Wait for a possible ongoing update to be done if there were no current changes.
 			e.getLogger().Debug("applyPolicyMapChanges: Using current Networkpolicy")
-			e.proxy.UseCurrentNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
+			e.proxy.UseCurrentNetworkPolicy(context.Background(), e, e.desiredPolicy, proxyWaitGroup)
 		}
 	}
 

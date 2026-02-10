@@ -7,7 +7,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
+
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
@@ -26,7 +27,7 @@ var (
 		// mocks are used for these.
 		cell.ProvidePrivate(
 			newPolicyTrigger,
-			func(xds envoy.XDSServer) resourceMutator { return xds },
+			func(xds xds.XDSServer) resourceMutator { return xds },
 		),
 
 		cell.Provide(

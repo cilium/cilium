@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/envoy"
+	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -54,7 +54,7 @@ func (p *ProxyPorts) releaseProxyPortWithWait(name string, portReuseWait time.Du
 
 func TestPortAllocator(t *testing.T) {
 	testRunDir := t.TempDir()
-	socketDir := envoy.GetSocketDir(testRunDir)
+	socketDir := util.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
 	if err == nil {
@@ -244,7 +244,7 @@ func TestPortAllocator(t *testing.T) {
 
 func TestRestoredPort(t *testing.T) {
 	testRunDir := t.TempDir()
-	socketDir := envoy.GetSocketDir(testRunDir)
+	socketDir := util.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
 	if err == nil {

@@ -5,6 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -38,8 +39,8 @@ type CEC struct {
 
 	ServicePorts map[loadbalancer.ServiceName]sets.Set[string] `json:"-" yaml:"-"`
 
-	// Resources is the parsed envoy.Resources with the endpoints filled in.
-	Resources envoy.Resources
+	// Resources is the parsed xds.Resources with the endpoints filled in.
+	Resources xds.Resources
 }
 
 func (cec *CEC) Clone() *CEC {
@@ -173,11 +174,11 @@ type EnvoyResource struct {
 	Status reconciler.Status
 
 	// Resources to reconcile with Envoy
-	Resources envoy.Resources
+	Resources xds.Resources
 
 	// ReconciledResources are the last resources that were successfully reconciled.
 	// Used when updating or deleting to compute the delta.
-	ReconciledResources *envoy.Resources
+	ReconciledResources *xds.Resources
 
 	// Redirects are the proxy redirects to set. Redirection of services is performed after
 	// the resources have been reconciled to Envoy.
@@ -266,11 +267,7 @@ func (*EnvoyResource) TableHeader() []string {
 }
 
 func (r *EnvoyResource) showListeners() string {
-	names := make([]string, len(r.Resources.Listeners))
-	for i := range r.Resources.Listeners {
-		names[i] = r.Resources.Listeners[i].Name
-	}
-	return strings.Join(names, ", ")
+	return strings.Join(slices.Collect(maps.Keys(r.Resources.Listeners)), ", ")
 }
 
 func (r *EnvoyResource) showEndpoints() string {

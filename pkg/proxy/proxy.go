@@ -328,16 +328,16 @@ func (p *Proxy) removeRedirect(id string) {
 	}
 }
 
-func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
-	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, wg)
+func (p *Proxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+	return p.envoyIntegration.UpdateNetworkPolicy(ctx, ep, policy, wg)
 }
 
-func (p *Proxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
-	p.envoyIntegration.UseCurrentNetworkPolicy(ep, policy, wg)
+func (p *Proxy) UseCurrentNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
+	p.envoyIntegration.UseCurrentNetworkPolicy(ctx, ep, policy, wg)
 }
 
-func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
-	p.envoyIntegration.RemoveNetworkPolicy(ep)
+func (p *Proxy) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
+	p.envoyIntegration.RemoveNetworkPolicy(ctx, ep)
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.

@@ -276,7 +276,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(context.Background())
 
 	ds.policyImport(rules)
 
@@ -456,7 +456,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(t.Context())
 
 	ds.policyImport(rules)
 
@@ -547,7 +547,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(t.Context())
 
 	ds.policyImport(rules)
 
@@ -639,7 +639,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(t.Context())
 
 	ds.policyImport(rules)
 
@@ -734,7 +734,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(t.Context())
 
 	ds.policyImport(rules)
 
@@ -803,7 +803,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
+	ds.envoyXdsServer.RemoveAllNetworkPolicies(t.Context())
 
 	ds.policyImport(rules)
 

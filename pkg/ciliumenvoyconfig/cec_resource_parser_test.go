@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -27,7 +28,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -303,10 +304,11 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
-	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["envoy-prometheus-metrics-listener"]
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", listener.Name)
+	assert.Equal(t, uint32(10000), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 
 	assert.NotNil(t, chain.TransportSocket)
 	assert.Equal(t, "envoy.transport_sockets.tls", chain.TransportSocket.Name)
@@ -358,7 +360,8 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 	//
 	// Check that secret name was qualified
 	//
-	assert.Equal(t, "namespace/name/validation_context", resources.Secrets[0].Name)
+	secret := resources.Secrets["namespace/name/validation_context"]
+	assert.Equal(t, "namespace/name/validation_context", secret.Name)
 }
 
 var ciliumEnvoyConfigInvalid = `apiVersion: cilium.io/v2
@@ -406,10 +409,11 @@ func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
-	assert.Equal(t, uint32(0), resources.Listeners[0].Address.GetSocketAddress().GetPortValue()) // invalid listener port number
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["envoy-prometheus-metrics-listener"]
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", listener.Name)
+	assert.Equal(t, uint32(0), listener.Address.GetSocketAddress().GetPortValue()) // invalid listener port number
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 1)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
@@ -490,12 +494,13 @@ func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
-	assert.NotNil(t, resources.Listeners[0].Address)
-	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
-	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["envoy-prometheus-metrics-listener"]
+	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", listener.Name)
+	assert.NotNil(t, listener.Address)
+	assert.NotNil(t, listener.Address.GetSocketAddress())
+	assert.NotEqual(t, 0, listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 2)
 	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[1].Name)
@@ -615,11 +620,12 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/multi-resource-listener", resources.Listeners[0].Name)
-	assert.Nil(t, resources.Listeners[0].GetInternalListener())
-	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["multi-resource-listener"]
+	assert.Equal(t, "namespace/name/multi-resource-listener", listener.Name)
+	assert.Nil(t, listener.GetInternalListener())
+	assert.Equal(t, uint32(10000), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 1)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
@@ -646,9 +652,10 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration", cec.Spec.Resources[1].TypeUrl)
 	assert.Len(t, resources.Routes, 1)
-	assert.Equal(t, "namespace/name/local_route", resources.Routes[0].Name)
-	assert.Len(t, resources.Routes[0].VirtualHosts, 1)
-	vh := resources.Routes[0].VirtualHosts[0]
+	route := resources.Routes["namespace/name/local_route"]
+	assert.Equal(t, "namespace/name/local_route", route.Name)
+	assert.Len(t, route.VirtualHosts, 1)
+	vh := route.VirtualHosts[0]
 	assert.Equal(t, "namespace/name/local_service", vh.Name)
 	assert.Len(t, vh.Domains, 1)
 	assert.Equal(t, "*", vh.Domains[0])
@@ -663,15 +670,16 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[2].TypeUrl)
 	assert.Len(t, resources.Clusters, 1)
-	assert.Equal(t, "namespace/name/some_service", resources.Clusters[0].Name)
-	assert.Equal(t, int64(0), resources.Clusters[0].ConnectTimeout.Seconds)
-	assert.Equal(t, int32(250000000), resources.Clusters[0].ConnectTimeout.Nanos)
-	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
-	assert.Equal(t, envoy_config_cluster.Cluster_EDS, resources.Clusters[0].GetType())
+	cluster := resources.Clusters["namespace/name/some_service"]
+	assert.Equal(t, "namespace/name/some_service", cluster.Name)
+	assert.Equal(t, int64(0), cluster.ConnectTimeout.Seconds)
+	assert.Equal(t, int32(250000000), cluster.ConnectTimeout.Nanos)
+	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, cluster.LbPolicy)
+	assert.Equal(t, envoy_config_cluster.Cluster_EDS, cluster.GetType())
 	//
 	// Check that missing CircuitBreakers is automatically filled in
 	//
-	cb := resources.Clusters[0].CircuitBreakers
+	cb := cluster.CircuitBreakers
 	assert.NotNil(t, cb)
 	assert.Len(t, cb.Thresholds, 1)
 	assert.Equal(t, uint32(128), cb.Thresholds[0].MaxRetries.Value)
@@ -680,13 +688,13 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	//
 	// Check that missing EDS config source is automatically filled in
 	//
-	eds := resources.Clusters[0].GetEdsClusterConfig()
+	eds := cluster.GetEdsClusterConfig()
 	assert.NotNil(t, eds)
 	checkCiliumXDS(t, eds.GetEdsConfig())
 
-	assert.NotNil(t, resources.Clusters[0].TransportSocket)
-	assert.Equal(t, "envoy.transport_sockets.tls", resources.Clusters[0].TransportSocket.Name)
-	msg, err := resources.Clusters[0].TransportSocket.GetTypedConfig().UnmarshalNew()
+	assert.NotNil(t, cluster.TransportSocket)
+	assert.Equal(t, "envoy.transport_sockets.tls", cluster.TransportSocket.Name)
+	msg, err := cluster.TransportSocket.GetTypedConfig().UnmarshalNew()
 	require.NoError(t, err)
 	assert.NotNil(t, msg)
 	tls, ok := msg.(*envoy_config_tls.UpstreamTlsContext)
@@ -709,10 +717,11 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[3].TypeUrl)
 	assert.Len(t, resources.Endpoints, 2)
-	assert.Equal(t, "namespace/name/some_service", resources.Endpoints[0].ClusterName)
-	assert.Len(t, resources.Endpoints[0].Endpoints, 1)
-	assert.Len(t, resources.Endpoints[0].Endpoints[0].LbEndpoints, 1)
-	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	endpoint := resources.Endpoints["namespace/name/some_service"]
+	assert.Equal(t, "namespace/name/some_service", endpoint.ClusterName)
+	assert.Len(t, endpoint.Endpoints, 1)
+	assert.Len(t, endpoint.Endpoints[0].LbEndpoints, 1)
+	addr := endpoint.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
 	assert.NotNil(t, addr)
 	assert.NotNil(t, addr.GetSocketAddress())
 	assert.Equal(t, "127.0.0.1", addr.GetSocketAddress().GetAddress())
@@ -723,10 +732,11 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[4].TypeUrl)
 	assert.Len(t, resources.Endpoints, 2)
-	assert.Equal(t, "namespace/name/other_service", resources.Endpoints[1].ClusterName)
-	assert.Len(t, resources.Endpoints[1].Endpoints, 1)
-	assert.Len(t, resources.Endpoints[1].Endpoints[0].LbEndpoints, 1)
-	addr = resources.Endpoints[1].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	other_endpoint := resources.Endpoints["namespace/name/other_service"]
+	assert.Equal(t, "namespace/name/other_service", other_endpoint.ClusterName)
+	assert.Len(t, other_endpoint.Endpoints, 1)
+	assert.Len(t, other_endpoint.Endpoints[0].LbEndpoints, 1)
+	addr = other_endpoint.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
 	assert.NotNil(t, addr)
 	assert.NotNil(t, addr.GetSocketAddress())
 	assert.Equal(t, "::", addr.GetSocketAddress().GetAddress())
@@ -813,10 +823,11 @@ func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
 	// Check internal endpoint resource
 	//
 	assert.Len(t, resources.Endpoints, 1)
-	assert.Equal(t, "namespace/name/internal_listener_cluster", resources.Endpoints[0].ClusterName)
-	assert.Len(t, resources.Endpoints[0].Endpoints, 1)
-	assert.Len(t, resources.Endpoints[0].Endpoints[0].LbEndpoints, 1)
-	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	endpoint := resources.Endpoints["namespace/name/internal_listener_cluster"]
+	assert.Equal(t, "namespace/name/internal_listener_cluster", endpoint.ClusterName)
+	assert.Len(t, endpoint.Endpoints, 1)
+	assert.Len(t, endpoint.Endpoints[0].LbEndpoints, 1)
+	addr := endpoint.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
 	assert.NotNil(t, addr)
 	assert.NotNil(t, addr.GetEnvoyInternalAddress())
 	assert.Equal(t, "namespace/name/internal-listener", addr.GetEnvoyInternalAddress().GetServerListenerName())
@@ -825,8 +836,9 @@ func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
 	// Check internal listener
 	//
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/internal-listener", resources.Listeners[0].Name)
-	assert.NotNil(t, resources.Listeners[0].GetInternalListener())
+	listener := resources.Listeners["internal-listener"]
+	assert.Equal(t, "namespace/name/internal-listener", listener.Name)
+	assert.NotNil(t, listener.GetInternalListener())
 }
 
 var ciliumEnvoyConfigMissingInternalListener = `apiVersion: cilium.io/v2
@@ -883,15 +895,16 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, true, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.NotNil(t, resources.Listeners[0].Address)
-	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
-	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	listener := resources.Listeners["tcp_proxy_test-2"]
+	assert.NotNil(t, listener.Address)
+	assert.NotNil(t, listener.Address.GetSocketAddress())
+	assert.NotEqual(t, 0, listener.Address.GetSocketAddress().GetPortValue())
 	//
 	// Check injected listener filter config
 	//
-	assert.Len(t, resources.Listeners[0].ListenerFilters, 1)
-	assert.Equal(t, "cilium.bpf_metadata", resources.Listeners[0].ListenerFilters[0].Name)
-	lfMsg, err := resources.Listeners[0].ListenerFilters[0].GetTypedConfig().UnmarshalNew()
+	assert.Len(t, listener.ListenerFilters, 1)
+	assert.Equal(t, "cilium.bpf_metadata", listener.ListenerFilters[0].Name)
+	lfMsg, err := listener.ListenerFilters[0].GetTypedConfig().UnmarshalNew()
 	require.NoError(t, err)
 	assert.NotNil(t, lfMsg)
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
@@ -905,8 +918,8 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	// TCP listener has no SO_LINGER config
 	assert.Nil(t, lf.OriginalSourceSoLingerTime)
 
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 2)
 	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
 	assert.Equal(t, "envoy.filters.network.tcp_proxy", chain.Filters[1].Name)
@@ -929,13 +942,14 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[1].TypeUrl)
 	assert.Len(t, resources.Clusters, 1)
-	assert.Equal(t, "namespace/name/cluster_0", resources.Clusters[0].Name)
-	assert.Equal(t, int64(5), resources.Clusters[0].ConnectTimeout.Seconds)
-	assert.Equal(t, int32(0), resources.Clusters[0].ConnectTimeout.Nanos)
-	assert.Equal(t, "namespace/name/cluster_0", resources.Clusters[0].LoadAssignment.ClusterName)
-	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints, 1)
-	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, 1)
-	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	cluster := resources.Clusters["namespace/name/cluster_0"]
+	assert.Equal(t, "namespace/name/cluster_0", cluster.Name)
+	assert.Equal(t, int64(5), cluster.ConnectTimeout.Seconds)
+	assert.Equal(t, int32(0), cluster.ConnectTimeout.Nanos)
+	assert.Equal(t, "namespace/name/cluster_0", cluster.LoadAssignment.ClusterName)
+	assert.Len(t, cluster.LoadAssignment.Endpoints, 1)
+	assert.Len(t, cluster.LoadAssignment.Endpoints[0].LbEndpoints, 1)
+	addr := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
 	assert.NotNil(t, addr)
 	assert.NotNil(t, addr.GetSocketAddress())
 	assert.Equal(t, "127.0.0.1", addr.GetSocketAddress().GetAddress())
@@ -1026,15 +1040,16 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.NotNil(t, resources.Listeners[0].Address)
-	assert.NotNil(t, resources.Listeners[0].Address.GetSocketAddress())
-	assert.NotEqual(t, 0, resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	listener := resources.Listeners["envoy-ingress-listener"]
+	assert.NotNil(t, listener.Address)
+	assert.NotNil(t, listener.Address.GetSocketAddress())
+	assert.NotEqual(t, 0, listener.Address.GetSocketAddress().GetPortValue())
 	//
 	// Check injected listener filter config
 	//
-	assert.Len(t, resources.Listeners[0].ListenerFilters, 1)
-	assert.Equal(t, "cilium.bpf_metadata", resources.Listeners[0].ListenerFilters[0].Name)
-	lfMsg, err := resources.Listeners[0].ListenerFilters[0].GetTypedConfig().UnmarshalNew()
+	assert.Len(t, listener.ListenerFilters, 1)
+	assert.Equal(t, "cilium.bpf_metadata", listener.ListenerFilters[0].Name)
+	lfMsg, err := listener.ListenerFilters[0].GetTypedConfig().UnmarshalNew()
 	require.NoError(t, err)
 	assert.NotNil(t, lfMsg)
 	lf, ok := lfMsg.(*cilium.BpfMetadata)
@@ -1049,8 +1064,9 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.NotNil(t, lf.OriginalSourceSoLingerTime)
 	assert.Zero(t, *lf.OriginalSourceSoLingerTime)
 
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener = resources.Listeners["envoy-ingress-listener"]
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 2)
 	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[1].Name)
@@ -1074,17 +1090,18 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	//
 	assert.Equal(t, "type.googleapis.com/envoy.config.cluster.v3.Cluster", cec.Spec.Resources[1].TypeUrl)
 	assert.Len(t, resources.Clusters, 1)
-	assert.Equal(t, "default/service_google", resources.Clusters[0].Name)
-	assert.Equal(t, int64(5), resources.Clusters[0].ConnectTimeout.Seconds)
-	assert.Equal(t, int32(0), resources.Clusters[0].ConnectTimeout.Nanos)
-	assert.Equal(t, envoy_config_cluster.Cluster_LOGICAL_DNS, resources.Clusters[0].GetType())
-	assert.Equal(t, envoy_config_cluster.Cluster_V4_ONLY, resources.Clusters[0].GetDnsLookupFamily())
-	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, resources.Clusters[0].LbPolicy)
+	cluster := resources.Clusters["default/service_google"]
+	assert.Equal(t, "default/service_google", cluster.Name)
+	assert.Equal(t, int64(5), cluster.ConnectTimeout.Seconds)
+	assert.Equal(t, int32(0), cluster.ConnectTimeout.Nanos)
+	assert.Equal(t, envoy_config_cluster.Cluster_LOGICAL_DNS, cluster.GetType())
+	assert.Equal(t, envoy_config_cluster.Cluster_V4_ONLY, cluster.GetDnsLookupFamily())
+	assert.Equal(t, envoy_config_cluster.Cluster_ROUND_ROBIN, cluster.LbPolicy)
 
-	assert.Equal(t, "default/service_google", resources.Clusters[0].LoadAssignment.ClusterName)
-	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints, 1)
-	assert.Len(t, resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints, 1)
-	addr := resources.Clusters[0].LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	assert.Equal(t, "default/service_google", cluster.LoadAssignment.ClusterName)
+	assert.Len(t, cluster.LoadAssignment.Endpoints, 1)
+	assert.Len(t, cluster.LoadAssignment.Endpoints[0].LbEndpoints, 1)
+	addr := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address
 	assert.NotNil(t, addr)
 	assert.NotNil(t, addr.GetSocketAddress())
 	assert.Equal(t, "www.google.com", addr.GetSocketAddress().GetAddress())
@@ -1092,10 +1109,10 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	//
 	// Check upstream filters (injected for L7 LB)
 	//
-	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions)
-	assert.NotNil(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType])
+	assert.NotNil(t, cluster.TypedExtensionProtocolOptions)
+	assert.NotNil(t, cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType])
 	opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
-	assert.NoError(t, resources.Clusters[0].TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
+	assert.NoError(t, cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType].UnmarshalTo(opts))
 	assert.NotNil(t, opts.HttpFilters)
 	assert.Equal(t, "cilium.l7policy", opts.HttpFilters[0].Name)
 	assert.Equal(t, ciliumL7FilterTypeURL, opts.HttpFilters[0].GetTypedConfig().TypeUrl)
@@ -1160,7 +1177,8 @@ func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
 	resources, err := parser.ParseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["listener"]
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 1)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 
@@ -1178,22 +1196,23 @@ func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
 }
 
 func TestListenersAddedOrDeleted(t *testing.T) {
-	var old envoy.Resources
-	var new envoy.Resources
+	var old xds.Resources
+	var new xds.Resources
 
 	// Both empty
 	res := old.ListenersAddedOrDeleted(&new)
 	assert.False(t, res)
 
 	// new adds a listener
-	new.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	maps.Copy(new.Listeners, old.Listeners)
+	new.Listeners["foo"] = &envoy_config_listener.Listener{Name: "foo"}
 	res = old.ListenersAddedOrDeleted(&new)
 	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
 	assert.True(t, res)
 
 	// Now both have 'foo'
-	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	old.Listeners["foo"] = &envoy_config_listener.Listener{Name: "foo"}
 	res = old.ListenersAddedOrDeleted(&new)
 	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
@@ -1207,21 +1226,21 @@ func TestListenersAddedOrDeleted(t *testing.T) {
 	assert.True(t, res)
 
 	// New has a different listener
-	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "bar"})
+	new.Listeners["bar"] = &envoy_config_listener.Listener{Name: "bar"}
 	res = old.ListenersAddedOrDeleted(&new)
 	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
 	assert.True(t, res)
 
 	// New adds the listener in old, but still has the other listener
-	new.Listeners = append(new.Listeners, &envoy_config_listener.Listener{Name: "foo"})
+	new.Listeners["foo"] = &envoy_config_listener.Listener{Name: "foo"}
 	res = old.ListenersAddedOrDeleted(&new)
 	assert.True(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
 	assert.True(t, res)
 
 	// Same listeners but in different order
-	old.Listeners = append(old.Listeners, &envoy_config_listener.Listener{Name: "bar"})
+	old.Listeners["bar"] = &envoy_config_listener.Listener{Name: "bar"}
 	res = old.ListenersAddedOrDeleted(&new)
 	assert.False(t, res)
 	res = new.ListenersAddedOrDeleted(&old)
@@ -1291,10 +1310,11 @@ func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/combined-validationcontext", resources.Listeners[0].Name)
-	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["namespace/name/combined-validationcontext"]
+	assert.Equal(t, "namespace/name/combined-validationcontext", listener.Name)
+	assert.Equal(t, uint32(10000), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 
 	assert.NotNil(t, chain.TransportSocket)
 	assert.Equal(t, "envoy.transport_sockets.tls", chain.TransportSocket.Name)
@@ -1377,10 +1397,11 @@ func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/sessionticket-keys", resources.Listeners[0].Name)
-	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["namespace/name/sessionticket-keys"]
+	assert.Equal(t, "namespace/name/sessionticket-keys", listener.Name)
+	assert.Equal(t, uint32(10000), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 
 	assert.NotNil(t, chain.TransportSocket)
 	assert.Equal(t, "envoy.transport_sockets.tls", chain.TransportSocket.Name)
@@ -1452,9 +1473,11 @@ func TestCiliumEnvoyConfigInjectCiliumFilters(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
-	assert.Equal(t, "namespace/name/without-cilium-filters", resources.Listeners[0].Name)
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["namespace/name/without-cilium-filters"]
+	require.NotNil(t, listener)
+	assert.Equal(t, "namespace/name/without-cilium-filters", listener.Name)
+	assert.Len(t, listener.FilterChains, 1)
+	chain := listener.FilterChains[0]
 
 	//
 	// Check that missing Cilium Envoy filters are not automatically filled in
@@ -1528,10 +1551,12 @@ func TestParseEnvoySpec(t *testing.T) {
 	resources, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	assert.Equal(t, "/name/envoy-prometheus-metrics-listener", resources.Listeners[0].Name)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["/name/envoy-prometheus-metrics-listener"]
+	require.NotNil(t, listener)
+	assert.Equal(t, uint32(10000), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	assert.Equal(t, "/name/envoy-prometheus-metrics-listener", listener.Name)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 1)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
@@ -1606,10 +1631,12 @@ func TestParseEnvoySpecWithService(t *testing.T) {
 	resources, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
-	assert.Equal(t, uint32(1025), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
-	assert.Len(t, resources.Listeners[0].FilterChains, 1)
-	assert.Equal(t, "/name/l7-lb", resources.Listeners[0].Name)
-	chain := resources.Listeners[0].FilterChains[0]
+	listener := resources.Listeners["/name/l7-lb"]
+	require.NotNil(t, listener)
+	assert.Equal(t, uint32(1025), listener.Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, listener.FilterChains, 1)
+	assert.Equal(t, "/name/l7-lb", listener.Name)
+	chain := listener.FilterChains[0]
 	assert.Len(t, chain.Filters, 2)
 	assert.Equal(t, "cilium.network", chain.Filters[0].Name)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[1].Name)

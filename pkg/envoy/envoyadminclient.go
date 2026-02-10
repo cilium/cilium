@@ -15,6 +15,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
+
+	util "github.com/cilium/cilium/pkg/envoy/util"
 )
 
 type EnvoyAdminClient struct {
@@ -31,7 +33,7 @@ func NewEnvoyAdminClientForSocket(logger *slog.Logger, envoySocketDir string, de
 
 		// Needs to be provided to envoy (received as ':authority') - even though we Dial to a Unix domain socket.
 		adminURL:        fmt.Sprintf("http://%s/", "envoy-admin"),
-		unixPath:        getAdminSocketPath(envoySocketDir),
+		unixPath:        util.GetAdminSocketPath(envoySocketDir),
 		defaultLogLevel: defaultLogLevel,
 	}
 }

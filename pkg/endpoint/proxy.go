@@ -19,9 +19,9 @@ type EndpointProxy interface {
 	CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc)
 	RemoveRedirect(id string)
 	UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy)
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
-	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup)
-	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
+	UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
+	UseCurrentNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup)
+	RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource)
 	GetListenerProxyPort(listener string) uint16
 	IsSDPEnabled() bool
 }
@@ -30,7 +30,7 @@ func (e *Endpoint) removeNetworkPolicy() {
 	if e.IsProxyDisabled() {
 		return
 	}
-	e.proxy.RemoveNetworkPolicy(e)
+	e.proxy.RemoveNetworkPolicy(context.Background(), e)
 }
 
 func (e *Endpoint) IsProxyDisabled() bool {
@@ -50,16 +50,16 @@ func (f *FakeEndpointProxy) RemoveRedirect(id string) {
 }
 
 // UseCurrentNetworkPolicy does nothing.
-func (f *FakeEndpointProxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
+func (f *FakeEndpointProxy) UseCurrentNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 }
 
 // UpdateNetworkPolicy does nothing.
-func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (f *FakeEndpointProxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
 	return nil, nil
 }
 
 // RemoveNetworkPolicy does nothing.
-func (f *FakeEndpointProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {}
+func (f *FakeEndpointProxy) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {}
 
 func (f *FakeEndpointProxy) UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy) {
 }
