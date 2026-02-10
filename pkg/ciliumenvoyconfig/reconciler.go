@@ -112,12 +112,12 @@ func isPortBindingError(err error) bool {
 }
 
 // retryWithNewPorts reallocates dynamically allocated ports and retries UpdateEnvoyResources.
-func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources envoy.Resources) (envoy.Resources, error) {
-	newListeners := make([]*envoy_config_listener.Listener, 0, len(resources.Listeners))
+func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources xds.Resources) (xds.Resources, error) {
+	newListeners := make(map[string]*envoy_config_listener.Listener, 0)
 
 	for _, listener := range resources.Listeners {
 		if listener.GetInternalListener() != nil {
-			newListeners = append(newListeners, listener)
+			newListeners[listener.Name] = listener
 			continue
 		}
 
@@ -143,9 +143,9 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 				return ops.portAllocator.AckProxyPortWithReference(ctx, listenerName)
 			}
 
-			newListeners = append(newListeners, clonedListener)
+			newListeners[clonedListener.Name] = clonedListener
 		} else {
-			newListeners = append(newListeners, listener)
+			newListeners[listener.Name] = listener
 		}
 	}
 
@@ -161,7 +161,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
 	defer cancel()
 
-	var prevResources envoy.Resources
+	var prevResources xds.Resources
 	if res.ReconciledResources != nil {
 		prevResources = *res.ReconciledResources
 
@@ -295,8 +295,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(context.Context, envoy.Resources) error
-	UpdateEnvoyResources(context.Context, envoy.Resources, envoy.Resources) error
+	DeleteEnvoyResources(context.Context, xds.Resources) error
+	UpdateEnvoyResources(context.Context, xds.Resources, xds.Resources) error
 }
 
 type policyTrigger interface {

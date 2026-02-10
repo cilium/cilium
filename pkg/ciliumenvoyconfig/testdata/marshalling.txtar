@@ -126,8 +126,8 @@ spec:
     }
   ],
   "Resources": {
-    "Listeners": [
-      {
+    "Listeners": {
+      "test/envoy-lb-listener/envoy-lb-listener": {
         "name": "test/envoy-lb-listener/envoy-lb-listener",
         "address": {
           "Address": {
@@ -166,11 +166,12 @@ spec:
         ],
         "ListenerSpecifier": null
       }
-    ],
-    "Secrets": null,
-    "Routes": null,
-    "Clusters": null,
-    "Endpoints": null
+    },
+    "Secrets": {},
+    "Routes": {},
+    "Clusters": {},
+    "Endpoints": {},
+    "NetworkPolicies": {}
   }
 }
 -- envoy-resources-expected.json --
@@ -191,8 +192,8 @@ spec:
     "Secrets": null,
     "Routes": null,
     "Clusters": null,
-    "Endpoints": [
-      {
+    "Endpoints": {
+      "test/echo:80": {
         "cluster_name": "test/echo:80",
         "endpoints": [
           {
@@ -218,15 +219,16 @@ spec:
           }
         ]
       }
-    ]
+    },
+    "NetworkPolicies": null
   },
   "ReconciledResources": {
     "Listeners": null,
     "Secrets": null,
     "Routes": null,
     "Clusters": null,
-    "Endpoints": [
-      {
+    "Endpoints": {
+      "test/echo:80": {
         "cluster_name": "test/echo:80",
         "endpoints": [
           {
@@ -252,7 +254,8 @@ spec:
           }
         ]
       }
-    ]
+    },
+    "NetworkPolicies": null
   },
   "Redirects": [],
   "ReconciledRedirects": [],
@@ -271,8 +274,8 @@ spec:
     "kind": "Done"
   },
   "Resources": {
-    "Listeners": [
-      {
+    "Listeners": {
+      "test/envoy-lb-listener/envoy-lb-listener": {
         "name": "test/envoy-lb-listener/envoy-lb-listener",
         "address": {
           "Address": {
@@ -311,15 +314,16 @@ spec:
         ],
         "ListenerSpecifier": null
       }
-    ],
-    "Secrets": null,
-    "Routes": null,
-    "Clusters": null,
-    "Endpoints": null
+    },
+    "Secrets": {},
+    "Routes": {},
+    "Clusters": {},
+    "Endpoints": {},
+    "NetworkPolicies": {}
   },
   "ReconciledResources": {
-    "Listeners": [
-      {
+    "Listeners": {
+      "test/envoy-lb-listener/envoy-lb-listener": {
         "name": "test/envoy-lb-listener/envoy-lb-listener",
         "address": {
           "Address": {
@@ -358,11 +362,12 @@ spec:
         ],
         "ListenerSpecifier": null
       }
-    ],
-    "Secrets": null,
-    "Routes": null,
-    "Clusters": null,
-    "Endpoints": null
+    },
+    "Secrets": {},
+    "Routes": {},
+    "Clusters": {},
+    "Endpoints": {},
+    "NetworkPolicies": {}
   },
   "Redirects": [
     {

@@ -33,6 +33,7 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
+	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/hive"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -89,7 +90,7 @@ func setupTestDirectories() string {
 		panic("Mkdir failed")
 	}
 
-	socketDir := envoy.GetSocketDir(tempRunDir)
+	socketDir := util.GetSocketDir(tempRunDir)
 	err = os.MkdirAll(socketDir, 0o700)
 	if err != nil {
 		panic("creating envoy socket directory failed")

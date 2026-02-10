@@ -25,6 +25,8 @@ import (
 	envoy_extensions_bootstrap_internal_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/bootstrap/internal_listener/v3"
 	envoy_extensions_resource_monitors_downstream_connections "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
 	envoy_config_upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+
+	util "github.com/cilium/cilium/pkg/envoy/util"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -123,7 +125,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	envoy := &StandaloneEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
-		admin:  NewEnvoyAdminClientForSocket(o.logger, GetSocketDir(config.runDir), config.defaultLogLevel),
+		admin:  NewEnvoyAdminClientForSocket(o.logger, util.GetSocketDir(config.runDir), config.defaultLogLevel),
 	}
 
 	bootstrapDir := filepath.Join(config.runDir, "envoy")
@@ -132,7 +134,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	os.Mkdir(bootstrapDir, 0777)
 
 	// Make sure sockets dir exists
-	os.Mkdir(GetSocketDir(config.runDir), 0777)
+	os.Mkdir(util.GetSocketDir(config.runDir), 0777)
 
 	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
@@ -140,8 +142,8 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		filePath:                       bootstrapFilePath,
 		nodeId:                         "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
 		cluster:                        ingressClusterName,
-		adminPath:                      getAdminSocketPath(GetSocketDir(config.runDir)),
-		xdsSock:                        getXDSSocketPath(GetSocketDir(config.runDir)),
+		adminPath:                      util.GetAdminSocketPath(util.GetSocketDir(config.runDir)),
+		xdsSock:                        util.GetXDSSocketPath(util.GetSocketDir(config.runDir)),
 		egressClusterName:              egressClusterName,
 		ingressClusterName:             ingressClusterName,
 		connectTimeout:                 config.connectTimeout,
@@ -386,7 +388,7 @@ type bootstrapConfig struct {
 
 func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) error {
 	useDownstreamProtocol := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": ToAny(&envoy_config_upstream.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
 				IdleTimeout:              durationpb.New(config.idleTimeout),
 				MaxRequestsPerConnection: wrapperspb.UInt32(config.maxRequestsPerConnection),
@@ -399,7 +401,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 	}
 
 	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": ToAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
 				//	Setting AutoSni or AutoSanValidation options here may crash
 				//	Envoy, when Cilium Network filter already passes these from
@@ -417,7 +419,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 	}
 
 	http2ProtocolOptions := map[string]*anypb.Any{
-		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
+		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": ToAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_{
 				ExplicitHttpConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig{
 					ProtocolConfig: &envoy_config_upstream.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
@@ -458,7 +460,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 					TransportSocket: &envoy_config_core.TransportSocket{
 						Name: "cilium.tls_wrapper",
 						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+							TypedConfig: ToAny(&cilium.UpstreamTlsWrapperContext{}),
 						},
 					},
 					CircuitBreakers: clusterRetryLimits,
@@ -482,7 +484,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 					TransportSocket: &envoy_config_core.TransportSocket{
 						Name: "cilium.tls_wrapper",
 						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
-							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+							TypedConfig: ToAny(&cilium.UpstreamTlsWrapperContext{}),
 						},
 					},
 					CircuitBreakers: clusterRetryLimits,
@@ -549,14 +551,14 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 		BootstrapExtensions: []*envoy_config_core.TypedExtensionConfig{
 			{
 				Name:        "envoy.bootstrap.internal_listener",
-				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
+				TypedConfig: ToAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
 			},
 		},
 		OverloadManager: &envoy_config_overload.OverloadManager{
 			ResourceMonitors: []*envoy_config_overload.ResourceMonitor{{
 				Name: "envoy.resource_monitors.global_downstream_max_connections",
 				ConfigType: &envoy_config_overload.ResourceMonitor_TypedConfig{
-					TypedConfig: toAny(&envoy_extensions_resource_monitors_downstream_connections.DownstreamConnectionsConfig{
+					TypedConfig: ToAny(&envoy_extensions_resource_monitors_downstream_connections.DownstreamConnectionsConfig{
 						MaxActiveDownstreamConnections: config.maxActiveDownstreamConnections,
 					}),
 				},
