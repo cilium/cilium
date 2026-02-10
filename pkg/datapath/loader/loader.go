@@ -20,7 +20,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -28,8 +27,6 @@ import (
 )
 
 const (
-	symbolFromNetwork = "cil_from_network"
-
 	dirIngress = "ingress"
 	dirEgress  = "egress"
 )
@@ -42,8 +39,6 @@ type loader struct {
 	// templateCache is the cache of pre-compiled datapaths. Only set after
 	// a call to Reinitialize.
 	templateCache *objectCache
-
-	ipsecMu lock.Mutex // guards reinitializeIPSec
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}

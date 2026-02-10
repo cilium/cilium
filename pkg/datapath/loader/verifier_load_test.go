@@ -58,16 +58,6 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	}
 }
 
-func networkLoadPermutations() iter.Seq[*config.BPFNetwork] {
-	return func(yield func(*config.BPFNetwork) bool) {
-		cfg := config.NewBPFNetwork(*config.NewNode())
-		cfg.Node.TracingIPOptionType = 1
-		if !yield(cfg) {
-			return
-		}
-	}
-}
-
 func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 	return func(yield func(*config.BPFOverlay) bool) {
 		cfg := config.NewBPFOverlay(*config.NewNode())
