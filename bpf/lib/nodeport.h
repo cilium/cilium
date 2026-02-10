@@ -894,7 +894,7 @@ __declare_tail(CILIUM_CALL_IPV46_RFC6052) int tail_nat_ipv46(struct __ctx_buff *
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false, true, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}
@@ -923,7 +923,7 @@ __declare_tail(CILIUM_CALL_IPV64_RFC6052) int tail_nat_ipv64(struct __ctx_buff *
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false, true, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}
@@ -2146,7 +2146,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_DSR) int tail_nodeport_ipv4_dsr(
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, false, &ext_err, &oif, 0);
 	if (fib_ok(ret)) {
 		return ret;
 	}
