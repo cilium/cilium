@@ -31,6 +31,8 @@ finish-initializer owner1
 db/cmp desired-devices desired-device.2.table
 db/cmp devices devices.2.table
 
+hive/stop
+
 -- eth0.10.yaml --
 name: eth0.10
 parentDevice: eth0

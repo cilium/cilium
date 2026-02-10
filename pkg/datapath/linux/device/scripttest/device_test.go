@@ -82,6 +82,10 @@ func (d desiredVlanDevice) MarshalJSON() ([]byte, error) {
 	})
 }
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 

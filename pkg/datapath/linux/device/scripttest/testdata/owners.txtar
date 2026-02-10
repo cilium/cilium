@@ -17,6 +17,8 @@ remove-owner owner1
 sleep 1s
 db/cmp devices devices.table
 
+hive/stop
+
 -- devices.table --
 Name      Type     OperStatus
 lo        device   down
