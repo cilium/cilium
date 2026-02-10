@@ -337,6 +337,8 @@ from Cilium.
 
 * The previously deprecated Helm value ``clustermesh.enableMCSAPISupport`` was
   removed in favor of the ``clustermesh.mcsapi.enabled`` Helm value.
+* The ``encryption.ipsec.interface`` Helm flag (the ``--encrypt-interface``
+  agent flag) was a no-op since Cilium 1.18 and has now been removed.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
