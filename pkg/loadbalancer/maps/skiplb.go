@@ -47,7 +47,7 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
 			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
 			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 			Pinning:    pinning,
 		})
 	}
@@ -58,7 +58,7 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
 			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
 			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 			Pinning:    pinning,
 		})
 	}
