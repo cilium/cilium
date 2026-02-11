@@ -58,6 +58,8 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
+
 	return cfg
 }
 
@@ -100,6 +102,8 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
+
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
 	return cfg
 }
@@ -163,6 +167,8 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
+
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
 	return cfg
 }

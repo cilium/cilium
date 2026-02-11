@@ -73,7 +73,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if params.IPSecConfig.Enabled() &&
-		!params.DaemonConfig.TunnelingEnabled() &&
+		params.DaemonConfig.RequiresNativeRouting() &&
 		len(params.DaemonConfig.UnsafeDaemonConfigOption.EncryptInterface) == 0 &&
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load

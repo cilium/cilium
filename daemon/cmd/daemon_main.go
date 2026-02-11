@@ -547,7 +547,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.ExternalEnvoyProxy, false, "whether the Envoy is deployed externally in form of a DaemonSet or not")
 	option.BindEnv(vp, option.ExternalEnvoyProxy)
 
-	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q or %q)", option.RoutingModeNative, option.RoutingModeTunnel))
+	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q, %q, or %q)", option.RoutingModeNative, option.RoutingModeTunnel, option.RoutingModeHybrid))
 	option.BindEnv(vp, option.RoutingMode)
 
 	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
@@ -1068,7 +1068,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
 
-	if option.Config.TunnelingEnabled() && option.Config.EnableAutoDirectRouting {
+	if !option.Config.RequiresNativeRouting() && option.Config.EnableAutoDirectRouting {
 		logging.Fatal(logger, fmt.Sprintf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName))
 	}
 
@@ -1094,7 +1094,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
 		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
-		if option.Config.TunnelingEnabled() {
+		if !option.Config.RequiresNativeRouting() {
 			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6))
 		}
 		if !option.Config.EnableEndpointRoutes {
@@ -1111,15 +1111,15 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		)
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMENI && option.Config.TunnelingEnabled() {
+	if option.Config.IPAM == ipamOption.IPAMENI && !option.Config.RequiresNativeRouting() {
 		logging.Fatal(logger, fmt.Sprintf("Cannot specify IPAM mode %s in tunnel mode.", option.Config.IPAM))
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
 		// InstallNoConntrackIptRules can only be enabled in direct
-		// routing mode as in tunneling mode the encapsulated traffic is
+		// routing and hybrid routing mode as in tunneling mode the encapsulated traffic is
 		// already skipping netfilter conntrack.
-		if option.Config.TunnelingEnabled() {
+		if !option.Config.RequiresNativeRouting() {
 			logging.Fatal(logger, fmt.Sprintf("%s requires the agent to run in direct routing mode.", option.InstallNoConntrackIptRules))
 		}
 
