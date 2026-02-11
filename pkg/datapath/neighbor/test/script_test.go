@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/goleak"
-
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -45,7 +43,7 @@ func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SerializedTest(t)
 
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var opts []hivetest.LogOption
 	if *debug {
@@ -139,9 +137,7 @@ func TestPrivilegedScript(t *testing.T) {
 						return nil, err
 					}
 
-					for name, newCmd := range newHiveCmds {
-						cmds[name] = newCmd
-					}
+					maps.Copy(cmds, newHiveCmds)
 
 					return nil, nil
 				},
