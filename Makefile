@@ -504,6 +504,8 @@ endif
 	$(QUIET) contrib/scripts/check-time.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
+	@$(ECHO_CHECK) contrib/scripts/check-go-test-tags.sh
+	$(QUIET) contrib/scripts/check-go-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
 	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
