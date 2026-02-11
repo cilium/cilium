@@ -27,6 +27,13 @@
 #include "lib/lb.h"
 #include "scapy.h"
 
+/* For checking statistics in conntrack map. */
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+
+/* Global variables to store data between setup and check functions. */
+struct ipv6_ct_tuple ct_tuple;
+struct ipv6_ct_tuple ct_tuple_dnated;
+
 /* Test that a request from an external client to a ClusterIP service w/o the
  * `bpf-lb-external-clusterip` flag set is denied. The reason is due to the SVC
  * being created w/o the SVC_FLAG_ROUTABLE flag being set in the bpf map,
@@ -102,6 +109,115 @@ int lb6_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 	__u64 count = 1;
 
 	assert_metrics_count(key, count);
+
+	test_finish();
+}
+
+/* Test that a request from an external client to a ClusterIP service with the
+ * `bpf-lb-external-clusterip` flag set is allowed. The reason is due to the SVC
+ * being created w/ the SVC_FLAG_ROUTABLE flag being set in the bpf map,
+ * leading to the datapath correctly accepting and DNAT the packet, and the
+ * respective BPF metric updated accordingly.
+ */
+PKTGEN("tc", "tc_lb6_routable_clusterip")
+int lb6_routable_clusterip_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(LB6_CLUSTERIP, lb6_clusterip);
+	BUILDER_PUSH_BUF(builder, LB6_CLUSTERIP);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_lb6_routable_clusterip")
+int lb6_routable_clusterip_setup(struct __ctx_buff *ctx)
+{
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	struct ipv6hdr *ip6 = data + sizeof(struct ethhdr);
+	union v6addr frontend_ip = {};
+	fraginfo_t fraginfo;
+	int l4_off;
+
+	if ((void *)ip6 + sizeof(struct ipv6hdr) > data_end)
+		return TEST_ERROR;
+
+	ct_tuple.nexthdr = ip6->nexthdr;
+	l4_off = ipv6_hdrlen_with_fraginfo(ctx, &ct_tuple.nexthdr, &fraginfo);
+	if (l4_off < 0)
+		return TEST_ERROR;
+
+	l4_off = l4_off + ETH_HLEN;
+
+	/* Extract CT tuple for SVC (pre DNAT). */
+	lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &ct_tuple);
+	ct_tuple.flags = TUPLE_F_SERVICE;
+
+	/* Extract CT tuple for post DNAT. This simulates a call to `lb6_dnat_request` + reverse
+	 * tuple for CT lookup in nodeport_svc_lb6 with backend_local
+	 */
+	ct_tuple_dnated = (struct ipv6_ct_tuple) {
+		.dport   = BACKEND_PORT,
+		.sport   = ct_tuple.dport,
+		.nexthdr = ct_tuple.nexthdr,
+		.flags   = 0,
+	};
+	ipv6_addr_copy(&ct_tuple_dnated.saddr, (union v6addr *)BACKEND_IP);
+	ipv6_addr_copy(&ct_tuple_dnated.daddr, &ct_tuple.saddr);
+
+	memcpy(frontend_ip.addr, (void *)FRONTEND_IP, 16);
+
+	/* Endpoint and backend added in previous setup, simply change SVC flags. */
+	lb_v6_add_service_with_flags(&frontend_ip, FRONTEND_PORT,
+				     IPPROTO_TCP, BACKEND_COUNT, NAT_REV_INDEX,
+				     SVC_FLAG_ROUTABLE, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_lb6_routable_clusterip")
+int lb6_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	__u32 pkt_size = ctx_full_len(ctx) - sizeof(__u32);
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	BUF_DECL(LB6_CLUSTERIP_POST_DNAT, lb6_clusterip_post_dnat);
+	ASSERT_CTX_BUF_OFF("lb6_routable_clusterip", "Ether", ctx, sizeof(__u32),
+			   LB6_CLUSTERIP_POST_DNAT, sizeof(BUF(LB6_CLUSTERIP_POST_DNAT)));
+
+	/* Ensure CT entry is updated accordingly (SVC). */
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map6(&ct_tuple), &ct_tuple);
+
+	if (!ct_entry)
+		test_fatal("CT entry not found");
+	assert(ct_entry->packets == 1);
+	assert(ct_entry->bytes == pkt_size);
+
+	/* Ensure CT entry is updated accordingly (post DNAT). */
+	ct_entry = map_lookup_elem(get_ct_map6(&ct_tuple_dnated), &ct_tuple_dnated);
+	if (!ct_entry)
+		test_fatal("CT entry not found");
+	assert(ct_entry->packets == 1);
+	assert(ct_entry->bytes == pkt_size);
+	assert(ct_entry->node_port == 1);
 
 	test_finish();
 }

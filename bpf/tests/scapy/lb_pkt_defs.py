@@ -12,9 +12,23 @@ lb4_clusterip = (
     Raw("S"*1)
 )
 
+lb4_clusterip_post_dnat = (
+    Ether(dst=mac_two, src=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw("S"*1)
+)
+
 lb6_clusterip = (
     Ether(dst=mac_two, src=mac_one) /
     IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
     TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
+lb6_clusterip_post_dnat = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
     Raw("S"*1)
 )
