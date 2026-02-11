@@ -25,3 +25,10 @@ lb6_clusterip = (
     TCP(sport=tcp_src_one, dport=tcp_svc_one) /
     Raw("S"*1)
 )
+
+lb6_clusterip_post_dnat = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw("S"*1)
+)
