@@ -10,10 +10,6 @@ on:
     paths:
       - Documentation/Dockerfile
       - Documentation/requirements.txt
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
 
 permissions:
   # To be able to access the repository with `actions/checkout`
