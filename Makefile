@@ -430,9 +430,11 @@ custom-lint: ## Run extra local linters
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
-	$(QUIET) GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" ./contrib/scripts/golangci-lint.sh
+	$(QUIET) ./contrib/scripts/golangci-lint.sh $(GOLANGCI_LINT_ARGS)
 else
-	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app -e GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) ./contrib/scripts/golangci-lint.sh
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -ti -v `pwd`:/app -w /app \
+	docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) \
+	./contrib/scripts/golangci-lint.sh $(GOLANGCI_LINT_ARGS)
 endif
 
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
