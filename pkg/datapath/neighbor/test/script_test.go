@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -45,6 +43,7 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	testutils.SerializedTest(t)
 
 	defer goleak.VerifyNone(t)
 
