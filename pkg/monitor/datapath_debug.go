@@ -283,7 +283,7 @@ func (n *DebugMsg) Decode(data []byte) error {
 func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	switch n.SubType {
 	case DbgGeneric:
-		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
+		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x) arg3=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2, n.Arg3, n.Arg3)
 	case DbgLocalDelivery:
 		return fmt.Sprintf("Attempting local delivery for container id %d from seclabel %d", n.Arg1, n.Arg2)
 	case DbgEncap:
