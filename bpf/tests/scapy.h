@@ -77,7 +77,7 @@ void scapy_strncpy(char *dst, const char *src, const __u8 len)
 }
 
 static __always_inline
-void *scapy__push_data(struct pktgen *builder, void *data, int len)
+void *scapy__push_data(struct pktgen *builder, void *data, const int len)
 {
 	void *pkt_data = pktgen__push_data_room(builder, len);
 

@@ -25,5 +25,13 @@ sst_rep_pad = (
         hwsrc=mac_two, hwdst=mac_one) /
     Raw("A"*8)
 )
-
 assert len(bytes(sst_rep_pad)) == (len(bytes(sst_rep)) + 8)
+
+# Testing large packets
+sst_xlpkt = (
+    Ether(dst=mac_one, src=mac_two) /
+    IP() /
+    TCP() /
+    Raw(load='S'*970)
+)
+assert len(bytes(sst_xlpkt)) == 1024

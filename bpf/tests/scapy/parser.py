@@ -37,6 +37,13 @@ def find_buf_refs(filepath: str, bufs: dict[str, dict]) -> dict[str, dict]:
             except Exception as e:
                 raise Exception(f"Unknown scapy buffer '{scapy_buf}'. Please make sure it's defined under scapy/*_pkt_defs.py")
 
+            # LLVM builtins have a limitation of ~1024 bytes for memcpy/memcmp
+            # Even when reimplementing a custom (innefficient) memcpy/memset,
+            # the LLVM optimizer converts the code to use the builtins. So far
+            # there is no easy way to work-around this, so warn the user.
+            if len(buf) > 1024:
+                raise Exception(f"Packets can't be larger than 1024 bytes at the moment")
+
             if name in bufs and buf != bufs[name]["buf"]:
                 raise Exception(f"Mismatching packet definitions with name '{name}'; found '{scapy_buf}' and '{bufs[name]}'.")
 
