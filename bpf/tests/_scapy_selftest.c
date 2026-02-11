@@ -175,4 +175,69 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 	return 0;
 }
 
+PKTGEN("tc", "1_test_large_pkts")
+int pktgen_scapy_large_pkts(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(SST_LPKT, sst_lpkt);
+	BUILDER_PUSH_BUF(builder, SST_LPKT);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+CHECK("tc", "1_test_large_pkts")
+int check_scapy_large_pkts(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	BUF_DECL(SST_LPKT, sst_lpkt);
+
+	/* 1024 byte pkt */
+	ASSERT_CTX_BUF_OFF("assert_lpkt_1", "Ether", ctx, 0, SST_LPKT,
+			   sizeof(BUF(SST_LPKT)));
+
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN("tc", "2_test_xlarge_pkts")
+int pktgen_scapy_xlarge_pkts(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(SST_XLPKT, sst_xlpkt);
+	BUILDER_PUSH_BUF(builder, SST_XLPKT);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+CHECK("tc", "2_test_xlarge_pkts")
+int check_scapy_xlarge_pkts(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	BUF_DECL(SST_XLPKT, sst_xlpkt);
+
+	/**
+	 * 1518 byte pkt (two memcpys due to LLVM builtin ~1024 byte limit)
+	 * Note: this is __SCAPY_MAX_BUF size.
+	 */
+	ASSERT_CTX_BUF_OFF("assert_xlpkt_1", "Ether", ctx, 0, SST_XLPKT,
+			   sizeof(BUF(SST_XLPKT)));
+
+	test_finish();
+
+	return 0;
+}
+
 BPF_LICENSE("Dual BSD/GPL");

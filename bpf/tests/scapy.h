@@ -58,7 +58,7 @@ int scapy_memcmp(const void *a, const void *b, const __u16 len)
 }
 
 static __always_inline
-void scapy_memcpy(const void *dst, const void *src, const __u32 len)
+void _scapy_memcpy(const void *dst, const void *src, const __u32 len)
 {
 	__u32 i;
 
@@ -72,6 +72,29 @@ void scapy_memcpy(const void *dst, const void *src, const __u32 len)
 }
 
 static __always_inline
+void scapy_memcpy(void *dst, const void *src, const __u32 len)
+{
+	const int words = len / 1024;
+
+	if (!__builtin_constant_p(len) || !__builtin_constant_p(words))
+		__throw_build_bug();
+
+	switch (words) {
+	case 0:
+		_scapy_memcpy(dst, src, len);
+		break;
+	case 1:
+		{
+		_scapy_memcpy(dst, src, 1024);
+		_scapy_memcpy(dst + 1024, src + 1024, len - 1024);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static __always_inline
 void scapy_strncpy(char *dst, const char *src, const __u8 len)
 {
 	if (len > __SCAPY_MAX_STR_LEN)
@@ -80,7 +103,7 @@ void scapy_strncpy(char *dst, const char *src, const __u8 len)
 }
 
 static __always_inline
-void *scapy__push_data(struct pktgen *builder, void *data, int len)
+void *scapy__push_data(struct pktgen *builder, void *data, const int len)
 {
 	void *pkt_data = pktgen__push_data_room(builder, len);
 
