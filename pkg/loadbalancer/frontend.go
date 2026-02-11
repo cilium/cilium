@@ -183,6 +183,22 @@ func (fe *Frontend) ToModel() *models.Service {
 		spec.BackendAddresses = append(spec.BackendAddresses, backendModel(be))
 	}
 
+	if svc.ProxyRedirect != nil {
+		state, _ := BackendStateActive.String()
+		localhost := "127.0.0.1"
+		if fe.Address.AddrCluster().Is6() {
+			localhost = "::1"
+		}
+
+		spec.BackendAddresses = append(spec.BackendAddresses, &models.BackendAddress{
+			IP:        &localhost,
+			Protocol:  fe.Address.Protocol(),
+			Port:      svc.ProxyRedirect.ProxyPort,
+			State:     state,
+			Preferred: true,
+		})
+	}
+
 	return &models.Service{
 		Spec: spec,
 		Status: &models.ServiceStatus{
