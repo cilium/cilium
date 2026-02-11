@@ -1496,7 +1496,7 @@ data:
 {{- end }}
   clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
-  clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
+  clustermesh-enable-mcs-api: {{ .Values.clustermesh.mcsapi.enabled | quote }}
   clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 

@@ -1,4 +1,4 @@
-{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
+{{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.corednsAutoConfigure.enabled }}
 ---
 apiVersion: batch/v1
 kind: Job
