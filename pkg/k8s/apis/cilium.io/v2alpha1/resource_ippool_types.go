@@ -5,6 +5,8 @@ package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +genclient
@@ -37,6 +39,15 @@ type ResourceIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	IPv6 *IPv6PoolSpec `json:"ipv6"`
+
+	// NodeSelector selects the set of Nodes that are eligible to request
+	// addresses for their resources from this pool.
+	//
+	// If NodeSelector is empty, the pool can be used by any Node but it
+	// must be explicitly referenced from the ResourceClaim.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -238,7 +238,7 @@ type MultiPoolManagerParams struct {
 	SkipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
-type multiPoolManager struct {
+type MultiPoolManager struct {
 	ipv4Enabled bool
 	ipv6Enabled bool
 
@@ -266,9 +266,9 @@ type multiPoolManager struct {
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 }
 
-func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
+func NewMultiPoolManager(p MultiPoolManagerParams) *MultiPoolManager {
 	localNodeUpdated := make(chan struct{})
-	mgr := &multiPoolManager{
+	mgr := &MultiPoolManager{
 		logger:                 p.Logger,
 		ipv4Enabled:            p.IPv4Enabled,
 		ipv6Enabled:            p.IPv6Enabled,
@@ -329,7 +329,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 // This function blocks the IPAM constructor forever and periodically logs
 // that it is waiting for IPs to be assigned. This blocking behavior is
 // consistent with other IPAM modes.
-func (m *multiPoolManager) waitForAllPools() {
+func (m *MultiPoolManager) waitForAllPools() {
 	allPoolsReady := false
 	for !allPoolsReady {
 		allPoolsReady = true
@@ -350,7 +350,7 @@ func (m *multiPoolManager) waitForAllPools() {
 // available for the given IP family. This function is supposed to only be called
 // before any IPs are handed out, so hasAvailableIPs returns true so as long as
 // the local node has IPs assigned to it in the given pool.
-func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolName Pool) (ready bool) {
+func (m *MultiPoolManager) waitForPool(ctx context.Context, family Family, poolName Pool) (ready bool) {
 	for {
 		m.poolsMutex.Lock()
 		poolReady := false
@@ -386,7 +386,7 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 	}
 }
 
-func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
+func (m *MultiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -403,7 +403,7 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	}
 }
 
-func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
+func (m *MultiPoolManager) LocalNodeUpdated() <-chan struct{} {
 	return m.localNodeUpdate
 }
 
@@ -441,7 +441,7 @@ func neededIPCeil(numIP int, preAlloc int) int {
 //	      preAllocIPs   Minimum number of IPs that we want to pre-allocate as a buffer
 //
 // Rounded up to the next multiple of preAllocIPs.
-func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPoolDemand {
+func (m *MultiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPoolDemand {
 	demand := make(map[Pool]types.IPAMPoolDemand, len(m.pools))
 
 	// inUseIPs
@@ -492,17 +492,17 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	return demand
 }
 
-func (m *multiPoolManager) restoreFinished(family Family) {
+func (m *MultiPoolManager) RestoreFinished(family Family) {
 	m.poolsMutex.Lock()
 	m.finishedRestore[family] = true
 	m.poolsMutex.Unlock()
 }
 
-func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
+func (m *MultiPoolManager) isRestoreFinishedLocked(family Family) bool {
 	return m.finishedRestore[family]
 }
 
-func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
+func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.poolsMutex.Lock()
 
 	curNode := m.getNode()
@@ -596,7 +596,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCIDR) {
+func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCIDR) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
@@ -634,7 +634,7 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 	}
 }
 
-func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
+func (m *MultiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -670,7 +670,7 @@ func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]st
 	return allocated, fmt.Sprintf("%d IPAM pool(s) available", len(m.pools))
 }
 
-func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cidrPool {
+func (m *MultiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cidrPool {
 	switch family {
 	case IPv4:
 		pair, ok := m.pools[poolName]
@@ -687,7 +687,7 @@ func (m *multiPoolManager) poolByFamilyLocked(poolName Pool, family Family) *cid
 	return nil
 }
 
-func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
+func (m *MultiPoolManager) AllocateNext(owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -719,7 +719,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	return &AllocationResult{IP: ip, IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
 }
 
-func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
+func (m *MultiPoolManager) AllocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -745,7 +745,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
 }
 
-func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {
+func (m *MultiPoolManager) ReleaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -761,13 +761,13 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 	return nil
 }
 
-func (m *multiPoolManager) getNode() *ciliumv2.CiliumNode {
+func (m *MultiPoolManager) getNode() *ciliumv2.CiliumNode {
 	m.nodeMutex.Lock()
 	defer m.nodeMutex.Unlock()
 	return m.node
 }
 
-func (m *multiPoolManager) setNode(node *ciliumv2.CiliumNode) *ciliumv2.CiliumNode {
+func (m *MultiPoolManager) setNode(node *ciliumv2.CiliumNode) *ciliumv2.CiliumNode {
 	m.nodeMutex.Lock()
 	defer m.nodeMutex.Unlock()
 
