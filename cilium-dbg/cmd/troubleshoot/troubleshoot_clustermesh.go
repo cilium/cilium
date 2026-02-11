@@ -7,7 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
+	"net"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -18,6 +21,7 @@ import (
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
@@ -108,8 +112,23 @@ func TroubleshootClusterMesh(
 			continue
 		}
 
+		ciliumCfg, err := common.ParseCiliumConfig(cfg)
+		if err != nil {
+			fmt.Fprintf(stdout, "❌ Could not parse Cilium config: %s\n", err)
+			continue
+		}
+
+		clusterDialer := dialer
+		if ciliumCfg != nil && ciliumCfg.HostAlias != nil {
+			clusterDialer = newStaticEtcdDbgDialerWithFallback(
+				ciliumCfg.HostAlias.Hostname,
+				ciliumCfg.HostAlias.IPs,
+				dialer,
+			)
+		}
+
 		cctx, cancel := context.WithTimeout(ctx, timeout)
-		kvstore.EtcdDbg(cctx, cfg, dialer, stdout)
+		kvstore.EtcdDbg(cctx, cfg, clusterDialer, stdout)
 		cancel()
 	}
 }
@@ -123,4 +142,43 @@ func getLocalClusterName(w io.Writer) string {
 
 	name, _ := cfg.Status.DaemonConfigurationMap["ClusterName"].(string)
 	return name
+}
+
+var _ kvstore.EtcdDbgDialer = (*staticEtcdDbgDialerWithFallback)(nil)
+
+// staticEtcdDbgDialerWithFallback perform a a static host resolution support
+// similarly to dial.NewStaticHostDialer used to contact remote clustermesh-apiserver
+// but with a kvstore.EtcdDbgDialer interface. It also wraps an existing
+// kvstore.EtcdDbgDialer as fallback if the specified hostname does not match.
+type staticEtcdDbgDialerWithFallback struct {
+	hostname              string
+	ips                   []net.IP
+	fallbackEtcdDbgDialer kvstore.EtcdDbgDialer
+	dialer                func(ctx context.Context, addr string) (net.Conn, error)
+}
+
+func newStaticEtcdDbgDialerWithFallback(hostname string, ips []netip.Addr, dialer kvstore.EtcdDbgDialer) *staticEtcdDbgDialerWithFallback {
+	ipsConverted := make([]net.IP, 0, len(ips))
+	for _, ip := range ips {
+		ipsConverted = append(ipsConverted, ip.AsSlice())
+	}
+	return &staticEtcdDbgDialerWithFallback{
+		hostname:              hostname,
+		ips:                   ipsConverted,
+		fallbackEtcdDbgDialer: dialer,
+		dialer: dial.NewStaticContextDialerWithFallback(
+			slog.New(slog.DiscardHandler), hostname, ips, dialer.DialContext, nil,
+		),
+	}
+}
+
+func (sd *staticEtcdDbgDialerWithFallback) LookupIP(ctx context.Context, hostname string) ([]net.IP, error) {
+	if hostname == sd.hostname {
+		return sd.ips, nil
+	}
+	return sd.fallbackEtcdDbgDialer.LookupIP(ctx, hostname)
+}
+
+func (sd *staticEtcdDbgDialerWithFallback) DialContext(ctx context.Context, addr string) (net.Conn, error) {
+	return sd.dialer(ctx, addr)
 }
