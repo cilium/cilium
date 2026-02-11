@@ -55,8 +55,8 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # Configure gops to use a temporary directory, to prevent permission
 # issues depending on the UID configured to run the entrypoint.
-COPY --chmod=777 --from=scratch / /home/gops
-ENV GOPS_CONFIG_DIR=/home/gops
+ENV GOPS_CONFIG_DIR=/tmp
+WORKDIR /tmp
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
 ENTRYPOINT ["/usr/bin/hubble-relay"]
