@@ -6,6 +6,7 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"sync"
 
@@ -34,14 +35,28 @@ var (
 	ErrNoSymbol = errors.New("not found")
 )
 
+const permExec fs.FileMode = 0111
+
 // Executable defines an executable program on the filesystem.
 type Executable struct {
 	// Path of the executable on the filesystem.
 	path string
-	// Parsed ELF and dynamic symbols' cachedAddresses.
-	cachedAddresses map[string]uint64
-	// Keep track of symbol table lazy load.
-	cacheAddressesOnce sync.Once
+	// Cached symbol values for all ELF and dynamic symbols.
+	// Before using this, lazyLoadSymbols() must be called.
+	cachedSymbols map[string]symbol
+	// cachedSymbolsOnce tracks the lazy load of cachedSymbols.
+	cachedSymbolsOnce sync.Once
+}
+
+type symbol struct {
+	addr uint64
+	size uint64
+}
+
+// contains returns true if the given address falls within the range
+// covered by the symbol.
+func (s symbol) contains(address uint64) bool {
+	return s.addr <= address && address < s.addr+s.size
 }
 
 // UprobeOptions defines additional parameters that will be used
@@ -98,20 +113,18 @@ func OpenExecutable(path string) (*Executable, error) {
 		return nil, fmt.Errorf("path cannot be empty")
 	}
 
-	f, err := internal.OpenSafeELFFile(path)
+	info, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("parse ELF file: %w", err)
+		return nil, fmt.Errorf("stat executable: %w", err)
 	}
-	defer f.Close()
 
-	if f.Type != elf.ET_EXEC && f.Type != elf.ET_DYN {
-		// ELF is not an executable or a shared object.
-		return nil, errors.New("the given file is not an executable or a shared object")
+	if info.Mode()&permExec == 0 {
+		return nil, fmt.Errorf("file %s is not executable", path)
 	}
 
 	return &Executable{
-		path:            path,
-		cachedAddresses: make(map[string]uint64),
+		path:          path,
+		cachedSymbols: make(map[string]symbol),
 	}, nil
 }
 
@@ -155,10 +168,34 @@ func (ex *Executable) load(f *internal.SafeELFFile) error {
 			}
 		}
 
-		ex.cachedAddresses[s.Name] = address
+		ex.cachedSymbols[s.Name] = symbol{
+			addr: address,
+			size: s.Size,
+		}
 	}
 
 	return nil
+}
+
+func (ex *Executable) lazyLoadSymbols() error {
+	var err error
+	ex.cachedSymbolsOnce.Do(func() {
+		var f *internal.SafeELFFile
+		f, err = internal.OpenSafeELFFile(ex.path)
+		if err != nil {
+			err = fmt.Errorf("parse ELF file: %w", err)
+			return
+		}
+		defer f.Close()
+
+		if f.Type != elf.ET_EXEC && f.Type != elf.ET_DYN {
+			// ELF is not an executable or a shared object.
+			err = errors.New("the given file is not an executable or a shared object")
+			return
+		}
+		err = ex.load(f)
+	})
+	return err
 }
 
 // address calculates the address of a symbol in the executable.
@@ -169,23 +206,12 @@ func (ex *Executable) address(symbol string, address, offset uint64) (uint64, er
 		return address + offset, nil
 	}
 
-	var err error
-	ex.cacheAddressesOnce.Do(func() {
-		var f *internal.SafeELFFile
-		f, err = internal.OpenSafeELFFile(ex.path)
-		if err != nil {
-			err = fmt.Errorf("parse ELF file: %w", err)
-			return
-		}
-		defer f.Close()
-
-		err = ex.load(f)
-	})
+	err := ex.lazyLoadSymbols()
 	if err != nil {
 		return 0, fmt.Errorf("lazy load symbols: %w", err)
 	}
 
-	address, ok := ex.cachedAddresses[symbol]
+	sym, ok := ex.cachedSymbols[symbol]
 	if !ok {
 		return 0, fmt.Errorf("symbol %s: %w", symbol, ErrNoSymbol)
 	}
@@ -196,12 +222,39 @@ func (ex *Executable) address(symbol string, address, offset uint64) (uint64, er
 	//
 	// Since only offset values are stored and not elf.Symbol, if the value is 0,
 	// assume it's an external symbol.
-	if address == 0 {
+	if sym.addr == 0 {
 		return 0, fmt.Errorf("cannot resolve %s library call '%s': %w "+
 			"(consider providing UprobeOptions.Address)", ex.path, symbol, ErrNotSupported)
 	}
 
-	return address + offset, nil
+	if offset >= sym.size {
+		return 0, fmt.Errorf("offset %d is out of range of symbol %s", offset, symbol)
+	}
+
+	return sym.addr + offset, nil
+}
+
+// SymbolOffset represents an offset within a symbol within a binary.
+type SymbolOffset struct {
+	Symbol string
+	Offset uint64
+}
+
+// Symbol returns the SymbolOffset that the given address points to.
+// This includes the symbol name and the offset within that symbol.
+//
+// If no symbol is found for the given address, ErrNoSymbol is returned.
+func (ex *Executable) Symbol(address uint64) (SymbolOffset, error) {
+	if err := ex.lazyLoadSymbols(); err != nil {
+		return SymbolOffset{}, fmt.Errorf("lazy load symbols: %w", err)
+	}
+
+	for name, symbol := range ex.cachedSymbols {
+		if symbol.contains(address) {
+			return SymbolOffset{name, address - symbol.addr}, nil
+		}
+	}
+	return SymbolOffset{}, ErrNoSymbol
 }
 
 // Uprobe attaches the given eBPF program to a perf event that fires when the

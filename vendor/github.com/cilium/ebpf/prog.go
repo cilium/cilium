@@ -25,6 +25,10 @@ import (
 // ErrNotSupported is returned whenever the kernel doesn't support a feature.
 var ErrNotSupported = internal.ErrNotSupported
 
+// ErrProgIncompatible is returned when a loaded Program is incompatible with a
+// given spec.
+var ErrProgIncompatible = errors.New("program is incompatible")
+
 // errBadRelocation is returned when the verifier rejects a program due to a
 // bad CO-RE relocation.
 //
@@ -172,8 +176,32 @@ func (ps *ProgramSpec) Copy() *ProgramSpec {
 // Tag calculates the kernel tag for a series of instructions.
 //
 // Use asm.Instructions.Tag if you need to calculate for non-native endianness.
+//
+// Deprecated: The value produced by this method no longer matches tags produced
+// by the kernel since Linux 6.18. Use [ProgramSpec.Compatible] instead.
 func (ps *ProgramSpec) Tag() (string, error) {
 	return ps.Instructions.Tag(internal.NativeEndian)
+}
+
+// Compatible returns nil if a loaded Program's kernel tag matches the one of
+// the ProgramSpec.
+//
+// Returns [ErrProgIncompatible] if the tags do not match.
+func (ps *ProgramSpec) Compatible(info *ProgramInfo) error {
+	if platform.IsWindows {
+		return fmt.Errorf("%w: Windows does not support tag readback from kernel", internal.ErrNotSupportedOnOS)
+	}
+
+	ok, err := ps.Instructions.HasTag(info.Tag, internal.NativeEndian)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("%w: ProgramSpec and Program tags do not match", ErrProgIncompatible)
+	}
+
+	return nil
 }
 
 // targetsKernelModule returns true if the program supports being attached to a

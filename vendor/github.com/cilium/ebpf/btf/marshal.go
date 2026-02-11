@@ -78,6 +78,8 @@ type Builder struct {
 	stableIDs map[Type]TypeID
 	// Explicitly added strings.
 	strings *stringTableBuilder
+	// Deduplication data structure.
+	deduper *deduper
 }
 
 // NewBuilder creates a Builder from a list of types.
@@ -89,6 +91,7 @@ func NewBuilder(types []Type) (*Builder, error) {
 	b := &Builder{
 		make([]Type, 0, len(types)),
 		make(map[Type]TypeID, len(types)),
+		nil,
 		nil,
 	}
 
@@ -107,6 +110,22 @@ func (b *Builder) Empty() bool {
 	return len(b.types) == 0 && (b.strings == nil || b.strings.Length() == 0)
 }
 
+// EnableDeduplication enables type deduplication for subsequently added types.
+// Type deduplication cannot be enabled after types have been added and cannot
+// be disabled once enabled.
+func (b *Builder) EnableDeduplication() error {
+	if b.deduper != nil {
+		return errors.New("deduplication already enabled")
+	}
+
+	if len(b.stableIDs) > 0 {
+		return errors.New("cannot enable deduplication after adding types")
+	}
+
+	b.deduper = newDeduper()
+	return nil
+}
+
 // Add a Type and allocate a stable ID for it.
 //
 // Adding the identical Type multiple times is valid and will return the same ID.
@@ -115,6 +134,14 @@ func (b *Builder) Empty() bool {
 func (b *Builder) Add(typ Type) (TypeID, error) {
 	if b.stableIDs == nil {
 		b.stableIDs = make(map[Type]TypeID)
+	}
+
+	if b.deduper != nil {
+		var err error
+		typ, err = b.deduper.deduplicate(typ)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if _, ok := typ.(*Void); ok {

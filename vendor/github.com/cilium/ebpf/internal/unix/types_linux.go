@@ -32,6 +32,7 @@ const (
 	F_DUPFD_CLOEXEC           = linux.F_DUPFD_CLOEXEC
 	EPOLL_CTL_ADD             = linux.EPOLL_CTL_ADD
 	EPOLL_CLOEXEC             = linux.EPOLL_CLOEXEC
+	O_RDONLY                  = linux.O_RDONLY
 	O_CLOEXEC                 = linux.O_CLOEXEC
 	O_NONBLOCK                = linux.O_NONBLOCK
 	PROT_NONE                 = linux.PROT_NONE
@@ -73,6 +74,7 @@ const (
 	BPF_RB_FORCE_WAKEUP       = linux.BPF_RB_FORCE_WAKEUP
 	AF_UNSPEC                 = linux.AF_UNSPEC
 	IFF_UP                    = linux.IFF_UP
+	CLONE_NEWNET              = linux.CLONE_NEWNET
 )
 
 type Statfs_t = linux.Statfs_t
@@ -209,4 +211,12 @@ func SchedGetaffinity(pid int, set *CPUSet) error {
 
 func Auxv() ([][2]uintptr, error) {
 	return linux.Auxv()
+}
+
+func Unshare(flag int) error {
+	return linux.Unshare(flag)
+}
+
+func Setns(fd int, nstype int) error {
+	return linux.Setns(fd, nstype)
 }

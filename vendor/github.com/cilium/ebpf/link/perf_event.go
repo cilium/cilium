@@ -132,6 +132,32 @@ func (pl *perfEventLink) PerfEvent() (*os.File, error) {
 	return fd.File("perf-event")
 }
 
+// queryInfoWithString queries object info that contains a string field.
+//
+// The passed stringField and stringLengthField must point to the string field
+// and its length field inside the info struct respectively.
+//
+// It returns the queried string and fills in the passed info struct.
+func queryInfoWithString(fd *sys.FD, info sys.Info, stringField *sys.TypedPointer[byte], stringLengthField *uint32) (string, error) {
+	// Query info to get the length
+	if err := sys.ObjInfo(fd, info); err != nil {
+		return "", err
+	}
+
+	// The stringLengthField pointer points to a field inside info, so it is now populated.
+	var stringData = make([]byte, *stringLengthField)
+	*stringField = sys.SlicePointer(stringData)
+
+	// Query info again to fill in the string.
+	// Since the stringField pointer points to a field inside info,
+	// the info now contains the pointer to our allocated stringData.
+	if err := sys.ObjInfo(fd, info); err != nil {
+		return "", fmt.Errorf("object info with string: %s", err)
+	}
+
+	return unix.ByteSliceToString(stringData), nil
+}
+
 func (pl *perfEventLink) Info() (*Info, error) {
 	var info sys.PerfEventLinkInfo
 	if err := sys.ObjInfo(pl.fd, &info); err != nil {
@@ -140,14 +166,50 @@ func (pl *perfEventLink) Info() (*Info, error) {
 
 	var extra2 interface{}
 	switch info.PerfEventType {
-	case sys.BPF_PERF_EVENT_KPROBE, sys.BPF_PERF_EVENT_KRETPROBE:
+	case PerfEventKprobe, PerfEventKretprobe:
 		var kprobeInfo sys.KprobeLinkInfo
-		if err := sys.ObjInfo(pl.fd, &kprobeInfo); err != nil {
+		funcName, err := queryInfoWithString(pl.fd, &kprobeInfo, &kprobeInfo.FuncName, &kprobeInfo.NameLen)
+		if err != nil {
 			return nil, fmt.Errorf("kprobe link info: %s", err)
 		}
 		extra2 = &KprobeInfo{
-			address: kprobeInfo.Addr,
-			missed:  kprobeInfo.Missed,
+			Address:  kprobeInfo.Addr,
+			Missed:   kprobeInfo.Missed,
+			Function: funcName,
+			Offset:   kprobeInfo.Offset,
+		}
+	case PerfEventUprobe, PerfEventUretprobe:
+		var uprobeInfo sys.UprobeLinkInfo
+		fileName, err := queryInfoWithString(pl.fd, &uprobeInfo, &uprobeInfo.FileName, &uprobeInfo.NameLen)
+		if err != nil {
+			return nil, fmt.Errorf("uprobe link info: %s", err)
+		}
+		extra2 = &UprobeInfo{
+			Offset:               uprobeInfo.Offset,
+			Cookie:               uprobeInfo.Cookie,
+			OffsetReferenceCount: uprobeInfo.RefCtrOffset,
+			File:                 fileName,
+		}
+	case PerfEventTracepoint:
+		var tracepointInfo sys.TracepointLinkInfo
+		tpName, err := queryInfoWithString(pl.fd, &tracepointInfo, &tracepointInfo.TpName, &tracepointInfo.NameLen)
+		if err != nil {
+			return nil, fmt.Errorf("perf event link info: %w", err)
+		}
+		extra2 = &TracepointInfo{
+			Tracepoint: tpName,
+			Cookie:     tracepointInfo.Cookie,
+		}
+	case PerfEventEvent:
+		var eventInfo sys.EventLinkInfo
+		err := sys.ObjInfo(pl.fd, &eventInfo)
+		if err != nil {
+			return nil, fmt.Errorf("trace point link info: %s", err)
+		}
+		extra2 = &EventInfo{
+			Config: eventInfo.Config,
+			Type:   eventInfo.EventType,
+			Cookie: eventInfo.Cookie,
 		}
 	}
 

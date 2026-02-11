@@ -708,27 +708,20 @@ func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
 				return nil, fmt.Errorf("unable to get BTF spec: %w", err)
 			}
 
-			lineInfos, err := btf.LoadLineInfos(
-				bytes.NewReader(pi.lineInfos),
-				internal.NativeEndian,
-				pi.numLineInfos,
-				spec,
-			)
+			lineInfos, err := btf.LoadLineInfos(bytes.NewReader(pi.lineInfos), internal.NativeEndian, pi.numLineInfos, spec)
 			if err != nil {
 				return nil, fmt.Errorf("parse line info: %w", err)
 			}
 
-			funcInfos, err := btf.LoadFuncInfos(
-				bytes.NewReader(pi.funcInfos),
-				internal.NativeEndian,
-				pi.numFuncInfos,
-				spec,
-			)
+			funcInfos, err := btf.LoadFuncInfos(bytes.NewReader(pi.funcInfos), internal.NativeEndian, pi.numFuncInfos, spec)
 			if err != nil {
 				return nil, fmt.Errorf("parse func info: %w", err)
 			}
 
-			btf.AssignMetadataToInstructions(insns, funcInfos, lineInfos, btf.CORERelocationInfos{})
+			iter := insns.Iterate()
+			for iter.Next() {
+				assignMetadata(iter.Ins, iter.Offset, &funcInfos, &lineInfos, nil)
+			}
 		}
 	}
 

@@ -156,12 +156,30 @@ func (kml *kprobeMultiLink) Update(_ *ebpf.Program) error {
 func (kml *kprobeMultiLink) Info() (*Info, error) {
 	var info sys.KprobeMultiLinkInfo
 	if err := sys.ObjInfo(kml.fd, &info); err != nil {
-		return nil, fmt.Errorf("kprobe multi link info: %s", err)
+		return nil, fmt.Errorf("kprobe multi link info: %w", err)
+	}
+	var addrs = make([]uint64, info.Count)
+	var cookies = make([]uint64, info.Count)
+	info = sys.KprobeMultiLinkInfo{
+		Addrs:   sys.SlicePointer(addrs),
+		Cookies: sys.SlicePointer(cookies),
+		Count:   uint32(len(addrs)),
+	}
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("kprobe multi link info: %w", err)
+	}
+	if info.Addrs.IsNil() {
+		addrs = nil
+	}
+	if info.Cookies.IsNil() {
+		cookies = nil
 	}
 	extra := &KprobeMultiInfo{
-		count:  info.Count,
-		flags:  info.Flags,
-		missed: info.Missed,
+		Count:   info.Count,
+		Flags:   info.Flags,
+		Missed:  info.Missed,
+		addrs:   addrs,
+		cookies: cookies,
 	}
 
 	return &Info{
