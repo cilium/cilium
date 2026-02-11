@@ -2,6 +2,14 @@ name: Base Image Release Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - images/runtime/**
+      - images/builder/**
   # This workflow can be reused so that renovate can execute this workflow_dispatch:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
@@ -62,6 +70,13 @@ jobs:
           cp ./Makefile.defs ../cilium-base-branch/Makefile.defs
           cp ./Makefile.quiet ../cilium-base-branch/Makefile.quiet
 
+      # Only copy cosign action for branches that use it (not v1.17, v1.18)
+      - name: Copy cosign action to trusted directory
+        if: ${{ github.base_ref != 'v1.17' && github.base_ref != 'v1.18' }}
+        run: |
+          mkdir -p ../cilium-base-branch/.github/actions
+          cp -r .github/actions/cosign ../cilium-base-branch/.github/actions/
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -72,7 +87,9 @@ jobs:
         id: qemu
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
+      # v1.17 and v1.18: Install Cosign directly (they don't use the cosign action)
       - name: Install Cosign
+        if: ${{ github.base_ref == 'v1.17' || github.base_ref == 'v1.18' }}
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -124,22 +141,33 @@ jobs:
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
+      # For branches using the cosign action (not v1.17, v1.18)
+      - name: Generate SBOM, Sign, and Attest Runtime Image
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' && github.base_ref != 'v1.17' && github.base_ref != 'v1.18' }}
+        uses: ./../cilium-base-branch/.github/actions/cosign
+        with:
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}"
+          sbom_name: "cilium-runtime_${{ steps.runtime-tag.outputs.tag }}"
+
+      # v1.17 and v1.18: Sign Container Image Runtime (inline cosign)
       - name: Sign Container Image Runtime
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
-
-      - name: Generate SBOM
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+      # v1.17 and v1.18: Generate SBOM for runtime
+      - name: Generate SBOM Runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
-      - name: Attach SBOM attestation to container image
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+      # v1.17 and v1.18: Attach SBOM attestation to runtime image
+      - name: Attach SBOM attestation to runtime image
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         run: |
           cosign attest -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
@@ -213,21 +241,33 @@ jobs:
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
+      # For branches using the cosign action (not v1.17, v1.18)
+      - name: Generate SBOM, Sign, and Attest Builder Image
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && github.base_ref != 'v1.17' && github.base_ref != 'v1.18' }}
+        uses: ./../cilium-base-branch/.github/actions/cosign
+        with:
+          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}"
+          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}"
+          sbom_name: "cilium-builder_${{ steps.builder-tag.outputs.tag }}"
+
+      # v1.17 and v1.18: Sign Container Image Builder (inline cosign)
       - name: Sign Container Image Builder
-        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
-      - name: Generate SBOM
-        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+      # v1.17 and v1.18: Generate SBOM for builder
+      - name: Generate SBOM Builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
-      - name: Attach SBOM attestation to container image
-        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+      # v1.17 and v1.18: Attach SBOM attestation to builder image
+      - name: Attach SBOM attestation to builder image
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && (github.base_ref == 'v1.17' || github.base_ref == 'v1.18') }}
         run: |
           cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
