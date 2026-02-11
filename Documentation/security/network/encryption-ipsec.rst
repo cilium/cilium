@@ -44,7 +44,10 @@ be performed.
 
    This may result in the need to update firewall rules to allow ESP traffic
    between nodes.
-   This is especially important in Google Cloud GKE environments.
+   This is also important for cloud environments where security groups (or VPC firewall rules)
+   are used to control traffic between nodes. In such cases, ensure that the
+   security groups allow ESP traffic between the nodes in the cluster. 
+   This applies to AWS, Azure and GCP.
    The default firewall rules for the cluster's subnet may not allow ESP.
 
 
