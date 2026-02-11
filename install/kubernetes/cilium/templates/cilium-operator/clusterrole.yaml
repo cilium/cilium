@@ -69,7 +69,7 @@ rules:
   resources:
   - endpointslices
   verbs:
-{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled }}
   - create
   - update
   - delete
@@ -271,7 +271,7 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
-{{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.installCRDs }}
+{{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io
 {{- end }}
@@ -392,7 +392,7 @@ rules:
   - list
   - watch  
 {{- end }}
-{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -401,14 +401,14 @@ rules:
   - get
   - list
   - watch
-{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
+{{- if .Values.clustermesh.mcsapi.enabled }}
   - create
   - update
   - patch
   - delete
 {{- end }}
 {{- end }}
-{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
+{{- if .Values.clustermesh.mcsapi.enabled }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
