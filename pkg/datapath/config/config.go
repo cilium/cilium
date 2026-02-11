@@ -47,10 +47,6 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.NodeportPortMin = lnc.LBConfig.NodePortMin
 	node.NodeportPortMax = lnc.LBConfig.NodePortMax
 
-	if option.Config.EnableNat46X64Gateway {
-		node.NAT46X64Prefix = option.Config.IPv6NAT46x64CIDRBase.As4()
-	}
-
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 
