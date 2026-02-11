@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -25,6 +23,7 @@ import (
 
 func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	testutils.PrivilegedTest(tb)
+
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 	log = hivetest.Logger(tb)
