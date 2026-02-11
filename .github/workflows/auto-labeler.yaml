@@ -5,10 +5,6 @@ on:
     types:
       - opened
       - reopened
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
 
 jobs:
   external-contributions:
