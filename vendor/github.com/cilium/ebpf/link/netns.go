@@ -44,7 +44,7 @@ func (ns *NetNsLink) Info() (*Info, error) {
 		return nil, fmt.Errorf("netns link info: %s", err)
 	}
 	extra := &NetNsInfo{
-		NetnsIno:   info.NetnsIno,
+		NetnsInode: info.NetnsIno,
 		AttachType: info.AttachType,
 	}
 

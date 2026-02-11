@@ -162,6 +162,7 @@ const (
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
+	BPF_STREAM_MAX_CAPACITY                    = 100000
 	BPF_TASK_ITER_ALL_PROCS                    = 0
 	BPF_TASK_ITER_ALL_THREADS                  = 1
 	BPF_TASK_ITER_PROC_THREADS                 = 2
@@ -296,7 +297,8 @@ const (
 	BPF_LINK_DETACH                 Cmd = 34
 	BPF_PROG_BIND_MAP               Cmd = 35
 	BPF_TOKEN_CREATE                Cmd = 36
-	__MAX_BPF_CMD                   Cmd = 37
+	BPF_PROG_STREAM_READ_BY_FD      Cmd = 37
+	__MAX_BPF_CMD                   Cmd = 38
 )
 
 type FunctionId uint32
@@ -587,6 +589,18 @@ const (
 	__MAX_BPF_MAP_TYPE                            MapType = 34
 )
 
+type NetfilterInetHook uint32
+
+const (
+	NF_INET_PRE_ROUTING  NetfilterInetHook = 0
+	NF_INET_LOCAL_IN     NetfilterInetHook = 1
+	NF_INET_FORWARD      NetfilterInetHook = 2
+	NF_INET_LOCAL_OUT    NetfilterInetHook = 3
+	NF_INET_POST_ROUTING NetfilterInetHook = 4
+	NF_INET_NUMHOOKS     NetfilterInetHook = 5
+	NF_INET_INGRESS      NetfilterInetHook = 5
+)
+
 type ObjType uint32
 
 const (
@@ -697,6 +711,19 @@ const (
 	XDP_REDIRECT XdpAction = 4
 )
 
+type NetfilterProtocolFamily uint32
+
+const (
+	NFPROTO_UNSPEC   NetfilterProtocolFamily = 0
+	NFPROTO_INET     NetfilterProtocolFamily = 1
+	NFPROTO_IPV4     NetfilterProtocolFamily = 2
+	NFPROTO_ARP      NetfilterProtocolFamily = 3
+	NFPROTO_NETDEV   NetfilterProtocolFamily = 5
+	NFPROTO_BRIDGE   NetfilterProtocolFamily = 7
+	NFPROTO_IPV6     NetfilterProtocolFamily = 10
+	NFPROTO_NUMPROTO NetfilterProtocolFamily = 11
+)
+
 type BtfInfo struct {
 	_         structs.HostLayout
 	Btf       TypedPointer[uint8]
@@ -748,6 +775,9 @@ type MapInfo struct {
 	BtfValueTypeId        TypeID
 	BtfVmlinuxId          uint32
 	MapExtra              uint64
+	Hash                  uint64
+	HashSize              uint32
+	_                     [4]byte
 }
 
 type ProgInfo struct {
@@ -955,8 +985,8 @@ type LinkCreateNetfilterAttr struct {
 	TargetFd       uint32
 	AttachType     AttachType
 	Flags          uint32
-	Pf             uint32
-	Hooknum        uint32
+	Pf             NetfilterProtocolFamily
+	Hooknum        NetfilterInetHook
 	Priority       int32
 	NetfilterFlags uint32
 	_              [32]byte
@@ -1137,6 +1167,9 @@ type MapCreateAttr struct {
 	MapExtra              uint64
 	ValueTypeBtfObjFd     int32
 	MapTokenFd            int32
+	ExclProgHash          uint64
+	ExclProgHashSize      uint32
+	_                     [4]byte
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -1459,6 +1492,9 @@ type ProgLoadAttr struct {
 	LogTrueSize        uint32
 	ProgTokenFd        int32
 	FdArrayCnt         uint32
+	Signature          uint64
+	SignatureSize      uint32
+	KeyringId          int32
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
@@ -1541,6 +1577,21 @@ type CgroupLinkInfo struct {
 	_          [36]byte
 }
 
+type EventLinkInfo struct {
+	_             structs.HostLayout
+	Type          LinkType
+	Id            LinkID
+	ProgId        uint32
+	_             [4]byte
+	PerfEventType PerfEventType
+	_             [4]byte
+	Config        uint64
+	EventType     uint32
+	_             [4]byte
+	Cookie        uint64
+	_             [16]byte
+}
+
 type IterLinkInfo struct {
 	_             structs.HostLayout
 	Type          LinkType
@@ -1598,8 +1649,8 @@ type NetfilterLinkInfo struct {
 	Id       LinkID
 	ProgId   uint32
 	_        [4]byte
-	Pf       uint32
-	Hooknum  uint32
+	Pf       NetfilterProtocolFamily
+	Hooknum  NetfilterInetHook
 	Priority int32
 	Flags    uint32
 	_        [32]byte
@@ -1633,7 +1684,9 @@ type RawTracepointLinkInfo struct {
 	_         [4]byte
 	TpName    TypedPointer[uint8]
 	TpNameLen uint32
-	_         [36]byte
+	_         [4]byte
+	Cookie    uint64
+	_         [24]byte
 }
 
 type TcxLinkInfo struct {
@@ -1647,6 +1700,21 @@ type TcxLinkInfo struct {
 	_          [40]byte
 }
 
+type TracepointLinkInfo struct {
+	_             structs.HostLayout
+	Type          LinkType
+	Id            LinkID
+	ProgId        uint32
+	_             [4]byte
+	PerfEventType PerfEventType
+	_             [4]byte
+	TpName        TypedPointer[uint8]
+	NameLen       uint32
+	_             [4]byte
+	Cookie        uint64
+	_             [16]byte
+}
+
 type TracingLinkInfo struct {
 	_           structs.HostLayout
 	Type        LinkType
@@ -1656,7 +1724,41 @@ type TracingLinkInfo struct {
 	AttachType  AttachType
 	TargetObjId uint32
 	TargetBtfId TypeID
-	_           [36]byte
+	_           [4]byte
+	Cookie      uint64
+	_           [24]byte
+}
+
+type UprobeLinkInfo struct {
+	_             structs.HostLayout
+	Type          LinkType
+	Id            LinkID
+	ProgId        uint32
+	_             [4]byte
+	PerfEventType PerfEventType
+	_             [4]byte
+	FileName      TypedPointer[uint8]
+	NameLen       uint32
+	Offset        uint32
+	Cookie        uint64
+	RefCtrOffset  uint64
+	_             [8]byte
+}
+
+type UprobeMultiLinkInfo struct {
+	_             structs.HostLayout
+	Type          LinkType
+	Id            LinkID
+	ProgId        uint32
+	_             [4]byte
+	Path          TypedPointer[uint8]
+	Offsets       TypedPointer[uint64]
+	RefCtrOffsets TypedPointer[uint64]
+	Cookies       TypedPointer[uint64]
+	PathSize      uint32
+	Count         uint32
+	Flags         uint32
+	Pid           uint32
 }
 
 type XDPLinkInfo struct {
