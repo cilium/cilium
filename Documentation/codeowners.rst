@@ -144,8 +144,8 @@ external software and protocols:
   Maintain the deprecated docker-plugin.
 - `@cilium/endpoint <https://github.com/orgs/cilium/teams/endpoint>`__:
   Provide background on how the Cilium Endpoint package fits into the overall
-  agent architecture, relationship with generation of policy / datapath
-  constructs, serialization and restore from disk.
+  cluster architecture, lifecycle of endpoints, relationship with generation
+  of policy / datapath constructs, serialization and restore from disk.
 - `@cilium/envoy <https://github.com/orgs/cilium/teams/envoy>`__:
   Maintain the L7 proxy integration with Envoy. This includes the
   configurations for Envoy via xDS protocols as well as the extensible
