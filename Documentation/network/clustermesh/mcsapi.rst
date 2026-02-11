@@ -24,7 +24,7 @@ To install Cilium with MCS-API support, run:
 
 .. cilium-helm-install::
    :namespace: kube-system
-   :set: clustermesh.mcsapi.enabdled=true
+   :set: clustermesh.mcsapi.enabled=true
 
 To enable MCS-API support on an existing Cilium installation, run:
 
@@ -40,7 +40,7 @@ If you set ``clustermesh.mcsapi.corednsAutoConfigure.enabled`` to ``true``, Cili
 will automatically configure and rollout CoreDNS for MCS-API support. Otherwise to
 configure CoreDNS manually, you need to execute the following steps:
 
-   .. code-block:: shell-session
+   .. parsed-literal::
 
       # (optional) Install MCS-API CRDs if Cilium has not yet started or automatic CRDs installation is disabled
       kubectl apply -f |SCM_WEB|\/vendor/sigs.k8s.io/mcs-api/config/crd/multicluster.x-k8s.io_serviceexports.yaml
