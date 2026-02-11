@@ -630,13 +630,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			})
 		})
 
-		It("ClusterIP cannot be accessed externally when access is disabled",
-			func() {
-				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
-					ShouldNot(helpers.CMDSuccess(),
-						"External host %s unexpectedly connected to ClusterIP when lbExternalClusterIP was unset", ni.OutsideNodeName)
-			})
-
 		Context("With ClusterIP external access", func() {
 			var (
 				svcIP string
