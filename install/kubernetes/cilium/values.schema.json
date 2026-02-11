@@ -1525,9 +1525,6 @@
         "enableEndpointSliceSynchronization": {
           "type": "boolean"
         },
-        "enableMCSAPISupport": {
-          "type": "boolean"
-        },
         "maxConnectedClusters": {
           "type": "integer"
         },

@@ -335,7 +335,8 @@ Removed Options
 The following options were previously deprecated, and they are now removed
 from Cilium.
 
-* TODO
+* The previously deprecated Helm value ``clustermesh.enableMCSAPISupport`` was
+  removed in favor of the ``clustermesh.mcsapi.enabled`` Helm value.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
