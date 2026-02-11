@@ -11,3 +11,10 @@ lb4_clusterip = (
     TCP(sport=tcp_src_one, dport=tcp_svc_one) /
     Raw("S"*1)
 )
+
+lb6_clusterip = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
