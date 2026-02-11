@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 
-	"github.com/google/go-github/v80/github"
+	"github.com/google/go-github/v82/github"
 	"golang.org/x/oauth2"
 )
 

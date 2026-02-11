@@ -159,7 +159,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:e226d6308690dbe282443c8c7e57365c96b5228f0fe7f40731b5d84d37a06839","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1667,7 +1667,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3","useDigest":true}``
+     - ``{"digest":"sha256:c8b5d0cb69b66574f2f4ad44b61dfa3130825e4b62b6f47063f94cda88b3b6b9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1770440937-14da6b9c8a54244f0a67cd90a0deb83e5f110a4a","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2068,6 +2068,10 @@
      - - Defines max file size of output file before it gets rotated.
      - int
      - ``10``
+   * - :spelling:ignore:`hubble.hostUsers`
+     - Enable hostUsers for Hubble. This will allow use of user-namespaces for hubble components. Not all clusters support user-namespaces. See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+     - bool
+     - ``nil``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
@@ -2551,7 +2555,7 @@
    * - :spelling:ignore:`hubble.ui.backend.securityContext`
      - Hubble-ui backend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.baseUrl`
      - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
      - string
@@ -2583,7 +2587,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.securityContext`
      - Hubble-ui frontend security context.
      - object
-     - ``{"allowPrivilegeEscalation":false}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`hubble.ui.frontend.server.ipv6`
      - Controls server listener for ipv6
      - object
@@ -2639,7 +2643,7 @@
    * - :spelling:ignore:`hubble.ui.securityContext`
      - Security context to be added to Hubble UI pods
      - object
-     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
+     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsNonRoot":true,"runAsUser":1001,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
@@ -3551,7 +3555,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3","useDigest":true}``
+     - ``{"digest":"sha256:c8b5d0cb69b66574f2f4ad44b61dfa3130825e4b62b6f47063f94cda88b3b6b9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1770440937-14da6b9c8a54244f0a67cd90a0deb83e5f110a4a","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

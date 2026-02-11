@@ -45,9 +45,27 @@ func ensureSlice[E any, S ~[]E, I ~uint | ~uint8](s *S, index I) {
 	}
 }
 
+const perTierRoundUp = 1000
+
 // computeTierPriorities determines how many priority levels are needed for each tier,
 // considering that PASS verdicts require priority space after them for all the rules
 // in the lower tiers.
+//
+// The returned slice has the needed priority range for each tier (0, 1, ...), including the full
+// range for all the remaining tiers in the policy.  Policy tiers are not compressed, but used 1:1,
+// i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int it.
+//
+// Full range of the remaining tiers must be included so that we know to leave sufficient space
+// after each pass verdict for the rules promoted from the remaining tiers.
+//
+// Note that since the the full range of remaining tiers is included, the returned range for
+// tiers without any rules is the same as the next tier.
+//
+// Since the full range of the remaining tiers is included, the base priority of each tier can be
+// calculated as follows (range is the returned slice):
+//
+//	basePriority[tier] = range[0] - range[tier]
+//
 // 'rules' is already sorted by tier/priority
 func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 	lastTier := types.Tier(0)
@@ -56,6 +74,8 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 
 	lastPrio := rules[0].Priority
 	levels := 1 // each tier occupies at least one priority level
+	lastPassLevel := 0
+
 	for _, r := range rules {
 		if r.Tier != lastTier {
 			if r.Tier < lastTier {
@@ -72,6 +92,7 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 			lastTier = r.Tier
 			lastPrio = r.Priority
 			levels = 1
+			lastPassLevel = 0
 		} else if r.Priority != lastPrio {
 			if r.Priority < lastPrio {
 				return nil, ErrUnorderedRules
@@ -80,20 +101,22 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 			lastPrio = r.Priority
 		}
 
-		// count the number of pass verdicts on each tier
-		if r.Verdict == types.Pass {
+		// count the number of pass verdicts on different priorities on each tier
+		if r.Verdict == types.Pass && levels != lastPassLevel {
 			numPassVerdicts[lastTier]++
+			lastPassLevel = levels
 		}
 	}
 	// for the last tier
 	ensureSlice(&tierPriorityLevels, lastTier)
-	tierPriorityLevels[lastTier] = roundUp(levels, 10)
+	tierPriorityLevels[lastTier] = roundUp(levels, perTierRoundUp)
 
 	// Compute the whole priority range needed for each tier by adding the lower tier priorities
 	// for each pass verdict so that when computing mapstate we can elevate priority of each
 	// passed-to entry to the priorities following the pass verdict.
 	for tier := int(lastTier) - 1; tier >= 0; tier-- {
-		tierPriorityLevels[tier] += numPassVerdicts[tier] * tierPriorityLevels[tier+1]
+		tierPriorityLevels[tier] += (numPassVerdicts[tier] + 1) * tierPriorityLevels[tier+1]
+		tierPriorityLevels[tier] = types.Roundup(tierPriorityLevels[tier], perTierRoundUp)
 	}
 
 	return tierPriorityLevels, nil
@@ -116,6 +139,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	if err != nil {
 		return result, err
 	}
+
 	result.tierBasePriority = make([]types.Priority, len(tierPriorityLevels))
 
 	lastTier := types.Tier(len(tierPriorityLevels) - 1)
@@ -129,11 +153,15 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	lastPrio := rules[0].Priority
 	for _, r := range rules {
 		if r.Tier != tier {
-			tier = r.Tier
-			// Bump priority for the new tier, rounding up to next 1000 to reduce policy
-			// map churn.
-			if !priority.IncrementWithRoundup(1000) {
+			// Bump priority for the new tier, based on the calculated levels needed
+			priority = result.tierBasePriority[tier] + types.Priority(tierPriorityLevels[tier])
+			if priority > types.LowestPriority {
 				return result, ErrTooManyPriorityLevels
+			}
+			priority -= types.Priority(tierPriorityLevels[r.Tier])
+			for tier++; tier < r.Tier; tier++ {
+				// fill in the same base priority for all skipped tiers
+				result.tierBasePriority[tier] = priority
 			}
 			result.tierBasePriority[tier] = priority
 

@@ -1391,6 +1391,16 @@ certgen:
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
+
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- (bool) Enable hostUsers for Hubble.
+  # This will allow use of user-namespaces for hubble components. Not all
+  # clusters support user-namespaces.
+  # See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+  hostUsers: ~
+
   # -- Annotations to be added to all top-level hubble objects (resources under templates/hubble)
   annotations: {}
   # -- Buffer size of the channel Hubble uses to receive monitor events. If this
@@ -1982,7 +1992,11 @@ hubble:
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui backend security context.
       securityContext:
+        # readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -2011,7 +2025,11 @@ hubble:
         pullPolicy: "${PULL_POLICY}"
       # -- Hubble-ui frontend security context.
       securityContext:
+        # readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -2088,9 +2106,12 @@ hubble:
         maxUnavailable: 1
     # -- Security context to be added to Hubble UI pods
     securityContext:
+      runAsNonRoot: true
       runAsUser: 1001
       runAsGroup: 1001
       fsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
     # -- hubble-ui service configuration.
     service:
       # -- Annotations to be added for the Hubble UI service

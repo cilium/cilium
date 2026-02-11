@@ -1379,6 +1379,14 @@ certgen:
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- (bool) Enable hostUsers for Hubble.
+  # This will allow use of user-namespaces for hubble components. Not all
+  # clusters support user-namespaces.
+  # See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+  hostUsers: ~
   # -- Annotations to be added to all top-level hubble objects (resources under templates/hubble)
   annotations: {}
   # -- Buffer size of the channel Hubble uses to receive monitor events. If this
@@ -1970,7 +1978,11 @@ hubble:
         pullPolicy: "Always"
       # -- Hubble-ui backend security context.
       securityContext:
+        # readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -1999,7 +2011,11 @@ hubble:
         pullPolicy: "Always"
       # -- Hubble-ui frontend security context.
       securityContext:
+        # readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -2076,9 +2092,12 @@ hubble:
         maxUnavailable: 1
     # -- Security context to be added to Hubble UI pods
     securityContext:
+      runAsNonRoot: true
       runAsUser: 1001
       runAsGroup: 1001
       fsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
     # -- hubble-ui service configuration.
     service:
       # -- Annotations to be added for the Hubble UI service
@@ -2708,9 +2727,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3"
+    tag: "v1.36.5-1770440937-14da6b9c8a54244f0a67cd90a0deb83e5f110a4a"
     pullPolicy: "Always"
-    digest: "sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1"
+    digest: "sha256:c8b5d0cb69b66574f2f4ad44b61dfa3130825e4b62b6f47063f94cda88b3b6b9"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3444,9 +3463,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3"
+      tag: "v1.36.5-1770440937-14da6b9c8a54244f0a67cd90a0deb83e5f110a4a"
       pullPolicy: "Always"
-      digest: "sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1"
+      digest: "sha256:c8b5d0cb69b66574f2f4ad44b61dfa3130825e4b62b6f47063f94cda88b3b6b9"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -4227,7 +4246,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:e226d6308690dbe282443c8c7e57365c96b5228f0fe7f40731b5d84d37a06839"
+          digest: "sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration

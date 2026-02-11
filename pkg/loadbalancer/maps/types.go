@@ -6,12 +6,12 @@ package maps
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
@@ -54,7 +54,7 @@ type ServiceKey interface {
 	GetScope() uint8
 
 	// Get frontend IP address
-	GetAddress() net.IP
+	GetAddress() netip.Addr
 
 	// Get frontend port
 	GetPort() uint16
@@ -178,7 +178,7 @@ func (k *Service4Key) SetBackendSlot(slot int) { k.BackendSlot = uint16(slot) }
 func (k *Service4Key) GetBackendSlot() int     { return int(k.BackendSlot) }
 func (k *Service4Key) SetScope(scope uint8)    { k.Scope = scope }
 func (k *Service4Key) GetScope() uint8         { return k.Scope }
-func (k *Service4Key) GetAddress() net.IP      { return k.Address.IP() }
+func (k *Service4Key) GetAddress() netip.Addr  { return k.Address.Addr() }
 func (k *Service4Key) GetPort() uint16         { return k.Port }
 func (k *Service4Key) GetProtocol() uint8      { return k.Proto }
 
@@ -336,7 +336,7 @@ func (k *Service6Key) SetBackendSlot(slot int) { k.BackendSlot = uint16(slot) }
 func (k *Service6Key) GetBackendSlot() int     { return int(k.BackendSlot) }
 func (k *Service6Key) SetScope(scope uint8)    { k.Scope = scope }
 func (k *Service6Key) GetScope() uint8         { return k.Scope }
-func (k *Service6Key) GetAddress() net.IP      { return k.Address.IP() }
+func (k *Service6Key) GetAddress() netip.Addr  { return k.Address.Addr() }
 func (k *Service6Key) GetPort() uint16         { return k.Port }
 func (k *Service6Key) GetProtocol() uint8      { return k.Proto }
 
@@ -1152,7 +1152,8 @@ const (
 type SourceRangeKey interface {
 	bpf.MapKey
 
-	GetCIDR() *cidr.CIDR
+	GetPrefix() netip.Prefix
+
 	GetRevNATID() loadbalancer.ServiceID
 
 	// Convert fields to network byte order.
@@ -1175,7 +1176,7 @@ type SourceRangeKey4 struct {
 
 func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
-	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+	return fmt.Sprintf("%s (%d)", kHost.GetPrefix(), kHost.GetRevNATID())
 }
 
 func (k *SourceRangeKey4) New() bpf.MapKey { return &SourceRangeKey4{} }
@@ -1195,16 +1196,12 @@ func (k *SourceRangeKey4) ToHost() SourceRangeKey {
 	return &h
 }
 
-func (k *SourceRangeKey4) GetCIDR() *cidr.CIDR {
-	var (
-		c  net.IPNet
-		ip types.IPv4
-	)
-	c.Mask = net.CIDRMask(int(k.PrefixLen)-lpmPrefixLen4, 32)
+func (k *SourceRangeKey4) GetPrefix() netip.Prefix {
+	var ip types.IPv4
 	k.Address.DeepCopyInto(&ip)
-	c.IP = ip.IP()
-	return cidr.NewCIDR(&c)
+	return netip.PrefixFrom(ip.Addr(), int(k.PrefixLen)-lpmPrefixLen4)
 }
+
 func (k *SourceRangeKey4) GetRevNATID() loadbalancer.ServiceID {
 	return loadbalancer.ServiceID(k.RevNATID)
 }
@@ -1218,7 +1215,7 @@ type SourceRangeKey6 struct {
 
 func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
-	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+	return fmt.Sprintf("%s (%d)", kHost.GetPrefix(), kHost.GetRevNATID())
 }
 
 func (k *SourceRangeKey6) New() bpf.MapKey { return &SourceRangeKey6{} }
@@ -1238,16 +1235,12 @@ func (k *SourceRangeKey6) ToHost() SourceRangeKey {
 	return &h
 }
 
-func (k *SourceRangeKey6) GetCIDR() *cidr.CIDR {
-	var (
-		c  net.IPNet
-		ip types.IPv6
-	)
-	c.Mask = net.CIDRMask(int(k.PrefixLen)-lpmPrefixLen6, 128)
+func (k *SourceRangeKey6) GetPrefix() netip.Prefix {
+	var ip types.IPv6
 	k.Address.DeepCopyInto(&ip)
-	c.IP = ip.IP()
-	return cidr.NewCIDR(&c)
+	return netip.PrefixFrom(ip.Addr(), int(k.PrefixLen)-lpmPrefixLen6)
 }
+
 func (k *SourceRangeKey6) GetRevNATID() loadbalancer.ServiceID {
 	return loadbalancer.ServiceID(k.RevNATID)
 }

@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -485,7 +484,7 @@ func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, 
 				}
 
 				status := make([]byte, 4)
-				nl.NativeEndian().PutUint32(status, statusCode)
+				binary.NativeEndian.PutUint32(status, statusCode)
 				data = append(status, data...)
 			}
 
@@ -630,7 +629,7 @@ func (l *Log) FmtString() string {
 				break loop
 			}
 		}
-		// Advance to to next char
+		// Advance to next char
 		i++
 
 		// No argument left over to print for the current verb.

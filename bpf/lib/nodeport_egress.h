@@ -701,9 +701,6 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 		break;
 #endif /* ENABLE_IPV6 */
 	default:
-		build_bug_on(!(NODEPORT_PORT_MIN_NAT <= NODEPORT_PORT_MAX_NAT));
-		build_bug_on(!(NODEPORT_PORT_MIN     <= NODEPORT_PORT_MAX));
-		build_bug_on(!(NODEPORT_PORT_MAX     <= NODEPORT_PORT_MIN_NAT));
 		break;
 	}
 	return ret;

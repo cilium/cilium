@@ -40,7 +40,7 @@ jobs:
         with:
           cache-dependency-path: "src/github.com/cilium/cilium/*.sum"
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.6
+          go-version: 1.25.7
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -283,7 +283,7 @@ jobs:
     name: actionlint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         name: checkout
       - name: Setup actionlint matcher
         run: echo "::add-matcher::.github/actionlint-matcher.json"

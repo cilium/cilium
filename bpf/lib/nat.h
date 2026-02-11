@@ -24,6 +24,13 @@
 #include "stubs.h"
 #include "trace.h"
 
+/* Nodeport NAT minimum port value */
+#define NODEPORT_PORT_MIN_NAT CONFIG(nodeport_port_max) + 1
+/* Nodeport NAT maximum port value */
+#ifndef NODEPORT_PORT_MAX_NAT
+#define NODEPORT_PORT_MAX_NAT 65535
+#endif
+
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")

@@ -4,6 +4,7 @@
 package maps
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,13 +24,12 @@ type fakeMap struct {
 	err error
 }
 
-func (m *fakeMap) DumpAndSubscribe(cb bpf.EventCallbackFunc, follow bool) (*bpf.Handle, error) {
+func (m *fakeMap) DumpAndSubscribe(ctx context.Context, cb bpf.EventCallbackFunc, follow bool) {
 	s, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	if err != nil {
 		panic(err)
 	}
-	cb(&bpf.Event{Timestamp: s})
-	return nil, nil
+	cb(bpf.Event{Timestamp: s})
 }
 
 func (m *fakeMap) IsEventsEnabled() bool { return true }

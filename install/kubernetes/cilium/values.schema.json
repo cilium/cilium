@@ -3116,6 +3116,12 @@
           },
           "type": "object"
         },
+        "hostUsers": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "listenAddress": {
           "type": "string"
         },
@@ -3878,6 +3884,21 @@
                   "properties": {
                     "allowPrivilegeEscalation": {
                       "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
                     }
                   },
                   "type": "object"
@@ -3938,6 +3959,21 @@
                   "properties": {
                     "allowPrivilegeEscalation": {
                       "type": "boolean"
+                    },
+                    "capabilities": {
+                      "properties": {
+                        "drop": {
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
                     }
                   },
                   "type": "object"
@@ -4051,8 +4087,19 @@
                 "runAsGroup": {
                   "type": "integer"
                 },
+                "runAsNonRoot": {
+                  "type": "boolean"
+                },
                 "runAsUser": {
                   "type": "integer"
+                },
+                "seccompProfile": {
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               },
               "type": "object"

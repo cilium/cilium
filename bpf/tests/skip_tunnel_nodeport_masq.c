@@ -31,6 +31,9 @@
 #define DST_IPV6 v6_node_two
 #define DST_PORT tcp_svc_one
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 /*
  * Include entrypoint into host stack
  */

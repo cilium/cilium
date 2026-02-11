@@ -59,7 +59,7 @@ type Config struct {
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice(controllerGroupMetrics, cfg.ControllerGroupMetrics,
-		"List of controller group names for which to to enable metrics. "+
+		"List of controller group names for which to enable metrics. "+
 			"Accepts 'all' and 'none'. "+
 			"The set of controller group names available is not guaranteed to be stable between Cilium versions.")
 }

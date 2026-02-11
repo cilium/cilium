@@ -32,6 +32,7 @@ type writeTxnState struct {
 	acquiredAt time.Time     // the time at which the transaction acquired the locks
 	duration   atomic.Uint64 // the transaction duration after it finished
 
+	oldRoot      *dbRoot                  // snapshot of the root at the time WriteTxn was called
 	tableEntries []*tableEntry            // table entries being modified
 	numTxns      int                      // number of index transactions opened
 	smus         internal.SortableMutexes // the (sorted) table locks
@@ -42,6 +43,10 @@ type writeTxnState struct {
 
 func (txn *writeTxnState) unwrap() *writeTxnState {
 	return txn
+}
+
+func (txn *writeTxnState) committedRoot() dbRoot {
+	return *txn.oldRoot
 }
 
 func (txn *writeTxnState) root() dbRoot {
@@ -139,7 +144,9 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 	if merge == nil {
 		oldObj, oldExists, watch = idIndexTxn.insert(idKey, obj)
 	} else {
-		oldObj, oldExists, watch = idIndexTxn.modify(idKey, obj, merge)
+		// Insert the object into the primary index. This returns the merged new
+		// object which we'll then insert into the secondary indexes.
+		oldObj, obj, oldExists, watch = idIndexTxn.modify(idKey, obj, merge)
 	}
 
 	// Sanity check: is the same object being inserted back and thus the
@@ -284,6 +291,7 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 // and returns it to the pool.
 func (handle *writeTxnHandle) returnToPool() {
 	txn := handle.writeTxnState
+	txn.oldRoot = nil
 	txn.tableEntries = nil
 	txn.numTxns = 0
 	clear(txn.smus)

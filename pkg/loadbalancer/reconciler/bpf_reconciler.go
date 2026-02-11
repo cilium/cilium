@@ -319,7 +319,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 
 func svcKeyToAddr(svcKey maps.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
-	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
+	feAddrCluster := cmtypes.AddrClusterFrom(feIP, 0)
 	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return feL3n4Addr
@@ -503,35 +503,17 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		svcValue = svcValue.ToHost()
 
 		rawAddr := svcKey.GetAddress()
-		ac, ok := cmtypes.AddrClusterFromIP(rawAddr)
-		if !ok {
-			ops.log.Warn("Prune: bad address in service key", logfields.Key, svcKey)
-			return
-		}
+		ac := cmtypes.AddrClusterFrom(rawAddr, 0)
 
 		port := svcKey.GetPort()
 		proto := svcKey.GetProtocol()
 
 		// If this is a wildcard service entry, verify we have no frontend references.
 		if port == WildcardPortNumber && proto == uint8(WildcardProtoNumber) {
-
-			// Unfortunately rawAddr is of type net.IP, which we need to convert
-			// to a netip.Addr type in order to be useful as a map index.
-			var wildAddr netip.Addr
-			if svcKey.IsIPv6() {
-				var wildBytes [16]byte
-				copy(wildBytes[:], rawAddr.To16())
-				wildAddr = netip.AddrFrom16(wildBytes)
-			} else {
-				var wildBytes [4]byte
-				copy(wildBytes[:], rawAddr.To4())
-				wildAddr = netip.AddrFrom4(wildBytes)
-			}
-
 			// We only add this entry into toDelete if it has nothing in. Otherwise, we may
 			// end up deleting a wildcard who still has active parent entries.
-			if wildRefs := ops.wildcardReferences[wildAddr]; len(wildRefs) == 0 {
-				ops.log.Debug("pruneServiceMaps: deleting wild", logfields.Address, wildAddr)
+			if wildRefs := ops.wildcardReferences[rawAddr]; len(wildRefs) == 0 {
+				ops.log.Debug("pruneServiceMaps: deleting wild", logfields.Address, rawAddr)
 				toDelete = append(toDelete, svcKey.ToNetwork())
 			}
 
@@ -640,10 +622,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		// CIDR is part of the current set.
 		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
 		if ok {
-			cidr := key.GetCIDR()
-			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-			ones, _ := cidr.Mask.Size()
-			prefix := netip.PrefixFrom(cidrAddr, ones)
+			prefix := key.GetPrefix()
 			var cidrs sets.Set[netip.Prefix]
 			cidrs, ok = ops.prevSourceRanges[addr]
 			ok = ok && cidrs.Has(prefix)
@@ -651,7 +630,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
 				logfields.ID, key.GetRevNATID(),
-				logfields.CIDR, key.GetCIDR())
+				logfields.CIDR, key.GetPrefix())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -898,7 +877,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Update backends that are new or changed.
 	slotID := 1
-	for i, be := range orderedBackends {
+	for _, be := range orderedBackends {
 		var beID loadbalancer.BackendID
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
@@ -946,7 +925,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		svcVal.SetBackendID(beID)
 		svcVal.SetRevNat(int(feID))
-		svcKey.SetBackendSlot(i + 1)
+		svcKey.SetBackendSlot(slotID)
 		if err := ops.upsertService(svcKey, svcVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}

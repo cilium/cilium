@@ -280,6 +280,8 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
+		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
+		state->nat_port = entry->nat_port;
 	}
 }
 
@@ -1210,6 +1212,32 @@ ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 	return entry && entry->lb_loopback;
 }
 #endif
+
+static __always_inline bool
+ct_has_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
+{
+	__u8 flags = tuple->flags;
+	const struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	return entry;
+}
+
+static __always_inline bool
+ct_has_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
+{
+	__u8 flags = tuple->flags;
+	const struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	return entry;
+}
 
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,

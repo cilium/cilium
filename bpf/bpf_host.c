@@ -1172,10 +1172,7 @@ drop_err_ingress: __maybe_unused
 
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
- * managed by Cilium (e.g., eth0). This program is only attached when:
- * - the host firewall is enabled, or
- * - BPF NodePort is enabled, or
- * - L2 announcements are enabled
+ * managed by Cilium (e.g., eth0).
  */
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
@@ -1679,6 +1676,10 @@ int cil_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IDENTITY_MARK
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
 		src_id = get_identity(ctx);
+# ifdef ENABLE_WIREGUARD
+	else if (ctx_is_decrypt(ctx))
+		src_id = get_identity(ctx);
+# endif
 #endif
 
 	/* Retrieve values carried either via ctx->mark or ctx->cb.

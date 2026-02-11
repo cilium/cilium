@@ -49,6 +49,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      {{- if kindIs "bool" .Values.hubble.hostUsers }}
+      hostUsers: {{ .Values.hubble.hostUsers }}
+      {{- end }}
+      {{- end }}
       {{- with .Values.hubble.ui.securityContext }}
       securityContext:
         {{- omit . "enabled" | toYaml | nindent 8 }}
@@ -176,7 +181,8 @@ spec:
         {{- if .Values.hubble.ui.tmpVolume }}
           {{- toYaml .Values.hubble.ui.tmpVolume | nindent 8 }}
         {{- else }}
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 256Mi
         {{- end }}
       {{- if .Values.hubble.relay.tls.server.enabled }}
       - name: hubble-ui-client-certs

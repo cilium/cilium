@@ -21,8 +21,23 @@ type Node struct {
 	EnableConntrackAccounting bool `config:"enable_conntrack_accounting"`
 	// Use jiffies (count of timer ticks since boot).
 	EnableJiffies bool `config:"enable_jiffies"`
+	// Maximum number of messages that can be written to BPF events map in 1
+	// second.
+	EventsMapBurstLimit uint32 `config:"events_map_burst_limit"`
+	// The sustained message rate for the BPF events map in messages per second.
+	EventsMapRateLimit uint32 `config:"events_map_rate_limit"`
+	// Cluster-wide IPv4 tuple hash seed sourced.
+	HashInit4Seed uint32 `config:"hash_init4_seed"`
+	// Cluster-wide IPv6 tuple hash seed sourced.
+	HashInit6Seed uint32 `config:"hash_init6_seed"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
+	// NAT 46x64 prefix.
+	NAT46X64Prefix [4]byte `config:"nat_46x64_prefix"`
+	// Nodeport maximum port value.
+	NodeportPortMax uint16 `config:"nodeport_port_max"`
+	// Nodeport minimum port value.
+	NodeportPortMin uint16 `config:"nodeport_port_min"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -42,7 +57,8 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, 0x8, false, 0x0, false, false, 0x0, false,
+	return &Node{0x0, 0x8, false, 0x0, false, false, 0x0, 0x0, 0x0, 0x0, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},

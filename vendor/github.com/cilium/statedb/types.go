@@ -75,6 +75,10 @@ type Table[Obj any] interface {
 	//
 	// If an object is created and deleted before the observer has iterated
 	// over the creation then only the deletion is seen.
+	//
+	// If [ChangeIterator.Next] is called with a [WriteTxn] targeting the
+	// table being observed then only the changes prior to that [WriteTxn]
+	// are observed.
 	Changes(WriteTxn) (ChangeIterator[Obj], error)
 }
 
@@ -108,7 +112,9 @@ type ChangeIterator[Obj any] interface {
 	// The returned sequence is a single-use sequence and subsequent calls will return
 	// an empty sequence.
 	//
-	// Next will panic if called with a WriteTxn that has locked the target table.
+	// If Next is called with a [WriteTxn] targeting the table being observed then only
+	// the changes made prior to that [WriteTxn] are observed, e.g. we can only observe
+	// committed changes.
 	Next(ReadTxn) (iter.Seq2[Change[Obj], Revision], <-chan struct{})
 
 	// Close the change iterator. Once all change iterators for a given table are closed
@@ -254,7 +260,16 @@ type ReadTxn interface {
 	indexReadTxn(meta TableMeta, indexPos int) (tableIndexReader, error)
 	mustIndexReadTxn(meta TableMeta, indexPos int) tableIndexReader
 	getTableEntry(meta TableMeta) *tableEntry
+
+	// root returns the database root. If this is a WriteTxn it returns
+	// the current modified root.
 	root() dbRoot
+
+	// committedRoot returns the committed database root. If this is a
+	// WriteTxn it returns the root snapshotted at the time the WriteTxn
+	// was constructed and thus does not reflect any changes made in the
+	// transaction.
+	committedRoot() dbRoot
 
 	// WriteJSON writes the contents of the database as JSON.
 	WriteJSON(w io.Writer, tables ...string) error
@@ -414,7 +429,7 @@ type tableIndexTxn interface {
 	tableIndex
 
 	insert(key index.Key, obj object) (old object, hadOld bool, watch <-chan struct{})
-	modify(key index.Key, obj object, mod func(old, new object) object) (old object, hadOld bool, watch <-chan struct{})
+	modify(key index.Key, obj object, mod func(old, new object) object) (old object, new object, hadOld bool, watch <-chan struct{})
 	delete(key index.Key) (old object, hadOld bool)
 	reindex(primaryKey index.Key, old object, new object)
 }

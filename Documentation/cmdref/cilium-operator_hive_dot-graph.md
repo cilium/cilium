@@ -41,7 +41,7 @@ cilium-operator hive dot-graph [flags]
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
       --clustermesh-mcs-api-install-crds                     Install and manage the MCS API CRDs. Only applicable if MCS API support is enabled. (default true)
       --clustermesh-sync-timeout duration                    Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
-      --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --controller-group-metrics strings                     List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --default-lb-service-ipam string                       Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --double-write-metric-reporter-interval duration       Refresh interval for the Double Write Metric Reporter (default 1m0s)
       --ec2-api-endpoint string                              AWS API endpoint for the EC2 service

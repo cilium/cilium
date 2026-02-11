@@ -41,6 +41,9 @@ struct {
 	__uint(max_entries, 1);
 } settings_map __section_maps_btf;
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 #include "node_config.h"
 
 #define ctx_redirect mock_ctx_redirect

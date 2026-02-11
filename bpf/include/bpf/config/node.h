@@ -48,3 +48,16 @@ ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
 NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) statistics")
 
 NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer")
+
+NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
+NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
+
+NODE_CONFIG(__u32, hash_init4_seed, "Cluster-wide IPv4 tuple hash seed sourced")
+NODE_CONFIG(__u32, hash_init6_seed, "Cluster-wide IPv6 tuple hash seed sourced")
+
+NODE_CONFIG(__u32, events_map_rate_limit,
+	    "The sustained message rate for the BPF events map in messages per second")
+NODE_CONFIG(__u32, events_map_burst_limit,
+	    "Maximum number of messages that can be written to BPF events map in 1 second")
+
+NODE_CONFIG(union v4addr, nat_46x64_prefix, "NAT 46x64 prefix")

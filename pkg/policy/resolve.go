@@ -273,7 +273,7 @@ type PolicyOwner interface {
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
-	MapStateSize() int
+	PreviousMapState() *MapState
 	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
@@ -333,10 +333,11 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	//   ConsumeMapChanges().
 	p.SelectorCache.WithRLock(func(sc *SelectorCache) {
 		selectors := sc.GetSelectorSnapshot()
+		features := p.L4Policy.Ingress.features | p.L4Policy.Egress.features
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
+			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,
@@ -361,7 +362,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	p.L4Policy.Egress.toMapState(logger, calculatedPolicy)
 
 	if !policyOwner.IsHost() {
-		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
+		calculatedPolicy.policyMapState.determineAllowLocalhostIngress(p.L4Policy.Ingress.features)
 	}
 
 	return calculatedPolicy
@@ -413,6 +414,13 @@ func (p *EndpointPolicy) Detach(logger *slog.Logger) {
 
 func (p *EndpointPolicy) Len() int {
 	return p.policyMapState.Len()
+}
+
+type MapState = mapState
+
+// GetMapState returns a pointer to the current mapstate.
+func (p *EndpointPolicy) GetMapState() *MapState {
+	return &p.policyMapState
 }
 
 func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
@@ -529,7 +537,7 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
 	for tier := range l4policy.PortRules {
 		basePriority := l4policy.tierBasePriority[tier]
-		nextTierPriority := types.MaxPriority
+		nextTierPriority := types.LowestPriority
 		if len(l4policy.tierBasePriority) > int(tier)+1 {
 			nextTierPriority = l4policy.tierBasePriority[tier+1]
 		}

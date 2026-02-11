@@ -1,0 +1,107 @@
+#! --enable-health-check-nodeport
+
+# Add a node address.
+db/insert node-addresses addrv4.yaml
+
+hive start
+
+env HEALTHPORT=40002
+replace '$HEALTHPORT' $HEALTHPORT service.yaml
+
+# Add endpoints first to avoid races with health server setup.
+k8s/add endpointslice.yaml
+
+# Add the service and verify the health server response.
+k8s/add service.yaml
+* http/get http://$HEALTHADDR:$HEALTHPORT healthserver.before
+* cmp healthserver.expected healthserver.before
+
+# Simulate proxy redirection
+svc/set-proxy-redirect test/echo 1000
+
+# Verify synthetic endpoint count of 1
+* http/get http://$HEALTHADDR:$HEALTHPORT healthserver.after
+* cmp healthserver-proxy.expected healthserver.after
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Local
+  healthCheckNodePort: $HEALTHPORT
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: testnode
+- addresses:
+  - 10.244.1.2
+  nodeName: testnode
+- addresses:
+  - 10.244.1.3
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- healthserver.expected --
+200 OK
+Content-Length=66
+Content-Type=application/json
+Date=<omitted>
+X-Content-Type-Options=nosniff
+X-Load-Balancing-Endpoint-Weight=3
+---
+{"service":{"namespace":"test","name":"echo"},"localEndpoints":3}
+-- healthserver-proxy.expected --
+200 OK
+Content-Length=66
+Content-Type=application/json
+Date=<omitted>
+X-Content-Type-Options=nosniff
+X-Load-Balancing-Endpoint-Weight=1
+---
+{"service":{"namespace":"test","name":"echo"},"localEndpoints":1}

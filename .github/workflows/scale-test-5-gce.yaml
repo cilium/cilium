@@ -61,13 +61,13 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.6
+  go_version: 1.25.7
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   test_name: scale-5
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 554.0.0
+  gcloud_version: 555.0.0
 
 jobs:
   echo-inputs:

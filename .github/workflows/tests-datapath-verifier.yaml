@@ -57,7 +57,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.25.6
+  go-version: 1.25.7
 
 jobs:
   echo-inputs:
@@ -137,19 +137,19 @@ jobs:
           KERNEL="${{ matrix.kernel }}"
           case "$KERNEL" in
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.10") FULL_KERNEL="5.10-20260202.013549" ;;
+            "5.10") FULL_KERNEL="5.10-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.15") FULL_KERNEL="5.15-20260202.013549" ;;
+            "5.15") FULL_KERNEL="5.15-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.1") FULL_KERNEL="6.1-20260202.013549" ;;
+            "6.1") FULL_KERNEL="6.1-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20260202.013549" ;;
+            "6.6") FULL_KERNEL="6.6-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.12") FULL_KERNEL="6.12-20260202.013549" ;;
+            "6.12") FULL_KERNEL="6.12-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.18") FULL_KERNEL="6.18-20260202.013549" ;;
+            "6.18") FULL_KERNEL="6.18-20260206.193128" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "bpf-next") FULL_KERNEL="bpf-next-20260202.013549" ;;
+            "bpf-next") FULL_KERNEL="bpf-next-20260206.193128" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
@@ -192,7 +192,7 @@ jobs:
             cd /host/base
             mkdir -p /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-base.json
 
       - name: Run verifier tests (on PR branch)
@@ -204,7 +204,7 @@ jobs:
             cd /host/pull
             mkdir -p /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
 
       - name: Upload artifacts
