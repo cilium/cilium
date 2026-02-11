@@ -141,8 +141,8 @@
 #   Maintain the deprecated docker-plugin.
 # - @cilium/endpoint:
 #   Provide background on how the Cilium Endpoint package fits into the overall
-#   agent architecture, relationship with generation of policy / datapath
-#   constructs, serialization and restore from disk.
+#   cluster architecture, lifecycle of endpoints, relationship with generation
+#   of policy / datapath constructs, serialization and restore from disk.
 # - @cilium/envoy:
 #   Maintain the L7 proxy integration with Envoy. This includes the
 #   configurations for Envoy via xDS protocols as well as the extensible
@@ -508,7 +508,7 @@ Makefile* @cilium/build
 /operator/auth @cilium/sig-servicemesh
 /operator/doublewrite @cilium/metrics
 /operator/endpointgc @cilium/endpoint
-/operator/identitygc @cilium/endpoint
+/operator/identitygc @cilium/sig-policy
 /operator/metrics @cilium/metrics
 /operator/pkg/bgp @cilium/sig-bgp
 /operator/pkg/ciliumendpointslice @cilium/sig-scalability
