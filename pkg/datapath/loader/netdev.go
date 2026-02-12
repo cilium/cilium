@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -95,7 +94,7 @@ func isObsoleteDev(dev string, devices []string) bool {
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
 func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
 	}
@@ -127,7 +126,7 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 			)
 		}
 
-		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
+		ingressFilters, err := netlink.FilterList(l, directionToParent(dirIngress))
 		if err != nil {
 			return fmt.Errorf("listing ingress filters: %w", err)
 		}
@@ -139,7 +138,7 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 			}
 		}
 
-		egressFilters, err := safenetlink.FilterList(l, directionToParent(dirEgress))
+		egressFilters, err := netlink.FilterList(l, directionToParent(dirEgress))
 		if err != nil {
 			return fmt.Errorf("listing egress filters: %w", err)
 		}

@@ -20,10 +20,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -244,7 +245,7 @@ func (e *Endpoint) restoreHostIfindex() error {
 		return nil
 	}
 
-	l, err := safenetlink.LinkByName(e.ifName)
+	l, err := netlink.LinkByName(e.ifName)
 	if err != nil {
 		return fmt.Errorf("get host interface: %w", err)
 	}

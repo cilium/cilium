@@ -18,7 +18,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -231,7 +230,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	result, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, result)
 
@@ -255,7 +254,7 @@ func testUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	result, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, result)
 }

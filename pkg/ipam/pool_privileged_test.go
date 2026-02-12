@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -34,7 +33,7 @@ func TestPrivilegedCleanupUnreachableRoutes(t *testing.T) {
 
 	getUnreachableRoutes := func(family int) []netlink.Route {
 		t.Helper()
-		routes, err := safenetlink.RouteListFiltered(family, &netlink.Route{
+		routes, err := netlink.RouteListFiltered(family, &netlink.Route{
 			Type: unix.RTN_UNREACHABLE,
 		}, netlink.RT_FILTER_TYPE)
 		Expect(err).ToNot(HaveOccurred())

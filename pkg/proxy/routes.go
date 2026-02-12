@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
@@ -148,12 +147,12 @@ func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fro
 
 // getCiliumNetIPv6 retrieves the first IPv6 address from the cilium_net device.
 func getCiliumNetIPv6() (net.IP, error) {
-	link, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+	link, err := netlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find link '%s': %w", defaults.SecondHostDevice, err)
 	}
 
-	addrList, err := safenetlink.AddrList(link, netlink.FAMILY_V6)
+	addrList, err := netlink.AddrList(link, netlink.FAMILY_V6)
 	if err == nil && len(addrList) > 0 {
 		return addrList[0].IP, nil
 	}

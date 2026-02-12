@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -718,7 +717,7 @@ type netlinkFuncs struct {
 // makeNetlinkFuncs returns a *netlinkFuncs containing netlink accessors to the
 // network namespace of the calling goroutine's OS thread.
 func makeNetlinkFuncs() (*netlinkFuncs, error) {
-	netlinkHandle, err := safenetlink.NewHandle(&safenetlink.HandleConfig{NLFamilies: []int{unix.NETLINK_ROUTE}})
+	netlinkHandle, err := netlink.NewHandle(unix.NETLINK_ROUTE)
 	if err != nil {
 		return nil, fmt.Errorf("creating netlink handle: %w", err)
 	}
@@ -731,7 +730,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 	return &netlinkFuncs{
 		RouteSubscribe: func(ch chan<- netlink.RouteUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
-			return safenetlink.RouteSubscribeWithOptions(ch, done,
+			return netlink.RouteSubscribeWithOptions(ch, done,
 				netlink.RouteSubscribeOptions{
 					ListExisting:  false,
 					ErrorCallback: errorCallback,
@@ -749,7 +748,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 		},
 		LinkSubscribe: func(ch chan<- netlink.LinkUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
-			return safenetlink.LinkSubscribeWithOptions(ch, done,
+			return netlink.LinkSubscribeWithOptions(ch, done,
 				netlink.LinkSubscribeOptions{
 					ListExisting:  false,
 					ErrorCallback: errorCallback,
@@ -758,7 +757,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 		},
 		NeighSubscribe: func(ch chan<- netlink.NeighUpdate, done <-chan struct{}, errorCallback func(error)) error {
 			h := vns.NsHandle(cur.FD())
-			return safenetlink.NeighSubscribeWithOptions(ch, done,
+			return netlink.NeighSubscribeWithOptions(ch, done,
 				netlink.NeighSubscribeOptions{
 					ListExisting:  false,
 					ErrorCallback: errorCallback,
@@ -766,28 +765,16 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 				})
 		},
 		LinkList: func() ([]netlink.Link, error) {
-			return safenetlink.WithRetryResult(func() ([]netlink.Link, error) {
-				//nolint:forbidigo
-				return netlinkHandle.LinkList()
-			})
+			return netlinkHandle.LinkList()
 		},
 		AddrList: func(link netlink.Link, family int) ([]netlink.Addr, error) {
-			return safenetlink.WithRetryResult(func() ([]netlink.Addr, error) {
-				//nolint:forbidigo
-				return netlinkHandle.AddrList(link, family)
-			})
+			return netlinkHandle.AddrList(link, family)
 		},
 		RouteListFiltered: func(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error) {
-			return safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-				//nolint:forbidigo
-				return netlinkHandle.RouteListFiltered(family, filter, filterMask)
-			})
+			return netlinkHandle.RouteListFiltered(family, filter, filterMask)
 		},
 		NeighList: func(linkIndex, family int) ([]netlink.Neigh, error) {
-			return safenetlink.WithRetryResult(func() ([]netlink.Neigh, error) {
-				//nolint:forbidigo
-				return netlinkHandle.NeighList(linkIndex, family)
-			})
+			return netlinkHandle.NeighList(linkIndex, family)
 		},
 		Close: netlinkHandle.Close,
 	}, nil

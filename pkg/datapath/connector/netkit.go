@@ -10,7 +10,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -116,7 +115,7 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg types.LinkConfig, l2Mode bo
 func validateNetkitPair(logger *slog.Logger, cfg types.LinkConfig) (netlink.Link, error) {
 	// Query the kernel for the host link attributes, so we can verify the kernel
 	// has applied the configuration we expected.
-	hostLink, err := safenetlink.LinkByName(cfg.HostIfName)
+	hostLink, err := netlink.LinkByName(cfg.HostIfName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup netkit host link: %w", err)
 	}
@@ -126,7 +125,7 @@ func validateNetkitPair(logger *slog.Logger, cfg types.LinkConfig) (netlink.Link
 		return nil, fmt.Errorf("host link does not appear to be a Netkit device")
 	}
 
-	peerLink, err := safenetlink.LinkByName(cfg.PeerIfName)
+	peerLink, err := netlink.LinkByName(cfg.PeerIfName)
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup netkit peer link: %w", err)
 	}

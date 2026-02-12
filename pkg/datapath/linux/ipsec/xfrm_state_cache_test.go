@@ -12,7 +12,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/time"
 
 	"k8s.io/utils/clock"
@@ -126,7 +125,7 @@ func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {
 }
 
 func cleanIPSecStatesAndPolicies(t *testing.T) {
-	xfrmStateList, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		t.Fatalf("Can't list XFRM states: %v", err)
 	}
@@ -138,7 +137,7 @@ func cleanIPSecStatesAndPolicies(t *testing.T) {
 
 	}
 
-	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		t.Fatalf("Can't list XFRM policies: %v", err)
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -51,7 +50,7 @@ func TestPrivilegedSetupVethPair(t *testing.T) {
 					return err
 				}
 
-				h, err = safenetlink.NewHandle(nil)
+				h, err = netlink.NewHandle()
 				return err
 			}))
 

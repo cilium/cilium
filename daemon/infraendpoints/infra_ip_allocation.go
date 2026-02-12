@@ -25,7 +25,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -230,7 +229,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 	}
 
 	findENIByMAC := func(ctx context.Context) (bool, error) {
-		links, err := safenetlink.LinkList()
+		links, err := netlink.LinkList()
 		if err != nil {
 			return false, fmt.Errorf("unable to list interfaces: %w", err)
 		}
@@ -723,7 +722,7 @@ func (r *infraIPAllocator) removeOldCiliumHostIPs(ctx context.Context, restoredR
 // `cilium_host` interface is the given restored IP. If the given IP is nil,
 // then it attempts to clear all IPs from the interface.
 func (r *infraIPAllocator) removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
-	l, err := safenetlink.LinkByName(defaults.HostDevice)
+	l, err := netlink.LinkByName(defaults.HostDevice)
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		// There's no old state remove as the host device doesn't exist.
 		// This is always the case when the agent is started for the first time.
@@ -737,7 +736,7 @@ func (r *infraIPAllocator) removeOldRouterState(ipv6 bool, restoredIP net.IP) er
 	if ipv6 {
 		family = netlink.FAMILY_V6
 	}
-	addrs, err := safenetlink.AddrList(l, family)
+	addrs, err := netlink.AddrList(l, family)
 	if err != nil {
 		return resiliency.Retryable(err)
 	}

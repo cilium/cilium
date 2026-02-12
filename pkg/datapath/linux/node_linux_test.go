@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -213,7 +212,7 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 		}
 	}
 
-	link, err := safenetlink.LinkByName(name)
+	link, err := netlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +227,7 @@ func setupDummyDevice(name string, ips ...net.IP) (*tables.Device, error) {
 }
 
 func removeDevice(name string) {
-	l, err := safenetlink.LinkByName(name)
+	l, err := netlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
 	}
@@ -764,10 +763,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
 
-	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEmpty(t, states)
-	policies, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, countXFRMPolicies(policies))
 
@@ -775,10 +774,10 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	err = linuxNodeHandler.NodeDelete(node)
 	require.NoError(t, err)
 
-	states, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Empty(t, states)
-	policies, err = safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Equal(t, 0, countXFRMPolicies(policies))
 }
@@ -808,7 +807,7 @@ func lookupDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP) ([]netl
 	if nodeIP.To4() == nil {
 		family = netlink.FAMILY_V6
 	}
-	return safenetlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
+	return netlink.RouteListFiltered(family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T) {
@@ -1153,22 +1152,19 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 }
 
 func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
-	link, err := safenetlink.LinkByName(extDev)
+	link, err := netlink.LinkByName(extDev)
 	require.NoError(t, err)
 
-	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-		//nolint:forbidigo
-		return safenetlink.RouteListFiltered(
-			family,
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Table:     linux_defaults.RouteTableIPSec,
-				Protocol:  linux_defaults.RTProto,
-				Type:      route.RTN_LOCAL,
-			},
-			netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL|netlink.RT_FILTER_TYPE,
-		)
-	})
+	routes, err := netlink.RouteListFiltered(
+		family,
+		&netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Table:     linux_defaults.RouteTableIPSec,
+			Protocol:  linux_defaults.RTProto,
+			Type:      route.RTN_LOCAL,
+		},
+		netlink.RT_FILTER_IIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL|netlink.RT_FILTER_TYPE,
+	)
 	require.NoError(t, err, "RouteListFiltered")
 	require.Len(t, routes, len(prefixes))
 	dests := make([]*cidr.CIDR, 0, len(routes))
@@ -1179,7 +1175,7 @@ func lookupIPSecInRoutes(t *testing.T, family int, extDev string, prefixes []*ci
 }
 
 func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR) {
-	policies, err := safenetlink.XfrmPolicyList(family)
+	policies, err := netlink.XfrmPolicyList(family)
 	require.NoError(t, err)
 
 	var zero *cidr.CIDR
@@ -1212,21 +1208,18 @@ func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR)
 }
 
 func lookupIPSecOutRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
-	link, err := safenetlink.LinkByName(extDev)
+	link, err := netlink.LinkByName(extDev)
 	require.NoError(t, err)
 
-	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-		//nolint:forbidigo
-		return safenetlink.RouteListFiltered(
-			family,
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Table:     linux_defaults.RouteTableIPSec,
-				Protocol:  linux_defaults.RTProto,
-			},
-			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-		)
-	})
+	routes, err := netlink.RouteListFiltered(
+		family,
+		&netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Table:     linux_defaults.RouteTableIPSec,
+			Protocol:  linux_defaults.RTProto,
+		},
+		netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
+	)
 
 	require.NoError(t, err, "RouteListFiltered")
 	require.Len(t, routes, len(prefixes))

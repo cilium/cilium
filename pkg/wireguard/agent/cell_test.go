@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -216,7 +215,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			require.True(t, wgAgent.Enabled())
 
 			// 3. Ensure the link cilium_wg0 has been created.
-			link, err := safenetlink.LinkByName(types.IfaceName)
+			link, err := netlink.LinkByName(types.IfaceName)
 			require.NoError(t, err)
 
 			// 4. Ensure the MTU is set accordingly (mtu-reconciler job).
@@ -314,7 +313,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			require.NoError(t, hive.Stop(log, ctx))
 
 			// 10. Ensure the link cilium_wg0 is not deleted.
-			_, err = safenetlink.LinkByName(types.IfaceName)
+			_, err = netlink.LinkByName(types.IfaceName)
 			require.NoError(t, err)
 
 			return nil
@@ -331,7 +330,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			})
 
 			// 1. Ensure the link cilium_wg0 exists.
-			_, err := safenetlink.LinkByName(types.IfaceName)
+			_, err := netlink.LinkByName(types.IfaceName)
 			require.NoError(t, err)
 
 			// 2. Create a hive with WireGuard disabled.
@@ -344,7 +343,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			require.False(t, wgAgent.Enabled())
 
 			// 5. Ensure the link is deleted.
-			_, err = safenetlink.LinkByName(types.IfaceName)
+			_, err = netlink.LinkByName(types.IfaceName)
 			require.Error(t, err)
 			require.ErrorAs(t, err, &netlink.LinkNotFoundError{})
 

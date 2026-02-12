@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -25,7 +24,7 @@ func TestPrivilegedCreateInPodRules(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -81,7 +80,7 @@ func TestPrivilegedCreateInPodRulesIdempotency(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -108,7 +107,7 @@ func TestPrivilegedAddExistingChains(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -152,7 +151,7 @@ func TestPrivilegedAddExistingRoutes(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -165,13 +164,13 @@ func TestPrivilegedAddExistingRoutes(t *testing.T) {
 		require.NoError(t, err, "Second call to addLoopbackRoute should succeed")
 
 		// Verify routes exist
-		routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.NotEmpty(t, routes, "IPv4 routes should exist in table %d", RouteTableInbound)
 
-		routesV6, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
+		routesV6, err := netlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -188,7 +187,7 @@ func TestPrivilegedAddExistingMarkRules(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -201,7 +200,7 @@ func TestPrivilegedAddExistingMarkRules(t *testing.T) {
 		require.NoError(t, err, "Second call to addInPodMarkRule should succeed")
 
 		// Verify IPv4 rule exists
-		rules, err := safenetlink.RuleList(netlink.FAMILY_V4)
+		rules, err := netlink.RuleList(netlink.FAMILY_V4)
 		require.NoError(t, err)
 		foundV4 := false
 		for _, rule := range rules {
@@ -213,7 +212,7 @@ func TestPrivilegedAddExistingMarkRules(t *testing.T) {
 		require.True(t, foundV4, "IPv4 mark rule should exist")
 
 		// Verify IPv6 rule exists
-		rulesV6, err := safenetlink.RuleList(netlink.FAMILY_V6)
+		rulesV6, err := netlink.RuleList(netlink.FAMILY_V6)
 		require.NoError(t, err)
 		foundV6 := false
 		for _, rule := range rulesV6 {
@@ -235,7 +234,7 @@ func TestPrivilegedAddExistingIPTablesRules(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -280,7 +279,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -313,7 +312,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		}
 
 		// Verify netlink rules are deleted (IPv4)
-		rulesV4, err := safenetlink.RuleList(netlink.FAMILY_V4)
+		rulesV4, err := netlink.RuleList(netlink.FAMILY_V4)
 		require.NoError(t, err)
 		for _, rule := range rulesV4 {
 			require.False(t, rule.Priority == InpodRulePriority && rule.Mark == InpodTProxyMark && rule.Table == RouteTableInbound,
@@ -321,7 +320,7 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		}
 
 		// Verify netlink rules are deleted (IPv6)
-		rulesV6, err := safenetlink.RuleList(netlink.FAMILY_V6)
+		rulesV6, err := netlink.RuleList(netlink.FAMILY_V6)
 		require.NoError(t, err)
 		for _, rule := range rulesV6 {
 			require.False(t, rule.Priority == InpodRulePriority && rule.Mark == InpodTProxyMark && rule.Table == RouteTableInbound,
@@ -329,14 +328,14 @@ func TestPrivilegedDeleteInPodRules(t *testing.T) {
 		}
 
 		// Verify routes are deleted (IPv4)
-		routesV4, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routesV4, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Empty(t, routesV4, "IPv4 routes should be deleted from table %d", RouteTableInbound)
 
 		// Verify routes are deleted (IPv6)
-		routesV6, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
+		routesV6, err := netlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -353,7 +352,7 @@ func TestPrivilegedDeleteInPodRulesIdempotency(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -379,7 +378,7 @@ func TestPrivilegedDeleteInPodMarkRule(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -388,7 +387,7 @@ func TestPrivilegedDeleteInPodMarkRule(t *testing.T) {
 		require.NoError(t, err, "addInPodMarkRule should succeed")
 
 		// Verify rules exist
-		rulesV4Before, err := safenetlink.RuleList(netlink.FAMILY_V4)
+		rulesV4Before, err := netlink.RuleList(netlink.FAMILY_V4)
 		require.NoError(t, err)
 		foundV4 := false
 		for _, rule := range rulesV4Before {
@@ -399,7 +398,7 @@ func TestPrivilegedDeleteInPodMarkRule(t *testing.T) {
 		}
 		require.True(t, foundV4, "IPv4 mark rule should exist before deletion")
 
-		rulesV6Before, err := safenetlink.RuleList(netlink.FAMILY_V6)
+		rulesV6Before, err := netlink.RuleList(netlink.FAMILY_V6)
 		require.NoError(t, err)
 		foundV6 := false
 		for _, rule := range rulesV6Before {
@@ -415,14 +414,14 @@ func TestPrivilegedDeleteInPodMarkRule(t *testing.T) {
 		require.NoError(t, err, "deleteInPodMarkRule should succeed")
 
 		// Verify rules are deleted
-		rulesV4After, err := safenetlink.RuleList(netlink.FAMILY_V4)
+		rulesV4After, err := netlink.RuleList(netlink.FAMILY_V4)
 		require.NoError(t, err)
 		for _, rule := range rulesV4After {
 			require.False(t, rule.Priority == InpodRulePriority && rule.Mark == InpodTProxyMark && rule.Table == RouteTableInbound,
 				"IPv4 mark rule should be deleted")
 		}
 
-		rulesV6After, err := safenetlink.RuleList(netlink.FAMILY_V6)
+		rulesV6After, err := netlink.RuleList(netlink.FAMILY_V6)
 		require.NoError(t, err)
 		for _, rule := range rulesV6After {
 			require.False(t, rule.Priority == InpodRulePriority && rule.Mark == InpodTProxyMark && rule.Table == RouteTableInbound,
@@ -439,7 +438,7 @@ func TestPrivilegedDeleteLoopbackRoute(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 
@@ -448,13 +447,13 @@ func TestPrivilegedDeleteLoopbackRoute(t *testing.T) {
 		require.NoError(t, err, "addLoopbackRoute should succeed")
 
 		// Verify routes exist
-		routesV4Before, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routesV4Before, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.NotEmpty(t, routesV4Before, "IPv4 routes should exist before deletion")
 
-		routesV6Before, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
+		routesV6Before, err := netlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -465,13 +464,13 @@ func TestPrivilegedDeleteLoopbackRoute(t *testing.T) {
 		require.NoError(t, err, "deleteLoopbackRoute should succeed")
 
 		// Verify routes are deleted
-		routesV4After, err := safenetlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		routesV4After, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
 		require.Empty(t, routesV4After, "IPv4 routes should be deleted")
 
-		routesV6After, err := safenetlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
+		routesV6After, err := netlink.RouteListFiltered(netlink.FAMILY_V6, &netlink.Route{
 			Table: RouteTableInbound,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -487,7 +486,7 @@ func TestPrivilegedDeleteInPodChains(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		link, err := safenetlink.LinkByName("lo")
+		link, err := netlink.LinkByName("lo")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkSetUp(link))
 

@@ -7,17 +7,15 @@ import (
 	"net"
 
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns it
 func getCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
-	hostDev, err := safenetlink.LinkByName(devName)
+	hostDev, err := netlink.LinkByName(devName)
 	if err != nil {
 		return nil, nil
 	}
-	addrs, err := safenetlink.AddrList(hostDev, netlink.FAMILY_ALL)
+	addrs, err := netlink.AddrList(hostDev, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, nil
 	}
