@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/common/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/types"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -217,7 +216,7 @@ func filterReqID(reqID int, xfrmStates []netlink.XfrmState) []netlink.XfrmState 
 }
 
 func dumpIPsecStatus() (*models.IPsecStatus, error) {
-	xfrmStates, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get xfrm state: %w", err)
 	}
@@ -347,7 +346,7 @@ func maxSequenceNumber() (string, error) {
 
 // isDecryptionInterface returns whether we think an interface is used for decryption or not.
 func isDecryptionInterface(link netlink.Link) (bool, error) {
-	filters, err := safenetlink.FilterList(link, tcFilterParentIngress)
+	filters, err := netlink.FilterList(link, tcFilterParentIngress)
 	if err != nil {
 		return false, err
 	}
@@ -393,7 +392,7 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 
 // getDecryptionInterfaces returns the interfaces used for decryption.
 func getDecryptionInterfaces() ([]string, error) {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list interfaces: %w", err)
 	}
@@ -436,7 +435,7 @@ func printEncryptionStatus(status models.EncryptionStatus) {
 
 // dumpXfrmStates extracts XFRM state information using netlink
 func dumpXfrmStates() ([]types.XfrmStateInfo, error) {
-	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list XFRM states: %w", err)
 	}

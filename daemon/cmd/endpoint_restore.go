@@ -20,7 +20,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
@@ -232,7 +231,7 @@ type endpointRestoreState struct {
 
 // checkLink returns an error if a link with linkName does not exist.
 func (r *endpointRestorer) checkLink(linkName string) error {
-	_, err := safenetlink.LinkByName(linkName)
+	_, err := netlink.LinkByName(linkName)
 	return err
 }
 
@@ -825,7 +824,7 @@ func (r *endpointRestorer) clearStaleCiliumEndpointVeths() error {
 
 // listVethIfaces returns a map of VETH interfaces with the index as key.
 func (*endpointRestorer) listVethIfaces() (map[int]netlink.Link, error) {
-	ifs, err := safenetlink.LinkList()
+	ifs, err := netlink.LinkList()
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -128,7 +127,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 	log := l.logger.With(logfields.EndpointID, ep.StringID())
 
 	// Remove legacy tc attachments.
-	link, err := safenetlink.LinkByName(ep.InterfaceName())
+	link, err := netlink.LinkByName(ep.InterfaceName())
 	if err == nil {
 		if err := removeTCFilters(link, netlink.HANDLE_MIN_INGRESS); err != nil {
 			log.Error(
@@ -224,7 +223,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 	}
 
 	device := ep.InterfaceName()
-	iface, err := safenetlink.LinkByName(device)
+	iface, err := netlink.LinkByName(device)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", device, err)
 	}

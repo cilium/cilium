@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -179,7 +178,7 @@ func TestPrivilegedScript(t *testing.T) {
 		})
 
 		// setup test peering IPs
-		l, err := safenetlink.LinkByName(testLinkName)
+		l, err := netlink.LinkByName(testLinkName)
 		require.NoError(t, err)
 		for _, ip := range *peeringIPs {
 			ipAddr, err := netip.ParseAddr(ip)

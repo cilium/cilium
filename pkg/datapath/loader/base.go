@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -138,11 +137,11 @@ func addENIRules(logger *slog.Logger, sysSettings []tables.Sysctl) ([]tables.Sys
 
 func cleanIngressQdisc(logger *slog.Logger, devices []string) error {
 	for _, iface := range devices {
-		link, err := safenetlink.LinkByName(iface)
+		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve link %s by name: %w", iface, err)
 		}
-		qdiscs, err := safenetlink.QdiscList(link)
+		qdiscs, err := netlink.QdiscList(link)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve qdisc list of link %s: %w", iface, err)
 		}
@@ -199,7 +198,7 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 		// !veth devices.
 		//
 		// Regenerate the list of interfaces to attach to on every call.
-		links, err := safenetlink.LinkList()
+		links, err := netlink.LinkList()
 		if err != nil {
 			return err
 		}
@@ -211,7 +210,7 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 		// In other modes, attach only to the interfaces explicitly specified by the
 		// user. Resolve links by name.
 		for _, iface := range option.Config.UnsafeDaemonConfigOption.EncryptInterface {
-			link, err := safenetlink.LinkByName(iface)
+			link, err := netlink.LinkByName(iface)
 			if err != nil {
 				return fmt.Errorf("retrieving device %s: %w", iface, err)
 			}
@@ -263,7 +262,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 	}
 
 	iface := tunnelConfig.DeviceName()
-	link, err := safenetlink.LinkByName(iface)
+	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
@@ -284,7 +283,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return
 	}
 
-	link, err := safenetlink.LinkByName(wgTypes.IfaceName)
+	link, err := netlink.LinkByName(wgTypes.IfaceName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}

@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -56,11 +55,11 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 
 func (n *linuxNodeHandler) getLinkLocalIP(family int) (net.IP, error) {
 	iface := n.getDefaultEncryptionInterface()
-	link, err := safenetlink.LinkByName(iface)
+	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return nil, err
 	}
-	addr, err := safenetlink.AddrList(link, family)
+	addr, err := netlink.AddrList(link, family)
 	if err != nil {
 		return nil, err
 	}

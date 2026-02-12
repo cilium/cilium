@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -825,7 +825,7 @@ func calcRouterIDFromMacAddress() (string, error) {
 	hostDeviceName := defaults.HostDevice
 
 	// Retrieve the network link for the host device
-	link, err := safenetlink.LinkByName(hostDeviceName)
+	link, err := netlink.LinkByName(hostDeviceName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get device %s: %w", hostDeviceName, err)
 	}

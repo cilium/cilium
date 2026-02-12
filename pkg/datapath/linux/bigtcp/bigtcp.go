@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -98,7 +97,7 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func SetGROGSOIPv6MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist",
 			logfields.Device, device,
@@ -125,7 +124,7 @@ func SetGROGSOIPv6MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
 func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSize int) error {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Link does not exist",
 			logfields.Device, device,
@@ -151,7 +150,7 @@ func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 
 // Probes whether the kernel supports BIG TCP IPv4.
 func supportsBIGTCPIPv4(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
+	link, err := netlink.LinkByName(probeDevice)
 	if err != nil {
 		log.Warn("Failed to probe kernel support for BIG TCP IPv4")
 		return false
@@ -163,7 +162,7 @@ func supportsBIGTCPIPv4(log *slog.Logger) bool {
 
 // Probes whether the kernel supports BIG TCP IPv6.
 func supportsBIGTCPIPv6(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
+	link, err := netlink.LinkByName(probeDevice)
 	if err != nil {
 		log.Warn("Failed to probe kernel support for BIG TCP IPv6")
 		return false
@@ -178,7 +177,7 @@ func supportsBIGTCPIPv6(log *slog.Logger) bool {
 // If gso_ipv4_max_size is not supported, fall back to gso_max_size.
 // If tso_max_size is not supported, fall back to GSO_LEGACY_MAX_SIZE = 65536.
 func getGSOMaxSize(log *slog.Logger, device string) (int, int, int) {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Failed to probe gso_max_size and tso_max_size",
 			logfields.Device, device,
@@ -204,7 +203,7 @@ func getGSOMaxSize(log *slog.Logger, device string) (int, int, int) {
 // limit for device.
 // If gro_ipv4_max_size is not supported, fall back to gro_ipv4_max_size.
 func getGROMaxSize(log *slog.Logger, device string) (int, int, int) {
-	link, err := safenetlink.LinkByName(device)
+	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.Warn("Failed to probe gro_max_size",
 			logfields.Device, device,

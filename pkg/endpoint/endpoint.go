@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -742,7 +741,7 @@ func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuild
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
 func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore) (*Endpoint, error) {
-	iface, err := safenetlink.LinkByName(defaults.HostDevice)
+	iface, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
@@ -2620,7 +2619,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 // setDown sets the Endpoint's underlying interface down. If the interface
 // cannot be retrieved, returns nil.
 func (e *Endpoint) setDown() error {
-	link, err := safenetlink.LinkByName(e.HostInterface())
+	link, err := netlink.LinkByName(e.HostInterface())
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		// No interface, nothing to do.
 		return nil

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,7 +40,7 @@ var (
 
 func deleteInterfaces(log *slog.Logger, ifNames []string) {
 	for _, ifName := range ifNames {
-		iface, err := safenetlink.LinkByName(ifName)
+		iface, err := netlink.LinkByName(ifName)
 		if err != nil {
 			if !errors.As(err, &netlink.LinkNotFoundError{}) {
 				log.Error("Failed to lookup test interface",
