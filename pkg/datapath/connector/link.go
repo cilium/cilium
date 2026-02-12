@@ -10,7 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/link"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -150,13 +149,13 @@ func NewLinkPair(
 	// re-generate the peer Link as the previous one is likely stale
 	if cfg.PeerNamespace != nil {
 		if err := cfg.PeerNamespace.Do(func() error {
-			peerLink, err = safenetlink.LinkByName(finalPeerIfName)
+			peerLink, err = netlink.LinkByName(finalPeerIfName)
 			return err
 		}); err != nil {
 			return nil, err
 		}
 	} else {
-		peerLink, err = safenetlink.LinkByName(finalPeerIfName)
+		peerLink, err = netlink.LinkByName(finalPeerIfName)
 		if err != nil {
 			return nil, err
 		}

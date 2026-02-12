@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -574,7 +573,7 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 					var err error
 
 					require.NoError(t, ns.Do(func() error {
-						link, err = safenetlink.LinkByName("lo")
+						link, err = netlink.LinkByName("lo")
 						if err != nil {
 							return err
 						}

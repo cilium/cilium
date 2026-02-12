@@ -15,7 +15,6 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/lock"
@@ -384,7 +383,7 @@ func cleanupUnreachableRoutes(prefix netip.Prefix) error {
 		return errors.New("unknown cidr family")
 	}
 
-	routes, err := safenetlink.RouteListFiltered(family, &netlink.Route{
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{
 		Table: unix.RT_TABLE_MAIN,
 		Type:  unix.RTN_UNREACHABLE,
 	}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_TYPE)

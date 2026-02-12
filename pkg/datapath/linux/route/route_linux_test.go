@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -49,7 +48,7 @@ func testReplaceNexthopRoute(t *testing.T, link netlink.Link, routerNet *net.IPN
 func TestPrivilegedReplaceNexthopRoute(t *testing.T) {
 	setup(t)
 
-	link, err := safenetlink.LinkByName("lo")
+	link, err := netlink.LinkByName("lo")
 	require.NoError(t, err)
 
 	_, routerNet, err := net.ParseCIDR("1.2.3.4/32")

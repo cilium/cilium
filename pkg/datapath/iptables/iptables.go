@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -1523,7 +1522,7 @@ func (m *manager) installMasqueradeRules(
 		if prog == m.ip6tables {
 			family = netlink.FAMILY_V6
 		}
-		if routes, err := safenetlink.RouteList(nil, family); err == nil {
+		if routes, err := netlink.RouteList(nil, family); err == nil {
 			if err := m.installMasqueradeRouteSourceRules(prog, routes, netlink.LinkByIndex, devices, snatDstExclusionCIDR, allocRange); err != nil {
 				return err
 			}

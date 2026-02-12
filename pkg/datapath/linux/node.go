@@ -26,7 +26,6 @@ import (
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -205,7 +204,7 @@ func createDirectRouteSpec(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP,
 			Dst:   dst,
 		}
 
-		routes, err = safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
+		routes, err = netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE)
 		if err != nil {
 			err = fmt.Errorf("unable to find local route for destination %s: %w", nodeIP, err)
 			return
@@ -319,7 +318,7 @@ func (n *linuxNodeHandler) deleteDirectRoute(prefix netip.Prefix, nodeIP net.IP)
 		Protocol: linux_defaults.RTProto,
 	}
 
-	routes, err := safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
+	routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
 	if err != nil {
 		n.log.Error("Unable to list direct routes", logfields.Error, err)
 		return fmt.Errorf("failed to list direct routes %s: %w", familyStr, err)
