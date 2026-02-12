@@ -20,7 +20,6 @@ import (
 
 	statstypes "github.com/cilium/cilium/pkg/bpf/stats/types"
 	"github.com/cilium/cilium/pkg/cgroups"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -122,7 +121,7 @@ func collectDeviceProgramStats(deviceName string, devices []string) ([]statstype
 		return nil, nil
 	}
 
-	device, err := safenetlink.LinkByName(deviceName)
+	device, err := netlink.LinkByName(deviceName)
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		return nil, nil
 	} else if err != nil {

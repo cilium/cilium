@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 func init() {
@@ -20,7 +18,7 @@ func initExcludedIPs() {
 	prefixes := []string{
 		"docker",
 	}
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return
 	}
@@ -50,7 +48,7 @@ func initExcludedIPs() {
 				continue
 			}
 		}
-		addr, err := safenetlink.AddrList(l, netlink.FAMILY_ALL)
+		addr, err := netlink.AddrList(l, netlink.FAMILY_ALL)
 		if err != nil {
 			continue
 		}

@@ -20,7 +20,6 @@ import (
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -42,7 +41,7 @@ type PCIAddr string
 type KernelIfName string
 
 // netlinkOps abstracts the netlink calls used by SRIOVManager and PciDevice.
-// The real implementation delegates to safenetlink/netlink; tests inject a fake.
+// The real implementation delegates to netlink; tests inject a fake.
 type netlinkOps interface {
 	// LinkList returns all netlink links on the system.
 	LinkList() ([]netlink.Link, error)
@@ -52,15 +51,15 @@ type netlinkOps interface {
 	LinkSetVfVlan(link netlink.Link, vf, vlan int) error
 }
 
-// netlinkImpl delegates to the production safenetlink/netlink implementations.
+// netlinkImpl delegates to the production netlink implementations.
 type netlinkImpl struct{}
 
 func (netlinkImpl) LinkList() ([]netlink.Link, error) {
-	return safenetlink.LinkList()
+	return netlink.LinkList()
 }
 
 func (netlinkImpl) LinkByName(name string) (netlink.Link, error) {
-	return safenetlink.LinkByName(name)
+	return netlink.LinkByName(name)
 }
 
 func (netlinkImpl) LinkSetVfVlan(link netlink.Link, vf, vlan int) error {

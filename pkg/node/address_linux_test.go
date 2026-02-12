@@ -14,7 +14,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -184,7 +183,7 @@ func setupDummyDevice(name string, ips ...string) error {
 }
 
 func removeDevice(name string) {
-	l, err := safenetlink.LinkByName(name)
+	l, err := netlink.LinkByName(name)
 	if err == nil {
 		netlink.LinkDel(l)
 	}

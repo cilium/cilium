@@ -11,7 +11,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -47,7 +46,7 @@ func TestPrivilegedDefaultRouteHookOnlyUpdatesCiliumLinks(t *testing.T) {
 		}
 		require.NoError(t, netlink.LinkAdd(ciliumVeth))
 
-		ciliumPeer, err := safenetlink.LinkByName("cilium0peer")
+		ciliumPeer, err := netlink.LinkByName("cilium0peer")
 		require.NoError(t, err)
 		require.NoError(t, netlink.LinkAddAltName(ciliumPeer, connector.CniAltName("cilium0peer")))
 
@@ -74,9 +73,9 @@ func TestPrivilegedDefaultRouteHookOnlyUpdatesCiliumLinks(t *testing.T) {
 		require.NoError(t, defaultRouteHook(routeMTUs))
 
 		// Re-query MTUs.
-		updatedCiliumPeer, err := safenetlink.LinkByName("cilium0peer")
+		updatedCiliumPeer, err := netlink.LinkByName("cilium0peer")
 		require.NoError(t, err)
-		updatedOtherPeer, err := safenetlink.LinkByName("other0peer")
+		updatedOtherPeer, err := netlink.LinkByName("other0peer")
 		require.NoError(t, err)
 
 		require.Equal(t, newMTU, updatedCiliumPeer.Attrs().MTU,

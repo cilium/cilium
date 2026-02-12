@@ -18,7 +18,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -385,7 +384,7 @@ func TestPrivilegedRemoveOldRouterState(t *testing.T) {
 			// Assert that the old router IP (192.0.2.1) was removed because we are
 			// restoring a different one (10.0.0.1).
 			assert.NoError(t, infraIPAllocator.removeOldRouterState(false, net.ParseIP("10.0.0.1")))
-			addrs, err := safenetlink.AddrList(&netlink.Dummy{
+			addrs, err := netlink.AddrList(&netlink.Dummy{
 				LinkAttrs: netlink.LinkAttrs{
 					Name: defaults.HostDevice,
 				},
@@ -408,7 +407,7 @@ func TestPrivilegedRemoveOldRouterState(t *testing.T) {
 
 			// Remove the cilium_host device and assert no error on "link not found"
 			// error.
-			link, err := safenetlink.LinkByName(defaults.HostDevice)
+			link, err := netlink.LinkByName(defaults.HostDevice)
 			assert.NoError(t, err)
 			assert.NotNil(t, link)
 			assert.NoError(t, netlink.LinkDel(link))
@@ -438,7 +437,7 @@ func createDevices(t *testing.T) {
 	if err := netlink.LinkAdd(veth); err != nil {
 		assert.NoError(t, err)
 	}
-	ciliumHost, err := safenetlink.LinkByName(defaults.HostDevice)
+	ciliumHost, err := netlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		assert.NoError(t, err)
 	}

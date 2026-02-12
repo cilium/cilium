@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -160,7 +159,7 @@ func upsertTCProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progra
 // removeStaleTCFilters removes all Cilium tc bpf filters from the given
 // device with a different priority than the given new priority.
 func removeStaleTCFilters(logger *slog.Logger, device netlink.Link, parent uint32, newPrio uint16) error {
-	filters, err := safenetlink.FilterList(device, parent)
+	filters, err := netlink.FilterList(device, parent)
 	if err != nil {
 		return err
 	}
@@ -199,7 +198,7 @@ func removeStaleTCFilters(logger *slog.Logger, device netlink.Link, parent uint3
 // removeTCFilters removes all tc filters from the given interface.
 // Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via parent.
 func removeTCFilters(device netlink.Link, parent uint32) error {
-	filters, err := safenetlink.FilterList(device, parent)
+	filters, err := netlink.FilterList(device, parent)
 	if err != nil {
 		return err
 	}
@@ -218,7 +217,7 @@ func removeTCFilters(device netlink.Link, parent uint32) error {
 func ListCiliumTCFilters(device netlink.Link, parent uint32) ([]*netlink.BpfFilter, error) {
 	var result []*netlink.BpfFilter
 
-	filters, err := safenetlink.FilterList(device, parent)
+	filters, err := netlink.FilterList(device, parent)
 	if err != nil {
 		return nil, fmt.Errorf("listing tc filters for device %s, direction %d: %w", device.Attrs().Name, parent, err)
 	}

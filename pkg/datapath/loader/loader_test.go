@@ -18,7 +18,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
@@ -131,7 +130,7 @@ func TestPrivilegedReload(t *testing.T) {
 	err := compileDatapath(ctx, logger, dirInfo, false)
 	require.NoError(t, err)
 
-	l, err := safenetlink.LinkByName(ep.InterfaceName())
+	l, err := netlink.LinkByName(ep.InterfaceName())
 	require.NoError(t, err)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)

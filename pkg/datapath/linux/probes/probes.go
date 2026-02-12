@@ -417,7 +417,7 @@ var HaveNetkitTunableBufferMargins = sync.OnceValue(func() error {
 		if err != nil {
 			return fmt.Errorf("create link: %w", err)
 		}
-		hostLink, err := safenetlink.LinkByName(hostIfName)
+		hostLink, err := netlink.LinkByName(hostIfName)
 		if err != nil {
 			return fmt.Errorf("query link: %w", err)
 		}
@@ -764,7 +764,7 @@ func HaveBatchAPI() error {
 
 // Probes whether the kernel supports BIG TCP IPv4.
 var HaveBIGTCPIPv4 = sync.OnceValue(func() error {
-	link, err := safenetlink.LinkByName("lo")
+	link, err := netlink.LinkByName("lo")
 	if err != nil {
 		return err
 	}
@@ -779,7 +779,7 @@ var HaveBIGTCPIPv4 = sync.OnceValue(func() error {
 
 // Probes whether the kernel supports BIG TCP IPv6.
 var HaveBIGTCPIPv6 = sync.OnceValue(func() error {
-	link, err := safenetlink.LinkByName("lo")
+	link, err := netlink.LinkByName("lo")
 	if err != nil {
 		return err
 	}
@@ -822,10 +822,7 @@ var HaveBIGTCPTunnel = sync.OnceValue(func() error {
 		return fmt.Errorf("failed to create a probe GENEVE device: %w", err)
 	}
 
-	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return h.LinkByName(probeNetdev)
-	})
+	link, err := h.LinkByName(probeNetdev)
 	if err != nil {
 		return fmt.Errorf("failed to fetch the probe GENEVE device: %w", err)
 	}
