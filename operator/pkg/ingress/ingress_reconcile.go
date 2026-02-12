@@ -64,6 +64,12 @@ func (r *ingressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Success()
 	}
 
+	// Ensure that any existing EndpointSlice from a previous version gets deleted (dummy ingress endpoints are no longer required)
+	// This can be removed in v1.21
+	if err := r.ensureEndpointSliceDeleted(ctx, types.NamespacedName{Namespace: ingress.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingress.Name)}); err != nil {
+		return controllerruntime.Fail(err)
+	}
+
 	// Ingress is no longer managed by Cilium.
 	// Trying to cleanup resources.
 	if !isCiliumManagedIngress(ctx, r.client, r.logger, *ingress) {
@@ -171,7 +177,6 @@ func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context) e
 func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
 	resources := map[client.Object]types.NamespacedName{
 		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
-		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
 		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name)},
 	}
 
@@ -352,6 +357,27 @@ func (r *ingressReconciler) createOrUpdateService(ctx context.Context, desiredSe
 	}
 
 	r.logger.DebugContext(ctx, fmt.Sprintf("Service %s has been %s", client.ObjectKeyFromObject(svc), result))
+
+	return nil
+}
+
+func (r *ingressReconciler) ensureEndpointSliceDeleted(ctx context.Context, name types.NamespacedName) error {
+	eps := discoveryv1.EndpointSlice{}
+
+	if err := r.client.Get(ctx, name, &eps); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// no longer exists
+			return nil
+		}
+
+		return fmt.Errorf("failed to get existing EndpointSlice (%s): %w", name, err)
+	}
+
+	if err := r.client.Delete(ctx, &eps); err != nil {
+		return fmt.Errorf("failed to delete existing EndpointSlice (%s): %w", name, err)
+	}
+
+	r.logger.DebugContext(ctx, "Successfully deleted EndpointSlice", logfields.Name, name)
 
 	return nil
 }

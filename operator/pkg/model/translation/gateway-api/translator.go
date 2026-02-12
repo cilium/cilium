@@ -24,7 +24,7 @@ import (
 var _ translation.Translator = (*gatewayAPITranslator)(nil)
 
 const (
-	ciliumGatewayPrefix = "cilium-gateway-"
+	CiliumGatewayPrefix = "cilium-gateway-"
 	// Deprecated: owningGatewayLabel will be removed later in favour of gatewayNameLabel
 	owningGatewayLabel = "io.cilium.gateway/owning-gateway"
 	gatewayNameLabel   = "gateway.networking.k8s.io/gateway-name"
@@ -77,7 +77,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	// generatedName is the name of the generated objects.
 	// for Gateways, this is "cilium-gateway-<servicename>"
 	// for GAMMA, this is just "<servicename>"
-	generatedName := ciliumGatewayPrefix + source.Name
+	generatedName := CiliumGatewayPrefix + source.Name
 
 	// TODO: remove this hack
 	if source.Kind == "Service" {
@@ -133,7 +133,7 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 
 	res := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shortener.ShortenK8sResourceName(ciliumGatewayPrefix + owner.Name),
+			Name:      shortener.ShortenK8sResourceName(CiliumGatewayPrefix + owner.Name),
 			Namespace: owner.Namespace,
 			Labels: mergeMap(map[string]string{
 				owningGatewayLabel: shortenName,

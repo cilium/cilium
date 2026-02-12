@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,6 +35,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
+	gwModel "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -59,6 +61,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return controllerruntime.Success()
 		}
 		scopedLog.ErrorContext(ctx, "Unable to get Gateway", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
+
+	// Ensure that any existing EndpointSlice from a previous version gets deleted (dummy ingress endpoints are no longer required)
+	// This can be removed in v1.21
+	if err := r.ensureEndpointSliceDeleted(ctx, types.NamespacedName{Namespace: original.Namespace, Name: shortener.ShortenK8sResourceName(gwModel.CiliumGatewayPrefix + original.Name)}); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to ensure EndpointSlice deleted", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
@@ -269,6 +278,27 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 		return nil
 	})
 	return err
+}
+
+func (r *gammaReconciler) ensureEndpointSliceDeleted(ctx context.Context, name types.NamespacedName) error {
+	eps := discoveryv1.EndpointSlice{}
+
+	if err := r.Client.Get(ctx, name, &eps); err != nil {
+		if k8serrors.IsNotFound(err) {
+			// no longer exists
+			return nil
+		}
+
+		return fmt.Errorf("failed to get existing EndpointSlice (%s): %w", name, err)
+	}
+
+	if err := r.Client.Delete(ctx, &eps); err != nil {
+		return fmt.Errorf("failed to delete existing EndpointSlice (%s): %w", name, err)
+	}
+
+	r.logger.DebugContext(ctx, "Successfully deleted EndpointSlice", logfields.Name, name)
+
+	return nil
 }
 
 func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *ciliumv2.CiliumEnvoyConfig) error {
