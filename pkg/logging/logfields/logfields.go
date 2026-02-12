@@ -1617,8 +1617,6 @@ const (
 
 	Released = "released"
 
-	DNSRulesV2 = "dnsRulesV2"
-
 	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"
 
 	DumpedPolicyMap = "dumpedPolicyMap"

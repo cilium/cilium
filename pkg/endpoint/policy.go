@@ -1238,5 +1238,5 @@ func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
 // setDNSRulesLocked is called when the Endpoint's DNS policy has been updated.
 // endpoint lock must be held.
 func (e *Endpoint) setDNSRulesLocked(rules restore.DNSRules) {
-	e.DNSRulesV2 = rules
+	e.DNSRules = rules
 }
