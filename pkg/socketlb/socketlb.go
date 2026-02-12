@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -36,6 +37,10 @@ const (
 	PostBind6    = "cil_sock6_post_bind"
 	PreBind6     = "cil_sock6_pre_bind"
 	SockRelease  = "cil_sock_release"
+
+	socketPrefix = "bpf_sock"
+	socketObj    = socketPrefix + ".o"
+	socketConfig = socketPrefix + ".json"
 )
 
 var (
@@ -51,20 +56,24 @@ func cgroupLinkPath() string {
 	return filepath.Join(bpf.CiliumPath(), Subsystem, "links/cgroup")
 }
 
+// File to dump the socketlb BPF configuration to.
+var configDumpPath = filepath.Join(option.Config.StateDir, "bpf", socketConfig)
+
 // Enable attaches necessary bpf programs for socketlb based on ciliums config.
 //
 // On restart, Enable can also detach unnecessary programs if specific configuration
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
+func Enable(logger *slog.Logger, reg *registry.MapRegistry,
+	sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
 
-	spec, err := ebpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, "bpf_sock.o"))
+	spec, err := ebpf.LoadCollectionSpec(filepath.Join(option.Config.StateDir, socketObj))
 	if err != nil {
-		return fmt.Errorf("failed to load collection spec for bpf_sock.o: %w", err)
+		return fmt.Errorf("load CollectionSpec: %w", err)
 	}
 
 	cfg := config.NewBPFSock(config.NodeConfig(lnc))
@@ -75,10 +84,12 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	cfg.TunnelPort = lnc.TunnelPort
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
+		MapRegistry: reg,
+		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: cfg,
+		ConfigDumpPath: configDumpPath,
 	})
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {

@@ -103,7 +103,7 @@ type actMetric struct {
 
 type ACT struct {
 	log     *slog.Logger
-	src     act.ActiveConnectionTrackingMap
+	src     act.ACTMap
 	metrics ActiveConnectionTrackingMetrics
 	lbmaps  lbmaps.LBMaps
 
@@ -128,7 +128,7 @@ func NewACT(in struct {
 	Log       *slog.Logger
 	Lifecycle cell.Lifecycle
 	Jobs      job.Group
-	Source    act.ActiveConnectionTrackingMap
+	Source    act.ACTMap
 	Metrics   ActiveConnectionTrackingMetrics
 	LBMaps    lbmaps.LBMaps
 	DB        *statedb.DB
@@ -156,7 +156,7 @@ func NewACT(in struct {
 	return a
 }
 
-func newAct(log *slog.Logger, jg job.Group, src act.ActiveConnectionTrackingMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
+func newAct(log *slog.Logger, jg job.Group, src act.ACTMap, metrics ActiveConnectionTrackingMetrics, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend], opts *option.DaemonConfig) *ACT {
 	tracker := make(map[uint8]map[uint16]*actMetric, len(opts.FixedZoneMapping))
 	for zone := range opts.ReverseFixedZoneMapping {
 		tracker[zone] = make(map[uint16]*actMetric)
@@ -316,7 +316,7 @@ func (a *ACT) update(ctx context.Context) error {
 	start := time.Now()
 	err := a.src.IterateWithCallback(ctx, a.callback)
 	if err != nil {
-		return fmt.Errorf("iterate over %q: %w", act.ActiveConnectionTrackingMapName, err)
+		return fmt.Errorf("iterate over %q: %w", act.ACTMapName, err)
 	}
 	a.metrics.ProcessingTime.Observe(time.Since(start).Seconds())
 	return nil

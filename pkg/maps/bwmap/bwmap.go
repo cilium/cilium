@@ -5,14 +5,12 @@ package bwmap
 
 import (
 	"fmt"
-
-	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
+	"log/slog"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -56,34 +54,31 @@ func (v *EdtInfo) String() string {
 func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }
 
 type throttleMap struct {
-	*bpf.Map
+	m *bpf.Map
 }
 
-// ThrottleMap constructs the cilium_throttle map. Direct use of this
-// outside of this package is solely for cilium-dbg.
-func ThrottleMap() *bpf.Map {
-	return bpf.NewMap(
-		MapName,
-		ebpf.Hash,
-		&EdtId{},
-		&EdtInfo{},
-		MapSize,
-		unix.BPF_F_NO_PREALLOC,
-	)
-}
-
-func newThrottleMap(cfg types.BandwidthConfig, lc cell.Lifecycle) (out bpf.MapOut[throttleMap]) {
-	m := throttleMap{ThrottleMap()}
-	if cfg.EnableBandwidthManager {
-		// Only open the map if bandwidth manager is enabled.
-		lc.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				return m.OpenOrCreate()
-			},
-			OnStop: func(cell.HookContext) error {
-				return m.Close()
-			},
-		})
+func (tm *throttleMap) IsOpen() bool {
+	if tm.m == nil {
+		return false
 	}
-	return bpf.NewMapOut(m)
+
+	return tm.m.IsOpen()
+}
+
+func (tm *throttleMap) NonPrefixedName() string {
+	return strings.TrimPrefix(MapName, metrics.Namespace+"_")
+}
+
+func (tm *throttleMap) MaxEntries() uint32 {
+	if tm.m == nil {
+		return 0
+	}
+
+	return tm.m.MaxEntries()
+}
+
+// ThrottleMap opens an already initialized cilium_throttle map. Direct use of this
+// outside of this package is solely for cilium-dbg.
+func ThrottleMap(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, MapName), &EdtId{}, &EdtInfo{})
 }

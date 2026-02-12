@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/netdev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/subnet"
@@ -39,6 +40,10 @@ var Cell = cell.Module(
 	"BPF Maps",
 
 	cell.Provide(newMapApiHandler),
+
+	// Provides the map spec registry which gets initialized by the specs defined in the datapath which
+	// can then be modified during hive construction and the modified specs used once started.
+	registry.Cell,
 
 	// Provides the auth.Map which contains the authentication state between Cilium security identities.
 	authmap.Cell,
