@@ -27,7 +27,10 @@
  *  #1: scapy object (layer)
  */
 #define BUF_DECL(NAME, ...) \
-	const unsigned char BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME)
+	const unsigned char BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME);	\
+	if (sizeof(BUF(NAME)) > __SCAPY_MAX_BUF) {			\
+		__throw_build_bug();					\
+	} do {} while (0)
 
 static __always_inline
 int scapy_memcmp(const void *a, const void *b, const __u16 len)
