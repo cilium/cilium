@@ -450,7 +450,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		NodeMAC:                  e.nodeMAC,
 		SecurityIdentity:         e.SecurityIdentity,
 		Options:                  e.Options,
-		DNSRules:                 e.DNSRules,
 		DNSRulesV2:               e.DNSRulesV2,
 		DNSHistory:               e.DNSHistory,
 		DNSZombies:               e.DNSZombies,
@@ -545,7 +544,7 @@ type serializableEndpoint struct {
 	Options *option.IntOptions
 
 	// DNSRules is the collection of current DNS rules for this endpoint.
-	DNSRules restore.DNSRules
+	DNSRules restore.DNSRules `json:"omitempty"`
 
 	// DNSRulesV2 is the collection of current DNS rules for this endpoint,
 	// that conform to using V2 of the PortProto key.
@@ -633,7 +632,6 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv4IPAMPool = r.IPv4IPAMPool
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
-	ep.DNSRules = r.DNSRules
 	ep.DNSRulesV2 = r.DNSRulesV2
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies

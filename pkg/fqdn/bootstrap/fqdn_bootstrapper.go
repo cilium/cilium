@@ -91,7 +91,7 @@ func (b *fqdnProxyBootstrapper) RestorationNotify(possibleEndpoints map[uint16]*
 	eps := make([]uint16, 0, len(possibleEndpoints))
 	for _, possibleEP := range possibleEndpoints {
 		// Upgrades from old ciliums have this nil
-		if possibleEP.DNSRules != nil || possibleEP.DNSRulesV2 != nil {
+		if possibleEP.DNSRulesV2 != nil {
 			b.proxy.RestoreRules(possibleEP)
 			eps = append(eps, possibleEP.ID)
 		}

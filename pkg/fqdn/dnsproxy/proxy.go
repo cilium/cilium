@@ -202,20 +202,8 @@ func asIPRule(r *regexp.Regexp, IPs map[restore.RuleIPOrCIDR]struct{}) restore.I
 // and only returns true if a restored rule matches.
 func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortProto, destIP string, name string) bool {
 	ipRules, exists := p.restored[endpointID][destPortProto]
-	if !exists && destPortProto.IsPortV2() {
-		// Check if there is a Version 1 restore.
-		ipRules, exists = p.restored[endpointID][destPortProto.ToV1()]
-		p.logger.Debug(
-			"Checking if restored V1 IP rules exists for endpoint",
-			logfields.EndpointID, endpointID,
-			logfields.Port, destPortProto.Port(),
-			logfields.Protocol, destPortProto.Protocol(),
-			logfields.Exists, exists,
-			logfields.IPRules, ipRules,
-		)
-		if !exists {
-			return false
-		}
+	if !exists {
+		return false
 	}
 
 	dest, err := restore.ParseRuleIPOrCIDR(destIP)
@@ -369,13 +357,8 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	if ep.IsHost() {
 		p.restoredHost = ep
 	}
-	// Use V2 if it is populated, otherwise
-	// use V1.
 	dnsRules := ep.DNSRulesV2
-	if len(dnsRules) == 0 && len(ep.DNSRules) > 0 {
-		dnsRules = ep.DNSRules
-	}
-	restoredRules := make(map[restore.PortProto][]restoredIPRule, len(ep.DNSRules))
+	restoredRules := make(map[restore.PortProto][]restoredIPRule, len(dnsRules))
 	for pp, dnsRule := range dnsRules {
 		ipRules := make([]restoredIPRule, 0, len(dnsRule))
 		for _, ipRule := range dnsRule {
@@ -570,18 +553,6 @@ func (allow perEPAllow) setPortRulesForIDFromUnifiedFormat(cache regexCache, end
 // passed-in endpointID and destPort with setPortRulesForID
 func (allow perEPAllow) getPortRulesForID(logger *slog.Logger, endpointID uint64, destPortProto restore.PortProto) (rules CachedSelectorREEntry, exists bool) {
 	rules, exists = allow[endpointID][destPortProto]
-	if !exists && destPortProto.Protocol() != 0 {
-		rules, exists = allow[endpointID][destPortProto.ToV1()]
-
-		logger.Debug(
-			"Checking for V1 port rule exists for endpoint",
-			logfields.EndpointID, endpointID,
-			logfields.Port, destPortProto.Port(),
-			logfields.Protocol, destPortProto.Protocol(),
-			logfields.Exists, exists,
-			logfields.Rules, rules,
-		)
-	}
 	return
 }
 
