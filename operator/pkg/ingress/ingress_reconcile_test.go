@@ -1171,12 +1171,11 @@ type fakeDedicatedIngressTranslator struct {
 	model *model.Model
 }
 
-func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
+func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	r.model = model
 
 	return &ciliumv2.CiliumEnvoyConfig{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
-		&discoveryv1.EndpointSlice{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		nil
 }
 
