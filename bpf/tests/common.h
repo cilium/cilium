@@ -15,47 +15,6 @@
  */
 #define BPF_TEST
 
-#ifndef ___bpf_concat
-#define ___bpf_concat(a, b) a ## b
-#endif
-#ifndef ___bpf_apply
-#define ___bpf_apply(fn, n) ___bpf_concat(fn, n)
-#endif
-#ifndef ___bpf_nth
-#define ___bpf_nth(_, _1, _2, _3, _4, _5, _6, _7, _8, _9, _a, _b, _c, N, ...) N
-#endif
-#ifndef ___bpf_narg
-#define ___bpf_narg(...) \
-	___bpf_nth(_, ##__VA_ARGS__, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
-#endif
-
-#define __bpf_log_arg0(ptr, arg) do {} while (0)
-#define __bpf_log_arg1(ptr, arg) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; ptr += sizeof(__u64)
-#define __bpf_log_arg2(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg1(ptr, args)
-#define __bpf_log_arg3(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg2(ptr, args)
-#define __bpf_log_arg4(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg3(ptr, args)
-#define __bpf_log_arg5(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg4(ptr, args)
-#define __bpf_log_arg6(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg5(ptr, args)
-#define __bpf_log_arg7(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg6(ptr, args)
-#define __bpf_log_arg8(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg7(ptr, args)
-#define __bpf_log_arg9(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg8(ptr, args)
-#define __bpf_log_arg10(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg9(ptr, args)
-#define __bpf_log_arg11(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg10(ptr, args)
-#define __bpf_log_arg12(ptr, arg, args...) *(ptr++) = MKR_LOG_ARG; *(__u64 *)(ptr) = arg; \
-					  ptr += sizeof(__u64); __bpf_log_arg11(ptr, args)
-#define __bpf_log_arg(ptr, args...) \
-	___bpf_apply(__bpf_log_arg, ___bpf_narg(args))(ptr, args)
-
 /* These values have to stay in sync with the enum */
 /* values in bpf/tests/bpftest/trf.proto */
 #define TEST_ERROR 100
@@ -66,70 +25,52 @@
 /* Max number of cpus to check when doing percpu hash assertions */
 #define NR_CPUS 128
 
-/* Use an array map with 1 key and a large value size as buffer to write results */
-/* into. */
+#define TEST_MAX_LOG_ENTRIES 64
+#define TEST_MAX_BUF_SIZE 256
+
+struct suite_test_result {
+	bool valid;
+	__u8 pad;
+	__u16 n_asserts;
+	char name[TEST_MAX_BUF_SIZE]; /* Test name */
+	int result;
+	__u8 n_logs;
+	__u8 pad2[3];
+	char logs[TEST_MAX_LOG_ENTRIES][TEST_MAX_BUF_SIZE]; /* test logs */
+};
+
+static int __suite_test_cnt;
+static int __suite_result;
+
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__uint(key_size, sizeof(__u32));
-	__uint(value_size, 8192);
+	__uint(value_size, sizeof(struct suite_test_result));
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 1);
-} suite_result_map __section_maps_btf;
+	__uint(max_entries, 32);
+} suite_result_map2 __section_maps_btf;
 
-/* Values for the markers below are derived from this guide: */
-/* https://developers.google.com/protocol-buffers/docs/encoding#structure */
+#define __get_curr_test()						\
+	struct suite_test_result *__curr_test;				\
+	__curr_test = map_lookup_elem(&suite_result_map2,		\
+				      &__suite_test_cnt);		\
+	if (!__curr_test) return TEST_FAIL
 
-#define PROTOBUF_WIRE_TYPE(field, type) ((field) << 3 | (type))
+#define __test_log(fmt, args...)					\
+	if (__curr_test->n_logs < TEST_MAX_LOG_ENTRIES) {		\
+		char *___p = __curr_test->logs[__curr_test->n_logs];	\
+		SNPRINTF(___p, TEST_MAX_BUF_SIZE, fmt, args);		\
+	}								\
+	__curr_test->n_logs++
 
-#define PROTOBUF_VARINT 0
-#define PROTOBUF_FIXED64 1
-#define PROTOBUF_LENGTH_DELIMITED 2
-
-/* message SuiteResult */
-#define MKR_TEST_RESULT PROTOBUF_WIRE_TYPE(1, PROTOBUF_LENGTH_DELIMITED)
-#define MKR_SUITE_LOG	PROTOBUF_WIRE_TYPE(2, PROTOBUF_LENGTH_DELIMITED)
-
-/* message TestResult */
-#define MKR_TEST_NAME	PROTOBUF_WIRE_TYPE(1, PROTOBUF_LENGTH_DELIMITED)
-#define MKR_TEST_STATUS PROTOBUF_WIRE_TYPE(2, PROTOBUF_VARINT)
-#define MKR_TEST_LOG	PROTOBUF_WIRE_TYPE(3, PROTOBUF_LENGTH_DELIMITED)
-
-/* message Log */
-#define MKR_LOG_FMT	PROTOBUF_WIRE_TYPE(1, PROTOBUF_LENGTH_DELIMITED)
-#define MKR_LOG_ARG	PROTOBUF_WIRE_TYPE(2, PROTOBUF_FIXED64)
-
-/* Write a message to the unit log
- *	The conversion specifiers supported by *fmt* are the same as for
- *      bpf_trace_printk(). They are **%d**, **%i**, **%u**, **%x**, **%ld**,
- *      **%li**, **%lu**, **%lx**, **%lld**, **%lli**, **%llu**, **%llx**,
- *      **%p**. No modifier (size of field, padding with zeroes, etc.)
- *      is available
- * Each log message is automatically prefixed with the source file name and
- * line number in the format "file:line: " to help with identifying the exact
- * origin of the log entry in the source code. This information is particularly
- * useful for debugging and tracing test execution flow.
+/**
+ * Write a log message
  */
-#define test_log(fmt, args...)								\
-({											\
-	static const char ____fileline[] = __FILE__ ":" LINE_STRING  ": ";		\
-	static const char ____fmt[] = fmt;						\
-	if (test_result_cursor) {							\
-		*(suite_result_cursor++) = MKR_TEST_LOG;				\
-	} else {									\
-		*(suite_result_cursor++) = MKR_SUITE_LOG;				\
-	}										\
-	*(suite_result_cursor++) = 2 + sizeof(____fileline) - 1 + sizeof(____fmt) +	\
-		___bpf_narg(args) + (___bpf_narg(args) * sizeof(unsigned long long));	\
-	*(suite_result_cursor++) = MKR_LOG_FMT;						\
-	*(suite_result_cursor++) = sizeof(____fileline) - 1 + sizeof(____fmt);		\
-	memcpy(suite_result_cursor, ____fileline, sizeof(____fileline) - 1);		\
-	suite_result_cursor += sizeof(____fileline) - 1;				\
-	memcpy(suite_result_cursor, ____fmt, sizeof(____fmt));				\
-	suite_result_cursor += sizeof(____fmt);						\
-	if (___bpf_narg(args) > 0) {							\
-		__bpf_log_arg(suite_result_cursor, args);				\
-	}										\
-})
+#define test_log(fmt, args...)		\
+	{				\
+		__get_curr_test();	\
+		__test_log(fmt, args);	\
+	} do {} while (0)
 
 /* This is a hack to allow us to convert the integer produced by __LINE__ */
 /* to a string so we can concat it at compile time. */
@@ -137,127 +78,119 @@ struct {
 #define STRINGIZE2(x) #x
 #define LINE_STRING STRINGIZE(__LINE__)
 
+#define __test_set_result(RC) __curr_test->result = RC
+#define __test_set_result_now(RC) __test_set_result(RC); break
+
 /* Mark the current test as failed */
 #define test_fail()				\
-	if (test_result_cursor) {		\
-		*test_result_status = TEST_FAIL;\
-	} else {				\
-		suite_result = TEST_FAIL;	\
-	}					\
+	{					\
+		__get_curr_test();		\
+		__test_set_result(TEST_FAIL);	\
+	} do {} while (0)
 
 /* Mark the current test as failed and exit the current TEST/CHECK */
-#define test_fail_now()				\
-	if (test_result_cursor) {		\
-		*test_result_status = TEST_FAIL;\
-		break;				\
-	} else {				\
-		return TEST_FAIL;		\
-	}
+#define test_fail_now()					\
+	{						\
+		__get_curr_test();			\
+		__test_set_result_now(TEST_FAIL);	\
+	} do {} while (0)
 
 /* Mark the current test as skipped */
-#define test_skip()				\
-	if (test_result_cursor) {		\
-		*test_result_status = TEST_SKIP;\
-	} else {				\
-		suite_result = TEST_SKIP;	\
-	}
+#define test_skip()					\
+	{						\
+		__get_curr_test();			\
+		__test_set_result(TEST_SKIP);		\
+	} do {} while (0)
 
 /* Mark the current test as skipped and exit the current TEST/CHECK */
 #define test_skip_now()					\
-	if (test_result_cursor) {			\
-		*test_result_status = TEST_SKIP;	\
-		break;					\
-	} else {					\
-		return TEST_SKIP;			\
-	}
+	{						\
+		__get_curr_test();			\
+		__test_set_result_now(TEST_SKIP);	\
+	} do {} while (0)
 
 /* Write message to the log and mark current test as failed. */
 #define test_error(fmt, ...)			\
 	{					\
-		test_log(fmt, ##__VA_ARGS__);	\
-		test_fail();			\
+		__get_curr_test();		\
+		__test_log(fmt, ##__VA_ARGS__);	\
+		__test_set_result(TEST_FAIL);	\
 	}
 
 /* Log a message bpf_then fail_now */
-#define test_fatal(fmt, ...)			\
-	{					\
-		test_log(fmt, ##__VA_ARGS__);	\
-		test_fail_now()			\
-	}
+#define test_fatal(fmt, ...)				\
+	{						\
+		__get_curr_test();			\
+		__test_log(fmt, ##__VA_ARGS__);		\
+		__test_set_result_now(TEST_FAIL);	\
+	} do {} while (0)
 
 /* Assert that `cond` is true, fail the rest otherwise */
-#define assert(cond)							\
-	if (!(cond)) {							\
-		test_log("assert failed at " __FILE__ ":" LINE_STRING);	\
-		test_fail_now();					\
-	}
+#define assert(cond)									\
+	{										\
+		__get_curr_test();							\
+		__curr_test->n_asserts++;						\
+		if (!(cond)) {								\
+			__test_log("assert failed at " __FILE__ ":" LINE_STRING);	\
+			__test_set_result_now(TEST_FAIL);				\
+		}									\
+	} do {} while (0)
 
-/* Declare bpf_map_lookup_elem with the test_ prefix to avoid conflicts in the */
-/* future. */
-static void *(*test_bpf_map_lookup_elem)(void *map, const void *key) = (void *)1;
+/**
+ * Initialize a test suite
+ */
+#define test_init()					\
+do {							\
+	{						\
+	__suite_result = TEST_PASS;			\
+	__get_curr_test();				\
+	SNPRINTF(__curr_test->name, TEST_MAX_BUF_SIZE,	\
+		 "test_" __FILE__  ":" LINE_STRING);	\
+	__curr_test->n_logs = 0;			\
+	__curr_test->n_asserts = 0;			\
+	__curr_test->result = TEST_PASS;		\
+	} do {} while (0)
 
-/* Init sets up a number of variables which will be used by other macros. */
-/* - suite_result will be returned from the eBPF program */
-/* - test_result_status is a pointer into the suite_result_map when in a test */
-/* - suite_result_cursor keeps track of where in the suite result we are. */
-/* - test_result_cursor is a pointer to the varint of a test result, used to */
-/*   write the amount of bytes used after a test is done. */
-#define test_init()							  \
-	char suite_result = TEST_PASS;					  \
-	__maybe_unused char *test_result_status = NULL;			  \
-	char *suite_result_cursor;					  \
-	{								  \
-		__u32 __key = 0;						  \
-		suite_result_cursor =					  \
-			test_bpf_map_lookup_elem(&suite_result_map, &__key);\
-		if (!suite_result_cursor) {				  \
-			return TEST_ERROR;				  \
-		}							  \
-	}								  \
-	__maybe_unused char *test_result_cursor = NULL;			  \
-	__maybe_unused __u16 test_result_size;				  \
-	do {
-/* */
-/* Each test is single iteration do-while loop so we can break, to exit the */
-/* test without unique label names and goto's */
-#define TEST(name, body)						   \
-do {									   \
-	*(suite_result_cursor++) = MKR_TEST_RESULT;			   \
-	/* test_result_cursor will stay at test result length varint */    \
-	test_result_cursor = suite_result_cursor;			   \
-	/* Reserve 2 bytes for the varint indicating test result length */ \
-	suite_result_cursor += 2;					   \
-									   \
-	static const char ____name[] = name;				   \
-	*(suite_result_cursor++) = MKR_TEST_NAME;			   \
-	*(suite_result_cursor++) = sizeof(____name);			   \
-	memcpy(suite_result_cursor, ____name, sizeof(____name));	   \
-	suite_result_cursor += sizeof(____name);			   \
-									   \
-	*(suite_result_cursor++) = MKR_TEST_STATUS;			   \
-	test_result_status = suite_result_cursor;			   \
-									   \
-	*test_result_status = TEST_PASS;				   \
-	suite_result_cursor++;						   \
-									   \
-	body								   \
-} while (0);								   \
-/* Write the total size of the test result in bytes as varint */	   \
-test_result_size = (__u16)((long)suite_result_cursor -			   \
-	(long)test_result_cursor) - 2;					   \
-if (test_result_size > 127) {						   \
-	*(test_result_cursor) = (__u8)(test_result_size & 0b01111111) |	   \
-		0b10000000;						   \
-	test_result_size >>= 7;						   \
-	*(test_result_cursor + 1) = (__u8)test_result_size;		   \
-} else {								   \
-	*test_result_cursor = (__u8)(test_result_size) | 0b10000000;	   \
-}									   \
-test_result_cursor = 0;
+#define __test_finish()						\
+} while (0);							\
+	{							\
+		__get_curr_test();				\
+		__suite_test_cnt++;				\
+		__curr_test->valid = true;			\
+		if (__curr_test->result != TEST_PASS)		\
+			__suite_result = __curr_test->result;	\
+	} do {} while (0)
 
-#define test_finish()		\
-	} while (0);		\
-	return suite_result
+#define multi_test_init()			\
+	int __multi_test_rc = TEST_PASS;	\
+	test_init()
+
+/**
+ * Finish test suite
+ */
+#define test_finish() __test_finish(); return __suite_result
+
+#define multi_test_finish() __test_finish(); return __multi_test_rc
+
+/**
+ * TEST() defines an individual test within the test suite
+ * Each test is single iteration do-while loop so we can break,
+ * to exit the test without unique label names and goto's
+ */
+#define TEST(NAME, BODY)							\
+	do {									\
+		test_init();							\
+		{								\
+			__get_curr_test();					\
+			SNPRINTF(__curr_test->name, TEST_MAX_BUF_SIZE, NAME);	\
+		}								\
+		do {								\
+			BODY							\
+		} while (0);							\
+		__test_finish();						\
+		if (__suite_result != TEST_PASS) 				\
+			__multi_test_rc = __suite_result;			\
+	} while (0)
 
 #define PKTGEN(progtype, name) __section(progtype "/test/" name "/pktgen")
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")

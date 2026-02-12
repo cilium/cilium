@@ -215,7 +215,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 
 		entry = map_lookup_elem(&cilium_metrics, &key);
 		if (!entry)
-			test_fatal("metrics entry not found")
+			test_fatal("metrics entry not found");
 
 		__u64 count = 1;
 
@@ -225,13 +225,13 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	l2 = data + sizeof(*status_code);
 
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds")
+		test_fatal("l2 out of bounds");
 
 	if (v4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+		test_fatal("l2 proto hasn't been set to ETH_P_IP");
 
 	if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+		test_fatal("l2 proto hasn't been set to ETH_P_IPV6");
 
 	if (memcmp(l2->h_source, (__u8 *)SRC_MAC, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to source ep's mac");
@@ -241,7 +241,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	 * from our perspective it should stay the same.
 	 */
 	if (memcmp(l2->h_dest, (__u8 *)NODEPORT_MAC, ETH_ALEN) != 0)
-		test_fatal("dst mac has changed")
+		test_fatal("dst mac has changed");
 
 	if (v4) {
 		struct iphdr *l3;
@@ -283,7 +283,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 
 		if (expected_result == CTX_ACT_DROP &&
 		    memcmp((__u8 *)&l3->saddr, &((union v6addr)IPV6_DIRECT_ROUTING), 16) != 0) {
-			test_fatal("src IP was not changed to IPV6_DIRECT_ROUTING")
+			test_fatal("src IP was not changed to IPV6_DIRECT_ROUTING");
 		}
 
 		if (memcmp((__u8 *)&l3->daddr, (__u8 *)DST_IPV6, 16) != 0)
@@ -317,7 +317,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
-		test_fatal("tcp payload was changed")
+		test_fatal("tcp payload was changed");
 
 	test_finish();
 }

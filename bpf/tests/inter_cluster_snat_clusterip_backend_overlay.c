@@ -213,10 +213,10 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the backend router MAC")
+		test_fatal("src MAC is not the backend router MAC");
 
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+		test_fatal("dst MAC is not the backend MAC");
 
 	if (l3->saddr != CLIENT_NODE_IP)
 		test_fatal("src IP has changed");
@@ -306,10 +306,10 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC has changed")
+		test_fatal("src MAC has changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+		test_fatal("dst MAC has changed");
 
 	if (l3->saddr != BACKEND_IP)
 		test_fatal("src IP has changed");
@@ -380,10 +380,10 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the backend router MAC")
+		test_fatal("src MAC is not the backend router MAC");
 
 	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+		test_fatal("dst MAC is not the backend MAC");
 
 	if (l3->saddr != CLIENT_NODE_IP)
 		test_fatal("src IP has changed");

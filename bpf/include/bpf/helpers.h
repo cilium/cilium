@@ -119,3 +119,60 @@ static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx
 static void *BPF_FUNC(ringbuf_reserve, void *ringbuf, __u64 size, __u64 flags);
 static void BPF_FUNC(ringbuf_submit, void *data, __u64 flags);
 static void BPF_FUNC(ringbuf_discard, void *data, __u64 flags);
+
+#ifndef SNPRINTF
+static long (*__snprintf)(char *str, __u32 str_size, const char *fmt, __u64 *data,
+			  __u32 data_len) __maybe_unused =
+			  (void *)BPF_FUNC_snprintf;
+
+#ifndef ___bpf_concat
+# define ___bpf_concat(a, b) a ## b
+#endif
+
+#ifndef ___bpf_apply
+# define ___bpf_apply(fn, n) ___bpf_concat(fn, n)
+#endif
+
+#ifndef ___bpf_nth
+# define ___bpf_nth(_, _1, _2, _3, _4, _5, _6, _7, _8, _9, _a, _b, _c, N, ...) N
+#endif
+
+#ifndef ___bpf_narg
+# define ___bpf_narg(...) \
+	___bpf_nth(_, ##__VA_ARGS__, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+#endif
+
+#define ___fill0(arr, p, x) do {} while (0)
+#define ___fill1(arr, p, x) arr[p] = x
+#define ___fill2(arr, p, x, args...) arr[p] = x; ___fill1(arr, p + 1, args)
+#define ___fill3(arr, p, x, args...) arr[p] = x; ___fill2(arr, p + 1, args)
+#define ___fill4(arr, p, x, args...) arr[p] = x; ___fill3(arr, p + 1, args)
+#define ___fill5(arr, p, x, args...) arr[p] = x; ___fill4(arr, p + 1, args)
+#define ___fill6(arr, p, x, args...) arr[p] = x; ___fill5(arr, p + 1, args)
+#define ___fill7(arr, p, x, args...) arr[p] = x; ___fill6(arr, p + 1, args)
+#define ___fill8(arr, p, x, args...) arr[p] = x; ___fill7(arr, p + 1, args)
+#define ___fill9(arr, p, x, args...) arr[p] = x; ___fill8(arr, p + 1, args)
+#define ___fill10(arr, p, x, args...) arr[p] = x; ___fill9(arr, p + 1, args)
+#define ___fill11(arr, p, x, args...) arr[p] = x; ___fill10(arr, p + 1, args)
+#define ___fill12(arr, p, x, args...) arr[p] = x; ___fill11(arr, p + 1, args)
+#define ___fill(arr, args...) \
+	___bpf_apply(___fill, ___bpf_narg(args))(arr, 0, args)
+
+/*
+ * SNPRINTF wraps the snprintf helper with variadic arguments instead of
+ * an array of u64.
+ */
+#define SNPRINTF(out, out_size, fmt, args...)			\
+({								\
+	static const char ___fmt[] = fmt;			\
+	unsigned long long ___param[___bpf_narg(args)];		\
+								\
+	_Pragma("GCC diagnostic push")				\
+	_Pragma("GCC diagnostic ignored \"-Wint-conversion\"")	\
+	___fill(___param, args);				\
+	_Pragma("GCC diagnostic pop")				\
+								\
+	__snprintf(out, out_size, ___fmt,			\
+		     ___param, sizeof(___param));		\
+})
+#endif /*BPF_SNPRINTF*/

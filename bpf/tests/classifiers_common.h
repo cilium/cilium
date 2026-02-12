@@ -94,7 +94,7 @@ pktgen(struct __ctx_buff *ctx, bool is_ipv4)
 static __always_inline int
 check(struct __ctx_buff *ctx, bool is_ipv4)
 {
-	test_init();
+	multi_test_init();
 
 	adjust_l2(ctx);
 
@@ -130,7 +130,7 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 		obs_point = TRACE_POINT_UNKNOWN;
 		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
-	})
+	});
 
 	/*
 	 * Ensure CLS_FLAG_VXLAN is set with MARK_MAGIC_OVERLAY.
@@ -143,7 +143,7 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 		assert(flags & CLS_FLAG_VXLAN);
-	})
+	});
 
 	/*
 	 * Ensure CLS_FLAG_VXLAN is set with UDP and tunnel_port.
@@ -157,9 +157,9 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 		flags = ctx_classify(ctx, proto, obs_point);
 		L3_DEVICE_CHECK(flags, is_ipv4);
 		assert(flags & CLS_FLAG_VXLAN);
-	})
+	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 PKTGEN("tc", "ctx_classify4")
@@ -195,7 +195,7 @@ compute_capture_len_pktgen(struct __ctx_buff *ctx) {
 CHECK("tc", "compute_capture_len")
 int compute_capture_len_check(struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	enum trace_point obs_point = TRACE_TO_OVERLAY;
 	cls_flags_t flags = CLS_FLAG_NONE;
@@ -209,7 +209,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = 1;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == monitor);
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to ctx_full_len with monitor > ctx_full_len.
@@ -218,7 +218,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = (__u32)(ctx_full_len(ctx) + 1);
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == ctx_full_len(ctx));
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to default trace_payload_len with monitor == 0.
@@ -227,7 +227,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to default trace_payload_len with monitor == 0 and no
@@ -237,7 +237,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to default trace_payload_len with monitor == 0 but invalid
@@ -248,7 +248,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to default trace_payload_len_overlay with monitor == 0
@@ -260,7 +260,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len_overlay));
-	})
+	});
 
 	/*
 	 * Ensure capture length equal to default trace_payload_len_overlay with
@@ -272,7 +272,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		monitor = CONFIG(trace_payload_len);
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len_overlay));
-	})
+	});
 
-	test_finish();
+	multi_test_finish();
 }

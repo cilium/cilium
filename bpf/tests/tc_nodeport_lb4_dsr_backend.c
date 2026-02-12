@@ -215,9 +215,9 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
@@ -229,13 +229,13 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option has changed")
+		test_fatal("type in DSR IP option has changed");
 	if (opt->len != 8)
-		test_fatal("length in DSR IP option has changed")
+		test_fatal("length in DSR IP option has changed");
 	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option has changed")
+		test_fatal("port in DSR IP option has changed");
 	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option has changed")
+		test_fatal("addr in DSR IP option has changed");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -331,9 +331,9 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("dst MAC is not the client MAC");
 
 	if (l3->saddr != FRONTEND_IP)
 		test_fatal("src IP hasn't been RevNATed to frontend IP");
@@ -477,9 +477,9 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP_2)
 		test_fatal("src IP has changed");
@@ -491,13 +491,13 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option has changed")
+		test_fatal("type in DSR IP option has changed");
 	if (opt->len != 8)
-		test_fatal("length in DSR IP option has changed")
+		test_fatal("length in DSR IP option has changed");
 	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option has changed")
+		test_fatal("port in DSR IP option has changed");
 	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option has changed")
+		test_fatal("addr in DSR IP option has changed");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -600,9 +600,9 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("dst MAC is not the client MAC");
 
 	if (l3->saddr != BACKEND_IP)
 		test_fatal("src IP has changed");

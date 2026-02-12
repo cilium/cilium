@@ -73,7 +73,7 @@ static __always_inline int igmpv3_join_packet(struct __ctx_buff *ctx)
 CHECK("tc", "mcast_tests")
 int test1_check(struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	/* test we correctly identify igmp packets */
 	TEST("is_igmp", {
@@ -140,5 +140,7 @@ int test1_check(struct __ctx_buff *ctx)
 			test_fatal("expected 0x22, got %x", type);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

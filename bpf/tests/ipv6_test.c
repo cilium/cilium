@@ -179,9 +179,9 @@ int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 CHECK("xdp", "ipv6")
 int bpf_test(__maybe_unused struct xdp_md *ctx)
 {
-	test_init();
-
 	union v6addr v6;
+
+	multi_test_init();
 
 	TEST("test_ipv6_addr_clear_suffix", {
 		memset(&v6, 0xff, sizeof(v6));
@@ -220,7 +220,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 		assert(bpf_ntohl(v6.p4) == 0x00000000);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 CHECK("tc", "test_ipv6_sol_mc_helpers")
