@@ -21,7 +21,6 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"go4.org/netipx"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -75,7 +74,7 @@ func newOps(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			var err error
-			ops.handle, err = safenetlink.NewHandle(nil)
+			ops.handle, err = netlink.NewHandle()
 			if err != nil {
 				return err
 			}
@@ -346,14 +345,12 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq
 		for key := range ops.persistedKeys {
 			_, _, found := ops.tbl.Get(txn, DesiredRouteTablePrefixIndex.Query(key))
 			if !found {
-				routes, _ := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-					//nolint:forbidigo
-					return ops.handle.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{
-						Table:    int(key.Table),
-						Dst:      netipx.PrefixIPNet(key.Prefix),
-						Priority: int(key.Priority),
-					}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST|netlink.RT_FILTER_PRIORITY)
-				})
+				routes, _ := ops.handle.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{
+					Table:    int(key.Table),
+					Dst:      netipx.PrefixIPNet(key.Prefix),
+					Priority: int(key.Priority),
+				}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST|netlink.RT_FILTER_PRIORITY)
+
 				for _, r := range routes {
 					ops.handle.RouteDel(&r)
 				}

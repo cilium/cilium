@@ -10,7 +10,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -74,7 +73,7 @@ func setupVethPair(defaultLogger *slog.Logger, cfg LinkConfig, sysctl sysctl.Sys
 		return nil, nil, err
 	}
 
-	peer, err := safenetlink.LinkByName(cfg.PeerIfName)
+	peer, err := netlink.LinkByName(cfg.PeerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
 	}

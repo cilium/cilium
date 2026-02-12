@@ -8,13 +8,11 @@ import (
 	"net"
 
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 )
 
 // ReplaceMacAddressWithLinkName replaces the MAC address of the given link
 func ReplaceMacAddressWithLinkName(ifName, macAddress string) error {
-	l, err := safenetlink.LinkByName(ifName)
+	l, err := netlink.LinkByName(ifName)
 	if err != nil {
 		if errors.As(err, &netlink.LinkNotFoundError{}) {
 			return nil
