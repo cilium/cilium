@@ -182,12 +182,11 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 		void *__DATA_END = (void *)(long)(CTX)->data_end;			\
 		__DATA += OFF;								\
 		bool _ok = true;							\
-		__u16 _len = LEN;							\
 											\
 		if (__DATA + (LEN) > __DATA_END) {					\
 			_ok = false;							\
 			test_log("CTX len (%d) - offset (%d) < LEN (%d)",		\
-					 _len + OFF, OFF, LEN);				\
+				 ctx_full_len(CTX), OFF, LEN);				\
 		}									\
 		if ((_BUF_LEN) < (LEN)) {						\
 			_ok = false;							\
