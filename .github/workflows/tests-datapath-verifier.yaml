@@ -85,8 +85,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - kernel: 'rhel8.10'
-            ci-kernel: '54'
+#          Disable until https://github.com/cilium/cilium/issues/44290 is resolved.
+#          - kernel: 'rhel8.10'
+#            ci-kernel: '54'
           - kernel: '5.10'
             ci-kernel: '510'
           - kernel: '5.15'
