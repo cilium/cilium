@@ -453,8 +453,8 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 		return 0;
 
 	hdr->syn = 1;
-	hdr->seq = 123456;
-	hdr->window = 65535;
+	hdr->seq = bpf_htonl(123456);
+	hdr->window = bpf_htons(65535);
 
 	/* In most cases the doff is 5, so a good default if we can't
 	 * calc the actual offset
