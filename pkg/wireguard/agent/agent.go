@@ -265,13 +265,7 @@ func (a *Agent) init() error {
 		return fmt.Errorf("failed to load or generate private key: %w", err)
 	}
 
-	// try to remove any old tun devices created by userspace mode
-	link, _ := safenetlink.LinkByName(types.IfaceName)
-	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
-		_ = netlink.LinkDel(link)
-	}
-
-	link = &netlink.Wireguard{
+	link := &netlink.Wireguard{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: types.IfaceName,
 		},
