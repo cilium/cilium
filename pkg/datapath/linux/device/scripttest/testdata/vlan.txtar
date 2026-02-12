@@ -26,6 +26,8 @@ add-device owner2 eth0.20-updated.yaml
 db/cmp desired-devices desired-device.3.table
 db/cmp devices devices.3.table
 
+hive/stop
+
 -- eth0.10.yaml --
 name: eth0.10
 parentDevice: eth0
