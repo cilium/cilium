@@ -446,6 +446,17 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
 
+      - name: Install AWS Load Balancer Controller
+        if: ${{ matrix.advanced-features == true }}
+        shell: bash
+        run: |
+          helm repo add eks https://aws.github.io/eks-charts
+          helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            --set clusterName=${{ steps.vars.outputs.cluster_name }} \
+            --version 1.14.0
+          kubectl -n kube-system wait --for=condition=Available deployment/aws-load-balancer-controller
+
       - name: Check that AWS leftover iptables chains have been removed
         run: |
           for pod in $(kubectl get po -n kube-system -l app.kubernetes.io/name=cilium-agent -o name); do
