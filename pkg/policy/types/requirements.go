@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Version of k8sLbls.Requirement where the key is pre-parsed and values are stored as a Set optimal
@@ -65,23 +64,25 @@ func (rs Requirements) WriteString(sb *strings.Builder) {
 // requirements equivalent to the selector. These are cached internally in the
 // EndpointSelector to speed up Matches().
 //
-// This validates the labels, which can be expensive (and may fail..)
-// If there's an error, the selector will be nil and the Matches()
-// implementation will refuse to match any labels.
+// NOTE: This method assumes that the provided LabelSelector is already validated.
+// Any failures during conversion are logged and nil requirements are returned.
 func LabelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) Requirements {
+	// Return nil requirements if no selection requirements are present in the selector.
+	if labelSelector == nil || len(labelSelector.MatchLabels)+len(labelSelector.MatchExpressions) == 0 {
+		return nil
+	}
+
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Error(
-			"unable to construct selector in label selector",
+			"Unable to construct selector in label selector",
 			logfields.LogSubsys, "policy-api",
 			logfields.Error, err,
 			logfields.EndpointLabelSelector, labelSelector,
 		)
 		return nil
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 	k8sReqs, selectable := selector.Requirements()
 	if !selectable {

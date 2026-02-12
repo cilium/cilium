@@ -94,6 +94,9 @@ const (
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
+	// LabelReason indicates the reason that triggered the operation.
+	LabelReason = "reason"
+
 	// LabelAttempts is the number of attempts it took to complete the operation
 	LabelAttempts = "attempts"
 
@@ -155,7 +158,7 @@ const (
 	// LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
 
-	// LabelPolicySource is the label used to see the enforcement status
+	// LabelPolicySource is the label used to see the source of policy.
 	LabelPolicySource = "source"
 
 	LabelSource = "source"
@@ -247,6 +250,9 @@ const (
 	LabelReachable          = "reachable"
 	LabelUnreachable        = "unreachable"
 	LabelUnknown            = "unknown"
+
+	LabelValueUpdateOperation = "update"
+	LabelValueDeleteOperation = "delete"
 )
 
 var (
@@ -284,6 +290,10 @@ var (
 	// Endpoint is a function used to collect this metric.
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
+
+	// EndpointComponentStatus is the metric to indicate number of endpoints in particular state of
+	// configured components(BPF, Policy).
+	EndpointComponentStatus = NoOpGaugeVec
 
 	// EndpointDetachedSelectorPolicyTimeStats is tracking the amount of time endpoints have had detached selector
 	// when various updates occur.
@@ -330,6 +340,9 @@ var (
 	// to the policy engine. An incremental update is a newly-learned identity that can be
 	// directly added to policy maps without a full policy recalculation.
 	PolicyIncrementalUpdateDuration = NoOpObserverVec
+
+	// Total number of proxy redirects missing when calculating endpoint policies.
+	PolicyMissingProxyRedirects = NoOpGaugeVec
 
 	// Identity
 
@@ -626,6 +639,7 @@ type LegacyMetrics struct {
 	NodeHealthConnectivityStatus            metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency           metric.Vec[metric.Observer]
 	Endpoint                                metric.GaugeFunc
+	EndpointComponentStatus                 metric.Vec[metric.Gauge]
 	EndpointDetachedSelectorPolicyTimeStats metric.Vec[metric.Observer]
 	EndpointRegenerationTotal               metric.Vec[metric.Counter]
 	EndpointStateCount                      metric.Vec[metric.Gauge]
@@ -637,6 +651,7 @@ type LegacyMetrics struct {
 	PolicyEndpointStatus                    metric.Vec[metric.Gauge]
 	PolicyImplementationDelay               metric.Vec[metric.Observer]
 	PolicyIncrementalUpdateDuration         metric.Vec[metric.Observer]
+	PolicyMissingProxyRedirects             metric.Vec[metric.Gauge]
 	Identity                                metric.Vec[metric.Gauge]
 	IdentityLabelSources                    metric.Vec[metric.Gauge]
 	EventTS                                 metric.Vec[metric.Gauge]
@@ -717,6 +732,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
 
+		EndpointComponentStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_endpoint_component_status",
+			Namespace:  Namespace,
+			Name:       "endpoint_component_status",
+			Help:       "Number of endpoints tagged by different endpoint components type and their status",
+		},
+			[]string{LabelType, LabelStatus},
+		),
+
 		EndpointDetachedSelectorPolicyTimeStats: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_endpoint_detached_selector_policy_time_stats_seconds",
 
@@ -726,18 +750,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Buckets:   prometheus.ExponentialBucketsRange(0.01, 60*10, 10),
 		}, []string{LabelScope}),
 
-		EndpointRegenerationTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
+		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
 
 			Namespace: Namespace,
 			Name:      "endpoint_regenerations_total",
-			Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
-		}, metric.Labels{
-			{
-				Name:   LabelOutcome,
-				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail),
-			},
-		}),
+			Help:      "Count of all endpoint regenerations that have completed, tagged by reason, outcome and error",
+		}, []string{LabelReason, LabelOutcome, LabelError}),
 
 		EndpointStateCount: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_endpoint_state",
@@ -775,8 +794,16 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_change_total",
-			Help:      "Number of policy changes by outcome",
+			Help:      "Number of policy changes by source, operation and outcome",
 		}, metric.Labels{
+			{
+				Name:   LabelPolicySource,
+				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.Directory)),
+			},
+			{
+				Name:   LabelOperation,
+				Values: metric.NewValues(LabelValueUpdateOperation, LabelValueDeleteOperation),
+			},
 			{
 				Name:   LabelOutcome,
 				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
@@ -812,6 +839,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Time between learning about a new identity and it being fully added to all policies.",
 			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
 		}, []string{"scope"}),
+
+		PolicyMissingProxyRedirects: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_policy_missing_proxy_redirects",
+
+			Namespace: Namespace,
+			Name:      "policy_missing_proxy_redirects",
+			Help:      "Total number of proxy redirects missing in endpoint policies",
+		}, []string{}),
 
 		Identity: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_identity",
@@ -1286,6 +1321,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
+	EndpointComponentStatus = lm.EndpointComponentStatus
 	EndpointDetachedSelectorPolicyTimeStats = lm.EndpointDetachedSelectorPolicyTimeStats
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
@@ -1297,6 +1333,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
+	PolicyMissingProxyRedirects = lm.PolicyMissingProxyRedirects
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS

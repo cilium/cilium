@@ -218,7 +218,7 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 					)
 				}
 			}
-			reportCNPChangeMetrics(err)
+			reportCNPChangeMetrics(metrics.LabelValueUpdateOperation, err)
 		}
 		p.synced.Done()
 		// Listen for file add, update, rename and delete
@@ -247,6 +247,7 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 							)
 						}
 					}
+					reportCNPChangeMetrics(metrics.LabelValueUpdateOperation, err)
 				}
 				if event.Op.Has(fsnotify.Remove) || event.Op.Has(fsnotify.Rename) {
 					p.log.Debug("CNP file removed from directory..", logfields.Path, event.Name)
@@ -257,8 +258,8 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 							logfields.Path, event.Name,
 						)
 					}
+					reportCNPChangeMetrics(metrics.LabelValueDeleteOperation, err)
 				}
-				reportCNPChangeMetrics(err)
 			case err := <-watcher.Errors:
 				p.log.Error("Unexpected error thrown by fsnotify watcher when watching policy directory", logfields.Error, err)
 			}
@@ -266,10 +267,10 @@ func (p *policyWatcher) watchDirectory(ctx context.Context) {
 	}()
 }
 
-func reportCNPChangeMetrics(err error) {
+func reportCNPChangeMetrics(op string, err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Directory), op, metrics.LabelValueOutcomeFail).Inc()
 	} else {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Directory), op, metrics.LabelValueOutcomeSuccess).Inc()
 	}
 }

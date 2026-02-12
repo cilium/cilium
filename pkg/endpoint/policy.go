@@ -254,7 +254,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
-		desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
+		desiredRedirects, stats.missingProxyRedirectsCount, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyConfiguration.End(true)
 		datapathRegenCtxt.revertStack.Push(rf)
 
@@ -441,7 +441,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		)
 		e.unlock()
 
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
+		return newRegenerationErrorf(regenerationFailureReasonEndpointStateInvalid, "skipping build due to invalid state: %s", e.state)
 	}
 
 	// Bump priority if higher priority event was skipped.
@@ -468,13 +468,13 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// over to make sure we can start the build from scratch
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("unable to remove old temporary directory: %w", err)
+		return newRegenerationErrorf(regenerationFailureReasonPrepareBuildError, "unable to remove old temporary directory: %w", err)
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
 	if err := os.MkdirAll(tmpDir, 0o777); err != nil {
 		stats.prepareBuild.End(false)
-		return fmt.Errorf("Failed to create endpoint directory: %w", err)
+		return newRegenerationErrorf(regenerationFailureReasonPrepareBuildError, "failed to create endpoint directory: %w", err)
 	}
 
 	stats.prepareBuild.End(true)
@@ -594,13 +594,24 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 	stats := &ctx.Stats
 
 	stats.totalTime.End(success)
+	// Skip sending metrics if the regeneration failed due to Endpoint not being alive.
+	if errors.Is(err, ErrNotAlive) {
+		e.getLogger().Debug("Regeneration failed",
+			logfields.Error, err,
+			logfields.Duration, stats.totalTime.Total())
+		return
+	}
+	defer stats.SendMetrics()
+
+	stats.regenReason = ctx.Reason
+	stats.regenFailureReason = regenerationFailureReasonNone
+
 	stats.success = success
 
 	e.mutex.RLock()
 	stats.endpointID = e.ID
 	stats.policyStatus = e.policyStatus()
 	e.runlock()
-	stats.SendMetrics()
 
 	// Only add fields to the scoped logger if the criteria for logging a message is met, to avoid
 	// the expensive call to 'WithFields'.
@@ -629,12 +640,36 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 			logAttrs = append(logAttrs, logfields.Error, err)
 			scopedLog.Warn("Regeneration of endpoint failed", logAttrs...)
 		}
-		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+
+		var regenErr *regenerationError
+		if errors.As(err, &regenErr) {
+			stats.regenFailureReason = regenErr.GetReason()
+		} else {
+			stats.regenFailureReason = regenerationFailureReasonUnknown
+		}
+
+		e.unconditionalLock()
+		if stats.regenFailureReason.IsPolicyFailure() {
+			// Mark endpoint policy status as Failed if regneration failed due to policy related error.
+			e.logStatusLocked(Policy, Failure, "Policy error during endpoint regeneration: "+err.Error())
+		} else {
+			// Log endpoint policy status as warning if regeneration failed due to non policy error.
+			e.logStatusLocked(Policy, Warning, "Endpoint regeneration failed: "+err.Error())
+		}
+		e.logStatusLocked(BPF, Failure, "Error regenerating endpoint: "+err.Error())
+		e.unlock()
+
 		return
 	}
 
+	statusMsg := fmt.Sprintf("Successfully regenerated endpoint program (Reason: %s)", ctx.Reason)
 	scopedLog.Debug("Completed endpoint regeneration", logAttrs...)
-	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+ctx.Reason+")")
+
+	e.unconditionalLock()
+	e.LogStatusOKLocked(BPF, statusMsg)
+	// Endpoint policy handling is primarily part of endpoint regeneration, log status here.
+	e.LogStatusOKLocked(Policy, statusMsg)
+	e.unlock()
 }
 
 // SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
@@ -643,9 +678,7 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 func (e *Endpoint) SetRegenerateStateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) (bool, error) {
 	regen := false
 	err := e.lockAlive()
-	if err != nil {
-		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
+	if err == nil {
 		regen = e.setRegenerateStateLocked(regenMetadata)
 		e.unlock()
 	}
@@ -663,13 +696,13 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		// regeneration can regenerate on the required level.
 		if regenMetadata.RegenerationLevel > e.skippedRegenerationLevel {
 			e.skippedRegenerationLevel = regenMetadata.RegenerationLevel
-			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration level %s trigger due to %s", regenMetadata.RegenerationLevel.String(), regenMetadata.Reason))
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration level %s trigger due to %s", regenMetadata.RegenerationLevel.String(), regenMetadata.GetRegenerationReason()))
 		} else {
-			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.GetRegenerationReason()))
 		}
 		regen = false
 	default:
-		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.GetRegenerationReason()))
 	}
 	return regen
 }
@@ -725,7 +758,8 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 
 	// Policy change affected this endpoint's identity; queue regeneration
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "policy rules updated",
+		Reason:            regeneration.ReasonPolicyUpdate,
+		Message:           "policy rules updated",
 		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 	regen := e.setRegenerateStateLocked(regenMetadata)
@@ -748,7 +782,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		e.getLogger().Debug(
 			"Endpoint disappeared while queued to be regenerated",
 			logfields.Error, err,
-			logfields.Reason, regenMetadata.Reason,
+			logfields.Reason, regenMetadata.GetRegenerationReason(),
 		)
 	}
 	if regen {
@@ -970,7 +1004,8 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 
 			regenMetadata := &regeneration.ExternalRegenerationMetadata{
 				ParentContext: ctx,
-				Reason:        reasonRegenRetry,
+				Reason:        regeneration.ReasonRegenerationFailure,
+				Message:       reasonRegenRetry,
 				// Completely rewrite the endpoint - we don't know the nature
 				// of the failure, simply that something failed.
 				RegenerationLevel: regeneration.RegenerateWithDatapath,

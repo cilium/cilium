@@ -333,7 +333,8 @@ func unloadDNSPolicies(params daemonParams) {
 		)
 		params.Policy.BumpRevision()
 		regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-			Reason:            "unloading DNS rules on graceful shutdown",
+			Reason:            regeneration.ReasonDaemonConfigUpdate,
+			Message:           "unloading DNS rules on graceful shutdown",
 			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 		}
 		wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
