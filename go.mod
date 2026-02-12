@@ -347,3 +347,5 @@ tool (
 	k8s.io/code-generator/cmd/validation-gen
 	sigs.k8s.io/controller-tools/cmd/controller-gen
 )
+
+replace github.com/vishvananda/netlink v1.3.2-0.20260206161744-ab2b1904dc37 => github.com/ti-mo/vnetlink v0.0.0-20260212102755-2d1169949d3c
