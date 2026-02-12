@@ -11,7 +11,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -135,7 +134,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	setGammaServiceAccepted(svc, true, "Gamma Service has HTTPRoutes attached", CiliumGammaReasonAccepted)
 
-	cec, _, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
+	cec, _, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
@@ -143,11 +142,6 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
-	}
-
-	if err = r.ensureEndpointSlice(ctx, cep); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
 	}
 
@@ -318,18 +312,6 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 	}
 
 	return nil
-}
-
-func (r *gammaReconciler) ensureEndpointSlice(ctx context.Context, desired *discoveryv1.EndpointSlice) error {
-	ep := desired.DeepCopy()
-	_, err := controllerutil.CreateOrPatch(ctx, r.Client, ep, func() error {
-		ep.Endpoints = desired.Endpoints
-		ep.Ports = desired.Ports
-		ep.OwnerReferences = desired.OwnerReferences
-		setMergedLabelsAndAnnotations(ep, desired)
-		return nil
-	})
-	return err
 }
 
 func (r *gammaReconciler) ensureEnvoyConfig(ctx context.Context, desired *ciliumv2.CiliumEnvoyConfig) error {
