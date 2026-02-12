@@ -150,8 +150,8 @@ static __always_inline int validate_packet(const struct __ctx_buff *ctx,
 		assert(l4->source == CLIENT_PORT);
 		assert(l4->dest == dport);
 		assert(l4->syn == 1);
-		assert(l4->seq == 123456);
-		assert(l4->window == 65535);
+		assert(l4->seq == bpf_htonl(123456));
+		assert(l4->window == bpf_htons(65535));
 		assert(l4->doff == 5);
 
 		break;
