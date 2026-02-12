@@ -80,7 +80,10 @@ tcp_svc_one   = 80
 tcp_svc_two   = 443
 tcp_svc_three = 53
 
-default_data = "Should not change!!"
+# Default payload data for tests. Note this includes a trailing
+# NUL-terminating byte for consistency with the C macro. This is
+# to ensure consistency in things like IP checksum values.
+default_data = b"Should not change!!\x00"
 
 # Utility functions
 def v6_get_ns_addr(v6_addr:str) -> str:
