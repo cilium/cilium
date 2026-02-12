@@ -304,6 +304,10 @@ func (c *Client) CreateNamespace(ctx context.Context, namespace *corev1.Namespac
 	return c.Clientset.CoreV1().Namespaces().Create(ctx, namespace, opts)
 }
 
+func (c *Client) UpdateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.UpdateOptions) (*corev1.Namespace, error) {
+	return c.Clientset.CoreV1().Namespaces().Update(ctx, namespace, opts)
+}
+
 func (c *Client) GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error) {
 	return c.Clientset.CoreV1().Namespaces().Get(ctx, namespace, options)
 }
