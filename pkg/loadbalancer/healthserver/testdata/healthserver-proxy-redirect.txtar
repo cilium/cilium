@@ -16,10 +16,8 @@ k8s/add service.yaml
 * http/get http://$HEALTHADDR:$HEALTHPORT healthserver.before
 * cmp healthserver.expected healthserver.before
 
-# Simulate proxy redirection
+# Simulate proxy redirection and verify synthetic endpoint count of 1
 svc/set-proxy-redirect test/echo 1000
-
-# Verify synthetic endpoint count of 1
 * http/get http://$HEALTHADDR:$HEALTHPORT healthserver.after
 * cmp healthserver-proxy.expected healthserver.after
 
