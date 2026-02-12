@@ -973,26 +973,9 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 		clientccnp := ct.clients.src
 		var err error
 
-		namespace, err := clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
-		if err != nil { // Namespace does not exist.
-			namespace = nsConfig.obj
-		}
-		if !ct.Features[features.DefaultGlobalNamespace].Enabled {
-			// Mark the namespace as global to ensure resources under this
-			// namespace are treated as global. This is required for
-			// multi-cluster tests.
-			if namespace.Annotations == nil {
-				namespace.Annotations = make(map[string]string)
-			}
-			namespace.Annotations[annotation.GlobalNamespace] = "true"
-		}
-		if err == nil { // Namespace already exists.
-			_, err = clientccnp.UpdateNamespace(ctx, namespace, metav1.UpdateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to update namespace %s: %w", nsConfig.name, err)
-			}
-		} else {
-			_, err = clientccnp.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
+		_, err = clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
+		if err != nil {
+			_, err = clientccnp.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
 			}
