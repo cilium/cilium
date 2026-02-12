@@ -38,6 +38,10 @@ const (
 	DropNotifyFlagIsVXLAN
 	// DropNotifyFlagIsGeneve is set in DropNotify.Flags when it refers to an overlay Geneve packet.
 	DropNotifyFlagIsGeneve
+	// DropNotifyFlagIsWireGuard is set in DropNotify.Flags when it refers to an WireGuard packet.
+	DropNotifyFlagIsWireGuard
+	// DropNotifyFlagIsIPSec is set in DropNotify.Flags when it refers to an IPSec packet.
+	DropNotifyFlagIsIPSec
 )
 
 var (
@@ -184,6 +188,14 @@ func (n *DropNotify) IsGeneve() bool {
 // IsVXLAN returns true if the trace refers to an overlay VXLAN packet.
 func (n *DropNotify) IsVXLAN() bool {
 	return n.Flags&DropNotifyFlagIsVXLAN != 0
+}
+
+func (n *DropNotify) IsWireGuard() bool {
+	return n.Flags&DropNotifyFlagIsWireGuard != 0
+}
+
+func (n *DropNotify) IsIPSec() bool {
+	return n.Flags&DropNotifyFlagIsIPSec != 0
 }
 
 // DataOffset returns the offset from the beginning of DropNotify where the
