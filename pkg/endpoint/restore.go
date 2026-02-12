@@ -450,7 +450,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		NodeMAC:                  e.nodeMAC,
 		SecurityIdentity:         e.SecurityIdentity,
 		Options:                  e.Options,
-		DNSRulesV2:               e.DNSRulesV2,
+		DNSRules:                 e.DNSRules,
 		DNSHistory:               e.DNSHistory,
 		DNSZombies:               e.DNSZombies,
 		K8sPodName:               e.K8sPodName,
@@ -543,12 +543,14 @@ type serializableEndpoint struct {
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
-	// DNSRules is the collection of current DNS rules for this endpoint.
-	DNSRules restore.DNSRules `json:"omitempty"`
+	// DNSRulesUnused is the legacy V1 collection of DNS rules for this endpoint.
+	// Keep the original JSON key for backwards compatibility.
+	DNSRulesUnused restore.DNSRules `json:"DNSRules,omitempty"`
 
-	// DNSRulesV2 is the collection of current DNS rules for this endpoint,
+	// DNSRules is the collection of current DNS rules for this endpoint,
 	// that conform to using V2 of the PortProto key.
-	DNSRulesV2 restore.DNSRules
+	// Keep the original JSON key for backwards compatibility.
+	DNSRules restore.DNSRules `json:"DNSRulesV2,omitempty"`
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -632,7 +634,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv4IPAMPool = r.IPv4IPAMPool
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
-	ep.DNSRulesV2 = r.DNSRulesV2
+	ep.DNSRules = r.DNSRules
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies
 	ep.K8sPodName = r.K8sPodName

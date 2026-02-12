@@ -357,7 +357,7 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	if ep.IsHost() {
 		p.restoredHost = ep
 	}
-	dnsRules := ep.DNSRulesV2
+	dnsRules := ep.DNSRules
 	restoredRules := make(map[restore.PortProto][]restoredIPRule, len(dnsRules))
 	for pp, dnsRule := range dnsRules {
 		ipRules := make([]restoredIPRule, 0, len(dnsRule))

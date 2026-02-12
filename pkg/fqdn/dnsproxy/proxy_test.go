@@ -901,7 +901,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	ep1.Start(uint16(model.ID))
 	t.Cleanup(ep1.Stop)
 
-	ep1.DNSRulesV2 = restored1
+	ep1.DNSRules = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -953,7 +953,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	ep3.Start(uint16(modelEP3.ID))
 	t.Cleanup(ep3.Stop)
 
-	ep3.DNSRulesV2 = restored3
+	ep3.DNSRules = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
 	require.True(t, exists)
@@ -1043,7 +1043,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not marshal restored rules to json")
 	require.Equal(t, pretty.String(), string(jsn2))
 
-	ep1.DNSRulesV2 = rules
+	ep1.DNSRules = rules
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1167,7 +1167,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
-	ep1.DNSRulesV2 = restored
+	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists := s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1200,7 +1200,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &invalidRePattern}},
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &validRePattern}},
 	)
-	ep1.DNSRulesV2 = restored
+	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)

@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -19,6 +20,7 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	fqdnrestore "github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
@@ -28,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func (s *EndpointSuite) createEndpoints(t testing.TB) ([]*Endpoint, map[uint16]*Endpoint) {
@@ -256,6 +259,30 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 		eps, _ := ReadEPsFromDirNames(b.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
+}
+
+func TestSerializableEndpointUnmarshalDNSRulesV2(t *testing.T) {
+	v1Rules := fqdnrestore.DNSRules{
+		fqdnrestore.PortProto(5353): {},
+	}
+	v2Rules := fqdnrestore.DNSRules{
+		fqdnrestore.MakeV2PortProto(53, u8proto.UDP): {},
+	}
+
+	raw, err := json.Marshal(map[string]any{
+		"DNSRules":   v1Rules,
+		"DNSRulesV2": v2Rules,
+	})
+	require.NoError(t, err)
+
+	var restored serializableEndpoint
+	require.NoError(t, json.Unmarshal(raw, &restored))
+	require.Equal(t, v1Rules, restored.DNSRulesUnused)
+	require.Equal(t, v2Rules, restored.DNSRules)
+
+	ep := &Endpoint{}
+	ep.fromSerializedEndpoint(&restored)
+	require.Equal(t, v2Rules, ep.DNSRules)
 }
 
 func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {

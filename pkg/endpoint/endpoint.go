@@ -298,10 +298,10 @@ type Endpoint struct {
 	// status contains the last n state transitions this endpoint went through
 	status *EndpointStatus
 
-	// DNSRulesV2 is the collection of current endpoint-specific DNS proxy
+	// DNSRules is the collection of current endpoint-specific DNS proxy
 	// rules that conform to using restore.PortProto V2 (that is, they take
 	// protocol into account). These can be restored during Cilium restart.
-	DNSRulesV2 restore.DNSRules
+	DNSRules restore.DNSRules
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -646,7 +646,7 @@ func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue E
 		ifName:             ifName,
 		labels:             labels.NewOpLabels(),
 		Options:            option.NewIntOptions(&EndpointMutableOptionLibrary),
-		DNSRulesV2:         nil,
+		DNSRules:           nil,
 		DNSHistory:         fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:         fqdn.NewDNSZombieMappings(logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:              "",
