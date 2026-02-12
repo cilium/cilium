@@ -50,16 +50,20 @@ func (c mockBigTCP) GetGSOIPv4MaxSize() int {
 	return 65536
 }
 
-func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
-	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+func defaultXDPProgramSpec(name string) *ebpf.ProgramSpec {
+	return &ebpf.ProgramSpec{
 		Type: ebpf.XDP,
 		Name: name,
 		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
+			asm.Mov.Imm(asm.R0, 0).WithSymbol(name),
 			asm.Return(),
 		},
 		License: "Apache-2.0",
-	})
+	}
+}
+
+func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
+	p, err := ebpf.NewProgram(defaultXDPProgramSpec(name))
 	if err != nil {
 		t.Skipf("xdp programs not supported: %s", err)
 	}
