@@ -278,7 +278,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			L3: types.ToSelectors(
 				api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"node.kubernetes.io/hostname":      "node1",
+						"node:kubernetes.io/hostname":      "node1",
 						"k8s:io.cilium.k8s.policy.cluster": clusterName,
 					},
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
