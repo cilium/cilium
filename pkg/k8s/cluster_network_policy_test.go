@@ -149,9 +149,9 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			L3: types.ToSelectors(
 				api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"k8s." + namespaceLabelPrefix + "ns": "from-ns",
-						"k8s.app":                            "from-pod",
-						"k8s.io.cilium.k8s.policy.cluster":   clusterName,
+						"k8s:" + namespaceLabelPrefix + "ns": "from-ns",
+						"k8s:app":                            "from-pod",
+						"k8s:io.cilium.k8s.policy.cluster":   clusterName,
 					},
 				}),
 			),
@@ -279,10 +279,10 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 				api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"node.kubernetes.io/hostname":      "node1",
-						"k8s.io.cilium.k8s.policy.cluster": clusterName,
+						"k8s:io.cilium.k8s.policy.cluster": clusterName,
 					},
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
-						Key:      "reserved.remote-node",
+						Key:      "reserved:remote-node",
 						Operator: "Exists",
 						Values:   []string{},
 					}},
