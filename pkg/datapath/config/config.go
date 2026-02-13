@@ -4,15 +4,15 @@
 package config
 
 import (
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node := *NewNode()
-	node.ClusterIDBits = identity.GetClusterIDBits()
+	node.ClusterIDBits = cmtypes.DefaultClusterInfo.GetClusterIDBits()
 
 	if lnc.ServiceLoopbackIPv4 != nil {
 		node.ServiceLoopbackIPv4 = [4]byte(lnc.ServiceLoopbackIPv4.To4())
