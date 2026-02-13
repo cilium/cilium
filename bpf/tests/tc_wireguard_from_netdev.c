@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define WG_SPI 255
 #define NODE_ID 7
 #define ENABLE_IPV4
 #define ENABLE_IPV6
@@ -13,7 +14,7 @@
 
 #include "lib/bpf_host.h"
 
-#include "lib/node.h"
+#include "lib/ipcache.h"
 #include "scapy.h"
 
 ASSIGN_CONFIG(__u16, wg_port, 51871)
@@ -43,10 +44,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_wireguard_from_netdev")
 int ipv4_not_decrypted_wireguard_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	/* We need to populate the node ID map because we'll lookup into it on
-	 * ingress to validate the source
-	 */
-	node_v4_add_entry(v4_node_one, NODE_ID, 1);
+	ipcache_v4_add_entry_with_flags(v4_node_one, 0, NODE_ID, 0, WG_SPI, false);
 
 	return netdev_receive_packet(ctx);
 }
@@ -100,10 +98,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_wireguard_from_netdev")
 int ipv6_not_decrypted_wireguard_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	/* We need to populate the node ID map because we'll lookup into it on
-	 * ingress to validate the source
-	 */
-	node_v6_add_entry((union v6addr *)v6_node_one, NODE_ID, 1);
+	ipcache_v6_add_entry_with_flags((union v6addr *)v6_node_one, 0, NODE_ID, 0, WG_SPI, false);
 
 	return netdev_receive_packet(ctx);
 }
