@@ -393,7 +393,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 		}
 
 		if annotationsChanged {
-			if annoChangedBandwidth {
+			if annoChangedBandwidth || annoChangedPriority {
 				podEP.UpdateBandwidthPolicy(newK8sPod.Annotations[bandwidth.EgressBandwidth],
 					newK8sPod.Annotations[bandwidth.IngressBandwidth],
 					newK8sPod.Annotations[bandwidth.Priority])
