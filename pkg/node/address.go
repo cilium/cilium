@@ -177,12 +177,11 @@ func setDefaultPrefix(logger *slog.Logger, cfg *option.DaemonConfig, device stri
 
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
-func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
-	n := getLocalNode(logger)
-	if option.Config.EnableIPv4 && n.Local.UnderlayProtocol == tunnel.IPv4 {
-		return n.GetNodeIP(false).String()
+func GetCiliumEndpointNodeIP(localNode LocalNode) string {
+	if option.Config.EnableIPv4 && localNode.Local.UnderlayProtocol == tunnel.IPv4 {
+		return localNode.GetNodeIP(false).String()
 	}
-	return n.GetNodeIP(true).String()
+	return localNode.GetNodeIP(true).String()
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.
@@ -269,18 +268,4 @@ func GetEndpointEncryptKeyIndex(localNode LocalNode, wgEnabled, ipsecEnabled boo
 
 	}
 	return 0
-}
-
-func SetTestLocalNodeStore() {
-	if localNode != nil {
-		panic("localNode already set")
-	}
-
-	// Set the localNode global variable temporarily so that the legacy getters
-	// and setters can access it.
-	localNode = NewTestLocalNodeStore(LocalNode{})
-}
-
-func UnsetTestLocalNodeStore() {
-	localNode = nil
 }
