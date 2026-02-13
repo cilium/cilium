@@ -15,6 +15,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --cluster-name string                          Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --cluster-users-config-path string             The path of the config file with the list of remote cluster users (default "/var/lib/cilium/etcd-config/users.yaml")
       --cluster-users-enabled                        Enable the management of etcd users for remote clusters
+      --clustermesh-default-global-namespace         Mark all namespaces as global by default unless overridden by annotation (default true)
       --clustermesh-enable-mcs-api                   Enable Cluster Mesh MCS-API support
       --clustermesh-mcs-api-install-crds             Install and manage the MCS API CRDs. Only applicable if MCS API support is enabled. (default true)
       --controller-group-metrics strings             List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
