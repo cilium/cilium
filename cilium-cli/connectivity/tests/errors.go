@@ -71,8 +71,8 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn}
 
 	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
-		errorLogExceptions = append(errorLogExceptions, linkNotFound)
-		warningLogExceptions = append(warningLogExceptions, linkNotFound)
+		errorLogExceptions = append(errorLogExceptions, linkNotFound, removeInexistentID)
+		warningLogExceptions = append(warningLogExceptions, linkNotFound, removeInexistentID)
 	}
 
 	// The list is adopted from cilium/cilium/test/helper/utils.go
@@ -422,7 +422,8 @@ const (
 	failedToListCRDs     stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
 	failedToUpdateLock   stringMatcher = "Failed to update lock:"
 	failedToReleaseLock  stringMatcher = "Failed to release lock:"
-	nilDetailsForService stringMatcher = "retrieved nil details for Service" // from: https://github.com/cilium/cilium/issues/35595
+	nilDetailsForService stringMatcher = "retrieved nil details for Service"                    // from: https://github.com/cilium/cilium/issues/35595
+	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
 
 	// warnings
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
