@@ -2,6 +2,8 @@
 /* Copyright Authors of Cilium */
 
 #define WG_SPI 255
+#define NODE1_ID HOST_ID
+#define NODE2_ID REMOTE_NODE_ID
 #define POD1_ID 10000
 #define POD2_ID 20000
 #define ENABLE_IPV4
@@ -118,6 +120,57 @@ int ipv6_plain_pod_to_pod_wireguard_to_netdev_check(const struct __ctx_buff *ctx
 	BUF_DECL(V6_POD_TO_POD_TO_WIREGUARD, v6_overlay_tcp_packet);
 	ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
 			   V6_POD_TO_POD_TO_WIREGUARD, sizeof(BUF(V6_POD_TO_POD_TO_WIREGUARD)));
+
+	test_finish();
+}
+
+/* This test validates that a plain-text node-to-node IPv4 packet going through the
+ * cil_to_netdev hook is being redirected for WireGuard encryption.
+ */
+PKTGEN("tc", "ipv4_plain_node_to_node_wireguard_to_netdev")
+int ipv4_plain_node_to_node_wireguard_to_netdev_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(V4_NODE_TO_NODE_TO_WIREGUARD, v4_wireguard);
+	BUILDER_PUSH_BUF(builder, V4_NODE_TO_NODE_TO_WIREGUARD);
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "ipv4_plain_node_to_node_wireguard_to_netdev")
+int ipv4_plain_node_to_node_wireguard_to_netdev_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v4_add_entry_with_flags(v4_node_one, 0, NODE1_ID, 0, WG_SPI, false);
+	ipcache_v4_add_entry_with_flags(v4_node_two, 0, NODE2_ID, 0, WG_SPI, false);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "ipv4_plain_node_to_node_wireguard_to_netdev")
+int ipv4_plain_node_to_node_wireguard_to_netdev_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	BUF_DECL(V4_NODE_TO_NODE_TO_WIREGUARD, v4_wireguard);
+	ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
+			   V4_NODE_TO_NODE_TO_WIREGUARD, sizeof(BUF(V4_NODE_TO_NODE_TO_WIREGUARD)));
 
 	test_finish();
 }
