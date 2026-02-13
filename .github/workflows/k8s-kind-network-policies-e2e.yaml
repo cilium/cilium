@@ -145,7 +145,7 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@eb32911890466ddec93da63cf83f5bcb2ae23e26 # v0.19.0
+        uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
