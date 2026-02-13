@@ -270,6 +270,7 @@ data:
 
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
   enable-envoy-config: "true"
+  enable-envoy-http3: {{ .Values.envoyConfig.enableHttp3 | quote }}
   envoy-config-retry-interval: {{ include "validateDuration" .Values.envoyConfig.retryInterval | quote }}
   {{- if .Values.envoyConfig.enabled }}
   envoy-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
