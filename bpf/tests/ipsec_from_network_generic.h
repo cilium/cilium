@@ -147,7 +147,7 @@ int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	payload = (void *)l4 + sizeof(struct ip_esp_hdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("paylaod out of bounds\n");
+		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -256,7 +256,7 @@ int ipv6_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	payload = (void *)l4 + sizeof(struct ip_esp_hdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("paylaod out of bounds\n");
+		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -361,12 +361,12 @@ int ipv4_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
-	if (l4->check != bpf_htons(0x589c))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xb83c))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xb83c));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("paylaod out of bounds\n");
+		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -468,12 +468,12 @@ int ipv6_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
-	if (l4->check != bpf_htons(0xdfe3))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x3f84))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3f84));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("paylaod out of bounds\n");
+		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");

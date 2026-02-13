@@ -363,24 +363,28 @@ l3_check:
 
 	if (is_ipv4)
 		if (is_host) {
-			if (l4->check != bpf_htons(0xb1ed))
-				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+			if (l4->check != bpf_htons(0x118e))
+				test_fatal("L4 checksum is invalid: %x != %x",
+					   l4->check, bpf_htons(0x118e));
 		} else {
-			if (l4->check != bpf_htons(0x589c))
-				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+			if (l4->check != bpf_htons(0xb83c))
+				test_fatal("L4 checksum is invalid: %x != %x",
+					   l4->check, bpf_htons(0xb83c));
 		}
 	else
 		if (is_host) {
-			if (l4->check != bpf_htons(0xdfe1))
-				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+			if (l4->check != bpf_htons(0x3f82))
+				test_fatal("L4 checksum is invalid: %x != %x",
+					   l4->check, bpf_htons(0x3f82));
 		} else {
-			if (l4->check != bpf_htons(0xdfe3))
-				test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+			if (l4->check != bpf_htons(0x3f84))
+				test_fatal("L4 checksum is invalid: %x != %x",
+					   l4->check, bpf_htons(0x843f));
 		}
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("paylaod out of bounds\n");
+		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");

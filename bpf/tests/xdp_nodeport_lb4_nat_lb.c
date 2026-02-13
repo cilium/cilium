@@ -198,8 +198,8 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
-	if (l4->check != bpf_htons(0xd7d0))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x3771))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x3771));
 
 	test_finish();
 }
@@ -497,8 +497,8 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port hasn't been RevNATed to client port");
 
-	if (l4->check != bpf_htons(0x01a8))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x6148))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_ntohs(0x6148));
 
 	test_finish();
 }
