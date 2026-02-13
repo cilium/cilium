@@ -1463,6 +1463,8 @@ func (a *Agent) onTimer(ctx context.Context) error {
 }
 
 func NewTestIPsecAgent(tb testing.TB) *Agent {
+	tb.Helper()
+
 	agent := &Agent{
 		log:        hivetest.Logger(tb),
 		localNode:  nil,
@@ -1475,13 +1477,6 @@ func NewTestIPsecAgent(tb testing.TB) *Agent {
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, true),
 	}
-
-	tb.Cleanup(func() {
-		err := agent.DeleteXFRM(AllReqID)
-		if err != nil {
-			tb.Errorf("Failed cleaning XFRM state: %v", err)
-		}
-	})
 
 	return agent
 }
