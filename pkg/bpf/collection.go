@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
@@ -204,6 +206,13 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
 
+	// Handle BPF_F_RDONLY_PROG flag compatibility for pinned maps before loading.
+	// This ensures BPF programs can reuse existing pinned maps during upgrades
+	// where the flag state differs between old and new versions.
+	if err := adjustMapFlagsForUpgrade(logger, spec, &opts.CollectionOptions); err != nil {
+		return nil, nil, fmt.Errorf("adjusting map flags for upgrade: %w", err)
+	}
+
 	if err := renameMaps(spec, opts.MapRenames); err != nil {
 		return nil, nil, err
 	}
@@ -277,6 +286,60 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return commitMapPins(logger, pins)
 	}
 	return coll, commit, nil
+}
+
+// adjustMapFlagsForUpgrade modifies map specs in the CollectionSpec to handle
+// BPF_F_RDONLY_PROG flag compatibility during upgrades. This syncs the flags
+// in the BPF program's map definitions with what's actually pinned on disk.
+func adjustMapFlagsForUpgrade(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *ebpf.CollectionOptions) error {
+	if opts.Maps.PinPath == "" {
+		return nil
+	}
+
+	const bpfFRdonlyProg = unix.BPF_F_RDONLY_PROG
+
+	for name, mapSpec := range spec.Maps {
+		if mapSpec.Pinning == 0 {
+			continue
+		}
+
+		pinPath := path.Join(opts.Maps.PinPath, name)
+
+		existing, err := ebpf.LoadPinnedMap(pinPath, nil)
+		if err != nil {
+			continue
+		}
+
+		info, err := existing.Info()
+		existing.Close()
+		if err != nil {
+			continue
+		}
+
+		existingHasRdonly := (info.Flags & bpfFRdonlyProg) != 0
+		specHasRdonly := (mapSpec.Flags & bpfFRdonlyProg) != 0
+
+		// Upgrade case: spec wants RDONLY but existing doesn't have it.
+		// Remove RDONLY from spec to allow reuse of existing map.
+		if specHasRdonly && !existingHasRdonly {
+			logger.Debug("Removing BPF_F_RDONLY_PROG flag for upgrade compatibility",
+				logfields.BPFMapName, name,
+				logfields.Path, pinPath,
+			)
+			mapSpec.Flags = mapSpec.Flags &^ bpfFRdonlyProg
+		}
+
+		// Upgrade case: existing has RDONLY but spec doesn't want it.
+		// Keep spec as-is since existing map will be reused anyway.
+		if !specHasRdonly && existingHasRdonly {
+			logger.Debug("Existing map has BPF_F_RDONLY_PROG, will reuse",
+				logfields.BPFMapName, name,
+				logfields.Path, pinPath,
+			)
+		}
+	}
+
+	return nil
 }
 
 // renameMaps applies renames to coll.
