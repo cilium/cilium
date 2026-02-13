@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -23,7 +24,7 @@ func Test_decodeKafka(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *flowpb.Layer7_Kafka
+		want ir.Kafka
 	}{
 		{
 			name: "request",
@@ -45,13 +46,11 @@ func Test_decodeKafka(t *testing.T) {
 					},
 				},
 			},
-			want: &flowpb.Layer7_Kafka{
-				Kafka: &flowpb.Kafka{
-					ApiVersion:    2,
-					ApiKey:        "publish",
-					CorrelationId: 3,
-					Topic:         "my-topic",
-				},
+			want: ir.Kafka{
+				APIVersion:    2,
+				APIKey:        "publish",
+				CorrelationId: 3,
+				Topic:         "my-topic",
 			},
 		},
 		{
@@ -74,14 +73,12 @@ func Test_decodeKafka(t *testing.T) {
 					},
 				},
 			},
-			want: &flowpb.Layer7_Kafka{
-				Kafka: &flowpb.Kafka{
-					ErrorCode:     1,
-					ApiVersion:    2,
-					ApiKey:        "publish",
-					CorrelationId: 3,
-					Topic:         "my-topic",
-				},
+			want: ir.Kafka{
+				ErrorCode:     1,
+				APIVersion:    2,
+				APIKey:        "publish",
+				CorrelationId: 3,
+				Topic:         "my-topic",
 			},
 		},
 		{
@@ -101,13 +98,11 @@ func Test_decodeKafka(t *testing.T) {
 					},
 				},
 			},
-			want: &flowpb.Layer7_Kafka{
-				Kafka: &flowpb.Kafka{
-					ErrorCode:     1,
-					ApiVersion:    2,
-					ApiKey:        "publish",
-					CorrelationId: 3,
-				},
+			want: ir.Kafka{
+				ErrorCode:     1,
+				APIVersion:    2,
+				APIKey:        "publish",
+				CorrelationId: 3,
 			},
 		},
 		{
@@ -130,14 +125,12 @@ func Test_decodeKafka(t *testing.T) {
 					},
 				},
 			},
-			want: &flowpb.Layer7_Kafka{
-				Kafka: &flowpb.Kafka{
-					ErrorCode:     1,
-					ApiVersion:    2,
-					ApiKey:        defaults.SensitiveValueRedacted,
-					CorrelationId: 3,
-					Topic:         "my-topic",
-				},
+			want: ir.Kafka{
+				ErrorCode:     1,
+				APIVersion:    2,
+				APIKey:        defaults.SensitiveValueRedacted,
+				CorrelationId: 3,
+				Topic:         "my-topic",
 			},
 		},
 	}
@@ -151,7 +144,7 @@ func Test_decodeKafka(t *testing.T) {
 
 func Test_kafkaSummary(t *testing.T) {
 	type args struct {
-		flow *flowpb.Flow
+		flow *ir.Flow
 	}
 	tests := []struct {
 		name string
@@ -162,17 +155,15 @@ func Test_kafkaSummary(t *testing.T) {
 		{
 			name: "request",
 			args: args{
-				flow: &flowpb.Flow{
-					L7: &flowpb.Layer7{
+				flow: &ir.Flow{
+					L7: ir.Layer7{
 						Type: flowpb.L7FlowType_REQUEST,
-						Record: &flowpb.Layer7_Kafka{
-							Kafka: &flowpb.Kafka{
-								ErrorCode:     1,
-								ApiVersion:    2,
-								ApiKey:        "publish",
-								CorrelationId: 3,
-								Topic:         "my-topic",
-							},
+						Kafka: ir.Kafka{
+							ErrorCode:     1,
+							APIVersion:    2,
+							APIKey:        "publish",
+							CorrelationId: 3,
+							Topic:         "my-topic",
 						},
 					},
 				},
@@ -182,17 +173,15 @@ func Test_kafkaSummary(t *testing.T) {
 		{
 			name: "response",
 			args: args{
-				flow: &flowpb.Flow{
-					L7: &flowpb.Layer7{
+				flow: &ir.Flow{
+					L7: ir.Layer7{
 						Type: flowpb.L7FlowType_RESPONSE,
-						Record: &flowpb.Layer7_Kafka{
-							Kafka: &flowpb.Kafka{
-								ErrorCode:     1,
-								ApiVersion:    2,
-								ApiKey:        "publish",
-								CorrelationId: 3,
-								Topic:         "my-topic",
-							},
+						Kafka: ir.Kafka{
+							ErrorCode:     1,
+							APIVersion:    2,
+							APIKey:        "publish",
+							CorrelationId: 3,
+							Topic:         "my-topic",
 						},
 					},
 				},

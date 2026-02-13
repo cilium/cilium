@@ -101,7 +101,7 @@ func TestFlowTCPFilter(t *testing.T) {
 		{
 			name:   "TCP flow without flags",
 			argsf:  []*flowpb.TCPFlags{{SYN: true}},
-			argsev: nil,
+			argsev: &flowpb.TCPFlags{},
 			want:   false,
 		},
 	}

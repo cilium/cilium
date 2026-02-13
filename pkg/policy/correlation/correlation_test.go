@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -85,9 +86,10 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR := ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	expected := []*flowpb.Policy{
+	expected := []ir.Policy{
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
@@ -102,10 +104,10 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -138,12 +140,14 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
+
+	require.Nil(t, flowIR.EgressAllowedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -189,12 +193,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -211,13 +216,12 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyRevision: 1,
 	}
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
-
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -263,12 +267,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -314,12 +319,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -365,12 +371,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyRevision: 1,
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -425,12 +432,13 @@ func TestCorrelatePolicy(t *testing.T) {
 			return nil, false
 		},
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.EgressAllowedBy)
-	if diff := cmp.Diff(expected, flow.IngressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.EgressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -463,12 +471,13 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	require.Nil(t, flow.EgressAllowedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	require.Nil(t, flow.EgressDeniedBy)
-	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressAllowedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	require.Nil(t, flowIR.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flowIR.IngressDeniedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -526,9 +535,10 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+	flowIR = ir.ProtoToFlow(flow)
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flowIR)
 
-	expected = []*flowpb.Policy{
+	expected = []ir.Policy{
 		{
 			Name: "ccnp",
 			Kind: utils.ResourceTypeCiliumClusterwideNetworkPolicy,
@@ -541,10 +551,10 @@ func TestCorrelatePolicy(t *testing.T) {
 		},
 	}
 
-	require.Nil(t, flow.EgressDeniedBy)
-	require.Nil(t, flow.IngressDeniedBy)
-	require.Nil(t, flow.IngressAllowedBy)
-	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+	require.Nil(t, flowIR.EgressDeniedBy)
+	require.Nil(t, flowIR.IngressDeniedBy)
+	require.Nil(t, flowIR.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flowIR.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }

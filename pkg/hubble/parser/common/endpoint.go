@@ -169,8 +169,10 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 			namespace, podName = meta.Namespace, meta.PodName
 		}
 	}
+
 	var labels []string
 	var clusterName string
+
 	if r.identityGetter != nil {
 		if id, err := r.identityGetter.GetIdentity(numericIdentity); err != nil {
 			r.log.Debug(
