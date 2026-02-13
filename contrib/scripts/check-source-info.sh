@@ -14,6 +14,9 @@ defined_files=$(
 	awk -F: '/@@ source files list begin/{found=1; next}
 	/@@ source files list end/{exit}
 	{if (!found || !/_strcase_/) next}
+	/\/\*/{in_comment=1}
+	/\*\//{in_comment=0; next}
+	{if (in_comment) next}
 	{gsub(/.* |"|\)|;/, "", $1); print $1}
 	' "$source_info_h" | sort -u
 )
@@ -25,7 +28,8 @@ defined_files_go=$(
 	awk '/@@ source files list begin/{found=1; next}
 	{if (!found) next}
 	/@@ source files list end/{exit}
-	{if (!/: /) next}
+	{sub(/[ \t]*\/\/.*/, "")}
+	{if (!/: / || !NF) next}
 	{gsub(/"|,/, "", $2); print $2}
 	' "$api_files_go" | sort -u
 )
