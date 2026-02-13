@@ -26,9 +26,15 @@ func TestNoCompletion(t *testing.T) {
 
 	wg := NewWaitGroup(ctx)
 
+	// Ensure context is not cancelled
+	require.NoError(t, wg.Context().Err())
+
 	// Wait should return immediately, since there are no completions.
 	err = wg.Wait()
 	require.NoError(t, err)
+
+	// Ensure context was cancelled by Wait
+	require.ErrorIs(t, wg.Context().Err(), context.Canceled)
 }
 
 func TestCompletionBeforeWait(t *testing.T) {
@@ -66,6 +72,28 @@ func TestCompletionAfterWait(t *testing.T) {
 	// Wait should block until comp.Complete is called, then return nil.
 	err = wg.Wait()
 	require.NoError(t, err)
+}
+
+func TestCompletionAfterWaitWithCancelledContext(t *testing.T) {
+	var err error
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	wg := NewWaitGroup(ctx)
+
+	comp := wg.AddCompletion()
+
+	wg.Cancel()
+
+	go func() {
+		time.Sleep(CompletionDelay)
+		comp.Complete(nil)
+	}()
+
+	// Wait should block until comp.Complete is called, an error as the context was cancelled
+	err = wg.Wait()
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestCompletionBeforeAndAfterWait(t *testing.T) {
