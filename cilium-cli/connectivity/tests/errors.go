@@ -63,7 +63,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
 		hubbleQueueFull, reflectPanic, svcNotFound, gobgpWarnings,
-		endpointMapDeleteFailed, etcdReconnection, epRestoreMissingState, mutationDetectorKlog,
+		endpointMapDeleteFailed, etcdReconnection, failedToRetrieveRemoteClusterCfg, epRestoreMissingState, mutationDetectorKlog,
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
@@ -426,41 +426,42 @@ const (
 	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
 
 	// warnings
-	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
-	delMissingService           stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
-	podCIDRUnavailable          stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
-	unableGetNode               stringMatcher = "Unable to get node resource"                                            // cf. https://github.com/cilium/cilium/issues/29710
-	sessionAffinitySocketLB     stringMatcher = "Session affinity for host reachable services needs kernel"              // cf. https://github.com/cilium/cilium/issues/29736
-	objectHasBeenModified       stringMatcher = "the object has been modified; please apply your changes"                // cf. https://github.com/cilium/cilium/issues/29712
-	noBackendResponse           stringMatcher = "The kernel does not support --service-no-backend-response=reject"       // cf. https://github.com/cilium/cilium/issues/29733
-	legacyBGPFeature            stringMatcher = "You are using the legacy BGP feature"                                   // Expected when testing the legacy BGP feature.
-	etcdTimeout                 stringMatcher = "etcd client timeout exceeded"                                           // cf. https://github.com/cilium/cilium/issues/29714
-	endpointRestoreFailed       stringMatcher = "Unable to restore endpoint, ignoring"                                   // cf. https://github.com/cilium/cilium/issues/29716
-	unableRestoreRouterIP       stringMatcher = "Unable to restore router IP from filesystem"                            // cf. https://github.com/cilium/cilium/issues/29715
-	routerIPReallocated         stringMatcher = "Router IP could not be re-allocated"                                    // cf. https://github.com/cilium/cilium/issues/29715
-	cantFindIdentityInCache     stringMatcher = "unable to find key in local cache"                                      // cf. https://github.com/cilium/cilium/issues/29732
-	keyAllocFailedFoundMaster   stringMatcher = "Found master key after proceeding with new allocation"                  // cf. https://github.com/cilium/cilium/issues/29738
-	cantRecreateMasterKey       stringMatcher = "unable to re-create missing master key"                                 // cf. https://github.com/cilium/cilium/issues/29738
-	cantUpdateCRDIdentity       stringMatcher = "Unable update CRD identity information with a reference for this node"  // cf. https://github.com/cilium/cilium/issues/29739
-	cantDeleteFromPolicyMap     stringMatcher = "cilium_call_policy: delete: key does not exist"                         // cf. https://github.com/cilium/cilium/issues/29754
-	hubbleQueueFull             stringMatcher = "hubble events queue is full"                                            // Because we run without monitor aggregation
-	reflectPanic                stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"      // cf. https://github.com/cilium/cilium/issues/33766
-	svcNotFound                 stringMatcher = "service not found"                                                      // cf. https://github.com/cilium/cilium/issues/35768
-	gobgpWarnings               stringMatcher = "component=gobgp.BgpServerInstance"                                      // cf. https://github.com/cilium/cilium/issues/35799
-	etcdReconnection            stringMatcher = "Error observed on etcd connection, reconnecting etcd"                   // cf. https://github.com/cilium/cilium/issues/35865
-	epRestoreMissingState       stringMatcher = "Couldn't find state, ignoring endpoint"                                 // cf. https://github.com/cilium/cilium/issues/35869
-	mutationDetectorKlog        stringMatcher = "Mutation detector is enabled, this will result in memory leakage."      // cf. https://github.com/cilium/cilium/issues/35929
-	hubbleFailedCreatePeer      stringMatcher = "Failed to create peer client for peers synchronization"                 // cf. https://github.com/cilium/cilium/issues/35930
-	fqdnDpUpdatesTimeout        stringMatcher = "Timed out waiting for datapath updates of FQDN IP information"          // cf. https://github.com/cilium/cilium/issues/35931
-	longNetpolUpdate            stringMatcher = "onConfigUpdate(): Worker threads took longer than"                      // cf. https://github.com/cilium/cilium/issues/36067
-	failedToGetEpLabels         stringMatcher = "Failed to get identity labels for endpoint"                             // cf. https://github.com/cilium/cilium/issues/36068
-	failedCreategRPCClient      stringMatcher = "Failed to create gRPC client"                                           // cf. https://github.com/cilium/cilium/issues/36070
-	unableReallocateIngressIP   stringMatcher = "unable to re-allocate ingress IPv6"                                     // cf. https://github.com/cilium/cilium/issues/36072
-	fqdnMaxIPPerHostname        stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"            // cf. https://github.com/cilium/cilium/issues/36073
-	failedGetMetricsAPI         stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"      // cf. https://github.com/cilium/cilium/issues/36085
-	ciliumNodeConfigDeprecation stringMatcher = "cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16" // cf. https://github.com/cilium/cilium/issues/37249
-	hubbleUIEnvVarFallback      stringMatcher = "using fallback value for env var"                                       // cf. https://github.com/cilium/hubble-ui/pull/940
-	k8sClientNetworkStatusError stringMatcher = "Network status error received, restarting client connections"           // cf. https://github.com/cilium/cilium/issues/37712
+	cantEnableJIT                    stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
+	delMissingService                stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
+	podCIDRUnavailable               stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
+	unableGetNode                    stringMatcher = "Unable to get node resource"                                            // cf. https://github.com/cilium/cilium/issues/29710
+	sessionAffinitySocketLB          stringMatcher = "Session affinity for host reachable services needs kernel"              // cf. https://github.com/cilium/cilium/issues/29736
+	objectHasBeenModified            stringMatcher = "the object has been modified; please apply your changes"                // cf. https://github.com/cilium/cilium/issues/29712
+	noBackendResponse                stringMatcher = "The kernel does not support --service-no-backend-response=reject"       // cf. https://github.com/cilium/cilium/issues/29733
+	legacyBGPFeature                 stringMatcher = "You are using the legacy BGP feature"                                   // Expected when testing the legacy BGP feature.
+	etcdTimeout                      stringMatcher = "etcd client timeout exceeded"                                           // cf. https://github.com/cilium/cilium/issues/29714
+	endpointRestoreFailed            stringMatcher = "Unable to restore endpoint, ignoring"                                   // cf. https://github.com/cilium/cilium/issues/29716
+	unableRestoreRouterIP            stringMatcher = "Unable to restore router IP from filesystem"                            // cf. https://github.com/cilium/cilium/issues/29715
+	routerIPReallocated              stringMatcher = "Router IP could not be re-allocated"                                    // cf. https://github.com/cilium/cilium/issues/29715
+	cantFindIdentityInCache          stringMatcher = "unable to find key in local cache"                                      // cf. https://github.com/cilium/cilium/issues/29732
+	keyAllocFailedFoundMaster        stringMatcher = "Found master key after proceeding with new allocation"                  // cf. https://github.com/cilium/cilium/issues/29738
+	cantRecreateMasterKey            stringMatcher = "unable to re-create missing master key"                                 // cf. https://github.com/cilium/cilium/issues/29738
+	cantUpdateCRDIdentity            stringMatcher = "Unable update CRD identity information with a reference for this node"  // cf. https://github.com/cilium/cilium/issues/29739
+	cantDeleteFromPolicyMap          stringMatcher = "cilium_call_policy: delete: key does not exist"                         // cf. https://github.com/cilium/cilium/issues/29754
+	hubbleQueueFull                  stringMatcher = "hubble events queue is full"                                            // Because we run without monitor aggregation
+	reflectPanic                     stringMatcher = "reflect.Value.SetUint using value obtained using unexported field"      // cf. https://github.com/cilium/cilium/issues/33766
+	svcNotFound                      stringMatcher = "service not found"                                                      // cf. https://github.com/cilium/cilium/issues/35768
+	gobgpWarnings                    stringMatcher = "component=gobgp.BgpServerInstance"                                      // cf. https://github.com/cilium/cilium/issues/35799
+	etcdReconnection                 stringMatcher = "Error observed on etcd connection, reconnecting etcd"                   // cf. https://github.com/cilium/cilium/issues/35865
+	failedToRetrieveRemoteClusterCfg stringMatcher = "failed to retrieve cluster configuration: not found"                    // Possible race condition in KVStoreMesh mode
+	epRestoreMissingState            stringMatcher = "Couldn't find state, ignoring endpoint"                                 // cf. https://github.com/cilium/cilium/issues/35869
+	mutationDetectorKlog             stringMatcher = "Mutation detector is enabled, this will result in memory leakage."      // cf. https://github.com/cilium/cilium/issues/35929
+	hubbleFailedCreatePeer           stringMatcher = "Failed to create peer client for peers synchronization"                 // cf. https://github.com/cilium/cilium/issues/35930
+	fqdnDpUpdatesTimeout             stringMatcher = "Timed out waiting for datapath updates of FQDN IP information"          // cf. https://github.com/cilium/cilium/issues/35931
+	longNetpolUpdate                 stringMatcher = "onConfigUpdate(): Worker threads took longer than"                      // cf. https://github.com/cilium/cilium/issues/36067
+	failedToGetEpLabels              stringMatcher = "Failed to get identity labels for endpoint"                             // cf. https://github.com/cilium/cilium/issues/36068
+	failedCreategRPCClient           stringMatcher = "Failed to create gRPC client"                                           // cf. https://github.com/cilium/cilium/issues/36070
+	unableReallocateIngressIP        stringMatcher = "unable to re-allocate ingress IPv6"                                     // cf. https://github.com/cilium/cilium/issues/36072
+	fqdnMaxIPPerHostname             stringMatcher = "Raise tofqdns-endpoint-max-ip-per-hostname to mitigate this"            // cf. https://github.com/cilium/cilium/issues/36073
+	failedGetMetricsAPI              stringMatcher = "retrieve the complete list of server APIs: metrics.k8s.io/v1beta1"      // cf. https://github.com/cilium/cilium/issues/36085
+	ciliumNodeConfigDeprecation      stringMatcher = "cilium.io/v2alpha1 CiliumNodeConfig will be deprecated in cilium v1.16" // cf. https://github.com/cilium/cilium/issues/37249
+	hubbleUIEnvVarFallback           stringMatcher = "using fallback value for env var"                                       // cf. https://github.com/cilium/hubble-ui/pull/940
+	k8sClientNetworkStatusError      stringMatcher = "Network status error received, restarting client connections"           // cf. https://github.com/cilium/cilium/issues/37712
 
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
