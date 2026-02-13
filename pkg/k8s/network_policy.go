@@ -74,6 +74,40 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 	return false
 }
 
+func processNamespaceSelector(ns *slim_metav1.LabelSelector) *slim_metav1.LabelSelector {
+	namespaceSelector := &slim_metav1.LabelSelector{
+		MatchLabels: make(map[string]string, len(ns.MatchLabels)),
+	}
+	// We use our own special label prefix for namespace metadata,
+	// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+	for k, v := range ns.MatchLabels {
+		namespaceSelector.MatchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
+	}
+
+	// We use our own special label prefix for namespace metadata,
+	// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+	for _, matchExp := range ns.MatchExpressions {
+		lsr := slim_metav1.LabelSelectorRequirement{
+			Key:      policy.JoinPath(k8sConst.PodNamespaceMetaLabels, matchExp.Key),
+			Operator: matchExp.Operator,
+		}
+		if matchExp.Values != nil {
+			lsr.Values = make([]string, len(matchExp.Values))
+			copy(lsr.Values, matchExp.Values)
+		}
+		namespaceSelector.MatchExpressions =
+			append(namespaceSelector.MatchExpressions, lsr)
+	}
+
+	// Empty namespace selector selects all namespaces (i.e., a namespace
+	// label exists).
+	if len(namespaceSelector.MatchLabels) == 0 && len(namespaceSelector.MatchExpressions) == 0 {
+		namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
+	}
+
+	return namespaceSelector
+}
+
 func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
 	if peer == nil {
 		return nil
@@ -95,36 +129,7 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 	}
 
 	if peer.NamespaceSelector != nil {
-		namespaceSelector := &slim_metav1.LabelSelector{
-			MatchLabels: make(map[string]string, len(peer.NamespaceSelector.MatchLabels)),
-		}
-		// We use our own special label prefix for namespace metadata,
-		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-		for k, v := range peer.NamespaceSelector.MatchLabels {
-			namespaceSelector.MatchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
-		}
-
-		// We use our own special label prefix for namespace metadata,
-		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-		for _, matchExp := range peer.NamespaceSelector.MatchExpressions {
-			lsr := slim_metav1.LabelSelectorRequirement{
-				Key:      policy.JoinPath(k8sConst.PodNamespaceMetaLabels, matchExp.Key),
-				Operator: matchExp.Operator,
-			}
-			if matchExp.Values != nil {
-				lsr.Values = make([]string, len(matchExp.Values))
-				copy(lsr.Values, matchExp.Values)
-			}
-			namespaceSelector.MatchExpressions =
-				append(namespaceSelector.MatchExpressions, lsr)
-		}
-
-		// Empty namespace selector selects all namespaces (i.e., a namespace
-		// label exists).
-		if len(namespaceSelector.MatchLabels) == 0 && len(namespaceSelector.MatchExpressions) == 0 {
-			namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
-		}
-
+		namespaceSelector := processNamespaceSelector(peer.NamespaceSelector)
 		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
 		return types.NewLabelSelector(es)
 	} else if podSelector != nil {
@@ -159,7 +164,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 		fromRules := types.PolicyEntries{}
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
-				ingress := &types.PolicyEntry{Ingress: true}
+				ingress := &types.PolicyEntry{Ingress: true, Tier: types.Normal}
 				endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 				if endpointSelector != nil {
@@ -182,7 +187,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			ingress := &types.PolicyEntry{Ingress: true}
+			ingress := &types.PolicyEntry{Ingress: true, Tier: types.Normal}
 			ingress.L3 = append(ingress.L3, types.WildcardSelector)
 
 			fromRules = append(fromRules, ingress)
@@ -207,7 +212,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				egress := &types.PolicyEntry{Ingress: false}
+				egress := &types.PolicyEntry{Ingress: false, Tier: types.Normal}
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
 					endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
@@ -231,7 +236,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
-			egress := &types.PolicyEntry{Ingress: false}
+			egress := &types.PolicyEntry{Ingress: false, Tier: types.Normal}
 			egress.L3 = append(egress.L3, types.WildcardSelector)
 
 			toRules = append(toRules, egress)
@@ -261,7 +266,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	if len(ingresses) == 0 &&
 		(hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeIngress) ||
 			!hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress)) {
-		ingresses = types.PolicyEntries{{Ingress: true}}
+		ingresses = types.PolicyEntries{{Ingress: true, Tier: types.Normal}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
@@ -270,7 +275,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	//  policyTypes:
 	//	  - Egress
 	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress) {
-		egresses = types.PolicyEntries{{Ingress: false}}
+		egresses = types.PolicyEntries{{Ingress: false, Tier: types.Normal}}
 	}
 
 	podSelector := parsePodSelector(&np.Spec.PodSelector, namespace)

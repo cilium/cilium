@@ -2968,6 +2968,10 @@
      - The sustained request rate in requests per second.
      - int
      - 10
+   * - :spelling:ignore:`k8sClusterNetworkPolicy.enabled`
+     - Enable support for K8s Cluster Network Policy
+     - bool
+     - ``false``
    * - :spelling:ignore:`k8sNetworkPolicy.enabled`
      - Enable support for K8s NetworkPolicy
      - bool

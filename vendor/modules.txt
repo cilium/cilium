@@ -2895,6 +2895,21 @@ sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
 # sigs.k8s.io/mcs-api/controllers v0.0.0-20251224112231-f4767b9e5a04
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
+# sigs.k8s.io/network-policy-api v0.1.8-0.20260210204401-3114036249b0
+## explicit; go 1.24.0
+sigs.k8s.io/network-policy-api/apis/v1alpha1
+sigs.k8s.io/network-policy-api/apis/v1alpha2
+sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration
+sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha1
+sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha2
+sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/internal
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/fake
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/scheme
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2
+sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2/fake
 # sigs.k8s.io/randfill v1.0.0
 ## explicit; go 1.18
 sigs.k8s.io/randfill
