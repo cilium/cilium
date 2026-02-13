@@ -159,6 +159,9 @@ const (
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
+	// LabelSourceNodeKeyPrefix is the source of node labels as k8s selector key prefix
+	LabelSourceNodeKeyPrefix = LabelSourceNode + SourceDelimiter
+
 	// LabelSourceFQDN is the label source for IPs resolved by fqdn lookups
 	LabelSourceFQDN = "fqdn"
 
