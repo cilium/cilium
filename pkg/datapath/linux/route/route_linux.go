@@ -205,7 +205,7 @@ func replaceNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) (
 
 // deleteNexthopRoute deletes
 func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) error {
-	if err := netlink.RouteDel(createNexthopRoute(route, link, routerNet)); err != nil {
+	if err := safenetlink.RouteDel(createNexthopRoute(route, link, routerNet)); err != nil {
 		return fmt.Errorf("unable to delete L2 nexthop route: %w", err)
 	}
 
@@ -290,8 +290,9 @@ func Upsert(logger *slog.Logger, route Route) error {
 	return nil
 }
 
-// Delete deletes a Linux route. An error is returned if the route does not
-// exist or if the route could not be deleted.
+// Delete deletes a Linux route. An error is returned if the route could not
+// be deleted. If the route does not exist (ESRCH or ENOENT), no error is
+// returned since the desired state (route gone) is already achieved.
 func Delete(route Route) error {
 	link, err := safenetlink.LinkByName(route.Device)
 	if err != nil {
@@ -320,7 +321,7 @@ func Delete(route Route) error {
 		}
 	}
 
-	if err := netlink.RouteDel(&routeSpec); err != nil {
+	if err := safenetlink.RouteDel(&routeSpec); err != nil {
 		return err
 	}
 
@@ -547,7 +548,7 @@ func DeleteRouteTable(table, family int) error {
 
 	routeErr = nil
 	for _, route := range routes {
-		err := netlink.RouteDel(&route)
+		err := safenetlink.RouteDel(&route)
 		if err != nil {
 			routeErr = fmt.Errorf("%w: Failed to delete route: %w", routeErr, err)
 		}
