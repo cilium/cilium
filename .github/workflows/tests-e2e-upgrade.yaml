@@ -187,9 +187,9 @@ jobs:
   setup-and-test:
     needs: [wait-for-images, generate-matrix]
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
-    name: 'Setup & Test'
+    name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }})'
     env:
-      job_name: 'Setup & Test'
+      job_name: 'Setup & Test (${{ matrix.name }}, ${{ matrix.mode }})'
     strategy:
       fail-fast: false
       max-parallel: 100
@@ -618,7 +618,7 @@ jobs:
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before cilium-agent restart"
-          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before agent restart"
+          json-filename: "${{ env.job_name }} - before agent restart"
 
       - name: Setup conn-disrupt-test before restarting
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
@@ -653,7 +653,7 @@ jobs:
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested before downgrade"
-          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
+          json-filename: "${{ env.job_name }} - before downgrade"
 
       - name: Setup conn-disrupt-test before downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
@@ -735,7 +735,7 @@ jobs:
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
-          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - after downgrade"
+          json-filename: "${{ env.job_name }} - after downgrade"
 
       - name: Fetch artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
