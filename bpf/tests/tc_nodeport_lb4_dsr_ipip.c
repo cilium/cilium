@@ -182,8 +182,8 @@ int nodeport_dsr_ipip_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("src port has changed");
 	if (l4->dest != FRONTEND_PORT)
 		test_fatal("dst port has changed");
-	if (l4->check != bpf_htons(0x01a8))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x6148))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6148));
 
 	tunnel_key = map_lookup_elem(&tunnel_key_map, &key);
 	if (!tunnel_key)
