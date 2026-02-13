@@ -181,7 +181,6 @@ annotations:
       displayName: Cilium Network Driver Cluster Config
       description: |
         CiliumNetworkDriverClusterConfig defines a configuration for the Cilium Network Driver module.
-        CiliumNetworkDriverConfig defines a configuration for the Cilium Network Driver module.
     - kind: CiliumResourceIPPool
       version: v2alpha1
       name: ciliumresourceippools.cilium.io
