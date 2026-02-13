@@ -59,7 +59,7 @@ func TestUpdateGatewayAPI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{
 				EnableGatewayAPI: tt.enableGatewayAPI,
 			}
@@ -94,7 +94,7 @@ func TestUpdateIngressControllerEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -129,7 +129,7 @@ func TestUpdateLBIPAMEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -164,7 +164,7 @@ func TestUpdateLoadBalancerL7(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -199,7 +199,7 @@ func TestUpdateNodeIPAMEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, false)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -216,18 +216,28 @@ func TestUpdateNodeIPAMEnabled(t *testing.T) {
 
 func TestUpdateKubernetesVersion(t *testing.T) {
 	tests := []struct {
-		name     string
-		expected float64
+		name           string
+		withEnvVersion bool
+		enabled        bool
+		expected       float64
 	}{
 		{
-			name:     "Kubernetes version metric",
-			expected: 1,
+			name:           "Kubernetes version metric withEnvVersion=true",
+			withEnvVersion: true,
+			enabled:        true,
+			expected:       1,
+		},
+		{
+			name:           "Kubernetes version metric withEnvVersion=false",
+			withEnvVersion: false,
+			enabled:        false,
+			expected:       0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true)
+			metrics := NewMetrics(true, tt.withEnvVersion)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -236,11 +246,12 @@ func TestUpdateKubernetesVersion(t *testing.T) {
 
 			metrics.update(params, config)
 
-			counter, err := metrics.CPKubernetesVersion.GetMetricWithLabelValues("1.31.0")
+			counter, err := metrics.CPKubernetesVersion.GetMetricWithLabelValues(params.K8sVersion())
 			assert.NoError(t, err)
+			assert.Equal(t, tt.enabled, counter.IsEnabled())
 
 			counterValue := counter.Get()
-			assert.Equal(t, float64(1), counterValue, "Expected version %s to be incremented", "1.31.0")
+			assert.Equal(t, tt.expected, counterValue, "Expected version %s to be %f", params.K8sVersion(), tt.expected)
 		})
 	}
 }

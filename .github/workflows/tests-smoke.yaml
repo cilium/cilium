@@ -179,7 +179,15 @@ jobs:
              --helm-set operator.prometheus.tls.server.mtls.enabled=true \
              --helm-set hubble.enabled=true \
              --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
-             --helm-set ingressController.enabled=true"
+             --helm-set ingressController.enabled=true \
+             --set-string extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string extraEnv[3].value=true \
+             --set-string operator.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string operator.extraEnv[3].value=true \
+             --set-string clustermesh.apiserver.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string clustermesh.apiserver.extraEnv[3].value=true \
+             --set-string hubble.relay.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string hubble.relay.extraEnv[3].value=true"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
@@ -264,8 +272,8 @@ jobs:
              --metrics-prefix cilium_operator_feature \
              --metrics-separators adv_connect_and_lb \
              > Documentation/observability/feature-metrics-operator.txt
-          if ! git diff; then
-            echo "Feature documentation metrics out-of-sync"
+          if ! git diff --quiet; then
+            echo "Feature metrics documentation out-of-sync"
             exit 1
           fi
 
