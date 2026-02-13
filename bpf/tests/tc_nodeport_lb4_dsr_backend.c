@@ -243,8 +243,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0xd7d0))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x3771))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -350,8 +350,8 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x01a9))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x6149))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6149));
 
 	test_finish();
 }
@@ -505,8 +505,8 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0xcccf))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x2c70))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
 
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *ct_entry;
@@ -619,8 +619,8 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0xcccf))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x2c70))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
 
 	test_finish();
 }
