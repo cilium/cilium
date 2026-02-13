@@ -227,8 +227,11 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 			m.HTTP = append(m.HTTP, ingestion.Ingress(r.logger, item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 		}
 	}
-
-	return r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
+	cec, err := r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
+	if len(cec.Spec.Services) > 0 {
+		cec.Spec.Services[0].Ports = append(cec.Spec.Services[0].Ports, 443)
+	}
+	return cec, err
 }
 
 func (r *ingressReconciler) getSharedListenerPorts() (uint32, uint32, uint32) {
