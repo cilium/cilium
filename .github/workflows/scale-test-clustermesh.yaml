@@ -299,8 +299,8 @@ jobs:
           helm install cmapisrv-mock \
             ./scaffolding/cmapisrv-mock/deploy/cmapisrv-mock \
             --namespace kube-system \
-            --set image.repository=quay.io/cilium/cmapisrv-mock \
-            --set image.tag=${{ env.cmapisrv_mock_ref }} \
+            --set image.repository=docker.io/giorio94/cmapisrv-mock \
+            --set image.tag=fd7192ff895c919ff332f200b3d0407346a3d9af \
             --set nodeSelector.node-role\\.kubernetes\\.io/control-plane= \
             --set tolerations[0].key=node-role.kubernetes.io/control-plane \
             --set tolerations[0].operator=Exists \
