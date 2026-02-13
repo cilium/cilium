@@ -23,3 +23,16 @@ v4_overlay_tcp_packet_rewritten = (
     IP(src=v4_pod_one, dst=v4_pod_two, ttl=63) /
     TCP(sport=tcp_src_one, dport=tcp_dst_one)
 )
+
+# Same as above but for IPv6
+v6_overlay_tcp_packet = (
+    Ether(dst=mac_two, src=mac_one) /
+    IPv6(src=v6_pod_one, dst=v6_pod_two) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one)
+)
+
+v6_overlay_tcp_packet_rewritten = (
+    Ether(dst=mac_three, src=mac_four) /
+    IPv6(src=v6_pod_one, dst=v6_pod_two, hlim=63) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one)
+)
