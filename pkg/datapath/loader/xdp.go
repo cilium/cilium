@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -103,7 +102,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		logger.Warn("Failed to list links for XDP unload",
 			logfields.Error, err,
@@ -163,7 +162,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return err
 	}
 
-	iface, err := safenetlink.LinkByName(xdpDev)
+	iface, err := netlink.LinkByName(xdpDev)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
@@ -333,7 +332,7 @@ func attachXDPProgram(logger *slog.Logger, iface netlink.Link, prog *ebpf.Progra
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
 func DetachXDP(ifaceName string, bpffsBase, progName string) error {
-	iface, err := safenetlink.LinkByName(ifaceName)
+	iface, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("getting link '%s' by name: %w", ifaceName, err)
 	}

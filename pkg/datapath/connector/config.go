@@ -12,7 +12,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -71,7 +70,7 @@ func (cc *ConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.Sysct
 }
 
 func (cc *ConnectorConfig) GetLinkCompatibility(ifName string) (types.ConnectorMode, bool, error) {
-	link, err := safenetlink.LinkByName(ifName)
+	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return types.ConnectorModeUnspec, false, err
 	}

@@ -541,8 +541,11 @@ func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, erro
 // it finishes iteration so the callback must not call back into
 // the netlink API.
 func (req *NetlinkRequest) ExecuteIter(sockType int, resType uint16, f func(msg []byte) bool) error {
+	const maxRetries = 10
+
 	var (
 		s   *NetlinkSocket
+		i   uint8
 		err error
 	)
 
@@ -577,6 +580,7 @@ func (req *NetlinkRequest) ExecuteIter(sockType int, resType uint16, f func(msg 
 		defer s.Unlock()
 	}
 
+retry:
 	if err := s.Send(req); err != nil {
 		return err
 	}
@@ -672,7 +676,14 @@ done:
 		}
 	}
 	if dumpIntr {
-		return ErrDumpInterrupted
+		// Dump results may be incomplete if the kernel sets NLM_F_DUMP_INTR. Retry
+		// the request a limited number of times and give up if the dataset doesn't
+		// settle.
+		i++
+		if i >= maxRetries {
+			return fmt.Errorf("dump interrupted %d times: %w", i, ErrDumpInterrupted)
+		}
+		goto retry
 	}
 	return nil
 }

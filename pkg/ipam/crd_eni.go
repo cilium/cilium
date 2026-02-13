@@ -14,7 +14,6 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -166,7 +165,7 @@ const (
 
 func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMac linkMap, err error) {
 	for try := range waitForNetlinkDevicesMaxTries {
-		links, err := safenetlink.LinkList()
+		links, err := netlink.LinkList()
 		if err != nil {
 			logger.Warn("failed to obtain eni link list - retrying", logfields.Error, err)
 		} else {

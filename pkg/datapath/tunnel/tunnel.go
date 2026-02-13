@@ -9,9 +9,9 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"github.com/vishvananda/netlink"
 
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -220,7 +220,7 @@ func (cfg Config) DeviceBufferMargins() (uint16, uint16, error) {
 		return 0, 0, nil
 	}
 
-	tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
+	tunnelDev, err := netlink.LinkByName(cfg.DeviceName())
 	if err != nil {
 		return 0, 0, err
 	}
@@ -238,7 +238,7 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 
 	if cfg.EncapProtocol() != Disabled {
 		definesFn = func() (dpcfgdef.Map, error) {
-			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
+			tunnelDev, err := netlink.LinkByName(cfg.DeviceName())
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve device info for %q: %w", cfg.DeviceName(), err)
 			}

@@ -17,7 +17,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -162,7 +161,7 @@ func createFakeLink(ifLink netlink.Link) (*fakeLinkAttributes, error) {
 	// report the IFLA_HEADROOM and IFLA_TAILROOM. Or, perhaps a driver
 	// changes its internal headroom/tailroom reservations at some
 	// point in the future.
-	fakeLink, err := safenetlink.LinkByName(fakeAttr.Name)
+	fakeLink, err := netlink.LinkByName(fakeAttr.Name)
 	if err != nil {
 		destroyFakeLink(fakeAttr)
 		return nil, err

@@ -18,7 +18,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -197,10 +196,7 @@ func (ops *ops) Prune(_ context.Context, txn statedb.ReadTxn, objects iter.Seq2[
 	for key := range ops.persistedKeys.Members() {
 		_, _, found := ops.tbl.Get(txn, DesiredDeviceNameIndex.Query(key.Name))
 		if !found {
-			link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-				//nolint:forbidigo
-				return ops.handle.LinkByName(key.Name)
-			})
+			link, err := ops.handle.LinkByName(key.Name)
 			// best effort cleanup of link which is present in WAL but missing in desired devices table.
 			if err == nil {
 				_ = ops.handle.LinkDel(link)
@@ -240,10 +236,7 @@ func (ops *ops) checkAndGetLink(obj *DesiredDevice) (netlink.Link, bool, error) 
 	}
 
 	var linkExist bool
-	_, err = safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return ops.handle.LinkByName(nl.Attrs().Name)
-	})
+	_, err = ops.handle.LinkByName(nl.Attrs().Name)
 	if err == nil || !errors.As(err, &netlink.LinkNotFoundError{}) {
 		linkExist = true
 	}

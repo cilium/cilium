@@ -8,11 +8,11 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/vishvananda/netlink"
 )
 
 func ethtoolCommands() []string {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return nil
 	}

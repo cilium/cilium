@@ -17,7 +17,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
@@ -44,7 +43,7 @@ func newNetlinkFuncsGetter(lifecycle cell.Lifecycle) *netlinkFuncsGetter {
 				// Get a netlink handle in the current namespace.
 				// Otherwise we default to the namespace at startup. Which is not what we want
 				// during testing where we might currently be in a sub-namespace.
-				handle, err := safenetlink.NewHandle(nil)
+				handle, err := netlink.NewHandle()
 				if err != nil {
 					return fmt.Errorf("creating netlink handle: %w", err)
 				}

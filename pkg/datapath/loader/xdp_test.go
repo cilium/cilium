@@ -15,7 +15,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -28,7 +27,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	ns := netns.NewNetNS(t)
 
 	ns.Do(func() error {
-		h, err := safenetlink.NewHandle(nil)
+		h, err := netlink.NewHandle()
 		require.NoError(t, err)
 
 		veth0 := &netlink.Veth{
@@ -63,10 +62,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		)
 
 		require.NoError(t, testutils.WaitUntil(func() bool {
-			v1, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-				//nolint:forbidigo
-				return h.LinkByName("veth1")
-			})
+			v1, err := h.LinkByName("veth1")
 			require.NoError(t, err)
 			if v1.Attrs().Xdp != nil {
 				return v1.Attrs().Xdp.Attached == false
@@ -74,10 +70,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 			return true
 		}, time.Second))
 
-		v0, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-			//nolint:forbidigo
-			return h.LinkByName("veth0")
-		})
+		v0, err := h.LinkByName("veth0")
 		require.NoError(t, err)
 		require.NotNil(t, v0.Attrs().Xdp)
 		require.True(t, v0.Attrs().Xdp.Attached)

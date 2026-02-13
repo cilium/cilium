@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
@@ -801,7 +800,7 @@ func (a *Agent) safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.
 }
 
 func (a *Agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
-	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		a.log.Warn("Failed to list XFRM policies for deletion",
 			logfields.NodeID, nodeID,
@@ -963,7 +962,7 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 // AllReqID can be used for `reqID` to remove all Cilium managed XFRM policies
 // and states.
 func (a *Agent) DeleteXFRM(reqID int) error {
-	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}
@@ -1017,7 +1016,7 @@ func (a *Agent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 }
 
 func (a *Agent) deleteXfrmPolicyOutFamily(nodeID uint16, dst *net.IPNet, family int) error {
-	xfrmPolicyList, err := safenetlink.XfrmPolicyList(family)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(family)
 	if err != nil {
 		a.log.Warn("Failed to list XFRM OUT policies for deletion", logfields.Error, err)
 		return fmt.Errorf("failed to list xfrm out policies: %w", err)
@@ -1206,7 +1205,7 @@ func (a *Agent) deleteIPsecEncryptRoute() {
 	}
 
 	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
-		routes, err := safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
+		routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
 		if err != nil {
 			a.log.Error("Unable to list ipsec encrypt routes", logfields.Error, err)
 			return
@@ -1351,7 +1350,7 @@ func (a *Agent) deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
 }
 
 func (a *Agent) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
-	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}

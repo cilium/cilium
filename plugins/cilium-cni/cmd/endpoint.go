@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -114,7 +113,7 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 func ifindexFromMac(mac string) (int64, error) {
 	var link netlink.Link
 
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}

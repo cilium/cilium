@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -428,7 +427,7 @@ next:
 func retrieveIfIndexFromMAC(mac mac.MAC, mtu int) (int, error) {
 	var link netlink.Link
 
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	if err != nil {
 		return -1, fmt.Errorf("unable to list interfaces: %w", err)
 	}

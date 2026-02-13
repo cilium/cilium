@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -55,7 +54,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
-	qdiscs, err := safenetlink.QdiscList(link)
+	qdiscs, err := netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
@@ -134,7 +133,7 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 		logfields.Device, device)
 
 	// Set the fq parameters
-	qdiscs, err = safenetlink.QdiscList(link)
+	qdiscs, err = netlink.QdiscList(link)
 	if err != nil {
 		return fmt.Errorf("QdiscList: %w", err)
 	}
