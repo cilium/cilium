@@ -70,3 +70,54 @@ int ipv4_plain_pod_to_pod_wireguard_to_netdev_check(const struct __ctx_buff *ctx
 
 	test_finish();
 }
+
+/* This test validates that a plain-text pod-to-pod IPv6 packet going through the
+ * cil_to_netdev hook is being redirected for WireGuard encryption.
+ */
+PKTGEN("tc", "ipv6_plain_pod_to_pod_wireguard_to_netdev")
+int ipv6_plain_pod_to_pod_wireguard_to_netdev_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(V6_POD_TO_POD_TO_WIREGUARD, v6_overlay_tcp_packet);
+	BUILDER_PUSH_BUF(builder, V6_POD_TO_POD_TO_WIREGUARD);
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "ipv6_plain_pod_to_pod_wireguard_to_netdev")
+int ipv6_plain_pod_to_pod_wireguard_to_netdev_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v6_add_entry_with_flags((union v6addr *)v6_pod_one, 0, POD1_ID, v4_node_one, WG_SPI, false);
+	ipcache_v6_add_entry_with_flags((union v6addr *)v6_pod_two, 0, POD2_ID, v4_node_two, WG_SPI, false);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "ipv6_plain_pod_to_pod_wireguard_to_netdev")
+int ipv6_plain_pod_to_pod_wireguard_to_netdev_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	BUF_DECL(V6_POD_TO_POD_TO_WIREGUARD, v6_overlay_tcp_packet);
+	ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
+			   V6_POD_TO_POD_TO_WIREGUARD, sizeof(BUF(V6_POD_TO_POD_TO_WIREGUARD)));
+
+	test_finish();
+}
