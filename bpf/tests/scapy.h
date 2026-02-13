@@ -27,7 +27,10 @@
  *  #1: scapy object (layer)
  */
 #define BUF_DECL(NAME, ...) \
-	const unsigned char BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME)
+	const unsigned char BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME);	\
+	if (sizeof(BUF(NAME)) > __SCAPY_MAX_BUF) {			\
+		__throw_build_bug();					\
+	} do {} while (0)
 
 static __always_inline
 int scapy_memcmp(const void *a, const void *b, const __u16 len)
@@ -55,7 +58,7 @@ int scapy_memcmp(const void *a, const void *b, const __u16 len)
 }
 
 static __always_inline
-void scapy_memcpy(const void *dst, const void *src, const __u32 len)
+void _scapy_memcpy(const void *dst, const void *src, const __u32 len)
 {
 	__u32 i;
 
@@ -69,6 +72,29 @@ void scapy_memcpy(const void *dst, const void *src, const __u32 len)
 }
 
 static __always_inline
+void scapy_memcpy(void *dst, const void *src, const __u32 len)
+{
+	const int words = len / 1024;
+
+	if (!__builtin_constant_p(len) || !__builtin_constant_p(words))
+		__throw_build_bug();
+
+	switch (words) {
+	case 0:
+		_scapy_memcpy(dst, src, len);
+		break;
+	case 1:
+		{
+		_scapy_memcpy(dst, src, 1024);
+		_scapy_memcpy(dst + 1024, src + 1024, len - 1024);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static __always_inline
 void scapy_strncpy(char *dst, const char *src, const __u8 len)
 {
 	if (len > __SCAPY_MAX_STR_LEN)
@@ -77,7 +103,7 @@ void scapy_strncpy(char *dst, const char *src, const __u8 len)
 }
 
 static __always_inline
-void *scapy__push_data(struct pktgen *builder, void *data, int len)
+void *scapy__push_data(struct pktgen *builder, void *data, const int len)
 {
 	void *pkt_data = pktgen__push_data_room(builder, len);
 
@@ -135,11 +161,11 @@ static struct scapy_assert __scapy_null_assert = {0};
 #ifndef __ASSERT_TRACE_FAIL_LEN
 #define __ASSERT_TRACE_FAIL_LEN(BUF_NAME, _BUF_LEN, LEN)		\
 	test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
-			 _BUF_LEN, LEN)
+			 _BUF_LEN, (LEN))
 #endif /* __ASSERT_TRACE_FAIL_LEN */
 
 #ifndef __ASSERT_TRACE_FAIL_BUF
-#define __ASSERT_TRACE_FAIL_BUF(BUF_NAME, _BUF_LEN, LEN)		\
+#define __ASSERT_TRACE_FAIL_BUF(BUF_NAME)				\
 	test_log("CTX and buffer '" BUF_NAME "' content mismatch ")
 #endif /* __ASSERT_TRACE_FAIL_BUF */
 
@@ -182,12 +208,11 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 		void *__DATA_END = (void *)(long)(CTX)->data_end;			\
 		__DATA += OFF;								\
 		bool _ok = true;							\
-		__u16 _len = LEN;							\
 											\
 		if (__DATA + (LEN) > __DATA_END) {					\
 			_ok = false;							\
 			test_log("CTX len (%d) - offset (%d) < LEN (%d)",		\
-					 _len + OFF, OFF, LEN);				\
+				 ctx_full_len(CTX), OFF, LEN);				\
 		}									\
 		if ((_BUF_LEN) < (LEN)) {						\
 			_ok = false;							\
@@ -195,7 +220,7 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 		}									\
 		if (_ok && scapy_memcmp(__DATA, _BUF, LEN) != 0) {			\
 			_ok = false;							\
-			__ASSERT_TRACE_FAIL_BUF(BUF_NAME, _BUF_LEN, LEN);		\
+			__ASSERT_TRACE_FAIL_BUF(BUF_NAME);				\
 		}									\
 		if (!_ok) {								\
 			if (!__assert_map_add_failure(NAME, sizeof(NAME),		\
