@@ -33,9 +33,11 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 type linuxPrivilegedBaseTestSuite struct {
+	ns         *netns.NetNS
 	sysctl     sysctl.Sysctl
 	mtuCalc    mtu.RouteMTU
 	enableIPv4 bool
@@ -44,6 +46,13 @@ type linuxPrivilegedBaseTestSuite struct {
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
 	nodeConfigTemplate datapath.LocalNodeConfiguration
+}
+
+func (s *linuxPrivilegedBaseTestSuite) run(f func()) {
+	s.ns.Do(func() error {
+		f()
+		return nil
+	})
 }
 
 type linuxPrivilegedIPv6OnlyTestSuite struct {
@@ -82,54 +91,62 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 
 	s := &linuxPrivilegedBaseTestSuite{}
 
-	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	s.ns = netns.NewNetNS(tb)
 
-	rlimit.RemoveMemlock()
-	mtuConfig := mtu.NewConfiguration(0, false, false, false, false)
-	s.mtuCalc = mtuConfig.Calculate(1500)
-	s.enableIPv6 = enableIPv6
-	s.enableIPv4 = enableIPv4
+	s.ns.Do(func() error {
+		s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
-	node.SetTestLocalNodeStore()
+		rlimit.RemoveMemlock()
+		mtuConfig := mtu.NewConfiguration(0, false, false, false, false)
+		s.mtuCalc = mtuConfig.Calculate(1500)
+		s.enableIPv6 = enableIPv6
+		s.enableIPv4 = enableIPv4
 
-	removeDevice(dummyHostDeviceName)
-	removeDevice(dummyExternalDeviceName)
+		node.SetTestLocalNodeStore()
 
-	ips := make([]net.IP, 0)
-	if enableIPv6 {
-		ips = append(ips, addressing.IPv6().PrimaryExternal())
-	}
-	if enableIPv4 {
-		ips = append(ips, addressing.IPv4().PrimaryExternal())
-	}
-	devExt, err := setupDummyDevice(dummyExternalDeviceName, ips...)
-	require.NoError(tb, err)
+		removeDevice(dummyHostDeviceName)
+		removeDevice(dummyExternalDeviceName)
 
-	ips = []net.IP{}
-	if enableIPv4 {
-		ips = append(ips, addressing.IPv4().Router())
-	}
-	if enableIPv6 {
-		ips = append(ips, addressing.IPv6().Router())
-	}
-	devHost, err := setupDummyDevice(dummyHostDeviceName, ips...)
-	require.NoError(tb, err)
+		ips := make([]net.IP, 0)
+		if enableIPv6 {
+			ips = append(ips, addressing.IPv6().PrimaryExternal())
+		}
+		if enableIPv4 {
+			ips = append(ips, addressing.IPv4().PrimaryExternal())
+		}
+		devExt, err := setupDummyDevice(dummyExternalDeviceName, ips...)
+		require.NoError(tb, err)
 
-	s.nodeConfigTemplate = datapath.LocalNodeConfiguration{
-		Devices:             []*tables.Device{devExt, devHost},
-		DirectRoutingDevice: devHost,
-		NodeIPv4:            addressing.IPv4().PrimaryExternal(),
-		NodeIPv6:            addressing.IPv6().PrimaryExternal(),
-		CiliumInternalIPv4:  addressing.IPv4().Router(),
-		CiliumInternalIPv6:  addressing.IPv6().Router(),
-		AllocCIDRIPv4:       addressing.IPv4().AllocationCIDR(),
-		AllocCIDRIPv6:       addressing.IPv6().AllocationCIDR(),
-		EnableIPv4:          s.enableIPv4,
-		EnableIPv6:          s.enableIPv6,
-		DeviceMTU:           s.mtuCalc.DeviceMTU,
-		RouteMTU:            s.mtuCalc.RouteMTU,
-		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
-	}
+		ips = []net.IP{}
+		if enableIPv4 {
+			ips = append(ips, addressing.IPv4().Router())
+		}
+		if enableIPv6 {
+			ips = append(ips, addressing.IPv6().Router())
+		}
+		devHost, err := setupDummyDevice(dummyHostDeviceName, ips...)
+		require.NoError(tb, err)
+
+		s.nodeConfigTemplate = datapath.LocalNodeConfiguration{
+			Devices:             []*tables.Device{devExt, devHost},
+			DirectRoutingDevice: devHost,
+			NodeIPv4:            addressing.IPv4().PrimaryExternal(),
+			NodeIPv6:            addressing.IPv6().PrimaryExternal(),
+			CiliumInternalIPv4:  addressing.IPv4().Router(),
+			CiliumInternalIPv6:  addressing.IPv6().Router(),
+			AllocCIDRIPv4:       addressing.IPv4().AllocationCIDR(),
+			AllocCIDRIPv6:       addressing.IPv6().AllocationCIDR(),
+			EnableIPv4:          s.enableIPv4,
+			EnableIPv6:          s.enableIPv6,
+			DeviceMTU:           s.mtuCalc.DeviceMTU,
+			RouteMTU:            s.mtuCalc.RouteMTU,
+			RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
+		}
+
+		tb.Cleanup(func() { s.ns.Close() })
+
+		return nil
+	})
 
 	return s
 }
@@ -234,47 +251,47 @@ func TestPrivilegedAll(t *testing.T) {
 		t.Run(tt, func(t *testing.T) {
 			t.Run("TestUpdateNodeRoute", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestUpdateNodeRoute(t)
+				s.run(func() { s.TestUpdateNodeRoute(t) })
 			})
 			t.Run("TestAuxiliaryPrefixes", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestAuxiliaryPrefixes(t)
+				s.run(func() { s.TestAuxiliaryPrefixes(t) })
 			})
 			t.Run("TestNodeUpdateEncapsulation", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeUpdateEncapsulation(t)
+				s.run(func() { s.TestNodeUpdateEncapsulation(t) })
 			})
 			t.Run("TestNodeUpdateEncapsulationWithOverride", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeUpdateEncapsulationWithOverride(t)
+				s.run(func() { s.TestNodeUpdateEncapsulationWithOverride(t) })
 			})
 			t.Run("TestNodeUpdateIDs", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeUpdateIDs(t)
+				s.run(func() { s.TestNodeUpdateIDs(t) })
 			})
 			t.Run("TestNodeChurnXFRMLeaks", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeChurnXFRMLeaks(t)
+				s.run(func() { s.TestNodeChurnXFRMLeaks(t) })
 			})
 			t.Run("TestNodeChurnXFRMLeaksEncryptedOverlay", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeChurnXFRMLeaksEncryptedOverlay(t)
+				s.run(func() { s.TestNodeChurnXFRMLeaksEncryptedOverlay(t) })
 			})
 			t.Run("TestNodeChurnXFRMLeaksSubnetMode", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeChurnXFRMLeaksSubnetMode(t)
+				s.run(func() { s.TestNodeChurnXFRMLeaksSubnetMode(t) })
 			})
 			t.Run("TestNodeUpdateDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeUpdateDirectRouting(t)
+				s.run(func() { s.TestNodeUpdateDirectRouting(t) })
 			})
 			t.Run("TestNodeValidationDirectRouting", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodeValidationDirectRouting(t)
+				s.run(func() { s.TestNodeValidationDirectRouting(t) })
 			})
 			t.Run("TestNodePodCIDRsChurnIPSec", func(t *testing.T) {
 				s := setup(t, tt)
-				s.TestNodePodCIDRsChurnIPSec(t)
+				s.run(func() { s.TestNodePodCIDRsChurnIPSec(t) })
 			})
 		})
 	}
