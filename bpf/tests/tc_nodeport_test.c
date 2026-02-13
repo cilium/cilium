@@ -147,8 +147,8 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port incorrect");
 
-	if (l4->check != bpf_htons(0xb846))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x17e7))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x17e7));
 
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -272,8 +272,8 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port changed");
 
-	if (l4->check != bpf_htons(0xb846))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x17e7))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x17e7));
 
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -380,8 +380,8 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port changed");
 
-	if (l4->check != bpf_htons(0xb836))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x17d7))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x17d7));
 
 	test_finish();
 }
@@ -470,8 +470,8 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port incorrect");
 
-	if (l4->check != bpf_htons(0x6325))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xc2c5))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xc2c5));
 
 	test_finish();
 }
@@ -612,8 +612,8 @@ int hairpin_flow_forward_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port incorrect");
 
-	if (l4->check != bpf_htons(0x88f8))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xe898))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xe898));
 
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -726,8 +726,8 @@ int hairpin_flow_forward_ingress_check_v6(__maybe_unused const struct __ctx_buff
 	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port changed");
 
-	if (l4->check != bpf_htons(0x88f8))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xe898))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xe898));
 
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_entry *ct_entry;
@@ -829,8 +829,8 @@ int hairpin_flow_rev_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port changed");
 
-	if (l4->check != bpf_htons(0x88e8))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xe888))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xe888));
 
 	test_finish();
 }
@@ -913,8 +913,8 @@ int hairpin_flow_reverse_ingress_check_v6(const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port incorrect");
 
-	if (l4->check != bpf_htons(0xdfd1))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x3f72))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3f72));
 
 	test_finish();
 }
