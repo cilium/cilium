@@ -15,7 +15,7 @@ type WaitGroup struct {
 	// ctx is the context of all the Completions in the wait group.
 	ctx context.Context
 
-	// cancel is the function to call if any pending operation fails
+	// cancel is the function to call if any pending operation fails, if Wait returns or when cleaning up all resources
 	cancel context.CancelFunc
 
 	// counterLocker locks all calls to AddCompletion and Wait, which must not
@@ -27,10 +27,17 @@ type WaitGroup struct {
 	pendingCompletions []*Completion
 }
 
-// NewWaitGroup returns a new WaitGroup using the given context.
+// NewWaitGroup returns a new WaitGroup using the given context. The WaitGroup will hold an internal context
+// that will be cancelled when the first completion returns an error or when Wait returns. If Wait is not executed,
+// a call to Cancel should be done to avoid leaking resources.
 func NewWaitGroup(ctx context.Context) *WaitGroup {
 	ctx2, cancel := context.WithCancel(ctx)
 	return &WaitGroup{ctx: ctx2, cancel: cancel}
+}
+
+// Cancel will cancel the underlying context and free its resources
+func (wg *WaitGroup) Cancel() {
+	wg.cancel()
 }
 
 // Context returns the context of all the Completions in the wait group.
@@ -107,6 +114,7 @@ Loop:
 		}
 	}
 	wg.pendingCompletions = nil
+	wg.cancel()
 	return err
 }
 
