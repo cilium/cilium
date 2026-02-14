@@ -48,24 +48,4 @@ spec:
   {{- if and .Values.ingressController.service.externalTrafficPolicy (not .Values.ingressController.hostNetwork.enabled) }}
   externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
   {{- end }}
----
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: {{ .Values.ingressController.service.name }}
-  namespace: {{ include "cilium.namespace" . }}
-  labels:
-    {{- with .Values.commonLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- if .Values.ingressController.service.labels }}
-    {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
-    {{- end }}
-  {{- if .Values.ingressController.service.annotations }}
-  annotations:
-    {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}
-  {{- end }}
-addressType: IPv4
-endpoints: []
-ports: []
 {{- end }}

@@ -8,7 +8,6 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
-	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -41,9 +40,9 @@ func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.C
 	}
 }
 
-func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
-		return nil, nil, nil, fmt.Errorf("model source can't be empty")
+		return nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
 	var name string
@@ -72,7 +71,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
 	cec, err := d.cecTranslator.Translate(namespace, name, m)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
@@ -80,7 +79,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
-	return cec, dedicatedService, getEndpointSlice(sourceResource), err
+	return cec, dedicatedService, err
 }
 
 func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service, tlsOnly bool) *corev1.Service {
@@ -155,27 +154,5 @@ func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedRes
 			Ports:          ports,
 			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
-	}
-}
-
-func getEndpointSlice(resource model.FullyQualifiedResource) *discoveryv1.EndpointSlice {
-	return &discoveryv1.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", ciliumIngressPrefix, resource.Name),
-			Namespace: resource.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-					Kind:       "Ingress",
-					Name:       resource.Name,
-					UID:        types.UID(resource.UID),
-					Controller: ptr.To(true),
-				},
-			},
-		},
-		AddressType: discoveryv1.AddressTypeIPv4,
-		Endpoints:   nil,
-		Ports:       nil,
 	}
 }
