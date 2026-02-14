@@ -151,6 +151,48 @@ func WithStreamIdleTimeout(streamIdleTimeoutSeconds int) ListenerMutator {
 	}
 }
 
+func withServerHeaderTransformation(m *model.Model) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		transformation := m.GetServerHeaderTransformation()
+		if transformation == "" {
+			return listener
+		}
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name != httpConnectionManagerType {
+					continue
+				}
+				tc := filter.GetTypedConfig()
+				if tc.GetTypeUrl() != envoy.HttpConnectionManagerTypeURL {
+					continue
+				}
+				hcm, err := tc.UnmarshalNew()
+				if err != nil {
+					continue
+				}
+				hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+				if !ok {
+					continue
+				}
+				var hcmTransform httpConnectionManagerv3.HttpConnectionManager_ServerHeaderTransformation
+				switch transformation {
+				case "OVERWRITE":
+					hcmTransform = httpConnectionManagerv3.HttpConnectionManager_OVERWRITE
+				case "APPEND_IF_ABSENT":
+					hcmTransform = httpConnectionManagerv3.HttpConnectionManager_APPEND_IF_ABSENT
+				case "PASS_THROUGH":
+					hcmTransform = httpConnectionManagerv3.HttpConnectionManager_PASS_THROUGH
+				default:
+					continue
+				}
+				hcmConfig.ServerHeaderTransformation = hcmTransform
+				filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{TypedConfig: toAny(hcmConfig)}
+			}
+		}
+		return listener
+	}
+}
+
 func withHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
 		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(m.AllPorts(), ipv4Enabled, ipv6Enabled)
@@ -292,6 +334,8 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
 		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
 	}
+
+	res = append(res, withServerHeaderTransformation(m))
 	return res
 }
 
