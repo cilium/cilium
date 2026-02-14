@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -43,7 +44,8 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, nil, api.NewPolicyMetricsNoop())
+	idmgr := identitymanager.NewIDManager()
+	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, idmgr, api.NewPolicyMetricsNoop())
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
@@ -72,6 +74,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		policyGetter:     &mockPolicyGetter{repo},
 		desiredPolicy:    policy.NewEndpointPolicy(repo),
 	}
+	idmgr.Add(podID)
 	ep.UpdateLogger(nil)
 
 	podSelectLabel := labels.ParseSelectLabel("pod")

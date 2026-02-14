@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -85,10 +86,11 @@ var (
 	dummySelectorCacheUser = &testpolicy.DummySelectorCacheUser{}
 )
 
-func testNewPolicyRepository() *policy.Repository {
+func testNewPolicyRepository() (identitymanager.IDManager, *policy.Repository) {
+	idManager := identitymanager.NewIDManager()
 	repo := policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	return repo
+	return idManager, repo
 }
 
 func TestParseNetworkPolicyIngress(t *testing.T) {
@@ -148,7 +150,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 
 	repo.MustAddList(rules)
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
@@ -277,7 +279,7 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 
 	endpointLabels := labels.LabelArray{
@@ -477,7 +479,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 	// Because search context did not contain port-specific policy, deny is
 	// expected.
@@ -526,19 +528,19 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	require.NotEqual(t, api.Allowed, repo.AllowsEgressRLocked(&ctx))
 }
 
-func parseAndAddRules(t *testing.T, p *slim_networkingv1.NetworkPolicy) *policy.Repository {
-	repo := testNewPolicyRepository()
+func parseAndAddRules(t *testing.T, p *slim_networkingv1.NetworkPolicy) (identitymanager.IDManager, *policy.Repository) {
+	idManager, repo := testNewPolicyRepository()
 	rules, err := ParseNetworkPolicy(p)
 	require.NoError(t, err)
 	rev := repo.GetRevision()
 	_, id := repo.MustAddList(rules)
 	require.Equal(t, rev+1, id)
 
-	return repo
+	return idManager, repo
 }
 
 func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	_, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -562,7 +564,7 @@ func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	_, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -584,7 +586,7 @@ func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	_, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -614,7 +616,7 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	_, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorC,
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -638,7 +640,7 @@ func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyIngressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	_, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorC,
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -774,7 +776,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 
@@ -798,7 +800,7 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 	rules, err = ParseNetworkPolicy(netPolicy2)
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
-	repo = testNewPolicyRepository()
+	_, repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(&ctx))
 }
@@ -829,7 +831,7 @@ func TestParseNetworkPolicyDenyAll(t *testing.T) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(&ctx))
 }
@@ -940,7 +942,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo := testNewPolicyRepository()
+	_, repo := testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx := policy.SearchContext{
 		From: labels.LabelArray{
@@ -1074,7 +1076,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo = testNewPolicyRepository()
+	_, repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1142,7 +1144,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo = testNewPolicyRepository()
+	_, repo = testNewPolicyRepository()
 	repo.MustAddList(rules)
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -1281,7 +1283,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rules, 1)
 
-	repo = testNewPolicyRepository()
+	_, repo = testNewPolicyRepository()
 	// add example 4
 	repo.MustAddList(rules)
 
