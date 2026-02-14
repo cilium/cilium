@@ -1766,8 +1766,17 @@ int cil_to_host(struct __ctx_buff *ctx)
 
 skip_ipsec_nodeport_revdnat:
 # endif /* ENABLE_NODEPORT */
-
 #endif /* ENABLE_IPSEC */
+
+#if defined(ENABLE_WIREGUARD) && !defined(TUNNEL_MODE)
+	/* See above IPSec comment.
+	 * This is because in old kernels the skb->mark is scrubbed when traversing a
+	 * veth pair (https://github.com/cilium/cilium/issues/36329).
+	 */
+	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CILIUM_NET_IFINDEX)
+		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+#endif
+
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
