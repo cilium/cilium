@@ -81,7 +81,7 @@ func kcnpParseNamespacedPod(clusterName string, peer policyv1alpha2.NamespacedPo
 // cluster will be added.
 func kcnpProcessNodeSelector(clusterName string, nodeSelector *metav1.LabelSelector) types.Selectors {
 	ns := toSlimLabelSelector(nodeSelector)
-	es := api.NewESFromK8sLabelSelector(labels.LabelSourceNode+".", ns)
+	es := api.NewESFromK8sLabelSelector(labels.LabelSourceNodeKeyPrefix, ns)
 	es.AddMatchExpression(labels.LabelSourceReservedKeyPrefix+labels.IDNameRemoteNode, slim_metav1.LabelSelectorOpExists, []string{})
 
 	if clusterName != cmtypes.PolicyAnyCluster && !isPodSelectorSelectingCluster(ns) {
