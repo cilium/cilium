@@ -53,11 +53,11 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 	return Config{
 		UserConfig: uc,
 
-		StateDir:         dc.StateDir,
-		EnableIPv4:       dc.EnableIPv4,
-		EnableIPv6:       dc.EnableIPv6,
-		TunnelingEnabled: dc.TunnelingEnabled(),
-		EncryptNode:      dc.EncryptNode,
+		StateDir:              dc.StateDir,
+		EnableIPv4:            dc.EnableIPv4,
+		EnableIPv6:            dc.EnableIPv6,
+		RequiresNativeRouting: dc.RequiresNativeRouting(),
+		EncryptNode:           dc.EncryptNode,
 	}
 }
 
@@ -88,11 +88,11 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 type Config struct {
 	UserConfig
 
-	StateDir         string
-	EnableIPv4       bool
-	EnableIPv6       bool
-	TunnelingEnabled bool
-	EncryptNode      bool
+	StateDir              string
+	EnableIPv4            bool
+	EnableIPv6            bool
+	RequiresNativeRouting bool
+	EncryptNode           bool
 }
 
 var defaultEnableConfig = EnableConfig{

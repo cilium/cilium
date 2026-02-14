@@ -236,11 +236,11 @@ func (c *config) toAgentConfig() Config {
 			NodeEncryptionOptOutLabels:   "",
 		},
 
-		StateDir:         "",
-		EnableIPv4:       true,
-		EnableIPv6:       true,
-		TunnelingEnabled: c.RoutingMode != option.RoutingModeNative,
-		EncryptNode:      false,
+		StateDir:              "",
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+		RequiresNativeRouting: c.RoutingMode == option.RoutingModeNative || c.RoutingMode == option.RoutingModeHybrid,
+		EncryptNode:           false,
 	}
 }
 

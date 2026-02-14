@@ -64,5 +64,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
+	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
+
 	return cfg
 }

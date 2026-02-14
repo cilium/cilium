@@ -356,7 +356,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		statesUpdated = false
 	}
 
-	if !n.nodeConfig.EnableEncapsulation {
+	if n.nodeConfig.RequiresNativeRouting {
 		return statesUpdated, errs
 	}
 
@@ -638,7 +638,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		statesUpdated = false
 	}
 
-	if !n.nodeConfig.EnableEncapsulation {
+	if n.nodeConfig.RequiresNativeRouting {
 		return statesUpdated, errs
 	}
 

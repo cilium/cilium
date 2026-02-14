@@ -33,6 +33,7 @@ var Cell = cell.Module(
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
+			RequiresNativeRouting:           cfg.RequiresNativeRouting(),
 			TunnelPort:                      tunnelCfg.Port(),
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
@@ -93,7 +94,11 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 }
 
 type SharedConfig struct {
-	TunnelingEnabled                bool
+	TunnelingEnabled bool
+	// RequiresNativeRouting returns true if the agent needs to use native routing to implement some features.
+	// This is used to determine whether certain features that are incompatible with tunneling can be enabled or not.
+	// Note: This is NOT inverse of TunnelingEnabled, as in hybrid routing mode, both tunneling and native routing are used.
+	RequiresNativeRouting           bool
 	TunnelPort                      uint16
 	NodeIpsetNeeded                 bool
 	IptablesMasqueradingIPv4Enabled bool

@@ -3068,8 +3068,13 @@ underlayProtocol: ""
 #   - ""
 #   - native
 #   - tunnel
+#   - hybrid
 # @default -- `"tunnel"`
 routingMode: ""
+# -- Subnet topology for hybrid routing mode.
+# Comma separated list of CIDR subnets to be routed in native mode in hybrid routing mode.
+# Semi-colon separated list of topology labels to be routed in tunnel mode in hybrid routing mode.
+subnetTopology: ""
 # -- Configure VXLAN and Geneve tunnel port.
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0

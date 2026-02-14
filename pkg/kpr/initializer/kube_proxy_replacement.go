@@ -265,7 +265,7 @@ func (r *kprInitializer) FinishKubeProxyReplacementInit(devices []*tables.Device
 	}
 
 	if option.Config.EnableIPv4 &&
-		!option.Config.TunnelingEnabled() &&
+		option.Config.RequiresNativeRouting() &&
 		r.lbConfig.LoadBalancerUsesDSR() &&
 		directRoutingDevice != "" &&
 		len(devices) > 1 {

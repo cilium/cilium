@@ -125,6 +125,8 @@ const (
 	ExternalEnvoyProxy Feature = "external-envoy-proxy"
 
 	Ztunnel Feature = "enable-ztunnel"
+
+	SubnetTopology Feature = "subnet-topology"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -415,6 +417,12 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[L7LoadBalancer] = Status{
 		Enabled: cm.Data[string(L7LoadBalancer)] == "envoy",
+	}
+
+	st, ok := cm.Data[string(SubnetTopology)]
+	fs[SubnetTopology] = Status{
+		Enabled: ok,
+		Mode:    st,
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)

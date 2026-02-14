@@ -413,7 +413,7 @@ cilium-agent [flags]
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restored-proxy-ports-age-limit uint                       Time after which a restored proxy ports file is considered stale (in minutes) (default 15)
       --route-metric int                                          Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
-      --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
+      --routing-mode string                                       Routing mode ("native", "tunnel", or "hybrid") (default "tunnel")
       --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
       --shell-sock-path string                                    Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")

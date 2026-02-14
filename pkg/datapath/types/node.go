@@ -142,6 +142,9 @@ type LocalNodeConfiguration struct {
 	// subsequent calls to NodeConfigurationChanged().
 	EnableEncapsulation bool
 
+	// RequiresNativeRouting returns true if the node requires native routing to setup.
+	RequiresNativeRouting bool
+
 	// TunnelProtocol is the datapath ID of the encapsulation protocol
 	// (0 if disabled, 1 for VXLAN, 2 for Geneve).
 	//

@@ -74,6 +74,8 @@ type podToPodEncryptionV2 struct {
 	// pod on server's node providing access to host network namespace
 	serverHostNS *check.Pod
 
+	subnetTopology features.Status
+
 	tunnelMode  features.Status
 	encryptMode features.Status
 	ipv4Enabled features.Status
@@ -107,6 +109,10 @@ type podToPodEncryptionV2 struct {
 	clientSniffer6 *sniff.Sniffer
 	serverSniffer6 *sniff.Sniffer
 	finalizers     []func() error
+
+	// isUsingTunnel indicates whether the cluster is using tunnel encapsulation
+	// for pod-to-pod traffic, which impacts how we detect leaks.
+	isUsingTunnel bool
 }
 
 func (s *podToPodEncryptionV2) Name() string {
@@ -120,10 +126,10 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	// leaving the host, thus, use the tunnel endpoint IP rather then the
 	// pod IP for route lookup.
 	var srcIP, dstIP string
-	if s.tunnelMode.Enabled {
+	if s.isUsingTunnel {
 		srcIP = src.Pod.Status.HostIP
 		dstIP = dst.Pod.Status.HostIP
-	} else {
+	} else { // If native or hybrid, pod to pod traffic is natively routed.
 		srcIP = src.Pod.Status.PodIP
 		dstIP = dst.Pod.Status.PodIP
 	}
@@ -305,7 +311,7 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters4(ctx context.Context) (clie
 	}
 
 	// handle tunneling mode.
-	if s.tunnelMode.Enabled {
+	if s.isUsingTunnel {
 		return s.tunnelTCPDumpFilters4(ctx)
 	}
 
@@ -416,7 +422,7 @@ func (s *podToPodEncryptionV2) resolveTCPDumpFilters6(ctx context.Context) (clie
 		return "", "", fmt.Errorf("Context already cancelled")
 	}
 
-	if s.tunnelMode.Enabled {
+	if s.isUsingTunnel {
 		clientFilter, serverFilter, err = s.tunnelTCPDumpFilters6(ctx)
 	} else {
 		clientFilter, serverFilter, err = s.nativeTCPDumpFilters6(ctx)
@@ -559,6 +565,16 @@ func (s *podToPodEncryptionV2) clientToServerTest(ctx context.Context, t *check.
 	return nil
 }
 
+// usesTunnelRouting determines if pod-to-pod traffic between s.client and s.server
+// will be tunnel encap'd.
+// This is true when tunnel mode is enabled and the client and server pods are
+// not in the same subnet, as determined by the cluster's subnet topology.
+// The subnet check is needed in case of hybrid routing mode,
+// where pod-to-pod traffic in the same subnet is natively routed.
+func (s *podToPodEncryptionV2) usesTunnelRouting() bool {
+	return s.tunnelMode.Enabled && !features.SameSubnet(s.client.Pod.Status.PodIP, s.server.Pod.Status.PodIP, s.subnetTopology.Mode)
+}
+
 func (s *podToPodEncryptionV2) Run(ctx context.Context, t *check.Test) {
 	s.ct = t.Context()
 
@@ -580,6 +596,10 @@ func (s *podToPodEncryptionV2) Run(ctx context.Context, t *check.Test) {
 	s.ipv6Enabled, ok = s.ct.Feature(features.IPv6)
 	if !ok {
 		t.Fatalf("Failed to detect IPv6 feature")
+	}
+	s.subnetTopology, ok = s.ct.Feature(features.SubnetTopology)
+	if !ok {
+		t.Fatalf("Failed to detect subnet topology")
 	}
 	s.tunnelMode, ok = s.ct.Feature(features.Tunnel)
 	if !ok {
@@ -609,6 +629,11 @@ func (s *podToPodEncryptionV2) Run(ctx context.Context, t *check.Test) {
 	if s.server == nil {
 		t.Fatalf("Failed to acquire a server pod\n")
 	}
+
+	// Require s.client, s.server and s.subnetTopology to be set
+	// before we check if tunnel mode is enabled,
+	// as the tunnel mode check relies on their IPs.
+	s.isUsingTunnel = s.usesTunnelRouting()
 
 	// grab host namespace pods for accessing the network namespaces of client
 	// and server pods.

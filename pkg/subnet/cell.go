@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -27,12 +28,17 @@ var Cell = cell.Module(
 
 	cell.Invoke(
 		registerSubnetWatcher,
+		// Add a fence to ensure that subnet map is ready before starting endpoint regeneration.
+		func(fence regeneration.Fence, sw *SubnetWatcher) {
+			fence.Add("subnet-map", sw.waitForSync)
+		},
 	),
 )
 
 func registerSubnetWatcher(cfg *option.DaemonConfig, sw *SubnetWatcher) {
 	if cfg.RoutingMode != option.RoutingModeHybrid {
 		sw.logger.Debug("Routing mode is not hybrid, skipping subnet watcher")
+		sw.markSynced()
 		return
 	}
 	sw.jobGroup.Add(job.OneShot("subnet-watcher", func(ctx context.Context, health cell.Health) error {
@@ -48,6 +54,10 @@ func registerSubnetWatcher(cfg *option.DaemonConfig, sw *SubnetWatcher) {
 					health.OK("subnet-topology dynamic config processed successfully")
 				}
 			}
+
+			// Initial sync is complete.
+			sw.markSynced()
+
 			select {
 			case <-ctx.Done():
 				return ctx.Err()

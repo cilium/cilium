@@ -4,10 +4,12 @@
 package subnet
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"strings"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -33,6 +35,8 @@ type SubnetWatcher struct {
 	subnetTable        statedb.RWTable[subnetTable.SubnetTableEntry]
 	db                 *statedb.DB
 	jobGroup           job.Group
+	done               chan struct{}
+	once               sync.Once
 }
 
 func newSubnetWatcher(params watcherParams) *SubnetWatcher {
@@ -42,7 +46,26 @@ func newSubnetWatcher(params watcherParams) *SubnetWatcher {
 		subnetTable:        params.SubnetTable,
 		db:                 params.DB,
 		jobGroup:           params.JobGroup,
+		done:               make(chan struct{}),
 	}
+}
+
+func (sw *SubnetWatcher) waitForSync(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-sw.done:
+			sw.logger.Info("Subnet topology dynamic config synced")
+			return nil
+		}
+	}
+}
+
+func (sw *SubnetWatcher) markSynced() {
+	sw.once.Do(func() {
+		close(sw.done)
+	})
 }
 
 func (w *SubnetWatcher) processSubnetConfigEntry(entry dynamicconfig.DynamicConfig) error {

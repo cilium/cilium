@@ -540,7 +540,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return errs
 	}
 
-	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(newNode) {
+	if n.nodeConfig.EnableAutoDirectRouting && n.nodeConfig.RequiresNativeRouting {
 		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
 		}
@@ -612,7 +612,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()
 
 	var errs error
-	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
+	if n.nodeConfig.EnableAutoDirectRouting && n.nodeConfig.RequiresNativeRouting {
 		if n.nodeConfig.EnableIPv4 {
 			for _, cidr := range oldAllIP4AllocCidrs {
 				if err := n.deleteDirectRoute(cidr, oldIP4); err != nil {

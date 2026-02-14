@@ -131,7 +131,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	c := &Configuration{}
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			tunnelOverIPv6 := option.Config.RoutingMode == option.RoutingModeTunnel &&
+			tunnelOverIPv6 := option.Config.TunnelingEnabled() &&
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
