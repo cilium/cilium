@@ -98,9 +98,9 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		     __be16 proto, struct trace_ctx *trace)
 {
 	send_trace_notify(ctx, TRACE_TO_HOST, src_sec_identity, HOST_ID,
-			  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+			  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_net_ifindex),
 			  trace->reason, trace->monitor, proto);
-	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
+	return ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
 }
 #endif
 

@@ -201,6 +201,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		retryChan <-chan time.Time
 	)
 	for {
+		var prevConfig *datapath.LocalNodeConfiguration
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
 			option.Config,
@@ -225,31 +226,42 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
 			o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, err)
-		} else {
-			// Reinitializing is expensive, only do so if the configuration has changed.
-			prevConfig := o.latestLocalNodeConfig.Load()
-			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
-					o.params.Log.Warn("Failed to initialize datapath, retrying later",
-						logfields.Error, err,
-						logfields.RetryDelay, reinitRetryDuration,
-					)
-					health.Degraded("Failed to reinitialize datapath", err)
-					retryChan = time.After(reinitRetryDuration)
-				} else {
-					retryChan = nil
-					health.OK("OK")
+			if request.errChan != nil {
+				select {
+				case request.errChan <- err:
+				default:
 				}
+				close(request.errChan)
+			}
+			if localNodeConfigWatch == nil {
+				retryChan = time.After(reinitRetryDuration)
+			}
+			goto waitReinit
+		}
+
+		// Reinitializeing is expensive, only do so if the configuration has changed.
+		prevConfig = o.latestLocalNodeConfig.Load()
+		if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
+			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
+				o.params.Log.Warn("Failed to initialize datapath, retrying later",
+					logfields.Error, err,
+					logfields.RetryDelay, reinitRetryDuration,
+				)
+				health.Degraded("Failed to reinitialize datapath", err)
+				retryChan = time.After(reinitRetryDuration)
 			} else {
-				// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
-				if request.errChan != nil {
-					close(request.errChan)
-				}
+				retryChan = nil
+				health.OK("OK")
+			}
+		} else {
+			// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
+			if request.errChan != nil {
+				close(request.errChan)
 			}
 		}
 
+	waitReinit:
 		request = reinitializeRequest{}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

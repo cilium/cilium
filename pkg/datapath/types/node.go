@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
@@ -48,6 +49,18 @@ type LocalNodeConfiguration struct {
 	// interface.
 	// Immutable at runtime.
 	CiliumInternalIPv6 net.IP
+
+	// Interface index of the cilium_host device
+	CiliumHostIfIndex uint32
+
+	// MAC address of the cilium_host device.
+	CiliumHostMAC mac.MAC
+
+	// Interface index of the cilium_net device
+	CiliumNetIfIndex uint32
+
+	// MAC address of the cilium_net device.
+	CiliumNetMAC mac.MAC
 
 	// AllocCIDRIPv4 is the IPv4 allocation CIDR from which IP addresses for
 	// endpoints are allocated from.
