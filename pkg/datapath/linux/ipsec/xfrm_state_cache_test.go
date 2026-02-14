@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -100,6 +98,10 @@ func TestPrivilegedXfrmStateListCache(t *testing.T) {
 	stateList, err = xfrmStateCache.XfrmStateList()
 	require.NoError(t, err)
 	require.Empty(t, stateList)
+
+	// Deleting the same state again should succeed (idempotent, ESRCH ignored)
+	err = xfrmStateCache.XfrmStateDel(state)
+	require.NoError(t, err)
 }
 
 func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {

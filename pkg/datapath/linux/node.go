@@ -322,7 +322,7 @@ func (n *linuxNodeHandler) deleteDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) err
 
 	var errs error
 	for _, rt := range routes {
-		if err := netlink.RouteDel(&rt); err != nil {
+		if err := safenetlink.RouteDel(&rt); err != nil {
 			n.log.Warn("Unable to delete direct node route",
 				logfields.CIDR, rt,
 				logfields.Error, err,
