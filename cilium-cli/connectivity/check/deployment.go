@@ -1370,7 +1370,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
-
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
 		if ct.params.MultiCluster != "" {
@@ -1463,7 +1462,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				}
 			}
 		}
+	}
 
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentNameNonCilium, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentNameNonCilium, ct.clients.src.ClusterName())
@@ -1488,52 +1489,50 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		if ct.Features[features.NodeWithoutCilium].Enabled {
-			_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
+			// in case if test concurrency is > 1 port must be unique for each test namespace
+			port := ct.Params().ExternalDeploymentPort
+			echoExternalDeployment := newDeployment(deploymentParameters{
+				Name:           echoExternalNodeDeploymentName,
+				Kind:           kindEchoExternalNodeName,
+				Port:           port,
+				NamedPort:      fmt.Sprintf("http-%d", port),
+				HostPort:       port,
+				Image:          ct.params.JSONMockImage,
+				Labels:         map[string]string{"external": "echo"},
+				Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
+				NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
+				ReadinessProbe: newLocalReadinessProbe(port, "/"),
+				HostNetwork:    true,
+				Tolerations: append(
+					[]corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+					ct.params.GetTolerations()...,
+				),
+			})
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
 			if err != nil {
-				ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
-				// in case if test concurrency is > 1 port must be unique for each test namespace
-				port := ct.Params().ExternalDeploymentPort
-				echoExternalDeployment := newDeployment(deploymentParameters{
-					Name:           echoExternalNodeDeploymentName,
-					Kind:           kindEchoExternalNodeName,
-					Port:           port,
-					NamedPort:      fmt.Sprintf("http-%d", port),
-					HostPort:       port,
-					Image:          ct.params.JSONMockImage,
-					Labels:         map[string]string{"external": "echo"},
-					Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
-					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
-					ReadinessProbe: newLocalReadinessProbe(port, "/"),
-					HostNetwork:    true,
-					Tolerations: append(
-						[]corev1.Toleration{
-							{Operator: corev1.TolerationOpExists},
-						},
-						ct.params.GetTolerations()...,
-					),
-				})
-				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service account %s: %w", echoExternalNodeDeploymentName, err)
-				}
-				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create deployment %s: %w", echoExternalNodeDeploymentName, err)
-				}
-
-				svc := newService(echoExternalNodeDeploymentName,
-					map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
-					map[string]string{"kind": kindEchoExternalNodeName}, "http", port, "ClusterIP")
-				svc.Spec.ClusterIP = corev1.ClusterIPNone
-				_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-				if err != nil {
-					return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
-				}
+				return fmt.Errorf("unable to create service account %s: %w", echoExternalNodeDeploymentName, err)
 			}
-		} else {
-			ct.Infof("Skipping tests that require a node Without Cilium")
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", echoExternalNodeDeploymentName, err)
+			}
+
+			svc := newService(echoExternalNodeDeploymentName,
+				map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
+				map[string]string{"kind": kindEchoExternalNodeName}, "http", port, "ClusterIP")
+			svc.Spec.ClusterIP = corev1.ClusterIPNone
+			_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
+			}
 		}
+	} else {
+		ct.Infof("Skipping tests that require a node Without Cilium")
 	}
 
 	// Create one Ingress service for echo deployment
@@ -2954,7 +2953,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	// The host-netns-non-cilium DaemonSet is created in the source cluster only, also in case of multi-cluster tests.
-	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.Params().TestNamespace, hostNetNSDeploymentNameNonCilium); err != nil {
 			return err
 		}
