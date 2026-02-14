@@ -17,4 +17,3 @@ struct {
 #define EVENTS_MAP_BURST_LIMIT EVENTS_MAP_RATE_LIMIT
 #endif
 #endif
-
