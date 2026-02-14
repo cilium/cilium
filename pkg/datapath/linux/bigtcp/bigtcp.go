@@ -12,8 +12,10 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -21,16 +23,13 @@ import (
 )
 
 const (
-	defaultMaxSize = 65536
+	defaultMaxSize = types.GROGSOLegacyMaxSize
 	bigTCPMaxSize  = 196608
-
-	probeDevice = "lo"
 )
 
 var defaultUserConfig = types.BigTCPUserConfig{
-	EnableIPv6BIGTCP:   false,
-	EnableIPv4BIGTCP:   false,
-	EnableTunnelBIGTCP: false,
+	EnableIPv6BIGTCP: false,
+	EnableIPv4BIGTCP: false,
 }
 
 var Cell = cell.Module(
@@ -151,26 +150,35 @@ func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 
 // Probes whether the kernel supports BIG TCP IPv4.
 func supportsBIGTCPIPv4(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
-	if err != nil {
-		log.Warn("Failed to probe kernel support for BIG TCP IPv4")
+	if err := probes.HaveBIGTCPIPv4(); err != nil {
+		if !errors.Is(err, probes.ErrNotSupported) {
+			log.Warn("Failed to probe kernel support for BIG TCP IPv4: " + err.Error())
+		}
 		return false
 	}
-	// Kernel commit 9eefedd58ae1 ("net: add gso_ipv4_max_size and gro_ipv4_max_size per device").
-	// Patch 09/10 of the series "net: support ipv4 big tcp".
-	return link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0
+	return true
 }
 
 // Probes whether the kernel supports BIG TCP IPv6.
 func supportsBIGTCPIPv6(log *slog.Logger) bool {
-	link, err := safenetlink.LinkByName(probeDevice)
-	if err != nil {
-		log.Warn("Failed to probe kernel support for BIG TCP IPv6")
+	if err := probes.HaveBIGTCPIPv6(); err != nil {
+		if !errors.Is(err, probes.ErrNotSupported) {
+			log.Warn("Failed to probe kernel support for BIG TCP IPv6: " + err.Error())
+		}
 		return false
 	}
-	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
-	// Patch 01/13 of the series "tcp: BIG TCP implementation".
-	return link.Attrs().TSOMaxSize > 0
+	return true
+}
+
+// Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
+func supportsBIGTCPTunnel(log *slog.Logger) bool {
+	if err := probes.HaveBIGTCPTunnel(); err != nil {
+		if !errors.Is(err, probes.ErrNotSupported) {
+			log.Warn("Failed to probe kernel support for BIG TCP for UDP tunnels: " + err.Error())
+		}
+		return false
+	}
+	return true
 }
 
 // Returns the current gso_max_size (IPv6), gso_ipv4_max_size (IPv4) and
@@ -231,23 +239,24 @@ type params struct {
 	UserConfig   types.BigTCPUserConfig
 	IPsecConfig  types.IPsecConfig
 	LBConfig     loadbalancer.Config
+	TunnelConfig tunnel.Config
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		// Check all configurations where Cilium creates tunnel devices
 		// that don't support BIG TCP.
 		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
 			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
 		}
-		if !cfg.EnableTunnelBIGTCP {
+		if !bigtcpTunnel {
 			if daemonCfg.TunnelingEnabled() {
-				return errors.New("BIG TCP in tunneling mode requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+				return errors.New("BIG TCP in tunneling mode requires pending kernel support")
 			}
 			if dsrDispatch != loadbalancer.DSRDispatchOption {
-				return errors.New("bpf-lb-dsr-dispatch geneve requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+				return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires pending kernel support")
 			}
 		}
 
@@ -262,7 +271,12 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
-	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch); err != nil {
+	bigtcpTunnel := supportsBIGTCPTunnel(p.Log)
+	p.Log.Info("Probed kernel support for BIG TCP for UDP tunnels",
+		logfields.State, bigtcpTunnel,
+	)
+
+	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch, bigtcpTunnel); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)
