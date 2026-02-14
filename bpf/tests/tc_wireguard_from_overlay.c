@@ -112,9 +112,60 @@ int ipv4_wireguard_no_mark_from_overlay_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/* Verify packet was not modified before being dropped */
-	BUF_DECL(EXPECTED_PKT_NO_MARK, v4_overlay_tcp_packet);
+	BUF_DECL(V4_OVERLAY_TCP_NO_MARK, v4_overlay_tcp_packet);
 	ASSERT_CTX_BUF_OFF("pkt_unmodified", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_PKT_NO_MARK, sizeof(BUF(EXPECTED_PKT_NO_MARK)));
+			   V4_OVERLAY_TCP_NO_MARK, sizeof(BUF(V4_OVERLAY_TCP_NO_MARK)));
+
+	test_finish();
+}
+
+PKTGEN("tc", "ipv6_wireguard_no_mark_from_overlay")
+int ipv6_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(V6_OVERLAY_TCP_NO_MARK, v6_overlay_tcp_packet);
+	BUILDER_PUSH_BUF(builder, V6_OVERLAY_TCP_NO_MARK);
+
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP("tc", "ipv6_wireguard_no_mark_from_overlay")
+int ipv6_wireguard_no_mark_from_overlay_setup(struct __ctx_buff *ctx)
+{
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "ipv6_wireguard_no_mark_from_overlay")
+int ipv6_wireguard_no_mark_from_overlay_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	/* The packet is dropped if it is missing MARK_MAGIC_DECRYPT */
+	assert(*status_code == CTX_ACT_DROP);
+
+	/* The mark should not have the decrypt flag set */
+	assert(!ctx_is_decrypt(ctx));
+
+	/* Verify packet was not modified before being dropped */
+	BUF_DECL(V6_OVERLAY_TCP_NO_MARK, v6_overlay_tcp_packet);
+	ASSERT_CTX_BUF_OFF("pkt_unmodified", "Ether", ctx, sizeof(__u32),
+			   V6_OVERLAY_TCP_NO_MARK, sizeof(BUF(V6_OVERLAY_TCP_NO_MARK)));
 
 	test_finish();
 }
@@ -171,9 +222,68 @@ int ipv4_wireguard_mark_from_overlay_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/* Verify MAC addresses were rewritten */
-	BUF_DECL(EXPECTED_PKT_LOCAL_DELIVERY, v4_overlay_tcp_packet_rewritten);
+	BUF_DECL(V4_EXPECTED_PKT_LOCAL_DELIVERY, v4_overlay_tcp_packet_rewritten);
 	ASSERT_CTX_BUF_OFF("pkt_modified", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_PKT_LOCAL_DELIVERY, sizeof(BUF(EXPECTED_PKT_LOCAL_DELIVERY)));
+			   V4_EXPECTED_PKT_LOCAL_DELIVERY, sizeof(BUF(V4_EXPECTED_PKT_LOCAL_DELIVERY)));
+
+	test_finish();
+}
+
+PKTGEN("tc", "ipv6_wireguard_mark_from_overlay")
+int ipv6_wireguard_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(V6_OVERLAY_TCP_WITH_MARK, v6_overlay_tcp_packet);
+	BUILDER_PUSH_BUF(builder, V6_OVERLAY_TCP_WITH_MARK);
+
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP("tc", "ipv6_wireguard_mark_from_overlay")
+int ipv6_wireguard_mark_from_overlay_setup(struct __ctx_buff *ctx)
+{
+	/* Set the correct mark so that from-overlay doesn't drop the packet */
+	ctx->mark = MARK_MAGIC_DECRYPT;
+	/* Create an endpoint map entry to force local delivery */
+	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
+
+	return overlay_receive_packet(ctx);
+}
+
+CHECK("tc", "ipv6_wireguard_mark_from_overlay")
+int ipv6_wireguard_mark_from_overlay_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	/* The packet is forwarded to stack for local delivery
+	 * based on our mocked policy result.
+	 */
+	assert(*status_code == CTX_ACT_OK);
+
+	/* The decrypt mark should be cleared after processing */
+	assert(!ctx_is_decrypt(ctx));
+
+	/* Verify MAC addresses were rewritten */
+	BUF_DECL(V6_EXPECTED_PKT_LOCAL_DELIVERY, v6_overlay_tcp_packet_rewritten);
+	ASSERT_CTX_BUF_OFF("pkt_modified", "Ether", ctx, sizeof(__u32),
+			   V6_EXPECTED_PKT_LOCAL_DELIVERY, sizeof(BUF(V6_EXPECTED_PKT_LOCAL_DELIVERY)));
 
 	test_finish();
 }
