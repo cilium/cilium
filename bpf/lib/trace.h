@@ -234,9 +234,9 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}
@@ -286,9 +286,9 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}
@@ -338,9 +338,9 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	if (!emit_trace_notify(obs_point, monitor))
 		return;
 
-	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
 		if (!ratelimit_check_and_take(&rkey, &settings))
 			return;
 	}
