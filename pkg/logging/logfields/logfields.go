@@ -719,6 +719,15 @@ const (
 
 	Total = "total"
 
+	// ErrorCount is the number of errors encountered
+	ErrorCount = "errorCount"
+
+	// Requested is the number of resources requested
+	Requested = "requested"
+
+	// Found is the number of resources found
+	Found = "found"
+
 	// Debug is a boolean value for whether debug is set or not.
 	Debug = "debug"
 
