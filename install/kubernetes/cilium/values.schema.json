@@ -4712,6 +4712,12 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "toIPRange": {
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "type": "object"
