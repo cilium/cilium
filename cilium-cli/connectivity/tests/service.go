@@ -406,3 +406,47 @@ func (s *podToL7Service) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 }
+
+// PodToItselfViaService sends an HTTP request from the client pod
+// to the ClusterIP services of that pod in the test context
+// to confirm hairpinning works.
+func PodToItselfViaService() check.Scenario {
+	return &podToItselfViaService{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type podToItselfViaService struct {
+	check.ScenarioBase
+}
+
+func (s *podToItselfViaService) Name() string {
+	return "pod-to-itself-via-service"
+}
+
+func (s *podToItselfViaService) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	for _, pod := range ct.L7LBClientPods() {
+		for _, svc := range ct.L7LBNonL7Service() {
+			t.ForEachIPFamily(func(ipFamily features.IPFamily) {
+				// Skip IPv6 for versions < 1.19.0
+				if ipFamily == features.IPFamilyV6 && !versioncheck.MustCompile(">=1.19.0")(ct.CiliumVersion) {
+					return
+				}
+
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFamily, i), &pod, svc, ipFamily).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, a.CurlCommand(svc))
+					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+						DNSRequired: true,
+						AltDstPort:  svc.Port(),
+					}))
+					a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
+				})
+			})
+			i++
+		}
+	}
+
+}
