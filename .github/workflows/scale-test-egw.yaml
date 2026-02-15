@@ -73,16 +73,16 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.7
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.222.0
+  eksctl_version: v0.223.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.35.0
+  kubectl_version: v1.35.1
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 555.0.0
+  gcloud_version: 556.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 5f2fe2bd28db5b73f21a2d12880b5a433ed822cf
+  egw_utils_ref: 5c80b34e6064760c62d59c4526d5f47394b1f45e
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
