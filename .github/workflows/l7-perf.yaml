@@ -65,11 +65,11 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.26.0
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.222.0
+  eksctl_version: v0.223.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.35.0
+  kubectl_version: v1.35.1
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 555.0.0
+  gcloud_version: 556.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
