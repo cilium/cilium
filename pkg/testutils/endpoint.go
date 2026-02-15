@@ -91,6 +91,8 @@ func (e *TestEndpoint) GetOptions() *option.IntOptions { return e.Opts }
 
 func (e *TestEndpoint) IsHost() bool { return e.isHost }
 
+func (e *TestEndpoint) GetFibTableID() uint32 { return 0 }
+
 func (e *TestEndpoint) GetPropertyValue(key string) any { return nil }
 
 func (e *TestEndpoint) IPv4Address() netip.Addr {

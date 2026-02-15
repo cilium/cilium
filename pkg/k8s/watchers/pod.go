@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -331,7 +332,8 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno) || !k8s.AnnotationsEqual([]string{bandwidth.IngressBandwidth}, oldAnno, newAnno)
 	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
+	annoChangedFIBTableID := !k8s.AnnotationsEqual([]string{annotation.FIBTableID}, oldAnno, newAnno)
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack || annoChangedFIBTableID
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -404,7 +406,29 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 					return value
 				}())
 			}
-			realizePodAnnotationUpdate(podEP)
+			if annoChangedFIBTableID {
+				if tid, ok := newK8sPod.Annotations[annotation.FIBTableID]; ok {
+					if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
+						podEP.SetFibTableID(uint32(tidInt))
+					} else {
+						scopedLog.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
+							logfields.Annotation, annotation.FIBTableID,
+							logfields.Error, err,
+						)
+					}
+				} else {
+					podEP.SetFibTableID(0)
+				}
+				regenMetadata := &regeneration.ExternalRegenerationMetadata{
+					Reason:            "fib-table-id annotation updated",
+					RegenerationLevel: regeneration.RegenerateWithDatapath,
+				}
+				if regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata); regen {
+					podEP.Regenerate(regenMetadata)
+				}
+			} else {
+				realizePodAnnotationUpdate(podEP)
+			}
 		}
 	}
 

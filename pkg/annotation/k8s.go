@@ -235,6 +235,9 @@ const (
 
 	// GlobalNamespace is the annotation used to mark namespaces for global export in ClusterMesh.
 	GlobalNamespace = ClusterMeshPrefix + "/global"
+
+	// FIBTableID is the annotation used to specify the FIB table ID for egress routing.
+	FIBTableID = NetworkPrefix + "/fib-table-id"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.

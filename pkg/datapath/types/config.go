@@ -44,6 +44,8 @@ type LoadTimeConfiguration interface {
 	// GetPropertyValue returns the endpoint property value for this key.
 	GetPropertyValue(key string) any
 
+	GetFibTableID() uint32
+
 	// RequireARPPassthrough returns true if the datapath must implement
 	// ARP passthrough for this endpoint
 	RequireARPPassthrough() bool

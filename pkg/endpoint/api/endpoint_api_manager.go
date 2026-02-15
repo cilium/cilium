@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"strconv"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -257,6 +258,18 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 					return invalidDataError(ep, err)
 				}
 				ep.SetMac(mac)
+			}
+
+			if tid, ok := pod.Annotations[annotation.FIBTableID]; ok {
+				if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
+					ep.SetFibTableID(uint32(tidInt))
+				} else {
+					m.logger.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
+						logfields.K8sPodName, epTemplate.K8sPodName,
+						logfields.Annotation, annotation.FIBTableID,
+						logfields.Error, err,
+					)
+				}
 			}
 		}
 	}
