@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -26,6 +24,8 @@ import (
 
 func setupIPSecSuitePrivileged(tb testing.TB, ipFamily string) {
 	testutils.PrivilegedTest(tb)
+	testutils.SerializedTest(tb)
+
 	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
@@ -682,7 +682,7 @@ func Test_getDirFromXfrmMark(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, getDirFromXfrmMark(tt.mark), tt.want)
+			require.Equal(t, tt.want, getDirFromXfrmMark(tt.mark))
 		})
 	}
 }
