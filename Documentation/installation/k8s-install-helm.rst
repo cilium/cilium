@@ -51,7 +51,7 @@ several advantages:
    .. parsed-literal::
 
       helm install cilium oci://quay.io/cilium/charts/cilium \
-        --version |CHART_VERSION| \
+        |CHART_VERSION| \
         --namespace kube-system
 
 .. only:: not stable
@@ -320,7 +320,7 @@ Using OCI Registry
    .. parsed-literal::
 
       helm upgrade cilium oci://quay.io/cilium/charts/cilium \
-        --version |CHART_VERSION| \
+        |CHART_VERSION| \
         --namespace kube-system
 
 .. only:: not stable
@@ -342,7 +342,7 @@ switching to OCI is straightforward as the charts are identical:
    .. parsed-literal::
 
       helm upgrade cilium oci://quay.io/cilium/charts/cilium \
-        --version |CHART_VERSION| \
+        |CHART_VERSION| \
         --namespace kube-system \
         --reuse-values
 
