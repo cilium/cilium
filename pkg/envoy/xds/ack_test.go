@@ -85,7 +85,8 @@ func TestUpsertSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -139,7 +140,8 @@ func TestUseCurrent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -201,7 +203,8 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -254,7 +257,8 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -284,7 +288,8 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -317,7 +322,8 @@ func TestDeleteSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -359,7 +365,8 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -401,7 +408,8 @@ func TestRevertInsert(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
@@ -443,7 +451,8 @@ func TestRevertUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
@@ -492,7 +501,8 @@ func TestRevertDelete(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
