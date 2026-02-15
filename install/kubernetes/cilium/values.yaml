@@ -3586,6 +3586,33 @@ clustermesh:
   # -- Enable the synchronization of Kubernetes EndpointSlices corresponding to
   # the remote endpoints of appropriately-annotated global services through ClusterMesh
   enableEndpointSliceSynchronization: false
+  # -- Default behavior of namespaces in Clustermesh.
+  # 
+  # A "global" namespace means its resources (CiliumEndpoints, CiliumIdentities,
+  # and Services) are exported and shared across all connected clusters in the mesh.
+  # This enables:
+  # - Cross-cluster pod-to-pod connectivity
+  # - Cross-cluster network policy enforcement (policies can match labels on pods in remote clusters)
+  # - Global services and Multi-Cluster Services (MCS-API)
+  # 
+  # A "local" namespace means its resources stay within the cluster and are NOT
+  # exported to other clusters. Cross-cluster communication and network policies
+  # will not work for pods in local namespaces.
+  # 
+  # If set to true, all namespaces are considered global by default unless
+  # explicitly annotated with clustermesh.cilium.io/global=false.
+  # If set to false, all namespaces are considered local by default unless
+  # explicitly annotated with clustermesh.cilium.io/global=true.
+  # 
+  # Note: For cross-cluster communication to work, BOTH the source and destination
+  # namespaces must be global. Additionally, for a service to be a Global Service,
+  # it must both reside in a global namespace AND be annotated with
+  # service.cilium.io/global=true.
+  # This setting improves scalability by limiting the amount of state synchronized
+  # across clusters.
+  # 
+  # Defaults to true (preserves existing behavior where all namespaces are global).
+  defaultGlobalNamespace: true
   # -- Control whether policy rules assume by default the local cluster if not explicitly selected
   policyDefaultLocalCluster: true
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
