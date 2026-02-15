@@ -137,19 +137,19 @@ jobs:
           KERNEL="${{ matrix.kernel }}"
           case "$KERNEL" in
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.10") FULL_KERNEL="5.10-20260206.193128" ;;
+            "5.10") FULL_KERNEL="5.10-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.15") FULL_KERNEL="5.15-20260206.193128" ;;
+            "5.15") FULL_KERNEL="5.15-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.1") FULL_KERNEL="6.1-20260206.193128" ;;
+            "6.1") FULL_KERNEL="6.1-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20260206.193128" ;;
+            "6.6") FULL_KERNEL="6.6-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.12") FULL_KERNEL="6.12-20260206.193128" ;;
+            "6.12") FULL_KERNEL="6.12-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.18") FULL_KERNEL="6.18-20260206.193128" ;;
+            "6.18") FULL_KERNEL="6.18-20260211.084719" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "bpf-next") FULL_KERNEL="bpf-next-20260206.193128" ;;
+            "bpf-next") FULL_KERNEL="bpf-next-20260211.084719" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
