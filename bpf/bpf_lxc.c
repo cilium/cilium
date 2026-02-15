@@ -776,7 +776,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		/* See comment in handle_ipv4_from_lxc(). */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
-			goto pass_to_stack;
+			goto pass_to_stack_hostfw;
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 
 		if (info && info->flag_has_tunnel_ep)
@@ -806,7 +806,14 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		}
 	}
 
-pass_to_stack: __maybe_unused
+pass_to_stack:
+#ifdef ENABLE_ROUTING
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+#endif
+
+pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
@@ -1296,7 +1303,7 @@ skip_vtep:
 		 */
 		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
-			goto pass_to_stack;
+			goto pass_to_stack_hostfw;
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -1351,7 +1358,14 @@ skip_vtep:
 		}
 	}
 
-pass_to_stack: __maybe_unused
+pass_to_stack:
+#ifdef ENABLE_ROUTING
+	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+#endif
+
+pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
