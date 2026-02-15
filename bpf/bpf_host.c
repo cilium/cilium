@@ -396,7 +396,7 @@ skip_tunnel:
 #endif
 
 	if (from_proxy) {
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		set_identity_mark(ctx, secctx, MARK_MAGIC_SKIP_TPROXY);
 		return CTX_ACT_OK;
 	}
 
@@ -853,7 +853,7 @@ skip_tunnel:
 	 * routing).
 	 */
 	if (from_proxy) {
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		set_identity_mark(ctx, secctx, MARK_MAGIC_SKIP_TPROXY);
 		return CTX_ACT_OK;
 	}
 
@@ -1333,7 +1333,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || magic == MARK_MAGIC_ENCRYPT)
 		src_sec_identity = HOST_ID;
-	else if (magic == MARK_MAGIC_PROXY_EGRESS)
+	else if (magic == MARK_MAGIC_PROXY_EGRESS || magic == MARK_MAGIC_SKIP_TPROXY)
 		src_sec_identity = get_identity(ctx);
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
