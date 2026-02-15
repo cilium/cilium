@@ -105,7 +105,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	// Register rules (simulates applied policies).
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
-	policyRepo.GetSelectorCache().AddSelectors(dscu, policy.EmptyStringLabels, types.ToSelectors(selectorsToAdd...)...)
+	policyRepo.GetSelectorCache().AddSelectors(dscu, types.ToSelectors(selectorsToAdd...)...)
 
 	const nEndpoints int = 1024
 

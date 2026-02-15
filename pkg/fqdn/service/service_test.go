@@ -736,7 +736,7 @@ func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *pol
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	dummySelectorCacheUser := &testpolicy.DummySelectorCacheUser{}
 	endpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("app=test"))
-	cachedSelector, _ := sc.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, endpointSelector)
+	cachedSelector, _ := sc.AddIdentitySelectorForTest(dummySelectorCacheUser, endpointSelector)
 	return cachedSelector, sc
 }
 

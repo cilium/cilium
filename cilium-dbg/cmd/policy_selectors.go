@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -40,7 +41,7 @@ var policyCacheGetCmd = func(name, description string, f func() (models.Selector
 				fmt.Fprintf(w, "SELECTOR\tLABELS\tUSERS\tIDENTITIES\n")
 
 				for _, mapping := range resp {
-					lbls := constructLabelsArrayFromAPIType(mapping.Labels)
+					lbls := constructLabelArrayListFromAPIType(mapping.Labels)
 
 					first := true
 					fmt.Fprintf(w, "%s", mapping.Selector)
@@ -73,24 +74,36 @@ var policyCacheGetCmd = func(name, description string, f func() (models.Selector
 	}
 }
 
-func getNameAndNamespaceFromLabels(lbls labels.LabelArray) string {
-	ns := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelNamespace)
-	if ns == "" {
-		return ""
+func getNameAndNamespaceFromLabels(list labels.LabelArrayList) string {
+	var sb strings.Builder
+	for _, lbls := range list {
+		ns := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelNamespace)
+		if ns != "" {
+			if sb.Len() > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString(ns)
+			sb.WriteRune('/')
+			sb.WriteString(lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sconst.PolicyLabelName))
+		}
 	}
-	return ns + "/" + lbls.Get(labels.LabelSourceK8sKeyPrefix+k8sconst.PolicyLabelName)
+	return sb.String()
 }
 
-func constructLabelsArrayFromAPIType(in models.LabelArray) labels.LabelArray {
-	lbls := make(labels.LabelArray, 0, len(in))
-	for _, l := range in {
-		lbls = append(lbls, labels.Label{
-			Key:    l.Key,
-			Value:  l.Value,
-			Source: l.Source,
-		})
+func constructLabelArrayListFromAPIType(in models.LabelArrayList) labels.LabelArrayList {
+	list := make(labels.LabelArrayList, 0, len(in))
+	for _, la := range in {
+		lbls := make(labels.LabelArray, 0, len(la))
+		for _, l := range la {
+			lbls = append(lbls, labels.Label{
+				Key:    l.Key,
+				Value:  l.Value,
+				Source: l.Source,
+			})
+		}
+		list = append(list, lbls)
 	}
-	return lbls
+	return list
 }
 
 func init() {

@@ -3801,6 +3801,13 @@ func init() {
         "$ref": "#/definitions/Label"
       }
     },
+    "LabelArrayList": {
+      "description": "LabelArrayList is an array of LabelArrays forming a set",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LabelArray"
+      }
+    },
     "LabelConfiguration": {
       "description": "Label configuration of an endpoint",
       "type": "object",
@@ -4513,8 +4520,8 @@ func init() {
           }
         },
         "labels": {
-          "description": "Labels are the metadata labels associated with the selector",
-          "$ref": "#/definitions/LabelArray"
+          "description": "Labels is a list of labels of the policy rules currently using this selector",
+          "$ref": "#/definitions/LabelArrayList"
         },
         "selector": {
           "description": "string form of selector",
@@ -9565,6 +9572,13 @@ func init() {
         "$ref": "#/definitions/Label"
       }
     },
+    "LabelArrayList": {
+      "description": "LabelArrayList is an array of LabelArrays forming a set",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LabelArray"
+      }
+    },
     "LabelConfiguration": {
       "description": "Label configuration of an endpoint",
       "type": "object",
@@ -10291,8 +10305,8 @@ func init() {
           }
         },
         "labels": {
-          "description": "Labels are the metadata labels associated with the selector",
-          "$ref": "#/definitions/LabelArray"
+          "description": "Labels is a list of labels of the policy rules currently using this selector",
+          "$ref": "#/definitions/LabelArrayList"
         },
         "selector": {
           "description": "string form of selector",

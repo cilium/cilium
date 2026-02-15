@@ -134,7 +134,7 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddIdentitySelectorForTest(csu, EmptyStringLabels, sel)
+	cached, added := csu.sc.AddIdentitySelectorForTest(csu, sel)
 	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]
@@ -153,7 +153,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	defer csu.updateMutex.Unlock()
 
 	var cached types.CachedSelector
-	css, added := csu.sc.AddSelectors(csu, EmptyStringLabels, types.ToSelectors(sel)...)
+	css, added := csu.sc.AddSelectors(csu, types.ToSelectors(sel)...)
 	cached = css[0]
 
 	require.NotNil(csu.t, cached)
@@ -241,6 +241,10 @@ func (csu *cachedSelectionUser) IsPeerSelector() bool {
 	return true
 }
 
+func (csu *cachedSelectionUser) GetRuleLabels(cs CachedSelector) labels.LabelArrayList {
+	return nil
+}
+
 // Mock CachedSelector for unit testing.
 //
 // testCachedSelector is used in isolation so there is no point to implement versioning for it.
@@ -303,7 +307,7 @@ func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) identity.Numeric
 	return cs.selections
 }
 
-func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArray {
+func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArrayList {
 	return nil
 }
 func (cs *testCachedSelector) Selects(nid identity.NumericIdentity) bool {
@@ -720,7 +724,7 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	}()
 
 	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
-	sel := newIdentitySelector(sc, "test", nil, EmptyStringLabels)
+	sel := newIdentitySelector(sc, "test", nil)
 
 	selections := sel.GetSelections()
 	require.Empty(t, selections)
