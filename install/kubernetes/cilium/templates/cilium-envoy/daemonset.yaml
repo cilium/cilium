@@ -106,7 +106,8 @@ spec:
           failureThreshold: {{ .Values.envoy.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.envoy.startupProbe.periodSeconds }}
           successThreshold: 1
-          initialDelaySeconds: 5
+          initialDelaySeconds: {{ .Values.envoy.startupProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.envoy.startupProbe.timeoutSeconds }}
         {{- end }}
         {{- if .Values.envoy.livenessProbe.enabled }}
         livenessProbe:
@@ -118,7 +119,8 @@ spec:
           periodSeconds: {{ .Values.envoy.livenessProbe.periodSeconds }}
           successThreshold: 1
           failureThreshold: {{ .Values.envoy.livenessProbe.failureThreshold }}
-          timeoutSeconds: 5
+          initialDelaySeconds: {{ .Values.envoy.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.envoy.livenessProbe.timeoutSeconds }}
         {{- end }}
         readinessProbe:
           httpGet:
@@ -129,7 +131,8 @@ spec:
           periodSeconds: {{ .Values.envoy.readinessProbe.periodSeconds }}
           successThreshold: 1
           failureThreshold: {{ .Values.envoy.readinessProbe.failureThreshold }}
-          timeoutSeconds: 5
+          initialDelaySeconds: {{ .Values.envoy.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.envoy.readinessProbe.timeoutSeconds }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
