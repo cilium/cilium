@@ -6,6 +6,8 @@ package k8s
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -213,20 +215,42 @@ func ConvertCEPToCoreCEP(cep *cilium_v2.CiliumEndpoint) *cilium_v2alpha1.CoreCil
 	}
 	return &cilium_v2alpha1.CoreCiliumEndpoint{
 		Name:           cep.GetName(),
+		IdentityID:     identityID,
+		PodUID:         getPodUIDFromOwnerRefs(cep.OwnerReferences),
 		Networking:     epNetworking,
 		Encryption:     cep.Status.Encryption,
-		IdentityID:     identityID,
 		NamedPorts:     cep.Status.NamedPorts.DeepCopy(),
 		ServiceAccount: cep.Status.ServiceAccount,
 	}
 }
 
+// getPodUIDFromOwnerRefs extracts the Pod UID from a list of OwnerReferences.
+func getPodUIDFromOwnerRefs(refs []metav1.OwnerReference) string {
+	for _, ref := range refs {
+		if ref.Kind == "Pod" {
+			return string(ref.UID)
+		}
+	}
+	return ""
+}
+
 // ConvertCoreCiliumEndpointToTypesCiliumEndpoint converts CoreCiliumEndpoint object to types.CiliumEndpoint.
 func ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep *cilium_v2alpha1.CoreCiliumEndpoint, ns string) *types.CiliumEndpoint {
+	var ownerRefs []slim_metav1.OwnerReference
+	if ccep.PodUID != "" {
+		ownerRefs = []slim_metav1.OwnerReference{
+			{
+				Kind: "Pod",
+				UID:  k8sTypes.UID(ccep.PodUID),
+			},
+		}
+	}
+
 	return &types.CiliumEndpoint{
 		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      ccep.Name,
-			Namespace: ns,
+			Name:            ccep.Name,
+			Namespace:       ns,
+			OwnerReferences: ownerRefs,
 		},
 		Encryption: func() *cilium_v2.EncryptionSpec {
 			enc := ccep.Encryption
