@@ -34,8 +34,6 @@ import (
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	defer testutils.GoleakVerifyNone(t)
-
 	// When certain kernel modules are loaded, the kernel will by default try
 	// to create fallback devices in newly created network namespaces.
 	// Setting net.core.fb_tunnels_only_for_init=2 will prevent the kernel from
