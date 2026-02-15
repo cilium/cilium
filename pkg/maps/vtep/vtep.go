@@ -55,7 +55,8 @@ func newKey(ip net.IP) Key {
 	result := Key{}
 
 	if ip4 := ip.To4(); ip4 != nil {
-		ip4.Mask(net.IPMask(option.Config.VtepCidrMask))
+		maskBytes := option.Config.VtepCidrMask.As4()
+		ip4.Mask(net.IPMask(maskBytes[:]))
 		copy(result.IP[:], ip4)
 	}
 

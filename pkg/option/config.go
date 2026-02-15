@@ -1753,7 +1753,7 @@ type DaemonConfig struct {
 	EnableVTEP bool
 
 	// VtepMask VTEP Mask
-	VtepCidrMask net.IP
+	VtepCidrMask netip.Addr
 
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
@@ -3263,9 +3263,9 @@ func getPossibleCPUs(logger *slog.Logger) int {
 func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 	vtepCidrMask := vp.GetString(VtepMask)
 
-	mask := net.ParseIP(vtepCidrMask)
-	if mask == nil {
-		return fmt.Errorf("Invalid VTEP CIDR Mask: %v", vtepCidrMask)
+	mask, err := netip.ParseAddr(vtepCidrMask)
+	if err != nil {
+		return fmt.Errorf("invalid VTEP CIDR Mask: %w", err)
 	}
 	c.VtepCidrMask = mask
 
