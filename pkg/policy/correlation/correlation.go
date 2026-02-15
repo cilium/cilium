@@ -181,7 +181,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - ports:
 		//    - port: 80
 		//      protocol: TCP // protocol is optional for this match.
-		key = policy.KeyForDirection(key.TrafficDirection()).WithPortProto(key.Nexthdr, key.DestPort)
+		key = policy.KeyForDirection(key.TrafficDirection()).WithPaddedPortProtoPrefix(key.Nexthdr, key.DestPort, 16)
 	case monitorAPI.PolicyMatchProtoOnly:
 		// Check for protocol-only policies.
 		//

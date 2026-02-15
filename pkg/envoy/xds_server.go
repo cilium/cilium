@@ -1574,10 +1574,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				continue
 			}
 
-			port := l4.Port
-			if port == 0 && l4.PortName != "" {
-				port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto)
-			}
+			port := l4.ResolvePort(ep.GetNamedPort)
 
 			// Skip if a named port can not be resolved (yet)
 			// wildcard port already taken care of above
@@ -1665,7 +1662,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			// NPDS supports port ranges.
 			PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
 				Port:     uint32(port),
-				EndPort:  uint32(l4.EndPort),
+				EndPort:  uint32(l4.GetEndPort()),
 				Protocol: protocol,
 				Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
 			})

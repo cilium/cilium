@@ -199,7 +199,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check port-only rule.
-	policyKey = policy.EgressKey().WithPort(uint16(dstPort))
+	policyKey = policy.EgressKey().WithPortProto(u8proto.TCP, uint16(dstPort))
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		IPv4:         net.ParseIP(localIP),

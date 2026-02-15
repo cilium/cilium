@@ -296,7 +296,7 @@ func NewKeyFromPolicyKey(pk policyTypes.Key) PolicyKey {
 		Identity:         uint32(pk.Identity),
 		TrafficDirection: uint8(pk.TrafficDirection()),
 		Nexthdr:          uint8(pk.Nexthdr),
-		DestPortNetwork:  byteorder.HostToNetwork16(pk.DestPort),
+		DestPortNetwork:  byteorder.HostToNetwork16(pk.StartPort()),
 	}
 }
 

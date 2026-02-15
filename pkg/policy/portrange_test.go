@@ -8,14 +8,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // maskedPorts have to be sorted for this check
-func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint16) {
+func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end types.PaddedPort) {
 	// Wildcard case.
 	if start == 0 && end == 0 {
 		require.Len(t, maskedPorts, 1)
-		require.Equal(t, uint16(0), maskedPorts[0].port)
+		require.Equal(t, types.PaddedPort(0), maskedPorts[0].port)
 		require.Equal(t, uint16(0), maskedPorts[0].mask)
 		return
 	}
@@ -23,10 +25,10 @@ func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint
 	require.NotEmpty(t, maskedPorts)
 	// validate that range elements are continuous and non-overlapping
 	first := maskedPorts[0].port
-	last := first + ^maskedPorts[0].mask
+	last := first + types.PaddedPort(^maskedPorts[0].mask)
 	for i := 1; i < len(maskedPorts); i++ {
 		require.Equal(t, maskedPorts[i].port, last+1)
-		last = maskedPorts[i].port + ^maskedPorts[i].mask
+		last = maskedPorts[i].port + types.PaddedPort(^maskedPorts[i].mask)
 	}
 	// Check that the computed range matches the given range
 	require.Equal(t, first, start)
@@ -35,7 +37,7 @@ func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint
 
 func TestPortRange(t *testing.T) {
 	type testCase struct {
-		start, end uint16
+		start, end types.PaddedPort
 		expected   []MaskedPort
 	}
 

@@ -924,7 +924,7 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMP/8": {
-		Port:     8,
+		Port:     0xff08,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  true,
@@ -936,7 +936,7 @@ func TestICMPPolicy(t *testing.T) {
 	}})
 
 	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMP/9": {
-		Port:     9,
+		Port:     0xff09,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  false,
@@ -971,7 +971,7 @@ func TestICMPPolicy(t *testing.T) {
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"ICMP/8": {
-			Port:     8,
+			Port:     0xff08,
 			Protocol: api.ProtoICMP,
 			U8Proto:  u8proto.ProtoIDs["icmp"],
 			Ingress:  true,
@@ -1013,7 +1013,7 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMPV6/128": {
-		Port:     128,
+		Port:     0xff80,
 		Protocol: api.ProtoICMPv6,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  true,
@@ -1762,7 +1762,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 
 	filter := pol.L4Policy.Ingress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
+	require.EqualValues(t, 80, filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Len(t, filter.PerSelectorPolicies, 1)
@@ -1795,7 +1795,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	require.Len(t, pol.L4Policy.Ingress.PortRules, 1)
 	filter := pol.L4Policy.Ingress.PortRules[0].ExactLookup("port-80", 0, "TCP")
 	require.NotNil(t, filter)
-	require.Equal(t, uint16(0), filter.Port)
+	require.EqualValues(t, 0, filter.Port)
 	require.Equal(t, "port-80", filter.PortName)
 	require.True(t, filter.Ingress)
 
@@ -1855,7 +1855,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
+	require.EqualValues(t, 80, filter.Port)
 	require.False(t, filter.Ingress)
 
 	require.Len(t, filter.PerSelectorPolicies, 1)
@@ -1892,7 +1892,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
+	require.EqualValues(t, 80, filter.Port)
 	require.False(t, filter.Ingress)
 
 	require.Len(t, filter.PerSelectorPolicies, 3)
@@ -1928,7 +1928,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
-	require.Equal(t, uint16(80), filter.Port)
+	require.EqualValues(t, 80, filter.Port)
 	require.False(t, filter.Ingress)
 
 	require.Len(t, filter.PerSelectorPolicies, 1)
