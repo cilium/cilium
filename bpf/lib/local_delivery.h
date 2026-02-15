@@ -227,3 +227,45 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 			      from_tunnel, cluster_id);
 }
+
+/* Performs IPv6 L2/L3 handling and delivers the packet to the cilium_host@ingress
+ * interface on the same node via a redirect call.
+ * If needed by the configuration, host policies will be enforced once delivered,
+ * specifically in the cil_to_host program.
+ * This function expects the packet to contain an Ethernet header. Make sure to
+ * adjust it accordingly before calling this helper.
+ */
+static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
+
+	ret = ipv6_l3(ctx, __ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+}
+
+/* Performs IPv4 L2/L3 handling and delivers the packet to the cilium_host@ingress
+ * interface on the same node via a redirect call.
+ * If needed by the configuration, host policies will be enforced once delivered,
+ * specifically in the cil_to_host program.
+ * This function expects the packet to contain an Ethernet header. Make sure to
+ * adjust it accordingly before calling this helper.
+ */
+static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
+
+	ret = ipv4_l3(ctx, __ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+}
