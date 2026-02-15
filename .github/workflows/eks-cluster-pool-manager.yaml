@@ -22,7 +22,7 @@ permissions:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.222.0
+  eksctl_version: v0.223.0
 
 jobs:
   generate-cleanup-matrix:
