@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -21,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -30,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -169,7 +166,9 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, s.do.idmgr, nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	p := createTestEndpointParams(t)
+	p.KVStoreSynchronizer = kvstoreSync
+	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
