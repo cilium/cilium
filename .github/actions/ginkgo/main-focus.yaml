@@ -193,9 +193,8 @@ include:
 
   ###
   # K8sKafkaPolicyTest Kafka Policy Tests KafkaPolicies
-  # K8sSpecificMACAddressTests Check whether the pod is created Checks the pod's mac address
   - focus: "f19-kafka"
-    cliFocus: "K8sKafkaPolicyTest|K8sSpecificMACAddressTests"
+    cliFocus: "K8sKafkaPolicyTest"
 
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
