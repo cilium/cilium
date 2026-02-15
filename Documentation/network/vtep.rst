@@ -33,9 +33,75 @@ endpoint IPs, CIDRs, and MAC addresses.
 Enable VXLAN Tunnel Endpoint (VTEP) integration
 ===============================================
 
-This feature is disabled by default. When enabling the
-VTEP integration, you must also specify the IPs, CIDR ranges and MACs for each VTEP device
-as part of the configuration.
+This feature is disabled by default. When enabling the VTEP integration, you must
+specify the IPs, CIDR ranges and MACs for each VTEP device.
+
+There are two ways to configure VTEP endpoints:
+
+1. **CiliumVTEPConfig CRD** (Recommended): Allows dynamic configuration changes
+   without restarting Cilium agents.
+2. **ConfigMap/Helm values** (Deprecated): Static configuration that requires
+   Cilium agent restarts for changes to take effect.
+
+.. _vtep_crd_config:
+
+Using CiliumVTEPConfig CRD (Recommended)
+----------------------------------------
+
+The ``CiliumVTEPConfig`` CRD allows you to configure VTEP endpoints dynamically.
+Changes to the CRD are applied immediately without requiring Cilium agent restarts.
+
+First, enable VTEP support via Helm:
+
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: vtep.enabled="true"
+
+Then create a ``CiliumVTEPConfig`` resource:
+
+.. code-block:: yaml
+
+   apiVersion: cilium.io/v2
+   kind: CiliumVTEPConfig
+   metadata:
+     name: default
+   spec:
+     cidrMask: "255.255.255.0"
+     endpoints:
+     - name: vtep-device-1
+       tunnelEndpoint: "10.169.72.236"
+       cidr: "10.1.1.0/24"
+       mac: "82:36:4c:98:2e:56"
+     - name: vtep-device-2
+       tunnelEndpoint: "10.169.72.238"
+       cidr: "10.1.2.0/24"
+       mac: "82:36:4c:98:2e:58"
+
+Apply the configuration:
+
+.. code-block:: bash
+
+   kubectl apply -f ciliumvtepconfig.yaml
+
+You can verify the status:
+
+.. code-block:: bash
+
+   kubectl get ciliumvtepconfig default -o yaml
+
+The status section shows whether endpoints are successfully synced to the BPF map.
+
+.. _vtep_configmap_config:
+
+Using ConfigMap/Helm (Deprecated)
+---------------------------------
+
+.. warning::
+
+   ConfigMap-based VTEP configuration (``vtep-endpoint``, ``vtep-cidr``, ``vtep-mac``)
+   is deprecated and will be removed in Cilium v1.18. Please migrate to the
+   ``CiliumVTEPConfig`` CRD as described in :ref:`vtep_crd_config`.
 
 .. tabs::
 
@@ -71,6 +137,32 @@ as part of the configuration.
        .. code-block:: bash
 
           kubectl -n $CILIUM_NAMESPACE rollout restart ds/cilium
+
+.. _vtep_migration:
+
+Migration from ConfigMap to CRD
+-------------------------------
+
+To migrate from ConfigMap-based configuration to the CRD:
+
+1. Create a ``CiliumVTEPConfig`` CRD with your existing endpoint configurations.
+
+2. Apply the CRD:
+
+   .. code-block:: bash
+
+      kubectl apply -f ciliumvtepconfig.yaml
+
+3. The CRD configuration takes effect immediately. Cilium will log a warning
+   indicating that ConfigMap settings are being ignored in favor of the CRD.
+
+4. Remove the deprecated settings from your ConfigMap or Helm values:
+
+   - ``vtep-endpoint`` / ``vtep.endpoint``
+   - ``vtep-cidr`` / ``vtep.cidr``
+   - ``vtep-mac`` / ``vtep.mac``
+
+5. Keep ``enable-vtep: "true"`` / ``vtep.enabled=true`` as this flag is still required.
 
 
 How to test VXLAN Tunnel Endpoint (VTEP) Integration
