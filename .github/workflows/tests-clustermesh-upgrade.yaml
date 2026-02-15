@@ -517,7 +517,9 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --junit-file "cilium-junits/${{ env.job_name }} - pre-upgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests pre-upgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests pre-upgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-pre-upgrade-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -527,7 +529,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-pre-upgrade-2
 
       - name: Features tested on cluster 1
         uses: ./.github/actions/feature-status
@@ -671,7 +675,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-upgrade-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -681,7 +687,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-upgrade-2
 
       - name: Features tested on cluster 1 - post upgrade
         uses: ./.github/actions/feature-status
@@ -758,7 +766,9 @@ jobs:
             --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-stress-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -768,7 +778,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-stress-2
 
       - name: Features tested on cluster 1 - stress-test
         uses: ./.github/actions/feature-status
@@ -819,7 +831,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-downgrade-1
 
       - name: Features tested on cluster 1 - post-downgrade
         uses: ./.github/actions/feature-status
