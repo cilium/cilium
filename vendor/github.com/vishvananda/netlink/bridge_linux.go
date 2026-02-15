@@ -19,6 +19,29 @@ func BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 }
 
 func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
+	// ifindex 0 means no filtering (return all devices)
+	return h.bridgeVlanTunnelShowBy(0)
+}
+
+// BridgeVlanTunnelShowDev gets vlanid-tunnelid mapping for a specific device.
+// Equivalent to: `bridge vlan tunnelshow dev DEV`
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
+	return pkgHandle.BridgeVlanTunnelShowDev(link)
+}
+
+func (h *Handle) BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	return h.bridgeVlanTunnelShowBy(int32(base.Index))
+}
+
+// bridgeVlanTunnelShowBy performs a bridge VLAN tunnel dump and optionally
+// filters by device ifindex.
+// When ifindex is 0, all devices are returned.
+func (h *Handle) bridgeVlanTunnelShowBy(ifindex int32) ([]nl.TunnelInfo, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_DUMP)
 	msg := nl.NewIfInfomsg(unix.AF_BRIDGE)
 	req.AddData(msg)
@@ -31,6 +54,10 @@ func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 	ret := make([]nl.TunnelInfo, 0)
 	for _, m := range msgs {
 		msg := nl.DeserializeIfInfomsg(m)
+
+		if ifindex != 0 && msg.Index != ifindex {
+			continue
+		}
 
 		attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 		if err != nil {
@@ -53,6 +80,11 @@ func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 					}
 				}
 			}
+		}
+		// Each device has exactly one message in the dump;
+		// return early once we've processed the target device.
+		if ifindex != 0 {
+			return ret, executeErr
 		}
 	}
 	return ret, executeErr
