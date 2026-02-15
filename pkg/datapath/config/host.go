@@ -5,7 +5,6 @@ package config
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 
 	"github.com/vishvananda/netlink"
@@ -40,7 +39,7 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -88,7 +87,7 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
@@ -146,7 +145,7 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {
