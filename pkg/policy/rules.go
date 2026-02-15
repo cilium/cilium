@@ -47,11 +47,12 @@ func ensureSlice[E any, S ~[]E, I ~uint | ~uint8](s *S, index I) {
 
 const perTierRoundUp = 1000
 
-// computeTierPriorities determines how many priority levels are needed for each tier,
-// considering that PASS verdicts require priority space after them for all the rules
-// in the lower tiers.
+// computeTierPriorities determines how many priority levels are needed for each tier, considering
+// that PASS verdicts require priority space after them for all the rules in the lower tiers. Two
+// slices are returned: one with the number of priority levels needed for the tier, and other with
+// the base priority for each tier.
 //
-// The returned slice has the needed priority range for each tier (0, 1, ...), including the full
+// The returned slices has the needed priority range for each tier (0, 1, ...), including the full
 // range for all the remaining tiers in the policy.  Policy tiers are not compressed, but used 1:1,
 // i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int it.
 //
@@ -67,23 +68,23 @@ const perTierRoundUp = 1000
 //	basePriority[tier] = range[0] - range[tier]
 //
 // 'rules' is already sorted by tier/priority
-func (rules ruleSlice) computeTierPriorities() ([]int, error) {
+func (rules ruleSlice) computeTierPriorities() ([]int, []types.Priority, error) {
 	lastTier := types.Tier(0)
-	tierPriorityLevels := make([]int, 1)
+	nTiers := int(rules[len(rules)-1].Tier) + 1
+	tierPriorityLevels := make([]int, nTiers)
 	numPassVerdicts := make([]int, 1)
 
 	lastPrio := rules[0].Priority
-	levels := 1 // each tier occupies at least one priority level
+	levels := 1 // each tier with any rules occupies at least one priority level
 	lastPassLevel := 0
 
 	for _, r := range rules {
 		if r.Tier != lastTier {
-			if r.Tier < lastTier {
-				return nil, ErrUnorderedTiers
+			if r.Tier < lastTier || r.Tier >= types.Tier(nTiers) {
+				return nil, nil, ErrUnorderedTiers
 			}
 			// Keep the needed priority levels for the previous tier,
 			// rounding up to next 10 to reduce policy map churn.
-			ensureSlice(&tierPriorityLevels, lastTier)
 			tierPriorityLevels[lastTier] = roundUp(levels, 10)
 
 			ensureSlice(&numPassVerdicts, r.Tier)
@@ -95,7 +96,7 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 			lastPassLevel = 0
 		} else if r.Priority != lastPrio {
 			if r.Priority < lastPrio {
-				return nil, ErrUnorderedRules
+				return nil, nil, ErrUnorderedRules
 			}
 			levels++
 			lastPrio = r.Priority
@@ -119,7 +120,18 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 		tierPriorityLevels[tier] = types.Roundup(tierPriorityLevels[tier], perTierRoundUp)
 	}
 
-	return tierPriorityLevels, nil
+	if tierPriorityLevels[0] > int(types.LowestPriority) {
+		return nil, nil, ErrTooManyPriorityLevels
+	}
+
+	tierBasePriorities := make([]types.Priority, nTiers)
+	basePriority := types.Priority(0)
+	for tier := 1; tier <= int(lastTier); tier++ {
+		basePriority += types.Priority(tierPriorityLevels[tier-1] - tierPriorityLevels[tier])
+		tierBasePriorities[tier] = basePriority
+	}
+
+	return tierPriorityLevels, tierBasePriorities, nil
 }
 
 func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPolicy, error) {
@@ -135,13 +147,12 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	}
 
 	// compute how many priotity levels are needed for each tier.
-	tierPriorityLevels, err := rules.computeTierPriorities()
+	tierPriorityLevels, tierBasePriorities, err := rules.computeTierPriorities()
 	if err != nil {
 		return result, err
 	}
 
-	result.tierBasePriority = make([]types.Priority, len(tierPriorityLevels))
-
+	result.tierBasePriority = tierBasePriorities
 	lastTier := types.Tier(len(tierPriorityLevels) - 1)
 
 	// add rules, computing the absolute priority for each rule,
@@ -153,18 +164,8 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	lastPrio := rules[0].Priority
 	for _, r := range rules {
 		if r.Tier != tier {
-			// Bump priority for the new tier, based on the calculated levels needed
-			priority = result.tierBasePriority[tier] + types.Priority(tierPriorityLevels[tier])
-			if priority > types.LowestPriority {
-				return result, ErrTooManyPriorityLevels
-			}
-			priority -= types.Priority(tierPriorityLevels[r.Tier])
-			for tier++; tier < r.Tier; tier++ {
-				// fill in the same base priority for all skipped tiers
-				result.tierBasePriority[tier] = priority
-			}
-			result.tierBasePriority[tier] = priority
-
+			tier = r.Tier
+			priority = result.tierBasePriority[tier]
 			increment = types.Priority(1) // reset increment to default
 			lastPrio = r.Priority
 		} else if r.Priority != lastPrio {
