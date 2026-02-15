@@ -60,8 +60,8 @@ ifeq ($(DOCKER_IMAGE_TAG),)
 endif
 
 # renovate: datasource=docker depName=gcr.io/etcd-development/etcd
-ETCD_IMAGE_VERSION = v3.6.7
-ETCD_IMAGE_SHA = sha256:70cd5d29d2efcbc4c15f2a63183fd537aae77ddbc46b3b97a8a97bc8751ec3b4
+ETCD_IMAGE_VERSION = v3.6.8
+ETCD_IMAGE_SHA = sha256:397189418d1a00e500c0605ad18d1baf3b541a1004d768448c367e48071622e5
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
 export CILIUM_CLI ?= cilium
