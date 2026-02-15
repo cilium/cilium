@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 const (
@@ -21,12 +21,12 @@ const (
 
 // ParsePoolSpec parses a pool spec string in the form
 // "ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24".
-func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2alpha1.IPv6PoolSpec, error) {
+func ParsePoolSpec(poolString string) (*cilium_v2.IPv4PoolSpec, *cilium_v2.IPv6PoolSpec, error) {
 	fields := strings.FieldsFunc(strings.ReplaceAll(poolString, " ", ""), func(c rune) bool {
 		return c == ';'
 	})
 
-	var ipv4CIDRs, ipv6CIDRs []cilium_v2alpha1.PoolCIDR
+	var ipv4CIDRs, ipv6CIDRs []cilium_v2.PoolCIDR
 	var ipv4MaskSize, ipv6MaskSize uint8
 
 	for _, field := range fields {
@@ -41,7 +41,7 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 				if err != nil {
 					return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv4CIDRs, err)
 				}
-				ipv4CIDRs = append(ipv4CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
+				ipv4CIDRs = append(ipv4CIDRs, cilium_v2.PoolCIDR{CIDR: cidr})
 			}
 		case poolKeyIPv4MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
@@ -55,7 +55,7 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 				if err != nil {
 					return nil, nil, fmt.Errorf("invalid value for key %q: %w", poolKeyIPv6CIDRs, err)
 				}
-				ipv6CIDRs = append(ipv6CIDRs, cilium_v2alpha1.PoolCIDR(cidr))
+				ipv6CIDRs = append(ipv6CIDRs, cilium_v2.PoolCIDR{CIDR: cidr})
 			}
 		case poolKeyIPv6MaskSize:
 			mask, err := strconv.ParseUint(value, 10, 8)
@@ -67,17 +67,17 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 	}
 
 	var (
-		v4PoolSpec *cilium_v2alpha1.IPv4PoolSpec
-		v6PoolSpec *cilium_v2alpha1.IPv6PoolSpec
+		v4PoolSpec *cilium_v2.IPv4PoolSpec
+		v6PoolSpec *cilium_v2.IPv6PoolSpec
 	)
 	if len(ipv4CIDRs) > 0 {
-		v4PoolSpec = &cilium_v2alpha1.IPv4PoolSpec{
+		v4PoolSpec = &cilium_v2.IPv4PoolSpec{
 			CIDRs:    ipv4CIDRs,
 			MaskSize: ipv4MaskSize,
 		}
 	}
 	if len(ipv6CIDRs) > 0 {
-		v6PoolSpec = &cilium_v2alpha1.IPv6PoolSpec{
+		v6PoolSpec = &cilium_v2.IPv6PoolSpec{
 			CIDRs:    ipv6CIDRs,
 			MaskSize: ipv6MaskSize,
 		}
@@ -86,23 +86,29 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 	return v4PoolSpec, v6PoolSpec, nil
 }
 
-func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec) error {
-	var ipv4CIDRs, ipv6CIDRs []string
+func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2.IPv4PoolSpec, v6Spec *cilium_v2.IPv6PoolSpec) error {
+	var ipv4CIDRs, ipv6CIDRs []PoolCIDRWithReserved
 	var ipv4MaskSize, ipv6MaskSize int
 
 	if v4Spec != nil {
 		ipv4MaskSize = int(v4Spec.MaskSize)
-		ipv4CIDRs = make([]string, len(v4Spec.CIDRs))
-		for i, cidr := range v4Spec.CIDRs {
-			ipv4CIDRs[i] = string(cidr)
+		ipv4CIDRs = make([]PoolCIDRWithReserved, 0, len(v4Spec.CIDRs))
+		for _, cidr := range v4Spec.CIDRs {
+			ipv4CIDRs = append(ipv4CIDRs, PoolCIDRWithReserved{
+				CIDR:          cidr.CIDR,
+				ReservedRange: cidr.ReservedRange,
+			})
 		}
 	}
 
 	if v6Spec != nil {
 		ipv6MaskSize = int(v6Spec.MaskSize)
-		ipv6CIDRs = make([]string, len(v6Spec.CIDRs))
-		for i, cidr := range v6Spec.CIDRs {
-			ipv6CIDRs[i] = string(cidr)
+		ipv6CIDRs = make([]PoolCIDRWithReserved, 0, len(v6Spec.CIDRs))
+		for _, cidr := range v6Spec.CIDRs {
+			ipv6CIDRs = append(ipv6CIDRs, PoolCIDRWithReserved{
+				CIDR:          cidr.CIDR,
+				ReservedRange: cidr.ReservedRange,
+			})
 		}
 	}
 
