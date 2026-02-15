@@ -76,6 +76,7 @@ var defaultUserConfig = UserConfig{
 	EnableConfig:                             defaultEnableConfig,
 	EnableIPsecKeyWatcher:                    true,
 	EnableIPsecXfrmStateCaching:              true,
+	EnableIPsecKeyRotationJitter:             false,
 	UseCiliumInternalIPForIPsec:              false,
 	DNSProxyInsecureSkipTransparentModeCheck: false,
 	IPsecKeyFile:                             "",
@@ -86,6 +87,7 @@ type UserConfig struct {
 	EnableConfig                             `mapstructure:",squash"`
 	EnableIPsecKeyWatcher                    bool
 	EnableIPsecXfrmStateCaching              bool
+	EnableIPsecKeyRotationJitter             bool
 	UseCiliumInternalIPForIPsec              bool
 	DNSProxyInsecureSkipTransparentModeCheck bool
 	IPsecKeyFile                             string
@@ -104,6 +106,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden(types.DNSProxyInsecureSkipTransparentModeCheck)
 	flags.String(types.IPSecKeyFile, def.IPsecKeyFile, "Path to IPsec key file")
 	flags.Duration(types.IPsecKeyRotationDuration, def.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
+	flags.Bool(types.EnableIPsecKeyRotationJitter, def.EnableIPsecKeyRotationJitter, "Enable random jitter before loading new IPsec keys to prevent thundering herd on the K8s API server during key rotations in large clusters.")
 }
 
 type Config struct {
@@ -118,6 +121,18 @@ func (c Config) UseCiliumInternalIP() bool {
 
 func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 	return c.DNSProxyInsecureSkipTransparentModeCheck
+}
+
+// MaxKeyRotationJitter returns the maximum jitter duration to apply after
+// detecting a key file change before loading new keys. Returns 0 if jitter
+// is disabled. When enabled, jitter is set to half of the key rotation duration
+// to prevent thundering herd on the K8s API server while ensuring agents have
+// sufficient time to load new keys.
+func (c Config) MaxKeyRotationJitter() time.Duration {
+	if !c.EnableIPsecKeyRotationJitter {
+		return 0
+	}
+	return c.IPsecKeyRotationDuration / 2
 }
 
 var defaultEnableConfig = EnableConfig{

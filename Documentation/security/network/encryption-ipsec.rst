@@ -254,6 +254,15 @@ to all clusters in the mesh. You might need to increase the transition time to
 allow for the new keys to be deployed and applied across all clusters,
 which you can do with the agent flag ``ipsec-key-rotation-duration``.
 
+In large clusters, key rotation can cause a "thundering herd" effect where all
+agents detect the key change simultaneously and update their CiliumNode resources
+at once, potentially overwhelming the Kubernetes API server. To mitigate this, 
+Cilium can apply a random jitter delay before loading new keys. The jitter is
+randomly selected from ``[0, keyRotationDuration/2]``, ensuring agents have
+sufficient time to load new keys before the old keys are removed. This feature
+is disabled by default and can be enabled with the Helm value
+``encryption.ipsec.keyRotationJitter: true``
+
 Monitoring
 ==========
 
