@@ -59,7 +59,7 @@ jobs:
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.7
+          go-version: 1.26.0
 
       - name: Get token
         id: get_token
@@ -128,7 +128,7 @@ jobs:
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.7
+          go-version: 1.26.0
 
       - name: Install helm
         shell: bash
