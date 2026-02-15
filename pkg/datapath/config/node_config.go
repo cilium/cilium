@@ -21,11 +21,6 @@ type Node struct {
 	EnableConntrackAccounting bool `config:"enable_conntrack_accounting"`
 	// Use jiffies (count of timer ticks since boot).
 	EnableJiffies bool `config:"enable_jiffies"`
-	// Maximum number of messages that can be written to BPF events map in 1
-	// second.
-	EventsMapBurstLimit uint32 `config:"events_map_burst_limit"`
-	// The sustained message rate for the BPF events map in messages per second.
-	EventsMapRateLimit uint32 `config:"events_map_rate_limit"`
 	// Cluster-wide IPv4 tuple hash seed sourced.
 	HashInit4Seed uint32 `config:"hash_init4_seed"`
 	// Cluster-wide IPv6 tuple hash seed sourced.
@@ -57,7 +52,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, 0x8, false, 0x0, false, false, 0x0, 0x0, 0x0, 0x0, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &Node{0x0, 0x8, false, 0x0, false, false, 0x0, 0x0, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
