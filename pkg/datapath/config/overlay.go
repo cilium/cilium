@@ -4,8 +4,6 @@
 package config
 
 import (
-	"net"
-
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -24,7 +22,7 @@ func Overlay(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	cfg.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
