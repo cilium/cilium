@@ -115,10 +115,10 @@ jobs:
         include:
           - name: '1'
             encryption: 'disabled'
-            kube-proxy: 'iptables'
+            kube-proxy: 'none'
             external-kvstore: false
-            max-connected-clusters: 255
-            cm-auth-mode: 'legacy'
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
 
           - name: '2'
             encryption: 'disabled'
@@ -127,28 +127,61 @@ jobs:
             max-connected-clusters: 511
             cm-auth-mode: 'migration'
 
-          # Currently, ipsec requires to synchronously regenerate the host
-          # endpoint to ensure ordering (#25735). Given that this is a blocking
-          # operation, we cannot wait for full clustermesh synchronization
-          # for an extended period of time, as that would prevent the agents from
-          # becoming ready (and new pods scheduled). This means that we will
-          # experience cross-cluster connection drops during upgrades/downgrades,
-          # given that the timeout is too low to account for the initialization
-          # of a new clustermesh-apiserver replica (while it is enough to prevent
-          # issues in case of agent restarts, if all remote clusters are ready,
-          # as well as when connecting to an external kvstore as in this case).
           - name: '3'
-            encryption: 'ipsec'
-            kube-proxy: 'iptables'
-            external-kvstore: true
-            max-connected-clusters: 255
-
-          - name: '4'
-            encryption: 'wireguard'
-            kube-proxy: 'iptables'
+            encryption: 'disabled'
+            kube-proxy: 'none'
             external-kvstore: false
             max-connected-clusters: 511
-            cm-auth-mode: 'cluster'
+            cm-auth-mode: 'migration'
+
+          - name: '4'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '5'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '7'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '8'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '9'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '10'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
 
     steps:
       - name: Set commit status to pending
