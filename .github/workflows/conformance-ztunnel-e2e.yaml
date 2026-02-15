@@ -167,7 +167,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
+        uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
