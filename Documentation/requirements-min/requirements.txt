@@ -12,7 +12,7 @@ myst-parser==2.0.0
 sphinx-tabs==3.4.7
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.5
-sphinxcontrib-openapi==0.8.4
+sphinxcontrib-openapi==0.9.0
 sphinxcontrib-spelling==8.0.2
 sphinxcontrib-websupport==1.2.4
 sphinxext-rediraffe==0.3.0

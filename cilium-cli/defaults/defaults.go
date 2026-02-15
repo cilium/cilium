@@ -177,7 +177,7 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.1@sha256:848482643a8d6f56452b659ea68f6138472bb57414a4f295a7c4107a0416269c",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:f5fd3cb653dc1e3b43e854587f175387f77b403601be368d35113236feba1c54",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:accce73b02173c4a3d333e96500c294e5c6ed04e9c64a65cd119fd5a13bff263",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
@@ -187,7 +187,7 @@ var (
 
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.20-1767778631-6ec32c1@sha256:7e119abe9dfe058d1c89aa72bf1528f973646bedfb32a00d9ba36d6f4ed75d43",
+		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.20-1770904331-3e75bfc@sha256:ff2dd8340f56f0fa08e6cdfb00de4f5b9cc11eba1c74c4e284b1b65cc601b4cb",
 	}
 
 	// The following variables are set at compile time via LDFLAGS.
