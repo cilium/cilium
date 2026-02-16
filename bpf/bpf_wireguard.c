@@ -41,20 +41,6 @@
 #include "lib/local_delivery.h"
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
-{
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	union macaddr router_mac = CONFIG(interface_mac);
-	int ret;
-
-	ret = ipv6_l3(ctx, __ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
-}
-
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
@@ -135,7 +121,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 #ifdef ENABLE_IDENTITY_MARK
 	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
 #endif
-	return ipv6_host_delivery(ctx);
+	return ipv6_host_delivery(ctx, __ETH_HLEN);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_WIREGUARD)
@@ -154,20 +140,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
-{
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	union macaddr router_mac = CONFIG(interface_mac);
-	int ret;
-
-	ret = ipv4_l3(ctx, __ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
-}
-
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
@@ -292,7 +264,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 	 */
 	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
 #endif
-	return ipv4_host_delivery(ctx, ip4);
+	return ipv4_host_delivery(ctx, __ETH_HLEN, ip4);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_WIREGUARD)
