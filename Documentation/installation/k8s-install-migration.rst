@@ -23,7 +23,7 @@ Background
 ==========
 
 When the kubelet creates a Pod's Sandbox, the installed CNI, as configured in ``/etc/cni/net.d/``,
-is called. The cni will handle the networking for a pod - including allocating 
+is called. The cni will handle the networking for a pod - including allocating
 an ip address, creating & configuring a network interface, and (potentially)
 establishing an overlay network. The Pod's network configuration shares the
 same life cycle as the PodSandbox.
@@ -59,7 +59,7 @@ during migration.
 
 For live migration to work, Cilium will be installed with a separate
 CIDR range and encapsulation port than that of the currently installed CNI. As
-long as Cilium and the existing CNI use a separate IP range, the Linux 
+long as Cilium and the existing CNI use a separate IP range, the Linux
 routing table takes care of separating traffic.
 
 
@@ -84,7 +84,7 @@ Currently, Cilium migration has not been tested with:
 - Migrating from Cilium in chained mode
 - An existing NetworkPolicy provider
 
-During migration, Cilium's  NetworkPolicy and CiliumNetworkPolicy enforcement 
+During migration, Cilium's  NetworkPolicy and CiliumNetworkPolicy enforcement
 will be disabled. Otherwise, traffic from non-Cilium pods may be incorrectly
 dropped. Once the migration process is complete, policy enforcement can
 be re-enabled. If there is an existing NetworkPolicy provider, you may wish to
@@ -274,7 +274,7 @@ Select a node to be migrated. It is not recommended to start with a control-plan
     If using kind, do so with docker:
 
     .. code-block:: shell-session
-    
+
       docker restart $NODE
 
 5.  Validate that the node has been successfully migrated.
@@ -316,16 +316,16 @@ Perform these steps once the cluster is fully migrated.
     - Cilium should be the primary CNI
     - NetworkPolicy should be enforced
     - The Operator can restart unmanaged pods
-    - **Optional**: use :ref:`eBPF_Host_Routing`. Enabling this will cause a short connectivity 
+    - **Optional**: use :ref:`eBPF_Host_Routing`. Enabling this will cause a short connectivity
       interruption on each node as the daemon restarts, but improves networking performance.
 
     You can do this manually, or via the ``cilium`` tool (this will not apply changes to the cluster):
 
     .. parsed-literal::
 
-      $ cilium install |CHART_VERSION| --values values-initial.yaml --dry-run-helm-values \
-        --set operator.unmanagedPodWatcher.restart=true --set cni.customConf=false \
-        --set policyEnforcementMode=default \
+      $ cilium install |CHART_VERSION| --values values-initial.yaml --dry-run-helm-values \\
+        --set operator.unmanagedPodWatcher.restart=true --set cni.customConf=false \\
+        --set policyEnforcementMode=default \\
         --set bpf.hostLegacyRouting=false > values-final.yaml # optional, can cause brief interruptions
       $ diff values-initial.yaml values-final.yaml
 
