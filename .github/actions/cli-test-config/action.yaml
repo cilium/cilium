@@ -29,6 +29,12 @@ inputs:
   external-other-target:
     description: "Extra DNS name for testing connectivity outside the cluster"
     required: false
+  external-target-ca-namespace:
+    description: "Namespace of the CA secret for the external target"
+    required: false
+  external-target-ca-name:
+    description: "Name of the CA secret for the external target"
+    required: false
   external-target-fake-dns:
     description: "Use DNS override for external targets in wildcard tests"
     required: false
@@ -84,6 +90,12 @@ runs:
         fi
         if [ -n "${{ inputs.external-other-target }}" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=${{ inputs.external-other-target }}")
+        fi
+        if [ -n "${{ inputs.external-target-ca-namespace }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-namespace=${{ inputs.external-target-ca-namespace }}")
+        fi
+        if [ -n "${{ inputs.external-target-ca-name }}" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-name=${{ inputs.external-target-ca-name }}")
         fi
 
 
