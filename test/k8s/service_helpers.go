@@ -96,21 +96,6 @@ func testCurlFromPodsFail(kubectl *helpers.Kubectl, clientPodLabel, url string) 
 	}
 }
 
-func curlClusterIPFromExternalHost(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) *helpers.CmdRes {
-	clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get service %s", appServiceName)
-	_, err = netip.ParseAddr(clusterIP)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", clusterIP)
-	httpSVCURL := fmt.Sprintf("http://%s/", net.JoinHostPort(clusterIP, "80"))
-
-	By("testing external connectivity via cluster IP %s", clusterIP)
-
-	status := kubectl.ExecInHostNetNS(context.TODO(), ni.K8s1NodeName, helpers.CurlFail(httpSVCURL))
-	ExpectWithOffset(1, status).Should(helpers.CMDSuccess(), "cannot curl to service IP from host: %s", status.CombineOutput())
-
-	return kubectl.ExecInHostNetNS(context.TODO(), ni.OutsideNodeName, helpers.CurlFail(httpSVCURL))
-}
-
 func waitPodsDs(kubectl *helpers.Kubectl, groups []string) {
 	for _, pod := range groups {
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
