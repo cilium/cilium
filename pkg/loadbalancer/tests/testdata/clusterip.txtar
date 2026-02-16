@@ -1,4 +1,4 @@
-#! 
+#! --bpf-lb-external-clusterip=false
 
 # Start the test application
 hive start
