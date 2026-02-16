@@ -336,8 +336,6 @@
         // dependency manually.
         "/github.com/onsi/ginkgo/",
         "/github.com/onsi/gomega/*/",
-        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
-        "helm.sh/helm/*",
         // We can't update it, see https://github.com/cilium/cilium/issues/44063 for more info
         "github.com/cilium/ebpf"
       ]

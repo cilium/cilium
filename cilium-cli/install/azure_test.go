@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v4/pkg/cli/values"
 )
 
 func TestK8sInstaller_setAzureResourceGroupFromHelmValue(t *testing.T) {

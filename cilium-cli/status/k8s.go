@@ -17,7 +17,9 @@ import (
 
 	"github.com/cilium/workerpool"
 	"golang.org/x/term"
-	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart"
+	"helm.sh/helm/v4/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -656,11 +658,27 @@ func (k *K8sStatusCollector) status(ctx context.Context, cancel context.CancelFu
 			if !ok {
 				return fmt.Errorf("failed to initialize Helm client")
 			}
-			release, err := action.NewGet(client.HelmActionConfig).Run(k.params.HelmReleaseName)
+			rel, err := action.NewGet(client.HelmActionConfig).Run(k.params.HelmReleaseName)
 			if err != nil {
 				return err
 			}
-			status.HelmChartVersion = release.Chart.Metadata.Version
+			accessor, err := release.NewAccessor(rel)
+			if err != nil {
+				return fmt.Errorf("failed to create release accessor: %w", err)
+			}
+			chartAccessor, err := chart.NewAccessor(accessor.Chart())
+			if err != nil {
+				return fmt.Errorf("failed to create chart accessor: %w", err)
+			}
+			metadata := chartAccessor.MetadataAsMap()
+			versionStr, ok := metadata["Version"].(string)
+			if !ok {
+				versionStr, ok = metadata["version"].(string)
+				if !ok {
+					return fmt.Errorf("chart metadata does not contain version nor Version field")
+				}
+			}
+			status.HelmChartVersion = versionStr
 			return nil
 		},
 	})

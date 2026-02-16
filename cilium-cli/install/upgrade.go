@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/release"
+	v1release "helm.sh/helm/v4/pkg/release/v1"
 	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,16 +49,24 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 		DryRun:           k.params.DryRun,
 		DryRunHelmValues: k.params.DryRunHelmValues,
 	}
-	release, err := helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
+	rel, err := helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	if err != nil {
 		return err
 	}
 
 	if k.params.DryRun {
-		fmt.Println(release.Manifest)
+		accessor, err := release.NewAccessor(rel)
+		if err != nil {
+			return fmt.Errorf("failed to create release accessor: %w", err)
+		}
+		fmt.Println(accessor.Manifest())
 	}
 	if k.params.DryRunHelmValues {
-		helmValues, err := yaml.Marshal(release.Config)
+		v1rel, ok := rel.(*v1release.Release)
+		if !ok {
+			return fmt.Errorf("unsupported release type: %T", rel)
+		}
+		helmValues, err := yaml.Marshal(v1rel.Config)
 		if err != nil {
 			return err
 		}
