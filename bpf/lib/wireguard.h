@@ -25,7 +25,7 @@ DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
  * - ctx is a UDP packet;
  * - L4 dport == CONFIG(wg_port);
  * - L4 sport == dport;
- * - valid identity in cluster.
+ * - valid remote node identity.
  */
 static __always_inline bool
 ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identity)
@@ -51,8 +51,8 @@ ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identi
 	if (l4.sport != l4.dport)
 		return false;
 
-	/* Identity not in cluster. */
-	if (!identity_is_cluster(identity))
+	/* Identity is not a remote node. */
+	if (!identity_is_remote_node(identity))
 		return false;
 
 	/* Cilium-related WireGuard packet to be traced as encrypted. */

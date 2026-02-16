@@ -2,7 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #define WG_SPI 255
-#define NODE_ID 7
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_WIREGUARD 1
@@ -25,7 +24,7 @@ ASSIGN_CONFIG(__u16, wg_port, 51871)
  * conditions:
  *  - udp packet
  *  - source and dest ports == $wg_port
- *  - source node with a valid identity in the cluster
+ *  - source node with a valid remote node identity
  */
 PKTGEN("tc", "ipv4_not_decrypted_wireguard_from_netdev")
 int ipv4_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
@@ -44,7 +43,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_wireguard_from_netdev")
 int ipv4_not_decrypted_wireguard_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	ipcache_v4_add_entry_with_flags(v4_node_one, 0, NODE_ID, 0, WG_SPI, false);
+	ipcache_v4_add_entry_with_flags(v4_node_one, 0, REMOTE_NODE_ID, 0, WG_SPI, false);
 
 	return netdev_receive_packet(ctx);
 }
@@ -98,7 +97,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_wireguard_from_netdev")
 int ipv6_not_decrypted_wireguard_from_netdev_setup(struct __ctx_buff *ctx)
 {
-	ipcache_v6_add_entry_with_flags((union v6addr *)v6_node_one, 0, NODE_ID, 0, WG_SPI, false);
+	ipcache_v6_add_entry_with_flags((union v6addr *)v6_node_one, 0, REMOTE_NODE_ID, 0, WG_SPI, false);
 
 	return netdev_receive_packet(ctx);
 }
