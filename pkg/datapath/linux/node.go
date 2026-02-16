@@ -358,7 +358,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 			return route.Route{}, fmt.Errorf("IPv6 router address unavailable")
 		}
 
-		if n.nodeConfig.NodeIPv6 == nil {
+		if !n.nodeConfig.NodeIPv6.IsValid() {
 			return route.Route{}, fmt.Errorf("external IPv6 address unavailable")
 		}
 
