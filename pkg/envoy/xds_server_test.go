@@ -270,7 +270,7 @@ var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
 }
 
 var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
-	Deny:           true,
+	Verdict:        DenyVerdict,
 	RemotePolicies: []uint32{1001, 1002},
 }
 
@@ -560,7 +560,7 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 
 	obtained = xds.getWildcardNetworkPolicyRules(version, perSelectorPolicies)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
-		Deny:           true,
+		Verdict:        DenyVerdict,
 		RemotePolicies: []uint32{1001, 1002},
 	}, {
 		RemotePolicies: []uint32{1001, 1002, 1003},
