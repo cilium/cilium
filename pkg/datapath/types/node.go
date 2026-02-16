@@ -5,6 +5,7 @@ package types
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -31,6 +32,7 @@ type MTUConfiguration interface {
 // and passed down.
 //
 // +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type LocalNodeConfiguration struct {
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
@@ -43,12 +45,14 @@ type LocalNodeConfiguration struct {
 	// CiliumInternalIPv4 is the internal IP address assigned to the cilium_host
 	// interface.
 	// Immutable at runtime.
-	CiliumInternalIPv4 net.IP
+	// +deepequal-gen=false
+	CiliumInternalIPv4 netip.Addr
 
 	// CiliumInternalIPv6 is the internal IP address assigned to the cilium_host
 	// interface.
 	// Immutable at runtime.
-	CiliumInternalIPv6 net.IP
+	// +deepequal-gen=false
+	CiliumInternalIPv6 netip.Addr
 
 	// Interface index of the cilium_host device
 	CiliumHostIfIndex uint32
@@ -249,6 +253,22 @@ type LocalNodeConfiguration struct {
 	KPRConfig kpr.KPRConfig
 
 	SvcRouteConfig svcrouteconfig.RoutesConfig
+}
+
+// DeepEqual compares two LocalNodeConfiguration structs for equality.
+func (cfg *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool {
+	if other == nil {
+		return false
+	}
+	// Manually compare netip.Addr fields
+	if cfg.CiliumInternalIPv4 != other.CiliumInternalIPv4 {
+		return false
+	}
+	if cfg.CiliumInternalIPv6 != other.CiliumInternalIPv6 {
+		return false
+	}
+	// Call generated `deepEqual` method which compares all other fields
+	return cfg.deepEqual(other)
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

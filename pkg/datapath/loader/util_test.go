@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"path/filepath"
 	"testing"
 
@@ -33,7 +34,7 @@ import (
 var (
 	localNodeConfig = datapath.LocalNodeConfiguration{
 		NodeIPv4:            templateIPv4[:],
-		CiliumInternalIPv4:  templateIPv4[:],
+		CiliumInternalIPv4:  netip.AddrFrom4([4]byte(templateIPv4)),
 		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
 		ServiceLoopbackIPv4: templateIPv4[:],
 		ServiceLoopbackIPv6: templateIPv6[:],

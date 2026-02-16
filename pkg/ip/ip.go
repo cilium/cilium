@@ -900,6 +900,13 @@ func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
 	return addrs
 }
 
+// AddrFromIP converts a net.IP to netip.Addr, returning the zero value for nil.
+// This is useful when the net.IP may be nil (e.g., from optional configuration).
+func AddrFromIP(ip net.IP) netip.Addr {
+	addr, _ := netipx.FromStdIP(ip)
+	return addr
+}
+
 // CompareUnMap unmap 2 addresses before comparing
 func CompareUnmap(addr1, addr2 netip.Addr) int {
 	return addr1.Unmap().Compare(addr2.Unmap())

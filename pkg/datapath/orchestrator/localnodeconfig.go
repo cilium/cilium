@@ -7,10 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
@@ -36,6 +39,15 @@ const (
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
 )
+
+// addrFromStdIP converts a net.IP to netip.Addr, returning the zero value for nil.
+func addrFromStdIP(ip net.IP) netip.Addr {
+	if ip == nil {
+		return netip.Addr{}
+	}
+	addr, _ := netipx.FromStdIP(ip)
+	return addr
+}
 
 // newLocalNodeConfig constructs LocalNodeConfiguration from the global agent
 // data sources.
@@ -146,8 +158,8 @@ func newLocalNodeConfig(
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
-		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
-		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
+		CiliumInternalIPv4:           addrFromStdIP(localNode.GetCiliumInternalIP(false)),
+		CiliumInternalIPv6:           addrFromStdIP(localNode.GetCiliumInternalIP(true)),
 		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
 		CiliumNetMAC:                 ciliumNetMAC,
 		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),

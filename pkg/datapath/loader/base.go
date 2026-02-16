@@ -357,10 +357,10 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 
 	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {
-		internalIPv4 = lnc.CiliumInternalIPv4
+		internalIPv4 = net.IP(lnc.CiliumInternalIPv4.AsSlice())
 	}
 	if option.Config.EnableIPv6 {
-		internalIPv6 = lnc.CiliumInternalIPv6
+		internalIPv6 = net.IP(lnc.CiliumInternalIPv6.AsSlice())
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now

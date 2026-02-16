@@ -40,8 +40,8 @@ var (
 	dummyNodeCfg = datapath.LocalNodeConfiguration{
 		NodeIPv4:            ipv4DummyAddr.AsSlice(),
 		NodeIPv6:            ipv6DummyAddr.AsSlice(),
-		CiliumInternalIPv4:  ipv4DummyAddr.AsSlice(),
-		CiliumInternalIPv6:  ipv6DummyAddr.AsSlice(),
+		CiliumInternalIPv4:  ipv4DummyAddr,
+		CiliumInternalIPv6:  ipv6DummyAddr,
 		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
 		ServiceLoopbackIPv4: ipv4DummyAddr.AsSlice(),
 		ServiceLoopbackIPv6: ipv6DummyAddr.AsSlice(),

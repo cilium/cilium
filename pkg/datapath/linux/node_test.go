@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -30,8 +31,8 @@ var (
 	nodeConfig = datapath.LocalNodeConfiguration{
 		NodeIPv4:            fakeNodeAddressing.IPv4().PrimaryExternal(),
 		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
-		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
-		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
+		CiliumInternalIPv4:  ip.AddrFromIP(fakeNodeAddressing.IPv4().Router()),
+		CiliumInternalIPv6:  ip.AddrFromIP(fakeNodeAddressing.IPv6().Router()),
 		DeviceMTU:           calcMtu.DeviceMTU,
 		RouteMTU:            calcMtu.RouteMTU,
 		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
@@ -62,8 +63,8 @@ func TestCreateNodeRoute(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
-	require.Equal(t, fakeNodeAddressing.IPv4().Router(), *generatedRoute.Nexthop)
-	require.Equal(t, fakeNodeAddressing.IPv4().Router(), generatedRoute.Local)
+	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Nexthop.To4())
+	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Local.To4())
 
 	c1 = cidr.MustParseCIDR("beef:beef::/48")
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
@@ -71,7 +72,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	require.Equal(t, *c1.IPNet, generatedRoute.Prefix)
 	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
-	require.Equal(t, fakeNodeAddressing.IPv6().Router(), generatedRoute.Local)
+	require.Equal(t, fakeNodeAddressing.IPv6().Router().To16(), generatedRoute.Local.To16())
 }
 
 func TestCreateNodeRouteSpecMtu(t *testing.T) {
