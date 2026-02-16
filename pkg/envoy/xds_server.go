@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
@@ -1205,9 +1206,12 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
 }
 
+var DenyVerdict = &cilium.PortNetworkPolicyRule_Deny{Deny: true}
+
 func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
-	r := &cilium.PortNetworkPolicyRule{
-		Deny: l7Rules.IsDeny(),
+	r := &cilium.PortNetworkPolicyRule{}
+	if l7Rules.GetVerdict() == policyTypes.Deny {
+		r.Verdict = DenyVerdict
 	}
 
 	wildcard := sel.IsWildcard()
@@ -1302,20 +1306,20 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel, l7 := range selectors {
+			rule := &cilium.PortNetworkPolicyRule{}
+			if l7.GetVerdict() == policyTypes.Deny {
+				rule.Verdict = DenyVerdict
+			}
 			if sel.IsWildcard() {
-				return append(rules, &cilium.PortNetworkPolicyRule{
-					Deny: l7.IsDeny(),
-				})
+				return append(rules, rule)
 			}
 			selections := sel.GetSelectionsAt(snapshot)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
 			}
-			return append(rules, &cilium.PortNetworkPolicyRule{
-				Deny:           l7.IsDeny(),
-				RemotePolicies: selections.AsUint32Slice(),
-			})
+			rule.RemotePolicies = selections.AsUint32Slice()
+			return append(rules, rule)
 		}
 	}
 
@@ -1357,7 +1361,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 
 	if wildcardDenyFound {
 		return append(rules, &cilium.PortNetworkPolicyRule{
-			Deny: true,
+			Verdict: DenyVerdict,
 		})
 	}
 	if len(denySlices) > 0 {
@@ -1370,7 +1374,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		denies = slices.Compact(denies)
 
 		rules = append(rules, &cilium.PortNetworkPolicyRule{
-			Deny:           true,
+			Verdict:        DenyVerdict,
 			RemotePolicies: denies,
 		})
 	}
@@ -1423,12 +1427,12 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				logfields.Version, selectors,
 				logfields.TrafficDirection, dir,
 				logfields.Port, "0",
-				logfields.IsDeny, rule.Deny,
+				logfields.IsDeny, rule.GetDeny(),
 				logfields.PolicyID, rule.RemotePolicies,
 			)
 
 			if len(rule.RemotePolicies) == 0 {
-				if rule.Deny {
+				if rule.GetDeny() {
 					// Got an deny-all rule, which short-circuits all of
 					// the other rules.
 					wildcardDenyAll = true
@@ -1511,7 +1515,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 						logfields.ServerNames, rule.ServerNames,
 					)
 
-					if rule.Deny && len(rule.RemotePolicies) == 0 {
+					if rule.GetDeny() && len(rule.RemotePolicies) == 0 {
 						// Got an deny-all rule, which short-circuits all of
 						// the other rules on this port.
 						denyAllRule = rule
