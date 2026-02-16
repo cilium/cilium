@@ -33,6 +33,35 @@ lb6_clusterip_post_dnat = (
     Raw("S"*1)
 )
 
+lb4_external_ip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_ext_two) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
+lb4_external_ip_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw("S"*1)
+)
+
+lb6_external_ip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_ext_node_two) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
+lb6_external_ip_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw("S"*1)
+)
+
+
 # Create two TCP fragments over IPv4:
 # 1. Ether(14) + IP(20) + TCP(20) + Raw(1) = 55B
 # 2. Ether(14) + IP(20) + Raw(1)           = 35B.
