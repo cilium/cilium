@@ -48,20 +48,6 @@
 #include "lib/encap.h"
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
-{
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	union macaddr router_mac = CONFIG(interface_mac);
-	int ret;
-
-	ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
-}
-
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
@@ -172,7 +158,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 * endpoint has to be going to the local host.
 	 */
 	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
-	return ipv6_host_delivery(ctx);
+	return ipv6_host_delivery(ctx, ETH_HLEN);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_OVERLAY)
@@ -192,20 +178,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
-{
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	union macaddr router_mac = CONFIG(interface_mac);
-	int ret;
-
-	ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
-}
-
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 							__u32 src_sec_identity,
@@ -251,7 +223,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	if (ep) {
 		/* We don't support inter-cluster SNAT from host */
 		if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY)
-			return ipv4_host_delivery(ctx, ip4);
+			return ipv4_host_delivery(ctx, ETH_HLEN, ip4);
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
 					   MARK_MAGIC_IDENTITY, ip4, ep,
@@ -429,7 +401,7 @@ skip_vtep:
 	 * endpoint has to be going to the local host.
 	 */
 	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
-	return ipv4_host_delivery(ctx, ip4);
+	return ipv4_host_delivery(ctx, ETH_HLEN, ip4);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_OVERLAY)
