@@ -343,6 +343,14 @@
       ]
     },
     {
+      // Do not update sigs.k8s.io/network-policy-api to the 0.1.8 tag
+      // as it does not contain apis/v1alpha2
+      "matchDepNames": [
+        "sigs.k8s.io/network-policy-api"
+      ],
+      "allowedVersions": "!/^v?0\\.1\\.8$/"
+    },
+    {
       // Grouped these together because they require a re-creation of the base
       // image.
       "groupName": "base-images",
