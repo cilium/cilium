@@ -220,9 +220,6 @@ jobs:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
-      - name: Cleanup Disk space in runner
-        uses: ./.github/actions/disk-cleanup
-
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -304,6 +301,10 @@ jobs:
              SKIP_UPGRADE="true"
           fi
           echo skip_upgrade=${SKIP_UPGRADE} >> $GITHUB_OUTPUT
+
+      - name: Cleanup Disk space in runner
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        uses: ./.github/actions/disk-cleanup
 
       - name: Resolve full kernel version
         id: kernel-version
