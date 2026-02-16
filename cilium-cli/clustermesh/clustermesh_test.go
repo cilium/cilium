@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"helm.sh/helm/v3/pkg/release"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/fake"
@@ -881,9 +880,9 @@ func TestUpdateCABundleInValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rel := &release.Release{Config: tt.releaseConfig}
+			rel := &releaseInfo{config: tt.releaseConfig}
 
-			initialContent, _, _ := unstructured.NestedString(rel.Config, "tls", "caBundle", "content")
+			initialContent, _, _ := unstructured.NestedString(rel.Values(), "tls", "caBundle", "content")
 
 			err := updateCABundleInValues("cluster1", rel, tt.clustersCA)
 
@@ -893,16 +892,16 @@ func TestUpdateCABundleInValues(t *testing.T) {
 			}
 			assert.NoError(t, err)
 
-			caBundleEnabled, _, err := unstructured.NestedBool(rel.Config, "tls", "caBundle", "enabled")
+			caBundleEnabled, _, err := unstructured.NestedBool(rel.Values(), "tls", "caBundle", "enabled")
 			assert.NoError(t, err)
 			assert.True(t, caBundleEnabled)
 
-			caBundleContent, _, err := unstructured.NestedString(rel.Config, "tls", "caBundle", "content")
+			caBundleContent, _, err := unstructured.NestedString(rel.Values(), "tls", "caBundle", "content")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedContent, caBundleContent)
 
 			if initialContent != tt.expectedContent {
-				restartAnnotation, found, err := unstructured.NestedString(rel.Config, "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt")
+				restartAnnotation, found, err := unstructured.NestedString(rel.Values(), "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt")
 				assert.NoError(t, err)
 				assert.True(t, found, "restart annotation should be set")
 				assert.NotEmpty(t, restartAnnotation, "restart annotation should have a value")

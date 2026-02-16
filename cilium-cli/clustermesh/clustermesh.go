@@ -23,7 +23,8 @@ import (
 	"sync"
 	"time"
 
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v4/pkg/chart"
+	v1release "helm.sh/helm/v4/pkg/release/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1109,8 +1110,42 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	return err
 }
 
-func getRelease(kc *k8s.Client, params Parameters) (*release.Release, error) {
-	return kc.HelmActionConfig.Releases.Last(params.HelmReleaseName)
+// releaseInfo wraps the chart metadata accessor and the release config (user-specified values).
+// This is necessary because chart.Accessor.Values() returns the chart's built-in default values,
+// not the user's values from the release. The release config (equivalent to release.Config in
+// Helm v3) contains the actual user-specified overrides.
+type releaseInfo struct {
+	chart  chart.Accessor
+	config map[string]any
+}
+
+// Values returns the release config (user-specified values), equivalent to release.Config in Helm v3.
+func (r *releaseInfo) Values() map[string]any {
+	return r.config
+}
+
+// MetadataAsMap returns the chart metadata as a map (e.g., to get the chart version).
+func (r *releaseInfo) MetadataAsMap() map[string]any {
+	return r.chart.MetadataAsMap()
+}
+
+func getRelease(kc *k8s.Client, params Parameters) (*releaseInfo, error) {
+	lastRel, err := kc.HelmActionConfig.Releases.Last(params.HelmReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	v1rel, ok := lastRel.(*v1release.Release)
+	if !ok {
+		return nil, fmt.Errorf("unsupported release type: %T", lastRel)
+	}
+	chartAccessor, err := chart.NewAccessor(v1rel.Chart)
+	if err != nil {
+		return nil, err
+	}
+	return &releaseInfo{
+		chart:  chartAccessor,
+		config: v1rel.Config,
+	}, nil
 }
 
 // validateCAMatch determines if the certificate authority certificate being
@@ -1162,7 +1197,7 @@ type ClusterState struct {
 	remoteClusterNamesAi      []string                  // names of remote clusters for remove sections
 }
 
-func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
+func processLocalClient(localRelease *releaseInfo) (*ClusterState, error) {
 	state := &ClusterState{
 		localOldClusters:          make(map[string]any),
 		localDisabledClusters:     make(map[string]any),
@@ -1177,7 +1212,7 @@ func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
 	}
 	var err error
 
-	state.localOldClusters, state.localDisabledClusters, err = getClustersFromValues(localRelease.Config)
+	state.localOldClusters, state.localDisabledClusters, err = getClustersFromValues(localRelease.Values())
 	if err != nil {
 		return state, err
 	}
@@ -1231,7 +1266,7 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 		return err
 	}
 
-	remoteOldClusters, remoteDisabledClusters, err := getClustersFromValues(remoteRelease.Config)
+	remoteOldClusters, remoteDisabledClusters, err := getClustersFromValues(remoteRelease.Values())
 	if err != nil {
 		return err
 	}
@@ -1303,11 +1338,12 @@ func convertClustersToListClusterMesh(clusters map[string]any) []any {
 // setClustersInValues sets the clusters in the release values. We cannot use
 // unstructured.SetNestedField here since clusters map has typed field that
 // unstructued does not support
-func setClustersInValues(release *release.Release, client *k8s.Client, clusters any) error {
-	if _, ok := release.Config["clustermesh"]; !ok {
-		release.Config["clustermesh"] = map[string]any{}
+func setClustersInValues(release *releaseInfo, client *k8s.Client, clusters any) error {
+	values := release.Values()
+	if _, ok := values["clustermesh"]; !ok {
+		values["clustermesh"] = map[string]any{}
 	}
-	clustermeshValues, ok := release.Config["clustermesh"].(map[string]any)
+	clustermeshValues, ok := values["clustermesh"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("existing values are invalid for cluster %s", client.ClusterName())
 	}
@@ -1325,12 +1361,13 @@ func setClustersInValues(release *release.Release, client *k8s.Client, clusters 
 	return nil
 }
 
-func updateCABundleInValues(clusterName string, release *release.Release, clustersCA map[string]string) error {
-	content, _, err := unstructured.NestedString(release.Config, "tls", "caBundle", "content")
+func updateCABundleInValues(clusterName string, release *releaseInfo, clustersCA map[string]string) error {
+	values := release.Values()
+	content, _, err := unstructured.NestedString(values, "tls", "caBundle", "content")
 	if err != nil {
 		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s: %w", clusterName, err)
 	}
-	caBundleEnabled, _, err := unstructured.NestedBool(release.Config, "tls", "caBundle", "enabled")
+	caBundleEnabled, _, err := unstructured.NestedBool(values, "tls", "caBundle", "enabled")
 	if err != nil {
 		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s: %w", clusterName, err)
 	}
@@ -1354,17 +1391,17 @@ func updateCABundleInValues(clusterName string, release *release.Release, cluste
 		return nil
 	}
 
-	if err := unstructured.SetNestedField(release.Config, newContent, "tls", "caBundle", "content"); err != nil {
+	if err := unstructured.SetNestedField(values, newContent, "tls", "caBundle", "content"); err != nil {
 		return fmt.Errorf("failed to set tls.caBundle.content for cluster %s: %w", clusterName, err)
 	}
-	if err := unstructured.SetNestedField(release.Config, true, "tls", "caBundle", "enabled"); err != nil {
+	if err := unstructured.SetNestedField(values, true, "tls", "caBundle", "enabled"); err != nil {
 		return fmt.Errorf("failed to set tls.caBundle.enabled for cluster %s: %w", clusterName, err)
 	}
 
 	// Add an annotation to force the restart of the clustermesh-apiserver pods
 	// when the CA bundle is updated so that they pick up the new CA bundle for
 	// server-side TLS verification
-	if err := unstructured.SetNestedField(release.Config, time.Now().Format(time.RFC3339), "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt"); err != nil {
+	if err := unstructured.SetNestedField(values, time.Now().Format(time.RFC3339), "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt"); err != nil {
 		return fmt.Errorf("failed to set clustermesh.apiserver.podAnnotations for cluster %s: %w", clusterName, err)
 	}
 
@@ -1372,7 +1409,7 @@ func updateCABundleInValues(clusterName string, release *release.Release, cluste
 }
 
 func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any, clustersCA map[string]string) error {
-	release, err := getRelease(client, k.params)
+	rel, err := getRelease(client, k.params)
 	if err != nil {
 		return err
 	}
@@ -1380,9 +1417,10 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	var clustersRaw any
 	clustersRaw = clusters
 
-	version, err := versioncheck.Version(release.Chart.Metadata.Version)
+	versionStr := rel.MetadataAsMap()["Version"].(string)
+	version, err := versioncheck.Version(versionStr)
 	if err != nil {
-		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", release.Chart.Metadata.Version, client.ClusterName(), err)
+		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", versionStr, client.ClusterName(), err)
 	}
 
 	// Reintroduce disabled clusters so that we don't change too much the existing clusters values
@@ -1395,14 +1433,14 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if versioncheck.MustCompile("<1.20.0")(version) {
 		clustersRaw = convertClustersToListClusterMesh(clusters)
 	}
-	err = setClustersInValues(release, client, clustersRaw)
+	err = setClustersInValues(rel, client, clustersRaw)
 	if err != nil {
 		return err
 	}
 
 	// Update CA bundle if CA are provided / any mismatching CA was detected
 	if len(clustersCA) > 0 {
-		err = updateCABundleInValues(client.ClusterName(), release, clustersCA)
+		err = updateCABundleInValues(client.ClusterName(), rel, clustersCA)
 		if err != nil {
 			return err
 		}
@@ -1411,7 +1449,7 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
 		Name:        k.params.HelmReleaseName,
-		Values:      release.Config,
+		Values:      rel.Values(),
 		ResetValues: false,
 		ReuseValues: false,
 	}
@@ -1595,7 +1633,7 @@ func (k *K8sClusterMesh) retrieveRemoteClusters(ctx context.Context, remoteClien
 			return nil, nil, err
 		}
 		// Modify the clustermesh config to remove the intended cluster if any
-		remoteClusters, remoteDisabledClusters, err := removeFromClustermeshConfig(remoteRelease.Config, remoteClusterNames)
+		remoteClusters, remoteDisabledClusters, err := removeFromClustermeshConfig(remoteRelease.Values(), remoteClusterNames)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1669,7 +1707,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 
 	// Modify the clustermesh config to remove the intended cluster if any
 	var localClusters map[string]any
-	localClusters, clusterState.localDisabledClusters, err = removeFromClustermeshConfig(localRelease.Config, clusterState.remoteClusterNamesAi)
+	localClusters, clusterState.localDisabledClusters, err = removeFromClustermeshConfig(localRelease.Values(), clusterState.remoteClusterNamesAi)
 	if err != nil {
 		return err
 	}
