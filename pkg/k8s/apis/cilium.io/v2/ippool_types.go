@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumpodippool",path="ciliumpodippools",scope="Cluster",shortName={cpip}
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
+// +kubebuilder:unservedversion
 
 // CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM
 // mode).
@@ -68,11 +68,13 @@ type IPPoolSpec struct {
 	NamespaceSelector *slimv1.LabelSelector `json:"namespaceSelector,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)", message="If pool is set, each pool entry must reference a CIDR from cidrs"
 type IPv4PoolSpec struct {
 	// CIDRs is a list of IPv4 CIDRs that are part of the pool.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	CIDRs []PoolCIDR `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
@@ -81,13 +83,24 @@ type IPv4PoolSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=32
 	MaskSize uint8 `json:"maskSize"`
+
+	// Pool contains per-CIDR configuration for a subset of CIDRs listed in CIDRs.
+	// Each entry must reference a CIDR in CIDRs.
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=cidr
+	// +kubebuilder:validation:MaxItems=32
+	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)", message="If pool is set, each pool entry must reference a CIDR from cidrs"
 type IPv6PoolSpec struct {
 	// CIDRs is a list of IPv6 CIDRs that are part of the pool.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
 	CIDRs []PoolCIDR `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
@@ -96,12 +109,45 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=128
 	MaskSize uint8 `json:"maskSize"`
+
+	// Pool contains per-CIDR configuration for a subset of CIDRs listed in CIDRs.
+	// Each entry must reference a CIDR in CIDRs.
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=cidr
+	// +kubebuilder:validation:MaxItems=32
+	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
 // PoolCIDR is an IP pool CIDR.
 //
 // +kubebuilder:validation:Format=cidr
 type PoolCIDR string
+
+type PoolCIDRConfig struct {
+	// CIDR references one of the CIDRs listed in the parent pool spec.
+	//
+	// +kubebuilder:validation:Required
+	CIDR PoolCIDR `json:"cidr"`
+
+	// ReservedRanges is a list of IP ranges within CIDR that must not be allocated.
+	//
+	// +kubebuilder:validation:Optional
+	ReservedRanges []ReservedRange `json:"reservedRanges,omitempty"`
+}
+
+type ReservedRange struct {
+	// The first IP in the reserved range.
+	//
+	// +kubebuilder:validation:Required
+	Start string `json:"start"`
+
+	// The last IP in the reserved range.
+	//
+	// +kubebuilder:validation:Required
+	End string `json:"end"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=false
