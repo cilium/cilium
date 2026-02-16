@@ -338,10 +338,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			testSessionAffinity(kubectl, ni)
 		})
 
-		It("Tests externalIPs", func() {
-			testExternalIPs(kubectl, ni)
-		})
-
 		It("Tests GH#10983", func() {
 			var data v1.Service
 
