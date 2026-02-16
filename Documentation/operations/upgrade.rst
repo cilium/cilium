@@ -298,6 +298,13 @@ Informational Notes
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
 
+* When using the ``KubeProxyReplacement`` for Service Loadbalancing with ``SocketLB`` either
+  disabled or configured with ``socketLB.hostNamespaceOnly=true``, in-cluster connections to
+  NodePort services by regular pods are now immediately load-balanced when network traffic leaves
+  the client pod (and not at the targeted node). This matches the behavior when SocketLB is enabled.
+  The client pod's NetworkPolicy consequently needs to allow egress traffic towards the service's
+  backends, and the backends' NetworkPolicy needs to allow ingress traffic by the client pod.
+
 New Options
 ###########
 
