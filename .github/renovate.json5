@@ -260,7 +260,7 @@
       ],
     },
     {
-      // Do not allow any updates into stable branches.
+      // Do not allow any updates into stable branches, except for k8s.io patch updates.
       "enabled": false,
       "groupName": "all go dependencies stable",
       "groupSlug": "all-go-deps-stable",
@@ -270,7 +270,42 @@
       ],
       "matchBaseBranches": [
         "!main"
+      ],
+      "matchDepNames": [
+        // Exclude k8s.io and sigs.k8s.io from this rule - they have their own rule below
+        "!/^k8s\\.io/",
+        "!/^sigs\\.k8s\\.io/"
       ]
+    },
+    {
+      // k8s.io dependencies: allow patch updates on stable branches
+      "enabled": true,
+      "groupName": "k8s.io patch updates stable",
+      "groupSlug": "k8s-patch-stable",
+      "matchFileNames": [
+        "go.mod",
+        "go.sum"
+      ],
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "digest"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor",
+          "make generate-k8s-api",
+          "make manifests"
+        ],
+        "executionMode": "update"
+      }
     },
     {
       "enabled": false,
@@ -649,35 +684,26 @@
       ]
     },
     {
-      // k8s dependencies will be updated manually along with tests
+      // k8s dependencies will be updated manually along with tests on main branch.
+      // On stable branches, patch updates are allowed via the "k8s.io patch updates stable" rule.
       "enabled": false,
       "matchUpdateTypes": [
         "major",
         "minor"
       ],
       "matchDepNames": [
-        "/k8s.io/*/",
-        "/sigs.k8s.io/*/"
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchBaseBranches": [
+        "main"
       ]
-    },
-    {
-      // Allow k8s.io patch updates on all branches
-      // (overrides the "all go dependencies stable" rule)
-      "groupName": "auto-merge-trusted-deps",
-      "matchDepNames": [
-        "/k8s.io/*/",
-        "/sigs.k8s.io/*/"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "enabled": true
     },
     {
       "matchDepNames": [
         // k8s dependencies will be updated manually along with tests
-        "/k8s.io/*/",
-        "/sigs.k8s.io/*/"
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
       ],
       "postUpgradeTasks": {
         "commands": [
