@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli/output"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -143,8 +143,7 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver); err != nil {
 		return nil, err
 	}
 
@@ -1058,11 +1057,11 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 }
 
 func (c *Client) GetRunningCiliumVersion(ciliumHelmReleaseName string) (string, error) {
-	release, err := action.NewGet(c.HelmActionConfig).Run(ciliumHelmReleaseName)
+	m, err := action.NewGetMetadata(c.HelmActionConfig).Run(ciliumHelmReleaseName)
 	if err != nil {
 		return "", err
 	}
-	return release.Chart.Metadata.Version, nil
+	return m.Version, nil
 }
 
 func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
@@ -1109,8 +1108,7 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver); err != nil {
 		return "", err
 	}
 	helmGetValsClient := action.NewGetValues(&actionConfig)
@@ -1133,8 +1131,7 @@ func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespac
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver); err != nil {
 		return "", err
 	}
 
