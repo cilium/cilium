@@ -43,12 +43,12 @@ Verify SBOM attestation
 To verify the SBOM in-toto attestation on the supplied Cilium image, run the following command:
 
 .. parsed-literal::
-    
+
     $ TAG=|IMAGE_TAG|
-    $ cosign verify-attestation --certificate-github-workflow-repository cilium/cilium \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-    --certificate-identity-regexp https://github.com/cilium/cilium/.github/workflows \
-    --type spdxjson <IMAGE URI> 2>&1 | head -n 13
+    $ cosign verify-attestation --certificate-github-workflow-repository cilium/cilium \\
+        --certificate-oidc-issuer https://token.actions.githubusercontent.com \\
+        --certificate-identity-regexp https://github.com/cilium/cilium/.github/workflows \\
+        --type spdxjson <IMAGE URI> 2>&1 | head -n 13
 
 For example:
 
@@ -71,7 +71,7 @@ For example:
     GitHub Workflow Name: Image CI Build
     GitHub Workflow Repository: cilium/cilium
     GitHub Workflow Ref: refs/pull/34011/merge
-    
+
 It can be validated that the image was signed using GitHub Actions in the Cilium repository from the ``Certificate subject`` and ``Certificate issuer URL`` fields of the output.
 
 .. note::
