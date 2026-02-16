@@ -27,6 +27,9 @@
 #include "lib/lb.h"
 #include "scapy.h"
 
+/* For checking statistics in conntrack map. */
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+
 /* Test that a request from an external client to a ClusterIP service w/o the
  * `bpf-lb-external-clusterip` flag set is denied. The reason is due to the SVC
  * being created w/o the SVC_FLAG_ROUTABLE flag being set in the bpf map,
@@ -92,6 +95,76 @@ int lb4_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 	BUF_DECL(LB4_CLUSTERIP, lb4_clusterip);
 	ASSERT_CTX_BUF_OFF("lb4_nonroutable_clusterip", "Ether", ctx, sizeof(__u32),
 			   LB4_CLUSTERIP, sizeof(BUF(LB4_CLUSTERIP)));
+
+	test_finish();
+}
+
+/* Test that a request from an external client to a ClusterIP service with the
+ * `bpf-lb-external-clusterip` flag set is allowed. The reason is due to the SVC
+ * being created w/ the SVC_FLAG_ROUTABLE flag being set in the bpf map,
+ * leading to the datapath correctly accepting and DNAT the packet.
+ */
+PKTGEN("tc", "tc_lb4_routable_clusterip")
+int lb4_routable_clusterip_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(LB4_CLUSTERIP, lb4_clusterip);
+	BUILDER_PUSH_BUF(builder, LB4_CLUSTERIP);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_lb4_routable_clusterip")
+int lb4_routable_clusterip_setup(struct __ctx_buff *ctx)
+{
+	/* Endpoint and backend added in previous setup, simply change SVC flags. */
+	lb_v4_add_service_with_flags(FRONTEND_IP, FRONTEND_PORT,
+				     IPPROTO_TCP, BACKEND_COUNT, NAT_REV_INDEX,
+				     SVC_FLAG_ROUTABLE, 0);
+
+	return netdev_receive_packet(ctx);
+}
+
+CHECK("tc", "tc_lb4_routable_clusterip")
+int lb4_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code, pkt_size;
+	struct ct_entry *ct_entry;
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = CLIENT_IP,
+		.sport   = FRONTEND_PORT,
+		.daddr   = FRONTEND_IP,
+		.dport   = CLIENT_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags   = TUPLE_F_SERVICE,
+	};
+
+	test_init();
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	pkt_size = ctx_full_len(ctx) - sizeof(__u32);
+	status_code = data;
+
+	assert(data + sizeof(__u32) <= data_end)
+
+	assert(*status_code == CTX_ACT_OK);
+
+	/* Ensure CT entry is updated accordingly (SVC). */
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	assert(ct_entry);
+	assert(ct_entry->packets == 1);
+	assert(ct_entry->bytes == pkt_size);
+
+	BUF_DECL(LB4_CLUSTERIP_POST_DNAT, lb4_clusterip_post_dnat);
+	ASSERT_CTX_BUF_OFF("lb4_routable_clusterip", "Ether", ctx, sizeof(__u32),
+			   LB4_CLUSTERIP_POST_DNAT, sizeof(BUF(LB4_CLUSTERIP_POST_DNAT)));
 
 	test_finish();
 }
