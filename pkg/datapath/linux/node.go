@@ -347,14 +347,14 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 		mtu     int
 	)
 	if prefix.IP.To4() != nil {
-		if n.nodeConfig.CiliumInternalIPv4 == nil {
+		if !n.nodeConfig.CiliumInternalIPv4.IsValid() {
 			return route.Route{}, fmt.Errorf("IPv4 router address unavailable")
 		}
 
-		local = n.nodeConfig.CiliumInternalIPv4
+		local = net.IP(n.nodeConfig.CiliumInternalIPv4.AsSlice())
 		nexthop = &local
 	} else {
-		if n.nodeConfig.CiliumInternalIPv6 == nil {
+		if !n.nodeConfig.CiliumInternalIPv6.IsValid() {
 			return route.Route{}, fmt.Errorf("IPv6 router address unavailable")
 		}
 
@@ -366,7 +366,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 		// with "Error: Gateway can not be a local address". Instead, we have to remove "via"
 		// as "ip r a $cidr dev cilium_host" to make it work.
 		nexthop = nil
-		local = n.nodeConfig.CiliumInternalIPv6
+		local = net.IP(n.nodeConfig.CiliumInternalIPv6.AsSlice())
 	}
 
 	if !isLocalNode {

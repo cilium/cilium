@@ -22,8 +22,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.ServiceLoopbackIPv6 = [16]byte(lnc.ServiceLoopbackIPv6.To16())
 	}
 
-	if lnc.CiliumInternalIPv6 != nil {
-		node.RouterIPv6 = ([16]byte)(lnc.CiliumInternalIPv6.To16())
+	if lnc.CiliumInternalIPv6.IsValid() {
+		node.RouterIPv6 = lnc.CiliumInternalIPv6.As16()
 	}
 
 	node.ClusterID = option.Config.ClusterID
