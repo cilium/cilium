@@ -35,11 +35,13 @@ type MTUConfiguration interface {
 type LocalNodeConfiguration struct {
 	// NodeIPv4 is the primary IPv4 address of this node.
 	// Mutable at runtime.
-	NodeIPv4 net.IP
+	// +deepequal-gen=false
+	NodeIPv4 netip.Addr
 
 	// NodeIPv6 is the primary IPv6 address of this node.
 	// Mutable at runtime.
-	NodeIPv6 net.IP
+	// +deepequal-gen=false
+	NodeIPv6 netip.Addr
 
 	// CiliumInternalIPv4 is the internal IP address assigned to the cilium_host
 	// interface.
@@ -248,6 +250,12 @@ func (cfg *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool
 		return false
 	}
 	// Manually compare netip.Addr fields
+	if cfg.NodeIPv4 != other.NodeIPv4 {
+		return false
+	}
+	if cfg.NodeIPv6 != other.NodeIPv6 {
+		return false
+	}
 	if cfg.CiliumInternalIPv4 != other.CiliumInternalIPv4 {
 		return false
 	}

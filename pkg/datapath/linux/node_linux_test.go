@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -119,10 +120,10 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.nodeConfigTemplate = datapath.LocalNodeConfiguration{
 		Devices:             []*tables.Device{devExt, devHost},
 		DirectRoutingDevice: devHost,
-		NodeIPv4:            addressing.IPv4().PrimaryExternal(),
-		NodeIPv6:            addressing.IPv6().PrimaryExternal(),
-		CiliumInternalIPv4:  netip.MustParseAddr(addressing.IPv4().Router().String()),
-		CiliumInternalIPv6:  netip.MustParseAddr(addressing.IPv6().Router().String()),
+		NodeIPv4:            ip.AddrFromIP(addressing.IPv4().PrimaryExternal()),
+		NodeIPv6:            ip.AddrFromIP(addressing.IPv6().PrimaryExternal()),
+		CiliumInternalIPv4:  ip.AddrFromIP(addressing.IPv4().Router()),
+		CiliumInternalIPv6:  ip.AddrFromIP(addressing.IPv6().Router()),
 		AllocCIDRIPv4:       addressing.IPv4().AllocationCIDR(),
 		AllocCIDRIPv6:       addressing.IPv6().AllocationCIDR(),
 		EnableIPv4:          s.enableIPv4,
@@ -1126,7 +1127,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   nodeConfig.NodeIPv4,
+			IP:   net.IP(nodeConfig.NodeIPv4.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -1134,7 +1135,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   nodeConfig.NodeIPv6,
+			IP:   net.IP(nodeConfig.NodeIPv6.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -1499,7 +1500,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv4,
+			IP:   net.IP(config.NodeIPv4.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -1507,7 +1508,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv6,
+			IP:   net.IP(config.NodeIPv6.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -1520,7 +1521,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv4 {
 		nodev2.IPAddresses = append(nodev2.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv4,
+			IP:   net.IP(config.NodeIPv4.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev2.IPv4AllocCIDR = ip4Alloc2
@@ -1528,7 +1529,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	if s.enableIPv6 {
 		nodev2.IPAddresses = append(nodev2.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv6,
+			IP:   net.IP(config.NodeIPv6.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev2.IPv6AllocCIDR = ip6Alloc2
@@ -1597,7 +1598,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv4,
+			IP:   net.IP(config.NodeIPv4.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -1605,7 +1606,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv6,
+			IP:   net.IP(config.NodeIPv6.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1
@@ -1667,7 +1668,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	if s.enableIPv4 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv4,
+			IP:   net.IP(config.NodeIPv4.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv4AllocCIDR = ip4Alloc1
@@ -1675,7 +1676,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	if s.enableIPv6 {
 		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   config.NodeIPv6,
+			IP:   net.IP(config.NodeIPv6.AsSlice()),
 			Type: nodeaddressing.NodeInternalIP,
 		})
 		nodev1.IPv6AllocCIDR = ip6Alloc1

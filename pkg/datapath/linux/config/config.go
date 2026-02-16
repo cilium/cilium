@@ -234,14 +234,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictEgressCIDR.Addr()))
 		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictEgressCIDR.Bits())
 
-		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cfg.NodeIPv4))
+		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(cfg.NodeIPv4))
 
-		ipv4Interface, ok := netip.AddrFromSlice(cfg.NodeIPv4.To4())
-		if !ok {
+		if !cfg.NodeIPv4.IsValid() {
 			return fmt.Errorf("unable to parse node IPv4 address %s", cfg.NodeIPv4)
 		}
 
-		if option.Config.EncryptionStrictEgressCIDR.Contains(ipv4Interface) {
+		if option.Config.EncryptionStrictEgressCIDR.Contains(cfg.NodeIPv4) {
 			if !option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities {
 				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
 				This will cause the node to drop all traffic.

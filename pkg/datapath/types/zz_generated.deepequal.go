@@ -15,40 +15,6 @@ func (in *LocalNodeConfiguration) deepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
-	if ((in.NodeIPv4 != nil) && (other.NodeIPv4 != nil)) || ((in.NodeIPv4 == nil) != (other.NodeIPv4 == nil)) {
-		in, other := &in.NodeIPv4, &other.NodeIPv4
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
-	}
-
-	if ((in.NodeIPv6 != nil) && (other.NodeIPv6 != nil)) || ((in.NodeIPv6 == nil) != (other.NodeIPv6 == nil)) {
-		in, other := &in.NodeIPv6, &other.NodeIPv6
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
-	}
-
 	if (in.AllocCIDRIPv4 == nil) != (other.AllocCIDRIPv4 == nil) {
 		return false
 	} else if in.AllocCIDRIPv4 != nil {

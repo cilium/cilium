@@ -7,13 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
@@ -22,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -37,15 +35,6 @@ const (
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
 )
-
-// addrFromStdIP converts a net.IP to netip.Addr, returning the zero value for nil.
-func addrFromStdIP(ip net.IP) netip.Addr {
-	if ip == nil {
-		return netip.Addr{}
-	}
-	addr, _ := netipx.FromStdIP(ip)
-	return addr
-}
 
 // newLocalNodeConfig constructs LocalNodeConfiguration from the global agent
 // data sources.
@@ -134,10 +123,10 @@ func newLocalNodeConfig(
 	hostEndpointID, _ := node.GetEndpointID()
 
 	return datapath.LocalNodeConfiguration{
-		NodeIPv4:                     localNode.GetNodeIP(false),
-		NodeIPv6:                     localNode.GetNodeIP(true),
-		CiliumInternalIPv4:           addrFromStdIP(localNode.GetCiliumInternalIP(false)),
-		CiliumInternalIPv6:           addrFromStdIP(localNode.GetCiliumInternalIP(true)),
+		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
+		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
+		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),
+		CiliumInternalIPv6:           ip.AddrFromIP(localNode.GetCiliumInternalIP(true)),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
