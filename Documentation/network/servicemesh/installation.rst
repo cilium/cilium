@@ -55,9 +55,9 @@ Installation
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \
-                --set kubeProxyReplacement=true \
-                --set ingressController.enabled=true \
+            $ cilium install |CHART_VERSION| \\
+                --set kubeProxyReplacement=true \\
+                --set ingressController.enabled=true \\
                 --set ingressController.loadbalancerMode=dedicated
 
         Cilium can become the default ingress controller by setting the
@@ -69,17 +69,17 @@ Installation
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \
-                --set kubeProxyReplacement=true \
+            $ cilium install |CHART_VERSION| \\
+                --set kubeProxyReplacement=true \\
                 --set envoyConfig.enabled=true
 
         Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \
-                --set kubeProxyReplacement=true \
-                --set envoyConfig.enabled=true \
+            $ cilium install |CHART_VERSION| \\
+                --set kubeProxyReplacement=true \\
+                --set envoyConfig.enabled=true \\
                 --set loadBalancer.l7.backend=envoy
 
         Next you can check the status of the Cilium agent and operator:
