@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-external-config
+data:
+  nginx.conf: |
+    user  nginx;
+    worker_processes  auto;
+
+    error_log  /var/log/nginx/error.log notice;
+    pid        /var/run/nginx.pid;
+
+    events {
+        worker_connections  1024;
+    }
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+
+        access_log  /var/log/nginx/access.log  main;
+
+        sendfile        on;
+
+        keepalive_timeout  65;
+
+        server {
+            listen              80;
+            listen              [::]:80;
+            listen              443 ssl;
+            listen              [::]:443 ssl;
+            server_name         _;
+            ssl_certificate     /etc/nginx/ssl/external-service.cilium.crt;
+            ssl_certificate_key /etc/nginx/ssl/external-service.cilium.key;
+            ssl_protocols       TLSv1.2 TLSv1.3;
+            ssl_ciphers         HIGH:!aNULL:!MD5;
+
+            location / {
+                root   /usr/share/nginx/html;
+                index  index.html index.htm;
+            }
+
+            error_page   500 502 503 504  /50x.html;
+            location = /50x.html {
+                root   /usr/share/nginx/html;
+            }
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-external-certs
+binaryData:
+  external-service.cilium.crt: $NGINX_CERT_BASE64
+  external-service.cilium.key: $NGINX_KEY_BASE64
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-external
+spec:
+  selector:
+    matchLabels:
+      app: nginx-external
+  template:
+    metadata:
+      labels:
+        app: nginx-external
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        cilium.io/no-schedule: "true"
+        kubernetes.io/hostname: "$EXTERNAL_NODE1"
+      tolerations:
+      - key: "ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready"
+        operator: "Equal"
+        value: "true"
+        effect: "NoExecute"
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: certs
+          mountPath: /etc/nginx/ssl/
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-external-config
+      - name: certs
+        configMap:
+          name: nginx-external-certs
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-external-other
+spec:
+  selector:
+    matchLabels:
+      app: nginx-external-other
+  template:
+    metadata:
+      labels:
+        app: nginx-external-other
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        cilium.io/no-schedule: "true"
+        kubernetes.io/hostname: "$EXTERNAL_NODE2"
+      tolerations:
+      - key: "ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready"
+        operator: "Equal"
+        value: "true"
+        effect: "NoExecute"
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: nginx
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: certs
+          mountPath: /etc/nginx/ssl/
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-external-config
+      - name: certs
+        configMap:
+          name: nginx-external-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-external
+spec:
+  clusterIP: None
+  selector:
+    app: nginx-external
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-external-other
+spec:
+  clusterIP: None
+  selector:
+    app: nginx-external-other
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 443

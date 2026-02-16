@@ -1,0 +1,28 @@
+name: Add external targets to a generic cluster
+description: |
+  Deploy hostns pods on the node without Cilium to be used as external targets
+  for cilium-cli connectivity tests.
+inputs:
+  ipv4_external_cidr:
+    description: "IPv4 CIDR in which the external targets are created"
+    required: true
+outputs:
+  ipv4_external_target:
+    description: "IPv4 address of the first external target"
+    value: ${{ steps.add_targets.outputs.ipv4_external_target }}
+  ipv4_other_external_target:
+    description: "IPv4 address of the second external target"
+    value: ${{ steps.add_targets.outputs.ipv4_other_external_target }}
+  external_target_name:
+    description: "Domain name of the first external target"
+    value: ${{ steps.add_targets.outputs.external_target_name }}
+  other_external_target_name:
+    description: "Domain name of the second external target"
+    value: ${{ steps.add_targets.outputs.other_external_target_name }}
+runs:
+  using: composite
+  steps:
+    - id: add_targets
+      shell: bash
+      run: |
+        bash .github/actions/generic-external-targets/action.sh
