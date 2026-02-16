@@ -148,20 +148,20 @@ jobs:
           #   - On workflow_dispatch (used on stable branches where GH scheduled doesn't work and ariane does it): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
-            jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | select(.["test-l7"] == "true") | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
-            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # workflow_dispatch is only used on stable branches where GH scheduled doesn't work and ariane does it
-            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - workflow_dispatch run with full test suite)"
           else
-            jq '[.[] | select(.["test-l7"] != "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | select(.["test-l7"] != "true") | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
           fi
@@ -496,7 +496,7 @@ jobs:
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
           if ${{ matrix.encryption == 'ipsec' }}; then
-            cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+            cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
           fi
 
           installFlags=""
