@@ -145,11 +145,11 @@ enable via ``hubble.metrics.enabled``.
 Installation with a dynamic metrics exporter
 --------------------------------------------
 
-To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble 
+To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble
 with ``hubble.enabled=true`` and ``hubble.metrics.dynamic.enabled=true``.
 
 In this example, a ``ConfigMap`` with a set of metrics will be applied before
-enabling the exporter, but the desired set of metrics (together with the 
+enabling the exporter, but the desired set of metrics (together with the
 ``ConfigMap``) can be created during installation.
 
 See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
@@ -229,7 +229,7 @@ See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
             - destination_pod:
               - default/
             name: policy
-    
+
 Deploy the :term:`ConfigMap`:
 
 .. code-block:: shell-session
@@ -405,11 +405,11 @@ For large clusters, consider disabling high-cardinality metrics like
 
       Use the ``prometheus.metrics`` value:
 
-      .. code-block:: shell-session
+      .. parsed-literal::
 
-         helm install cilium cilium/cilium --version |CHART_VERSION| \
-             --namespace kube-system \
-             --set prometheus.enabled=true \
+         helm install cilium cilium/cilium |CHART_VERSION| \\
+             --namespace kube-system \\
+             --set prometheus.enabled=true \\
              --set prometheus.metrics="{-cilium_node_connectivity_status,-cilium_node_connectivity_latency_seconds}"
 
    .. group-tab:: CLI
