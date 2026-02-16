@@ -568,7 +568,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	}
 
 	for _, hook := range cmd.onConfigReady {
-		if err := hook.OnConfigReady(n, cniArgs, conf); err != nil {
+		if err := hook.OnConfigReady(args, cniArgs, conf); err != nil {
 			return err
 		}
 	}

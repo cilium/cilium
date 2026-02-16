@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"github.com/containernetworking/cni/pkg/skel"
 	cniTypesV1 "github.com/containernetworking/cni/pkg/types/100"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -15,7 +16,7 @@ import (
 // configuration, CNI arguments and the Cilium agent configuration were loaded. It may be used to
 // sets up internal state of the hook.
 type OnConfigReady interface {
-	OnConfigReady(netConf *types.NetConf, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error
+	OnConfigReady(args *skel.CmdArgs, cniArgs *types.ArgsSpec, conf *models.DaemonConfigurationStatus) error
 }
 
 // OnIPAMReady is invoked after IPAM configuration was validated. It may be used to derive further
