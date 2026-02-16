@@ -41,24 +41,6 @@
 #include "lib/local_delivery.h"
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
-resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
-{
-	__u32 srcid = WORLD_IPV6_ID;
-	const struct remote_endpoint_info *info = NULL;
-	const union v6addr *src;
-
-	src = (union v6addr *)&ip6->saddr;
-	info = lookup_ip6_remote_endpoint(src, 0);
-	if (info)
-		srcid = info->sec_identity;
-
-	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   ((__u32 *)src)[3], srcid);
-
-	return srcid;
-}
-
 /* See the equivalent v4 path for comments */
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
@@ -140,22 +122,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline __u32
-resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
-{
-	__u32 srcid = WORLD_IPV4_ID;
-	const struct remote_endpoint_info *info = NULL;
-
-	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-	if (info)
-		srcid = info->sec_identity;
-
-	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   ip4->saddr, srcid);
-
-	return srcid;
-}
-
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
 {
@@ -290,6 +256,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
 	int __maybe_unused ret;
+	const struct remote_endpoint_info __maybe_unused *info;
 	__u32 __maybe_unused identity = UNKNOWN_ID;
 	__s8 __maybe_unused ext_err = 0;
 	__be16 proto = ctx_get_protocol(ctx);
@@ -329,7 +296,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv6(ctx, ip6);
+		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+		if (info)
+			identity = info->sec_identity;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
@@ -347,7 +316,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv4(ctx, ip4);
+		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+		if (info)
+			identity = info->sec_identity;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 		send_trace_notify(ctx, TRACE_FROM_CRYPTO, identity, UNKNOWN_ID,
