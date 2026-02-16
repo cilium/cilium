@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package v2alpha1
+package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +14,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumpodippool",path="ciliumpodippools",scope="Cluster",shortName={cpip}
 // +kubebuilder:object:root=true
-// +kubebuilder:storageversion
+// +kubebuilder:unservedversion
 
 // CiliumPodIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM
 // mode).
@@ -99,10 +99,14 @@ type IPv6PoolSpec struct {
 	MaskSize uint8 `json:"maskSize"`
 }
 
-// PoolCIDR is an IP pool CIDR.
-//
-// +kubebuilder:validation:Format=cidr
-type PoolCIDR string
+// PoolCIDR is the new struct for individual CIDR configuration
+type PoolCIDR struct {
+	// CIDR is the network CIDR
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	CIDR string `json:"cidr"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=false
