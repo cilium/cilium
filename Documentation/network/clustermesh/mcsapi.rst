@@ -47,15 +47,15 @@ configure CoreDNS manually, you need to execute the following steps:
       kubectl apply -f |SCM_WEB|\/vendor/sigs.k8s.io/mcs-api/config/crd/multicluster.x-k8s.io_serviceimports.yaml
 
       # Adding RBAC to read ServiceImports
-      kubectl create clusterrole coredns-mcsapi \
+      kubectl create clusterrole coredns-mcsapi \\
          --verb=list,watch --resource=serviceimports.multicluster.x-k8s.io
-      kubectl create clusterrolebinding coredns-mcsapi \
+      kubectl create clusterrolebinding coredns-mcsapi \\
          --clusterrole=coredns-mcsapi --serviceaccount=kube-system:coredns
 
       # Configure CoreDNS to support MCS-API
-      kubectl get configmap -n kube-system coredns -o yaml | \
-         sed -e 's/cluster\.local/cluster.local clusterset.local/g' | \
-         sed -E 's/^(.*)kubernetes(.*)\{/\1kubernetes\2{\n\1   multicluster clusterset.local/' | \
+      kubectl get configmap -n kube-system coredns -o yaml | \\
+         sed -e 's/cluster\.local/cluster.local clusterset.local/g' | \\
+         sed -E 's/^(.*)kubernetes(.*)\{/\1kubernetes\2{\n\1   multicluster clusterset.local/' | \\
          kubectl replace -f-
 
       # Rollout CoreDNS to apply the change
