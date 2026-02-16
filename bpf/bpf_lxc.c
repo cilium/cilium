@@ -59,20 +59,6 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
-#if defined(ENABLE_DSR)
-struct dsr_nat_info {
-	union v6addr nat_addr;
-	__be16 nat_port;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct dsr_nat_info);
-	__uint(max_entries, 1);
-} cilium_dsr_nat_buffer __section_maps_btf;
-#endif /* ENABLE_DSR */
-
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 static __always_inline int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
@@ -117,6 +103,20 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
     defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
 # define ENABLE_PER_PACKET_LB 1
 #endif
+
+#if defined(ENABLE_PER_PACKET_LB) && defined(ENABLE_DSR)
+struct dsr_nat_info {
+	union v6addr nat_addr;
+	__be16 nat_port;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct dsr_nat_info);
+	__uint(max_entries, 1);
+} cilium_dsr_nat_buffer __section_maps_btf;
+#endif /* ENABLE_PER_PACKET_LB && ENABLE_DSR */
 
 #ifdef ENABLE_IPV4
 static __always_inline void
@@ -880,6 +880,17 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
 	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
 	hairpin_flow = ct_state_new.loopback;
+
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 #endif /* ENABLE_PER_PACKET_LB */
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
@@ -896,16 +907,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
-#if defined(ENABLE_DSR)
-	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
-	if (nat_info) {
-		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
-		ct_state_new.nat_port = nat_info->nat_port;
-
-		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
-		nat_info->nat_port = 0;
-	}
-#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -1399,6 +1400,17 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
 	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
 	hairpin_flow = ct_state_new.loopback;
+
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 #endif /* ENABLE_PER_PACKET_LB */
 
 	bool same_subnet_id = false;
@@ -1436,16 +1448,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
-#if defined(ENABLE_DSR)
-	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
-	if (nat_info) {
-		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
-		ct_state_new.nat_port = nat_info->nat_port;
-
-		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
-		nat_info->nat_port = 0;
-	}
-#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
