@@ -127,7 +127,6 @@ include:
     cliFocus: "K8sAgentHubbleTest"
 
   ###
-  # K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP cannot be accessed externally when access is disabled
   # K8sDatapathServicesTest Checks N/S loadbalancing Supports IPv4 fragments
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and dsr with geneve
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and Hybrid-DSR with Geneve
@@ -135,7 +134,7 @@ include:
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, direct routing and Hybrid
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC, geneve tunnel, dsr and Maglev
   - focus: "f11-datapath-service-ns-tc"
-    cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing ClusterIP|K8sDatapathServicesTest Checks N/S loadbalancing Supports|K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC"
+    cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Supports|K8sDatapathServicesTest Checks N/S loadbalancing Tests with TC"
 
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs
