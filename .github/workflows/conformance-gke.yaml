@@ -316,17 +316,6 @@ jobs:
         with:
           label: ${{ github.event_name == 'workflow_dispatch' && inputs.PR-number || github.ref_name }}
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          external-target: 'google.com.'
-          external-cidr: '8.0.0.0/8'
-          external-ip: '8.8.8.8'
-          external-other-ip: '8.8.4.4'
-          hubble: false
-          test-concurrency: 5
-
       - name: Set up job variables
         id: vars
         run: |
@@ -361,14 +350,7 @@ jobs:
               --helm-set egressGateway.enabled=true"
           fi
 
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
-          if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
-            CONNECTIVITY_TEST_DEFAULTS+=" --test '!pod-to-host'"
-          fi
-
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
@@ -433,6 +415,12 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch/.github/actions
+          cp -a .github/actions/generic-external-targets ../cilium-base-branch/.github/actions/
+          cp -a .github/actions/cli-test-config ../cilium-base-branch/.github/actions/
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -461,6 +449,44 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
 
+      - name: Add external targets to kind cluster
+        uses: ./../cilium-base-branch/.github/actions/generic-external-targets
+        id: external_targets
+
+      - name: Determine the CIDR of fake external targets
+        id: external_cidr
+        run: |
+          ZONE=${{ matrix.k8s.zone }}
+          REGION=${ZONE%-?}
+          SUBNET=$(gcloud container clusters describe ${{ env.clusterName }}-${{ matrix.config.index }} --zone "$ZONE" --format 'value(subnetwork)')
+          CIDR=$(gcloud compute networks subnets describe "$SUBNET" --region "$REGION" --format 'value(ipCidrRange)')
+          echo "ipv4_external_cidr=$CIDR" >> $GITHUB_OUTPUT
+
+      - name: Get connectivity test flags
+        id: e2e_config
+        uses: ./../cilium-base-branch/.github/actions/cli-test-config
+        with:
+          external-target: ${{ steps.external_targets.outputs.external_target_name }}
+          external-other-target: ${{ steps.external_targets.outputs.other_external_target_name }}
+          external-cidr: ${{ steps.external_cidr.outputs.ipv4_external_cidr }}
+          external-ip: ${{ steps.external_targets.outputs.ipv4_external_target }}
+          external-other-ip: ${{ steps.external_targets.outputs.ipv4_other_external_target }}
+          external-target-ca-namespace: external-target-secrets
+          external-target-ca-name: custom-ca
+          external-target-fake-dns: true
+          hubble: false
+          test-concurrency: 5
+
+      - name: Set up job variables for connectivity tests
+        id: vars-conn
+        run: |
+          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+          if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
+            CONNECTIVITY_TEST_DEFAULTS+=" --test '!pod-to-host'"
+          fi
+
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
@@ -468,7 +494,7 @@ jobs:
       - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
         id: run-tests
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test ${{ steps.vars-conn.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
 
