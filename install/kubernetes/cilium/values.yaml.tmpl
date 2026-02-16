@@ -3616,6 +3616,13 @@ clustermesh:
   # -- Enable the synchronization of Kubernetes EndpointSlices corresponding to
   # the remote endpoints of appropriately-annotated global services through ClusterMesh
   enableEndpointSliceSynchronization: false
+  # -- Default behavior of namespaces in Clustermesh.
+  # If set to true, all namespaces are considered global unless
+  # annotated with clustermesh.cilium.io/global=false.
+  # If set to false, all namespaces are considered
+  # local unless annotated with clustermesh.cilium.io/global=true.
+  # Defaults to true.
+  defaultGlobalNamespace: true
   # -- Control whether policy rules assume by default the local cluster if not explicitly selected
   policyDefaultLocalCluster: true
 
