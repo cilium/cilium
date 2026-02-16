@@ -390,6 +390,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg config -a",
 		"cilium-dbg encrypt status",
 		"cilium-dbg endpoint list",
+		"cilium-dbg endpoint list -o json",
 		"cilium-dbg bpf auth list",
 		"cilium-dbg bpf bandwidth list",
 		"cilium-dbg bpf config list",
