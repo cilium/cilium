@@ -19,12 +19,12 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
 	node.CiliumNetMAC = lnc.CiliumNetMAC.As8()
 
-	if lnc.ServiceLoopbackIPv4 != nil {
-		node.ServiceLoopbackIPv4 = [4]byte(lnc.ServiceLoopbackIPv4.To4())
+	if lnc.ServiceLoopbackIPv4.IsValid() {
+		node.ServiceLoopbackIPv4 = lnc.ServiceLoopbackIPv4.As4()
 	}
 
-	if lnc.ServiceLoopbackIPv6 != nil {
-		node.ServiceLoopbackIPv6 = [16]byte(lnc.ServiceLoopbackIPv6.To16())
+	if lnc.ServiceLoopbackIPv6.IsValid() {
+		node.ServiceLoopbackIPv6 = lnc.ServiceLoopbackIPv6.As16()
 	}
 
 	if lnc.CiliumInternalIPv6.IsValid() {
