@@ -1555,6 +1555,25 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		return ret;
 	}
 
+	/* If this packet matches an existing reverse SNAT mapping, it is a
+	 * reply to outgoing traffic that was source-NATed. Skip the LB
+	 * service lookup to avoid incorrectly treating it as a new inbound
+	 * LB connection, which would rewrite the source port.
+	 */
+	{
+		struct ipv6_ct_tuple snat_tuple __align_stack_8 = {};
+
+		snat_tuple.nexthdr = tuple.nexthdr;
+		ipv6_addr_copy(&snat_tuple.saddr, &tuple.saddr);
+		ipv6_addr_copy(&snat_tuple.daddr, &tuple.daddr);
+		snat_tuple.sport = tuple.dport;
+		snat_tuple.dport = tuple.sport;
+		snat_tuple.flags = TUPLE_F_IN;
+
+		if (snat_v6_lookup(&snat_tuple))
+			goto skip_service_lookup;
+	}
+
 	lb6_fill_key(&key, &tuple);
 
 	svc = lb6_lookup_service(&key, false);
@@ -2969,6 +2988,28 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 		}
 		return ret;
+	}
+
+	/* If this packet matches an existing reverse SNAT mapping, it is a
+	 * reply to outgoing traffic that was source-NATed. Skip the LB
+	 * service lookup to avoid incorrectly treating it as a new inbound
+	 * LB connection, which would rewrite the source port.
+	 */
+	{
+		struct ipv4_ct_tuple snat_tuple = {};
+
+		snat_tuple.nexthdr = tuple.nexthdr;
+		snat_tuple.saddr = tuple.saddr;
+		snat_tuple.daddr = tuple.daddr;
+		/* lb4_extract_tuple loads dport=pkt_src_port, sport=pkt_dst_port.
+		 * SNAT reverse key uses sport=pkt_src_port, dport=pkt_dst_port.
+		 */
+		snat_tuple.sport = tuple.dport;
+		snat_tuple.dport = tuple.sport;
+		snat_tuple.flags = TUPLE_F_IN;
+
+		if (snat_v4_lookup(&snat_tuple))
+			goto skip_service_lookup;
 	}
 
 	lb4_fill_key(&key, &tuple);
