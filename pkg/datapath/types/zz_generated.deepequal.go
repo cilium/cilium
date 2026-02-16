@@ -47,40 +47,6 @@ func (in *LocalNodeConfiguration) deepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
-	if ((in.ServiceLoopbackIPv4 != nil) && (other.ServiceLoopbackIPv4 != nil)) || ((in.ServiceLoopbackIPv4 == nil) != (other.ServiceLoopbackIPv4 == nil)) {
-		in, other := &in.ServiceLoopbackIPv4, &other.ServiceLoopbackIPv4
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
-	}
-
-	if ((in.ServiceLoopbackIPv6 != nil) && (other.ServiceLoopbackIPv6 != nil)) || ((in.ServiceLoopbackIPv6 == nil) != (other.ServiceLoopbackIPv6 == nil)) {
-		in, other := &in.ServiceLoopbackIPv6, &other.ServiceLoopbackIPv6
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if inElement != (*other)[i] {
-					return false
-				}
-			}
-		}
-	}
-
 	if ((in.Devices != nil) && (other.Devices != nil)) || ((in.Devices == nil) != (other.Devices == nil)) {
 		in, other := &in.Devices, &other.Devices
 		if other == nil {

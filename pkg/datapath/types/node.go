@@ -75,12 +75,14 @@ type LocalNodeConfiguration struct {
 	// over a Service.
 	//
 	// Immutable at runtime.
-	ServiceLoopbackIPv4 net.IP
+	// +deepequal-gen=false
+	ServiceLoopbackIPv4 netip.Addr
 
 	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to itself
 	// over a Service.
 	// Immutable at runtime.
-	ServiceLoopbackIPv6 net.IP
+	// +deepequal-gen=false
+	ServiceLoopbackIPv6 netip.Addr
 
 	// Devices is the native network devices selected for datapath use.
 	// Mutable at runtime.
@@ -260,6 +262,12 @@ func (cfg *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool
 		return false
 	}
 	if cfg.CiliumInternalIPv6 != other.CiliumInternalIPv6 {
+		return false
+	}
+	if cfg.ServiceLoopbackIPv4 != other.ServiceLoopbackIPv4 {
+		return false
+	}
+	if cfg.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
 		return false
 	}
 	// Call generated `deepEqual` method which compares all other fields

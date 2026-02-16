@@ -4,7 +4,7 @@
 package node
 
 import (
-	"net"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -57,8 +57,9 @@ var _ statedb.TableWritable = &LocalNode{}
 // LocalNodeInfo is the additional information about the local node that
 // is only used internally.
 //
-// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen=false
 // +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type LocalNodeInfo struct {
 	// OptOutNodeEncryption will make the local node opt-out of node-to-node
 	// encryption
@@ -74,14 +75,55 @@ type LocalNodeInfo struct {
 	IPv6NativeRoutingCIDR *cidr.CIDR
 	// ServiceLoopbackIPv4 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
-	ServiceLoopbackIPv4 net.IP
+	// +deepequal-gen=false
+	ServiceLoopbackIPv4 netip.Addr
 	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to
 	// itself through a Service.
-	ServiceLoopbackIPv6 net.IP
+	// +deepequal-gen=false
+	ServiceLoopbackIPv6 netip.Addr
 	// IsBeingDeleted indicates that the local node is being deleted.
 	IsBeingDeleted bool
 	// UnderlayProtocol is the IP family of our underlay.
 	UnderlayProtocol tunnel.UnderlayProtocol
+}
+
+// DeepCopyInto copies the receiver into out. in must be non-nil.
+func (in *LocalNodeInfo) DeepCopyInto(out *LocalNodeInfo) {
+	*out = *in
+	// Deep copy pointer fields
+	if in.IPv4NativeRoutingCIDR != nil {
+		out.IPv4NativeRoutingCIDR = in.IPv4NativeRoutingCIDR.DeepCopy()
+	}
+	if in.IPv6NativeRoutingCIDR != nil {
+		out.IPv6NativeRoutingCIDR = in.IPv6NativeRoutingCIDR.DeepCopy()
+	}
+	// netip.Addr fields are value types, already copied by *out = *in
+}
+
+// DeepCopy creates a deep copy of the LocalNodeInfo.
+func (in *LocalNodeInfo) DeepCopy() *LocalNodeInfo {
+	if in == nil {
+		return nil
+	}
+	out := new(LocalNodeInfo)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepEqual compares two LocalNodeInfo structs for equality.
+func (in *LocalNodeInfo) DeepEqual(other *LocalNodeInfo) bool {
+	if other == nil {
+		return false
+	}
+	// Manually compare netip.Addr fields
+	if in.ServiceLoopbackIPv4 != other.ServiceLoopbackIPv4 {
+		return false
+	}
+	if in.ServiceLoopbackIPv6 != other.ServiceLoopbackIPv6 {
+		return false
+	}
+	// Call generated private method for other fields
+	return in.deepEqual(other)
 }
 
 const (
