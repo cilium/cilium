@@ -29,8 +29,8 @@ var (
 	fakeNodeAddressing = fakeTypes.NewNodeAddressing()
 
 	nodeConfig = datapath.LocalNodeConfiguration{
-		NodeIPv4:            fakeNodeAddressing.IPv4().PrimaryExternal(),
-		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
+		NodeIPv4:            ip.AddrFromIP(fakeNodeAddressing.IPv4().PrimaryExternal()),
+		NodeIPv6:            ip.AddrFromIP(fakeNodeAddressing.IPv6().PrimaryExternal()),
 		CiliumInternalIPv4:  ip.AddrFromIP(fakeNodeAddressing.IPv4().Router()),
 		CiliumInternalIPv6:  ip.AddrFromIP(fakeNodeAddressing.IPv6().Router()),
 		DeviceMTU:           calcMtu.DeviceMTU,
