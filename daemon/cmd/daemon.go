@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -256,7 +255,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	if !params.DaemonConfig.DryMode {
 		params.Logger.Info("Validating configured node address ranges")
-		if err := node.ValidatePostInit(params.Logger); err != nil {
+		if err := params.IPAMInitializer.ValidatePostInit(ctx); err != nil {
 			return fmt.Errorf("postinit failed: %w", err)
 		}
 	}

@@ -5,7 +5,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net"
 
@@ -73,28 +72,6 @@ func SetRouterInfo(info RouterInfo) {
 	addrs.mu.Lock()
 	addrs.routerInfo = info
 	addrs.mu.Unlock()
-}
-
-// ValidatePostInit validates the entire addressing setup and completes it as
-// required
-func ValidatePostInit(logger *slog.Logger) error {
-	ln := getLocalNode(logger)
-
-	if option.Config.EnableIPv4 {
-		if ln.GetNodeIP(false) == nil {
-			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
-		}
-	}
-
-	if option.Config.TunnelingEnabled() && ln.GetNodeIP(false) == nil && ln.GetNodeIP(true) == nil {
-		return fmt.Errorf("external node address could not be derived, please configure via --ipv4-node or --ipv6-node")
-	}
-
-	if option.Config.EnableIPv4 && ln.GetCiliumInternalIP(false) == nil {
-		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
-	}
-
-	return nil
 }
 
 // GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
