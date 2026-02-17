@@ -176,17 +176,7 @@ jobs:
           # Add IPsec options to all configurations if ipsec is true
           if [[ "$IPSEC" == "true" ]]; then
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
-            echo "Adding IPsec encryption options to all configurations"
-            jq '.config |= map(
-              # Add -ipsec suffix to type unless it already contains ipsec
-              .type = (if (.type | test("ipsec")) then .type else .type + "-ipsec" end) |
-              # Add IPsec helm options to cilium-install-opts
-              if .["cilium-install-opts"] then
-                .["cilium-install-opts"] += " --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
-              else
-                .["cilium-install-opts"] = "--helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
-              end
-            )' /tmp/matrix.json > /tmp/matrix.json.tmp
+            jq '.config |= map(. + {"ipsec": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
             mv /tmp/matrix.json.tmp /tmp/matrix.json
           fi
 
@@ -326,6 +316,14 @@ jobs:
             --helm-set=loadBalancer.l7.backend=envoy \
             --wait=false"
 
+          if [[ ${{ matrix.config.type }} == "tunnel" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel"
+          fi
+
+          if [[ "${{ matrix.ipsec }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
@@ -369,7 +367,7 @@ jobs:
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Create ESP allow firewall rule
-        if: ${{ matrix.config.type == 'tunnel-ipsec' }}
+        if: ${{ matrix.config.ipsec == 'true' }}
         uses: ./.github/actions/gke-create-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
@@ -407,7 +405,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Create custom IPsec secret
-        if: ${{ contains(fromJSON('["no-tunnel-ipsec", "tunnel-ipsec", "tunnel-ingress-controller-ipsec"]'), matrix.config.type) }}
+        if: ${{ matrix.config.ipsec == 'true' }}
         run: |
           cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
@@ -442,7 +440,7 @@ jobs:
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up ESP allow firewall rule
-        if: ${{ always() && matrix.config.type == 'tunnel-ipsec' }}
+        if: ${{ always() && matrix.config.ipsec == 'true' }}
         uses: ./.github/actions/gke-clean-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
