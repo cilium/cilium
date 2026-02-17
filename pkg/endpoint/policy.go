@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/netip"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -49,13 +51,13 @@ func (e *Endpoint) PreviousMapState() *policy.MapState {
 }
 
 // GetNamedPort returns the port for the given name.
-func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
+func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
 		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
 	}
-	// egress needs named ports of all the pods
-	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
+	// egress needs named ports of the destination pods
+	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto, idents)
 }
 
 func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto u8proto.U8proto) uint16 {
@@ -72,8 +74,8 @@ func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, pr
 	return port
 }
 
-func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto u8proto.U8proto) uint16 {
-	port, err := npMap.GetNamedPort(name, proto)
+func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
+	port, err := npMap.GetNamedPort(name, proto, idents)
 	// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the port name
 	// is likely not scheduled yet.
 	if err != nil && !errors.Is(err, types.ErrUnknownNamedPort) && e.logLimiter.Allow() {
@@ -93,7 +95,7 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 // For port ranges the proxy is identified by the first port in
 // the range, as overlapping proxy port ranges are not supported.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, u8proto.U8proto) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) (string, uint16, u8proto.U8proto) {
 	port := l4.Port
 	protocol := l4.U8Proto
 	// Calculate protocol if it is 0 (default) and
@@ -103,7 +105,7 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16
 		protocol = proto
 	}
 	if port == 0 && l4.PortName != "" {
-		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol)
+		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol, l4.Identities(scSnapshot))
 		if port == 0 {
 			return "", 0, 0
 		}

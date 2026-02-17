@@ -6,10 +6,12 @@ package types
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -32,8 +34,8 @@ type PortProto struct {
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
-// PortProtoSet is a reference-counted set of unique PortProto values.
-type PortProtoSet counter.Counter[PortProto]
+// PortProtoSet maps PortProto to a map of endpoint IDs to their reference counts.
+type PortProtoSet map[PortProto]map[identity.NumericIdentity]int
 
 // Equal returns true if the PortProtoSets are equal.
 func (pps PortProtoSet) Equal(other PortProtoSet) bool {
@@ -41,29 +43,52 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 		return false
 	}
 
-	for port := range pps {
-		if _, exists := other[port]; !exists {
+	for pp, epCounts := range pps {
+		otherEpCounts, exists := other[pp]
+		if !exists || len(epCounts) != len(otherEpCounts) {
 			return false
+		}
+		for epID, count := range epCounts {
+			otherCount, epExists := otherEpCounts[epID]
+			if !epExists || count != otherCount {
+				return false
+			}
 		}
 	}
 	return true
 }
 
-// Add increments the reference count for the specified key.
-func (pps PortProtoSet) Add(pp PortProto) bool {
-	return counter.Counter[PortProto](pps).Add(pp)
+// Add increments the reference count for the epID associated with the PortProto.
+// Returns true if the epID was not previously in the map (count was 0).
+func (pps PortProtoSet) Add(pp PortProto, epID identity.NumericIdentity) bool {
+	epCounts, ok := pps[pp]
+	if !ok {
+		epCounts = make(map[identity.NumericIdentity]int)
+		pps[pp] = epCounts
+	}
+	return counter.Counter[identity.NumericIdentity](epCounts).Add(epID)
 }
 
-// Delete decrements the reference count for the specified key.
-func (pps PortProtoSet) Delete(pp PortProto) bool {
-	return counter.Counter[PortProto](pps).Delete(pp)
+// Delete decrements the reference count for the epID associated with the PortProto.
+// It returns true if the epID was deleted.
+func (pps PortProtoSet) Delete(pp PortProto, epID identity.NumericIdentity) bool {
+	epCounts, ok := pps[pp]
+	if !ok {
+		return false
+	}
+	deleted := counter.Counter[identity.NumericIdentity](epCounts).Delete(epID)
+	if deleted && len(epCounts) == 0 {
+		delete(pps, pp)
+	}
+	return deleted
 }
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
 type NamedPortMultiMap interface {
 	// GetNamedPort returns the port number for the named port, if any.
-	GetNamedPort(name string, proto u8proto.U8proto) (uint16, error)
+	GetNamedPort(name string, proto u8proto.U8proto, epIDs iter.Seq[identity.NumericIdentity]) (uint16, error)
+
 	// Len returns the number of Name->PortProtoSet mappings known.
 	Len() int
 }
@@ -88,27 +113,40 @@ func (npm *namedPortMultiMap) Len() int {
 }
 
 // Update applies potential changes in named ports, and returns whether there were any.
-func (npm *namedPortMultiMap) Update(old, new NamedPortMap) (namedPortsChanged bool) {
+func (npm *namedPortMultiMap) Update(epID identity.NumericIdentity, old, new NamedPortMap) (namedPortsChanged bool) {
 	npm.Lock()
 	defer npm.Unlock()
-	// The order is important here. Increment the refcount first, and then
-	// decrement it again for old ports, so that we don't hit zero if there are
-	// no changes.
-	for name, port := range new {
-		c, ok := npm.m[name]
-		if !ok {
-			c = make(PortProtoSet)
-			npm.m[name] = c
-		}
-		if c.Add(port) {
-			namedPortsChanged = true
+
+	// Handle removals: Ports in old but not in new, or changed.
+	for name, oldPP := range old {
+		newPP, exists := new[name]
+		if !exists || oldPP != newPP {
+			if pps, ok := npm.m[name]; ok {
+				if deleted := pps.Delete(oldPP, epID); deleted {
+					namedPortsChanged = true
+				}
+			}
 		}
 	}
-	for name, port := range old {
-		if npm.m[name].Delete(port) {
-			namedPortsChanged = true
-			if len(npm.m[name]) == 0 {
-				delete(npm.m, name)
+
+	// Clean up empty PortProtoSets from the main map
+	for name, pps := range npm.m {
+		if len(pps) == 0 {
+			delete(npm.m, name)
+		}
+	}
+
+	// Handle additions: Ports in new but not in old, or changed.
+	for name, newPP := range new {
+		oldPP, exists := old[name]
+		if !exists || newPP != oldPP {
+			pps, ok := npm.m[name]
+			if !ok {
+				pps = make(PortProtoSet)
+				npm.m[name] = pps
+			}
+			if pps.Add(newPP, epID) {
+				namedPortsChanged = true
 			}
 		}
 	}
@@ -180,7 +218,7 @@ func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16
 }
 
 // GetNamedPort returns the port number for the named port, if any.
-func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16, error) {
+func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, epIDs iter.Seq[identity.NumericIdentity]) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
 	}
@@ -198,7 +236,19 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto) (
 	// Find if there is a single port that has no proto conflict and no zero port value
 	port := uint16(0)
 	err := ErrUnknownNamedPort
-	for pp := range pps {
+	for pp, epSet := range pps {
+		// Check if this PortProto is defined by any of the target endpoint IDs
+		validEp := false
+		for epID := range epIDs {
+			if _, exists := epSet[epID]; exists {
+				validEp = true
+				break
+			}
+		}
+		if !validEp {
+			continue // Skip if PortProto is not from the target endpoints
+		}
+
 		if pp.Proto != 0 && proto != pp.Proto {
 			err = ErrIncompatibleProtocol
 			continue // conflicting proto

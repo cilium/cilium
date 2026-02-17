@@ -275,10 +275,13 @@ type SelectorCache struct {
 	userHandlerDone chan struct{}
 }
 
-// GetReadTxn returns a read-only state of the current selectors in the selector cache.
-// The returned SelectorReadTxn should be Close()d as soon as possible to limit memory use.
+// GetSelectorSnapshot returns a read-only state of the current selectors in the selector cache.
+// The returned SelectorSnapshot should be Invalidate()d if stored on the heap and not needed any more.
 func (sc *SelectorCache) GetSelectorSnapshot() SelectorSnapshot {
-	return *sc.readTxn.Load()
+	if sc != nil {
+		return *sc.readTxn.Load()
+	}
+	return SelectorSnapshot{}
 }
 
 // WithRLock calls the given function with the selector cache locked for reading, so that the caller
