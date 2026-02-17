@@ -202,7 +202,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 
 	// Configure and start IPAM without using the configuration yet.
-	configureAndStartIPAM(ctx, params)
+	params.IPAMInitializer.configureAndStartIPAM(ctx)
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
@@ -228,7 +228,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	params.IPAM.RestoreFinished()
+	params.IPAMInitializer.RestoreFinished()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
