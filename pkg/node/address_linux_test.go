@@ -58,7 +58,7 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 		err := setupDummyDevice(ifName, tc.ipsOnInterface...)
 		require.NoError(t, err)
 
-		got, err := firstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP))
+		got, err := FirstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP))
 		require.NoError(t, err)
 		require.Equal(t, tc.want, got.String())
 		removeDevice(ifName)
