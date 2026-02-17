@@ -13,6 +13,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -150,7 +151,7 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 	// If aggregation enabled, send only flow events to aggregator.
 	// Non-flow events bypass aggregation and are exported directly.
 	if e.aggregator != nil {
-		if _, ok := ev.Event.(*flowpb.Flow); ok {
+		if _, ok := ev.Event.(*ir.Flow); ok {
 			e.aggregator.Add(ev)
 			return nil
 		}
@@ -183,16 +184,17 @@ func (e *exporter) Stop() error {
 // eventToExportEvent converts Event to ExportEvent.
 func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
 	switch ev := event.Event.(type) {
-	case *flowpb.Flow:
+	case *ir.Flow:
+		flow := ev.ToProto()
 		if e.opts.FieldMask.Active() {
-			e.opts.FieldMask.Copy(e.flow.ProtoReflect(), ev.ProtoReflect())
-			ev = e.flow
+			e.opts.FieldMask.Copy(e.flow.ProtoReflect(), flow.ProtoReflect())
+			flow = e.flow
 		}
 		return &observerpb.ExportEvent{
-			Time:     ev.GetTime(),
-			NodeName: ev.GetNodeName(),
+			Time:     flow.GetTime(),
+			NodeName: flow.GetNodeName(),
 			ResponseTypes: &observerpb.ExportEvent_Flow{
-				Flow: ev,
+				Flow: flow,
 			},
 		}
 	case *flowpb.LostEvent:

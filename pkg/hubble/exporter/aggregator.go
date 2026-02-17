@@ -54,26 +54,25 @@ func NewAggregatorWithFields(fieldAggregate fa.FieldAggregate, logger *slog.Logg
 }
 
 func (a *Aggregator) Add(ev *v1.Event) {
-	f := ev.GetFlow()
-	if f == nil {
+	if ev == nil || ev.GetFlow() == nil {
 		return
 	}
 
+	proto := ev.GetFlow().ToProto()
 	processedFlow := &flowpb.Flow{}
-	a.fieldAggregate.Copy(processedFlow.ProtoReflect(), f.ProtoReflect())
+	a.fieldAggregate.Copy(processedFlow.ProtoReflect(), proto.ProtoReflect())
 
 	k := generateAggregationKey(processedFlow)
 
 	// Enrich the processed flow with timestamp after key generation.
 	// This ensures timestamp doesn't affect aggregation, but preserves temporal context.
-	processedFlow.Time = f.GetTime()
+	processedFlow.Time = proto.GetTime()
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-
 	v, ok := a.m[k]
 	if !ok {
-		switch f.GetTrafficDirection() {
+		switch proto.GetTrafficDirection() {
 		case flowpb.TrafficDirection_INGRESS:
 			v = &AggregateValue{
 				IngressFlowCount: 1,
@@ -92,7 +91,7 @@ func (a *Aggregator) Add(ev *v1.Event) {
 		}
 		a.m[k] = v
 	} else {
-		switch f.GetTrafficDirection() {
+		switch proto.GetTrafficDirection() {
 		case flowpb.TrafficDirection_INGRESS:
 			v.IngressFlowCount++
 		case flowpb.TrafficDirection_EGRESS:
