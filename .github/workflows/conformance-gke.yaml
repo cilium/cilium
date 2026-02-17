@@ -165,6 +165,7 @@ jobs:
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
           IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          WG=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
           KPR=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
           ADV_FEAT=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
 
@@ -179,6 +180,13 @@ jobs:
           if [[ "$IPSEC" == "true" ]]; then
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
             jq '.config |= map(. + {"ipsec": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
+            mv /tmp/matrix.json.tmp /tmp/matrix.json
+          fi
+
+          # Add WireGuard options to all configurations if wireguard is true
+          if [[ "$WG" == "true" ]]; then
+            echo "::notice::WireGuard enabled - setting wireguard=true for all matrix entries"
+            jq '.config |= map(. + {"wireguard": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
             mv /tmp/matrix.json.tmp /tmp/matrix.json
           fi
 
@@ -337,6 +345,9 @@ jobs:
 
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
+          fi
+          if [[ "${{ matrix.wireguard }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
 
           if [[ "${{ matrix.kpr }}" == "true" ]]; then
