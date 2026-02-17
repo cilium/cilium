@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.19.1
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* clustermesh: fix CRD update permission for MCS-API CRD install (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#44224, @Preisschild)
+* Fix panic during datapath reinitialization if DirectRouting device is required but missing (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#44219, @fristonio)
+* helm: Fixed RBAC errors with `operator.enabled=false` by aligning cilium-tlsinterception-secrets Role/RoleBinding conditionals (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#44159, @puwun)
+* Reduces rtnl_mutex contention on SR-IOV nodes by not requesting VF information in netlink RTM_GETLINK operations (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#43517, @pasteley)
+
+**CI Changes:**
+* ci: e2e: add `kernel` to workflow job names (Backport PR cilium/cilium#44127, Upstream PR cilium/cilium#44291, @smagnani96)
+* gh: ariane: don't run cloud workflows for LVH kernel updates (Backport PR cilium/cilium#44147, Upstream PR cilium/cilium#44109, @julianwiedmann)
+* gh: ariane: skip more workflows for LVH kernel updates (Backport PR cilium/cilium#44147, Upstream PR cilium/cilium#44115, @julianwiedmann)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.19) (cilium/cilium#44248, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.19) (cilium/cilium#44368, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.19) (cilium/cilium#44363, @cilium-renovate[bot])
+* chore(deps): update base-images (v1.19) (cilium/cilium#44247, @cilium-renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.19.1 (v1.19) (cilium/cilium#44343, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.1 (v1.19) (cilium/cilium#44400, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to b3255e7 (v1.19) (cilium/cilium#44242, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.25.7 docker digest to 85c0ab0 (v1.19) (cilium/cilium#44364, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to f9f84bd (v1.19) (cilium/cilium#44243, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.6.8 (v1.19) (cilium/cilium#44365, @cilium-renovate[bot])
+* chore(deps): update module sigs.k8s.io/kube-api-linter to v0.0.0-20260206102632-39e3d06a2850 (v1.19) (cilium/cilium#44244, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1770265024-9828c064a10df81f1939b692b01203d88bb439e4 (v1.19) (cilium/cilium#44245, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1770554954-8ce3bb4eca04188f4a0a1bfbd0a06a40f90883de (v1.19) (cilium/cilium#44262, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1770979049-232ed4a26881e4ab4f766f251f258ed424fff663 (v1.19) (cilium/cilium#44366, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.19) (patch) (cilium/cilium#44246, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.19) (patch) (cilium/cilium#44367, @cilium-renovate[bot])
+* ci: e2e: improve GitHub action readability (Backport PR cilium/cilium#44127, Upstream PR cilium/cilium#44126, @smagnani96)
+* docs: Update docsearch to v4.5.4 (Backport PR cilium/cilium#44272, Upstream PR cilium/cilium#44233, @joestringer)
+* endpoint/watchdog: fetch all endpoints without programs loaded (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#44111, @mhofstetter)
+* gateway-apis: Correct supported versions in docs (cilium/cilium#44217, @youngnick)
+* Policy Tiers: feature-flagging, add fuzzer, fix corner cases (Backport PR cilium/cilium#44267, Upstream PR cilium/cilium#43893, @jrajahalme)
+* Policy: Fix rule origin for ordered policies (Backport PR cilium/cilium#44280, Upstream PR cilium/cilium#44178, @jrajahalme)
+
+**Other Changes:**
+* install: Update image digests for v1.19.0 (cilium/cilium#44172, @cilium-release-bot[bot])
+
 ## v1.19.0
 
 Summary of Changes
