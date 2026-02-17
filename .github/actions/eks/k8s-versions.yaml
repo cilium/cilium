@@ -8,9 +8,11 @@ include:
   - version: "1.32"
     region: ca-central-1
   - version: "1.33"
+    region: eu-central-1
+  - version: "1.34"
     region: us-east-1
     default: true
     aws-eni-pd: true
-  - version: "1.34"
+  - version: "1.35"
     region: us-west-2
     default: true
