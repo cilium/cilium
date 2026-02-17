@@ -299,7 +299,7 @@ jobs:
                 # This is a workaround due to left overs made by the generate_helm_release.sh script
                 echo "🧹 Resetting ../charts directory..."
                 cd ../charts
-                git reset --hard HEAD
+                git reset --hard "$(git symbolic-ref refs/remotes/origin/HEAD)"
                 git clean -fdx
                 cd -
 
