@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -14,8 +12,6 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"go.uber.org/goleak"
 
 	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
@@ -45,8 +41,9 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
+	testutils.SerializedTest(t)
 
-	defer goleak.VerifyNone(t)
+	defer testutils.GoleakVerifyNone(t)
 
 	var opts []hivetest.LogOption
 	if *debug {
@@ -140,9 +137,7 @@ func TestPrivilegedScript(t *testing.T) {
 						return nil, err
 					}
 
-					for name, newCmd := range newHiveCmds {
-						cmds[name] = newCmd
-					}
+					maps.Copy(cmds, newHiveCmds)
 
 					return nil, nil
 				},

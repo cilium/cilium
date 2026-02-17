@@ -21,6 +21,7 @@ find_match() {
        --exclude \*_test.go \
        --exclude xfrm_state_cache.go \
        --exclude probe_linux.go \
+       --exclude-dir safenetlink \
        -E "$MATCHES_ORED" \
         "$target"
   if [ $? -eq 0 ] ; then

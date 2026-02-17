@@ -37,8 +37,8 @@ func NewLockfile(path string) (*Lockfile, error) {
 	}, nil
 }
 
-// Close will close the file, which implicitly removes all locks held.
-// It is an error to re-use a closed Lockfile.
+// Close the file, implicitly releasing any locks held through this Lockfile,
+// but not other Lockfile instances. It is an error to re-use a closed Lockfile.
 func (l *Lockfile) Close() error {
 	fp := l.fp
 	l.fp = nil
