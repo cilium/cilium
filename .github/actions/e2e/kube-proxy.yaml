@@ -8,7 +8,7 @@
   # L7 testing: Basic VXLAN + host firewall - moderate interaction, test on schedule only
   test-l7: 'false'
 - name: 'kube-proxy-2'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -17,7 +17,7 @@
   # L7 testing: Disabled tunnel + host firewall - moderate interaction, test on schedule only
   test-l7: 'false'
 - name: 'kube-proxy-3'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
