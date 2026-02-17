@@ -12,6 +12,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -136,19 +137,17 @@ func TestPortDistributionHandler(t *testing.T) {
 
 }
 
-func buildFlow(port uint32, verdict pb.Verdict, reply bool) *pb.Flow {
-	return &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-		L4: &pb.Layer4{
-			Protocol: &pb.Layer4_TCP{
-				TCP: &pb.TCP{
-					DestinationPort: port,
-				},
+func buildFlow(port uint32, verdict pb.Verdict, reply bool) *ir.Flow {
+	return &ir.Flow{
+		EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				DestinationPort: port,
 			},
 		},
-		Source:      &pb.Endpoint{Namespace: "foo"},
-		Destination: &pb.Endpoint{Namespace: "bar"},
+		Source:      ir.Endpoint{Namespace: "foo"},
+		Destination: ir.Endpoint{Namespace: "bar"},
 		Verdict:     verdict,
-		IsReply:     &wrappers.BoolValue{Value: reply},
+		Reply:       ir.ProtoToReply(wrappers.Bool(reply)),
 	}
 }

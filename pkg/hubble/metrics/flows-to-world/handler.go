@@ -18,6 +18,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	pkglabels "github.com/cilium/cilium/pkg/labels"
 )
@@ -96,7 +97,7 @@ func (h *flowsToWorldHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.flowsToWorld.MetricVec}
 }
 
-func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
+func (h *flowsToWorldHandler) isReservedWorld(endpoint ir.Endpoint) bool {
 	for _, label := range endpoint.Labels {
 		switch label {
 		case reservedWorldLbl, reservedWorldIPv4Lbl, reservedWorldIPv6Lbl:
@@ -106,26 +107,22 @@ func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
 	return false
 }
 
-func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) error {
-	l4 := flow.GetL4()
-	if flow.GetDestination() == nil ||
-		!h.isReservedWorld(flow.GetDestination()) ||
-		flow.GetEventType() == nil ||
-		l4 == nil {
+func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *ir.Flow) error {
+	l4 := flow.L4
+	if flow.Destination.IsEmpty() || !h.isReservedWorld(flow.Destination) || flow.EventType.IsEmpty() || l4.IsEmpty() {
 		return nil
 	}
 	// if "any-drop" option is not set, non-policy drops are ignored.
-	if flow.GetVerdict() == flowpb.Verdict_DROPPED && !h.anyDrop && flow.GetDropReasonDesc() != flowpb.DropReason_POLICY_DENIED {
+	if flow.Verdict == flowpb.Verdict_DROPPED && !h.anyDrop && flow.DropReasonDesc != flowpb.DropReason_POLICY_DENIED {
 		return nil
 	}
 	// if this is potentially a forwarded reply packet, ignore it to avoid collecting statistics about ephemeral ports
-	isReply := flow.GetIsReply() != nil && flow.GetIsReply().GetValue()
-	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
+	if flow.Verdict != flowpb.Verdict_DROPPED && flow.IsReply() {
 		return nil
 	}
 
 	// if "syn-only" option is set, only count non-reply SYN packets for TCP.
-	if h.synOnly && (!l4.GetTCP().GetFlags().GetSYN() || isReply) {
+	if h.synOnly && (!l4.TCP.Flags.SYN || flow.IsReply()) {
 		return nil
 	}
 
@@ -138,17 +135,17 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		return err
 	}
 
-	labels := []string{v1.FlowProtocol(flow), flow.GetVerdict().String()}
+	labels := []string{v1.FlowProtocol(flow), flow.Verdict.String()}
 
 	// if "port" option is set, add port to the label.
 	if h.port {
-		port := ""
-		if tcp := l4.GetTCP(); tcp != nil {
-			port = strconv.Itoa(int(tcp.GetDestinationPort()))
-		} else if udp := l4.GetUDP(); udp != nil {
-			port = strconv.Itoa(int(udp.GetDestinationPort()))
-		} else if sctp := l4.GetSCTP(); sctp != nil {
-			port = strconv.Itoa(int(sctp.GetDestinationPort()))
+		var port string
+		if !l4.TCP.IsEmpty() {
+			port = strconv.Itoa(int(l4.TCP.DestinationPort))
+		} else if !l4.UDP.IsEmpty() {
+			port = strconv.Itoa(int(l4.UDP.DestinationPort))
+		} else if !l4.SCTP.IsEmpty() {
+			port = strconv.Itoa(int(l4.SCTP.DestinationPort))
 		}
 		labels = append(labels, port)
 	}

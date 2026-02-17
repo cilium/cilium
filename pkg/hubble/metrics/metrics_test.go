@@ -26,6 +26,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -73,15 +74,13 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 			api.ParseStaticMetricsConfig(metricCfg),
 			grpcMetrics)
 
-		flow := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_TCP{
-					TCP: &pb.TCP{},
-				},
+		flow := &ir.Flow{
+			EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+			L4: ir.Layer4{
+				TCP: ir.TCP{},
 			},
-			Source:      &pb.Endpoint{Namespace: "foo"},
-			Destination: &pb.Endpoint{Namespace: "bar"},
+			Source:      ir.Endpoint{Namespace: "foo"},
+			Destination: ir.Endpoint{Namespace: "bar"},
 			Verdict:     pb.Verdict_DROPPED,
 			DropReason:  uint32(pb.DropReason_POLICY_DENIED),
 		}
@@ -251,15 +250,13 @@ func TestMetricReRegisterAndCollect(t *testing.T) {
 	dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
 	dfp.onConfigReload(t.Context(), 0, *cfg)
 
-	flow1 := &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-		L4: &pb.Layer4{
-			Protocol: &pb.Layer4_TCP{
-				TCP: &pb.TCP{},
-			},
+	flow1 := &ir.Flow{
+		EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		L4: ir.Layer4{
+			TCP: ir.TCP{SourcePort: 80},
 		},
-		Source:         &pb.Endpoint{Namespace: "allow", PodName: "src_pod"},
-		Destination:    &pb.Endpoint{Namespace: "allow", PodName: "dst_pod"},
+		Source:         ir.Endpoint{Namespace: "allow", PodName: "src_pod"},
+		Destination:    ir.Endpoint{Namespace: "allow", PodName: "dst_pod"},
 		Verdict:        pb.Verdict_DROPPED,
 		DropReason:     uint32(pb.DropReason_POLICY_DENIED),
 		DropReasonDesc: pb.DropReason_POLICY_DENIED,
@@ -340,15 +337,13 @@ func ConfigureAndFetchDynamicMetrics(t *testing.T, testName string, exportedMetr
 		dfp := DynamicFlowProcessor{registry: reg, logger: slog.Default()}
 		dfp.onConfigReload(t.Context(), 0, *cfg)
 
-		flow1 := &pb.Flow{
-			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-			L4: &pb.Layer4{
-				Protocol: &pb.Layer4_TCP{
-					TCP: &pb.TCP{},
-				},
+		flow1 := &ir.Flow{
+			EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+			L4: ir.Layer4{
+				TCP: ir.TCP{},
 			},
-			Source:         &pb.Endpoint{Namespace: "allow", PodName: "src_pod"},
-			Destination:    &pb.Endpoint{Namespace: "allow", PodName: "dst_pod"},
+			Source:         ir.Endpoint{Namespace: "allow", PodName: "src_pod"},
+			Destination:    ir.Endpoint{Namespace: "allow", PodName: "dst_pod"},
 			Verdict:        pb.Verdict_DROPPED,
 			DropReason:     uint32(pb.DropReason_POLICY_DENIED),
 			DropReasonDesc: pb.DropReason_POLICY_DENIED,

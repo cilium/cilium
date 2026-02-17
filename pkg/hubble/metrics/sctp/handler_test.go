@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -106,21 +107,19 @@ func TestSCTPHandler(t *testing.T) {
 	}
 }
 
-func buildFlow(chunkType pb.SCTPChunkType) *pb.Flow {
-	return &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-		IP: &pb.IP{
-			IpVersion: pb.IPVersion_IPv4,
+func buildFlow(chunkType pb.SCTPChunkType) *ir.Flow {
+	return &ir.Flow{
+		EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		IP: ir.IP{
+			IPVersion: pb.IPVersion_IPv4,
 		},
-		L4: &pb.Layer4{
-			Protocol: &pb.Layer4_SCTP{
-				SCTP: &pb.SCTP{
-					ChunkType: chunkType,
-				},
+		L4: ir.Layer4{
+			SCTP: ir.SCTP{
+				ChunkType: chunkType,
 			},
 		},
-		Source:      &pb.Endpoint{Namespace: "foo"},
-		Destination: &pb.Endpoint{Namespace: "bar"},
+		Source:      ir.Endpoint{Namespace: "foo"},
+		Destination: ir.Endpoint{Namespace: "bar"},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
 }
