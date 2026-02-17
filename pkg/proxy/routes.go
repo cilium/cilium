@@ -128,7 +128,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 //   - Native routing + WireGuard: install only Ingress routes to account for WireGuard
 //     overhead on reply packets from Ingress L7 proxy in proxy-to-proxy connections.
 func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
-	if option.Config.TunnelingEnabled() {
+	if !option.Config.RequiresNativeRouting() {
 		return
 	}
 	if option.Config.EnableEnvoyConfig {

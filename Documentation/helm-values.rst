@@ -3721,7 +3721,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`routingMode`
-     - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel
+     - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel   - hybrid
      - string
      - ``"tunnel"``
    * - :spelling:ignore:`scheduling`
@@ -3868,6 +3868,10 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - :spelling:ignore:`subnetTopology`
+     - Subnet topology for hybrid routing mode. Comma separated list of CIDR subnets to be routed in native mode in hybrid routing mode. Semi-colon separated list of topology labels to be routed in tunnel mode in hybrid routing mode.
+     - string
+     - ``""``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
      - bool

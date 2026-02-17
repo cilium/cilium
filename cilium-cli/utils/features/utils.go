@@ -3,7 +3,10 @@
 
 package features
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type IPFamily int
 
@@ -103,4 +106,54 @@ func ComputeFailureExceptions(defaultExceptions, inputExceptions []string) []str
 		}
 	}
 	return exceptionList
+}
+
+// SameSubnet returns true if given two IP addresses belong to the same subnet, based on the subnet-topology.
+func SameSubnet(ip1, ip2, topology string) bool {
+	if topology == "" {
+		return false
+	}
+
+	parsedIP1 := net.ParseIP(ip1)
+	parsedIP2 := net.ParseIP(ip2)
+	if parsedIP1 == nil || parsedIP2 == nil {
+		return false
+	}
+
+	// Split topology into groups of directly connected subnets (separated by ';')
+	groups := strings.SplitSeq(topology, ";")
+
+	for group := range groups {
+		// Split each group into individual CIDRs (separated by ',')
+		cidrs := strings.Split(group, ",")
+
+		ip1InGroup := false
+		ip2InGroup := false
+
+		for _, cidrStr := range cidrs {
+			cidrStr = strings.TrimSpace(cidrStr)
+			if cidrStr == "" {
+				continue
+			}
+
+			_, cidrNet, err := net.ParseCIDR(cidrStr)
+			if err != nil {
+				continue
+			}
+
+			if cidrNet.Contains(parsedIP1) {
+				ip1InGroup = true
+			}
+			if cidrNet.Contains(parsedIP2) {
+				ip2InGroup = true
+			}
+		}
+
+		// If both IPs are in the same directly connected group, return true
+		if ip1InGroup && ip2InGroup {
+			return true
+		}
+	}
+
+	return false
 }

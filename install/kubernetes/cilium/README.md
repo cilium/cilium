@@ -980,7 +980,7 @@ contributors across the globe, there is almost always someone available to help.
 | resourceQuotas | object | `{"cilium":{"hard":{"pods":"10k"}},"enabled":false,"operator":{"hard":{"pods":"15"}}}` | Enable resource quotas for priority classes used in the cluster. |
 | resources | object | `{}` | Agent resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/ |
 | rollOutCiliumPods | bool | `false` | Roll out cilium agent pods automatically when configmap is updated. |
-| routingMode | string | `"tunnel"` | Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel |
+| routingMode | string | `"tunnel"` | Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel   - hybrid |
 | scheduling | object | `{"mode":"anti-affinity"}` | Scheduling configurations for cilium pods |
 | scheduling.mode | string | Defaults to apply a pod anti-affinity rule to the agent pod - `anti-affinity` | Mode specifies how Cilium daemonset pods should be scheduled to Nodes. `anti-affinity` mode applies a pod anti-affinity rule to the cilium daemonset. Pod anti-affinity may significantly impact scheduling throughput for large clusters. See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity `kube-scheduler` mode forgoes the anti-affinity rule for full scheduling throughput. Kube-scheduler avoids host port conflict when scheduling pods. |
 | sctp | object | `{"enabled":false}` | SCTP Configuration Values |
@@ -1017,6 +1017,7 @@ contributors across the globe, there is almost always someone available to help.
 | standaloneDnsProxy.updateStrategy | object | `{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}` | Standalone DNS proxy update strategy |
 | startupProbe.failureThreshold | int | `300` | failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts). |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
+| subnetTopology | string | `""` | Subnet topology for hybrid routing mode. Comma separated list of CIDR subnets to be routed in native mode in hybrid routing mode. Semi-colon separated list of topology labels to be routed in tunnel mode in hybrid routing mode. |
 | synchronizeK8sNodes | bool | `true` | Synchronize Kubernetes nodes to kvstore and perform CNP GC. |
 | sysctlfix | object | `{"enabled":true}` | Configure sysctl override described in #20072. |
 | sysctlfix.enabled | bool | `true` | Enable the sysctl override. When enabled, the init container will mount the /proc of the host so that the `sysctlfix` utility can execute. |
