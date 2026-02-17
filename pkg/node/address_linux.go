@@ -150,12 +150,12 @@ retryScope:
 // universe scope again (and then falling back to reduced scope).
 //
 // In case none of the above helped, we bail out with error.
-func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
+func FirstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V4)
 }
 
 // firstGlobalV6Addr returns first IPv6 global IP of an interface, see
 // firstGlobalV4Addr for more details.
-func firstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
+func FirstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V6)
 }
