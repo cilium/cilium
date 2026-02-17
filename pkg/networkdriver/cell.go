@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,7 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -22,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -38,19 +41,25 @@ var Cell = cell.Module(
 		resourceClaimResource,
 		podResource,
 	),
+	resourceIPAM,
 	cell.Invoke(registerNetworkDriver),
 )
 
 type networkDriverParams struct {
 	cell.In
 
-	Log            *slog.Logger
-	Lifecycle      cell.Lifecycle
-	ClientSet      k8sClient.Clientset
-	JobGroup       job.Group
-	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
-	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
-	Pods           resource.Resource[*corev1.Pod]
+	Log             *slog.Logger
+	Lifecycle       cell.Lifecycle
+	ClientSet       k8sClient.Clientset
+	JobGroup        job.Group
+	Configs         resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
+	ResourceClaims  resource.Resource[*resourceapi.ResourceClaim]
+	Pods            resource.Resource[*corev1.Pod]
+	MultiPoolMgr    *ipam.MultiPoolManager
+	DaemonCfg       *option.DaemonConfig
+	DB              *statedb.DB
+	ResourceIPPools statedb.Table[resourceIPPool]
+	LocalNodeStore  *node.LocalNodeStore
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -110,15 +119,21 @@ func podResource(
 
 func registerNetworkDriver(params networkDriverParams) *Driver {
 	driver := &Driver{
-		logger:         params.Log,
-		lock:           lock.Mutex{},
-		jg:             params.JobGroup,
-		resourceClaims: params.ResourceClaims,
-		pods:           params.Pods,
-		kubeClient:     params.ClientSet,
-		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
-		configCRD:      params.Configs,
-		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		logger:          params.Log,
+		lock:            lock.Mutex{},
+		jg:              params.JobGroup,
+		resourceClaims:  params.ResourceClaims,
+		pods:            params.Pods,
+		kubeClient:      params.ClientSet,
+		deviceManagers:  make(map[types.DeviceManagerType]types.DeviceManager),
+		configCRD:       params.Configs,
+		allocations:     make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		multiPoolMgr:    params.MultiPoolMgr,
+		ipv4Enabled:     params.DaemonCfg.IPv4Enabled(),
+		ipv6Enabled:     params.DaemonCfg.IPv6Enabled(),
+		db:              params.DB,
+		resourceIPPools: params.ResourceIPPools,
+		localNodeStore:  params.LocalNodeStore,
 	}
 
 	params.Lifecycle.Append(driver)
