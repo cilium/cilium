@@ -65,6 +65,17 @@ By deconstructing the Ingress API into several Gateway API objects, personas gai
 For example, application developers in a specific team could be assigned permissions to create Route objects in a specified namespace 
 without also gaining permissions to modify the Gateway configuration or edit Route objects in namespaces other than theirs.
 
+Recommended Migration Workflow
+##############################
+
+Use this workflow for a smoother migration:
+
+1. Build migration scope and rollout phases.
+2. Inventory and classify your current NGINX annotations with :ref:`gs_ingress_to_gateway_nginx_annotations`.
+3. Create equivalent Gateway API resources and validate in parallel.
+4. Roll traffic gradually and monitor SLOs.
+5. Remove legacy Ingress resources after stabilization.
+
 Migration Methods
 #################
 
@@ -91,8 +102,11 @@ Instead, the Gateway API provides native support for some of these features, inc
 - Traffic splitting
 - Header, query parameter, or method-based routing
 
-Examples
-########
+For NGINX-based migrations, use
+:ref:`gs_ingress_to_gateway_nginx_annotations`, which provides mapping hints.
+
+Migration Guides and Examples
+#############################
 
 For examples of migrating to Cilium's Gateway API features, see:
 
@@ -102,4 +116,5 @@ For examples of migrating to Cilium's Gateway API features, see:
 
    http-migration
    tls-migration
+   nginx-annotations-migration
 
