@@ -9,6 +9,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func filterByReplyField(replyParams []bool) FilterFunc {
@@ -17,17 +18,17 @@ func filterByReplyField(replyParams []bool) FilterFunc {
 			return true
 		}
 		switch f := ev.Event.(type) {
-		case *flowpb.Flow:
+		case *ir.Flow:
 			// FIXME: For dropped flows, we handle `is_reply=unknown` as
 			// `is_reply=false`. This is for compatibility with older clients
 			// (such as Hubble UI) which assume this filter applies to the
 			// deprecated `reply` field, where dropped flows always have
 			// `reply=false`.
-			if f.GetIsReply() == nil && f.GetVerdict() != flowpb.Verdict_DROPPED {
+			if f.Reply.IsEmpty() && f.Verdict != flowpb.Verdict_DROPPED {
 				return false
 			}
 
-			return slices.Contains(replyParams, f.GetIsReply().GetValue())
+			return slices.Contains(replyParams, f.Reply.ToBool())
 		}
 		return false
 	}

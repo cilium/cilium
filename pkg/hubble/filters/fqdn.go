@@ -14,11 +14,19 @@ import (
 )
 
 func sourceFQDN(ev *v1.Event) []string {
-	return ev.GetFlow().GetSourceNames()
+	if ev == nil || ev.GetFlow() == nil {
+		return nil
+	}
+
+	return ev.GetFlow().SourceNames
 }
 
 func destinationFQDN(ev *v1.Event) []string {
-	return ev.GetFlow().GetDestinationNames()
+	if ev == nil || ev.GetFlow() == nil {
+		return nil
+	}
+
+	return ev.GetFlow().DestinationNames
 }
 
 func filterByFQDNs(fqdnPatterns []string, getFQDNs func(*v1.Event) []string) (FilterFunc, error) {
@@ -47,8 +55,11 @@ func filterByDNSQueries(queryPatterns []string) (FilterFunc, error) {
 		queries = append(queries, query)
 	}
 	return func(ev *v1.Event) bool {
-		dns := ev.GetFlow().GetL7().GetDns()
-		if dns == nil {
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+		dns := ev.GetFlow().L7.DNS
+		if dns.IsEmpty() {
 			return false
 		}
 		return slices.ContainsFunc(queries, func(query *regexp.Regexp) bool {

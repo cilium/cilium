@@ -85,9 +85,13 @@ func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string
 	}
 
 	return func(ev *v1.Event) bool {
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+
 		for _, prg := range programs {
 			out, _, err := prg.ContextEval(ctx, map[string]any{
-				flowVariableName: ev.GetFlow(),
+				flowVariableName: ev.GetFlow().ToProto(),
 			})
 			if err != nil {
 				log.Error("error running CEL program", logfields.Error, err)

@@ -4,10 +4,12 @@
 package filters
 
 import (
+	"net"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestIPFilter(t *testing.T) {
@@ -28,10 +30,10 @@ func TestIPFilter(t *testing.T) {
 					{SourceIp: []string{"1.1.1.1", "f00d::a10:0:0:9195"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("ff02::1:ff00:b3e5"), Destination: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -48,10 +50,10 @@ func TestIPFilter(t *testing.T) {
 					{DestinationIp: []string{"1.1.1.1", "f00d::a10:0:0:9195"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("ff02::1:ff00:b3e5"), Destination: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -68,13 +70,13 @@ func TestIPFilter(t *testing.T) {
 					{SourceIpXlated: []string{"2.2.2.2", "9bf2:8d06:6d34:da3b::33c5"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "2.2.2.2", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.3", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.2", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "9bf2:8d06:6d34:da3b::33c5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "ff02::1:ff00:b3e5"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("2.2.2.2"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), SourceXlated: "2.2.2.3", Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), SourceXlated: "2.2.2.2", Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("9bf2:8d06:6d34:da3b::33c5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
 				},
 			},
 			want: []bool{
@@ -97,10 +99,10 @@ func TestIPFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("ff02::1:ff00:b3e5"), Destination: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -121,10 +123,10 @@ func TestIPFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "2.2.2.2", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", SourceXlated: "ff02::1:ff00:b3e5", Destination: "9bf2:8d06:6d34:da3b::33c5"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), SourceXlated: "2.2.2.2", Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), SourceXlated: "ff02::1:ff00:b3e5", Destination: net.ParseIP("9bf2:8d06:6d34:da3b::33c5")}}},
 				},
 			},
 			want: []bool{
@@ -142,10 +144,10 @@ func TestIPFilter(t *testing.T) {
 					{DestinationIp: []string{"10.0.0.2"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "10.0.0.2"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("10.0.0.2")}}},
 				},
 			},
 			want: []bool{
@@ -164,8 +166,8 @@ func TestIPFilter(t *testing.T) {
 				ev: []*v1.Event{
 					nil,
 					{},
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: ""}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("")}}},
 				},
 			},
 			want: []bool{
@@ -207,10 +209,10 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{{SourceIp: []string{"1.1.1.0/24", "f00d::/16"}}},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "10.0.0.2", Destination: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", Destination: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("10.0.0.2"), Destination: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("ff02::1:ff00:b3e5"), Destination: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -225,10 +227,10 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{{DestinationIp: []string{"1.1.1.0/24", "f00d::/16"}}},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "1.1.1.1", Source: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "10.0.0.2", Source: "1.1.1.1"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "f00d::a10:0:0:9195", Source: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Destination: "ff02::1:ff00:b3e5", Source: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Destination: net.ParseIP("1.1.1.1"), Source: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Destination: net.ParseIP("10.0.0.2"), Source: net.ParseIP("1.1.1.1")}}},
+					{Event: &ir.Flow{IP: ir.IP{Destination: net.ParseIP("f00d::a10:0:0:9195"), Source: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Destination: net.ParseIP("ff02::1:ff00:b3e5"), Source: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -243,11 +245,11 @@ func TestIPFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{{SourceIpXlated: []string{"1.1.1.0/24", "9bf2::/16"}}},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", Destination: "1.1.1.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "1.1.2.1", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "1.1.1.1", SourceXlated: "1.1.1.2", Destination: "10.0.0.2"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "f00d::a10:0:0:9195", Destination: "ff02::1:ff00:b3e5"}}},
-					{Event: &flowpb.Flow{IP: &flowpb.IP{Source: "ff02::1:ff00:b3e5", SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: "f00d::a10:0:0:9195"}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), Destination: net.ParseIP("1.1.1.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), SourceXlated: "1.1.2.1", Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("1.1.1.1"), SourceXlated: "1.1.1.2", Destination: net.ParseIP("10.0.0.2")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("f00d::a10:0:0:9195"), Destination: net.ParseIP("ff02::1:ff00:b3e5")}}},
+					{Event: &ir.Flow{IP: ir.IP{Source: net.ParseIP("ff02::1:ff00:b3e5"), SourceXlated: "9bf2:8d06:6d34:da3b::33c5", Destination: net.ParseIP("f00d::a10:0:0:9195")}}},
 				},
 			},
 			want: []bool{
@@ -307,9 +309,9 @@ func TestIPFilter(t *testing.T) {
 
 func TestIPVersionFilter(t *testing.T) {
 	allvers := []*v1.Event{
-		{Event: &flowpb.Flow{IP: &flowpb.IP{IpVersion: flowpb.IPVersion_IPv4}}},
-		{Event: &flowpb.Flow{IP: &flowpb.IP{IpVersion: flowpb.IPVersion_IPv6}}},
-		{Event: &flowpb.Flow{IP: &flowpb.IP{IpVersion: flowpb.IPVersion_IP_NOT_USED}}},
+		{Event: &ir.Flow{IP: ir.IP{IPVersion: flowpb.IPVersion_IPv4}}},
+		{Event: &ir.Flow{IP: ir.IP{IPVersion: flowpb.IPVersion_IPv6}}},
+		{Event: &ir.Flow{IP: ir.IP{IPVersion: flowpb.IPVersion_IP_NOT_USED}}},
 	}
 	type args struct {
 		f  []*flowpb.FlowFilter
