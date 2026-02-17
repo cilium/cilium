@@ -5,15 +5,46 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func configureAndStartIPAM(ctx context.Context, params daemonParams) {
+type ipamInitializerParams struct {
+	cell.In
+
+	Logger              *slog.Logger
+	DirectRoutingDevice datapathTables.DirectRoutingDevice
+	DB                  *statedb.DB
+	IPAM                *ipam.IPAM
+}
+
+type ipamInitializer struct {
+	logger              *slog.Logger
+	directRoutingDevice datapathTables.DirectRoutingDevice
+	db                  *statedb.DB
+	ipam                *ipam.IPAM
+}
+
+func newIPAMInitializer(params ipamInitializerParams) *ipamInitializer {
+	return &ipamInitializer{
+		logger:              params.Logger,
+		directRoutingDevice: params.DirectRoutingDevice,
+		db:                  params.DB,
+		ipam:                params.IPAM,
+	}
+}
+
+func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -30,7 +61,7 @@ func configureAndStartIPAM(ctx context.Context, params daemonParams) {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
 			logging.Fatal(
-				params.Logger,
+				r.logger,
 				"Invalid IPv4 allocation prefix",
 				logfields.Error, err,
 				logfields.V4Prefix, option.Config.IPv4Range,
@@ -43,7 +74,7 @@ func configureAndStartIPAM(ctx context.Context, params daemonParams) {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
 		if err != nil {
 			logging.Fatal(
-				params.Logger,
+				r.logger,
 				"Invalid IPv6 allocation prefix",
 				logfields.Error, err,
 				logfields.V6Prefix, option.Config.IPv6Range,
@@ -54,16 +85,20 @@ func configureAndStartIPAM(ctx context.Context, params daemonParams) {
 	}
 
 	device := ""
-	drd, _ := params.DirectRoutingDevice.Get(ctx, params.DB.ReadTxn())
+	drd, _ := r.directRoutingDevice.Get(ctx, r.db.ReadTxn())
 	if drd != nil {
 		device = drd.Name
 	}
-	if err := node.AutoComplete(params.Logger, device); err != nil {
-		logging.Fatal(params.Logger, "Cannot autocomplete node addresses", logfields.Error, err)
+	if err := node.AutoComplete(r.logger, device); err != nil {
+		logging.Fatal(r.logger, "Cannot autocomplete node addresses", logfields.Error, err)
 	}
 
 	// start
-	params.Logger.Info("Initializing node addressing")
+	r.logger.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	params.IPAM.ConfigureAllocator()
+	r.ipam.ConfigureAllocator()
+}
+
+func (r *ipamInitializer) RestoreFinished() {
+	r.ipam.RestoreFinished()
 }
