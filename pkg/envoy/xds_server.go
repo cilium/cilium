@@ -1576,7 +1576,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 
 			port := l4.Port
 			if port == 0 && l4.PortName != "" {
-				port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto)
+				port = ep.GetNamedPort(l4.Ingress, l4.PortName, l4.U8Proto, l4.Identities())
 			}
 
 			// Skip if a named port can not be resolved (yet)

@@ -696,6 +696,21 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 	)
 }
 
+// Identities extracts the set of identities corresponding to selectors.
+func (l4 *L4Filter) Identities() map[identity.NumericIdentity]struct{} {
+	idSet := make(map[identity.NumericIdentity]struct{})
+	for cs := range l4.PerSelectorPolicies {
+		if cs == nil {
+			continue
+		}
+		ids := cs.GetSelections()
+		for _, id := range ids {
+			idSet[id] = struct{}{}
+		}
+	}
+	return idSet
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -725,7 +740,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, l4.Identities())
 		if port == 0 {
 			return // nothing to be done for undefined named port
 		}
@@ -1636,7 +1651,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	for epPolicy := range l4Policy.users {
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, l4.Identities())
 			if port == 0 {
 				continue
 			}
