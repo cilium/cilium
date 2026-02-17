@@ -15,6 +15,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -159,6 +160,9 @@ type SelectorPolicy interface {
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
 	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+
+	// GetSelectorSnapshot returns a selector snapshot if available and valid
+	GetSelectorSnapshot() SelectorSnapshot
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -182,6 +186,10 @@ type selectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
+}
+
+func (p *selectorPolicy) GetSelectorSnapshot() SelectorSnapshot {
+	return p.SelectorCache.GetSelectorSnapshot()
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
@@ -261,7 +269,7 @@ func (p *EndpointPolicy) CopyMapStateFrom(m MapStateMap) {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
 	PreviousMapState() *MapState

@@ -9,9 +9,11 @@ package policy
 
 import (
 	"fmt"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -119,9 +121,9 @@ func (ei *endpointInfo) GetID() uint64 {
 
 // GetNamedPort determines the named port of the *destination*. So, if ingress
 // is false, then this looks up the peer.
-func (ei *endpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
+func (ei *endpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) uint16 {
 	if !ingress && ei.remoteEndpoint != nil {
-		return ei.remoteEndpoint.GetNamedPort(true, name, proto)
+		return ei.remoteEndpoint.GetNamedPort(true, name, proto, destIdentities)
 	}
 	switch {
 	case proto == u8proto.TCP && ei.TCPNamedPorts != nil:

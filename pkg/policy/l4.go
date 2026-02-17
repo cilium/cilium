@@ -10,6 +10,7 @@ import (
 	"iter"
 	"log/slog"
 	"math/bits"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -674,6 +675,22 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 	)
 }
 
+// Identities extracts the set of identities corresponding to selectors.
+func (l4 *L4Filter) Identities(txn SelectorSnapshot) iter.Seq[identity.NumericIdentity] {
+	return func(yield func(identity.NumericIdentity) bool) {
+		for cs := range l4.PerSelectorPolicies {
+			if cs == nil {
+				continue
+			}
+			for _, id := range cs.GetSelectionsAt(txn) {
+				if !yield(id) {
+					return
+				}
+			}
+		}
+	}
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -703,7 +720,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, l4.Identities(p.selectors))
 		if port == 0 {
 			return // nothing to be done for undefined named port
 		}
@@ -1592,10 +1609,11 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	l4Policy.mutex.RLock()
 	defer l4Policy.mutex.RUnlock()
 
+	idents := slices.Values(append(adds, deletes...))
 	for epPolicy := range l4Policy.users {
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
+			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto, idents)
 			if port == 0 {
 				continue
 			}

@@ -471,7 +471,7 @@ func (ipc *IPCache) upsertLocked(
 		}
 		// Update the named ports reference counting, but don't cause policy
 		// updates if no policy uses named ports.
-		namedPortsChanged = ipc.namedPorts.Update(oldK8sMeta.NamedPorts, newNamedPorts)
+		namedPortsChanged = ipc.namedPorts.Update(newIdentity.ID, oldK8sMeta.NamedPorts, newNamedPorts)
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
 
@@ -744,7 +744,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
-		namedPortsChanged = ipc.namedPorts.Update(oldK8sMeta.NamedPorts, nil)
+		namedPortsChanged = ipc.namedPorts.Update(cachedIdentity.ID, oldK8sMeta.NamedPorts, nil)
 		// Only trigger policy updates if named ports are used in policy.
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
