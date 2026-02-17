@@ -270,7 +270,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 
 		// proxyID() returns also the destination port for the policy,
 		// which may be resolved from a named port
-		proxyID, dstPort, dstProto := e.proxyID(l4, listener)
+		proxyID, dstPort, dstProto := e.proxyID(l4, listener, selectorPolicy.GetSelectorSnapshot())
 		if proxyID == "" {
 			// Skip redirects for which a proxyID cannot be created.
 			// This may happen due to the named port mapping not

@@ -719,6 +719,10 @@ func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, poli
 	}
 }
 
+func (sp *testSelectorPolicy) GetSelectorSnapshot() policy.SelectorSnapshot {
+	return policy.SelectorSnapshot{}
+}
+
 // createSelectorCache creates a common selector cache setup used by both DNS and non-DNS policies
 func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *policy.SelectorCache) {
 	dnsServerIdentity := destIdentity

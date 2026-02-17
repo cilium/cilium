@@ -74,7 +74,7 @@ type IPMetadata any
 // is otherwise read-only.
 type namedPortMultiMapUpdater interface {
 	types.NamedPortMultiMap
-	Update(old, new types.NamedPortMap) (namedPortChanged bool)
+	Update(epID identity.NumericIdentity, old, new types.NamedPortMap) (namedPortChanged bool)
 }
 
 // merge overwrites the field in 'resourceInfo' corresponding to 'info'. This
