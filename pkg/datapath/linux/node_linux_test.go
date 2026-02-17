@@ -1,5 +1,3 @@
-//go:build unparallel
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -81,6 +79,8 @@ const (
 
 func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *linuxPrivilegedBaseTestSuite {
 	testutils.PrivilegedTest(tb)
+	testutils.SerializedTest(tb)
+
 	s := &linuxPrivilegedBaseTestSuite{}
 
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
@@ -136,8 +136,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 }
 
 func setupLinuxPrivilegedIPv6OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv6OnlyTestSuite {
-	testutils.PrivilegedTest(tb)
-
 	addressing := fakeTypes.NewIPv6OnlyNodeAddressing()
 	s := &linuxPrivilegedIPv6OnlyTestSuite{
 		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, true, false),
@@ -151,8 +149,6 @@ func setupLinuxPrivilegedIPv6OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv6On
 }
 
 func setupLinuxPrivilegedIPv4OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv4OnlyTestSuite {
-	testutils.PrivilegedTest(tb)
-
 	addressing := fakeTypes.NewIPv4OnlyNodeAddressing()
 	s := &linuxPrivilegedIPv4OnlyTestSuite{
 		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, false, true),
@@ -166,8 +162,6 @@ func setupLinuxPrivilegedIPv4OnlyTestSuite(tb testing.TB) *linuxPrivilegedIPv4On
 }
 
 func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv4AndIPv6TestSuite {
-	testutils.PrivilegedTest(tb)
-
 	addressing := fakeTypes.NewNodeAddressing()
 	s := &linuxPrivilegedIPv4AndIPv6TestSuite{
 		linuxPrivilegedBaseTestSuite: *setupLinuxPrivilegedBaseTestSuite(tb, addressing, true, true),

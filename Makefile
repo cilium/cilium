@@ -46,7 +46,6 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
-UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/... ./pkg/datapath/loader/... ./pkg/datapath/neighbor/test/...
 
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -97,33 +96,15 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 tests-privileged-only: ## Run Go only the unit tests that require elevated privileges.
-	@$(ECHO_CHECK) running privileged tests...
-	## We split tests into two parts: one that can be run in parallel
-	## and tests that cannot be run in parallel with other packages
-	## One drawback of this approach is that
-	## if first set of tests fails, second one is not run
-	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) \
-	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" \
-		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
-	tail -n+2 coverage2.out >> coverage.out
-	rm coverage2.out
+	@$(ECHO_CHECK) running only privileged tests...
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) -run "TestPrivileged.*" $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
-	## We split tests into two parts: one that can be run in parallel
-	## and tests that cannot be run in parallel with other packages
-	## One drawback of this approach is that
-	## if first set of tests fails, second one is not run
-	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
-	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
-		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) \
-		-json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
-	tail -n+2 coverage2.out >> coverage.out
-	rm coverage2.out
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
@@ -506,6 +487,8 @@ endif
 	$(QUIET) contrib/scripts/check-time.sh
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
+	@$(ECHO_CHECK) contrib/scripts/check-go-test-tags.sh
+	$(QUIET) contrib/scripts/check-go-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
 	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
