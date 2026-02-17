@@ -198,21 +198,6 @@ func SetRouterInfo(info RouterInfo) {
 	addrs.mu.Unlock()
 }
 
-// SetIPv4AllocRange sets the IPv4 address pool to use when allocating
-// addresses for local endpoints
-func SetIPv4AllocRange(net *cidr.CIDR) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv4AllocCIDR = net
-	})
-}
-
-// SetIPv6NodeRange sets the IPv6 address pool to be used on this node
-func SetIPv6NodeRange(net *cidr.CIDR) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv6AllocCIDR = net
-	})
-}
-
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete(logger *slog.Logger, directRoutingDevice string) error {
 	initDefaultPrefix(logger, directRoutingDevice)
