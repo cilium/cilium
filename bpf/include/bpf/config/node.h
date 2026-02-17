@@ -47,6 +47,8 @@ ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
 
 NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) statistics")
 
+NODE_CONFIG(bool, enable_nodeport_acceleration, "Enable XDP acceleration for Service LB")
+
 NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer")
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")

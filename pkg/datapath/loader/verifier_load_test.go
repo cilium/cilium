@@ -34,7 +34,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(7) {
+		for permutation := range permute(8) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
@@ -50,6 +50,8 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.EnableICMPRule = permutation[4]
 			cfg.HybridRoutingEnabled = permutation[5]
 			cfg.EnableConntrackAccounting = permutation[6]
+
+			cfg.Node.EnableNodeportAcceleration = permutation[7]
 
 			if !yield(cfg) {
 				return
@@ -121,6 +123,7 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
+			cfg.Node.EnableNodeportAcceleration = true
 
 			cfg.EnableXDPPrefilter = permutation[0]
 			cfg.EnableConntrackAccounting = permutation[1]

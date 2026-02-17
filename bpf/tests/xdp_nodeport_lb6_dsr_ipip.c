@@ -9,7 +9,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 #define ENABLE_DSR
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
@@ -57,6 +56,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 }
 
 #include "lib/bpf_xdp.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

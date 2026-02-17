@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 
 /* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
@@ -26,6 +25,8 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 #include "lib/bpf_xdp.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
