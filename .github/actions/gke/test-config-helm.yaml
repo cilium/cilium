@@ -6,7 +6,3 @@ config:
   - type: "tunnel"
     index: 2
     cilium-install-opts: "--datapath-mode=tunnel"
-  - type: "tunnel-ingress-controller"
-    index: 3
-    cilium-install-opts: "--helm-set=kubeProxyReplacement=true --helm-set=ingressController.enabled=true"
-    nodes: 1
