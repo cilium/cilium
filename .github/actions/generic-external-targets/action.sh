@@ -2,8 +2,8 @@
 
 set -eu -o pipefail
 
-TARGETNAME=nginx-external.default.svc
-OTHERTARGETNAME=nginx-external-other.default.svc
+TARGETNAME=nginx.external.svc
+OTHERTARGETNAME=nginx.external-other.svc
 
 # Create a private key for the self signed CA
 openssl genrsa 2048 > ca-key.pem
@@ -47,20 +47,29 @@ openssl x509 -req -days 365 -set_serial 01 \
 
 # Start the external targets.
 mapfile -t NODES_WITHOUT_CILIUM < <(kubectl get nodes -l cilium.io/no-schedule=true -o name | sed 's@^node/@@')
+
+kubectl create ns external
 NGINX_CERT_BASE64="$(base64 -w0 external-service.cilium.crt)" \
 NGINX_KEY_BASE64="$(base64 -w0 external-service.cilium.key)" \
-EXTERNAL_NODE1="${NODES_WITHOUT_CILIUM[0]}" \
-EXTERNAL_NODE2="${NODES_WITHOUT_CILIUM[1]}" \
-envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE1 $EXTERNAL_NODE2' < "$(dirname "$0")/nginx.yaml" | kubectl apply -f -
-kubectl rollout status daemonset nginx-external --timeout 60s
+EXTERNAL_NODE="${NODES_WITHOUT_CILIUM[0]}" \
+envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0")/nginx-external.yaml" | kubectl -n external apply -f -
+
+kubectl create ns external-other
+NGINX_CERT_BASE64="$(base64 -w0 external-service.cilium.crt)" \
+NGINX_KEY_BASE64="$(base64 -w0 external-service.cilium.key)" \
+EXTERNAL_NODE="${NODES_WITHOUT_CILIUM[1]}" \
+envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0")/nginx-external.yaml" | kubectl -n external-other apply -f -
+
+kubectl -n external rollout status daemonset nginx --timeout 60s
+kubectl -n external-other rollout status daemonset nginx --timeout 60s
 
 # Save nginx ConfigMap versions to track when they are updated.
-NGINX1_CONFIGMAP_VERSION="$(kubectl exec "$(kubectl get pods -l app=nginx-external -o name)" -- readlink /etc/nginx/ssl/..data)"
-NGINX2_CONFIGMAP_VERSION="$(kubectl exec "$(kubectl get pods -l app=nginx-external-other -o name)" -- readlink /etc/nginx/ssl/..data)"
+NGINX1_CONFIGMAP_VERSION="$(kubectl -n external exec "$(kubectl -n external get pods -l app=nginx -o name)" -- readlink /etc/nginx/ssl/..data)"
+NGINX2_CONFIGMAP_VERSION="$(kubectl -n external-other exec "$(kubectl -n external-other get pods -l app=nginx -o name)" -- readlink /etc/nginx/ssl/..data)"
 
 # Figure out the addresses of the newly deployed pods.
-IP4TARGET="$(kubectl get pods -l app=nginx-external -o json | jq -r '.items[].status.hostIP')"
-IP4OTHERTARGET="$(kubectl get pods -l app=nginx-external-other -o json | jq -r '.items[].status.hostIP')"
+IP4TARGET="$(kubectl -n external get pods -l app=nginx -o json | jq -r '.items[].status.hostIP')"
+IP4OTHERTARGET="$(kubectl -n external-other get pods -l app=nginx -o json | jq -r '.items[].status.hostIP')"
 echo "ipv4_external_target=$IP4TARGET" >> $GITHUB_OUTPUT
 echo "ipv4_other_external_target=$IP4OTHERTARGET" >> $GITHUB_OUTPUT
 echo "external_target_name=$TARGETNAME" >> $GITHUB_OUTPUT
@@ -85,15 +94,19 @@ openssl x509 -req -days 365 -set_serial 01 \
 # Update the ConfigMap with the new certificate.
 NGINX_CERT_BASE64="$(base64 -w0 external-service.cilium.crt)" \
 NGINX_KEY_BASE64="$(base64 -w0 external-service.cilium.key)" \
-EXTERNAL_NODE1="${NODES_WITHOUT_CILIUM[0]}" \
-EXTERNAL_NODE2="${NODES_WITHOUT_CILIUM[1]}" \
-envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE1 $EXTERNAL_NODE2' < "$(dirname "$0")/nginx.yaml" | kubectl apply -f -
+EXTERNAL_NODE="${NODES_WITHOUT_CILIUM[0]}" \
+envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0")/nginx-external.yaml" | kubectl -n external apply -f -
+
+NGINX_CERT_BASE64="$(base64 -w0 external-service.cilium.crt)" \
+NGINX_KEY_BASE64="$(base64 -w0 external-service.cilium.key)" \
+EXTERNAL_NODE="${NODES_WITHOUT_CILIUM[1]}" \
+envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0")/nginx-external.yaml" | kubectl -n external-other apply -f -
 
 # Wait until the ConfigMap gets updated. Timeout after 10 minutes.
 CONFIGMAP_UPDATED=
 for i in $(seq 1 60); do
-	NGINX1_CONFIGMAP_VERSION_NEW="$(kubectl exec "$(kubectl get pods -l app=nginx-external -o name)" -- readlink /etc/nginx/ssl/..data)"
-	NGINX2_CONFIGMAP_VERSION_NEW="$(kubectl exec "$(kubectl get pods -l app=nginx-external-other -o name)" -- readlink /etc/nginx/ssl/..data)"
+	NGINX1_CONFIGMAP_VERSION_NEW="$(kubectl -n external exec "$(kubectl -n external get pods -l app=nginx -o name)" -- readlink /etc/nginx/ssl/..data)"
+	NGINX2_CONFIGMAP_VERSION_NEW="$(kubectl -n external-other exec "$(kubectl -n external-other get pods -l app=nginx -o name)" -- readlink /etc/nginx/ssl/..data)"
 	if [ "$NGINX1_CONFIGMAP_VERSION" != "$NGINX1_CONFIGMAP_VERSION_NEW" ] && [ "$NGINX2_CONFIGMAP_VERSION" != "$NGINX2_CONFIGMAP_VERSION_NEW" ]; then
 		CONFIGMAP_UPDATED=1
 		break
@@ -107,5 +120,5 @@ if [ -z "$CONFIGMAP_UPDATED" ]; then
 fi
 
 # Reload nginx after updating the ConfigMap.
-kubectl exec "$(kubectl get pods -l app=nginx-external -o name)" -- /usr/sbin/nginx -s reload
-kubectl exec "$(kubectl get pods -l app=nginx-external-other -o name)" -- /usr/sbin/nginx -s reload
+kubectl -n external exec "$(kubectl -n external get pods -l app=nginx -o name)" -- nginx -s reload
+kubectl -n external-other exec "$(kubectl -n external-other get pods -l app=nginx -o name)" -- nginx -s reload

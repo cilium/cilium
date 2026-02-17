@@ -2,10 +2,6 @@ name: Add external targets to a generic cluster
 description: |
   Deploy hostns pods on the node without Cilium to be used as external targets
   for cilium-cli connectivity tests.
-inputs:
-  ipv4_external_cidr:
-    description: "IPv4 CIDR in which the external targets are created"
-    required: true
 outputs:
   ipv4_external_target:
     description: "IPv4 address of the first external target"
