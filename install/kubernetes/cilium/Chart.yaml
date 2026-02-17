@@ -169,3 +169,9 @@ annotations:
       displayName: Cilium Gateway Class Config
       description: |
         CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.
+    - kind: CiliumGatewayL4Config
+      version: v2alpha1
+      name: ciliumgatewayl4configs.cilium.io
+      displayName: Cilium Gateway L4 Config
+      description: |
+        CiliumGatewayL4Config defines the L4 listener configuration for Gateway API.

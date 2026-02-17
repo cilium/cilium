@@ -56,7 +56,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(logger, input)
+			listeners, _, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -77,7 +77,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(logger, input)
+			_, listeners, _ := GatewayAPI(logger, input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -97,7 +97,7 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(logger, input)
+			listeners, _, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
