@@ -10,7 +10,7 @@
   # must be decrypted before L7 processing and re-encrypted for upstream connections
   test-l7: 'true'
 - name: 'ipsec-2'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'
@@ -20,7 +20,7 @@
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-3'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'disabled'

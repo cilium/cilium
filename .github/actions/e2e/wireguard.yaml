@@ -1,5 +1,5 @@
 - name: 'wireguard-1'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -75,7 +75,7 @@
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
 - name: 'wireguard-6'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'

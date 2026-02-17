@@ -1,5 +1,5 @@
 - name: 'misc-1'
-  kernel: '5.10'
+  kernel: '6.18'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
