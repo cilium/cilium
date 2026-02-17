@@ -170,6 +170,10 @@ func (g *GRPCRouteInput) Log() *slog.Logger {
 	return g.Logger
 }
 
+func (g *GRPCRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
+	return []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType}
+}
+
 func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range g.GRPCRoute.Status.RouteStatus.Parents {

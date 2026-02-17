@@ -149,3 +149,7 @@ func (t *TLSRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) 
 func (t *TLSRouteInput) Log() *slog.Logger {
 	return t.Logger
 }
+
+func (t *TLSRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
+	return []gatewayv1.ProtocolType{gatewayv1.TLSProtocolType}
+}

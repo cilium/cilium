@@ -5,6 +5,7 @@ package routechecks
 
 import (
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +123,6 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 				Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
 				Message: routeGVK.Kind + " is not allowed to attach to this Gateway due to route kind restrictions",
 			})
-
 		} else {
 			input.SetParentCondition(parentRef, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
@@ -130,7 +130,7 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 				Reason:  string(gatewayv1.RouteReasonAccepted),
 				Message: "Accepted " + routeGVK.Kind,
 			})
-			//return true, nil
+			// return true, nil
 		}
 	}
 
@@ -241,4 +241,39 @@ func GetAllListenerHostNames(listeners []gatewayv1.Listener) []gatewayv1.Hostnam
 		}
 	}
 	return hosts
+}
+
+func CheckGatewayMatchingProtocol(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
+	gw, err := input.GetGateway(parentRef)
+	if err != nil {
+		input.SetParentCondition(parentRef, metav1.Condition{
+			Type:    "Accepted",
+			Status:  metav1.ConditionFalse,
+			Reason:  "Invalid" + input.GetGVK().Kind,
+			Message: err.Error(),
+		})
+
+		return false, nil
+	}
+
+	supportedProtocols := input.GetValidProtocols()
+
+	found := false
+	for _, listener := range gw.Spec.Listeners {
+		if slices.Contains(supportedProtocols, listener.Protocol) {
+			found = true
+		}
+	}
+	if !found {
+		input.SetParentCondition(parentRef, metav1.Condition{
+			Type:    string(gatewayv1.RouteConditionAccepted),
+			Status:  metav1.ConditionFalse,
+			Reason:  "NotAllowedByListeners",
+			Message: fmt.Sprintf("No Listener with matching Protocol. Allowed protocols: %s", supportedProtocols),
+		})
+
+		return false, nil
+	}
+
+	return true, nil
 }

@@ -165,6 +165,10 @@ func (h *HTTPRouteInput) Log() *slog.Logger {
 	return h.Logger
 }
 
+func (h *HTTPRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
+	return []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType}
+}
+
 // HTTPRouteRule is used to implement the GenericRule interface for TLSRoute
 type HTTPRouteRule struct {
 	Rule gatewayv1.HTTPRouteRule
