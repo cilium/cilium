@@ -26,6 +26,7 @@ type ipamInitializerParams struct {
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	DB                  *statedb.DB
 	IPAM                *ipam.IPAM
+	LocalNodeStore      *node.LocalNodeStore
 }
 
 type ipamInitializer struct {
@@ -33,6 +34,7 @@ type ipamInitializer struct {
 	directRoutingDevice datapathTables.DirectRoutingDevice
 	db                  *statedb.DB
 	ipam                *ipam.IPAM
+	localNodeStore      *node.LocalNodeStore
 }
 
 func newIPAMInitializer(params ipamInitializerParams) *ipamInitializer {
@@ -41,6 +43,7 @@ func newIPAMInitializer(params ipamInitializerParams) *ipamInitializer {
 		directRoutingDevice: params.DirectRoutingDevice,
 		db:                  params.DB,
 		ipam:                params.IPAM,
+		localNodeStore:      params.LocalNodeStore,
 	}
 }
 
@@ -67,7 +70,10 @@ func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 				logfields.V4Prefix, option.Config.IPv4Range,
 			)
 		}
-		node.SetIPv4AllocRange(allocCIDR)
+
+		r.localNodeStore.Update(func(n *node.LocalNode) {
+			n.IPv4AllocCIDR = allocCIDR
+		})
 	}
 
 	if option.Config.IPv6Range != AutoCIDR {
@@ -81,7 +87,9 @@ func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 			)
 		}
 
-		node.SetIPv6NodeRange(allocCIDR)
+		r.localNodeStore.Update(func(n *node.LocalNode) {
+			n.IPv6AllocCIDR = allocCIDR
+		})
 	}
 
 	device := ""
