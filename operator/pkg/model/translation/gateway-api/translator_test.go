@@ -372,7 +372,7 @@ func Test_getService(t *testing.T) {
 					ExternalTrafficPolicy: tt.args.externalTrafficPolicy,
 				},
 			}}
-			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			got := trans.desiredService(nil, tt.args.resource, tt.args.allPorts, nil, tt.args.labels, tt.args.annotations)
 			assert.Equalf(t, tt.want, got, "desiredService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})

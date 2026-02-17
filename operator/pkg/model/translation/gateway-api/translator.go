@@ -102,13 +102,13 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	eps := t.desiredEndpointSlice(source, allLabels, allAnnotations)
-	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
+	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, m, allLabels, allAnnotations)
 
 	return cec, lbSvc, eps, err
 }
 
 func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
-	ports []uint32, labels, annotations map[string]string,
+	ports []uint32, m *model.Model, labels, annotations map[string]string,
 ) *corev1.Service {
 	if owner == nil {
 		return nil
@@ -153,7 +153,7 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Ports:                         t.toServicePorts(ports),
+			Ports:                         t.toServicePorts(ports, m),
 			Type:                          t.toServiceType(params),
 			ExternalTrafficPolicy:         t.toExternalTrafficPolicy(params),
 			LoadBalancerClass:             t.toLoadBalancerClass(params),
@@ -169,7 +169,7 @@ func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *mode
 }
 
 // toServicePorts returns a list of ServicePort objects from the given list of ports.
-func (t *gatewayAPITranslator) toServicePorts(ports []uint32) []corev1.ServicePort {
+func (t *gatewayAPITranslator) toServicePorts(ports []uint32, m *model.Model) []corev1.ServicePort {
 	uniquePorts := map[uint32]struct{}{}
 	for _, p := range ports {
 		uniquePorts[p] = struct{}{}
@@ -182,6 +182,15 @@ func (t *gatewayAPITranslator) toServicePorts(ports []uint32) []corev1.ServicePo
 			Port:     int32(p),
 			Protocol: corev1.ProtocolTCP,
 		})
+
+		// UDP port - only for HTTPS with HTTP/3 enabled
+		if t.cfg.HTTP3Enabled && m != nil && m.HasHTTPSPort(p) {
+			servicePorts = append(servicePorts, corev1.ServicePort{
+				Name:     fmt.Sprintf("port-%d-udp", p),
+				Port:     int32(p),
+				Protocol: corev1.ProtocolUDP,
+			})
+		}
 	}
 	slices.SortFunc(servicePorts, func(a, b corev1.ServicePort) int {
 		return int(a.Port) - int(b.Port)
