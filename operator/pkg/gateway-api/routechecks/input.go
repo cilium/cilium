@@ -34,6 +34,7 @@ type Input interface {
 	GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error)
 	GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error)
 	GetHostnames() []gatewayv1.Hostname
+	GetValidProtocols() []gatewayv1.ProtocolType
 
 	SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition)
 	Log() *slog.Logger
