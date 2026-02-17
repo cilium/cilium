@@ -8,7 +8,7 @@
 CHECK("xdp", "jhash")
 int bpf_test(__maybe_unused struct xdp_md *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("Non-zero", {
 		unsigned int hash = jhash_3words(123, 234, 345, 456);
@@ -24,7 +24,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 			test_fatal("expected '459859287' got '%lu'", hash);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 BPF_LICENSE("Dual BSD/GPL");

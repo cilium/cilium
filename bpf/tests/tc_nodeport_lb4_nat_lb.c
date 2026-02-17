@@ -243,9 +243,9 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
@@ -336,9 +336,9 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
+		test_fatal("src MAC is not the LB MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("dst MAC is not the client MAC");
 
 	if (l3->saddr != FRONTEND_IP_LOCAL)
 		test_fatal("src IP hasn't been revNATed to frontend IP");
@@ -431,9 +431,9 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP_2)
 		test_fatal("src IP has changed");
@@ -526,9 +526,9 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
+		test_fatal("src MAC is not the LB MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("dst MAC is not the client MAC");
 
 	if (l3->saddr != BACKEND_IP_LOCAL)
 		test_fatal("src IP has changed");
@@ -628,9 +628,9 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");

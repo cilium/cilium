@@ -67,7 +67,7 @@ ASSIGN_CONFIG(bool, supports_fib_lookup_skip_neigh, true)
 CHECK("tc", "fib_do_redirect_happy_path")
 int test1_check(struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	/* Simulate a successful fib lookup with an output interface.
 	 * We expect to enter ctx_redirect with the provided ifindex.
@@ -175,13 +175,14 @@ int test1_check(struct __ctx_buff *ctx)
 
 		reset_redir_neigh_recorder(&redir_neigh_recorder);
 	});
-	test_finish();
+
+	multi_test_finish();
 }
 
 CHECK("tc", "fib_redirect*_fib_lookup_flags")
 int test2_check(struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("fib_redirect", {
 		struct bpf_fib_lookup_padded params = { 0 };
@@ -237,5 +238,7 @@ int test2_check(struct __ctx_buff *ctx)
 		reset_fib_lookup_recorder(&fib_lookup_recorder);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

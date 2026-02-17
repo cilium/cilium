@@ -68,3 +68,5 @@ int check_ctx_get_cluster_id_mark(struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

@@ -179,33 +179,33 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("inner l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)gateway_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the gateway MAC")
+		test_fatal("src MAC is not the gateway MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client node MAC")
+		test_fatal("dst MAC is not the client node MAC");
 
 	if (l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 doesn't have correct proto type")
+		test_fatal("l2 doesn't have correct proto type");
 
 	if (l3->protocol != IPPROTO_UDP)
-		test_fatal("outer IP doesn't have correct L4 protocol")
+		test_fatal("outer IP doesn't have correct L4 protocol");
 
 	if (l3->check != bpf_htons(0x527e))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l3->saddr != IPV4_DIRECT_ROUTING)
-		test_fatal("outerSrcIP is not correct")
+		test_fatal("outerSrcIP is not correct");
 
 	if (l3->daddr != CLIENT_NODE_IP)
-		test_fatal("outerDstIP is not correct")
+		test_fatal("outerDstIP is not correct");
 
 	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
-		test_fatal("outerDstPort is not tunnel port")
+		test_fatal("outerDstPort is not tunnel port");
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("inner L2 doesn't have correct ethertype")
+		test_fatal("inner L2 doesn't have correct ethertype");
 
 	if (inner_l3->protocol != IPPROTO_TCP)
-		test_fatal("inner IP doesn't have correct L4 protocol")
+		test_fatal("inner IP doesn't have correct L4 protocol");
 
 	if (inner_l3->saddr != EXTERNAL_SVC_IP)
 		test_fatal("innerSrcIP is not the external SVC IP");
@@ -348,33 +348,33 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("inner l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)gateway_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the gateway MAC")
+		test_fatal("src MAC is not the gateway MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client node MAC")
+		test_fatal("dst MAC is not the client node MAC");
 
 	if (l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 doesn't have correct proto type")
+		test_fatal("l2 doesn't have correct proto type");
 
 	if (l3->protocol != IPPROTO_UDP)
-		test_fatal("outer IP doesn't have correct L4 protocol")
+		test_fatal("outer IP doesn't have correct L4 protocol");
 
 	if (l3->check != bpf_htons(0x526a))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l3->saddr != IPV4_DIRECT_ROUTING)
-		test_fatal("outerSrcIP is not correct")
+		test_fatal("outerSrcIP is not correct");
 
 	if (l3->daddr != CLIENT_NODE_IP)
-		test_fatal("outerDstIP is not correct")
+		test_fatal("outerDstIP is not correct");
 
 	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
-		test_fatal("outerDstPort is not tunnel port")
+		test_fatal("outerDstPort is not tunnel port");
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("inner L2 doesn't have correct ethertype")
+		test_fatal("inner L2 doesn't have correct ethertype");
 
 	if (inner_l3->nexthdr != IPPROTO_TCP)
-		test_fatal("inner IP doesn't have correct L4 protocol")
+		test_fatal("inner IP doesn't have correct L4 protocol");
 
 	if (memcmp(&inner_l3->saddr, &ext_svc_ip, sizeof(union v6addr)) != 0)
 		test_fatal("innerSrcIP is not the external SVC IP");

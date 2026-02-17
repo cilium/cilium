@@ -62,7 +62,7 @@ int check1(struct __ctx_buff *ctx)
 
 	udp = (void *)ipv4 + sizeof(struct iphdr);
 
-	assert((void *)udp + sizeof(struct udphdr) <= data_end)
+	assert((void *)udp + sizeof(struct udphdr) <= data_end);
 
 	l4_off = ETH_LEN + ipv4_hdrlen(ipv4);
 	protocol = ipv4->protocol;
@@ -152,3 +152,5 @@ int wireguard_icmpv6_na_skip_check(struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

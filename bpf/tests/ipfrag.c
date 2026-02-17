@@ -273,3 +273,5 @@ int test_ipfrag_helpers_ipv6_check(struct __ctx_buff *ctx __maybe_unused)
 
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");
