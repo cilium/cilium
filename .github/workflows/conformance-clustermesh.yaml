@@ -130,6 +130,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
             multipool-ipam: 'enabled'
+            defaultGlobalNamespace: false
 
           - name: '2'
             tunnel: 'disabled'
@@ -144,6 +145,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: true
 
           - name: '3'
             tunnel: 'disabled'
@@ -158,6 +160,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: false
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -174,6 +177,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: true
 
           - name: '5'
             tunnel: 'disabled'
@@ -186,6 +190,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: false
 
           - name: '6'
             tunnel: 'vxlan'
@@ -200,6 +205,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: false
             multipool-ipam: 'enabled'
+            defaultGlobalNamespace: true
 
           - name: '7'
             tunnel: 'geneve'
@@ -214,6 +220,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: false
 
           - name: '8'
             tunnel: 'vxlan'
@@ -228,6 +235,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: false
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: true
 
           - name: '9'
             tunnel: 'vxlan'
@@ -242,6 +250,7 @@ jobs:
             ciliumEndpointSlice: 'enabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: false
 
           - name: '10'
             tunnel: 'vxlan'
@@ -254,6 +263,7 @@ jobs:
             ciliumEndpointSlice: 'disabled'
             policy-default-local-cluster: true
             multipool-ipam: 'disabled'
+            defaultGlobalNamespace: true
 
     steps:
       - name: Set commit status to pending
@@ -320,6 +330,7 @@ jobs:
             --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             --helm-set=extraConfig.lb-init-wait-timeout=4m \
+            --helm-set=clustermesh.defaultGlobalNamespace=${{ matrix.defaultGlobalNamespace }} \
             "
 
           CILIUM_INSTALL_TUNNEL=" \
