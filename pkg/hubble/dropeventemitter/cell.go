@@ -13,6 +13,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -22,7 +23,7 @@ import (
 // FlowProcessor is a wrapper for dropEventEmitter used by Hubble
 // to hook into the flow processing pipeline.
 type FlowProcessor interface {
-	ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
+	ProcessFlow(ctx context.Context, flow *ir.Flow) error
 }
 
 var Cell = cell.Module(
