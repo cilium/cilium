@@ -785,6 +785,7 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 
 		// run the Gateway validators
 		for _, fn := range []routechecks.CheckWithParentFunc{
+			routechecks.CheckGatewayMatchingProtocol,
 			routechecks.CheckGatewayRouteKindAllowed,
 			routechecks.CheckGatewayMatchingPorts,
 			routechecks.CheckGatewayMatchingHostnames,

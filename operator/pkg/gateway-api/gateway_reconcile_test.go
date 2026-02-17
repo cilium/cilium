@@ -249,6 +249,11 @@ func Test_Conformance(t *testing.T) {
 			{FullName: types.NamespacedName{Name: "gw-tlsroute-less-specific-wc-hostname-x-3", Namespace: "gateway-conformance-infra"}},
 			{FullName: types.NamespacedName{Name: "gw-tlsroute-more-specific-wc-hostname-x-2", Namespace: "gateway-conformance-infra"}},
 		}},
+		{name: "tlsroute-invalid-no-matching-listener", gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-http-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-https-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
+		}},
 	}
 
 	for _, tt := range tests {
@@ -307,7 +312,7 @@ func Test_Conformance(t *testing.T) {
 
 					// Reconcile the gateway under test
 					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
-					require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error")
+					require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error for Gateway %s. want: %t, got: %t", gwDetail.FullName.Name, gwDetail.wantErr, err != nil)
 					require.Equal(t, ctrl.Result{}, result)
 
 					// Checking the output for Gateway
