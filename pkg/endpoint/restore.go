@@ -439,6 +439,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IfName:                   e.ifName,
 		IfIndex:                  e.ifIndex,
 		ParentIfIndex:            e.parentIfIndex,
+		VlanID:                   e.vlanID,
 		ContainerIfName:          e.containerIfName,
 		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
 		Labels:                   e.labels,
@@ -506,6 +507,10 @@ type serializableEndpoint struct {
 	// IP is associated. In some scenarios, the network will expect traffic with
 	// the endpoint IP to be sent via the parent interface.
 	ParentIfIndex int
+
+	// VlanID is the 802.1Q VLAN ID for endpoint traffic isolation. When set,
+	// VLAN tags are applied at the network boundary. 0 means no VLAN.
+	VlanID uint16
 
 	// ContainerIfName is the name of the container facing interface (veth pair).
 	ContainerIfName string
@@ -628,6 +633,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
 	ep.parentIfIndex = r.ParentIfIndex
+	ep.vlanID = r.VlanID
 	ep.containerIfName = r.ContainerIfName
 	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
 	ep.labels = r.Labels

@@ -102,6 +102,9 @@ type EndpointChangeRequest struct {
 	// Whether to build an endpoint synchronously
 	//
 	SyncBuildEndpoint bool `json:"sync-build-endpoint,omitempty"`
+
+	// 802.1Q VLAN ID for endpoint traffic isolation. When set, VLAN tags are applied at the network boundary for this endpoint. 0 means no VLAN tagging.
+	VlanID int64 `json:"vlan-id,omitempty"`
 }
 
 // Validate validates this endpoint change request

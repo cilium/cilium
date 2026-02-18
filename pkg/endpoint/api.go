@@ -65,6 +65,7 @@ func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy
 	ep.containerIfName = model.ContainerInterfaceName
 	ep.containerNetnsPath = model.ContainerNetnsPath
 	ep.parentIfIndex = int(model.ParentInterfaceIndex)
+	ep.vlanID = uint16(model.VlanID)
 	if model.ContainerName != "" {
 		ep.containerName.Store(&model.ContainerName)
 	}
@@ -536,6 +537,11 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	if newEp.ifName != "" && e.ifName != newEp.ifName {
 		e.ifName = newEp.ifName
+		changed = true
+	}
+
+	if newEp.vlanID != 0 && e.vlanID != newEp.vlanID {
+		e.vlanID = newEp.vlanID
 		changed = true
 	}
 
