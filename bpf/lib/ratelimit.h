@@ -94,16 +94,15 @@ static __always_inline bool ratelimit_check_and_take(struct ratelimit_key *key,
 	if (!value) {
 		new_value.last_topup = now;
 		new_value.tokens = settings->tokens_per_topup - 1;
-		map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
-		// ret = map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
-		// if (unlikely(ret < 0)) {
+		ret = map_update_elem(&cilium_ratelimit, key, &new_value, BPF_ANY);
+		if (unlikely(ret < 0)) {
 			/* This bucket update is racy and might cause a bit of
 			 * inaccuracy. We allow that since keeping atomicity
 			 * here would hurt performance.
 			 */
-			// metrics_value->dropped++;
-			// return false;
-		// }
+			metrics_value->dropped++;
+			return false;
+		}
 		return true;
 	}
 
