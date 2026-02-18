@@ -18,7 +18,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
-	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -173,81 +172,6 @@ func cleanCallsMaps(mapNamePattern string) error {
 	}
 
 	return err
-}
-
-// reinitializeEncryption is used to recompile and load encryption network programs.
-func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.LocalNodeConfiguration) error {
-	// We need to take care not to load bpf_network and bpf_host onto the same
-	// device. If devices are required, we load bpf_host and hence don't need
-	// the code below, specific to EncryptInterface. Specifically, we will load
-	// bpf_host code in reloadHostDatapath onto the physical devices as selected
-	// by configuration.
-	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
-		os.RemoveAll(bpfStateDeviceDir(networkConfig))
-
-		return nil
-	}
-
-	l.ipsecMu.Lock()
-	defer l.ipsecMu.Unlock()
-
-	var attach []netlink.Link
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		// IPAMENI mode supports multiple network facing interfaces that
-		// will all need Encrypt logic applied in order to decrypt any
-		// received encrypted packets. This logic will attach to all
-		// !veth devices.
-		//
-		// Regenerate the list of interfaces to attach to on every call.
-		links, err := safenetlink.LinkList()
-		if err != nil {
-			return err
-		}
-
-		// Always attach to all physical devices in ENI mode.
-		attach = physicalDevs(links)
-		option.Config.UnsafeDaemonConfigOption.EncryptInterface = linkNames(attach)
-	} else {
-		// In other modes, attach only to the interfaces explicitly specified by the
-		// user. Resolve links by name.
-		for _, iface := range option.Config.UnsafeDaemonConfigOption.EncryptInterface {
-			link, err := safenetlink.LinkByName(iface)
-			if err != nil {
-				return fmt.Errorf("retrieving device %s: %w", iface, err)
-			}
-			attach = append(attach, link)
-		}
-	}
-
-	// No interfaces is valid in tunnel disabled case
-	if len(attach) == 0 {
-		return nil
-	}
-
-	if err := replaceEncryptionDatapath(ctx, l.logger, lnc, attach); err != nil {
-		return fmt.Errorf("failed to replace encryption datapath: %w", err)
-	}
-
-	return nil
-}
-
-func physicalDevs(links []netlink.Link) []netlink.Link {
-	var phys []netlink.Link
-	for _, link := range links {
-		isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-		if err == nil && !isVirtual {
-			phys = append(phys, link)
-		}
-	}
-	return phys
-}
-
-func linkNames(links []netlink.Link) []string {
-	var names []string
-	for _, link := range links {
-		names = append(names, link.Attrs().Name)
-	}
-	return names
 }
 
 func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
@@ -468,10 +392,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	// Validate alignments of C and Go equivalent structs
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
-	}
-
-	if err := l.reinitializeEncryption(ctx, lnc); err != nil {
-		return err
 	}
 
 	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {

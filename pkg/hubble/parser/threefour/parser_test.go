@@ -1847,7 +1847,7 @@ func TestDecode_DropNotify(t *testing.T) {
 			event: monitor.DropNotify{
 				Type:    byte(monitorAPI.MessageTypeDrop),
 				Source:  localEP,
-				File:    6,
+				File:    3,
 				Line:    12,
 				Version: monitor.DropNotifyVersion2,
 			},
@@ -1856,7 +1856,7 @@ func TestDecode_DropNotify(t *testing.T) {
 				Source:           &flowpb.Endpoint{ID: 1234},
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
 				File: &flowpb.FileInfo{
-					Name: "bpf_network.c",
+					Name: "bpf_overlay.c",
 					Line: 12,
 				},
 			},

@@ -48,9 +48,6 @@ func (n *linuxNodeHandler) getDefaultEncryptionInterface() string {
 	if len(devices) > 0 {
 		return devices[0].Name
 	}
-	if len(option.Config.UnsafeDaemonConfigOption.EncryptInterface) > 0 {
-		return option.Config.UnsafeDaemonConfigOption.EncryptInterface[0]
-	}
 	return ""
 }
 
