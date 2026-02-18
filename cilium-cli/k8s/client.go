@@ -662,8 +662,16 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 	if err != nil {
 		return f
 	}
-	// Assume k3s if the k8s master node runs k3s
 	for _, node := range nodeList.Items {
+		if _, ok := node.Labels["cloud.google.com/gke-nodepool"]; ok {
+			f.Kind = KindGKE
+			return f
+		}
+		if _, ok := node.Labels["cloud.google.com/gke-os-distribution"]; ok {
+			f.Kind = KindGKE
+			return f
+		}
+
 		isMaster := node.Labels["node-role.kubernetes.io/master"]
 		if isMaster != "true" {
 			continue
@@ -672,6 +680,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 		if !ok {
 			instanceType = node.Labels[corev1.LabelInstanceType]
 		}
+		// Assume k3s if the k8s master node runs k3s
 		if instanceType == "k3s" {
 			f.Kind = KindK3s
 			return f
