@@ -59,6 +59,7 @@
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
 #include "lib/subnet.h"
+#include "lib/endpoint_vlan.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
@@ -1185,18 +1186,25 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 	int ret;
 
-	/* Filter allowed vlan id's and pass them back to kernel.
-	 * We will see the packet again in from-netdev@eth0.vlanXXX.
-	 */
 	if (ctx->vlan_present) {
 		__u32 vlan_id = ctx->vlan_tci & 0xfff;
 
 		if (vlan_id) {
+			/* Pass allowed VLANs back to kernel for subinterface handling. */
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
-
-			ret = DROP_VLAN_FILTERED;
-			goto drop_err;
+			if (CONFIG(enable_endpoint_vlan)) {
+				/* Strip VLAN tag for endpoint VLAN traffic;
+				 * BPF handles routing based on destination IP.
+				 */
+				if (skb_vlan_pop(ctx) < 0) {
+					ret = DROP_INVALID;
+					goto drop_err;
+				}
+			} else {
+				ret = DROP_VLAN_FILTERED;
+				goto drop_err;
+			}
 		}
 	}
 
@@ -1519,6 +1527,12 @@ exit:
 #endif
 	if (IS_ERR(ret))
 		goto drop_err;
+
+	if (CONFIG(enable_endpoint_vlan) && !ctx->vlan_present) {
+		ret = ep_vlan_push_egress(ctx, proto);
+		if (IS_ERR(ret))
+			goto drop_err;
+	}
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
