@@ -4,43 +4,15 @@
 package node
 
 import (
-	"context"
-	"log/slog"
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-var (
-	addrs addresses
-
-	// localNode holds the current state of the local "types.Node".
-	// This is defined here until all uses of the getters and
-	// setters in this file have been migrated to use LocalNodeStore
-	// directly.
-	// Initialized to proper instance via an invoke function in LocalNodeStoreCell,
-	// or temporarily in tests with 'WithTestLocalNodeStore'.
-	localNode *LocalNodeStore
-)
-
-func getLocalNode(logger *slog.Logger) LocalNode {
-	// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
-	// we have a component that uses the legacy getters and setters here and does
-	// not depend on LocalNodeStore.
-	if localNode == nil {
-		logging.Fatal(logger, "getLocalNode called for nil localNode")
-	}
-	n, err := localNode.Get(context.TODO())
-	if err != nil {
-		logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
-	}
-	return n
-}
+var addrs addresses
 
 type addresses struct {
 	mu         lock.RWMutex

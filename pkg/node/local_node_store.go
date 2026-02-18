@@ -120,15 +120,6 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, NodeGetter
 						return nil
 					},
 				))
-
-			// Set the global variable still used by getters
-			// and setters in address.go. We're setting it in Start
-			// to catch uses of it before it's initialized.
-			localNode = s
-			return nil
-		},
-		OnStop: func(cell.HookContext) error {
-			localNode = nil
 			return nil
 		},
 	})
