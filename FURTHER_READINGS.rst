@@ -83,5 +83,7 @@ Community blog posts
   <https://blog.scottlowe.org/2017/04/18/black-belt-cilium/>`_
 * `Cilium, BPF and XDP, Google Open Source Blog, Nov 2016
   <https://opensource.googleblog.com/2016/11/cilium-networking-and-security.html>`_
+* `Uncovering Pod-to-Pod Traffic in Kubernetes Using Cilium and Hubble, Jul 2025
+  <https://medium.com/@0.all_existence.0/uncovering-pod-to-pod-traffic-in-kubernetes-using-cilium-and-hubble-0e59a096cce9>`_
 
 .. further-reading-end
