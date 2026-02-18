@@ -2,8 +2,8 @@
 
 set -eu -o pipefail
 
-TARGETNAME=nginx.external.svc
-OTHERTARGETNAME=nginx.external-other.svc
+TARGETNAME=nginx.external.svc.cluster.local
+OTHERTARGETNAME=nginx.external-other.svc.cluster.local
 
 # Create a private key for the self signed CA
 openssl genrsa 2048 > ca-key.pem
