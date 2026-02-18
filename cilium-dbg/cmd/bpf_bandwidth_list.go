@@ -4,7 +4,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"log/slog"
 	"os"
 	"sort"
 	"strconv"
@@ -26,7 +29,17 @@ var bpfBandwidthListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf bandwidth list")
 
 		bpfBandwidthList := make(map[string][]string)
-		if err := bwmap.ThrottleMap().Dump(bpfBandwidthList); err != nil {
+		throttleMap, err := bwmap.ThrottleMap(slog.Default())
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				err = fmt.Errorf("bandwidth manager not enabled")
+			}
+
+			fmt.Fprintf(os.Stderr, "error opening map: %s\n", err)
+			os.Exit(1)
+		}
+
+		if err := throttleMap.Dump(bpfBandwidthList); err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 			os.Exit(1)
 		}

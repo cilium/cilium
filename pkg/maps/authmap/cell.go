@@ -4,11 +4,12 @@
 package authmap
 
 import (
-	"log/slog"
+	"fmt"
 
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -20,20 +21,31 @@ var Cell = cell.Module(
 	"auth-map",
 	"eBPF map which manages authenticated connections between identities",
 
-	cell.Provide(newAuthMap),
+	cell.Provide(provide),
 )
 
-func newAuthMap(lifecycle cell.Lifecycle, logger *slog.Logger) bpf.MapOut[Map] {
-	authMap := newMap(logger, option.Config.AuthMapEntries)
+// provide an authMap to the Hive and configure its MapSpec in reg.
+func provide(lc cell.Lifecycle, config *option.DaemonConfig, reg *registry.MapRegistry) (bpf.MapOut[Map], error) {
+	if err := reg.Modify(MapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(config.AuthMapEntries)
+	}); err != nil {
+		return bpf.MapOut[Map]{}, fmt.Errorf("modify map spec: %w", err)
+	}
 
-	lifecycle.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error {
-			return authMap.init()
+	authMap := &authMap{}
+	lc.Append(cell.Hook{
+		OnStart: func(cell.HookContext) (err error) {
+			authMap.m, err = bpf.NewMapFromRegistry(reg, MapName, &AuthKey{}, &AuthInfo{})
+			if err != nil {
+				return fmt.Errorf("create auth map: %w", err)
+			}
+
+			return authMap.m.OpenOrCreate()
 		},
-		OnStop: func(context cell.HookContext) error {
-			return authMap.close()
+		OnStop: func(cell.HookContext) error {
+			return authMap.m.Close()
 		},
 	})
 
-	return bpf.NewMapOut(Map(authMap))
+	return bpf.NewMapOut(Map(authMap)), nil
 }

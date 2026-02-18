@@ -1510,31 +1510,8 @@ const (
 	_SEC_XDP_FRAGS
 	_SEC_USDT
 
-	// Ignore any present extra in order to preserve backwards compatibility
-	// with earlier versions of the library.
-	ignoreExtra
-
 	_SEC_ATTACHABLE_OPT = _SEC_ATTACHABLE | _SEC_EXP_ATTACH_OPT
 )
-
-func init() {
-	// Compatibility with older versions of the library.
-	// We prepend libbpf definitions since they contain a prefix match
-	// for "xdp".
-	elfSectionDefs = append([]libbpfElfSectionDef{
-		{"xdp.frags/", sys.BPF_PROG_TYPE_XDP, sys.BPF_XDP, _SEC_XDP_FRAGS | ignoreExtra},
-		{"xdp.frags_devmap/", sys.BPF_PROG_TYPE_XDP, sys.BPF_XDP_DEVMAP, _SEC_XDP_FRAGS},
-		{"xdp_devmap/", sys.BPF_PROG_TYPE_XDP, sys.BPF_XDP_DEVMAP, 0},
-		{"xdp.frags_cpumap/", sys.BPF_PROG_TYPE_XDP, sys.BPF_XDP_CPUMAP, _SEC_XDP_FRAGS},
-		{"xdp_cpumap/", sys.BPF_PROG_TYPE_XDP, sys.BPF_XDP_CPUMAP, 0},
-		// This has been in the library since the beginning of time. Not sure
-		// where it came from.
-		{"seccomp", sys.BPF_PROG_TYPE_SOCKET_FILTER, 0, _SEC_NONE},
-		// Override libbpf definition because we want ignoreExtra.
-		{"struct_ops+", sys.BPF_PROG_TYPE_STRUCT_OPS, 0, _SEC_NONE | ignoreExtra},
-		{"struct_ops.s+", sys.BPF_PROG_TYPE_STRUCT_OPS, 0, _SEC_SLEEPABLE | ignoreExtra},
-	}, elfSectionDefs...)
-}
 
 func getProgType(sectionName string) (ProgramType, AttachType, uint32, string) {
 	// Skip optional program marking for now.
@@ -1556,15 +1533,13 @@ func getProgType(sectionName string) (ProgramType, AttachType, uint32, string) {
 		if t.flags&_SEC_XDP_FRAGS > 0 {
 			flags |= sys.BPF_F_XDP_HAS_FRAGS
 		}
-		if t.flags&_SEC_EXP_ATTACH_OPT > 0 {
-			if programType == XDP {
-				// The library doesn't yet have code to fallback to not specifying
-				// attach type. Only do this for XDP since we've enforced correct
-				// attach type for all other program types.
-				attachType = AttachNone
-			}
-		}
-		if t.flags&ignoreExtra > 0 {
+
+		// The libbpf documentation on program types states: 'The struct_ops attach
+		// format supports struct_ops[.s]/<name> convention, but name is ignored and
+		// it is recommended to just use plain SEC("struct_ops[.s]").'
+		//
+		// Ignore any extra for struct_ops to match libbpf behaviour.
+		if programType == StructOps {
 			extra = ""
 		}
 

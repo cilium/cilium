@@ -90,8 +90,6 @@ func (m *manager) defines() (defines.Map, error) {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 	}
 
-	cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)
-
 	return cDefinesMap, nil
 }
 
@@ -232,10 +230,6 @@ func (m *manager) probe() error {
 
 func (m *manager) init() error {
 	m.params.Log.Info("Setting up BPF bandwidth manager")
-
-	if err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to access ThrottleMap: %w", err)
-	}
 
 	if err := setBaselineSysctls(m.params); err != nil {
 		return fmt.Errorf("failed to set sysctl needed by BPF bandwidth manager: %w", err)

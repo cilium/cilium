@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package maps
+package mapsweeper
 
 import (
 	"path/filepath"
@@ -11,8 +11,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
@@ -53,10 +51,6 @@ func newTestEPManager(paths []string) *testEPManager {
 		removedPaths:    make([]string, 0),
 		removedMappings: make([]int, 0),
 	}
-}
-
-func newTestBWManager() types.BandwidthManager {
-	return &fakeTypes.BandwidthManager{}
 }
 
 func TestCollectStaleMapGarbage(t *testing.T) {
@@ -152,8 +146,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
-			bwManager := newTestBWManager()
-			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -187,8 +180,8 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_proxy6",
 			"cilium_policy_01234",
 		}
-		bwManager := newTestBWManager()
-		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)

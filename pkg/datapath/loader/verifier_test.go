@@ -127,7 +127,7 @@ func TestPrivilegedVerifier(t *testing.T) {
 		t.Parallel()
 		i := 1
 		for perm := range buildPermutations("bpf_sock", kv, sockLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "sock", "bpf_sock.c", "bpf_sock.o", i, &records))
+			t.Run(strconv.Itoa(i), compileAndLoad(perm, "sock", socketProg, socketObj, i, &records))
 			i++
 		}
 	})

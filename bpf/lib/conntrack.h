@@ -42,11 +42,7 @@ struct ct_state {
 	union v6addr nat_addr;
 	__be16 nat_port;
 	__u16 rev_nat_index;
-#ifdef USE_LOOPBACK_LB
 	__u16 loopback:1,
-#else
-	__u16 loopback_disabled:1,
-#endif
 	      node_port:1,
 	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
 	      syn:1,

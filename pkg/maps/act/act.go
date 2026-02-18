@@ -9,29 +9,30 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
-	ActiveConnectionTrackingMapName = "cilium_lb_act"
-	FailedConnectionTrackingMapName = "cilium_lb_fct"
+	ACTMapName = "cilium_lb_act"
+	FCTMapName = "cilium_lb_fct"
 )
 
-// Cell provides the ActiveConnectionTrackingMap which contains information about opened
-// and closed connection to each service-zone pair.
+// Cell provides the [ACTMap] containing information about opened and closed
+// connections to each service-zone pair.
 var Cell = cell.Module(
 	"active-connection-tracking",
 	"eBPF map with counts of open-closed connections for each service-zone pair",
 
-	cell.Provide(newActiveConnectionTrackingMap),
+	cell.Provide(provide),
 	cell.Config(defaultConfig),
 )
 
@@ -48,10 +49,10 @@ var defaultConfig = Config{
 	EnableActiveConnectionTracking: false,
 }
 
-type ActiveConnectionTrackingIterateCallback func(*ActiveConnectionTrackerKey, *ActiveConnectionTrackerValue)
+type ACTIterator func(*ActiveConnectionTrackerKey, *ActiveConnectionTrackerValue)
 
-type ActiveConnectionTrackingMap interface {
-	IterateWithCallback(context.Context, ActiveConnectionTrackingIterateCallback) error
+type ACTMap interface {
+	IterateWithCallback(context.Context, ACTIterator) error
 	Delete(*ActiveConnectionTrackerKey) error
 	SaveFailed(*ActiveConnectionTrackerKey, uint64) error
 	RestoreFailed(*ActiveConnectionTrackerKey) (uint64, error)
@@ -62,24 +63,21 @@ type actMap struct {
 	f *bpf.Map
 }
 
-func newActiveConnectionTrackingMap(in struct {
+func provide(in struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Conf      Config
-	LBConfig  loadbalancer.Config
+	Lifecycle   cell.Lifecycle
+	Conf        Config
+	LBConfig    loadbalancer.Config
+	MapRegistry *registry.MapRegistry
 }) (out struct {
 	cell.Out
 
-	bpf.MapOut[ActiveConnectionTrackingMap]
+	bpf.MapOut[ACTMap]
 	defines.NodeOut
 }, err error) {
 	if !in.Conf.EnableActiveConnectionTracking {
-		// Even when disabled, provide the node defines so that we can compile.
-		out.NodeDefines = map[string]string{
-			"CILIUM_LB_ACT_MAP_MAX_ENTRIES": "1",
-		}
-		return
+		return out, nil
 	}
 
 	svcSize := in.LBConfig.LBServiceMapEntries
@@ -91,42 +89,52 @@ func newActiveConnectionTrackingMap(in struct {
 
 	out.NodeDefines = map[string]string{
 		"ENABLE_ACTIVE_CONNECTION_TRACKING": "1",
-		"CILIUM_LB_ACT_MAP_MAX_ENTRIES":     strconv.Itoa(size),
 	}
 
-	out.MapOut = bpf.NewMapOut(ActiveConnectionTrackingMap(createActiveConnectionTrackingMap(in.Lifecycle, size)))
-	return
-}
+	if err := in.MapRegistry.Modify(ACTMapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(size)
+	}); err != nil {
+		return out, err
+	}
 
-func createActiveConnectionTrackingMap(lc cell.Lifecycle, size int) *actMap {
-	m := bpf.NewMap(ActiveConnectionTrackingMapName,
-		ebpf.LRUHash,
-		&ActiveConnectionTrackerKey{},
-		&ActiveConnectionTrackerValue{},
-		size,
-		0,
-	)
-	f := bpf.NewMap(FailedConnectionTrackingMapName,
-		ebpf.LRUHash,
-		&ActiveConnectionTrackerKey{},
-		&FailedConnectionTrackerValue{},
-		size,
-		0,
-	)
+	if err := in.MapRegistry.Modify(FCTMapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(size)
+	}); err != nil {
+		return out, err
+	}
 
-	lc.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error {
-			return errors.Join(m.OpenOrCreate(), f.OpenOrCreate())
+	actMap := &actMap{}
+	in.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) (err error) {
+			actMap.m, err = bpf.NewMapFromRegistry(in.MapRegistry, ACTMapName,
+				&ActiveConnectionTrackerKey{}, &ActiveConnectionTrackerValue{})
+			if err != nil {
+				return fmt.Errorf("create act map: %w", err)
+			}
+
+			actMap.f, err = bpf.NewMapFromRegistry(in.MapRegistry, FCTMapName,
+				&ActiveConnectionTrackerKey{}, &FailedConnectionTrackerValue{})
+			if err != nil {
+				return fmt.Errorf("create fct map: %w", err)
+			}
+
+			return errors.Join(actMap.m.OpenOrCreate(), actMap.f.OpenOrCreate())
 		},
-		OnStop: func(context cell.HookContext) error {
-			return errors.Join(m.Close(), f.Close())
+		OnStop: func(cell.HookContext) error {
+			return errors.Join(actMap.m.Close(), actMap.f.Close())
 		},
 	})
 
-	return &actMap{m, f}
+	out.MapOut = bpf.NewMapOut(ACTMap(actMap))
+
+	return out, nil
 }
 
-func (m actMap) IterateWithCallback(ctx context.Context, cb ActiveConnectionTrackingIterateCallback) error {
+func (m *actMap) IterateWithCallback(ctx context.Context, cb ACTIterator) error {
+	if m.m == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	return m.m.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
 		select {
 		case <-ctx.Done():
@@ -140,18 +148,30 @@ func (m actMap) IterateWithCallback(ctx context.Context, cb ActiveConnectionTrac
 	})
 }
 
-func (m actMap) Delete(key *ActiveConnectionTrackerKey) error {
+func (m *actMap) Delete(key *ActiveConnectionTrackerKey) error {
+	if m.m == nil || m.f == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	_, err1 := m.m.SilentDelete(key)
 	_, err2 := m.f.SilentDelete(key)
 	return errors.Join(err1, err2)
 }
 
-func (m actMap) SaveFailed(key *ActiveConnectionTrackerKey, count uint64) error {
+func (m *actMap) SaveFailed(key *ActiveConnectionTrackerKey, count uint64) error {
+	if m.f == nil {
+		return fmt.Errorf("map not started")
+	}
+
 	// We store overflow so that it matches overflown opened/closed counts.
 	return m.f.Update(key, &FailedConnectionTrackerValue{uint32(count)})
 }
 
-func (m actMap) RestoreFailed(key *ActiveConnectionTrackerKey) (uint64, error) {
+func (m *actMap) RestoreFailed(key *ActiveConnectionTrackerKey) (uint64, error) {
+	if m.f == nil {
+		return 0, fmt.Errorf("map not started")
+	}
+
 	val, err := m.f.Lookup(key)
 	if errors.Is(err, ebpf.ErrKeyNotExist) {
 		// Ignore not found.
