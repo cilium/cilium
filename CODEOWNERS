@@ -484,7 +484,6 @@ Makefile* @cilium/build
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/sig-k8s
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
-/FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/contributing
 /hubble/ @cilium/sig-hubble
 /hubble-relay/ @cilium/sig-hubble
