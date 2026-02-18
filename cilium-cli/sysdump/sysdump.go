@@ -2863,6 +2863,30 @@ func (c *Collector) submitFlavorSpecificTasks(f k8s.Flavor) error {
 			return fmt.Errorf("failed to submit %q task: %w", awsNodeDaemonSetName, err)
 		}
 		return nil
+	case k8s.KindGKE:
+		if err := c.Pool.Submit(gkeConfigMapsName, func(ctx context.Context) error {
+			// Collect additional, GKE specific configmaps.
+			for cm, filename := range map[string]string{
+				gkeHubbleConfigMap:   gkeCiliumHubbleConfigFileName,
+				gkeOverrideConfigMap: gkeCiliumOverrideConfigFileName,
+			} {
+				configMap, err := c.Client.GetConfigMap(ctx, metav1.NamespaceSystem, cm, metav1.GetOptions{})
+				if err != nil {
+					if k8sErrors.IsNotFound(err) {
+						c.logDebug("ConfigMap %q not found in namespace %q, skipping", cm, metav1.NamespaceSystem)
+						continue
+					}
+					return fmt.Errorf("get '%s/%s' configmap: %w", metav1.NamespaceSystem, cm, err)
+				}
+				if err := c.WriteYAML(filename, configMap); err != nil {
+					return fmt.Errorf("write '%s/%s' configmap: %w", metav1.NamespaceSystem, cm, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("submit %q task: %w", gkeConfigMapsName, err)
+		}
+		return nil
 	default:
 		c.logDebug("No flavor-specific data to collect for %q", f.Kind.String())
 		return nil

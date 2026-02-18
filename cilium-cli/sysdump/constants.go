@@ -26,6 +26,9 @@ const (
 	ciliumSPIREServerConfigMapName     = defaults.SPIREServerConfigMapName
 	ciliumSPIREAgentConfigMapName      = defaults.SPIREAgentConfigMapName
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
+	gkeConfigMapsName                  = "gke-config-maps"
+	gkeHubbleConfigMap                 = "cilium-hubble-config"
+	gkeOverrideConfigMap               = "cilium-config-emergency-override"
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
 	ciliumEnvoyDaemonSetName           = "cilium-envoy"
@@ -79,6 +82,8 @@ const (
 	ciliumHelmValuesFileName                 = "cilium-helm-values-<ts>.yaml"
 	tetragonHelmMetadataFileName             = "tetragon-helm-metadata-<ts>.yaml"
 	tetragonHelmValuesFileName               = "tetragon-helm-values-<ts>.yaml"
+	gkeCiliumHubbleConfigFileName            = "gke-cilium-hubble-config-<ts>.yaml"
+	gkeCiliumOverrideConfigFileName          = "gke-cilium-override-config-<ts>.yaml"
 	gopsFileName                             = "gops-%s-%s-<ts>-%s.txt"
 	hubbleDaemonsetFileName                  = "hubble-daemonset-<ts>.yaml"
 	hubbleFlowsFileName                      = "hubble-flows-%s-<ts>.json"
