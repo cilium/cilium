@@ -57,7 +57,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
-	warningLogExceptions := []logMatcher{cantEnableJIT, delMissingService, podCIDRUnavailable,
+	warningLogExceptions := []logMatcher{cantEnableJIT, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		legacyBGPFeature, etcdTimeout, endpointRestoreFailed, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
@@ -427,7 +427,6 @@ const (
 
 	// warnings
 	cantEnableJIT                    stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
-	delMissingService                stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable               stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode                    stringMatcher = "Unable to get node resource"                                            // cf. https://github.com/cilium/cilium/issues/29710
 	sessionAffinitySocketLB          stringMatcher = "Session affinity for host reachable services needs kernel"              // cf. https://github.com/cilium/cilium/issues/29736
