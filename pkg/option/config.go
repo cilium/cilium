@@ -897,6 +897,11 @@ const (
 	// VLANBPFBypass instructs Cilium to bypass bpf logic for vlan tagged packets
 	VLANBPFBypass = "vlan-bpf-bypass"
 
+	// EnableEndpointVlan enables per-endpoint 802.1Q VLAN tagging for trunk ENI mode.
+	// When enabled, VLAN tags are pushed/popped at the physical device boundary
+	// based on each endpoint's configured VLAN ID.
+	EnableEndpointVlan = "enable-endpoint-vlan"
+
 	// DisableExternalIPMitigation disable ExternalIP mitigation (CVE-2020-8554)
 	DisableExternalIPMitigation = "disable-external-ip-mitigation"
 
@@ -1740,6 +1745,9 @@ type DaemonConfig struct {
 	// VLANBPFBypass list of explicitly allowed VLAN id's for bpf logic bypass
 	VLANBPFBypass []int
 
+	// EnableEndpointVlan enables per-endpoint 802.1Q VLAN tagging for trunk ENI mode
+	EnableEndpointVlan bool
+
 	// DisableExternalIPMigration disable externalIP mitigation (CVE-2020-8554)
 	DisableExternalIPMitigation bool
 
@@ -2548,6 +2556,8 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 		c.VLANBPFBypass = append(c.VLANBPFBypass, vlanID)
 	}
+
+	c.EnableEndpointVlan = vp.GetBool(EnableEndpointVlan)
 
 	c.DisableExternalIPMitigation = vp.GetBool(DisableExternalIPMitigation)
 
