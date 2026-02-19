@@ -218,7 +218,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
 	require.NoError(t, err)
-	ep.SetIdentity(epIdentity, true)
+	ep.SetIdentity(epIdentity)
 
 	return ep
 }

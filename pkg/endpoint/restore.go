@@ -257,6 +257,17 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	case <-allocatedIdentity:
 	}
 
+	releaseNewlyAllocatedIdentity := func() {
+		_, err := e.allocator.Release(context.Background(), id, false)
+		if err != nil {
+			scopedLog.Warn(
+				"Unable to release newly allocated identity again",
+				logfields.Error, err,
+				logfields.Identity, id.ID,
+			)
+		}
+	}
+
 	// Wait for initial identities and ipcache from the
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
@@ -289,6 +300,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// is deleted.
 		select {
 		case <-e.aliveCtx.Done():
+			releaseNewlyAllocatedIdentity()
 			return ErrNotAlive
 		case <-gotInitialGlobalIdentities:
 		}
@@ -312,11 +324,13 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// Wait for ipcache and identities synchronization from all remote clusters,
 	// to prevent disrupting cross-cluster connections on endpoint regeneration.
 	if err := regenerator.WaitForClusterMeshIPIdentitiesSync(e.aliveCtx); err != nil {
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
 	if err := e.lockAlive(); err != nil {
 		scopedLog.Warn("Endpoint to restore has been deleted")
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
@@ -371,8 +385,22 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
-	// the identity even if has not changed.
-	e.SetIdentity(id, true)
+	// the identity even if has not changed. This will also upsert the identity
+	// so that other parts of the system can correctly keep track of the identity.
+	identityToRelease := e.SetIdentity(id)
+
+	// If a separate goroutine has already set the identity we need to clear a reference
+	// to avoid leaking a ref.
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
+		if err != nil {
+			e.getLogger().Warn(
+				"Unable to release old endpoint identity",
+				logfields.Error, err,
+				logfields.Identity, identityToRelease.ID,
+			)
+		}
+	}
 	e.unlock()
 
 	return nil
