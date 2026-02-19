@@ -39,7 +39,7 @@ func TestWriteInformationalComments(t *testing.T) {
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 	}
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -71,7 +71,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 	}
-	e, err := NewEndpointFromChangeModel(b.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))

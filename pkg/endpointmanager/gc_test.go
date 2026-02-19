@@ -47,7 +47,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 			NamedPortsGetter: testipcache.NewMockIPCache(),
 			Allocator:        testidentity.NewMockIdentityAllocator(nil),

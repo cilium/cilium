@@ -188,7 +188,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 	p := s.createTestEndpointParams(t)
 	p.KVStoreSynchronizer = kvstoreSync
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, s.rsp, model, nil)
+	ep, err := NewEndpointFromChangeModel(p, nil, s.rsp, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

@@ -170,7 +170,7 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		return nil, false, fmt.Errorf("No EPs available when restoring")
 	}
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -905,7 +905,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep1, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -967,7 +967,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep3, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -1189,7 +1189,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep1, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),

@@ -7,7 +7,6 @@
 package endpoint
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -56,7 +55,7 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy EndpointProxy, model *models.EndpointChangeRequest, policyDebugLog io.Writer) (*Endpoint, error) {
+func NewEndpointFromChangeModel(p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy EndpointProxy, model *models.EndpointChangeRequest, policyDebugLog io.Writer) (*Endpoint, error) {
 	if model == nil {
 		return nil, nil
 	}
