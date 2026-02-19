@@ -118,8 +118,12 @@ func computeEndpointDiff(oldCEPs, newCEPs map[string]*types.CiliumEndpoint) (add
 }
 
 // emitEndpointEvents sends endpoint events to the event channel.
+// Checks stream context before each send to bail out on cancellation.
 func (es *EndpointSource) emitEndpointEvents(eventType EndpointEventType, endpoints []*types.CiliumEndpoint) {
 	for _, ep := range endpoints {
+		if es.sp.stream != nil && es.sp.stream.Context().Err() != nil {
+			return
+		}
 		es.sp.endpointRecv <- &EndpointEvent{
 			Type:           eventType,
 			CiliumEndpoint: ep,
@@ -168,6 +172,10 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 		var initialBatch EndpointEventCollection
 
 		for e := range newSliceEvents {
+			if ctx.Err() != nil {
+				e.Done(nil)
+				return
+			}
 			if e.Kind == resource.Sync {
 				if !synced {
 					syncCh <- initialBatch
@@ -224,6 +232,10 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 	var initialBatch EndpointEventCollection
 
 	for e := range newEvents {
+		if ctx.Err() != nil {
+			e.Done(nil)
+			return
+		}
 		if e.Kind == resource.Sync {
 			if !synced {
 				syncCh <- initialBatch
