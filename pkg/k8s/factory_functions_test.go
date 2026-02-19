@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1104,7 +1105,7 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 							ResourceVersion: "5454",
 							Generation:      5,
 							CreationTimestamp: metav1.Time{
-								Time: time.Date(2018, 01, 01, 01, 01, 01, 01, time.UTC),
+								Time: time.Date(2018, 0o1, 0o1, 0o1, 0o1, 0o1, 0o1, time.UTC),
 							},
 							Labels: map[string]string{
 								"foo": "bar",
@@ -1283,6 +1284,12 @@ func Test_ConvertCEPToCoreCEP(t *testing.T) {
 	cep := &v2.CiliumEndpoint{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-endpoint",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "Pod",
+					UID:  "test-pod-uid-1234",
+				},
+			},
 		},
 		Status: v2.EndpointStatus{
 			Identity: &v2.EndpointIdentity{
@@ -1315,6 +1322,7 @@ func Test_ConvertCEPToCoreCEP(t *testing.T) {
 
 	require.Equal(t, "test-endpoint", coreCEP.Name)
 	require.Equal(t, int64(1234), coreCEP.IdentityID)
+	require.Equal(t, "test-pod-uid-1234", coreCEP.PodUID)
 	require.Equal(t, "test-service-account", coreCEP.ServiceAccount)
 	require.Equal(t, v2.EncryptionSpec{Key: 42}, coreCEP.Encryption)
 	require.NotNil(t, coreCEP.Networking)
@@ -1323,10 +1331,29 @@ func Test_ConvertCEPToCoreCEP(t *testing.T) {
 	require.Equal(t, "http", coreCEP.NamedPorts[0].Name)
 }
 
+func Test_ConvertCEPToCoreCEP_NoPodOwner(t *testing.T) {
+	cep := &v2.CiliumEndpoint{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-endpoint",
+		},
+		Status: v2.EndpointStatus{
+			Identity: &v2.EndpointIdentity{
+				ID: 1234,
+			},
+		},
+	}
+
+	coreCEP := ConvertCEPToCoreCEP(cep)
+
+	require.Equal(t, "test-endpoint", coreCEP.Name)
+	require.Empty(t, coreCEP.PodUID, "PodUID should be empty when there is no Pod owner reference")
+}
+
 func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint(t *testing.T) {
 	coreCEP := &cilium_v2a1.CoreCiliumEndpoint{
 		Name:       "test-endpoint",
 		IdentityID: 5678,
+		PodUID:     "test-pod-uid-5678",
 		Networking: &v2.EndpointNetworking{
 			Addressing: []*v2.AddressPair{
 				{
@@ -1360,6 +1387,22 @@ func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint(t *testing.T) {
 	require.Equal(t, "192.168.1.2", typesCEP.Networking.NodeIP)
 	require.Len(t, typesCEP.NamedPorts, 1)
 	require.Equal(t, "grpc", typesCEP.NamedPorts[0].Name)
+	// Verify OwnerReferences reconstructed from PodUID
+	require.Len(t, typesCEP.OwnerReferences, 1)
+	require.Equal(t, "Pod", typesCEP.OwnerReferences[0].Kind)
+	require.Equal(t, k8sTypes.UID("test-pod-uid-5678"), typesCEP.OwnerReferences[0].UID)
+}
+
+func Test_ConvertCoreCiliumEndpointToTypesCiliumEndpoint_NoPodUID(t *testing.T) {
+	coreCEP := &cilium_v2a1.CoreCiliumEndpoint{
+		Name:       "test-endpoint",
+		IdentityID: 5678,
+	}
+
+	typesCEP := ConvertCoreCiliumEndpointToTypesCiliumEndpoint(coreCEP, "test-namespace")
+
+	require.Equal(t, "test-endpoint", typesCEP.Name)
+	require.Nil(t, typesCEP.OwnerReferences)
 }
 
 func Test_AnnotationsEqual(t *testing.T) {

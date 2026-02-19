@@ -1296,6 +1296,9 @@ func (in *CoreCiliumEndpoint) DeepEqual(other *CoreCiliumEndpoint) bool {
 	if in.IdentityID != other.IdentityID {
 		return false
 	}
+	if in.PodUID != other.PodUID {
+		return false
+	}
 	if (in.Networking == nil) != (other.Networking == nil) {
 		return false
 	} else if in.Networking != nil {
