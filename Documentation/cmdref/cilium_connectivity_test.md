@@ -29,6 +29,7 @@ cilium connectivity test [flags]
   -d, --debug                                                 Show debug messages
       --dns-test-server-image string                          Image path to use for CoreDNS (default "registry.k8s.io/coredns/coredns:v1.12.4@sha256:986f04c2e15e147d00bdd51e8c51bcef3644b13ff806be7d2ff1b261d6dfbae1")
       --echo-image string                                     Image path to use for echo server (default "gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd")
+      --exit-zero-on-failure                                  Exit with zero return code even when test failures are detected
       --external-cidr string                                  IPv4 CIDR to use as external target in connectivity tests (default "1.0.0.0/8")
       --external-cidrv6 string                                IPv6 CIDR to use as external target in connectivity tests (default "2606:4700:4700::/96")
       --external-ip string                                    IPv4 to use as external target in connectivity tests (default "1.1.1.1")

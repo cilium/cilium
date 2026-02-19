@@ -145,6 +145,7 @@ type Parameters struct {
 	CurlInsecure   bool
 	CurlParallel   uint
 
+	ExitZeroOnFailure       bool
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options
 
