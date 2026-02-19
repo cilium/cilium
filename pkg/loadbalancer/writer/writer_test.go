@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"os"
 	"slices"
 	"testing"
@@ -69,7 +70,7 @@ func fixture(t testing.TB) (p testParams) {
 func intToAddr(i int) cmtypes.AddrCluster {
 	var addr [4]byte
 	binary.BigEndian.PutUint32(addr[:], 0x0100_0000+uint32(i))
-	addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
+	addrCluster := cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0)
 	return addrCluster
 }
 
