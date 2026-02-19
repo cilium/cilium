@@ -1,0 +1,87 @@
+#! --lrp-address-matcher-cidrs=169.254.169.0/24
+
+hive start
+
+# Add a pod
+k8s/add pod.yaml
+
+# Add LRP with ForceRedirectOrDrop enabled
+k8s/add lrp.yaml
+
+# Wait for the frontend.
+db/show frontends
+* stdout '169.254.169.254:8080/TCP.*10.244.2.1:80/TCP.*Done'
+
+# Delete the pod
+k8s/delete pod.yaml
+
+# Frontend should still exist, but with no backends because of ForceRedirectOrDrop
+db/show frontends
+* stdout '169.254.169.254:8080/TCP'
+! stdout '169.254.169.254:80/TCP'
+
+# Update LRP to disable ForceRedirectOrDrop
+replace 'forceRedirectOrDrop: true' 'forceRedirectOrDrop: false' lrp.yaml
+k8s/update lrp.yaml
+
+# Frontend should be gone (no backends and no force redirect)
+db/show frontends
+* stdout 'Address.*Type.*ServiceName.*Backends.*RedirectTo.*Status'
+!* stdout '169.254.169.254'
+
+# ---
+
+-- lrp.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-force"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    forceRedirectOrDrop: true
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready
