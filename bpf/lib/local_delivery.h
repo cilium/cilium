@@ -55,7 +55,7 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	return DROP_EP_NOT_READY;
 }
 
-static __always_inline bool should_fast_redirect(struct __ctx_buff *ctx, bool from_host)
+static __always_inline bool should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
 {
 	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
@@ -80,10 +80,10 @@ static __always_inline bool should_fast_redirect(struct __ctx_buff *ctx, bool fr
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx,
 				       int ifindex,
-				       bool use_fast_redirect,
+				       bool use_redirect_peer,
 				       bool from_tunnel)
 {
-	if (!use_fast_redirect)
+	if (!use_redirect_peer)
 		return (int)ctx_redirect(ctx, ifindex, 0);
 
 	/* When coming from overlay, we need to set packet type
@@ -119,7 +119,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 	       const struct endpoint_info *ep, __u8 direction, bool from_host,
 	       bool from_tunnel, __u32 cluster_id)
 {
-	bool use_fast_redirect;
+	bool use_redirect_peer;
 
 #ifdef LOCAL_DELIVERY_METRICS
 	/*
@@ -146,8 +146,8 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
  * this case the skb is delivered directly to pod's namespace and the ingress
  * policy (the cil_to_container BPF program) is bypassed.
  */
-	use_fast_redirect = should_fast_redirect(ctx, from_host);
-	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_fast_redirect &&
+	use_redirect_peer = should_redirect_peer(ctx, from_host);
+	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_redirect_peer &&
 	    /* We need to enforce policies at the source in case of netkit
 	     * devices because we can't redirect to proxy from bpf_lxc. That
 	     * needs a fix upstream.
@@ -169,7 +169,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 		}
 # endif /* !ENABLE_NODEPORT */
 
-		return redirect_ep(ctx, ep->ifindex, use_fast_redirect, from_tunnel);
+		return redirect_ep(ctx, ep->ifindex, use_redirect_peer, from_tunnel);
 	}
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */

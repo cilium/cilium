@@ -2018,7 +2018,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  should_fast_redirect(ctx, from_host),
+					  should_redirect_peer(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
@@ -2342,7 +2342,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  should_fast_redirect(ctx, from_host),
+					  should_redirect_peer(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
