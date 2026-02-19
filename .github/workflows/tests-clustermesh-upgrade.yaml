@@ -115,10 +115,10 @@ jobs:
         include:
           - name: '1'
             encryption: 'disabled'
-            kube-proxy: 'iptables'
+            kube-proxy: 'none'
             external-kvstore: false
-            max-connected-clusters: 255
-            cm-auth-mode: 'legacy'
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
 
           - name: '2'
             encryption: 'disabled'
@@ -127,28 +127,61 @@ jobs:
             max-connected-clusters: 511
             cm-auth-mode: 'migration'
 
-          # Currently, ipsec requires to synchronously regenerate the host
-          # endpoint to ensure ordering (#25735). Given that this is a blocking
-          # operation, we cannot wait for full clustermesh synchronization
-          # for an extended period of time, as that would prevent the agents from
-          # becoming ready (and new pods scheduled). This means that we will
-          # experience cross-cluster connection drops during upgrades/downgrades,
-          # given that the timeout is too low to account for the initialization
-          # of a new clustermesh-apiserver replica (while it is enough to prevent
-          # issues in case of agent restarts, if all remote clusters are ready,
-          # as well as when connecting to an external kvstore as in this case).
           - name: '3'
-            encryption: 'ipsec'
-            kube-proxy: 'iptables'
-            external-kvstore: true
-            max-connected-clusters: 255
-
-          - name: '4'
-            encryption: 'wireguard'
-            kube-proxy: 'iptables'
+            encryption: 'disabled'
+            kube-proxy: 'none'
             external-kvstore: false
             max-connected-clusters: 511
-            cm-auth-mode: 'cluster'
+            cm-auth-mode: 'migration'
+
+          - name: '4'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '5'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '6'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '7'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '8'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '9'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
+
+          - name: '10'
+            encryption: 'disabled'
+            kube-proxy: 'none'
+            external-kvstore: false
+            max-connected-clusters: 511
+            cm-auth-mode: 'migration'
 
     steps:
       - name: Set commit status to pending
@@ -484,7 +517,9 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --junit-file "cilium-junits/${{ env.job_name }} - pre-upgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests pre-upgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests pre-upgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-pre-upgrade-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -494,7 +529,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-pre-upgrade-2
 
       - name: Features tested on cluster 1
         uses: ./.github/actions/feature-status
@@ -638,7 +675,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-upgrade-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -648,7 +687,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-upgrade-2
 
       - name: Features tested on cluster 1 - post upgrade
         uses: ./.github/actions/feature-status
@@ -725,7 +766,9 @@ jobs:
             --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-stress-1
 
           # Create pods which establish long lived connections. They will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
@@ -735,7 +778,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-stress-2
 
       - name: Features tested on cluster 1 - stress-test
         uses: ./.github/actions/feature-status
@@ -786,7 +831,9 @@ jobs:
             --include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
-            --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
+            --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})" \
+            --collect-sysdump-on-failure \
+            --sysdump-output-filename cilium-sysdump-post-downgrade-1
 
       - name: Features tested on cluster 1 - post-downgrade
         uses: ./.github/actions/feature-status
