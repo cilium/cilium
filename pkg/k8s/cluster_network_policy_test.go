@@ -282,6 +282,17 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 						"k8s:io.cilium.k8s.policy.cluster": clusterName,
 					},
 					MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
+						Key:      "reserved:host",
+						Operator: "Exists",
+						Values:   []string{},
+					}},
+				}),
+				api.NewESFromK8sLabelSelector("", &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"node:kubernetes.io/hostname":      "node1",
+						"k8s:io.cilium.k8s.policy.cluster": clusterName,
+					},
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
 						Key:      "reserved:remote-node",
 						Operator: "Exists",
 						Values:   []string{},
