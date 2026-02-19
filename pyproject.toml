@@ -1,0 +1,9 @@
+[project]
+name = "cilium-tooling"
+version = "0.1.0"
+description = "Python dependencies required for building tools around Cilium"
+dependencies = ["pygithub>=2.8.1", "scapy>=2.7.0"]
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = []

@@ -161,6 +161,14 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			versionRegexp: regexp.MustCompile(`pip ` + versionRegex),
 		},
 		&binaryCheck{
+			name:          "python3",
+			ifNotFound:    checkError,
+			versionArgs:   []string{"--version"},
+			versionRegexp: regexp.MustCompile(`Python\s+` + versionRegex),
+			minVersion:    &semver.Version{Major: 3, Minor: 10, Patch: 0},
+		},
+		&pythonDepsCheck{},
+		&binaryCheck{
 			name:          "kind",
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"--version"},
@@ -191,21 +199,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			&binaryCheck{
 				name:       "jq",
 				ifNotFound: checkError,
-			},
-			&binaryCheck{
-				name:          "python3",
-				ifNotFound:    checkError,
-				versionArgs:   []string{"--version"},
-				versionRegexp: regexp.MustCompile(`Python\s+` + versionRegex),
-				minVersion:    &semver.Version{Major: 3, Minor: 6, Patch: 0},
-			},
-			&commandCheck{
-				name:             "pygithub",
-				command:          "python3",
-				args:             []string{"-c", "from github import Github"},
-				ifFailure:        checkWarning,
-				ifSuccessMessage: "pygithub installed",
-				hint:             `Run "pip3 install --user PyGithub".`,
 			},
 			&binaryCheck{
 				name:          "gh",
