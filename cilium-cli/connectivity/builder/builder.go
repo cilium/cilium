@@ -288,6 +288,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		clientEgressToCidrgroupDenyByLabel{},
 		clientEgressToCidrDenyDefault{},
 		clusterMeshEndpointSliceSync{},
+		clusterMeshNSNotGlobal{},
 		health{},
 		northSouthLoadbalancing{},
 		podToPodEncryption{},

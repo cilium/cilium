@@ -945,6 +945,89 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 	return nil
 }
 
+const (
+	NonGlobalNSName   = "cilium-test-ns-not-global"
+	nonGlobalEchoName = "echo-non-global"
+)
+
+func DeployNonGlobalNSTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) error {
+	clients := ct.Clients()
+	if len(clients) < 2 {
+		return fmt.Errorf("non-global namespace test requires at least 2 clusters")
+	}
+
+	for _, client := range clients {
+		_, err := client.GetNamespace(ctx, NonGlobalNSName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Creating non-global namespace %s...", client.ClusterName(), NonGlobalNSName)
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: NonGlobalNSName,
+				},
+			}
+			_, err = client.CreateNamespace(ctx, ns, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %w", NonGlobalNSName, err)
+			}
+		}
+	}
+
+	remoteClient := clients[1]
+
+	_, err := remoteClient.GetDeployment(ctx, NonGlobalNSName, nonGlobalEchoName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s in namespace %s...", remoteClient.ClusterName(), nonGlobalEchoName, NonGlobalNSName)
+		containerPort := 8080
+		echoDeploy := newDeployment(deploymentParameters{
+			Name:           nonGlobalEchoName,
+			Kind:           kindEchoName,
+			Port:           containerPort,
+			Image:          ct.params.JSONMockImage,
+			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+		})
+		_, err = remoteClient.CreateServiceAccount(ctx, NonGlobalNSName, k8s.NewServiceAccount(nonGlobalEchoName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %w", nonGlobalEchoName, err)
+		}
+		_, err = remoteClient.CreateDeployment(ctx, NonGlobalNSName, echoDeploy, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %w", nonGlobalEchoName, err)
+		}
+	}
+
+	for _, client := range clients {
+		_, err := client.GetService(ctx, NonGlobalNSName, nonGlobalEchoName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service in namespace %s...", client.ClusterName(), nonGlobalEchoName, NonGlobalNSName)
+			svc := newService(nonGlobalEchoName, map[string]string{"name": nonGlobalEchoName}, nil, "http", 8080, string(corev1.ServiceTypeClusterIP))
+			svc.ObjectMeta.Annotations = map[string]string{
+				"service.cilium.io/global": "true",
+				"io.cilium/global-service": "true",
+			}
+			_, err = client.CreateService(ctx, NonGlobalNSName, svc, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service %s: %w", nonGlobalEchoName, err)
+			}
+		}
+	}
+
+	if err := WaitForDeployment(ctx, ct, remoteClient, NonGlobalNSName, nonGlobalEchoName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CleanupNonGlobalNSTestEnv(ctx context.Context, ct *ConnectivityTest) error {
+	for _, client := range ct.Clients() {
+		_ = client.DeleteDeployment(ctx, NonGlobalNSName, nonGlobalEchoName, metav1.DeleteOptions{})
+		_ = client.DeleteService(ctx, NonGlobalNSName, nonGlobalEchoName, metav1.DeleteOptions{})
+		_ = client.DeleteServiceAccount(ctx, NonGlobalNSName, nonGlobalEchoName, metav1.DeleteOptions{})
+		_ = client.DeleteNamespace(ctx, NonGlobalNSName, metav1.DeleteOptions{})
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 	namespaceConfigs := []struct {
 		name string
