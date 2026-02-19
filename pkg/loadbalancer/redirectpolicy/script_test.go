@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -80,6 +81,9 @@ func TestScript(t *testing.T) {
 
 				node.LocalNodeStoreTestCell,
 				maglev.Cell,
+				cell.Invoke(func(s *node.LocalNodeStore) {
+					lns = s
+				}),
 				cell.Provide(
 					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					source.NewSources,
@@ -119,6 +123,28 @@ func TestScript(t *testing.T) {
 			})
 			cmds, err := h.ScriptCommands(log)
 			require.NoError(t, err, "ScriptCommands")
+
+			cmds["localnode/update"] = script.Command(
+				script.CmdUsage{
+					Summary: "update local node labels",
+					Args:    "label=value...",
+				},
+				func(s *script.State, args ...string) (script.WaitFunc, error) {
+					lns.Update(func(n *node.LocalNode) {
+						if n.Labels == nil {
+							n.Labels = make(map[string]string)
+						}
+						for _, arg := range args {
+							kv := strings.SplitN(arg, "=", 2)
+							if len(kv) == 2 {
+								n.Labels[kv[0]] = kv[1]
+							}
+						}
+					})
+					return nil, nil
+				},
+			)
+
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 			return &script.Engine{
 				Cmds:          cmds,
@@ -126,6 +152,8 @@ func TestScript(t *testing.T) {
 			}
 		}, []string{}, "testdata/*.txtar")
 }
+
+var lns *node.LocalNodeStore
 
 type fakeSkipLBMap struct {
 	entries lock.Map[any, any]
