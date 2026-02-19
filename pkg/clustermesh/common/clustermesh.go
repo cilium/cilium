@@ -225,9 +225,7 @@ func (cm *clusterMesh) remove(name string) {
 	delete(cm.clusters, name)
 	cm.conf.Metrics.TotalRemoteClusters.Set(float64(len(cm.clusters)))
 
-	cm.wg.Add(1)
-	go func() {
-		defer cm.wg.Done()
+	cm.wg.Go(func() {
 
 		// Run onRemove in a separate go routing as potentially slow, to avoid
 		// blocking the processing of further events in the meanwhile.
@@ -243,7 +241,7 @@ func (cm *clusterMesh) remove(name string) {
 			cm.addLocked(name, path)
 		}
 		cm.mutex.Unlock()
-	}()
+	})
 
 	cm.conf.Logger.Debug("Remote cluster configuration removed", fieldClusterName, name)
 }

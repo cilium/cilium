@@ -77,11 +77,9 @@ func registerLeaderElectionHooks(lc cell.Lifecycle, llc *LeaderLifecycle, params
 
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				runLeaderElection(ctx, llc, params)
-				wg.Done()
-			}()
+			})
 			return nil
 		},
 		OnStop: func(hctx cell.HookContext) error {

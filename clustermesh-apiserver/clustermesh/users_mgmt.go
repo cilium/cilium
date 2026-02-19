@@ -116,9 +116,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 		DoFunc:  us.sync,
 	})
 
-	us.wg.Add(1)
-	go func() {
-		defer us.wg.Done()
+	us.wg.Go(func() {
 
 		for {
 			select {
@@ -136,7 +134,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 				return
 			}
 		}
-	}()
+	})
 
 	return nil
 }

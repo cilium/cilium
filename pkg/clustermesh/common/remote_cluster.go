@@ -174,12 +174,10 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.mutex.Unlock()
 
 				ctx, cancel := context.WithCancel(ctx)
-				rc.wg.Add(1)
-				go func() {
+				rc.wg.Go(func() {
 					rc.watchdog(ctx, backend, clusterLock)
 					cancel()
-					rc.wg.Done()
-				}()
+				})
 
 				rc.logger.Info(
 					"Connection to remote cluster established",
@@ -226,12 +224,10 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				// to return early from the controller body, so that the statistics
 				// are updated correctly. Instead, blocking until rc.Run terminates
 				// would prevent a previous failure from being cleared out.
-				rc.wg.Add(1)
-				go func() {
+				rc.wg.Go(func() {
 					rc.Run(ctx, backend, config, ready)
 					cancel()
-					rc.wg.Done()
-				}()
+				})
 
 				if err := <-ready; err != nil {
 					select {
