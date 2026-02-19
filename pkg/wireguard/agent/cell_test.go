@@ -77,7 +77,6 @@ type paramsOut struct {
 	ClusterMeshMetrics    clustermesh.ClusterMeshMetrics
 	RemoteIdentityWatcher clustermesh.RemoteIdentityWatcher
 	CacheStatus           k8sSynced.CacheStatus
-	ClusterInfo           cmtypes.ClusterInfo
 }
 
 func TestPrivileged_TestWireGuardCell(t *testing.T) {
@@ -124,6 +123,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			ipset.Cell,
 			k8s.ResourcesCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),
+			cell.Config(cmtypes.DefaultClusterInfo),
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
 			node.LocalNodeStoreTestCell,
@@ -187,7 +187,6 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 						ClusterMeshMetrics:    nil,
 						RemoteIdentityWatcher: nil,
 						CacheStatus:           make(k8sSynced.CacheStatus),
-						ClusterInfo:           cmtypes.DefaultClusterInfo,
 					}
 				},
 			),

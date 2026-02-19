@@ -4,10 +4,8 @@
 package identity
 
 import (
-	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -77,54 +75,5 @@ func TestAsUint32Slice(t *testing.T) {
 	require.Len(t, uint32Slice, len(nids))
 	for i, nid := range nids {
 		require.Equal(t, nid.Uint32(), uint32Slice[i])
-	}
-}
-
-func TestGetClusterIDShift(t *testing.T) {
-	resetClusterIDInit := func() { clusterIDInit = sync.Once{} }
-
-	tests := []struct {
-		name                   string
-		maxConnectedClusters   uint32
-		expectedClusterIDShift uint32
-		expectedClusterIDBits  uint32
-	}{
-		{
-			name:                   "clustermesh255",
-			maxConnectedClusters:   255,
-			expectedClusterIDShift: 16,
-			expectedClusterIDBits:  8,
-		},
-		{
-			name:                   "clustermesh511",
-			maxConnectedClusters:   511,
-			expectedClusterIDShift: 15,
-			expectedClusterIDBits:  9,
-		},
-	}
-
-	// cleanup state from any previous tests
-	resetClusterIDInit()
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Cleanup(resetClusterIDInit)
-			cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tt.maxConnectedClusters}
-			cinfo.InitClusterIDMax()
-			assert.Equal(t, tt.expectedClusterIDShift, GetClusterIDShift())
-			assert.Equal(t, tt.expectedClusterIDBits, GetClusterIDBits())
-
-			// ensure we cannot change the clusterIDShift after it has been initialized
-			for _, tc := range tests {
-				if tc.name == tt.name {
-					// skip the current test case itself
-					continue
-				}
-				newCinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tc.maxConnectedClusters}
-				newCinfo.InitClusterIDMax()
-				assert.NotEqual(t, tc.expectedClusterIDShift, GetClusterIDShift())
-				assert.NotEqual(t, tc.expectedClusterIDBits, GetClusterIDBits())
-			}
-		})
 	}
 }

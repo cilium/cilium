@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"sort"
 	"strconv"
-	"sync"
 	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -80,20 +79,6 @@ const (
 	// InvalidIdentity is the identity assigned if the identity is invalid
 	// or not determined yet
 	InvalidIdentity = NumericIdentity(0)
-)
-
-var (
-	// clusterIDInit ensures that clusterIDBits and clusterIDShift can only be
-	// set once, and only if we haven't used either value elsewhere already.
-	clusterIDInit sync.Once
-
-	// clusterIDBits is the number of bits that represent a cluster ID in a
-	// numeric identity
-	clusterIDBits uint32
-
-	// clusterIDShift is the number of bits to shift a cluster ID in a numeric
-	// identity and is equal to the number of bits that represent a cluster-local identity.
-	clusterIDShift uint32
 )
 
 const (
@@ -324,37 +309,13 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	return len(WellKnown)
 }
 
-// GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
-// identity and is equal to the number of bits that represent a cluster-local identity.
-// A sync.Once is used to ensure we only initialize clusterIDShift once.
-func GetClusterIDShift() uint32 {
-	clusterIDInit.Do(initClusterIDShift)
-	return clusterIDShift
-}
-
-// GetClusterIDBits returns the number of bits that represent a cluster ID in a numeric identity
-// A sync.Once is used to ensure we only initialize clusterIDBits once.
-func GetClusterIDBits() uint32 {
-	clusterIDInit.Do(initClusterIDShift)
-	return clusterIDBits
-}
-
-// initClusterIDShift sets variables that control the bit allocation of cluster
-// ID in a numeric identity.
-func initClusterIDShift() {
-	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	clusterIDBits = uint32(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
-	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
-	clusterIDShift = NumericIdentityBitlength - clusterIDBits
-}
-
 // GetMinimalNumericIdentity returns the minimal numeric identity not used for
 // reserved purposes.
 func GetMinimalAllocationIdentity(clusterID uint32) NumericIdentity {
 	if clusterID > 0 {
 		// For ClusterID > 0, the identity range just starts from cluster shift,
 		// no well-known-identities need to be reserved from the range.
-		return NumericIdentity((1 << GetClusterIDShift()) * clusterID)
+		return NumericIdentity((1 << cmtypes.DefaultClusterInfo.GetClusterIDShift()) * clusterID)
 	}
 	return MinimalNumericIdentity
 }
@@ -362,7 +323,7 @@ func GetMinimalAllocationIdentity(clusterID uint32) NumericIdentity {
 // GetMaximumAllocationIdentity returns the maximum numeric identity that
 // should be handed out by the identity allocator.
 func GetMaximumAllocationIdentity(clusterID uint32) NumericIdentity {
-	return NumericIdentity((1<<GetClusterIDShift())*(clusterID+1) - 1)
+	return NumericIdentity((1<<cmtypes.DefaultClusterInfo.GetClusterIDShift())*(clusterID+1) - 1)
 }
 
 var (
@@ -446,10 +407,6 @@ func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error
 //	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
-// NumericIdentityBitlength is the number of bits used on the wire for a
-// NumericIdentity
-const NumericIdentityBitlength = 24
-
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
 const MaxNumericIdentity = math.MaxUint32
 
@@ -507,7 +464,7 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> uint32(GetClusterIDShift())) & cmtypes.ClusterIDMax
+	return (uint32(id) >> uint32(cmtypes.DefaultClusterInfo.GetClusterIDShift())) & cmtypes.ClusterIDMax
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

@@ -31,6 +31,25 @@ type ClusterInfo struct {
 	MaxConnectedClusters uint32 `mapstructure:"max-connected-clusters"`
 }
 
+const numericIdentityBitlength = 24
+
+// GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
+// identity and is equal to the number of bits that represent a cluster-local identity.
+func (c ClusterInfo) GetClusterIDShift() uint32 {
+	return numericIdentityBitlength - c.GetClusterIDBits()
+}
+
+// GetClusterIDBits returns the number of bits that represent a cluster ID in a numeric identity
+func (c ClusterInfo) GetClusterIDBits() uint32 {
+	switch c.MaxConnectedClusters {
+	case ClusterIDExt511:
+		return 9
+	case ClusterID255:
+		return 8
+	}
+	panic(fmt.Errorf("unsupported value for max connected clusters: %d", c.MaxConnectedClusters))
+}
+
 // DefaultClusterInfo represents the default ClusterInfo values.
 var DefaultClusterInfo = ClusterInfo{
 	ID:                   0,
@@ -39,10 +58,10 @@ var DefaultClusterInfo = ClusterInfo{
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
-func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
-	flags.Uint32(OptClusterID, def.ID, "Unique identifier of the cluster")
-	flags.String(OptClusterName, def.Name, "Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character.")
-	flags.Uint32(OptMaxConnectedClusters, def.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
+func (c ClusterInfo) Flags(flags *pflag.FlagSet) {
+	flags.Uint32(OptClusterID, c.ID, "Unique identifier of the cluster")
+	flags.String(OptClusterName, c.Name, "Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character.")
+	flags.Uint32(OptMaxConnectedClusters, c.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511].")
 }
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),

@@ -131,6 +131,37 @@ func TestClusterInfoValidateBuggyClusterID(t *testing.T) {
 	}
 }
 
+func TestGetClusterIDShift(t *testing.T) {
+	tests := []struct {
+		name                   string
+		maxConnectedClusters   uint32
+		expectedClusterIDShift uint32
+		expectedClusterIDBits  uint32
+	}{
+		{
+			name:                   "clustermesh255",
+			maxConnectedClusters:   255,
+			expectedClusterIDShift: 16,
+			expectedClusterIDBits:  8,
+		},
+		{
+			name:                   "clustermesh511",
+			maxConnectedClusters:   511,
+			expectedClusterIDShift: 15,
+			expectedClusterIDBits:  9,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cinfo := ClusterInfo{MaxConnectedClusters: tt.maxConnectedClusters}
+			assert.NoError(t, cinfo.InitClusterIDMax())
+			assert.Equal(t, tt.expectedClusterIDShift, cinfo.GetClusterIDShift())
+			assert.Equal(t, tt.expectedClusterIDBits, cinfo.GetClusterIDBits())
+		})
+	}
+}
+
 func TestValidateRemoteConfig(t *testing.T) {
 	tests := []struct {
 		name      string

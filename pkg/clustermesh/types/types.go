@@ -16,6 +16,7 @@ import (
 const (
 	// ClusterIDMin is the minimum value of the cluster ID
 	ClusterIDMin    = 0
+	ClusterID255    = 255
 	ClusterIDExt511 = 511
 
 	ClusterIDUnset = ClusterIDMin
