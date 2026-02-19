@@ -159,6 +159,10 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 		var initialBatch EndpointEventCollection
 
 		for e := range newSliceEvents {
+			if ctx.Err() != nil {
+				e.Done(nil)
+				return
+			}
 			if e.Kind == resource.Sync {
 				if !synced {
 					syncCh <- initialBatch
@@ -197,6 +201,10 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 	var initialBatch EndpointEventCollection
 
 	for e := range newEvents {
+		if ctx.Err() != nil {
+			e.Done(nil)
+			return
+		}
 		if e.Kind == resource.Sync {
 			if !synced {
 				syncCh <- initialBatch
