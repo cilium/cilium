@@ -40,6 +40,7 @@ func CreateManagerEndpoint(name string, identity int64, node string) capi_v2a1.C
 	return capi_v2a1.CoreCiliumEndpoint{
 		Name:       name,
 		IdentityID: identity,
+		PodUID:     name + "-uid",
 		Networking: &v2.EndpointNetworking{
 			NodeIP: NodeIPs[node],
 		},
