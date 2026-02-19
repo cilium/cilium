@@ -219,6 +219,7 @@ rules:
   - ciliumbgppeerconfigs
   - ciliumbgpadvertisements
   - ciliumbgpnodeconfigs
+  - ciliumcidrgroups
   verbs:
   - create
   - update

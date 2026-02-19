@@ -159,3 +159,14 @@ func EndpointsResource(logger *slog.Logger, lc cell.Lifecycle, cfg k8s.ConfigPar
 		mp,
 	)
 }
+
+func CiliumCIDRGroupResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumCIDRGroup], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(cs.CiliumV2().CiliumCIDRGroups()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumCIDRGroup](lc, lw, mp, resource.WithMetric("CiliumCIDRGroup")), nil
+}

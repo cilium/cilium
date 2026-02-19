@@ -5,6 +5,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 
@@ -14,6 +17,10 @@ import (
 
 const (
 	AWSProvider = "AWS" // AWS provider key
+
+	// A label prefix set on a CiliumCIDRGroup that contains
+	// the IPs in this group.
+	LabelGroupKeyPrefix = "extgrp.cilium.io/"
 )
 
 var (
@@ -36,6 +43,32 @@ type AWSGroup struct {
 	SecurityGroupsIds   []string          `json:"securityGroupsIds,omitempty"`
 	SecurityGroupsNames []string          `json:"securityGroupsNames,omitempty"`
 	Region              string            `json:"region,omitempty"`
+}
+
+// Hash hashes this group to a standard key. This is used to reference the group
+// when generating downstream resources.
+func (g *Groups) Hash() string {
+	if g == nil {
+		return ""
+	}
+
+	b, err := json.Marshal(g)
+	if err != nil {
+		// unreachable; we already loaded this from JSON via the apiserver...
+		return ""
+	}
+	sum := sha256.New224().Sum(b)
+	return base64.RawURLEncoding.EncodeToString(sum)[0:63]
+}
+
+// LabelKey returns a unique label key for this group, in the format of
+// extgrp.cilium.io/<sha224>.
+// This can be used to reference the group in dependent resources.
+//
+// The hash is part of the label key, not the label value, to prevent collisions
+// if the same IP is referenced by multiple groups.
+func (g *Groups) LabelKey() string {
+	return LabelGroupKeyPrefix + g.Hash()
 }
 
 // RegisterToGroupsProvider it will register a new callback that will be used
