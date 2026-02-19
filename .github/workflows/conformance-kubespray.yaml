@@ -238,6 +238,10 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=2m
           kubectl get pods --all-namespaces -o wide
 
+      - name: Debug
+        run: |
+          ip -d addr
+
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
