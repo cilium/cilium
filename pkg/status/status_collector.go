@@ -382,6 +382,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.Annotations = append(features.Annotations, annotation.ServiceNodeExposure)
 		features.Annotations = append(features.Annotations, annotation.ServiceNodeSelectorExposure)
 		features.Annotations = append(features.Annotations, annotation.ServiceTypeExposure)
+		features.Annotations = append(features.Annotations, annotation.ServiceScopeExposure)
 		features.Annotations = append(features.Annotations, annotation.ServiceProxyDelegation)
 		features.Annotations = append(features.Annotations, annotation.ServiceSourceRangesPolicy)
 		sort.Strings(features.Annotations)
