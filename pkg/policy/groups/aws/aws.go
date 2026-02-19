@@ -30,7 +30,7 @@ func init() {
 func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, error) {
 	result := []netip.Addr{}
 	if group.AWS == nil {
-		return result, fmt.Errorf("no aws data available")
+		return result, nil
 	}
 
 	cfg, err := cilium_ec2.NewConfig(ctx)
