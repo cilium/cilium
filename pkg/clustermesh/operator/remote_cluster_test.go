@@ -143,11 +143,9 @@ func TestRemoteClusterStatus(t *testing.T) {
 				},
 			}
 			ready := make(chan error)
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				rc.Run(ctx, client, cfg, ready)
-				wg.Done()
-			}()
+			})
 
 			require.NoError(t, <-ready, "rc.Run() failed")
 
@@ -215,11 +213,9 @@ func TestRemoteClusterHooks(t *testing.T) {
 		return &models.RemoteCluster{Ready: true, Config: &models.RemoteClusterConfig{}}
 	})
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		rc.Run(ctx, client, cfg, ready)
-		wg.Done()
-	}()
+	})
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.EqualValues(c, 1, clusterAddCalledCount.Load(), "cluster add called once")
