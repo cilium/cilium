@@ -1684,10 +1684,18 @@
      - failure threshold of liveness probe
      - int
      - ``10``
+   * - :spelling:ignore:`envoy.livenessProbe.initialDelaySeconds`
+     - Initial delay before the liveness probe begins
+     - int
+     - ``0``
    * - :spelling:ignore:`envoy.livenessProbe.periodSeconds`
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.livenessProbe.timeoutSeconds`
+     - Timeout for the liveness probe
+     - int
+     - ``5``
    * - :spelling:ignore:`envoy.log.accessLogBufferSize`
      - Size of the Envoy access log buffer created within the agent in bytes. Tune this value up if you encounter "Envoy: Discarded truncated access log message" errors. Large request/response header sizes (e.g. 16KiB) will require a larger buffer size.
      - int
@@ -1796,10 +1804,18 @@
      - failure threshold of readiness probe
      - int
      - ``3``
+   * - :spelling:ignore:`envoy.readinessProbe.initialDelaySeconds`
+     - Initial delay before the readiness probe begins
+     - int
+     - ``0``
    * - :spelling:ignore:`envoy.readinessProbe.periodSeconds`
      - interval between checks of the readiness probe
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.readinessProbe.timeoutSeconds`
+     - Timeout for the readiness probe
+     - int
+     - ``5``
    * - :spelling:ignore:`envoy.resources`
      - Envoy resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
      - object
@@ -1832,10 +1848,18 @@
      - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
      - int
      - ``105``
+   * - :spelling:ignore:`envoy.startupProbe.initialDelaySeconds`
+     - Initial delay before the startup probe begins
+     - int
+     - ``5``
    * - :spelling:ignore:`envoy.startupProbe.periodSeconds`
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - :spelling:ignore:`envoy.startupProbe.timeoutSeconds`
+     - Timeout for the startup probe
+     - int
+     - ``5``
    * - :spelling:ignore:`envoy.streamIdleTimeoutDurationSeconds`
      - Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes
      - int
