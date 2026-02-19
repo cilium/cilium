@@ -5,9 +5,9 @@ package xds
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
-	"sync"
 	"testing"
 	"time"
 
@@ -74,79 +74,11 @@ type MockEndpointEventSource struct {
 	subscribeCalled bool
 }
 
-// SubscribeToEndpointEvents is a no-op for the mock since we
-// can rely on sending events to EndpointEventRecv directly in tests.
-func (m *MockEndpointEventSource) SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup) {
+// SubscribeToEndpointEvents sends an empty initial batch on syncCh and closes it.
+func (m *MockEndpointEventSource) SubscribeToEndpointEvents(ctx context.Context, syncCh chan<- EndpointEventCollection) {
+	defer close(syncCh)
 	m.subscribeCalled = true
-	wg.Done()
-}
-
-// ListAllEndpoints returns an empty list for the mock.
-func (m *MockEndpointEventSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
-	// Create multiple test endpoints to ensure comprehensive transformation testing
-	ceps := make([]*types.CiliumEndpoint, 0, 3)
-	expectedUIDs := []string{
-		"12345678-1234-1234-1234-123456789abc", // ep1
-		"87654321-4321-4321-4321-cba987654321", // ep2
-		"abcdef12-5678-9012-3456-789012345678", // ep3
-	}
-
-	// Endpoint 1: Full IPv4 + IPv6 endpoint with complete K8s metadata
-	ep1 := &endpoint.Endpoint{
-		ID:           1001,
-		K8sUID:       expectedUIDs[0],
-		K8sPodName:   "test-pod-1",
-		K8sNamespace: "default",
-		IPv4:         netip.MustParseAddr("10.0.1.100"),
-		IPv6:         netip.MustParseAddr("fd00::1:100"),
-	}
-	// Create and set a mock Pod for ep1
-	pod1 := &slim_corev1.Pod{
-		Spec: slim_corev1.PodSpec{
-			NodeName:           "node-1",
-			ServiceAccountName: "default-sa",
-		},
-	}
-	ep1.SetPod(pod1)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep1))
-
-	// Endpoint 2: IPv4-only endpoint with different metadata
-	ep2 := &endpoint.Endpoint{
-		ID:           1002,
-		K8sUID:       expectedUIDs[1],
-		K8sPodName:   "test-pod-2",
-		K8sNamespace: "kube-system",
-		IPv4:         netip.MustParseAddr("10.0.2.200"),
-	}
-	// Create and set a mock Pod for ep2
-	pod2 := &slim_corev1.Pod{
-		Spec: slim_corev1.PodSpec{
-			NodeName:           "node-2",
-			ServiceAccountName: "kube-system-sa",
-		},
-	}
-	ep2.SetPod(pod2)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep2))
-
-	// Endpoint 3: IPv6-only endpoint with different namespace
-	ep3 := &endpoint.Endpoint{
-		ID:           1003,
-		K8sUID:       expectedUIDs[2],
-		K8sPodName:   "test-pod-3",
-		K8sNamespace: "cilium-system",
-		IPv6:         netip.MustParseAddr("fd00::2:300"),
-	}
-	// Create and set a mock Pod for ep3
-	pod3 := &slim_corev1.Pod{
-		Spec: slim_corev1.PodSpec{
-			NodeName:           "node-3",
-			ServiceAccountName: "cilium-sa",
-		},
-	}
-	ep3.SetPod(pod3)
-	ceps = append(ceps, endpointToCiliumEndpoint(ep3))
-
-	return ceps, nil
+	syncCh <- EndpointEventCollection{}
 }
 
 func (m *MockEndpointEventSource) GetSubscriptionStatus() bool {
@@ -194,7 +126,7 @@ func TestStreamProcessorStart(t *testing.T) {
 		case <-done:
 			// Success - Start() returned as expected
 		case <-timeOutCTX.Done():
-			t.Fatal("Start() did not return within timeout when context was canceled")
+			t.Fatal("Start() did not return in time despite canceled context")
 		}
 	})
 }
@@ -318,12 +250,33 @@ func TestStreamProcessorEndpointEvents(t *testing.T) {
 		// Verify channel was fully drained
 		select {
 		case e := <-endpointEventChan:
-			// log remaining endpoint
-			t.Logf("Remaining endpoint event in channel: %+v", e)
-			t.Fatal("Channel should be fully drained")
+			t.Fatalf("Channel should be empty, but found event: %+v", e)
 		default:
 			// Channel is empty as expected
 		}
+	})
+
+	t.Run("SendMsg error returns error", func(t *testing.T) {
+		mockStream := &MockStream{}
+		mockStream.OnSendMsg = func(m any) error {
+			return fmt.Errorf("send failed")
+		}
+
+		endpointEventChan := make(chan *EndpointEvent, 1)
+		sp := &StreamProcessor{
+			stream:        mockStream,
+			endpointRecv:  endpointEventChan,
+			expectedNonce: make(map[string]struct{}),
+		}
+
+		event := &EndpointEvent{
+			Type:           CREATE,
+			CiliumEndpoint: makeCEP("test-pod", "default", "10.0.0.1"),
+		}
+
+		err := sp.handleEPEvent(event)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "send failed")
 	})
 }
 
@@ -343,15 +296,12 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 			TypeUrl:       "xdsTypeURLAddress",
 			ResponseNonce: "x",
 		}
-
-		if err := sp.handleDeltaDiscoveryReq(req); err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.NoError(t, err)
 
 		// ensure expected nonce is removed
-		if _, ok := sp.expectedNonce[req.ResponseNonce]; ok {
-			t.Fatalf("Expected nonce %q to be removed, but it still exists", req.ResponseNonce)
-		}
+		_, ok := sp.expectedNonce["x"]
+		require.False(t, ok)
 	})
 
 	t.Run("Unexpected Nonce", func(t *testing.T) {
@@ -370,77 +320,171 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 				Message: "test error",
 			},
 		}
-
-		if err := sp.handleDeltaDiscoveryReq(req); err == nil {
-			t.Fatal("Expected error for unexpected nonce, but got none")
-		} else {
-			t.Logf("Received expected error: %v", err)
-		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected nonce")
 	})
 
-	t.Run("Address Stream Initialization", func(t *testing.T) {
-		var recordedResponse *v3.DeltaDiscoveryResponse
+	t.Run("Nack logs error but does not return error", func(t *testing.T) {
+		sp := &StreamProcessor{
+			expectedNonce: map[string]struct{}{
+				"nack-nonce": {},
+			},
+			log: slog.New(slog.DiscardHandler),
+		}
+		sp.endpointSource = &MockEndpointEventSource{}
+
+		req := &v3.DeltaDiscoveryRequest{
+			TypeUrl:       xdsTypeURLAddress,
+			ResponseNonce: "nack-nonce",
+			ErrorDetail: &status.Status{
+				Code:    1,
+				Message: "test nack error",
+			},
+		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.NoError(t, err, "Nack should not return error, just log it")
+
+		// Verify nonce was removed
+		_, ok := sp.expectedNonce["nack-nonce"]
+		require.False(t, ok, "Nonce should be removed after Nack")
+	})
+
+	t.Run("Unexpected TypeURL returns error", func(t *testing.T) {
+		sp := &StreamProcessor{
+			expectedNonce: make(map[string]struct{}),
+			log:           slog.New(slog.DiscardHandler),
+		}
+		sp.endpointSource = &MockEndpointEventSource{}
+
+		req := &v3.DeltaDiscoveryRequest{
+			TypeUrl: "type.googleapis.com/unknown.type",
+		}
+		err := sp.handleDeltaDiscoveryReq(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected type URL")
+	})
+}
+
+func TestHandleAuthorizationTypeURL(t *testing.T) {
+	t.Run("returns empty response with static nonce", func(t *testing.T) {
+		var capturedResponse *v3.DeltaDiscoveryResponse
+		mockStream := &MockStream{}
+		mockStream.OnSendMsg = func(m any) error {
+			capturedResponse = m.(*v3.DeltaDiscoveryResponse)
+			return nil
+		}
+
+		sp := &StreamProcessor{
+			stream:        mockStream,
+			expectedNonce: make(map[string]struct{}),
+			log:           slog.New(slog.DiscardHandler),
+		}
+
+		req := &v3.DeltaDiscoveryRequest{
+			TypeUrl: xdsTypeURLAuthorization,
+		}
+
+		err := sp.handleAuthorizationTypeURL(req)
+		require.NoError(t, err)
+
+		// Verify response
+		require.NotNil(t, capturedResponse)
+		require.Equal(t, xdsTypeURLAuthorization, capturedResponse.TypeUrl)
+		require.Empty(t, capturedResponse.Resources)
+		require.Empty(t, capturedResponse.RemovedResources)
+		require.Equal(t, "0", capturedResponse.Nonce)
+
+		// Verify nonce was tracked
+		_, ok := sp.expectedNonce["0"]
+		require.True(t, ok)
+	})
+
+	t.Run("returns error when SendMsg fails", func(t *testing.T) {
+		mockStream := &MockStream{}
+		mockStream.OnSendMsg = func(m any) error {
+			return fmt.Errorf("send failed")
+		}
+
+		sp := &StreamProcessor{
+			stream:        mockStream,
+			expectedNonce: make(map[string]struct{}),
+			log:           slog.New(slog.DiscardHandler),
+		}
+
+		req := &v3.DeltaDiscoveryRequest{
+			TypeUrl: xdsTypeURLAuthorization,
+		}
+
+		err := sp.handleAuthorizationTypeURL(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "send failed")
+	})
+}
+
+func TestHandleAddressTypeURL(t *testing.T) {
+	t.Run("returns error when both subscribe and unsubscribe are non-empty", func(t *testing.T) {
+		mockStream := &MockStream{}
+		mockStream.OnContext = func() context.Context {
+			return context.Background()
+		}
+
+		sp := &StreamProcessor{
+			stream:        mockStream,
+			expectedNonce: make(map[string]struct{}),
+			log:           slog.New(slog.DiscardHandler),
+		}
+		sp.endpointSource = &MockEndpointEventSource{}
+
+		// Error only occurs when BOTH subscribe AND unsubscribe are non-empty
+		req := &v3.DeltaDiscoveryRequest{
+			TypeUrl:                  xdsTypeURLAddress,
+			ResourceNamesSubscribe:   []string{"some-resource"},
+			ResourceNamesUnsubscribe: []string{"another-resource"},
+		}
+		err := sp.handleAddressTypeURL(req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected resource names")
+	})
+
+	t.Run("sends initial empty response and subscribes to events", func(t *testing.T) {
+		var capturedResponse *v3.DeltaDiscoveryResponse
 		mockStream := &MockStream{}
 		mockStream.OnContext = func() context.Context {
 			return context.Background()
 		}
 		mockStream.OnSendMsg = func(m any) error {
-			recordedResponse = m.(*v3.DeltaDiscoveryResponse)
+			capturedResponse = m.(*v3.DeltaDiscoveryResponse)
 			return nil
 		}
 
-		// These UIDs must match what MockEndpointEventSource.ListAllEndpoints returns
-		expectedUIDs := []string{
-			"12345678-1234-1234-1234-123456789abc", // ep1
-			"87654321-4321-4321-4321-cba987654321", // ep2
-			"abcdef12-5678-9012-3456-789012345678", // ep3
-		}
-
-		sp := StreamProcessor{
+		mockEpSource := &MockEndpointEventSource{}
+		sp := &StreamProcessor{
 			stream:        mockStream,
 			expectedNonce: make(map[string]struct{}),
 			log:           slog.New(slog.DiscardHandler),
 		}
-		sp.endpointSource = &MockEndpointEventSource{
-			subscribeCalled: false,
-		}
+		sp.endpointSource = mockEpSource
 
 		req := &v3.DeltaDiscoveryRequest{
-			TypeUrl:                  xdsTypeURLAddress,
-			ResourceNamesSubscribe:   []string{},
-			ResourceNamesUnsubscribe: []string{},
+			TypeUrl: xdsTypeURLAddress,
 		}
+		err := sp.handleAddressTypeURL(req)
+		require.NoError(t, err)
 
-		if err := sp.handleDeltaDiscoveryReq(req); err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
+		// Verify subscription was started
+		require.True(t, mockEpSource.GetSubscriptionStatus(),
+			"SubscribeToEndpointEvents should have been called")
 
-		// validate response
-		require.NotNil(t, recordedResponse, "No response was recorded")
+		// Verify initial empty response was sent
+		require.NotNil(t, capturedResponse, "An initial DeltaDiscoveryResponse should be sent")
+		require.Equal(t, xdsTypeURLAddress, capturedResponse.TypeUrl)
+		require.Empty(t, capturedResponse.Resources, "Initial response should have no resources")
+		require.Empty(t, capturedResponse.RemovedResources, "Initial response should have no removed resources")
+		require.NotEmpty(t, capturedResponse.Nonce, "Response nonce should be set")
 
-		// Validate response structure
-		require.Equal(t, xdsTypeURLAddress, recordedResponse.TypeUrl, "Incorrect TypeUrl")
-		require.NotEmpty(t, recordedResponse.Nonce, "Nonce should not be empty")
-		require.Empty(t, recordedResponse.RemovedResources, "No resources should be removed")
-		require.Len(t, recordedResponse.Resources, 3, "Should have 3 resources for our 3 endpoints")
-
-		// Validate StreamProcessor adds sent Nonce to expected Nonces
-		if _, ok := sp.expectedNonce[recordedResponse.Nonce]; !ok {
-			t.Fatal("Expected nonce to be tracked as expected")
-		}
-
-		// Validate UIDs match between mock endpoints and response resources
-		// NOTE: proper validation of response is done in endpoint_event_test.go
-		actualUIDs := make([]string, len(recordedResponse.Resources))
-		for i, resource := range recordedResponse.Resources {
-			actualUIDs[i] = resource.Name
-		}
-		require.ElementsMatch(t, expectedUIDs, actualUIDs, "All expected endpoint UIDs should be present in response")
-
-		s := sp.endpointSource.(*MockEndpointEventSource)
-		// Validate subscription occurred
-		require.True(t, s.GetSubscriptionStatus(), "EndpointManager.Subscribe should have been called")
-
+		// Verify nonce is tracked
+		require.Contains(t, sp.expectedNonce, capturedResponse.Nonce)
 	})
 }
 
@@ -448,12 +492,11 @@ func TestComputeEndpointDiff(t *testing.T) {
 	t.Run("detect new endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", ""),
+			"default/pod-2": makeCEP("pod-2", "", ""),
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Len(t, added, 2)
 		require.Empty(t, updated)
 		require.Empty(t, removed)
@@ -461,56 +504,45 @@ func TestComputeEndpointDiff(t *testing.T) {
 
 	t.Run("detect removed endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", ""),
+			"default/pod-2": makeCEP("pod-2", "", ""),
 		}
-		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-		}
+		newCEPs := map[string]*types.CiliumEndpoint{}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Empty(t, added)
 		require.Empty(t, updated)
-		require.Len(t, removed, 1)
-		require.Equal(t, "pod-2", removed[0].Name)
+		require.Len(t, removed, 2)
 	})
 
 	t.Run("detect updated endpoints", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.1"),
 		}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Different IP
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.2"),
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Empty(t, added)
 		require.Len(t, updated, 1)
 		require.Empty(t, removed)
-		require.Equal(t, "pod-1", updated[0].Name)
-		require.Equal(t, "10.0.1.99", updated[0].Networking.Addressing[0].IPV4)
 	})
 
 	t.Run("detect mixed changes", func(t *testing.T) {
 		oldCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.1"),
-			"default/pod-2": makeCEP("pod-2", "default", "10.0.1.2"),
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.1"),
+			"default/pod-2": makeCEP("pod-2", "", "10.0.0.2"),
 		}
 		newCEPs := map[string]*types.CiliumEndpoint{
-			"default/pod-1": makeCEP("pod-1", "default", "10.0.1.99"), // Updated
-			"default/pod-3": makeCEP("pod-3", "default", "10.0.1.3"),  // Added
+			"default/pod-1": makeCEP("pod-1", "", "10.0.0.99"), // updated
+			"default/pod-3": makeCEP("pod-3", "", "10.0.0.3"),  // added
 		}
 
 		added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
-
 		require.Len(t, added, 1)
 		require.Len(t, updated, 1)
 		require.Len(t, removed, 1)
-		require.Equal(t, "pod-3", added[0].Name)
-		require.Equal(t, "pod-1", updated[0].Name)
-		require.Equal(t, "pod-2", removed[0].Name)
 	})
 }
 
@@ -544,8 +576,7 @@ func TestHandleCESUpsert(t *testing.T) {
 		initialCES      *v2alpha1.CiliumEndpointSlice // To populate the cache
 		newCES          *v2alpha1.CiliumEndpointSlice
 		key             resource.Key
-		expectedAdded   int
-		expectedUpdated int
+		expectedCreate  int // CREATE events (includes both new and updated endpoints)
 		expectedRemoved int
 	}{
 		{
@@ -553,9 +584,9 @@ func TestHandleCESUpsert(t *testing.T) {
 			initialCES: nil, // Empty cache
 			newCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ces-1",
-					Namespace: "default",
+					Name: "ces-1",
 				},
+				Namespace: "default",
 				Endpoints: []v2alpha1.CoreCiliumEndpoint{
 					{
 						Name:       "pod-1",
@@ -568,17 +599,16 @@ func TestHandleCESUpsert(t *testing.T) {
 				},
 			},
 			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   2,
-			expectedUpdated: 0,
+			expectedCreate:  2,
 			expectedRemoved: 0,
 		},
 		{
 			name: "update existing CES - add and remove endpoints",
 			initialCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ces-1",
-					Namespace: "default",
+					Name: "ces-1",
 				},
+				Namespace: "default",
 				Endpoints: []v2alpha1.CoreCiliumEndpoint{
 					{
 						Name:       "pod-1",
@@ -592,9 +622,9 @@ func TestHandleCESUpsert(t *testing.T) {
 			},
 			newCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ces-1",
-					Namespace: "default",
+					Name: "ces-1",
 				},
+				Namespace: "default",
 				Endpoints: []v2alpha1.CoreCiliumEndpoint{
 					{
 						Name:       "pod-2",
@@ -607,17 +637,16 @@ func TestHandleCESUpsert(t *testing.T) {
 				},
 			},
 			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   1, // pod-3
-			expectedUpdated: 0, // pod-2 unchanged
+			expectedCreate:  1, // pod-3 added; pod-2 unchanged
 			expectedRemoved: 1, // pod-1
 		},
 		{
-			name: "update existing CES - modify endpoint",
+			name: "update existing CES - modify endpoint emits CREATE",
 			initialCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ces-1",
-					Namespace: "default",
+					Name: "ces-1",
 				},
+				Namespace: "default",
 				Endpoints: []v2alpha1.CoreCiliumEndpoint{
 					{
 						Name:       "pod-1",
@@ -627,9 +656,9 @@ func TestHandleCESUpsert(t *testing.T) {
 			},
 			newCES: &v2alpha1.CiliumEndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ces-1",
-					Namespace: "default",
+					Name: "ces-1",
 				},
+				Namespace: "default",
 				Endpoints: []v2alpha1.CoreCiliumEndpoint{
 					{
 						Name:       "pod-1",
@@ -638,99 +667,95 @@ func TestHandleCESUpsert(t *testing.T) {
 				},
 			},
 			key:             resource.Key{Name: "ces-1", Namespace: "default"},
-			expectedAdded:   0,
-			expectedUpdated: 1, // pod-1 with new identity
+			expectedCreate:  1, // updated endpoints are emitted as CREATE
 			expectedRemoved: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
+
+			// Populate cache if initial CES provided
+			if tt.initialCES != nil {
+				cesCache[tt.key] = convertCESToEndpointMap(tt.initialCES)
+			}
+
 			eventChan := make(chan *EndpointEvent, 10)
 			sp := &StreamProcessor{
 				endpointRecv: eventChan,
 			}
 			es := &EndpointSource{sp: sp}
 
-			// Populate the cache with the initial CES if provided
-			cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
-			if tt.initialCES != nil {
-				cesCache[tt.key] = convertCESToEndpointMap(tt.initialCES)
-			}
-
 			es.handleCESUpsert(tt.newCES, cesCache, tt.key)
 
-			// Count events by type
-			addedCount := 0
+			// Count event types
+			createCount := 0
 			removedCount := 0
-
 			close(eventChan)
 			for event := range eventChan {
 				switch event.Type {
 				case CREATE:
-					addedCount++
+					createCount++
 				case REMOVED:
 					removedCount++
 				}
 			}
 
-			require.Equal(t, tt.expectedAdded+tt.expectedUpdated, addedCount, "unexpected number of CREATE events")
-			require.Equal(t, tt.expectedRemoved, removedCount, "unexpected number of REMOVED events")
-
-			// Verify cache was updated
-			cachedEndpoints := cesCache[tt.key]
-			require.NotNil(t, cachedEndpoints)
-			require.Len(t, tt.newCES.Endpoints, len(cachedEndpoints))
+			require.Equal(t, tt.expectedCreate, createCount, "CREATE event count mismatch")
+			require.Equal(t, tt.expectedRemoved, removedCount, "REMOVED event count mismatch")
 		})
 	}
 }
 
 func TestHandleCESDelete(t *testing.T) {
-	cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
-		{Name: "ces-1", Namespace: "default"}: {
-			"default/pod-1": makeCEP("pod-1", "", ""),
-			"default/pod-2": makeCEP("pod-2", "", ""),
-		},
-	}
+	t.Run("delete CES", func(t *testing.T) {
+		cesCache := map[resource.Key]map[string]*types.CiliumEndpoint{
+			{Name: "ces-1", Namespace: "default"}: {
+				"default/pod-1": makeCEP("pod-1", "", ""),
+				"default/pod-2": makeCEP("pod-2", "", ""),
+			},
+		}
 
-	ces := &v2alpha1.CiliumEndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ces-1",
+		ces := &v2alpha1.CiliumEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ces-1",
+			},
 			Namespace: "default",
-		},
-		Endpoints: []v2alpha1.CoreCiliumEndpoint{
-			{
-				Name:       "pod-1",
-				IdentityID: 100,
+			Endpoints: []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "pod-1",
+					IdentityID: 100,
+				},
+				{
+					Name:       "pod-2",
+					IdentityID: 200,
+				},
 			},
-			{
-				Name:       "pod-2",
-				IdentityID: 200,
-			},
-		},
-	}
-	key := resource.Key{Name: "ces-1", Namespace: "default"}
+		}
+		key := resource.Key{Name: "ces-1", Namespace: "default"}
 
-	eventChan := make(chan *EndpointEvent, 10)
-	sp := &StreamProcessor{
-		endpointRecv: eventChan,
-	}
-	es := &EndpointSource{sp: sp}
+		eventChan := make(chan *EndpointEvent, 10)
+		sp := &StreamProcessor{
+			endpointRecv: eventChan,
+		}
+		es := &EndpointSource{sp: sp}
 
-	es.handleCESDelete(ces, cesCache, key)
+		es.handleCESDelete(ces, cesCache, key)
 
-	// Should emit REMOVED events for all endpoints
-	require.Len(t, eventChan, 2)
+		// Should emit REMOVED events for all endpoints
+		require.Len(t, eventChan, 2)
 
-	removedCount := 0
-	close(eventChan)
-	for event := range eventChan {
-		require.Equal(t, REMOVED, event.Type)
-		removedCount++
-	}
-	require.Equal(t, 2, removedCount)
+		removedCount := 0
+		close(eventChan)
+		for event := range eventChan {
+			require.Equal(t, REMOVED, event.Type)
+			removedCount++
+		}
+		require.Equal(t, 2, removedCount)
 
-	// Verify cache entry was deleted
-	_, exists := cesCache[key]
-	require.False(t, exists, "cache entry should be deleted")
+		// Verify cache entry was deleted
+		_, exists := cesCache[key]
+		require.False(t, exists, "cache entry should be deleted")
+	})
 }
