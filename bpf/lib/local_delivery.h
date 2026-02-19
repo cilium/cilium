@@ -55,27 +55,29 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	return DROP_EP_NOT_READY;
 }
 
-static __always_inline bool should_redirect_peer(struct __ctx_buff *ctx, bool from_host)
+static __always_inline bool
+should_redirect_peer(bool from_host)
 {
-	/* Going via CPU backlog queue (aka needs_backlog) is required
-	 * whenever we cannot do a fast ingress -> ingress switch but
-	 * instead need an ingress -> egress netns traversal or vice
-	 * versa.
+	/* We should only do a redirect_peer() if BPF Host Routing is enabled,
+	 * otherwise we do a standard redirect().
 	 *
-	 * This is also the case if BPF host routing is disabled, or if
-	 * we are currently on egress which is indicated by ingress_ifindex
-	 * being 0. The latter is cleared upon skb scrubbing.
+	 * Also, if we're from_host, we cannot do an ingress -> ingress switch
+	 * via redirect_peer() and instead need an ingress -> egress netns
+	 * traversal (or vice versa.)
 	 *
-	 * In case of netkit, we're on the egress side and need a regular
-	 * redirect to the peer device's ifindex. In case of veth we're
-	 * on ingress and need a redirect peer to get to the target. Both
-	 * only traverse the CPU backlog queue once. In case of phys ->
-	 * Pod, the ingress_ifindex is > 0 and in both device types we
-	 * do want a redirect peer into the target Pod's netns.
+	 * Finally, in case of Pod -> Pod:
+	 * - on veth, we're on TC ingress and need a redirect_peer() to get
+	 *   to the target namespace.
+	 * - on netkit, we're on TC egress and need a regular redirect() to
+	 *   the peer device's ifindex. Netkit takes care of the namespace
+	 *   switch for us.
+	 *
+	 * Note: both redirect() and redirect_peer() only traverse the CPU
+	 * backlog queue once.
 	 */
 	return is_defined(ENABLE_HOST_ROUTING) &&
 	       !from_host &&
-	       ctx_get_ingress_ifindex(ctx) > 0;
+	       !CONFIG(enable_netkit);
 }
 
 static __always_inline int redirect_ep(struct __ctx_buff *ctx,
@@ -141,18 +143,17 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 			return ret;
 	}
 
-/*
- * When BPF host routing is enabled we need to check policies at source, as in
- * this case the skb is delivered directly to pod's namespace and the ingress
- * policy (the cil_to_container BPF program) is bypassed.
- */
-	use_redirect_peer = should_redirect_peer(ctx, from_host);
+	/* When BPF host routing is enabled we need to check policies at source, as in
+	 * this case the skb is delivered directly to pod's namespace and the ingress
+	 * policy (the cil_to_container BPF program) is bypassed.
+	 */
+	use_redirect_peer = should_redirect_peer(from_host);
 	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_redirect_peer &&
 	    /* We need to enforce policies at the source in case of netkit
 	     * devices because we can't redirect to proxy from bpf_lxc. That
 	     * needs a fix upstream.
 	     */
-	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
+	    !CONFIG(enable_netkit)) {
 		set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)
