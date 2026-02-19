@@ -4,7 +4,6 @@
 package xds
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -18,7 +17,13 @@ import (
 var Cell = cell.Module(
 	"ztunnel-xds",
 	"ztunnel certificate authority and control plane",
-	cell.Invoke(NewServer),
+	cell.Provide(NewServer),
+	cell.Provide(func(x *Server) chan *EndpointEvent {
+		if x == nil {
+			return nil
+		}
+		return x.endpointEventChan
+	}),
 )
 
 type xdsServerParams struct {
@@ -31,15 +36,17 @@ type xdsServerParams struct {
 	Config     config.Config
 }
 
-func NewServer(params xdsServerParams) (*Server, error) {
+func NewServer(params xdsServerParams) *Server {
 	if !params.Config.EnableZTunnel {
-		return nil, nil
+		return nil
 	}
 
-	server, err := newServer(params.Logger, params.EPManager, params.K8sWatcher.GetK8sCiliumEndpointsWatcher())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ztunnel gRPC server: %w", err)
-	}
+	server := newServer(
+		params.Logger,
+		params.EPManager,
+		params.K8sWatcher.GetK8sCiliumEndpointsWatcher(),
+		params.Config.EndpointEventChannelBufferSize,
+	)
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
@@ -54,5 +61,5 @@ func NewServer(params xdsServerParams) (*Server, error) {
 		},
 	})
 
-	return server, nil
+	return server
 }

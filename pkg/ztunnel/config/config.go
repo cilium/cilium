@@ -4,20 +4,33 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/spf13/pflag"
 )
 
 var DefaultConfig = Config{
-	EnableZTunnel: false,
+	EnableZTunnel:                  false,
+	EndpointEventChannelBufferSize: 1,
 }
 
 // Config is a shared config for all ZTunnel module's cells.
 // Note: The operator reads EnableZTunnel directly from the ConfigMap,
 // while the agent uses this Config struct for dependency injection.
 type Config struct {
-	EnableZTunnel bool
+	EnableZTunnel                  bool
+	EndpointEventChannelBufferSize int `mapstructure:"ztunnel-endpoint-event-channel-buffer-size"`
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-ztunnel", false, "Use zTunnel as Cilium's encryption infrastructure")
+	flags.Int("ztunnel-endpoint-event-channel-buffer-size", 1, "Buffer size for the ztunnel endpoint event channel")
+	flags.MarkHidden("ztunnel-endpoint-event-channel-buffer-size")
+}
+
+func (c Config) Validate() error {
+	if c.EndpointEventChannelBufferSize < 0 {
+		return fmt.Errorf("ztunnel-endpoint-event-channel-buffer-size must be non-negative, got %d", c.EndpointEventChannelBufferSize)
+	}
+	return nil
 }

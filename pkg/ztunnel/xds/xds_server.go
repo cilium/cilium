@@ -71,6 +71,9 @@ type Server struct {
 	epManager                 endpointmanager.EndpointManager
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
 	caCert                    *x509.Certificate
+	// endpointEventChan is shared across streams. Overlapping sends during
+	// ztunnel reconnect are safe since xDS upserts are idempotent.
+	endpointEventChan chan *EndpointEvent
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
@@ -79,13 +82,18 @@ type Server struct {
 	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
-func newServer(log *slog.Logger, EPManager endpointmanager.EndpointManager, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
-	x := &Server{
+func newServer(
+	log *slog.Logger,
+	EPManager endpointmanager.EndpointManager,
+	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
+	endpointEventChanBufferSize int,
+) *Server {
+	return &Server{
 		log:                       log,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		epManager:                 EPManager,
+		endpointEventChan:         make(chan *EndpointEvent, endpointEventChanBufferSize),
 	}
-	return x, nil
 }
 
 // initCA performs the required action to initialize the certificate authority
@@ -376,7 +384,7 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 	params := StreamProcessorParams{
 		Stream:                    stream,
 		StreamRecv:                make(chan *v3.DeltaDiscoveryRequest, 1),
-		EndpointEventRecv:         make(chan *EndpointEvent, 1024),
+		EndpointEventRecv:         x.endpointEventChan,
 		K8sCiliumEndpointsWatcher: x.k8sCiliumEndpointsWatcher,
 		Log:                       x.log,
 	}

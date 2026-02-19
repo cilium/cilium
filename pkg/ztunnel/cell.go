@@ -38,6 +38,10 @@ type ztunnelParams struct {
 }
 
 func validateConfig(params ztunnelParams) error {
+	if err := params.Config.Validate(); err != nil {
+		return err
+	}
+
 	if !params.Config.EnableZTunnel {
 		return nil
 	}
