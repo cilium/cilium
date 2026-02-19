@@ -134,3 +134,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# ruff
+.ruff_cache/

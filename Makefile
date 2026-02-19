@@ -445,6 +445,18 @@ lint: golangci-lint custom-lint
 
 lint-fix: golangci-lint-fix
 
+lint-python:
+	ruff check .
+
+lint-python-fix:
+	ruff check --fix .
+
+format-python:
+	ruff format --check .
+
+format-python-fix:
+	ruff format .
+
 check-permissions: ## Check if files are not executable expect for allowlisted files. \
 	# This can happen especially when someone is developing on a Windows machine
 	find ./ -executable -type f | grep -Ev "\.git|\.sh|\.py" > ./executables.txt

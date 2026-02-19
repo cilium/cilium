@@ -2,8 +2,74 @@
 name = "cilium-tooling"
 version = "0.1.0"
 description = "Python dependencies required for building tools around Cilium"
-dependencies = ["pygithub>=2.8.1", "scapy>=2.7.0"]
+dependencies = ["pygithub>=2.8.1", "scapy>=2.7.0", "ruff>=0.15.0"]
 requires-python = ">=3.10"
 
 [tool.setuptools]
 packages = []
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+indent-width = 4
+extend-exclude = ["vendor/**"]
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+select = [
+    "D",
+    "E",
+    "F",
+    "W",
+    "UP035",
+    "E201",
+    "E202",
+    "E203",
+    "E221",
+    "E251",
+    "E261",
+    "E272",
+    "E302",
+    "E703",
+]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D200",
+    "D202",
+    "D203",
+    "D204",
+    "D205",
+    "D212",
+    "D301",
+    "D400",
+    "D401",
+    "D402",
+    "D403",
+    "D404",
+    "D413",
+    "D415",
+    "D417",
+    "E266",
+    "E305",
+    "E306",
+    "E721",
+    "E741",
+    "F841",
+]
+external = ["E122"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
