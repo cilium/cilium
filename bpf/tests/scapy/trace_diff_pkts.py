@@ -3,12 +3,11 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import json
-import re
 import sys
 
 from scapy.all import *
+
 
 def parse_asserts():
     try:
@@ -18,6 +17,7 @@ def parse_asserts():
         raise e
     return asserts
 
+
 def bytes_to_scapy_pkt(first_layer, hex_str):
     try:
         s = f"{first_layer}({bytes.fromhex(hex_str)})"
@@ -25,6 +25,7 @@ def bytes_to_scapy_pkt(first_layer, hex_str):
     except Exception as e:
         print(f"ERROR: unable generate scapy Packet from '{hex_str}': {e}")
         raise e
+
 
 def pkt_to_dict(pkt: Packet) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
@@ -42,6 +43,7 @@ def pkt_to_dict(pkt: Packet) -> Dict[str, Any]:
             break
 
     return result
+
 
 def diff_pkts(expected: Packet, got: Packet) -> None:
     pkt1 = pkt_to_dict(expected)
@@ -73,6 +75,7 @@ def diff_pkts(expected: Packet, got: Packet) -> None:
     for key in add:
             print(f"  + {key}: {str(add[key])}")
 
+
 def main():
     asserts = parse_asserts()
 
@@ -87,9 +90,9 @@ def main():
         got.show()
 
         # Show pseudo-diff
-        print(f">>> Diff <<<")
-        print(f"  --- a/pkt (Expected)")
-        print(f"  +++ b/pkt (Got)\n")
+        print(">>> Diff <<<")
+        print("  --- a/pkt (Expected)")
+        print("  +++ b/pkt (Got)\n")
         diff_pkts(exp, got)
 
         print(f"\n=== END {elem['file']}:{elem['linenum']} '{elem['name']}' ===")

@@ -17,6 +17,7 @@ PKT_REGEX = re.compile(
     re.DOTALL | re.MULTILINE
 )
 
+
 def find_buf_refs(filepath: str, bufs: dict[str, dict]) -> dict[str, dict]:
     """Parse one file and extract BUF_DECL(name, varargs as single string)."""
 
@@ -46,6 +47,7 @@ def find_buf_refs(filepath: str, bufs: dict[str, dict]) -> dict[str, dict]:
                 "bytes": [f"0x{b:02x}" for b in list(bytes(buf))]
             }
     return bufs
+
 
 def scan_dir(dir_name: str) -> dict[str, dict]:
     """Recursively scan .h/.c files and return map of name => flat varargs string."""

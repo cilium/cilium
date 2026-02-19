@@ -3,10 +3,10 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
 import re
 import argparse
 from scapy.all import *
+
 
 def parse_pkts(filename: str) -> List[Dict]:
     """
@@ -45,11 +45,13 @@ def parse_pkts(filename: str) -> List[Dict]:
             pkts.append(pkt)
     return pkts
 
+
 def dump_pkts(pkts) -> None:
     for pkt in pkts:
         print(f"{pkt['context']}")
         pkt["scapy"].show()
-        print(f"")
+        print("")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Parse packets from a trace_pipe log.")

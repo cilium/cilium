@@ -18,13 +18,10 @@
 #
 import os
 import sys
-import re
-import subprocess
 import semver
 
 sys.path.insert(0, os.path.abspath('_exts'))
 import cilium_external_links  # noqa: E402
-import cilium_spellfilters  # noqa: E402
 
 # -- General configuration ------------------------------------------------
 

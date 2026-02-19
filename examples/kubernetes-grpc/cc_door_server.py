@@ -30,17 +30,17 @@ class DoorManager(cloudcity_pb2_grpc.DoorManagerServicer):
   def GetName(self, request, context):
     return cloudcity_pb2.DoorNameReply(name='Spaceport Door #%s' % request.door_id)
 
-  def GetLocation(self, request, context): 
+  def GetLocation(self, request, context):
     return cloudcity_pb2.DoorLocationReply(lat=10.2222, long=68.8788)
 
-  def GetStatus(self, request, context): 
+  def GetStatus(self, request, context):
     return cloudcity_pb2.DoorStatusReply(state=cloudcity_pb2.CLOSED)
 
-  def RequestMaintenance(self, request, context): 
-    return cloudcity_pb2.DoorActionReply(success=True) 
+  def RequestMaintenance(self, request, context):
+    return cloudcity_pb2.DoorActionReply(success=True)
 
-  def SetAccessCode(self, request, context): 
-    return cloudcity_pb2.DoorActionReply(success=True) 
+  def SetAccessCode(self, request, context):
+    return cloudcity_pb2.DoorActionReply(success=True)
 
 
 def serve():

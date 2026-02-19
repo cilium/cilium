@@ -18,7 +18,6 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from docutils.statemachine import StringList
 from sphinx.util.docutils import SphinxDirective
-from textwrap import dedent
 
 
 RST_TEMPLATE = """\

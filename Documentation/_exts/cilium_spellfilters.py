@@ -1,7 +1,9 @@
 from enchant.tokenize import Filter
 
+
 class WireGuardFilter(Filter):
-    """Accept either 'wireguard' (for documenting Helm values) or 'WireGuard',
+    """
+    Accept either 'wireguard' (for documenting Helm values) or 'WireGuard',
     but not 'Wireguard'.
     """
 

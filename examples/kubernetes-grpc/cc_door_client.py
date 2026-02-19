@@ -24,7 +24,8 @@ import sys
 
 arg1 = 'GetName'
 arg2 = '1'
-arg3 = '99' 
+arg3 = '99'
+
 
 def run():
   channel = grpc.insecure_channel('cc-door-server:50051')
@@ -37,24 +38,24 @@ def run():
     print("Door location is lat = %s long = %s" % (response.lat, response.long))
   elif arg1 == 'GetStatus':
     response = stub.GetStatus(cloudcity_pb2.DoorRequest(door_id=int(arg2)))
-    if response.state == cloudcity_pb2.OPEN: 
+    if response.state == cloudcity_pb2.OPEN:
         print("Door is open")
-    else: 
+    else:
         print("Door is closed")
   elif arg1 == 'RequestMaintenance':
     response = stub.RequestMaintenance(cloudcity_pb2.DoorMaintRequest(
             door_id=int(arg2), maint_description=arg3))
-    if response.success: 
+    if response.success:
         print("Successfully submitted maintenance request")
-    else: 
-        print("Failed to submit maintenaince request") 
+    else:
+        print("Failed to submit maintenaince request")
   elif arg1 == 'SetAccessCode':
     response = stub.SetAccessCode(cloudcity_pb2.DoorAccessCodeRequest(
             door_id=int(arg2), access_code=int(arg3)))
-    if response.success: 
+    if response.success:
         print("Successfully set AccessCode to " + arg3)
-    else: 
-        print("Failed to set AccessCode") 
+    else:
+        print("Failed to set AccessCode")
 
   else:
     print("Invalid call " + arg1)

@@ -54,7 +54,7 @@ def organize_data(data, key: str) -> dict:
     """
     organized = {}
     for entry in data:
-        if not key in entry:
+        if key not in entry:
             logging.error(f"Key '{key}' not found in data.")
             break
         if not isinstance(entry[key], (int, float)) or not str(entry[key]).isnumeric():
@@ -67,7 +67,8 @@ def organize_data(data, key: str) -> dict:
 
 
 def plot_comparison(file1: str, file2: str, key: str, outdir: str):
-    """Plot comparison of eBPF verifier logs.
+    """
+    Plot comparison of eBPF verifier logs.
 
     Args:
         file1 (str): Path to the first JSON file.

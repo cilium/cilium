@@ -18,10 +18,7 @@ optional arguments:
 """
 
 import argparse
-from scapy import all
-from scapy.layers import all
 from scapy.layers.inet import IP, ICMP, UDP
-from scapy.packet import ls, Raw
 from scapy.sendrecv import sniff, send
 from scapy.all import *
 PAYLOAD='zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
@@ -54,6 +51,7 @@ def udp_monitor_callback(pkt):
 
     if(pkt.haslayer(ARP)):
         print("incoming ARP packet")
+
 
 def dispatcher_callback(pkt):
     if(pkt.haslayer(UDP) and (pkt[UDP].dport == UDPPORT) and (pkt[IP].dst == DSTHOST)):
