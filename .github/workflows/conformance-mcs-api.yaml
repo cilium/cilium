@@ -25,6 +25,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - pr/mrfreezeex/mcs-api-conformance
     paths-ignore:
       - "Documentation/**"
       - "test/**"
