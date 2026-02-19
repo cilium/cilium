@@ -31,6 +31,8 @@ type BPFHost struct {
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Enable trace notifications.
+	EnableTraceNotify bool `config:"enable_trace_notify"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less

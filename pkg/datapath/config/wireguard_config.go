@@ -20,6 +20,8 @@ type BPFWireguard struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Enable trace notifications.
+	EnableTraceNotify bool `config:"enable_trace_notify"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Ifindex of the interface the bpf program is attached to.
@@ -39,7 +41,7 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, false, false, false, false, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFWireguard{0x5dc, false, false, false, false, false, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, node}
