@@ -7,11 +7,13 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
 var Cell = cell.Module(
@@ -29,11 +31,13 @@ var Cell = cell.Module(
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle  cell.Lifecycle
-	Logger     *slog.Logger
-	EPManager  endpointmanager.EndpointManager
-	K8sWatcher *watchers.K8sWatcher
-	Config     config.Config
+	Lifecycle              cell.Lifecycle
+	DB                     *statedb.DB
+	Logger                 *slog.Logger
+	EPManager              endpointmanager.EndpointManager
+	K8sWatcher             *watchers.K8sWatcher
+	Config                 config.Config
+	EnrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
 }
 
 func NewServer(params xdsServerParams) *Server {
@@ -43,8 +47,10 @@ func NewServer(params xdsServerParams) *Server {
 
 	server := newServer(
 		params.Logger,
+		params.DB,
 		params.EPManager,
 		params.K8sWatcher.GetK8sCiliumEndpointsWatcher(),
+		params.EnrolledNamespaceTable,
 		params.Config.EndpointEventChannelBufferSize,
 	)
 
