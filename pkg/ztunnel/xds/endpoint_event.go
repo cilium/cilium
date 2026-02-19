@@ -4,6 +4,7 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 
@@ -29,6 +30,17 @@ type EndpointEventCollection []*EndpointEvent
 func (c *EndpointEventCollection) AppendEndpoints(t EndpointEventType, eps []*types.CiliumEndpoint) {
 	for _, ep := range eps {
 		*c = append(*c, &EndpointEvent{Type: t, CiliumEndpoint: ep})
+	}
+}
+
+// EmitTo sends each event in the collection to the provided channel.
+func (c EndpointEventCollection) EmitTo(ctx context.Context, ch chan<- *EndpointEvent) {
+	for _, event := range c {
+		select {
+		case ch <- event:
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

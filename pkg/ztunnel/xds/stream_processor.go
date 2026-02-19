@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -63,9 +62,11 @@ func NewEndpointSource(k *watchers.K8sCiliumEndpointsWatcher, sp *StreamProcesso
 
 // Interface different data sources need to implement for usage with StreamProcessor.
 type EndpointEventSource interface {
-	// Subscribe to Endpoint events.
-	SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup)
-	ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error)
+	// SubscribeToEndpointEvents subscribes to endpoint events.
+	// Pre-Sync replay events are buffered and sent as an EndpointEventCollection
+	// on syncCh. Post-Sync events are forwarded to endpointRecv individually.
+	// syncCh is closed when the subscription ends.
+	SubscribeToEndpointEvents(ctx context.Context, syncCh chan<- EndpointEventCollection)
 }
 
 func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
@@ -116,18 +117,8 @@ func computeEndpointDiff(oldCEPs, newCEPs map[string]*types.CiliumEndpoint) (add
 	return added, updated, removed
 }
 
-// emitEndpointEvents sends endpoint events to the event channel.
-func (es *EndpointSource) emitEndpointEvents(eventType EndpointEventType, endpoints []*types.CiliumEndpoint) {
-	for _, ep := range endpoints {
-		es.sp.endpointRecv <- &EndpointEvent{
-			Type:           eventType,
-			CiliumEndpoint: ep,
-		}
-	}
-}
-
 // handleCESUpsert processes an upsert event for a CiliumEndpointSlice.
-func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) EndpointEventCollection {
 	oldCEPs := cesCache[key]
 	if oldCEPs == nil {
 		oldCEPs = make(map[string]*types.CiliumEndpoint)
@@ -136,35 +127,43 @@ func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, ces
 	newCEPs := convertCESToEndpointMap(ces)
 	added, updated, removed := computeEndpointDiff(oldCEPs, newCEPs)
 
-	// Emit events for changes
-	es.emitEndpointEvents(REMOVED, removed)
-	es.emitEndpointEvents(CREATE, added)
-	es.emitEndpointEvents(CREATE, updated) // Updates are treated as CREATE
+	var events EndpointEventCollection
+	events.AppendEndpoints(REMOVED, removed)
+	events.AppendEndpoints(CREATE, added)
+	events.AppendEndpoints(CREATE, updated) // Updates are treated as CREATE
 
 	// Update cache
 	cesCache[key] = newCEPs
+	return events
 }
 
 // handleCESDelete processes a delete event for a CiliumEndpointSlice.
-func (es *EndpointSource) handleCESDelete(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+func (es *EndpointSource) handleCESDelete(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) EndpointEventCollection {
 	endpoints := convertCESToEndpointMap(ces)
-	endpointList := make([]*types.CiliumEndpoint, 0, len(endpoints))
+	var events EndpointEventCollection
 	for _, ep := range endpoints {
-		endpointList = append(endpointList, ep)
+		events = append(events, &EndpointEvent{Type: REMOVED, CiliumEndpoint: ep})
 	}
-	es.emitEndpointEvents(REMOVED, endpointList)
 	delete(cesCache, key)
+	return events
 }
 
-func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *sync.WaitGroup) {
+func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh chan<- EndpointEventCollection) {
+	defer close(syncCh)
+
 	if option.Config.EnableCiliumEndpointSlice {
 		newSliceEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
 		// Keep track of CEPs in each CES to detect deletions on updates
 		cesCache := make(map[resource.Key]map[string]*types.CiliumEndpoint)
+		var synced bool
+		var initialBatch EndpointEventCollection
 
 		for e := range newSliceEvents {
 			if e.Kind == resource.Sync {
-				wg.Done()
+				if !synced {
+					syncCh <- initialBatch
+					synced = true
+				}
 				e.Done(nil)
 				continue
 			}
@@ -173,11 +172,18 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 				continue
 			}
 
+			var events EndpointEventCollection
 			switch e.Kind {
 			case resource.Upsert:
-				es.handleCESUpsert(e.Object, cesCache, e.Key)
+				events = es.handleCESUpsert(e.Object, cesCache, e.Key)
 			case resource.Delete:
-				es.handleCESDelete(e.Object, cesCache, e.Key)
+				events = es.handleCESDelete(e.Object, cesCache, e.Key)
+			}
+
+			if !synced {
+				initialBatch = append(initialBatch, events...)
+			} else {
+				events.EmitTo(ctx, es.sp.endpointRecv)
 			}
 
 			e.Done(nil)
@@ -187,60 +193,49 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 
 	// TODO(hemanthmalla): How should retries be configured here ?
 	newEvents := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Events(ctx, resource.WithErrorHandler(resource.AlwaysRetry))
+	var synced bool
+	var initialBatch EndpointEventCollection
+
 	for e := range newEvents {
+		if e.Kind == resource.Sync {
+			if !synced {
+				syncCh <- initialBatch
+				synced = true
+			}
+			e.Done(nil)
+			continue
+		}
+		if e.Object == nil {
+			e.Done(nil)
+			continue
+		}
+
+		var event *EndpointEvent
 		switch e.Kind {
 		case resource.Upsert:
-			es.sp.endpointRecv <- &EndpointEvent{
-				Type:           CREATE,
-				CiliumEndpoint: e.Object,
-			}
+			event = &EndpointEvent{Type: CREATE, CiliumEndpoint: e.Object}
 		case resource.Delete:
-			es.sp.endpointRecv <- &EndpointEvent{
-				Type:           REMOVED,
-				CiliumEndpoint: e.Object,
+			event = &EndpointEvent{Type: REMOVED, CiliumEndpoint: e.Object}
+		}
+
+		if event != nil {
+			if !synced {
+				initialBatch = append(initialBatch, event)
+			} else {
+				EndpointEventCollection{event}.EmitTo(ctx, es.sp.endpointRecv)
 			}
-		case resource.Sync:
-			wg.Done()
 		}
 		e.Done(nil)
 	}
 }
 
-func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
-	eps := []*types.CiliumEndpoint{}
-	if option.Config.EnableCiliumEndpointSlice {
-		cesStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Store(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get CiliumEndpointSlice store from K8sCiliumEndpointsWatcher: %w", err)
-		}
-		slices := cesStore.List()
-
-		for _, s := range slices {
-			for _, ep := range s.Endpoints {
-				cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ep, s.Namespace)
-				eps = append(eps, cep)
-			}
-		}
-		return eps, nil
-	}
-
-	cepStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointResource().Store(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
-	}
-	eps = cepStore.List()
-	return eps, nil
-}
-
 // handleAddressTypeURL handles a subscription for xdsTypeURLAddress type URLs.
 //
-// On receit of this request from zTunnel we will send an initial seed of
-// endpoints to ztunnel.
-//
-// Next, we will subscribe our StreamProcessor to the endpoint.EndpointManager
-// to watch for new events.
-//
-// The main event loop with process any further endpoint events.
+// On receipt of this request from zTunnel we subscribe our StreamProcessor to
+// endpoint events and wait for the initial sync to complete. The subscription
+// buffers all replayed events until Sync, then delivers them as a single
+// atomic xDS response so ztunnel receives the full snapshot before becoming
+// ready.
 func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) error {
 	// this must be a request to subscribe to all Address resources.
 	//
@@ -252,30 +247,32 @@ func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) e
 			req.ResourceNamesSubscribe, req.ResourceNamesUnsubscribe)
 	}
 
-	collection := &EndpointEventCollection{}
+	ctx := sp.stream.Context()
 
-	eps, err := sp.endpointSource.ListAllEndpoints(sp.stream.Context())
-	if err != nil {
-		return err
+	// Subscribe to endpoint events. The subscription buffers all replayed
+	// events until the initial Sync, then sends the batch on syncCh.
+	// Post-Sync events are forwarded to endpointRecv individually.
+	syncCh := make(chan EndpointEventCollection, 1)
+	go sp.endpointSource.SubscribeToEndpointEvents(ctx, syncCh)
+
+	// Wait for the initial batch from the subscription replay so that
+	// ztunnel receives all existing workloads atomically in one response.
+	var collection EndpointEventCollection
+	select {
+	case batch, ok := <-syncCh:
+		if ok {
+			collection = batch
+		}
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
-	// TODO: we need to filter our ztunnel instance itself.
-	collection.AppendEndpoints(CREATE, eps)
-
 	resp := collection.ToDeltaDiscoveryResponse()
+	sp.expectedNonce[resp.Nonce] = struct{}{}
+
 	if err := sp.stream.SendMsg(resp); err != nil {
 		return err
 	}
-
-	// record the generated Nonce so we can link up any Ack or Nack in our main
-	// event loop.
-	sp.expectedNonce[resp.Nonce] = struct{}{}
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go sp.endpointSource.SubscribeToEndpointEvents(sp.stream.Context(), wg)
-	// Wait for initial sync of endpoints before returning.
-	// SubscribeToEndpointEvents will call wg.Done() on receiving a sync event.
-	wg.Wait()
 
 	sp.log.Debug("initialized new stream for resource", logfields.Resource, xdsTypeURLAddress)
 
@@ -337,7 +334,6 @@ func (sp *StreamProcessor) handleDeltaDiscoveryReq(req *v3.DeltaDiscoveryRequest
 	default:
 		return fmt.Errorf("unexpected type URL %q, expected %q or %q", req.TypeUrl, xdsTypeURLAddress, xdsTypeURLAuthorization)
 	}
-
 }
 
 func (sp *StreamProcessor) handleEPEvent(epEvent *EndpointEvent) error {
