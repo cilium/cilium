@@ -133,6 +133,54 @@ func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
 	})
 }
 
+// ZTunnelEnrolledToUnenrolledSameNode tests plain traffic from enrolled client to unenrolled server on same node
+func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-unenrolled-same-node",
+		clientEnrollment: enrolled,
+		serverEnrollment: unenrolled,
+		location:         sameNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelEnrolledToUnenrolledDifferentNode tests plain traffic from enrolled client to unenrolled server on different nodes
+func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-unenrolled-different-node",
+		clientEnrollment: enrolled,
+		serverEnrollment: unenrolled,
+		location:         differentNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledSameNode tests plain traffic from unenrolled client to enrolled server on same node
+func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-same-node",
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         sameNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledDifferentNode tests plain traffic from unenrolled client to enrolled server on different nodes
+func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-different-node",
+		clientEnrollment: unenrolled,
+		serverEnrollment: enrolled,
+		location:         differentNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
 // ZTunnelEnrolledToEnrolledCrossNamespaceSameNode tests mTLS between enrolled pods in different namespaces on same node
 func ZTunnelEnrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
