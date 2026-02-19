@@ -1285,6 +1285,14 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+
+			//	check if there's already running PID
+			pidPath := defaults.PidFilePath
+			existingPid, err := pidfile.Read(pidPath)
+			if err == nil && existingPid > 0 {
+				return fmt.Errorf("existing daemon is already running with PID %d; aborting start to prevent state corruption", existingPid)
+			}
+
 			params.Logger.Info("Initializing daemon")
 			if err := configureDaemon(daemonCtx, params); err != nil {
 				cancelDaemonCtx()
