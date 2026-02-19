@@ -33,7 +33,8 @@ func (c *EndpointEventCollection) AppendEndpoints(t EndpointEventType, eps []*ty
 	}
 }
 
-// EmitTo sends each event in the collection to the provided channel.
+// EmitTo sends all events in the collection to the provided channel.
+// Returns early if the context is canceled.
 func (c EndpointEventCollection) EmitTo(ctx context.Context, ch chan<- *EndpointEvent) {
 	for _, event := range c {
 		select {

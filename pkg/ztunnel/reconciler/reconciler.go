@@ -12,10 +12,16 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
+	"github.com/cilium/cilium/pkg/ztunnel/xds"
 	"github.com/cilium/cilium/pkg/ztunnel/zds"
 
 	"github.com/cilium/hive/cell"
@@ -26,23 +32,29 @@ import (
 type params struct {
 	cell.In
 
-	Config                 config.Config
-	DB                     *statedb.DB
-	EnrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
-	Logger                 *slog.Logger
-	Lifecycle              cell.Lifecycle
-	EndpointManager        endpointmanager.EndpointManager
-	EndpointEnroller       zds.EndpointEnroller
-	RestorerPromise        promise.Promise[endpointstate.Restorer]
+	Config                      config.Config
+	DB                          *statedb.DB
+	EnrolledNamespaceTable      statedb.RWTable[*table.EnrolledNamespace]
+	Logger                      *slog.Logger
+	Lifecycle                   cell.Lifecycle
+	EndpointManager             endpointmanager.EndpointManager
+	EndpointEnroller            zds.EndpointEnroller
+	RestorerPromise             promise.Promise[endpointstate.Restorer]
+	EndpointEventChannel        chan *xds.EndpointEvent
+	CiliumEndpointResource      resource.Resource[*types.CiliumEndpoint]
+	CiliumEndpointSliceResource resource.Resource[*v2alpha1.CiliumEndpointSlice]
 }
 
 type EnrollmentReconciler struct {
-	db                     *statedb.DB
-	logger                 *slog.Logger
-	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
-	endpointManager        endpointmanager.EndpointManager
-	endpointEnroller       zds.EndpointEnroller
-	restorerPromise        promise.Promise[endpointstate.Restorer]
+	db                          *statedb.DB
+	logger                      *slog.Logger
+	enrolledNamespaceTable      statedb.RWTable[*table.EnrolledNamespace]
+	endpointManager             endpointmanager.EndpointManager
+	endpointEnroller            zds.EndpointEnroller
+	restorerPromise             promise.Promise[endpointstate.Restorer]
+	endpointEventCh             chan *xds.EndpointEvent
+	ciliumEndpointResource      resource.Resource[*types.CiliumEndpoint]
+	ciliumEndpointSliceResource resource.Resource[*v2alpha1.CiliumEndpointSlice]
 }
 
 func NewEnrollmentReconciler(cfg params) reconciler.Operations[*table.EnrolledNamespace] {
@@ -51,18 +63,75 @@ func NewEnrollmentReconciler(cfg params) reconciler.Operations[*table.EnrolledNa
 	}
 
 	ops := &EnrollmentReconciler{
-		logger:                 cfg.Logger,
-		db:                     cfg.DB,
-		enrolledNamespaceTable: cfg.EnrolledNamespaceTable,
-		endpointManager:        cfg.EndpointManager,
-		endpointEnroller:       cfg.EndpointEnroller,
-		restorerPromise:        cfg.RestorerPromise,
+		logger:                      cfg.Logger,
+		db:                          cfg.DB,
+		enrolledNamespaceTable:      cfg.EnrolledNamespaceTable,
+		endpointManager:             cfg.EndpointManager,
+		endpointEnroller:            cfg.EndpointEnroller,
+		restorerPromise:             cfg.RestorerPromise,
+		endpointEventCh:             cfg.EndpointEventChannel,
+		ciliumEndpointResource:      cfg.CiliumEndpointResource,
+		ciliumEndpointSliceResource: cfg.CiliumEndpointSliceResource,
 	}
 	cfg.Lifecycle.Append(ops)
 	return ops
 }
 
+// emitEndpointEvents sends endpoint events for all CiliumEndpoints/CiliumEndpointSlices
+// in the given namespace to the xDS server with the specified event type.
+func (ops *EnrollmentReconciler) emitEndpointEvents(ctx context.Context, namespace string, eventType xds.EndpointEventType) error {
+	if option.Config.EnableCiliumEndpointSlice {
+		cesStore, err := ops.ciliumEndpointSliceResource.Store(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get CiliumEndpointSlice store: %w", err)
+		}
+		slices, err := cesStore.ByIndex(k8s.NamespaceIndex, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get CiliumEndpointSlices by namespace index: %w", err)
+		}
+
+		for _, ces := range slices {
+			for _, coreCep := range ces.Endpoints {
+				cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&coreCep, ces.Namespace)
+				select {
+				case ops.endpointEventCh <- &xds.EndpointEvent{
+					Type:           eventType,
+					CiliumEndpoint: cep,
+				}:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		}
+		return nil
+	}
+
+	cepStore, err := ops.ciliumEndpointResource.Store(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
+	}
+	ceps, err := cepStore.ByIndex(k8s.NamespaceIndex, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get CiliumEndpoints by namespace index: %w", err)
+	}
+	for _, cep := range ceps {
+		select {
+		case ops.endpointEventCh <- &xds.EndpointEvent{
+			Type:           eventType,
+			CiliumEndpoint: cep,
+		}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
 func (ops *EnrollmentReconciler) Update(ctx context.Context, txn statedb.ReadTxn, rev statedb.Revision, ns *table.EnrolledNamespace) error {
+	if err := ops.emitEndpointEvents(ctx, ns.Name, xds.CREATE); err != nil {
+		return err
+	}
+
 	// Enroll all endpoints in this namespace
 	endpoints := ops.endpointManager.GetEndpointsByNamespace(ns.Name)
 	for _, ep := range endpoints {
@@ -84,7 +153,6 @@ func (ops *EnrollmentReconciler) Update(ctx context.Context, txn statedb.ReadTxn
 }
 
 func (ops *EnrollmentReconciler) Delete(ctx context.Context, txn statedb.ReadTxn, rev statedb.Revision, ns *table.EnrolledNamespace) error {
-	// Disenroll all endpoints in this namespace
 	endpoints := ops.endpointManager.GetEndpointsByNamespace(ns.Name)
 	for _, ep := range endpoints {
 		if ep.GetContainerNetnsPath() == "" || isZtunnelPod(ep) {
@@ -100,6 +168,11 @@ func (ops *EnrollmentReconciler) Delete(ctx context.Context, txn statedb.ReadTxn
 			return err
 		}
 	}
+
+	if err := ops.emitEndpointEvents(ctx, ns.Name, xds.REMOVED); err != nil {
+		return err
+	}
+
 	ops.logger.Info("Disenrolled all endpoints in namespace",
 		logfields.K8sNamespace, ns.Name,
 	)

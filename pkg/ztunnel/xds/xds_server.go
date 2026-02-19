@@ -23,7 +23,10 @@ import (
 
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -71,6 +74,8 @@ type Server struct {
 	epManager                 endpointmanager.EndpointManager
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
 	caCert                    *x509.Certificate
+	db                        *statedb.DB
+	enrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	// endpointEventChan is shared across streams. Overlapping sends during
 	// ztunnel reconnect are safe since xDS upserts are idempotent.
 	endpointEventChan chan *EndpointEvent
@@ -84,8 +89,10 @@ type Server struct {
 
 func newServer(
 	log *slog.Logger,
+	db *statedb.DB,
 	EPManager endpointmanager.EndpointManager,
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
+	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
 	endpointEventChanBufferSize int,
 ) *Server {
 	return &Server{
@@ -93,6 +100,8 @@ func newServer(
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		epManager:                 EPManager,
 		endpointEventChan:         make(chan *EndpointEvent, endpointEventChanBufferSize),
+		db:                        db,
+		enrolledNamespaceTable:    enrolledNamespaceTable,
 	}
 }
 
@@ -387,6 +396,8 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 		EndpointEventRecv:         x.endpointEventChan,
 		K8sCiliumEndpointsWatcher: x.k8sCiliumEndpointsWatcher,
 		Log:                       x.log,
+		DB:                        x.db,
+		EnrolledNamespaceTable:    x.enrolledNamespaceTable,
 	}
 
 	x.log.Debug("begin processing DeltaAggregatedResources stream")
