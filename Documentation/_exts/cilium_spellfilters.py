@@ -8,4 +8,4 @@ class WireGuardFilter(Filter):
     """
 
     def _skip(self, word):
-        return (word == 'wireguard' or word == 'WireGuard')
+        return word == "wireguard" or word == "WireGuard"

@@ -9,9 +9,9 @@ from pkt_defs_common import *
 
 # TCP packet from pod to pod through overlay network (input packet)
 v4_overlay_tcp_packet = (
-    Ether(dst=mac_two, src=mac_one) /
-    IP(src=v4_pod_one, dst=v4_pod_two) /
-    TCP(sport=tcp_src_one, dport=tcp_dst_one)
+    Ether(dst=mac_two, src=mac_one)
+    / IP(src=v4_pod_one, dst=v4_pod_two)
+    / TCP(sport=tcp_src_one, dport=tcp_dst_one)
 )
 
 # Expected packet after MAC rewriting for local delivery
@@ -19,7 +19,7 @@ v4_overlay_tcp_packet = (
 # TTL is decremented by 1 during forwarding (64 -> 63)
 # IP checksum is recalculated to reflect TTL change
 v4_overlay_tcp_packet_rewritten = (
-    Ether(dst=mac_three, src=mac_four) /
-    IP(src=v4_pod_one, dst=v4_pod_two, ttl=63) /
-    TCP(sport=tcp_src_one, dport=tcp_dst_one)
+    Ether(dst=mac_three, src=mac_four)
+    / IP(src=v4_pod_one, dst=v4_pod_two, ttl=63)
+    / TCP(sport=tcp_src_one, dport=tcp_dst_one)
 )

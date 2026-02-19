@@ -26,33 +26,33 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
 class DoorManager(cloudcity_pb2_grpc.DoorManagerServicer):
+    def GetName(self, request, context):
+        return cloudcity_pb2.DoorNameReply(name="Spaceport Door #%s" % request.door_id)
 
-  def GetName(self, request, context):
-    return cloudcity_pb2.DoorNameReply(name='Spaceport Door #%s' % request.door_id)
+    def GetLocation(self, request, context):
+        return cloudcity_pb2.DoorLocationReply(lat=10.2222, long=68.8788)
 
-  def GetLocation(self, request, context):
-    return cloudcity_pb2.DoorLocationReply(lat=10.2222, long=68.8788)
+    def GetStatus(self, request, context):
+        return cloudcity_pb2.DoorStatusReply(state=cloudcity_pb2.CLOSED)
 
-  def GetStatus(self, request, context):
-    return cloudcity_pb2.DoorStatusReply(state=cloudcity_pb2.CLOSED)
+    def RequestMaintenance(self, request, context):
+        return cloudcity_pb2.DoorActionReply(success=True)
 
-  def RequestMaintenance(self, request, context):
-    return cloudcity_pb2.DoorActionReply(success=True)
-
-  def SetAccessCode(self, request, context):
-    return cloudcity_pb2.DoorActionReply(success=True)
+    def SetAccessCode(self, request, context):
+        return cloudcity_pb2.DoorActionReply(success=True)
 
 
 def serve():
-  server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-  cloudcity_pb2_grpc.add_DoorManagerServicer_to_server(DoorManager(), server)
-  server.add_insecure_port('[::]:50051')
-  server.start()
-  try:
-    while True:
-      time.sleep(_ONE_DAY_IN_SECONDS)
-  except KeyboardInterrupt:
-    server.stop(0)
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    cloudcity_pb2_grpc.add_DoorManagerServicer_to_server(DoorManager(), server)
+    server.add_insecure_port("[::]:50051")
+    server.start()
+    try:
+        while True:
+            time.sleep(_ONE_DAY_IN_SECONDS)
+    except KeyboardInterrupt:
+        server.stop(0)
 
-if __name__ == '__main__':
-  serve()
+
+if __name__ == "__main__":
+    serve()

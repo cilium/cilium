@@ -73,7 +73,7 @@ def diff_pkts(expected: Packet, got: Packet) -> None:
             print(f"  + {key}: {str(add[key])}")
             add.pop(key)
     for key in add:
-            print(f"  + {key}: {str(add[key])}")
+        print(f"  + {key}: {str(add[key])}")
 
 
 def main():
@@ -96,6 +96,7 @@ def main():
         diff_pkts(exp, got)
 
         print(f"\n=== END {elem['file']}:{elem['linenum']} '{elem['name']}' ===")
+
 
 if __name__ == "__main__":
     main()

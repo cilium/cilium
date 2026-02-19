@@ -37,7 +37,7 @@ v4_pod_one = "192.168.0.1"
 v4_pod_two = "192.168.0.2"
 v4_pod_three = "192.168.0.3"
 
-#Node-specific PodCIDR
+# Node-specific PodCIDR
 v4_pod_cidr_on_node_two = "192.168.1.0"
 v4_pod_one_on_node_two = "192.168.1.1"
 v4_pod_two_on_node_two = "192.168.1.2"
@@ -87,11 +87,11 @@ default_data = b"Should not change!!\x00"
 
 
 # Utility functions
-def v6_get_ns_addr(v6_addr:str) -> str:
+def v6_get_ns_addr(v6_addr: str) -> str:
     addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_addr))
     return inet_ntop(socket.AF_INET6, addr_bytes)
 
 
-def v6_get_ns_mac(v6_addr:str) -> str:
+def v6_get_ns_mac(v6_addr: str) -> str:
     addr_bytes = in6_getnsma(inet_pton(socket.AF_INET6, v6_addr))
     return in6_getnsmac(addr_bytes)
