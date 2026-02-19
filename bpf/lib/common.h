@@ -275,7 +275,7 @@ enum metric_dir {
  */
 /*						Packet mark content: */
 #define MARK_MAGIC_HOST_MASK		0x0F00
-#define MARK_MAGIC_SKIP_TPROXY		0x0800
+#define MARK_MAGIC_SKIP_TPROXY		0x0800 /* same as PROXY_{INGRESS,EGRESS} */
 #define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* source endpoint ID */
 #define MARK_MAGIC_PROXY_INGRESS	0x0A00 /* source identity (upstream traffic only) */
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00 /* source identity (upstream traffic only) */
