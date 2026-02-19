@@ -355,6 +355,7 @@ func (r *slimReconciler) convertPodToCoreCEP(pod *slim_corev1.Pod) *cilium_v2a1.
 	return &cilium_v2a1.CoreCiliumEndpoint{
 		Name:       pod.GetName(),
 		IdentityID: identityId,
+		PodUID:     string(pod.UID),
 		Networking: networking,
 		Encryption: cilium_v2.EncryptionSpec{
 			Key: encryptionKey,
