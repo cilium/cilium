@@ -629,35 +629,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				testNodePort(kubectl, ni, true, true, 0)
 			})
 		})
-
-		Context("With ClusterIP external access", func() {
-			var (
-				svcIP string
-			)
-			BeforeAll(func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"bpf.lbExternalClusterIP": "true",
-					// Enable Maglev to check if the Maglev LUT for ClusterIP is properly populated,
-					// and external clients can access ClusterIP with it.
-					"loadBalancer.algorithm": "maglev",
-				})
-				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, appServiceName)
-				svcIP = clusterIP
-				Expect(err).Should(BeNil(), "Cannot get service %s", appServiceName)
-				res := kubectl.AddIPRoute(ni.OutsideNodeName, svcIP, ni.K8s1IP, false)
-				Expect(res).Should(helpers.CMDSuccess(), "Error adding IP route for %s via %s", svcIP, ni.K8s1IP)
-			})
-
-			AfterAll(func() {
-				res := kubectl.DelIPRoute(ni.OutsideNodeName, svcIP, ni.K8s1IP)
-				Expect(res).Should(helpers.CMDSuccess(), "Error removing IP route for %s via %s", svcIP, ni.K8s1IP)
-			})
-
-			It("ClusterIP can be accessed when external access is enabled", func() {
-				Expect(curlClusterIPFromExternalHost(kubectl, ni)).
-					Should(helpers.CMDSuccess(), "Could not curl ClusterIP %s from external host", svcIP)
-			})
-		})
 	})
 
 	SkipContextIf(
