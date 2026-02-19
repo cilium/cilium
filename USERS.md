@@ -707,7 +707,7 @@ Users (Alphabetically)
       D: Proton is using Cilium as their CNI for all their Kubernetes clusters
       U: Networking, network policies, host firewall, kube-proxy replacement, Hubble
       L: https://proton.me/
-      Q: @j4m3s @MrFreezeex
+      Q: @protonjhow
 
     * N: Radio France
       D: Radio France is using Cilium in their production clusters (self-hosted k8s with kops on AWS)
