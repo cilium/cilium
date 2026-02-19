@@ -1,9 +1,16 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.inet import IP, ICMP, TCP
+from scapy.layers.l2 import Ether
 
-from pkt_defs_common import *
+from pkt_defs_common import (
+    mac_one,
+    mac_two,
+    v4_node_one,
+    v4_pod_one,
+    v4_pod_two,
+)
 
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
 # embedded original IPv4 + TCP with SNAT'd port

@@ -4,8 +4,8 @@ SPDX-License-Identifier: Apache-2.0
 Copyright Authors of Cilium
 
 # vxlan-responder.py -h
-usage: vxlan-responder.py [-h] [--dport UDPPORT] [--sport SRCPORT] [--vni VXLANVNI] [--outerip DSTHOST]
-                          [--innerip INNERHOST] [--bridge BRIDGE]
+usage: vxlan-responder.py [-h] [--dport UDPPORT] [--sport SRCPORT] [--vni VXLANVNI]
+                          [--outerip DSTHOST] [--innerip INNERHOST] [--bridge BRIDGE]
 
 optional arguments:
   -h, --help           show this help message and exit
@@ -18,9 +18,12 @@ optional arguments:
 """
 
 import argparse
-from scapy.layers.inet import IP, ICMP, UDP
+import scapy
+
+from scapy.layers.inet import IP, ICMP, UDP, Ether
+from scapy.all import VXLAN
+from scapy.layers.l2 import ARP
 from scapy.sendrecv import sniff, send
-from scapy.all import *
 
 PAYLOAD = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
 
@@ -31,7 +34,6 @@ def udp_monitor_callback(pkt):
     if pkt.haslayer(IP) and inLayer3.dst == INNERIP:
         print("incoming IP packet matches", INNERIP)
         outLayer3 = pkt.payload
-        udpLayer = pkt.payload.payload
         vxlanLayer = pkt.payload.payload.payload
         inLayer2 = pkt.payload.payload.payload.payload
         inLayer4 = pkt.payload.payload.payload.payload.payload.payload

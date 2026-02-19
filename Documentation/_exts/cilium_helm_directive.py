@@ -144,7 +144,7 @@ class CiliumHelmInstallDirective(SphinxDirective):
             )
         else:
             helm_repo_base = f"helm {command} {name} |CHART_RELEASE|"
-            oci_base = f"helm {command} {name} oci://quay.io/cilium/charts/cilium |CHART_VERSION|"
+            oci_base = f"helm {command} {name} oci://quay.io/cilium/charts/cilium |CHART_VERSION|"  # noqa: E501
 
         # Build formatted commands for each section
         helm_repo_cmd = self._format_command(

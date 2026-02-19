@@ -1,7 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.inet import inet_ntop, inet_pton
+from scapy.layers.inet6 import in6_getnsma, in6_getnsmac
+import socket
 
 # Note: these replicate pktgen.h values
 # TODO: it would be ideal to have a single source of truth for these values

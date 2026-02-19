@@ -84,7 +84,7 @@ def first_target_pkg(stack):
             continue
 
         # Convert the following:
-        #         /go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1886 +0x28ee
+        # /go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1886 +0x28ee
         # =>
         # daemon/cm
         result = re.sub(r".*{}(.*)/[^.]*\.go.*".format(cilium_source), r"\1", s)
@@ -176,9 +176,8 @@ if __name__ == "__main__":
 
     if len(skipped) > 0:
         print(
-            "Stacktraces from the following packages were skipped as they do not match {}:".format(
-                keywords
-            ),
+            "Stacktraces from the following packages were skipped "
+            f"as they do not match {keywords}:",
             file=sys.stderr,
         )
         for s in sorted(skipped.keys()):

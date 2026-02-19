@@ -8,6 +8,8 @@ import sys
 
 from scapy.all import *
 
+from scapy.all import Packet
+
 
 def parse_asserts():
     try:
@@ -27,8 +29,8 @@ def bytes_to_scapy_pkt(first_layer, hex_str):
         raise e
 
 
-def pkt_to_dict(pkt: Packet) -> Dict[str, Any]:
-    result: Dict[str, Any] = {}
+def pkt_to_dict(pkt: Packet) -> dict[str, any]:
+    result: dict[str, any] = {}
     current_layer = pkt
 
     current_layer_str = ""

@@ -68,6 +68,10 @@ external = ["E122"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"bpf/tools/log2scapy.py" = ["F403"]
+"bpf/tests/scapy/parser.py" = ["F403"]
+"bpf/tests/scapy/pkt_defs.py" = ["F403"]
+"bpf/tests/scapy/trace_diff_pkts.py" = ["F403"]
 
 [tool.ruff.format]
 docstring-code-format = true

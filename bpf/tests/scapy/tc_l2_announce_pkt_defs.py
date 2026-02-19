@@ -1,9 +1,15 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.l2 import Ether, ARP
 
-from pkt_defs_common import *
+from pkt_defs_common import (
+    mac_one,
+    mac_two,
+    mac_bcast,
+    v4_ext_one,
+    v4_svc_one,
+)
 
 ## IPv4 L2 announce (tc_l2_announcement.c)
 l2_announce_arp_req = Ether(dst=mac_bcast, src=mac_one) / ARP(

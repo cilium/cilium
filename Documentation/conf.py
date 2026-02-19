@@ -107,12 +107,10 @@ elif branch == "stable":
     archive_name = release
     chart_version = "--version " + release
     chart_release = "cilium/cilium " + chart_version
-    tags.add("stable")
 else:
     archive_name = branch
     chart_version = "--version " + release
     chart_release = "cilium/cilium " + chart_version
-    tags.add("stable")
 relinfo = semver.parse_version_info(release)
 current_release = "%d.%d" % (relinfo.major, relinfo.minor)
 if relinfo.patch == 90:

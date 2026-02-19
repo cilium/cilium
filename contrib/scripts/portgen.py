@@ -5,8 +5,8 @@
 # connections already opened on the host.
 #
 # Suggested usage to form a C array suitable for the BPF unit tests:
-# contrib/scripts/portgen.py | awk 'NR%10 {printf("%s, ", $0); next} {printf("%s,\n", $0)}' | sed -e 's/^/\t/' -e '$s/ $//' > bpf/tests/tcp_ports0.txt
-# contrib/scripts/portgen.py -u | awk 'NR%10 {printf("%s, ", $0); next} {printf("%s,\n", $0)}' | sed -e 's/^/\t/' -e '$s/ $//' > bpf/tests/udp_ports0.txt
+# contrib/scripts/portgen.py | awk 'NR%10 {printf("%s, ", $0); next} {printf("%s,\n", $0)}' | sed -e 's/^/\t/' -e '$s/ $//' > bpf/tests/tcp_ports0.txt # noqa: E501
+# contrib/scripts/portgen.py -u | awk 'NR%10 {printf("%s, ", $0); next} {printf("%s,\n", $0)}' | sed -e 's/^/\t/' -e '$s/ $//' > bpf/tests/udp_ports0.txt # noqa: E501
 
 from contextlib import contextmanager
 import argparse

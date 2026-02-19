@@ -1,9 +1,23 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.l2 import Ether
+from scapy.layers.inet6 import IPv6
+from scapy.layers.inet6 import (
+    ICMPv6ND_NS,
+    ICMPv6NDOptSrcLLAddr,
+    ICMPv6NDOptDstLLAddr,
+    ICMPv6ND_NA,
+)
 
-from pkt_defs_common import *
+from pkt_defs_common import (
+    mac_one,
+    mac_two,
+    v6_ext_node_one,
+    v6_svc_one,
+    v6_get_ns_mac,
+    v6_get_ns_addr,
+)
 
 ## IPv6 L2 announce (tc_l2_announcement6.c)
 

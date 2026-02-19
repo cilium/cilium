@@ -1,9 +1,19 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import Ether
 
-from pkt_defs_common import *
+from pkt_defs_common import (
+    mac_one,
+    mac_two,
+    mac_three,
+    mac_four,
+    tcp_dst_one,
+    tcp_src_one,
+    v4_pod_one,
+    v4_pod_two,
+)
 
 ## Wireguard from overlay (tc_wireguard_from_overlay.c)
 

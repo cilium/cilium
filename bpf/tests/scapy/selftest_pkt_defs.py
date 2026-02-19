@@ -1,9 +1,17 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-from scapy.all import *
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import ARP, Ether
+from scapy.packet import Raw
 
-from pkt_defs_common import *
+from pkt_defs_common import (
+    mac_bcast,
+    mac_one,
+    mac_two,
+    v4_ext_one,
+    v4_svc_one,
+)
 
 ## Scapy self tests (_scapy_selftest.c)
 sst_req = Ether(dst=mac_bcast, src=mac_one) / ARP(

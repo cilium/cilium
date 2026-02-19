@@ -5,10 +5,12 @@
 
 import re
 import argparse
+
 from scapy.all import *
+from scapy.all import wrpcap
 
 
-def parse_pkts(filename: str) -> List[Dict]:
+def parse_pkts(filename: str) -> list[dict]:
     """
     Parses packet hexdump log entries in the trace_pipe log.
 
@@ -20,7 +22,7 @@ def parse_pkts(filename: str) -> List[Dict]:
         context: bpftest.test-1515316 [001] b..11 102260.946440: bpf_trace_printk: tc_l2_announcement.c:93 no_entry:
         first_layer: Ether
         bytes: ffffffffffffdeadbeefdeef08060001080006040001deadbeefdeef6e000b01ffffffffffffac100a01
-    """
+    """  # noqa: E501
     # TODO attempt to parse FILENAME:LINENUM if possible (HEXDUMP())
     # TODO parse timestamp
     pattern = re.compile(r"\s*(.*)\s*pkt_hex\s*(\w+)\[(.*?)\]")

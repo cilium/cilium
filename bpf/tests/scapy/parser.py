@@ -36,12 +36,14 @@ def find_buf_refs(filepath: str, bufs: dict[str, dict]) -> dict[str, dict]:
                 buf = eval(scapy_buf)
             except Exception as e:
                 raise Exception(
-                    f"Unknown scapy buffer '{scapy_buf}'. Please make sure it's defined under scapy/*_pkt_defs.py"
+                    f"Unknown scapy buffer '{scapy_buf}'. "
+                    "Please make sure it's defined under scapy/*_pkt_defs.py"
                 )
 
             if name in bufs and buf != bufs[name]["buf"]:
                 raise Exception(
-                    f"Mismatching packet definitions with name '{name}'; found '{scapy_buf}' and '{bufs[name]}'."
+                    f"Mismatching packet definitions with name '{name}'; "
+                    f"found '{scapy_buf}' and '{bufs[name]}'."
                 )
 
             bufs[name] = {
@@ -80,7 +82,7 @@ if __name__ == "__main__":
 
     dir = sys.argv[1]
     if not os.path.isdir(dir):
-        print(f"[ERROR] Invalid directory: {directory_to_scan}")
+        print(f"[ERROR] Invalid directory: {dir}")
         sys.exit(1)
 
     bufs = scan_dir(dir)

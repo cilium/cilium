@@ -228,7 +228,17 @@ def main():
     parser.add_argument(
         "--key",
         default="insns_processed",
-        help="Verifier statistic to compare (ex., peak_states, verification_time_microseconds).",
+        choices=[
+            "insns_processed",
+            "insns_limit",
+            "max_states_per_insn",
+            "total_states",
+            "peak_states",
+            "mark_read",
+            "verification_time_microseconds",
+            "stack_depth",
+        ],
+        help="Verifier statistic to compare.",
     )
 
     args = parser.parse_args()

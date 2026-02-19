@@ -15,7 +15,8 @@ try:
     from github import Github
 except ImportError:
     print(
-        "pygithub not found you can install it by running 'pip3 install --user PyGithub'"
+        "pygithub not found you can install it by running "
+        "'pip3 install --user PyGithub'"
     )
     sys.exit(-1)
 

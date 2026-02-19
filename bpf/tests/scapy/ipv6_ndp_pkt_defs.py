@@ -1,6 +1,25 @@
-from scapy.all import *
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
 
-from pkt_defs_common import *
+from scapy.layers.inet6 import IPv6
+from scapy.layers.l2 import Ether
+from scapy.layers.inet6 import (
+    ICMPv6ND_NS,
+    ICMPv6ND_NA,
+    ICMPv6NDOptSrcLLAddr,
+    ICMPv6NDOptDstLLAddr,
+)
+
+from pkt_defs_common import (
+    mac_one,
+    mac_two,
+    v6_node_one,
+    v6_pod_one,
+    v6_pod_three,
+    v6_pod_two,
+    v6_get_ns_addr,
+    v6_get_ns_mac,
+)
 
 ## IPv6 ndp from netdev (ipv6_ndp_from_netdev_test.c)
 
