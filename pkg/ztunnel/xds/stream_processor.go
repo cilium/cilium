@@ -10,6 +10,8 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -17,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
 type StreamProcessorParams struct {
@@ -31,6 +34,8 @@ type StreamProcessorParams struct {
 	// Reference to agent's CEP watcher and resource cache.
 	// This will be the source of truth for serving WDS API.
 	K8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	DB                        *statedb.DB
+	EnrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	Log                       *slog.Logger
 }
 
@@ -39,17 +44,29 @@ type StreamProcessorParams struct {
 // promote decoupling and the handling multiple streams without a shared set of
 // channels being required on the Server object.
 type StreamProcessor struct {
-	stream         v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	streamRecv     chan *v3.DeltaDiscoveryRequest
-	endpointRecv   chan *EndpointEvent
-	expectedNonce  map[string]struct{}
-	log            *slog.Logger
-	endpointSource EndpointEventSource
+	stream                 v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	streamRecv             chan *v3.DeltaDiscoveryRequest
+	endpointRecv           chan *EndpointEvent
+	expectedNonce          map[string]struct{}
+	log                    *slog.Logger
+	endpointSource         EndpointEventSource
+	db                     *statedb.DB
+	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
 }
+
+// CiliumEndpointsWatcher defines the interface for watching CiliumEndpoints and CiliumEndpointSlices.
+// This interface enables mocking for testing purposes.
+type CiliumEndpointsWatcher interface {
+	GetCiliumEndpointResource() resource.Resource[*types.CiliumEndpoint]
+	GetCiliumEndpointSliceResource() resource.Resource[*v2alpha1.CiliumEndpointSlice]
+}
+
+// Ensure watchers.K8sCiliumEndpointsWatcher implements CiliumEndpointsWatcher.
+var _ CiliumEndpointsWatcher = (*watchers.K8sCiliumEndpointsWatcher)(nil)
 
 // EndpointSource provides data for XDS server from different data sources in the agent.
 type EndpointSource struct {
-	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	k8sCiliumEndpointsWatcher CiliumEndpointsWatcher
 	sp                        *StreamProcessor
 }
 
@@ -58,6 +75,13 @@ func NewEndpointSource(k *watchers.K8sCiliumEndpointsWatcher, sp *StreamProcesso
 		k8sCiliumEndpointsWatcher: k,
 		sp:                        sp,
 	}
+}
+
+// isNamespaceEnrolled checks if the given namespace is enrolled for ztunnel processing.
+func (es *EndpointSource) isNamespaceEnrolled(namespace string) bool {
+	txn := es.sp.db.ReadTxn()
+	_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(namespace))
+	return found
 }
 
 // Interface different data sources need to implement for usage with StreamProcessor.
@@ -71,11 +95,13 @@ type EndpointEventSource interface {
 
 func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 	sp := &StreamProcessor{
-		stream:        params.Stream,
-		streamRecv:    params.StreamRecv,
-		endpointRecv:  params.EndpointEventRecv,
-		log:           params.Log,
-		expectedNonce: make(map[string]struct{}),
+		stream:                 params.Stream,
+		streamRecv:             params.StreamRecv,
+		endpointRecv:           params.EndpointEventRecv,
+		log:                    params.Log,
+		expectedNonce:          make(map[string]struct{}),
+		db:                     params.DB,
+		enrolledNamespaceTable: params.EnrolledNamespaceTable,
 	}
 	sp.endpointSource = NewEndpointSource(params.K8sCiliumEndpointsWatcher, sp)
 	return sp
@@ -189,6 +215,15 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 				continue
 			}
 
+			if !es.isNamespaceEnrolled(e.Object.Namespace) {
+				es.sp.log.Debug("Skipping processing of CiliumEndpointSlice in unenrolled namespace",
+					logfields.K8sNamespace, e.Object.Namespace,
+					logfields.Name, e.Object.GetName(),
+				)
+				e.Done(nil)
+				continue
+			}
+
 			if !synced {
 				// Buffer pre-Sync events into the initial batch
 				oldCEPs := cesCache[e.Key]
@@ -245,6 +280,15 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, syncCh 
 			continue
 		}
 		if e.Object == nil {
+			e.Done(nil)
+			continue
+		}
+
+		if !es.isNamespaceEnrolled(e.Object.GetNamespace()) {
+			es.sp.log.Debug("Skipping processing of CiliumEndpoint in unenrolled namespace",
+				logfields.K8sNamespace, e.Object.GetNamespace(),
+				logfields.Name, e.Object.GetName(),
+			)
 			e.Done(nil)
 			continue
 		}
