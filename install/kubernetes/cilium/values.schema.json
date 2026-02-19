@@ -4263,6 +4263,12 @@
             "enabled": {
               "type": "boolean"
             },
+            "httpPort": {
+              "type": "integer"
+            },
+            "httpsPort": {
+              "type": "integer"
+            },
             "nodes": {
               "properties": {
                 "matchLabels": {
@@ -4272,6 +4278,9 @@
               "type": "object"
             },
             "sharedListenerPort": {
+              "type": "integer"
+            },
+            "tlsPassthroughPort": {
               "type": "integer"
             }
           },

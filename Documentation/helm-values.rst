@@ -2744,6 +2744,14 @@
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
      - ``false``
+   * - :spelling:ignore:`ingressController.hostNetwork.httpPort`
+     - Configure a specific port on the host network that gets used for the shared HTTP listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
+   * - :spelling:ignore:`ingressController.hostNetwork.httpsPort`
+     - Configure a specific port on the host network that gets used for the shared HTTPS listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
    * - :spelling:ignore:`ingressController.hostNetwork.nodes.matchLabels`
      - Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker
      - object
@@ -2752,6 +2760,10 @@
      - Configure a specific port on the host network that gets used for the shared listener.
      - int
      - ``8080``
+   * - :spelling:ignore:`ingressController.hostNetwork.tlsPassthroughPort`
+     - Configure a specific port on the host network that gets used for the shared TLS passthrough listener. If unset or 0, sharedListenerPort is used.
+     - int
+     - ``0``
    * - :spelling:ignore:`ingressController.ingressLBAnnotationPrefixes`
      - IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
      - list
