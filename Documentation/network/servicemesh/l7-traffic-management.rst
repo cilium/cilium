@@ -45,9 +45,13 @@ Caveats
   the original source address/port. This may cause 5-tuple collisions when pods
   send multiple requests over the same pipelined HTTP/1.1 or HTTP/2 connection.
   (The Cilium agent assumes all CECs with parentRefs pointing to the Cilium
-  Ingress or Gateway API controllers have annotation
-  ``cec.cilium.io/use-original-source-address`` set to ``"false"``, but all other CECs
-  are assumed to have this annotation set to ``"true"``.)
+  Ingress or Gateway API controllers have
+  ``cilium.io/use-original-source-address`` set to ``"false"``, but all other CECs
+  are assumed to have this label set to ``"true"``.)
+* For cases when ``CiliumEnvoyConfig`` is not used directly (Ingress, Gateway),
+  you can override the default usage of the original source address/port in Envoy by
+  setting flag ``--proxy-use-original-source-address`` to ``false``.
+
 
 .. include:: installation.rst
 
