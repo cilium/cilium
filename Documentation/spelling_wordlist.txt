@@ -748,6 +748,7 @@ selftests
 serverinfo
 serviceAccount
 serviceMonitor
+serviceTopology
 serviceaccount
 setrlimit
 sfc
