@@ -126,11 +126,9 @@ func TestWorkqueueSyncStore(t *testing.T) {
 	store := st.NewSyncStore("qux", backend, "/foo/bar")
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Run(ctx)
-	}()
+	})
 
 	defer func() {
 		cancel()
@@ -184,11 +182,9 @@ func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
 	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithoutLease())
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Run(ctx)
-	}()
+	})
 
 	defer func() {
 		cancel()
@@ -209,11 +205,9 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithRateLimiter(limiter))
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Run(ctx)
-	}()
+	})
 
 	defer func() {
 		cancel()
@@ -237,11 +231,9 @@ func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithWorkers(2))
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Run(ctx)
-	}()
+	})
 
 	defer func() {
 		cancel()
@@ -269,11 +261,9 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 			store := st.NewSyncStore("qux", backend, "foo/bar", opts...)
 
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				store.Run(ctx)
-			}()
+			})
 
 			defer func() {
 				cancel()
@@ -403,11 +393,9 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 
 	// Start the store
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		store.Run(ctx)
-	}()
+	})
 
 	defer func() {
 		cancel()

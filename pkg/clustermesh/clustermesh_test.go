@@ -137,11 +137,9 @@ func TestClusterMesh(t *testing.T) {
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries
 	nodesWSS := storeFactory.NewSyncStore("cluster2", client, nodeStore.NodeStorePrefix)
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		nodesWSS.Run(ctx)
-		wg.Done()
-	}()
+	})
 	nodeNames := []string{"foo", "bar", "baz"}
 
 	// wait for the two expected clusters to appear in the list of cm clusters
