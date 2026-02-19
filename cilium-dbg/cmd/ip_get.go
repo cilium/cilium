@@ -25,6 +25,8 @@ var (
 	ipQueryLabels []string
 )
 
+const InfoNA = "N/A"
+
 var ipGetCmd = &cobra.Command{
 	Use:   "get ( <cidr> |-l <identity labels> )",
 	Short: "Display IP Cache information",
@@ -99,7 +101,15 @@ func printIPcacheEntriesBrief(entries []*models.IPListEntry) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 	fmt.Fprintf(w, "IP\tHOST\tIDENTITY\tPOD\tNAMESPACE\n")
 	for _, entry := range entries {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", *entry.Cidr, entry.HostIP, *entry.Identity, entry.Metadata.Name, entry.Metadata.Namespace)
+		cidr := InfoNA
+		if entry.Cidr != nil {
+			cidr = *entry.Cidr
+		}
+		identity := InfoNA
+		if entry.Identity != nil {
+			identity = fmt.Sprintf("%d", *entry.Identity)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", cidr, entry.HostIP, identity, entry.Metadata.Name, entry.Metadata.Namespace)
 	}
 	w.Flush()
 }
