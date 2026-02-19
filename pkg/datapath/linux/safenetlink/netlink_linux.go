@@ -10,6 +10,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -464,4 +465,40 @@ func XfrmStateList(family int) ([]netlink.XfrmState, error) {
 		//nolint:forbidigo
 		return netlink.XfrmStateList(family)
 	})
+}
+
+// XfrmPolicyDel wraps netlink.XfrmPolicyDel, treating ESRCH as success
+// since it indicates the policy was already deleted.
+func XfrmPolicyDel(policy *netlink.XfrmPolicy) error {
+	if err := netlink.XfrmPolicyDel(policy); err != nil {
+		if errors.Is(err, unix.ESRCH) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// XfrmStateDel wraps netlink.XfrmStateDel, treating ESRCH as success
+// since it indicates the state was already deleted.
+func XfrmStateDel(state *netlink.XfrmState) error {
+	if err := netlink.XfrmStateDel(state); err != nil {
+		if errors.Is(err, unix.ESRCH) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// RouteDel wraps netlink.RouteDel, treating ESRCH and ENOENT as success
+// since they indicate the route was already deleted.
+func RouteDel(route *netlink.Route) error {
+	if err := netlink.RouteDel(route); err != nil {
+		if errors.Is(err, unix.ESRCH) || errors.Is(err, unix.ENOENT) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
