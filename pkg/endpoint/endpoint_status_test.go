@@ -34,7 +34,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 	}
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, m, nil)
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
@@ -78,7 +78,7 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 	}
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, m, nil)
 	require.NoError(t, err)
 
 	// Create a mock pod with ServiceAccount

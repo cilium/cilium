@@ -31,7 +31,7 @@ var launchTime = 30 * time.Second
 
 type EndpointCreator interface {
 	// NewEndpointFromChangeModel creates a new endpoint from a request
-	NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error)
+	NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*endpoint.Endpoint, error)
 
 	ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, error)
 
@@ -92,9 +92,8 @@ func policyDebugLogger() *lumberjack.Logger {
 	}
 }
 
-func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
+func (c *endpointCreator) NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
 	return endpoint.NewEndpointFromChangeModel(
-		ctx,
 		c.epParams,
 		c.params.DNSRulesService,
 		c.params.Proxy,

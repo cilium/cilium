@@ -213,7 +213,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 	}
 
 	p := createTestEndpointParams(t)
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, m, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
 }
@@ -222,7 +222,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := createTestEndpointParams(t)
 
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -267,7 +267,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 func TestEndpointState(t *testing.T) {
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := createTestEndpointParams(t)
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(t, err)
 	e.Start(uint16(model.ID))
 	t.Cleanup(e.Stop)
@@ -652,7 +652,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 
 	model := newTestEndpointModel(12345, StateReady)
 	p := createTestEndpointParams(t)
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+	ep, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -732,7 +732,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 func BenchmarkEndpointGetModel(b *testing.B) {
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
 	p := createTestEndpointParams(b)
-	e, err := NewEndpointFromChangeModel(b.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))
@@ -812,7 +812,7 @@ func TestMetadataResolver(t *testing.T) {
 				model := newTestEndpointModel(100, StateWaitingForIdentity)
 				kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 				p.KVStoreSynchronizer = kvstoreSync
-				ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+				ep, err := NewEndpointFromChangeModel(p, nil, nil, model, nil)
 				require.NoError(t, err)
 
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"

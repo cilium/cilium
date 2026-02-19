@@ -29,7 +29,7 @@ func TestPolicyLog(t *testing.T) {
 	model := newTestEndpointModel(12345, StateReady)
 	p := createTestEndpointParams(t)
 	p.PolicyRepo = do.repo
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, f)
+	ep, err := NewEndpointFromChangeModel(p, nil, nil, model, f)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

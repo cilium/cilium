@@ -268,7 +268,7 @@ func (h *EndpointPatchEndpointIDHandler) Handle(params endpointapi.PatchEndpoint
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := h.endpointCreator.NewEndpointFromChangeModel(params.HTTPRequest.Context(), epTemplate)
+	newEp, err2 := h.endpointCreator.NewEndpointFromChangeModel(epTemplate)
 	if err2 != nil {
 		r.Error(err2, endpointapi.PutEndpointIDInvalidCode)
 		return api.Error(endpointapi.PutEndpointIDInvalidCode, err2)

@@ -65,7 +65,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, &FakeEndpointProxy{}, model, nil)
+	ep, err := NewEndpointFromChangeModel(p, nil, &FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

@@ -206,7 +206,7 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 		ID:    int64(testEndpointID),
 		State: ptr.To(models.EndpointState(endpoint.StateWaitingForIdentity)),
 	}
-	e, err := ds.endpointCreator.NewEndpointFromChangeModel(t.Context(), model)
+	e, err := ds.endpointCreator.NewEndpointFromChangeModel(model)
 	require.NoError(t, err)
 
 	e.Start(testEndpointID)

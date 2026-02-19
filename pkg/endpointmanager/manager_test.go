@@ -4,7 +4,6 @@
 package endpointmanager
 
 import (
-	"context"
 	"net/netip"
 	"sync"
 	"testing"
@@ -391,7 +390,7 @@ func TestLookup(t *testing.T) {
 			logger := hivetest.Logger(t)
 			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 			if tt.cm != nil {
-				ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+				ep, err = endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 					EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 					NamedPortsGetter: testipcache.NewMockIPCache(),
 					Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -426,7 +425,7 @@ func TestLookupCiliumID(t *testing.T) {
 
 	model := newTestEndpointModel(2, endpoint.StateReady)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		PolicyRepo:       s.repo,
@@ -511,7 +510,7 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -544,7 +543,7 @@ func TestLookupIPv4(t *testing.T) {
 
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 	model := newTestEndpointModel(4, endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -707,7 +706,7 @@ func TestLookupCEPName(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 			NamedPortsGetter: testipcache.NewMockIPCache(),
 			Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -761,7 +760,7 @@ func TestUpdateReferences(t *testing.T) {
 	for _, tt := range tests {
 		var err error
 		logger := hivetest.Logger(t)
-		ep, err = endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		ep, err = endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 			NamedPortsGetter: testipcache.NewMockIPCache(),
 			Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -807,7 +806,7 @@ func TestRemove(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 	model := newTestEndpointModel(7, endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -877,7 +876,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	// Create host endpoint and expose it in the endpoint manager.
 	model := newTestEndpointModel(1, endpoint.StateReady)
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:        &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter:    testipcache.NewMockIPCache(),
 		Allocator:           testidentity.NewMockIdentityAllocator(nil),
@@ -940,7 +939,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			name: "Add labels",
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
-				ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+				ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 					EPBuildQueue:        &endpoint.MockEndpointBuildQueue{},
 					NamedPortsGetter:    testipcache.NewMockIPCache(),
 					Allocator:           testidentity.NewMockIdentityAllocator(nil),
@@ -982,7 +981,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 			preTestRun: func() {
 				model := newTestEndpointModel(1, endpoint.StateReady)
 				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
-				ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+				ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 					EPBuildQueue:        &endpoint.MockEndpointBuildQueue{},
 					NamedPortsGetter:    testipcache.NewMockIPCache(),
 					Allocator:           testidentity.NewMockIdentityAllocator(nil),
@@ -1027,7 +1026,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				model.Labels = apiv1.Labels([]string{"k8s:k1=v1"})
 				kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
 
-				ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+				ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 					EPBuildQueue:        &endpoint.MockEndpointBuildQueue{},
 					NamedPortsGetter:    testipcache.NewMockIPCache(),
 					Allocator:           testidentity.NewMockIdentityAllocator(nil),
