@@ -109,8 +109,15 @@ func SetLogLevelToDebug() {
 }
 
 // AddHandlers adds additional logrus hook to default logger
+// SetupLogging creates a new defaultMultiSlogHandler from scratch, all calls to
+// AddHandlers should come after that to avoid overwriting previously added
+// handlers.
+// AddHandlers should also not be run concurrently while accessing the default logger.
 func AddHandlers(hooks ...slog.Handler) {
-	defaultMultiSlogHandler.AddHandlers(hooks...)
+	defaultMultiSlogHandler = defaultMultiSlogHandler.AddHandlers(hooks...)
+	DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
+	// Need to reset klog loggers to the new default logger.
+	initializeKLog(DefaultSlogLogger)
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
