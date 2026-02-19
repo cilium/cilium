@@ -1045,6 +1045,15 @@ ingressController:
     enabled: false
     # -- Configure a specific port on the host network that gets used for the shared listener.
     sharedListenerPort: 8080
+    # -- Configure a specific port on the host network that gets used for the shared HTTP listener.
+    # If unset or 0, sharedListenerPort is used.
+    httpPort: 0
+    # -- Configure a specific port on the host network that gets used for the shared HTTPS listener.
+    # If unset or 0, sharedListenerPort is used.
+    httpsPort: 0
+    # -- Configure a specific port on the host network that gets used for the shared TLS passthrough listener.
+    # If unset or 0, sharedListenerPort is used.
+    tlsPassthroughPort: 0
     # Specify the nodes where the Ingress listeners should be exposed
     nodes:
       # -- Specify the labels of the nodes where the Ingress listeners should be exposed

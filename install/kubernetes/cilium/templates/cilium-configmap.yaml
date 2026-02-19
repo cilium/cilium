@@ -291,6 +291,9 @@ data:
   {{- end }}
   ingress-hostnetwork-enabled: {{ .Values.ingressController.hostNetwork.enabled | quote }}
   ingress-hostnetwork-shared-listener-port: {{ .Values.ingressController.hostNetwork.sharedListenerPort | quote }}
+  ingress-hostnetwork-http-listener-port: {{ .Values.ingressController.hostNetwork.httpPort | quote }}
+  ingress-hostnetwork-https-listener-port: {{ .Values.ingressController.hostNetwork.httpsPort | quote }}
+  ingress-hostnetwork-tls-passthrough-listener-port: {{ .Values.ingressController.hostNetwork.tlsPassthroughPort | quote }}
   ingress-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.ingressController.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 

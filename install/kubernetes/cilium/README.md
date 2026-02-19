@@ -736,8 +736,11 @@ contributors across the globe, there is almost always someone available to help.
 | ingressController.enabled | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
 | ingressController.enforceHttps | bool | `true` | Enforce https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. |
 | ingressController.hostNetwork.enabled | bool | `false` | Configure whether the Envoy listeners should be exposed on the host network. |
+| ingressController.hostNetwork.httpPort | int | `0` | Configure a specific port on the host network that gets used for the shared HTTP listener. If unset or 0, sharedListenerPort is used. |
+| ingressController.hostNetwork.httpsPort | int | `0` | Configure a specific port on the host network that gets used for the shared HTTPS listener. If unset or 0, sharedListenerPort is used. |
 | ingressController.hostNetwork.nodes.matchLabels | object | `{}` | Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker |
 | ingressController.hostNetwork.sharedListenerPort | int | `8080` | Configure a specific port on the host network that gets used for the shared listener. |
+| ingressController.hostNetwork.tlsPassthroughPort | int | `0` | Configure a specific port on the host network that gets used for the shared TLS passthrough listener. If unset or 0, sharedListenerPort is used. |
 | ingressController.ingressLBAnnotationPrefixes | list | `["lbipam.cilium.io","nodeipam.cilium.io","service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]` | IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service |
 | ingressController.loadbalancerMode | string | `"dedicated"` | Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource: "ingress.cilium.io/loadbalancer-mode: dedicated" (or "shared"). |
 | ingressController.secretsNamespace | object | `{"create":true,"name":"cilium-secrets","sync":true}` | SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from. |

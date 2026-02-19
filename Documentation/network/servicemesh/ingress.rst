@@ -246,6 +246,9 @@ Once enabled, host network ports can be specified with the following methods:
 
 * Shared Ingress: Globally via Helm flags
     * ``ingressController.hostNetwork.sharedListenerPort``: Host network port to expose the Cilium ingress controller Envoy listener. The default port is ``8080``. If you change it, you should choose a port number higher than ``1023`` (see `Bind to privileged port`_).
+    * ``ingressController.hostNetwork.httpPort``: Host network port to expose the shared HTTP listener. If unset or ``0``, ``sharedListenerPort`` is used.
+    * ``ingressController.hostNetwork.httpsPort``: Host network port to expose the shared HTTPS listener. If unset or ``0``, ``sharedListenerPort`` is used.
+    * ``ingressController.hostNetwork.tlsPassthroughPort``: Host network port to expose the shared TLS passthrough listener. If unset or ``0``, ``sharedListenerPort`` is used.
 * Dedicated Ingress: Per ``Ingress`` resource via annotations
     * ``ingress.cilium.io/host-listener-port``:  Host network port to expose the Cilium ingress controller Envoy listener. The default port is ``8080`` but it can only be used for a single ``Ingress`` resource as it needs to be unique per ``Ingress`` resource. You should choose a port higher than ``1023`` (see `Bind to privileged port`_). This annotation is mandatory if the global Cilium ingress controller mode is configured to ``dedicated`` (``ingressController.loadbalancerMode``) or the ingress resource sets the ``ingress.cilium.io/loadbalancer-mode`` annotation to ``dedicated`` and multiple ``Ingress`` resources are deployed.
 
