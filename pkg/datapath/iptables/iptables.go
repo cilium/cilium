@@ -470,7 +470,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		m.logger.Warn("enabling IP forwarding via sysctl failed", logfields.Error, err)
 	}
 
-	if m.sharedCfg.EnableIPSec && m.sharedCfg.EnableL7Proxy {
+	if (m.sharedCfg.EnableIPSec || m.sharedCfg.EnableWireguard) && m.sharedCfg.EnableL7Proxy {
 		m.disableIPEarlyDemux()
 	}
 

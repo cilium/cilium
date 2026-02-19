@@ -125,8 +125,8 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 //     hair-pinning traffic in Ingress L7 proxy (i.e. backend is in the same node).
 //   - Native routing + IPSec: install Ingress+Egress routes for (a) the same reason
 //     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
-//   - Native routing + WireGuard: install only Ingress routes to account for WireGuard
-//     overhead on reply packets from Ingress L7 proxy in proxy-to-proxy connections.
+//   - Native routing + WireGuard: install Ingress+Egress routes for (a) the same reason
+//     as above, and also to account for WireGuard overhead on proxy-to-proxy connections.
 func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
 	if option.Config.TunnelingEnabled() {
 		return
@@ -135,12 +135,9 @@ func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fro
 		fromIngressProxy = true
 	}
 	switch {
-	case ipsecEnabled:
+	case ipsecEnabled, wireguardEnabled:
 		fromIngressProxy = true
 		fromEgressProxy = true
-		mtu = mtuIn
-	case wireguardEnabled:
-		fromIngressProxy = true
 		mtu = mtuIn
 	}
 	return
