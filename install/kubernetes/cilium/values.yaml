@@ -1780,7 +1780,7 @@ hubble:
         type: RuntimeDefault
     # -- hubble-relay container security context
     securityContext:
-      # readOnlyRootFilesystem: true
+      readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
       runAsNonRoot: true
       runAsUser: 65532

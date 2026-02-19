@@ -3641,6 +3641,9 @@
                   },
                   "type": "object"
                 },
+                "readOnlyRootFilesystem": {
+                  "type": "boolean"
+                },
                 "runAsGroup": {
                   "type": "integer"
                 },
