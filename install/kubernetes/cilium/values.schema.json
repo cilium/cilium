@@ -5083,7 +5083,20 @@
           "type": "array"
         },
         "extraEnv": {
-          "items": {},
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
           "type": "array"
         },
         "extraHostPathMounts": {
@@ -5091,11 +5104,37 @@
           "type": "array"
         },
         "extraVolumeMounts": {
-          "items": {},
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "mountPath": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
           "type": "array"
         },
         "extraVolumes": {
-          "items": {},
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "emptyDir": {
+                    "type": "object"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
           "type": "array"
         },
         "hostNetwork": {
@@ -5336,6 +5375,9 @@
                 }
               },
               "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "type": "boolean"
             }
           },
           "type": "object"
