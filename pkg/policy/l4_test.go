@@ -485,8 +485,8 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 			startFilter := &L4Filter{
 				U8Proto:  u8proto.TCP,
 				Protocol: api.ProtoTCP,
-				Port:     portRange.startPort,
-				EndPort:  portRange.endPort,
+				Port:     types.PadPort(u8proto.TCP, portRange.startPort),
+				EndPort:  types.PadPort(u8proto.TCP, portRange.endPort),
 			}
 			startPort := fmt.Sprintf("%d", portRange.startPort)
 			l4Map.Upsert(startPort, portRange.endPort, "TCP", startFilter)
@@ -506,8 +506,8 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 				altFilter := &L4Filter{
 					U8Proto:  u8proto.TCP,
 					Protocol: api.ProtoTCP,
-					Port:     altPR.startPort,
-					EndPort:  altPR.endPort,
+					Port:     types.PadPort(u8proto.TCP, altPR.startPort),
+					EndPort:  types.PadPort(u8proto.TCP, altPR.endPort),
 				}
 				// Upsert overlapping port range.
 				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)

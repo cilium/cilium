@@ -16,6 +16,28 @@ import (
 // to binary minus the sizeof the identity field (which is not indexed).
 const MapStatePrefixLen = uint(32)
 
+// PaddedPort is a marker type to indicate that the ICMP type
+// has been padded with 0xff. This is because ICMP type 0 (which we
+// represent as a port) is valid, but we use 0 as a not-present value.
+type PaddedPort uint16
+
+func PadPort(proto u8proto.U8proto, port uint16) PaddedPort {
+	if proto.IsICMP() {
+		return PaddedPort(port | 0xff00)
+	}
+	return PaddedPort(port)
+}
+
+func (p PaddedPort) Unpad(proto u8proto.U8proto) uint16 {
+	port := uint16(p)
+
+	// ICMP is padded with 0xff, remove padding
+	if proto.IsICMP() && port > 0 {
+		port &= 0x00ff
+	}
+	return port
+}
+
 // Key is the userspace representation of a policy key in BPF. It is
 // intentionally duplicated from pkg/maps/policymap to avoid pulling in the
 // BPF dependency to this package.
@@ -26,7 +48,7 @@ type LPMKey struct {
 	Nexthdr u8proto.U8proto
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
-	DestPort uint16
+	DestPort PaddedPort
 }
 
 type Key struct {
@@ -73,21 +95,13 @@ func (k Key) WithProto(proto u8proto.U8proto) Key {
 	return k
 }
 
-func (k Key) WithPort(port uint16) Key {
-	k.DestPort = port
-	k.bits &= directionBitMask
+func (k Key) WithPaddedPortProtoPrefix(proto u8proto.U8proto, port PaddedPort, prefixLen uint8) Key {
+	k.Nexthdr = proto
 
-	if port != 0 {
-		// non-wildcarded port
-		k.bits |= 16
-	}
-	return k
-}
-
-func (k Key) WithPortPrefix(port uint16, prefixLen uint8) Key {
-	if prefixLen > 16 || port != 0 && prefixLen == 0 {
+	if prefixLen > 16 || (port != 0 && prefixLen == 0) {
 		prefixLen = 16
 	}
+
 	// set up the port wildcard
 	k.DestPort = port & (0xffff << (16 - prefixLen))
 	k.bits = k.bits&directionBitMask | prefixLen
@@ -95,11 +109,15 @@ func (k Key) WithPortPrefix(port uint16, prefixLen uint8) Key {
 }
 
 func (k Key) WithPortProto(proto u8proto.U8proto, port uint16) Key {
-	return k.WithProto(proto).WithPort(port)
+	prefixLen := uint8(16)
+	if port == 0 {
+		prefixLen = 0
+	}
+	return k.WithPortProtoPrefix(proto, port, prefixLen)
 }
 
 func (k Key) WithPortProtoPrefix(proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
-	return k.WithProto(proto).WithPortPrefix(port, prefixLen)
+	return k.WithPaddedPortProtoPrefix(proto, PadPort(proto, port), prefixLen)
 }
 
 func (k Key) WithTCPPort(port uint16) Key {
@@ -168,9 +186,13 @@ func (k LPMKey) IsEgress() bool {
 	return k.TrafficDirection() == trafficdirection.Egress
 }
 
+func (k LPMKey) StartPort() uint16 {
+	return k.DestPort.Unpad(k.Nexthdr)
+}
+
 // EndPort returns the end-port of the Key based on the Mask.
 func (k LPMKey) EndPort() uint16 {
-	return k.DestPort + uint16(0xffff)>>k.PortPrefixLen()
+	return k.StartPort() + uint16(0xffff)>>k.PortPrefixLen()
 }
 
 // Covers returns true if 'k' matches all traffic that 'c' matcches.
@@ -203,7 +225,7 @@ func (k LPMKey) PortIsBroader(c Key) bool {
 	kPrefixLen := k.PortPrefixLen()
 	cPrefixLen := c.PortPrefixLen()
 	return kPrefixLen < cPrefixLen &&
-		k.DestPort^c.DestPort&(uint16(0xffff)<<(16-kPrefixLen)) == 0
+		k.DestPort^c.DestPort&(PaddedPort(0xffff)<<(16-kPrefixLen)) == 0
 }
 
 // PortIsEqual returns true if the port ranges
@@ -237,7 +259,7 @@ func (k LPMKey) CommonPrefix(b LPMKey) uint {
 	if v < 9 {
 		return uint(v)
 	}
-	return uint(v + bits.LeadingZeros16(k.DestPort^b.DestPort))
+	return uint(v + bits.LeadingZeros16(uint16(k.DestPort^b.DestPort)))
 }
 
 // BitValueAt implements the BitValueAt method for the

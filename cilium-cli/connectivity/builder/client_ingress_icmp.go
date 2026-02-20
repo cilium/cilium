@@ -14,6 +14,9 @@ import (
 //go:embed manifests/echo-ingress-icmp.yaml
 var echoIngressICMPPolicyYAML string
 
+//go:embed manifests/echo-ingress-icmp-zero.yaml
+var echoIngressICMPPolicyZeroYAML string
+
 type clientIngressIcmp struct{}
 
 func (t clientIngressIcmp) build(ct *check.ConnectivityTest, _ map[string]string) {
@@ -27,5 +30,14 @@ func (t clientIngressIcmp) build(ct *check.ConnectivityTest, _ map[string]string
 				return check.ResultOK, check.ResultOK
 			}
 			return check.ResultOK, check.ResultDefaultDenyIngressDrop
+		})
+
+	// This policy allows only ICMP type zero, and thus should drop an echo request.
+	newTest("client-ingress-icmp-zero", ct).
+		WithCiliumPolicy(echoIngressICMPPolicyZeroYAML).
+		WithFeatureRequirements(features.RequireEnabled(features.ICMPPolicy)).
+		WithScenarios(tests.ClientToClient()).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDrop, check.ResultPolicyDenyIngressDrop
 		})
 }

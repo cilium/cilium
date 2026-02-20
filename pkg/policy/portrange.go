@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+
+	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 // MaskedPort is a port with a wild card mask value.
@@ -15,7 +17,7 @@ import (
 // that are indexed in the datapath by a bitwise
 // longest-prefix-match trie.
 type MaskedPort struct {
-	port uint16
+	port types.PaddedPort
 	mask uint16
 }
 
@@ -24,9 +26,12 @@ func (m MaskedPort) String() string {
 }
 
 // maskedPort returns a new MaskedPort where 'wildcardBits' lowest bits are wildcarded.
-func maskedPort(port uint16, wildcardBits int) MaskedPort {
+func maskedPort(port types.PaddedPort, wildcardBits int) MaskedPort {
 	mask := uint16(math.MaxUint16) << wildcardBits
-	return MaskedPort{port & mask, mask}
+	return MaskedPort{
+		port: port & types.PaddedPort(mask), /* cast is a noop */
+		mask: mask,
+	}
 }
 
 // PortRangeToMaskedPorts returns a slice of masked ports for the given port range.
@@ -34,7 +39,7 @@ func maskedPort(port uint16, wildcardBits int) MaskedPort {
 // as a fully masked port.
 // Ports are not returned in any particular order, so testing code needs to sort them
 // for consistency.
-func PortRangeToMaskedPorts(start uint16, end uint16) (ports []MaskedPort) {
+func PortRangeToMaskedPorts(start, end types.PaddedPort) (ports []MaskedPort) {
 	// This is a wildcard.
 	if start == 0 && (end == 0 || end == math.MaxUint16) {
 		return []MaskedPort{{0, 0}}
@@ -45,7 +50,7 @@ func PortRangeToMaskedPorts(start uint16, end uint16) (ports []MaskedPort) {
 	}
 	// Find the number of common leading bits. The first uncommon bit will be 0 for the start
 	// and 1 for the end.
-	commonBits := bits.LeadingZeros16(start ^ end)
+	commonBits := bits.LeadingZeros16(uint16(start ^ end))
 
 	// Cover the case where all the bits after the common bits are zeros on start and ones on
 	// end. In this case the range can be represented by a single masked port instead of two
@@ -56,7 +61,7 @@ func PortRangeToMaskedPorts(start uint16, end uint16) (ports []MaskedPort) {
 	//
 	// This also covers the trivial case where all the bits are in common (i.e., start == end).
 	mask := uint16(math.MaxUint16) >> commonBits
-	if start&mask == 0 && ^end&mask == 0 {
+	if uint16(start)&mask == 0 && ^uint16(end)&mask == 0 {
 		return []MaskedPort{maskedPort(start, 16-commonBits)}
 	}
 
@@ -68,7 +73,7 @@ func PortRangeToMaskedPorts(start uint16, end uint16) (ports []MaskedPort) {
 	// Wildcard the trailing zeroes to the right of the middle bit of the range start.
 	// This covers the values immediately following the port range start, including the start itself.
 	// The middle bit is added to avoid counting zeroes past it.
-	bit := bits.TrailingZeros16(start | middle)
+	bit := bits.TrailingZeros16(uint16(start) | middle)
 	ports = append(ports, maskedPort(start, bit))
 
 	// Find all 0-bits between the trailing zeroes and the middle bit and add MaskedPorts where
@@ -85,7 +90,7 @@ func PortRangeToMaskedPorts(start uint16, end uint16) (ports []MaskedPort) {
 	// Wildcard the trailing ones to the right of the middle bit of the range end.
 	// This covers the values immediately preceding and including the range end.
 	// The middle bit is added to avoid counting ones past it.
-	bit = bits.TrailingZeros16(^end | middle)
+	bit = bits.TrailingZeros16(^uint16(end) | middle)
 	ports = append(ports, maskedPort(end, bit))
 
 	// Find all 1-bits between the trailing ones and the middle bit and add MaskedPorts where
