@@ -3374,7 +3374,7 @@ func permutations(arr []int) [][]int {
 		if n == 1 {
 			res = append(res, slices.Clone(arr))
 		} else {
-			for i := 0; i < n; i++ {
+			for i := range n {
 				helper(arr, n-1)
 				if n%2 == 1 {
 					tmp := arr[i]

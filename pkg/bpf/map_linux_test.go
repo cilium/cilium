@@ -640,7 +640,7 @@ func TestPrivilegedDumpReliablyWithCallbackOverlapping(t *testing.T) {
 	// We expect that DumpReliablyWithCallback will iterate all odd key/value pairs
 	// even if the even keys are being deleted and reinserted.
 	expect := map[string]string{}
-	for i := uint32(0); i < maxEntries; i++ {
+	for i := range maxEntries {
 		if i%2 != 0 {
 			expect[fmt.Sprintf("key=%d", i)] = fmt.Sprintf("value=%d", i+200)
 		}
@@ -705,7 +705,7 @@ func TestPrivilegedDumpReliablyWithCallback(t *testing.T) {
 		defer wg.Done()
 		started <- struct{}{}
 		for {
-			for i := uint32(0); i < 4; i++ {
+			for i := range uint32(4) {
 				if i < 3 {
 					err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
 					// avoid assert to ensure we call wg.Done

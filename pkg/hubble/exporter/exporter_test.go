@@ -512,7 +512,7 @@ func TestExporterAggregationDisabledWhenIntervalZero(t *testing.T) {
 	assert.Nil(t, exporter.aggregator, "aggregator should be disabled when interval <= 0")
 
 	// Send two flow events that would otherwise aggregate.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := exporter.Export(t.Context(), &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_FORWARDED}})
 		assert.NoError(t, err)
 	}
