@@ -147,6 +147,12 @@ func (l7Rules *PerSelectorPolicy) mergeRedirect(newL7Rules *PerSelectorPolicy) e
 func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterToMerge *L4Filter) (err error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
+	// only filters on the same Tier may be merged
+	if existingFilter.Tier != filterToMerge.Tier {
+		return fmt.Errorf("cannot merge filters with different tiers (%d != %d)",
+			existingFilter.Tier, filterToMerge.Tier)
+	}
+
 	// Iterate through each PerSelectorPolicy for each existing CachedSelector.
 	// Note that 'newPolicy' can be 'nil' for a zero-valued PerSelectorPolicy
 	// (== allow of highest precedence without any L7 rules nor TLS contexts).

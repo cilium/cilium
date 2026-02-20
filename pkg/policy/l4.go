@@ -241,6 +241,18 @@ func (a *PerSelectorPolicy) GetPriority() types.Priority {
 	return a.Priority
 }
 
+// GetPrecedence returns the datapath precedence of the PerSelectorPolicy.
+func (a *PerSelectorPolicy) GetPrecedence() types.Precedence {
+	if a == nil {
+		return types.MaxAllowPrecedence
+	}
+	if a.Verdict == types.Pass {
+		return a.Priority.ToPassPrecedence()
+	}
+	return a.Priority.ToPrecedenceWithListenerPriority(a.Verdict == types.Deny,
+		a.IsRedirect(), a.GetListenerPriority())
+}
+
 // getAuthType returns AuthType for the api.Authentication
 func getAuthType(auth *api.Authentication) (bool, AuthType) {
 	if auth == nil {
@@ -290,6 +302,10 @@ func (a *PerSelectorPolicy) GetVerdict() types.Verdict {
 
 func (a *PerSelectorPolicy) IsDeny() bool {
 	return a.GetVerdict() == types.Deny
+}
+
+func (a *PerSelectorPolicy) IsPass() bool {
+	return a.GetVerdict() == types.Pass
 }
 
 // Deny takes precedence over allow and pass, allow takes precedence over pass.
@@ -1471,6 +1487,14 @@ func newL4DirectionPolicy() L4DirectionPolicy {
 	return L4DirectionPolicy{
 		PortRules:        L4PolicyMaps{makeL4PolicyMap()},
 		tierBasePriority: make([]types.Priority, 1),
+	}
+}
+
+func NewL4DirectionPolicyForTest(policyMap L4PolicyMaps, tierBasePriorities []types.Priority) L4DirectionPolicy {
+	return L4DirectionPolicy{
+		PortRules:        policyMap,
+		tierBasePriority: tierBasePriorities,
+		features:         allFeatures,
 	}
 }
 

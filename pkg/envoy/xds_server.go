@@ -77,6 +77,10 @@ const (
 	ingressTLSClusterName = "ingress-cluster-tls"
 	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	adminListenerName     = "envoy-admin-listener"
+
+	// direction logging
+	ingressDirection = "ingress"
+	egressDirection  = "egress"
 )
 
 // XDSServer provides a high-lever interface to manage resources published using the xDS gRPC API.
@@ -1209,14 +1213,19 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 var DenyVerdict = &cilium.PortNetworkPolicyRule_Deny{Deny: true}
 
-func newPortNetworkPolicyRule(verdict policyTypes.Verdict, precedence policyTypes.Precedence) *cilium.PortNetworkPolicyRule {
+func newPortNetworkPolicyRule(verdict policyTypes.Verdict, precedence, passPrecedence policyTypes.Precedence) *cilium.PortNetworkPolicyRule {
 	r := &cilium.PortNetworkPolicyRule{
 		Precedence: uint32(precedence),
 	}
 	if verdict == policyTypes.Deny {
 		r.Verdict = DenyVerdict
 	}
-	// r.RemotePolicies intentionally left empty
+	if verdict == policyTypes.Pass {
+		r.Verdict = &cilium.PortNetworkPolicyRule_PassPrecedence{
+			PassPrecedence: uint32(passPrecedence),
+		}
+	}
+	// r.RemotePolicies intentionally left empty (matches all peers)
 	return r
 }
 
@@ -1234,10 +1243,15 @@ func (s *xdsServer) initPortNetworkPolicyRule(psp *policy.PerSelectorPolicy, tie
 			logfields.Stacktrace, hclog.Stacktrace())
 	}
 	verdict := psp.GetVerdict()
-	precedence := priority.ToPrecedenceWithListenerPriority(verdict == policyTypes.Deny,
-		psp.IsRedirect(), psp.GetListenerPriority())
 
-	return newPortNetworkPolicyRule(verdict, precedence)
+	precedence := psp.GetPrecedence()
+
+	var passPrecedence policyTypes.Precedence
+	if verdict == policyTypes.Pass {
+		passPrecedence = tierLastPriority.ToPassPrecedence()
+	}
+
+	return newPortNetworkPolicyRule(verdict, precedence, passPrecedence)
 }
 
 func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, psp *policy.PerSelectorPolicy, tierBasePriority, tierLastPriority policyTypes.Priority, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
@@ -1334,20 +1348,21 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 // of any deny/allow all rule, if any.
 func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdater,
 	snapshot policy.SelectorSnapshot, tierBasePriority, tierLastPriority policyTypes.Priority,
-	selectors policy.L7DataMap, useFullTLSContext, useSDS bool, policySecretsNamespace string) (rules []*cilium.PortNetworkPolicyRule, wildcardPrecedence policyTypes.Precedence) {
+	selectors policy.L7DataMap, useFullTLSContext, useSDS bool, policySecretsNamespace string) (rules []*cilium.PortNetworkPolicyRule, havePassRules bool, wildcardPrecedence policyTypes.Precedence) {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple
 	// selectors
 
 	// Simplified path for one selector, loop to get the sole selector
 	if len(selectors) == 1 {
 		for sel, psp := range selectors {
+			isPass := psp.IsPass()
 			var rule *cilium.PortNetworkPolicyRule
 			if psp.IsRedirect() {
 				rule, _ = s.getPortNetworkPolicyRule(ep, snapshot, sel, psp,
 					tierBasePriority, tierLastPriority,
 					useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule == nil {
-					return nil, 0
+					return nil, false, 0
 				}
 			} else {
 				rule = s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
@@ -1361,34 +1376,35 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdate
 					// restrict the allowed traffic), but it still suppresses
 					// lower-priority rules. For this priority comparison the
 					// listener priority information is masked away.
-					return rules, precedence.AllowPrecedence()
+					return rules, isPass, precedence.AllowPrecedence()
 				}
-				return rules, precedence
+				return rules, isPass, precedence
 			}
 			selections := sel.GetSelectionsAt(snapshot)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
-				return nil, 0
+				return nil, false, 0
 			}
 			rule.RemotePolicies = selections.AsUint32Slice()
-			return rules, 0
+			return rules, isPass, 0
 		}
 	}
 
 	// Collect selections for each precedence level
 	denies := make(map[policyTypes.Precedence][]uint32, len(selectors))
 	allows := make(map[policyTypes.Precedence][]uint32, len(selectors))
+	passes := make(map[policyTypes.CachedSelector]*policy.PerSelectorPolicy)
 	var wildcardPolicy *policy.PerSelectorPolicy
 	var haveWildcardPolicy bool
 
 	var redirects map[policyTypes.CachedSelector]*policy.PerSelectorPolicy
 
 	for sel, psp := range selectors {
-		precedence := psp.GetPriority().ToPrecedenceWithListenerPriority(
-			psp.IsDeny(), psp.IsRedirect(), psp.GetListenerPriority())
+		precedence := psp.GetPrecedence()
 
 		// handle redirects separately
 		if psp.IsRedirect() {
+			// redirect is always an Allow rule, never a Deny or Pass
 			if sel.IsWildcard() {
 				// Wildcard selector rule with a redirect. Mask off listener
 				// priority to suppress only lower-priority rules.
@@ -1424,6 +1440,8 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdate
 			denies[precedence] = append(denies[precedence], selections.AsUint32Slice()...)
 		case policyTypes.Allow:
 			allows[precedence] = append(allows[precedence], selections.AsUint32Slice()...)
+		case policyTypes.Pass:
+			passes[sel] = psp
 		}
 	}
 
@@ -1431,6 +1449,7 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdate
 	if haveWildcardPolicy {
 		rule := s.initPortNetworkPolicyRule(wildcardPolicy, tierBasePriority, tierLastPriority)
 		rules = append(rules, rule)
+		havePassRules = wildcardPolicy.IsPass()
 	}
 
 	// add non-wildcard rules of higher precedence than the wildcard rule
@@ -1477,7 +1496,22 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdate
 		}
 	}
 
-	return rules, wildcardPrecedence
+	for sel, psp := range passes {
+		rule := s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
+		if policyTypes.Precedence(rule.Precedence) > wildcardPrecedence {
+			if !sel.IsWildcard() {
+				rule.RemotePolicies = sel.GetSelectionsAt(snapshot).AsUint32Slice()
+				if len(rule.RemotePolicies) == 0 {
+					// skip non-wildcard that selects nothing
+					continue
+				}
+			}
+			rules = append(rules, rule)
+			havePassRules = true
+		}
+	}
+
+	return rules, havePassRules, wildcardPrecedence
 }
 
 func isEmptyRuleButPrecedence(rule *cilium.PortNetworkPolicyRule) bool {
@@ -1515,8 +1549,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 
 	// Check for wildcard port policy first, one tier at the time
 	addWildcardPortRules := func(l4 *policy.L4Filter,
-		tierBasePriority, tierLastPriority policyTypes.Priority) policyTypes.Precedence {
-		wildcardPortRules, wildcardSelectorPrecedence := s.getWildcardPortNetworkPolicyRules(ep, selectors, tierBasePriority, tierLastPriority, l4.PerSelectorPolicies, useFullTLSContext, useSDS, policySecretsNamespace)
+		tierBasePriority, tierLastPriority policyTypes.Priority) (bool, policyTypes.Precedence) {
+		wildcardPortRules, havePassRules, wildcardSelectorPrecedence := s.getWildcardPortNetworkPolicyRules(ep, selectors, tierBasePriority, tierLastPriority, l4.PerSelectorPolicies, useFullTLSContext, useSDS, policySecretsNamespace)
 
 		if debugEnabled {
 			for _, rule := range wildcardPortRules {
@@ -1526,6 +1560,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 					logfields.TrafficDirection, dir,
 					logfields.Port, "0",
 					logfields.IsDeny, rule.GetDeny(),
+					logfields.PolicyPassPrecedence, rule.GetPassPrecedence(),
 					logfields.PolicyID, rule.RemotePolicies,
 					logfields.Tier, l4.Tier,
 				)
@@ -1553,7 +1588,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				logfields.Tier, l4.Tier,
 			)
 		}
-		return wildcardSelectorPrecedence
+		return havePassRules, wildcardSelectorPrecedence
 	}
 
 	// interate tier-by-tier
@@ -1561,14 +1596,16 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 		tier := policyTypes.Tier(i)
 		tierBasePriority, tierLastPriority := l4DirectionPolicy.GetTierPriorities(tier)
 
+		var havePassRules bool
 		var wildcardSelectorPrecedence policyTypes.Precedence
 		for _, protocol := range []string{u8proto.ANY.String(), u8proto.TCP.String()} {
 			l4 := l4Policy[tier].ExactLookup("0", 0, protocol)
 			if l4 != nil {
-				wildcardPrecedence := addWildcardPortRules(l4, tierBasePriority, tierLastPriority)
+				havePasses, wildcardPrecedence := addWildcardPortRules(l4, tierBasePriority, tierLastPriority)
 				if wildcardSelectorPrecedence < wildcardPrecedence {
 					wildcardSelectorPrecedence = wildcardPrecedence
 				}
+				havePassRules = havePassRules || havePasses
 			}
 		}
 
@@ -1608,8 +1645,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			var denyAllRule *cilium.PortNetworkPolicyRule
 
 			for sel, psp := range l4.PerSelectorPolicies {
-				precedence := psp.GetPriority().ToPrecedenceWithListenerPriority(
-					psp.IsDeny(), psp.IsRedirect(), psp.GetListenerPriority())
+				precedence := psp.GetPrecedence()
+
 				if precedence < wildcardSelectorPrecedence ||
 					wildcardSelectorPrecedence.IsDeny() && precedence == wildcardSelectorPrecedence {
 					if debugEnabled {
@@ -1715,7 +1752,9 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			PerPortPolicies = append(PerPortPolicies, portPolicy)
 		}
 
-		if wildcardSelectorPrecedence > 0 {
+		// Skip remaining tiers if there is a wildcard port/selector rule and no pass
+		// verdicts
+		if wildcardSelectorPrecedence > 0 && !havePassRules {
 			if debugEnabled {
 				s.logger.Debug("Short circuiting later tiers due to wildcard rule",
 					logfields.EndpointID, ep.GetID(),
@@ -1745,8 +1784,8 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, selectors poli
 	}
 
 	if l4Policy != nil {
-		p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Ingress, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
-		p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Egress, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
+		p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Ingress, ingressPolicyEnforced, useFullTLSContext, useSDS, ingressDirection, policySecretsNamespace)
+		p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Egress, egressPolicyEnforced, useFullTLSContext, useSDS, egressDirection, policySecretsNamespace)
 	}
 
 	return p

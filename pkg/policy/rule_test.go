@@ -198,6 +198,24 @@ func TestL4Policy(t *testing.T) {
 	td.policyMapEquals(t, expected.Ingress.PortRules, expected.Egress.PortRules, &rule2)
 }
 
+func TestMergePortProtoRejectsDifferentTiers(t *testing.T) {
+	td := newTestData(t, hivetest.Logger(t))
+
+	existingFilter := &L4Filter{
+		Tier:                0,
+		PerSelectorPolicies: L7DataMap{},
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{}),
+	}
+	filterToMerge := &L4Filter{
+		Tier:                1,
+		PerSelectorPolicies: L7DataMap{},
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{}),
+	}
+
+	err := existingFilter.mergePortProto(td.testPolicyContext, filterToMerge)
+	require.ErrorContains(t, err, "cannot merge filters with different tiers")
+}
+
 func TestMergeL4PolicyIngress(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
