@@ -4,6 +4,7 @@
 package endpoint
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -15,7 +16,7 @@ type EndpointInfoSource interface {
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
-	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto, destIdentities map[identity.NumericIdentity]struct{}) uint16
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and

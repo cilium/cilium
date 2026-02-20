@@ -278,13 +278,14 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	// Named ports have been updated, but no policy uses them, hence don't
 	// trigger policy regen until GetNamedPorts has been called at least once.
 	require.False(t, namedPortsChanged)
+	idSet := map[identityPkg.NumericIdentity]struct{}{identity: {}}
 	npm := s.IPIdentityCache.GetNamedPorts()
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
-	port, err := npm.GetNamedPort("http", u8proto.TCP)
+	port, err := npm.GetNamedPort("http", u8proto.TCP, idSet)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", u8proto.ANY)
+	port, err = npm.GetNamedPort("dns", u8proto.ANY, idSet)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
@@ -334,13 +335,14 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	npm = s.IPIdentityCache.GetNamedPorts()
 	require.NotNil(t, npm)
 	require.Equal(t, 3, npm.Len())
-	port, err = npm.GetNamedPort("http", u8proto.TCP)
+	port, err = npm.GetNamedPort("http", u8proto.TCP, idSet)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", u8proto.ANY)
+	port, err = npm.GetNamedPort("dns", u8proto.ANY, idSet)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
-	port, err = npm.GetNamedPort("https", u8proto.TCP)
+	idSet2 := map[identityPkg.NumericIdentity]struct{}{identity2: {}}
+	port, err = npm.GetNamedPort("https", u8proto.TCP, idSet2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(443), port)
 
@@ -350,10 +352,10 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
 
-	port, err = npm.GetNamedPort("dns", u8proto.ANY)
+	port, err = npm.GetNamedPort("dns", u8proto.ANY, idSet2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
-	port, err = npm.GetNamedPort("https", u8proto.TCP)
+	port, err = npm.GetNamedPort("https", u8proto.TCP, idSet2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(443), port)
 
@@ -441,11 +443,12 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		require.NoError(t, err)
 		npm = s.IPIdentityCache.GetNamedPorts()
 		require.NotNil(t, npm)
-		port, err := npm.GetNamedPort("http2", u8proto.TCP)
+		idSet := map[identityPkg.NumericIdentity]struct{}{identities[index]: {}}
+		port, err := npm.GetNamedPort("http2", u8proto.TCP, idSet)
 		require.NoError(t, err)
 		require.Equal(t, uint16(8080), port)
-		// only the first changes named ports, as they are all the same
-		require.Equal(t, index == 0, namedPortsChanged)
+		// last two don't changed named ports as they are for the same identity
+		require.Equal(t, index == 0 || index == 1 || index == 2, namedPortsChanged)
 		cachedIdentity, _ := s.IPIdentityCache.LookupByIP(endpointIPs[index])
 		require.Equal(t, identities[index], cachedIdentity.ID)
 	}
@@ -457,7 +460,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.Equal(t, expectedIPList, cachedEndpointIPs)
 
 	namedPortsChanged = s.IPIdentityCache.Delete("27.2.2.2", source.KVStore)
-	require.False(t, namedPortsChanged)
+	require.True(t, namedPortsChanged)
 
 	expectedIPList = []string{"127.0.0.1"}
 
@@ -486,8 +489,8 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		npm = s.IPIdentityCache.GetNamedPorts()
 		require.NotNil(t, npm)
 		t.Logf("Named ports after Delete %d: %v", index, npm)
-		// 2nd delete removes named port mapping, as remaining IPs have an already deleted ID (29)
-		require.Equal(t, index == 1, namedPortsChanged)
+		// 1st and 2nd delete removes named port mapping, as remaining IPs have an already deleted ID (29)
+		require.Equal(t, index == 0 || index == 1, namedPortsChanged)
 
 		_, exists = s.IPIdentityCache.LookupByIP(endpointIPs[index])
 		require.False(t, exists)
