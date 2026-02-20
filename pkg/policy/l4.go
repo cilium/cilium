@@ -714,7 +714,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, tierPriority, nextTierPriori
 		}
 	}
 
-	tierMaxPrecedence := tierPriority.ToTierMaxPrecedence()
+	tierMaxPrecedence := tierPriority.ToDenyPrecedence()
 
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
