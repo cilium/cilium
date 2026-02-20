@@ -12,6 +12,7 @@ triggers:
     - conformance-ztunnel-e2e.yaml
     - conformance-eks.yaml
     - conformance-gateway-api.yaml
+    - conformance-mcs-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
     - conformance-l3-l4.yaml
@@ -55,6 +56,9 @@ triggers:
   /ci-gateway-api:
     workflows:
     - conformance-gateway-api.yaml
+  /ci-mcs-api:
+    workflows:
+    - conformance-mcs-api.yaml
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
@@ -122,6 +126,7 @@ schedule:
     workflows:
     - conformance-aks.yaml
     - conformance-gateway-api.yaml
+    - conformance-mcs-api.yaml
     - conformance-gke.yaml
     - conformance-ipsec.yaml
     - tests-ces-migrate.yaml
@@ -143,6 +148,8 @@ workflows:
   conformance-eks.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-gateway-api.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-mcs-api.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ginkgo.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|cilium-cli|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
