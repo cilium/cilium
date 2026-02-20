@@ -185,7 +185,8 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
-	localIP := localCiliumInternalIP
+	localCiliumInternalIPNetIP := net.IP(localCiliumInternalIP.AsSlice())
+	localIP := localCiliumInternalIPNetIP
 
 	localNodeInternalIP, err := n.getV4LinkLocalIP()
 	if err != nil {
@@ -240,7 +241,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
 	params.SourceTunnelIP = &remoteCiliumInternalIP
-	params.DestTunnelIP = &localCiliumInternalIP
+	params.DestTunnelIP = &localCiliumInternalIPNetIP
 	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
@@ -273,7 +274,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv4
-	localIP := localCiliumInternalIP
+	localIP := net.IP(localCiliumInternalIP.AsSlice())
 
 	var addedCIDRs, removedCIDRs []*cidr.CIDR
 	if oldNode != nil {
@@ -360,11 +361,11 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		return statesUpdated, errs
 	}
 
-	localUnderlayIP := n.nodeConfig.NodeIPv4
-	if localUnderlayIP == nil {
+	if !n.nodeConfig.NodeIPv4.IsValid() {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil local internal IP")
 		return false, errs
 	}
+	localUnderlayIP := net.IP(n.nodeConfig.NodeIPv4.AsSlice())
 	remoteUnderlayIP := newNode.GetNodeIP(false)
 	if remoteUnderlayIP == nil {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil remote internal IP for node", logfields.Node, newNode.Name)
@@ -464,7 +465,8 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
-	localIP := localCiliumInternalIP
+	localCiliumInternalIPNetIP := net.IP(localCiliumInternalIP.AsSlice())
+	localIP := localCiliumInternalIPNetIP
 
 	localNodeInternalIP, err := n.getV6LinkLocalIP()
 	if err != nil {
@@ -521,7 +523,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
 	params.SourceTunnelIP = &remoteCiliumInternalIP
-	params.DestTunnelIP = &localCiliumInternalIP
+	params.DestTunnelIP = &localCiliumInternalIPNetIP
 	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 	if err != nil {
@@ -552,7 +554,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	remoteIP := remoteCiliumInternalIP
 
 	localCiliumInternalIP := n.nodeConfig.CiliumInternalIPv6
-	localIP := localCiliumInternalIP
+	localIP := net.IP(localCiliumInternalIP.AsSlice())
 
 	var addedCIDRs, removedCIDRs []*cidr.CIDR
 	if oldNode != nil {
@@ -642,11 +644,11 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		return statesUpdated, errs
 	}
 
-	localUnderlayIP := n.nodeConfig.NodeIPv6
-	if localUnderlayIP == nil {
+	if !n.nodeConfig.NodeIPv6.IsValid() {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil local internal IP")
 		return false, errs
 	}
+	localUnderlayIP := net.IP(n.nodeConfig.NodeIPv6.AsSlice())
 	remoteUnderlayIP := newNode.GetNodeIP(true)
 	if remoteUnderlayIP == nil {
 		n.log.Warn("unable to enable encrypted overlay IPsec, nil remote internal IP for node", logfields.Node, newNode.Name)
