@@ -2945,6 +2945,10 @@ envoy:
       metricRelabelings: ~
     # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
+  # -- Envoy runtime configs.
+  # ref: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/operations/runtime#arch-overview-runtime
+  runtime: {}
+  #   re2.max_program_size.error_level: 200
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
 # To include or exclude matched resources from cilium node identity evaluation
