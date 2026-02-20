@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
-	"strconv"
 	"strings"
 
 	. "github.com/onsi/gomega"
@@ -187,137 +186,6 @@ func testCurlFailFromOutside(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, ur
 
 func testCurlFromOutside(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, url string, count int, checkSourceIP bool) {
 	testCurlFromOutsideWithLocalPort(kubectl, ni, url, count, checkSourceIP, 0)
-}
-
-// srcPod:     Name of pod sending the datagram
-// srcPort:    Source UDP port (should be different for each doFragmentRequest invocation to allow distinct CT table entries)
-// dstPodIP:   Receiver pod IP (for checking in CT table)
-// dstPodPort: Receiver pod port (for checking in CT table)
-// dstIP:      Target endpoint IP for sending the datagram
-// dstPort:    Target endpoint port for sending the datagram
-// hasDNAT:    True if DNAT is used for target IP and port
-func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool) {
-	var (
-		blockSize  = 5120
-		blockCount = 1
-	)
-	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-	ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-	ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
-	ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
-
-	res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, "cilium config get BPFConntrackAccounting")
-	res.ExpectContains("true")
-
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, "cilium config get BPFConntrackAccounting")
-	res.ExpectContains("true")
-
-	_, dstPodIPK8s1 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 1)
-	_, dstPodIPK8s2 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 1)
-
-	// Get initial number of packets for the flow we test
-	// from conntrack table. The flow is probably not in
-	// the table the first time we check, so do not stop if
-	// Atoi() throws an error and simply consider we have 0
-	// packets.
-
-	// Field #7 is "Packets=<n>"
-	cmdIn := "cilium-dbg bpf ct list | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
-
-	endpointK8s1 := net.JoinHostPort(dstPodIPK8s1, fmt.Sprintf("%d", dstPodPort))
-	patternInK8s1 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s1)
-	cmdInK8s1 := fmt.Sprintf(cmdIn, patternInK8s1)
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
-	countInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-
-	endpointK8s2 := net.JoinHostPort(dstPodIPK8s2, fmt.Sprintf("%d", dstPodPort))
-	patternInK8s2 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s2)
-	cmdInK8s2 := fmt.Sprintf(cmdIn, patternInK8s2)
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
-	countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-
-	// Field #7 is "Packets=<n>"
-	cmdOut := "cilium-dbg bpf ct list | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
-
-	if !hasDNAT {
-		// If kube-proxy is enabled, we see packets in ctmap with the
-		// service's IP address and port, not backend's.
-		dstIPv4 := strings.Replace(dstIP, "::ffff:", "", 1)
-		endpointK8s1 = net.JoinHostPort(dstIPv4, fmt.Sprintf("%d", dstPort))
-		endpointK8s2 = endpointK8s1
-	}
-	patternOutK8s1 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s1)
-	cmdOutK8s1 := fmt.Sprintf(cmdOut, patternOutK8s1)
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
-	countOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-
-	// If kube-proxy is enabled, the two commands are the same and
-	// there's no point executing it twice.
-	countOutK8s2 := 0
-	patternOutK8s2 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s2)
-	cmdOutK8s2 := fmt.Sprintf(cmdOut, patternOutK8s2)
-	if hasDNAT {
-		res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-		countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.Stdout()))
-	}
-
-	fragmentedPacketsBeforeK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Fragmented packet", "ingress")
-	fragmentedPacketsBeforeK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Fragmented packet", "ingress")
-
-	// Send datagram
-	By("Sending a fragmented packet from %s to endpoint %s", srcPod, net.JoinHostPort(dstIP, fmt.Sprintf("%d", dstPort)))
-	cmd := fmt.Sprintf("bash -c 'dd if=/dev/zero bs=%d count=%d | nc -u -w 1 -p %d %s %d'", blockSize, blockCount, srcPort, dstIP, dstPort)
-	res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, cmd)
-	ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-		"Cannot send fragmented datagram: %s", res.CombineOutput())
-
-	// Let's compute the expected number of packets. First
-	// fragment holds 1416 bytes of data under standard
-	// conditions for temperature, pressure and MTU.
-	// Following ones do not have UDP header: up to 1424
-	// bytes of data.
-	delta := 1
-	if blockSize*blockCount >= 1416 {
-		delta += (blockSize*blockCount - 1416) / 1424
-		if (blockSize*blockCount-1416)%1424 != 0 {
-			delta++
-		}
-	}
-
-	// Check that the expected packets were processed
-	// Because of load balancing we do not know what
-	// backend pod received the datagram, so we check for
-	// each node.
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
-	newCountInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
-	newCountInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-	ExpectWithOffset(2, []int{newCountInK8s1, newCountInK8s2}).To(SatisfyAny(
-		Equal([]int{countInK8s1, countInK8s2 + delta}),
-		Equal([]int{countInK8s1 + delta, countInK8s2}),
-	), "Failed to account for IPv4 fragments to %s (in)", dstIP)
-
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
-	newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
-	// If kube-proxy is enabled, the two commands are the same and
-	// there's no point executing it twice.
-	newCountOutK8s2 := 0
-	if hasDNAT {
-		res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-		newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.Stdout()))
-	}
-	ExpectWithOffset(2, []int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
-		Equal([]int{countOutK8s1, countOutK8s2 + delta}),
-		Equal([]int{countOutK8s1 + delta, countOutK8s2}),
-	), "Failed to account for IPv4 fragments to %s (out)", dstIP)
-
-	fragmentedPacketsAfterK8s1, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s1, "Fragmented packet", "ingress")
-	fragmentedPacketsAfterK8s2, _ := helpers.GetBPFPacketsCount(kubectl, ciliumPodK8s2, "Fragmented packet", "ingress")
-
-	ExpectWithOffset(2, []int{fragmentedPacketsAfterK8s1, fragmentedPacketsAfterK8s2}).To(SatisfyAny(
-		Equal([]int{fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2 + delta}),
-		Equal([]int{fragmentedPacketsBeforeK8s1 + delta, fragmentedPacketsBeforeK8s2}),
-	), "Failed to account for INGRESS IPv4 fragments to %s in BPF metrics", dstIP)
 }
 
 func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testFromOutside bool, fails int) {
@@ -793,40 +661,6 @@ func testHealthCheckNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	url = getHTTPLink(ni.K8s1IP, data.Spec.HealthCheckNodePort)
 	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", ni.K8s1NodeName)
 	testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl, url, count, "503", ni.K8s2NodeName)
-}
-
-func testIPv4FragmentSupport(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
-	var (
-		data    v1.Service
-		srcPort = 12345
-		hasDNAT = true
-	)
-	// Destination address and port for fragmented datagram
-	// are not DNAT-ed with kube-proxy but without bpf_sock.
-	if helpers.DoesNotRunWithKubeProxyReplacement() {
-		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-		ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-		hasDNAT = kubectl.HasSocketLB(ciliumPodK8s1)
-	}
-
-	// Get testDSClient and testDS pods running on k8s1.
-	// This is because we search for new packets in the
-	// conntrack table for node k8s1.
-	clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 1)
-
-	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	nodePort := data.Spec.Ports[1].NodePort
-	serverPort := data.Spec.Ports[1].TargetPort.IntValue()
-
-	// With ClusterIP
-	doFragmentedRequest(kubectl, clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true)
-
-	// From pod via node IPs
-	doFragmentedRequest(kubectl, clientPod, srcPort+1, serverPort, ni.K8s1IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+2, serverPort, "::ffff:"+ni.K8s1IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+3, serverPort, ni.K8s2IP, nodePort, hasDNAT)
-	doFragmentedRequest(kubectl, clientPod, srcPort+4, serverPort, "::ffff:"+ni.K8s2IP, nodePort, hasDNAT)
 }
 
 func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
