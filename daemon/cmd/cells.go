@@ -277,7 +277,6 @@ var (
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
-		cell.Provide(newIPAMInitializer),
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
