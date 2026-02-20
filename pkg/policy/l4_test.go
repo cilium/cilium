@@ -121,6 +121,58 @@ func TestParserTypeMerge(t *testing.T) {
 	}
 }
 
+func TestPerSelectorPolicyGetPrecedence(t *testing.T) {
+	var nilPolicy *PerSelectorPolicy
+
+	for _, tc := range []struct {
+		name     string
+		policy   *PerSelectorPolicy
+		expected types.Precedence
+	}{
+		{
+			name:     "nil_defaults_to_max_allow",
+			policy:   nilPolicy,
+			expected: types.MaxAllowPrecedence,
+		},
+		{
+			name: "allow_uses_allow_precedence",
+			policy: &PerSelectorPolicy{
+				Priority: 7,
+			},
+			expected: types.Priority(7).ToAllowPrecedence(),
+		},
+		{
+			name: "deny_uses_deny_precedence",
+			policy: &PerSelectorPolicy{
+				Priority: 7,
+				Verdict:  types.Deny,
+			},
+			expected: types.Priority(7).ToDenyPrecedence(),
+		},
+		{
+			name: "pass_uses_pass_precedence",
+			policy: &PerSelectorPolicy{
+				Priority: 7,
+				Verdict:  types.Pass,
+			},
+			expected: types.Priority(7).ToPassPrecedence(),
+		},
+		{
+			name: "redirect_uses_listener_priority",
+			policy: &PerSelectorPolicy{
+				Priority:         7,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
+			},
+			expected: types.Priority(7).ToPrecedenceWithListenerPriority(false, true, ListenerPriorityHTTP),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, tc.policy.GetPrecedence())
+		})
+	}
+}
+
 func TestCreateL4Filter(t *testing.T) {
 	// disable allow local host to simplify the this test
 	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
