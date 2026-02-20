@@ -139,7 +139,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 	apiLabels := labels.NewLabelsFromModel(epTemplate.Labels)
 	epTemplate.Labels = nil
 
-	ep, err := m.endpointCreator.NewEndpointFromChangeModel(ctx, epTemplate)
+	ep, err := m.endpointCreator.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %w", err))
 	}

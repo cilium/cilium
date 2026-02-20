@@ -345,7 +345,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}()
 
 	// Create the endpoint
-	ep, err := endpointCreator.NewEndpointFromChangeModel(baseCtx, info)
+	ep, err := endpointCreator.NewEndpointFromChangeModel(info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %w", err)
 	}
