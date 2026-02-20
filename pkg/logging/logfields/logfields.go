@@ -1603,6 +1603,8 @@ const (
 
 	TierBasePriority = "tierBasePriority"
 
+	TierLastPriority = "tierLastPriority"
+
 	Priority = "priority"
 
 	Args = "args"
