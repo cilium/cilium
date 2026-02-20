@@ -24,9 +24,14 @@ func TestNoCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	// Wait should return immediately, since there are no completions.
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// A consecutive wait should also return nil
 	err = wg.Wait()
 	require.NoError(t, err)
 }
@@ -37,7 +42,8 @@ func TestCompletionBeforeWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp := wg.AddCompletion()
 
@@ -54,7 +60,8 @@ func TestCompletionAfterWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp := wg.AddCompletion()
 
@@ -74,7 +81,8 @@ func TestCompletionBeforeAndAfterWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp1 := wg.AddCompletion()
 
@@ -101,7 +109,8 @@ func TestCompletionTimeout(t *testing.T) {
 	// Set a shorter timeout to shorten the test duration.
 	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
 	defer cancel()
-	wg := NewWaitGroup(wgCtx)
+	wg, cancel := NewWaitGroup(wgCtx)
+	defer cancel()
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		// Callback gets called with context.DeadlineExceeded if the WaitGroup times out
@@ -127,7 +136,8 @@ func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	defer cancel()
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp := wg.AddCompletion()
 
@@ -149,7 +159,8 @@ func TestCompletionWithCallback(t *testing.T) {
 	defer cancel()
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		if err == nil {
@@ -181,7 +192,8 @@ func TestCompletionWithCallbackError(t *testing.T) {
 	err2 := errors.New("Error2")
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
+	defer cancel()
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
@@ -221,7 +233,7 @@ func TestCompletionWithCallbackOtherError(t *testing.T) {
 	err2 := errors.New("Error2")
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, cancel := NewWaitGroup(ctx)
 
 	wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
@@ -245,6 +257,24 @@ func TestCompletionWithCallbackOtherError(t *testing.T) {
 	// The callbacks are called exactly once.
 	require.Equal(t, 1, callbackCount)
 	require.Equal(t, 1, callbackCount2)
+
+	// Cancel wg
+	cancel()
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Add and complete a complete it, and ensure Wait still returns true
+	err = wg.AddCompletionWithCallback(func(err error) {}).Complete(nil)
+	require.NoError(t, err)
+	err = wg.Wait()
+	require.NoError(t, err)
+
+	// Add a complete that is running even tough waitGroup is closed and check that wait returns an error
+	_ = wg.AddCompletionWithCallback(func(err error) {})
+	require.NoError(t, err)
+	err = wg.Wait()
+	require.Equal(t, wg.Context().Err(), err)
+
 }
 
 func TestCompletionWithCallbackTimeout(t *testing.T) {
@@ -257,7 +287,9 @@ func TestCompletionWithCallbackTimeout(t *testing.T) {
 	// Set a shorter timeout to shorten the test duration.
 	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
 	defer cancel()
-	wg := NewWaitGroup(wgCtx)
+
+	wg, cancel := NewWaitGroup(wgCtx)
+	defer cancel()
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		if err == nil {
@@ -272,6 +304,10 @@ func TestCompletionWithCallbackTimeout(t *testing.T) {
 	err = wg.Wait()
 	require.Error(t, err)
 	require.Equal(t, wgCtx.Err(), err)
+
+	// Consecutive waits should always return nil as long as no other
+	err = wg.Wait()
+	require.NoError(t, err)
 
 	// Complete is idempotent and harmless, and can be called after the
 	// context is canceled.
