@@ -3,12 +3,14 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
 import re
 import argparse
-from scapy.all import *
 
-def parse_pkts(filename: str) -> List[Dict]:
+from scapy.all import *
+from scapy.all import wrpcap
+
+
+def parse_pkts(filename: str) -> list[dict]:
     """
     Parses packet hexdump log entries in the trace_pipe log.
 
@@ -20,20 +22,20 @@ def parse_pkts(filename: str) -> List[Dict]:
         context: bpftest.test-1515316 [001] b..11 102260.946440: bpf_trace_printk: tc_l2_announcement.c:93 no_entry:
         first_layer: Ether
         bytes: ffffffffffffdeadbeefdeef08060001080006040001deadbeefdeef6e000b01ffffffffffffac100a01
-    """
-    #TODO attempt to parse FILENAME:LINENUM if possible (HEXDUMP())
-    #TODO parse timestamp
+    """  # noqa: E501
+    # TODO attempt to parse FILENAME:LINENUM if possible (HEXDUMP())
+    # TODO parse timestamp
     pattern = re.compile(r"\s*(.*)\s*pkt_hex\s*(\w+)\[(.*?)\]")
 
     pkts = []
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         for line in f:
             match = pattern.match(line)
             if not match:
                 continue
             pkt = {}
 
-            #TODO Improve context by further parsing filenum etc
+            # TODO Improve context by further parsing filenum etc
             pkt["context"] = match.group(1)
 
             try:
@@ -45,17 +47,26 @@ def parse_pkts(filename: str) -> List[Dict]:
             pkts.append(pkt)
     return pkts
 
+
 def dump_pkts(pkts) -> None:
     for pkt in pkts:
         print(f"{pkt['context']}")
         pkt["scapy"].show()
-        print(f"")
+        print("")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Parse packets from a trace_pipe log.")
-    parser.add_argument('filename', help="Log file to parse")
-    parser.add_argument('-i', '--interactive', action='store_true', help="Open interactive Scapy shell with parsed packets.")
-    parser.add_argument('-p', '--pcap', metavar='FILE', help="Write parsed packets to a pcap file")
+    parser.add_argument("filename", help="Log file to parse")
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Open interactive Scapy shell with parsed packets.",
+    )
+    parser.add_argument(
+        "-p", "--pcap", metavar="FILE", help="Write parsed packets to a pcap file"
+    )
     args = parser.parse_args()
 
     pkts = parse_pkts(args.filename)
@@ -69,12 +80,14 @@ def main():
 
     if args.interactive:
         import code
+
         local_vars = globals().copy()
-        local_vars['pkts'] = pkts
+        local_vars["pkts"] = pkts
         print("Opening Scapy shell. Inspect 'pkts'...")
         code.interact(local=local_vars)
     else:
         dump_pkts(pkts)
+
 
 if __name__ == "__main__":
     main()

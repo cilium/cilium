@@ -54,20 +54,20 @@ def organize_data(data, key: str) -> dict:
     """
     organized = {}
     for entry in data:
-        if not key in entry:
+        if key not in entry:
             logging.error(f"Key '{key}' not found in data.")
             break
         if not isinstance(entry[key], (int, float)) or not str(entry[key]).isnumeric():
             logging.error(f"Key '{key}' doesn't have a numeric value.")
             break
-        k = (entry["collection"], entry["build"],
-             entry["load"], entry["program"])
+        k = (entry["collection"], entry["build"], entry["load"], entry["program"])
         organized[k] = int(entry[key])
     return organized
 
 
 def plot_comparison(file1: str, file2: str, key: str, outdir: str):
-    """Plot comparison of eBPF verifier logs.
+    """
+    Plot comparison of eBPF verifier logs.
 
     Args:
         file1 (str): Path to the first JSON file.
@@ -79,21 +79,31 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
 
     # Collect all unique (collection, build, load) triples
     groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
-        (c, b, l) for c, b, l, _ in data2.keys())
+        (c, b, l) for c, b, l, _ in data2.keys()
+    )
 
     for collection, build, load in groups:
         # Collect all programs for this collection/build/load
-        programs = sorted(set(
-            [p for c, b, l, p in data1.keys()
-             if c == collection and b == build and l == load] +
-            [p for c, b, l, p in data2.keys()
-             if c == collection and b == build and l == load]
-        ))
+        programs = sorted(
+            set(
+                [
+                    p
+                    for c, b, l, p in data1.keys()
+                    if c == collection and b == build and l == load
+                ]
+                + [
+                    p
+                    for c, b, l, p in data2.keys()
+                    if c == collection and b == build and l == load
+                ]
+            )
+        )
 
         if not programs:
             logging.debug(
                 f"No programs found for collection {collection}, "
-                f"build {build}, load {load}, skipping.")
+                f"build {build}, load {load}, skipping."
+            )
             continue
 
         before_vals = []
@@ -107,7 +117,8 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
                 logging.debug(
                     f"Program {prog} unchanged ({v1}) for "
                     f"collection {collection}, build {build}, "
-                    f"load {load}, skipping.")
+                    f"load {load}, skipping."
+                )
                 continue  # skip unchanged values
             filtered_programs.append(prog)
             before_vals.append(v1)
@@ -116,21 +127,25 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
         if not filtered_programs:  # skip if all values unchanged
             logging.info(
                 f"All programs unchanged for collection {collection} "
-                f"build {build} load {load}, skipping.")
+                f"build {build} load {load}, skipping."
+            )
             continue
 
         # Plot
         y_pos = np.arange(len(filtered_programs))
         bar_height = 0.35
         fig_width = 10
-        fig_height = min(fig_width, max(fig_width//2,
-                                        bar_height * len(filtered_programs)))
+        fig_height = min(
+            fig_width, max(fig_width // 2, bar_height * len(filtered_programs))
+        )
 
         plt.figure(figsize=(fig_width, fig_height))
-        bars_before = plt.barh(y_pos + bar_height/2, before_vals,
-                               bar_height, label="Before", alpha=0.7)
-        bars_after = plt.barh(y_pos - bar_height/2, after_vals,
-                              bar_height, label="After", alpha=0.7)
+        bars_before = plt.barh(
+            y_pos + bar_height / 2, before_vals, bar_height, label="Before", alpha=0.7
+        )
+        bars_after = plt.barh(
+            y_pos - bar_height / 2, after_vals, bar_height, label="After", alpha=0.7
+        )
 
         plt.yticks(y_pos, filtered_programs)
         plt.xlabel(key)
@@ -141,13 +156,25 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
         max_val = max(before_vals + after_vals)
         for bar in bars_before:
             width = bar.get_width()
-            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                     f"{width}", va="center", ha="left", fontsize=8)
+            plt.text(
+                width + max_val * 0.01,
+                bar.get_y() + bar.get_height() / 2,
+                f"{width}",
+                va="center",
+                ha="left",
+                fontsize=8,
+            )
 
         for bar in bars_after:
             width = bar.get_width()
-            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                     f"{width}", va="center", ha="left", fontsize=8)
+            plt.text(
+                width + max_val * 0.01,
+                bar.get_y() + bar.get_height() / 2,
+                f"{width}",
+                va="center",
+                ha="left",
+                fontsize=8,
+            )
 
         plt.tight_layout()
         build_dir = os.path.join(outdir, collection, f"build{build}")
@@ -170,8 +197,8 @@ def setup_output_dir(file_after: str, file_before: str) -> str:
     Returns:
         str: Name of the new output directory.
     """
-    base_after = os.path.basename(file_after).replace('.', '_')
-    base_before = os.path.basename(file_before).replace('.', '_')
+    base_after = os.path.basename(file_after).replace(".", "_")
+    base_before = os.path.basename(file_before).replace(".", "_")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = f"insn-diff-{base_after}-wrt-{base_before}-{timestamp}"
 
@@ -190,20 +217,38 @@ def main():
     and runs comparison and visualization.
     """
     parser = argparse.ArgumentParser(
-        description="Compare number of verified instructions " +
-        "from eBPF verifier logs.")
+        description="Compare number of verified instructions "
+        + "from eBPF verifier logs."
+    )
     parser.add_argument("file_before", help="Path to the log before patch")
     parser.add_argument("file_after", help="Path to the log after patch")
-    parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
-    parser.add_argument('--key', default="insns_processed", help="Verifier statistic to compare (ex., peak_states, verification_time_microseconds).")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Print debug logs."
+    )
+    parser.add_argument(
+        "--key",
+        default="insns_processed",
+        choices=[
+            "insns_processed",
+            "insns_limit",
+            "max_states_per_insn",
+            "total_states",
+            "peak_states",
+            "mark_read",
+            "verification_time_microseconds",
+            "stack_depth",
+        ],
+        help="Verifier statistic to compare.",
+    )
 
     args = parser.parse_args()
 
     log_level = logging.INFO
     if args.verbose:
         log_level = logging.DEBUG
-    logging.basicConfig(level=log_level,
-                        format="%(asctime)s [%(levelname)s] %(message)s")
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s [%(levelname)s] %(message)s"
+    )
 
     output_dir = setup_output_dir(args.file_after, args.file_before)
 
