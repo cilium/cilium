@@ -64,6 +64,25 @@ type endpointAPIManager struct {
 
 var _ EndpointAPIManager = &endpointAPIManager{}
 
+// applyPodAnnotationMAC checks the pod for a MAC address annotation and, if
+// present, parses it and sets it on the endpoint. It is a no-op when legacy
+// identifiers are disabled or the annotation is absent.
+func applyPodAnnotationMAC(pod *slim_corev1.Pod, ep *endpoint.Endpoint) error {
+	if ep.GetDisableLegacyIdentifiers() {
+		return nil
+	}
+	hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]
+	if !ok {
+		return nil
+	}
+	m, err := mac.ParseMAC(hwAddr)
+	if err != nil {
+		return err
+	}
+	ep.SetMac(m)
+	return nil
+}
+
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
 	ep.Logger(endpointAPIModuleID).Warn("Creation of endpoint failed due to invalid data", logfields.Error, err)
 	if ep != nil {
@@ -247,16 +266,12 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 					logfields.Annotations, pod.Annotations,
 				)
 			}
-			if hwAddr, ok := pod.Annotations[annotation.PodAnnotationMAC]; !ep.GetDisableLegacyIdentifiers() && ok {
-				mac, err := mac.ParseMAC(hwAddr)
-				if err != nil {
-					m.logger.Error("Unable to parse MAC address",
-						logfields.Error, err,
-						logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
-					)
-					return invalidDataError(ep, err)
-				}
-				ep.SetMac(mac)
+			if err := applyPodAnnotationMAC(pod, ep); err != nil {
+				m.logger.Error("Unable to parse MAC address",
+					logfields.Error, err,
+					logfields.K8sPodName, epTemplate.K8sNamespace+"/"+epTemplate.K8sPodName,
+				)
+				return invalidDataError(ep, err)
 			}
 		}
 	}
