@@ -121,6 +121,19 @@ type ServiceConfig struct {
 	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
+// EnvoyConfig specifies proxy configuration options for Cilium-managed Gateways.
+// These settings control Envoy-specific behavior that is not part of the Gateway API standard.
+// +deepequal-gen=true
+type EnvoyConfig struct {
+	// ServerHeaderTransformation controls the HTTP "Server" header.
+	// OVERWRITE (default) : ⁣Overwrite any Server header with "envoy".
+	// APPEND_IF_ABSENT : ⁣If no Server header is present, append Server "envoy". If a Server header is present, pass it through.
+	// PASS_THROUGH : ⁣Pass through the value of the server header, and do not append a header if none is present.
+	// +kubebuilder:validation:Enum=OVERWRITE;APPEND_IF_ABSENT;PASS_THROUGH
+	// +kubebuilder:validation:Optional
+	ServerHeaderTransformation *string `json:"serverHeaderTransformation,omitempty"`
+}
+
 // CiliumGatewayClassConfigSpec specifies all the configuration options for a
 // Cilium managed GatewayClass.
 type CiliumGatewayClassConfigSpec struct {
@@ -135,6 +148,12 @@ type CiliumGatewayClassConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Service *ServiceConfig `json:"service,omitempty"`
+
+	// Envoy specifies proxy configuration options.
+	// These settings control Envoy-specific behavior that is not part of the Gateway API standard.
+	//
+	// +kubebuilder:validation:Optional
+	Envoy *EnvoyConfig `json:"envoy,omitempty"`
 }
 
 // +deepequal-gen=false

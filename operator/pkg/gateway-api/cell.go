@@ -242,9 +242,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 			IPv6Enabled: params.AgentConfig.EnableIPv6,
 		},
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol:         params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
-			UseAlpn:                  params.GatewayApiConfig.EnableGatewayAPIAlpn,
-			StreamIdleTimeoutSeconds: params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
+			UseProxyProtocol:           params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
+			UseAlpn:                    params.GatewayApiConfig.EnableGatewayAPIAlpn,
+			StreamIdleTimeoutSeconds:   params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
+			ServerHeaderTransformation: "",
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,
@@ -266,6 +267,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		gatewayAPITranslator,
 		params.Logger,
 		installedKinds,
+		params.GatewayApiConfig,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -403,12 +405,12 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, gatewayApiConfig gatewayApiConfig) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger),
-		newGatewayReconciler(mgr, translator, logger, installedCRDs),
+		newGatewayReconciler(mgr, translator, logger, installedCRDs, gatewayApiConfig),
 		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}
