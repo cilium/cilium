@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -216,6 +217,285 @@ func TestEndpointDatapathOptions(t *testing.T) {
 	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
+}
+
+// TestApplySourceIPVerificationFromAnnotation tests the ApplySourceIPVerificationFromAnnotation method
+// which handles pod annotation for source IP verification with namespace permission gate.
+// The method returns true if the option value was actually changed, false otherwise.
+func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	tests := []struct {
+		name                string
+		initialOptionValue  option.OptionSetting // The endpoint's initial SIP verification setting
+		podAnnotations      map[string]string
+		nsAnnotations       map[string]string
+		expectedChanged     bool                 // Whether the value should change (return value)
+		expectedOptionValue option.OptionSetting // Expected option value after applying annotation
+	}{
+		// Namespace permission gate tests
+		{
+			name:                "ns allows + pod=true: disable SIP",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "ns allows + pod=false: enable SIP",
+			initialOptionValue:  option.OptionDisabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "false"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "ns NOT allows + pod=true: use global default (ignored)",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{}, // No namespace permission
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled, // Pod annotation ignored, stays at global default
+		},
+		{
+			name:                "ns NOT allows + pod=true: reset from disabled to global default",
+			initialOptionValue:  option.OptionDisabled,
+			nsAnnotations:       map[string]string{}, // No namespace permission
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled, // Pod annotation ignored, reset to global default
+		},
+		{
+			name:                "ns=false + pod=true: use global default (ns explicitly denies)",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "false"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled, // Pod annotation ignored
+		},
+		{
+			name:                "ns=1 + pod=1: disable SIP (ParseBool accepts)",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "1"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "1"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "ns allows + pod=0: enable SIP",
+			initialOptionValue:  option.OptionDisabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "0"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "ns allows + no pod annotation: use global default",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "ns allows + pod invalid: use global default",
+			initialOptionValue:  option.OptionDisabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "invalid"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled, // Reset to global default
+		},
+		{
+			name:                "ns allows + pod with spaces: disable SIP",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: " true "},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: " true "},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "nil ns annotations: use global default",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       nil,
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled, // Pod annotation ignored
+		},
+		{
+			name:                "both nil: no change when same as global",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       nil,
+			podAnnotations:      nil,
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "ns allows + already correct value: no change",
+			initialOptionValue:  option.OptionDisabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "true"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "ns=invalid + pod=true: use global default (invalid ns value)",
+			initialOptionValue:  option.OptionEnabled,
+			nsAnnotations:       map[string]string{annotation.AllowDisableSourceIPVerification: "invalid"},
+			podAnnotations:      map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled, // Invalid NS value treated as not allowed
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original global config and restore after test
+			originalValue := option.Config.Opts.GetValue(option.SourceIPVerification)
+			defer func() {
+				option.Config.Opts.SetValidated(option.SourceIPVerification, originalValue)
+			}()
+
+			// Set global default to Enabled for predictable testing
+			option.Config.Opts.SetValidated(option.SourceIPVerification, option.OptionEnabled)
+
+			// Create a minimal endpoint for testing
+			model := newTestEndpointModel(100, StateWaitingForIdentity)
+			ep, err := NewEndpointFromChangeModel(
+				t.Context(),
+				logger,
+				nil,
+				&MockEndpointBuildQueue{},
+				nil,
+				s.orchestrator,
+				nil,
+				nil,
+				nil,
+				identitymanager.NewIDManager(logger),
+				nil,
+				nil,
+				s.repo,
+				nil,
+				&FakeEndpointProxy{},
+				testidentity.NewMockIdentityAllocator(nil),
+				ctmap.NewFakeGCRunner(),
+				nil,
+				model,
+				fakeTypes.WireguardConfig{},
+				fakeTypes.IPsecConfig{},
+				nil,
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+
+			// Set the initial option value for this test case
+			ep.Options.SetValidated(option.SourceIPVerification, tt.initialOptionValue)
+
+			// Apply the annotation with namespace permission check
+			changed := ep.ApplySourceIPVerificationFromAnnotation(tt.podAnnotations, tt.nsAnnotations)
+
+			// Verify the return value (whether value changed)
+			require.Equal(t, tt.expectedChanged, changed,
+				"Expected changed=%v, got %v", tt.expectedChanged, changed)
+
+			// Verify the option value after applying annotation
+			actualValue := ep.Options.GetValue(option.SourceIPVerification)
+			require.Equal(t, tt.expectedOptionValue, actualValue,
+				"Expected option=%v, got %v", tt.expectedOptionValue, actualValue)
+		})
+	}
+}
+
+// TestApplySourceIPVerificationResetsToGlobalDefault verifies that removing or setting
+// an invalid annotation resets the endpoint to the global default configuration,
+// and tests the namespace permission gate behavior.
+func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	// Save original global config and restore after test
+	originalValue := option.Config.Opts.GetValue(option.SourceIPVerification)
+	defer func() {
+		option.Config.Opts.SetValidated(option.SourceIPVerification, originalValue)
+	}()
+
+	// Set global default to Enabled
+	option.Config.Opts.SetValidated(option.SourceIPVerification, option.OptionEnabled)
+
+	// Create endpoint
+	model := newTestEndpointModel(100, StateWaitingForIdentity)
+	ep, err := NewEndpointFromChangeModel(
+		t.Context(),
+		logger,
+		nil,
+		&MockEndpointBuildQueue{},
+		nil,
+		s.orchestrator,
+		nil,
+		nil,
+		nil,
+		identitymanager.NewIDManager(logger),
+		nil,
+		nil,
+		s.repo,
+		nil,
+		&FakeEndpointProxy{},
+		testidentity.NewMockIdentityAllocator(nil),
+		ctmap.NewFakeGCRunner(),
+		nil,
+		model,
+		fakeTypes.WireguardConfig{},
+		fakeTypes.IPsecConfig{},
+		nil,
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Namespace that allows disabling SIP
+	nsAllowAnno := map[string]string{annotation.AllowDisableSourceIPVerification: "true"}
+	// Namespace that does NOT allow
+	nsNoAllowAnno := map[string]string{}
+
+	// Step 1: With namespace permission, apply annotation to disable SIP verification
+	changed := ep.ApplySourceIPVerificationFromAnnotation(
+		map[string]string{annotation.DisableSourceIPVerification: "true"},
+		nsAllowAnno,
+	)
+	require.True(t, changed, "Should return true when value changes from Enabled to Disabled")
+	require.Equal(t, option.OptionDisabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Annotation should have disabled SIP verification")
+
+	// Step 2: Remove pod annotation - should reset to global default
+	changed = ep.ApplySourceIPVerificationFromAnnotation(
+		map[string]string{},
+		nsAllowAnno,
+	)
+	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Removing annotation should reset to global default (Enabled)")
+
+	// Step 3: Set to disabled, then remove namespace permission - pod annotation should be ignored
+	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
+	changed = ep.ApplySourceIPVerificationFromAnnotation(
+		map[string]string{annotation.DisableSourceIPVerification: "true"},
+		nsNoAllowAnno, // No namespace permission
+	)
+	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (ns denies)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Without namespace permission, should reset to global default")
+
+	// Step 4: With invalid pod annotation value, should reset to global default
+	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
+	changed = ep.ApplySourceIPVerificationFromAnnotation(
+		map[string]string{annotation.DisableSourceIPVerification: "invalid-value"},
+		nsAllowAnno,
+	)
+	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Invalid annotation should reset to global default (Enabled)")
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {

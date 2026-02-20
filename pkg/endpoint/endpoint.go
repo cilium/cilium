@@ -1775,6 +1775,73 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 	return nil
 }
 
+// ApplySourceIPVerificationFromAnnotation applies source IP verification setting
+// from pod annotation to this endpoint. Returns true if the option value was actually
+// changed (requiring datapath regeneration), false otherwise.
+//
+// This method handles locking internally for thread safety.
+//
+// Security model:
+// The namespace annotation (AllowDisableSourceIPVerification) acts as a permission gate.
+// Only when the namespace grants permission can pod annotations take effect.
+//
+// Logic:
+//  1. If namespace AllowDisableSourceIPVerification is not truthy: ignore pod annotation,
+//     use global default
+//  2. If namespace allows:
+//     - Pod annotation is "true"/"1"/"TRUE" etc: disable SIP verification
+//     - Pod annotation is "false"/"0"/"FALSE" etc: enable SIP verification
+//     - Pod annotation not exists or invalid: use global default
+//
+// Uses strconv.ParseBool for robust boolean parsing (accepts: 1, t, T, TRUE, true, True,
+// 0, f, F, FALSE, false, False). Whitespace is trimmed before parsing.
+func (e *Endpoint) ApplySourceIPVerificationFromAnnotation(podAnnotations, nsAnnotations map[string]string) bool {
+	// Start with global default setting
+	globalSetting := option.Config.Opts.GetValue(option.SourceIPVerification)
+	finalSetting := globalSetting
+
+	// Check namespace permission gate first
+	nsAllowed := false
+	if nsValue, ok := nsAnnotations[annotation.AllowDisableSourceIPVerification]; ok {
+		trimmedNsValue := strings.TrimSpace(nsValue)
+		if b, err := strconv.ParseBool(trimmedNsValue); err == nil && b {
+			nsAllowed = true
+		}
+	}
+
+	// Only process pod annotation if namespace allows
+	if nsAllowed {
+		if value, ok := podAnnotations[annotation.DisableSourceIPVerification]; ok {
+			trimmedValue := strings.TrimSpace(value)
+			if b, err := strconv.ParseBool(trimmedValue); err == nil {
+				if b {
+					finalSetting = option.OptionDisabled // Annotation truthy: disable SIP verification
+				} else {
+					finalSetting = option.OptionEnabled // Annotation falsy: enable SIP verification
+				}
+			} else if trimmedValue != "" {
+				e.getLogger().Warn(
+					"Invalid DisableSourceIPVerification annotation value, resetting to global default",
+					logfields.Value, value)
+			}
+		}
+	} else if _, ok := podAnnotations[annotation.DisableSourceIPVerification]; ok {
+		// Pod has the annotation but namespace doesn't grant permission - log at Debug level
+		// to avoid noise in high-frequency reconciliation paths
+		e.getLogger().Debug(
+			"Pod DisableSourceIPVerification annotation ignored: namespace does not have AllowDisableSourceIPVerification=true")
+	}
+
+	e.unconditionalLock()
+	defer e.unlock()
+
+	if currentSetting := e.Options.GetValue(option.SourceIPVerification); currentSetting != finalSetting {
+		e.Options.SetValidated(option.SourceIPVerification, finalSetting)
+		return true
+	}
+	return false
+}
+
 // metadataResolver will resolve the endpoint's metadata from a metadata
 // resolver.
 //
@@ -1853,6 +1920,14 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		pod.Annotations[bandwidth.Priority],
 	)
 
+	// Handle DisableSourceIPVerification annotation.
+	// This must happen before UpdateLabels so we can track if SIP setting changed
+	// and ensure datapath regeneration is triggered if labels don't change.
+	sipChanged := e.ApplySourceIPVerificationFromAnnotation(pod.Annotations, k8sMetadata.NamespaceAnnotations)
+	if sipChanged {
+		e.Logger(resolveLabels).Info("Source IP verification setting changed from pod annotation")
+	}
+
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
 	// labels from k8s. Thus, we should only replace the labels that have their
 	// source as 'k8s' otherwise we will risk on replacing other labels that
@@ -1863,15 +1938,31 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	}
 	regenTriggered = e.UpdateLabels(ctx, source, controllerBaseLabels, k8sMetadata.InfoLabels, blocking)
 
+	// If SIP setting changed but UpdateLabels did not trigger regeneration (e.g., during
+	// endpoint restore or when identity labels are unchanged), we must explicitly trigger
+	// a datapath regeneration to apply the new SIP setting to the BPF datapath.
+	if sipChanged && !regenTriggered {
+		e.Logger(resolveLabels).Info("Triggering datapath regeneration for source IP verification change")
+		regenMetadata := &regeneration.ExternalRegenerationMetadata{
+			Reason:            "source IP verification annotation applied",
+			RegenerationLevel: regeneration.RegenerateWithDatapath,
+		}
+		if regen, _ := e.SetRegenerateStateIfAlive(regenMetadata); regen {
+			e.Regenerate(regenMetadata)
+			regenTriggered = true
+		}
+	}
+
 	return regenTriggered, nil
 }
 
 // K8sMetadata is a collection of Kubernetes-related metadata that are fetched
 // from Kubernetes.
 type K8sMetadata struct {
-	ContainerPorts []slim_corev1.ContainerPort
-	IdentityLabels labels.Labels
-	InfoLabels     labels.Labels
+	ContainerPorts       []slim_corev1.ContainerPort
+	IdentityLabels       labels.Labels
+	InfoLabels           labels.Labels
+	NamespaceAnnotations map[string]string
 }
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
