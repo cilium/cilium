@@ -105,6 +105,7 @@ rules:
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled .Values.bgpControlPlane.enabled $secretSyncEnabled }}
   - secrets
 {{- end }}
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -114,6 +115,7 @@ rules:
   resources:
   # to perform the translation of a CNP that contains `ToGroup` to its endpoints
   - services
+  - endpoints
   verbs:
   - get
   - list
