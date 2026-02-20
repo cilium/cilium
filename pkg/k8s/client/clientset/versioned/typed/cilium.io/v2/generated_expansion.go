@@ -38,3 +38,5 @@ type CiliumNetworkPolicyExpansion interface{}
 type CiliumNodeExpansion interface{}
 
 type CiliumNodeConfigExpansion interface{}
+
+type CiliumVTEPConfigExpansion interface{}

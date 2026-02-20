@@ -32,6 +32,7 @@ type CiliumV2Interface interface {
 	CiliumNetworkPoliciesGetter
 	CiliumNodesGetter
 	CiliumNodeConfigsGetter
+	CiliumVTEPConfigsGetter
 }
 
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
@@ -105,6 +106,10 @@ func (c *CiliumV2Client) CiliumNodes() CiliumNodeInterface {
 
 func (c *CiliumV2Client) CiliumNodeConfigs(namespace string) CiliumNodeConfigInterface {
 	return newCiliumNodeConfigs(c, namespace)
+}
+
+func (c *CiliumV2Client) CiliumVTEPConfigs() CiliumVTEPConfigInterface {
+	return newCiliumVTEPConfigs(c)
 }
 
 // NewForConfig creates a new CiliumV2Client for the given config.
