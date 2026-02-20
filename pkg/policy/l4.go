@@ -1463,6 +1463,14 @@ func newL4DirectionPolicy() L4DirectionPolicy {
 	}
 }
 
+func NewL4DirectionPolicyForTest(policyMap L4PolicyMaps, tierBasePriorities []types.Priority) L4DirectionPolicy {
+	return L4DirectionPolicy{
+		PortRules:        policyMap,
+		tierBasePriority: tierBasePriorities,
+		features:         allFeatures,
+	}
+}
+
 // GetTierPriorities returns first and last priority for the given tier. If the same then the tier
 // has no rules. Each tier occupies a non-overlapping range of priorities. Numerically lower tiers
 // have higher precedence by occupying numerically lower priority range.

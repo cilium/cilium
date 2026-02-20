@@ -1251,12 +1251,17 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 var DenyVerdict = &cilium.PortNetworkPolicyRule_Deny{Deny: true}
 
-func newPortNetworkPolicyRule(verdict policyTypes.Verdict, precedence policyTypes.Precedence) *cilium.PortNetworkPolicyRule {
+func newPortNetworkPolicyRule(verdict policyTypes.Verdict, precedence, passPrecedence policyTypes.Precedence) *cilium.PortNetworkPolicyRule {
 	r := &cilium.PortNetworkPolicyRule{
 		Precedence: uint32(precedence),
 	}
 	if verdict == policyTypes.Deny {
 		r.Verdict = DenyVerdict
+	}
+	if verdict == policyTypes.Pass {
+		r.Verdict = &cilium.PortNetworkPolicyRule_PassPrecedence{
+			PassPrecedence: uint32(passPrecedence),
+		}
 	}
 	return r
 }
@@ -1266,7 +1271,7 @@ var errOutOfTierPriority = errors.New("Rule priority is invalid for the tier")
 func (s *xdsServer) initPortNetworkPolicyRule(psp *policy.PerSelectorPolicy, tierBasePriority, tierLastPriority policyTypes.Priority) *cilium.PortNetworkPolicyRule {
 	verdict := psp.GetVerdict()
 	priority := psp.GetPriority()
-	var precedence policyTypes.Precedence
+	var precedence, passPrecedence policyTypes.Precedence
 
 	if tierBasePriority == policyTypes.LowestPriority {
 		precedence = 0 // legacy compatibility
@@ -1278,10 +1283,15 @@ func (s *xdsServer) initPortNetworkPolicyRule(psp *policy.PerSelectorPolicy, tie
 				logfields.TierLastPriority, tierLastPriority,
 				logfields.Stacktrace, hclog.Stacktrace())
 		}
-		precedence = priority.ToPrecedenceWithListenerPriority(verdict == policyTypes.Deny,
-			psp.IsRedirect(), psp.GetListenerPriority())
+		if verdict == policyTypes.Pass {
+			precedence = priority.ToPassPrecedence()
+			passPrecedence = tierLastPriority.ToPassPrecedence()
+		} else {
+			precedence = priority.ToPrecedenceWithListenerPriority(verdict == policyTypes.Deny,
+				psp.IsRedirect(), psp.GetListenerPriority())
+		}
 	}
-	return newPortNetworkPolicyRule(verdict, precedence)
+	return newPortNetworkPolicyRule(verdict, precedence, passPrecedence)
 }
 
 func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, psp *policy.PerSelectorPolicy, tierBasePriority, tierLastPriority policyTypes.Priority, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
@@ -1410,9 +1420,10 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	// Get selections for each selector and count how many there are
 	denySlices := make(map[policyTypes.Precedence][]uint32, len(selectors))
 	allowSlices := make(map[policyTypes.Precedence][]uint32, len(selectors))
+	passes := make(map[policyTypes.CachedSelector]*policy.PerSelectorPolicy)
 
-	var haveWildcardDeny, haveWildcardAllow bool
-	var wildcardDenyPolicy, wildcardAllowPolicy *policy.PerSelectorPolicy
+	var haveWildcardDeny, haveWildcardAllow, haveWildcardPass bool
+	var wildcardDenyPolicy, wildcardAllowPolicy, wildcardPassPolicy *policy.PerSelectorPolicy
 
 	for sel, l7 := range selectors {
 		verdict := l7.GetVerdict()
@@ -1424,6 +1435,9 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 			case policyTypes.Allow:
 				haveWildcardAllow = true
 				wildcardAllowPolicy = l7
+			case policyTypes.Pass:
+				haveWildcardPass = true
+				wildcardPassPolicy = l7
 			}
 		}
 
@@ -1445,6 +1459,8 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 			denySlices[precedence] = append(denySlices[precedence], selections.AsUint32Slice()...)
 		case policyTypes.Allow:
 			allowSlices[precedence] = append(allowSlices[precedence], selections.AsUint32Slice()...)
+		case policyTypes.Pass:
+			passes[sel] = l7
 		}
 	}
 
@@ -1475,6 +1491,16 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 			Precedence:     uint32(precedence),
 			RemotePolicies: allows,
 		})
+	}
+
+	if haveWildcardPass {
+		rule := s.initPortNetworkPolicyRule(wildcardPassPolicy, tierBasePriority, tierLastPriority)
+		return append(rules, rule), false, false
+	}
+	for cs, psp := range passes {
+		rule := s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
+		rule.RemotePolicies = cs.GetSelectionsAt(snapshot).AsUint32Slice()
+		rules = append(rules, rule)
 	}
 
 	return rules, false, false
@@ -1519,6 +1545,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 		if s.logger.Enabled(context.Background(), slog.LevelDebug) {
 			for _, rule := range wildcardRules {
 				deny := rule.GetDeny()
+				passPrecedence := rule.GetPassPrecedence()
 
 				s.logger.Debug("Wildcard PortNetworkPolicyRule matching remote IDs",
 					logfields.EndpointID, ep.GetID(),
@@ -1526,6 +1553,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 					logfields.TrafficDirection, dir,
 					logfields.Port, "0",
 					logfields.IsDeny, deny,
+					logfields.PolicyPassPrecedence, passPrecedence,
 					logfields.PolicyID, rule.RemotePolicies,
 					logfields.Tier, l4.Tier,
 				)
