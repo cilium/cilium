@@ -410,6 +410,15 @@ rules:
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
+  # The controller needs to be able to set serviceimport finalizers to be able to create a derived Service
+  # resource that is owned by the ServiceImport and sets blockOwnerDeletion=true in its ownerRef.
+  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
+  - serviceimports/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
   - serviceexports
   verbs:
   - get
