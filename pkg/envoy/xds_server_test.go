@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -265,27 +266,56 @@ var ExpectedHttpRule122HeaderMatch = &cilium.PortNetworkPolicyRule_HttpRules{
 }
 
 var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+	RemotePolicies: []uint32{1001, 1002},
+	L7:             ExpectedHttpRule12,
+}
+
+var ExpectedPortNetworkPolicyRule12Precedence = &cilium.PortNetworkPolicyRule{
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule12,
 }
 
 var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
+	Precedence:     uint32(policyTypes.MaxDenyPrecedence),
 	Verdict:        DenyVerdict,
 	RemotePolicies: []uint32{1001, 1002},
 }
 
+var ExpectedPortNetworkPolicyRule12DenyPrecedence = &cilium.PortNetworkPolicyRule{
+	Verdict:        DenyVerdict,
+	RemotePolicies: []uint32{1001, 1002},
+	Precedence:     uint32(policyTypes.MaxDenyPrecedence),
+}
+
 var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
-	L7: ExpectedHttpRule12,
+	Precedence: uint32(policyTypes.MaxAllowPrecedence + 1),
+	L7:         ExpectedHttpRule12,
 }
 
 var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
+var ExpectedPortNetworkPolicyRule122HeaderMatchPrecedence = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint32{1001, 1002},
+	L7:             ExpectedHttpRule122HeaderMatch,
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+}
+
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
+}
+
+var ExpectedPortNetworkPolicyRule1Precedence = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint32{1001, 1003},
+	L7:             ExpectedHttpRule1,
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 }
 
 var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
@@ -376,6 +406,20 @@ var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	},
 })
 
+// L4PolicyMap5 is an L4-only policy, with no L7 rules.
+var L4PolicyMap5LowestPriority = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			wildcardCachedSelector: &policy.PerSelectorPolicy{
+				Priority: policyTypes.LowestPriority,
+				L7Rules:  api.L7Rules{},
+			},
+		},
+	},
+})
+
 // L4PolicyMapSNI is an L4-only policy, with SNI enforcement
 var L4PolicyMapSNI = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"443/TCP": {
@@ -398,6 +442,7 @@ var ExpectedPerPortPoliciesSNI = []*cilium.PortNetworkPolicy{
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			{
+				Precedence:  uint32(policyTypes.MaxAllowPrecedence),
 				ServerNames: []string{"ab.cd.com", "jarno.cilium.rocks"},
 			},
 		},
@@ -470,9 +515,11 @@ var ExpectedPerPortPolicies12RequiresV2 = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1001, 1002},
 			L7:             ExpectedHttpRule1,
 		}, {
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1002},
 			L7:             ExpectedHttpRule12,
 		}},
@@ -484,6 +531,7 @@ var ExpectedPerPortPolicies = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence),
 			RemotePolicies: []uint32{1001, 1002},
 		}},
 	},
@@ -493,6 +541,9 @@ var ExpectedPerPortPoliciesWildcard = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence: uint32(policyTypes.MaxAllowPrecedence),
+		}},
 	},
 }
 
@@ -568,8 +619,12 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 
 	version := testSelectorCache.GetSelectorSnapshot()
 
-	obtained := xds.getWildcardNetworkPolicyRules(version, perSelectorPoliciesWithWildcard)
-	require.Equal(t, []*cilium.PortNetworkPolicyRule{{}}, obtained)
+	obtained, wildcardSelectorPrecedence := xds.getWildcardPortNetworkPolicyRules(version, policyTypes.HighestPriority, policyTypes.LowestPriority, perSelectorPoliciesWithWildcard)
+	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
+		Precedence: uint32(policyTypes.MaxAllowPrecedence),
+	}}, obtained)
+	require.NotZero(t, wildcardSelectorPrecedence)
+	require.True(t, wildcardSelectorPrecedence.IsAllow())
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
@@ -578,13 +633,16 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 		cachedRequiresV2Selector1: nil,
 	}
 
-	obtained = xds.getWildcardNetworkPolicyRules(version, perSelectorPolicies)
+	obtained, wildcardSelectorPrecedence = xds.getWildcardPortNetworkPolicyRules(version, policyTypes.HighestPriority, policyTypes.LowestPriority, perSelectorPolicies)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
+		Precedence:     uint32(policyTypes.MaxDenyPrecedence),
 		Verdict:        DenyVerdict,
 		RemotePolicies: []uint32{1001, 1002},
 	}, {
+		Precedence:     uint32(policyTypes.MaxAllowPrecedence),
 		RemotePolicies: []uint32{1001, 1002, 1003},
 	}}, obtained)
+	require.Zero(t, wildcardSelectorPrecedence)
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
@@ -592,20 +650,38 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 
 	version := testSelectorCache.GetSelectorSnapshot()
 
-	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
+	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12Deny, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
+	require.True(t, canShortCircuit)
+
+	// With precedence
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule12Precedence, obtained)
+	require.True(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule12DenyPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatchPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule1Precedence, obtained)
 	require.True(t, canShortCircuit)
 }
 
@@ -827,6 +903,7 @@ func newEgressPortNetworkPolicyReturnVal(tls *cilium.TLSContext) []*cilium.PortN
 			Port:     443,
 			Protocol: envoy_config_core.SocketAddress_TCP,
 			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:         uint32(policyTypes.MaxAllowPrecedence + 1),
 				RemotePolicies:     []uint32{1001, 1002},
 				UpstreamTlsContext: tls,
 			}},
@@ -893,6 +970,7 @@ func newIngressPortNetworkPolicyReturnVal(tls *cilium.TLSContext) []*cilium.Port
 			Port:     443,
 			Protocol: envoy_config_core.SocketAddress_TCP,
 			Rules: []*cilium.PortNetworkPolicyRule{{
+				Precedence:           uint32(policyTypes.MaxAllowPrecedence + 1),
 				RemotePolicies:       []uint32{1001, 1002},
 				DownstreamTlsContext: tls,
 			}},
@@ -943,6 +1021,7 @@ var ExpectedPerPortPoliciesTLSFullContext = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1001, 1002},
 			DownstreamTlsContext: &cilium.TLSContext{
 				CertificateChain: "terminatingCertchain",
@@ -963,6 +1042,7 @@ var ExpectedPerPortPoliciesTLSNotFullContext = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1001, 1002},
 			DownstreamTlsContext: &cilium.TLSContext{
 				CertificateChain: "terminatingCertchain",
@@ -980,6 +1060,7 @@ var ExpectedPerPortPoliciesBothWaysTLSSDS = []*cilium.PortNetworkPolicy{
 		Port:     443,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
+			Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 			RemotePolicies: []uint32{1001, 1002},
 			DownstreamTlsContext: &cilium.TLSContext{
 				TlsSdsSecret: "cilium-secrets/tlsns-terminating-tls",

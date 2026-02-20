@@ -184,6 +184,14 @@ type PerSelectorPolicy struct {
 	Authentication *api.Authentication `json:"auth,omitempty"`
 }
 
+// IsAllowAll returns true if PerSelectorPolicy allows all traffic
+func (a *PerSelectorPolicy) IsAllowAll() bool {
+	return a == nil ||
+		(a.Verdict == types.Allow && a.L7Parser == "" && a.Listener == "" &&
+			a.TerminatingTLS == nil && a.OriginatingTLS == nil &&
+			len(a.ServerNames) == 0 && a.Authentication == nil && a.L7Rules.Len() == 0)
+}
+
 // CanShortCircuit returns true if EnvoyHTTPRules enforcement can take the first match as the final
 // verdict.
 func (a *PerSelectorPolicy) CanShortCircuit() bool {
@@ -1398,6 +1406,21 @@ func (l4M *L4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 	}
 }
 
+func (l4M *L4PolicyMap) Filters() iter.Seq[*L4Filter] {
+	return func(yield func(*L4Filter) bool) {
+		for _, l4 := range l4M.NamedPortMap {
+			if !yield(l4) {
+				return
+			}
+		}
+		for _, l4 := range l4M.RangePortMap {
+			if !yield(l4) {
+				return
+			}
+		}
+	}
+}
+
 // Len returns the number of entries in the map.
 func (l4M *L4PolicyMap) Len() int {
 	if l4M == nil {
@@ -1451,14 +1474,36 @@ func newL4DirectionPolicy() L4DirectionPolicy {
 	}
 }
 
-func (l4 L4DirectionPolicy) Filters() iter.Seq[*L4Filter] {
+// GetTierPriorities returns first and last priority for the given tier. If the same then the tier
+// has no rules. Each tier occupies a non-overlapping range of priorities. Numerically lower tiers
+// have higher precedence by occupying numerically lower priority range.
+func (l4 *L4DirectionPolicy) GetTierPriorities(tier types.Tier) (base, last types.Priority) {
+	tierBasePriority := types.HighestPriority
+	tierLastPriority := types.LowestPriority
+	if len(l4.tierBasePriority) <= int(tier) {
+		return tierBasePriority, tierLastPriority
+	}
+	if len(l4.tierBasePriority) > int(tier)+1 {
+		nextTierPriority := l4.tierBasePriority[tier+1]
+		if nextTierPriority > 0 {
+			tierLastPriority = nextTierPriority - 1
+		}
+	}
+	return l4.tierBasePriority[tier], tierLastPriority
+}
+
+func (l4 *L4DirectionPolicy) UsesPrecedence() bool {
+	return l4.features.contains(precedenceFeatures)
+}
+
+func (l4 *L4DirectionPolicy) Filters() iter.Seq[*L4Filter] {
 	return l4.PortRules.Filters()
 }
 
 // Detach removes the cached selectors held by L4PolicyMap from the
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
-func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
+func (l4 *L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
 	for f := range l4.Filters() {
 		f.detach(selectorCache)
 	}
