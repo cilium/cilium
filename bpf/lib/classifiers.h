@@ -25,6 +25,10 @@ enum {
 	CLS_FLAG_VXLAN     = (1 << 2),
 	/* Packet uses underlay Geneve. */
 	CLS_FLAG_GENEVE    = (1 << 3),
+	/* Packet encrypt wireguard */
+	CLS_FLAG_WIREGUARD = (1 << 4),
+	/* Packet encrypt ipsec */
+	CLS_FLAG_IPSEC     = (1 << 5),
 };
 
 /* Wrapper for specifying empty flags during the trace/drop event. */
@@ -235,8 +239,10 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point)
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
 	/* Check if Encrypted by packet mark. */
-	if (ctx_is_encrypted_by_point(ctx, obs_point))
+	if (ctx_is_encrypted_by_point(ctx, obs_point)) {
+		flags |= is_defined(ENABLE_IPSEC) ? CLS_FLAG_IPSEC : CLS_FLAG_WIREGUARD;
 		goto out;
+	}
 
 	/* Check if Overlay by packet mark. */
 	if (can_observe_overlay_mark(obs_point) && ctx_is_overlay(ctx)) {
