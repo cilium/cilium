@@ -102,7 +102,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
+func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode xdp.Mode, bpffsBase string) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		logger.Warn("Failed to list links for XDP unload",
@@ -122,8 +122,8 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMo
 		}
 
 		used := false
-		for _, xdpDev := range xdpDevs {
-			if link.Attrs().Name == xdpDev &&
+		for _, dev := range keep {
+			if link.Attrs().Name == dev &&
 				xdpAttachedModeToFlag(linkxdp.AttachMode) == xdpConfigModeToFlag(xdpMode) {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems
