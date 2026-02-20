@@ -496,6 +496,26 @@ var ExpectedPerPortPoliciesWildcard = []*cilium.PortNetworkPolicy{
 	},
 }
 
+var L4Deny2Policy1 = &policy.L4Policy{
+	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap1Deny2},
+}
+
+var L4Policy4 = &policy.L4Policy{
+	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap4},
+}
+
+var L4Policy5 = &policy.L4Policy{
+	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap5},
+}
+
+var L4HeaderMatchPolicy1 = &policy.L4Policy{
+	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap1HeaderMatch},
+}
+
+var L4SNIPolicy = &policy.L4Policy{
+	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMapSNI},
+}
+
 var L4Policy1 = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: L4PolicyMap1},
 	Egress:  policy.L4DirectionPolicy{PortRules: L4PolicyMap2},
@@ -593,31 +613,31 @@ func TestGetDirectionNetworkPolicy(t *testing.T) {
 	// L4+L7
 	xds := testXdsServer(t)
 	selectors := testSelectorCache.GetSelectorSnapshot()
-	obtained := xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap1, true, false, false, "ingress", "")
+	obtained := xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies12, obtained)
 
 	// L4+L7 with header mods
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap1HeaderMatch, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4HeaderMatchPolicy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies122HeaderMatch, obtained)
 
 	// L4+L7
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap2, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy1.Egress, true, false, false, "egress", "")
 	require.Equal(t, ExpectedPerPortPolicies1, obtained)
 
 	// L4+L7 with Deny L3
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap1Deny2, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Deny2Policy1.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies1Deny2, obtained)
 
 	// L4-only
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap4, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy4.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPolicies, obtained)
 
 	// L4-only
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMap5, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4Policy5.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesWildcard, obtained)
 
 	// L4-only with SNI
-	obtained = xds.getDirectionNetworkPolicy(ep, selectors, L4PolicyMapSNI, true, false, false, "ingress", "")
+	obtained = xds.getDirectionNetworkPolicy(ep, selectors, &L4SNIPolicy.Ingress, true, false, false, "ingress", "")
 	require.Equal(t, ExpectedPerPortPoliciesSNI, obtained)
 }
 

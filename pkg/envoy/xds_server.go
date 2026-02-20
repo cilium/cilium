@@ -1208,9 +1208,9 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 var DenyVerdict = &cilium.PortNetworkPolicyRule_Deny{Deny: true}
 
-func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, psp *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
-	if l7Rules.GetVerdict() == policyTypes.Deny {
+	if psp.GetVerdict() == policyTypes.Deny {
 		r.Verdict = DenyVerdict
 	}
 
@@ -1229,22 +1229,22 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 		r.RemotePolicies = selections.AsUint32Slice()
 	}
 
-	if l7Rules == nil {
+	if psp == nil {
 		// L3/L4 only rule, everything in L7 is allowed && no TLS
 		return r, true
 	}
 
 	// Deny rules never have L7 rules and can not be short-circuited (i.e., rule evaluation
 	// after an allow rule must continue to find the possibly applicable deny rule).
-	if l7Rules.IsDeny() {
+	if psp.IsDeny() {
 		return r, false
 	}
 
 	// Pass redirect port as proxy ID if the rule has an explicit listener reference.
 	// This makes this rule to be ignored on any listener that does not have a matching
 	// proxy ID.
-	if l7Rules.Listener != "" {
-		r.ProxyId = uint32(ep.GetListenerProxyPort(l7Rules.Listener))
+	if psp.Listener != "" {
+		r.ProxyId = uint32(ep.GetListenerProxyPort(psp.Listener))
 	}
 
 	// If secret synchronization is disabled, policySecretsNamespace will be the empty string.
@@ -1255,16 +1255,16 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 	//
 	// If secret synchronization is enabled, useFullTLSContext is unused, as SDS handling can handle Secrets with extra
 	// keys correctly.
-	if l7Rules.TerminatingTLS != nil {
-		r.DownstreamTlsContext = toEnvoyTerminatingTLSContext(l7Rules.TerminatingTLS, policySecretsNamespace, useSDS, useFullTLSContext)
+	if psp.TerminatingTLS != nil {
+		r.DownstreamTlsContext = toEnvoyTerminatingTLSContext(psp.TerminatingTLS, policySecretsNamespace, useSDS, useFullTLSContext)
 	}
-	if l7Rules.OriginatingTLS != nil {
-		r.UpstreamTlsContext = toEnvoyOriginatingTLSContext(l7Rules.OriginatingTLS, policySecretsNamespace, useSDS, useFullTLSContext)
+	if psp.OriginatingTLS != nil {
+		r.UpstreamTlsContext = toEnvoyOriginatingTLSContext(psp.OriginatingTLS, policySecretsNamespace, useSDS, useFullTLSContext)
 	}
 
-	if len(l7Rules.ServerNames) > 0 {
-		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
-		for sni := range l7Rules.ServerNames {
+	if len(psp.ServerNames) > 0 {
+		r.ServerNames = make([]string, 0, len(psp.ServerNames))
+		for sni := range psp.ServerNames {
 			r.ServerNames = append(r.ServerNames, sanitizeServerNamePattern(sni))
 		}
 		slices.Sort(r.ServerNames)
@@ -1275,18 +1275,18 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 	// is set to 'false' below if any rules with side effects are encountered,
 	// causing all the applicable rules to be evaluated instead.
 	canShortCircuit := true
-	switch l7Rules.L7Parser {
+	switch psp.L7Parser {
 	case policy.ParserTypeHTTP:
 		// 'r.L7' is an interface which must not be set to a typed 'nil',
 		// so check if we have any rules
-		if len(l7Rules.HTTP) > 0 {
+		if len(psp.HTTP) > 0 {
 			// Use L7 rules computed earlier?
 			var httpRules *cilium.HttpNetworkPolicyRules
-			if l7Rules.EnvoyHTTPRules() != nil {
-				httpRules = l7Rules.EnvoyHTTPRules()
-				canShortCircuit = l7Rules.CanShortCircuit()
+			if psp.EnvoyHTTPRules() != nil {
+				httpRules = psp.EnvoyHTTPRules()
+				canShortCircuit = psp.CanShortCircuit()
 			} else {
-				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(&l7Rules.L7Rules, "")
+				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(&psp.L7Rules, "")
 			}
 			r.L7 = &cilium.PortNetworkPolicyRule_HttpRules{
 				HttpRules: httpRules,
@@ -1398,14 +1398,20 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	return rules
 }
 
-func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4Policy policy.L4PolicyMaps, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
+func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4DirectionPolicy *policy.L4DirectionPolicy, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		// Always allow all ports
 		return []*cilium.PortNetworkPolicy{allowAllTCPPortNetworkPolicy}
 	}
 
-	if l4Policy == nil || l4Policy.Len() == 0 {
+	if l4DirectionPolicy == nil {
+		return nil
+	}
+
+	l4Policy := l4DirectionPolicy.PortRules
+
+	if l4Policy.Len() == 0 {
 		return nil
 	}
 
@@ -1573,7 +1579,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			})
 		}
 	}
-	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
+	if len(PerPortPolicies) == 0 {
 		return nil
 	}
 
@@ -1590,14 +1596,10 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, selectors poli
 		ConntrackMapName: "global",
 	}
 
-	var ingressMap policy.L4PolicyMaps
-	var egressMap policy.L4PolicyMaps
 	if l4Policy != nil {
-		ingressMap = l4Policy.Ingress.PortRules
-		egressMap = l4Policy.Egress.PortRules
+		p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Ingress, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
+		p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, &l4Policy.Egress, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
 	}
-	p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, ingressMap, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
-	p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, egressMap, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
 
 	return p
 }
