@@ -31,6 +31,7 @@ import (
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/hashicorp/go-hclog"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1250,12 +1251,41 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 var DenyVerdict = &cilium.PortNetworkPolicyRule_Deny{Deny: true}
 
-func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, psp *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
-	r := &cilium.PortNetworkPolicyRule{}
-	if psp.GetVerdict() == policyTypes.Deny {
+func newPortNetworkPolicyRule(verdict policyTypes.Verdict, precedence policyTypes.Precedence) *cilium.PortNetworkPolicyRule {
+	r := &cilium.PortNetworkPolicyRule{
+		Precedence: uint32(precedence),
+	}
+	if verdict == policyTypes.Deny {
 		r.Verdict = DenyVerdict
 	}
+	return r
+}
 
+var errOutOfTierPriority = errors.New("Rule priority is invalid for the tier")
+
+func (s *xdsServer) initPortNetworkPolicyRule(psp *policy.PerSelectorPolicy, tierBasePriority, tierLastPriority policyTypes.Priority) *cilium.PortNetworkPolicyRule {
+	verdict := psp.GetVerdict()
+	priority := psp.GetPriority()
+	var precedence policyTypes.Precedence
+
+	if tierBasePriority == policyTypes.LowestPriority {
+		precedence = 0 // legacy compatibility
+	} else {
+		if priority < tierBasePriority || priority > tierLastPriority {
+			s.logger.Error(errOutOfTierPriority.Error(),
+				logfields.TierBasePriority, tierBasePriority,
+				logfields.Priority, priority,
+				logfields.TierLastPriority, tierLastPriority,
+				logfields.Stacktrace, hclog.Stacktrace())
+		}
+		precedence = priority.ToPrecedenceWithListenerPriority(verdict == policyTypes.Deny,
+			psp.IsRedirect(), psp.GetListenerPriority())
+	}
+	return newPortNetworkPolicyRule(verdict, precedence)
+}
+
+func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, psp *policy.PerSelectorPolicy, tierBasePriority, tierLastPriority policyTypes.Priority, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+	r := s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
 	wildcard := sel.IsWildcard()
 
 	// Optimize the policy if the endpoint selector is a wildcard by
@@ -1354,40 +1384,46 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 
 // getWildcardNetworkPolicyRules returns the rules for port 0, which
 // will be considered after port-specific rules.
-func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapshot, selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule) {
+func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapshot,
+	tier policyTypes.Tier, tierBasePriority, tierLastPriority policyTypes.Priority,
+	selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule, wildcardDenyAll, wildcardAllowAll bool) {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel, l7 := range selectors {
-			rule := &cilium.PortNetworkPolicyRule{}
-			if l7.GetVerdict() == policyTypes.Deny {
-				rule.Verdict = DenyVerdict
-			}
+			rule := s.initPortNetworkPolicyRule(l7, tierBasePriority, tierLastPriority)
 			if sel.IsWildcard() {
-				return append(rules, rule)
+				isBasePriority := l7.GetPriority() == tierBasePriority
+				denyAll := isBasePriority && rule.GetDeny()
+				allowAll := isBasePriority && isEmptyRuleButPrecedence(rule)
+				return append(rules, rule), denyAll, allowAll
 			}
 			selections := sel.GetSelectionsAt(snapshot)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
-				return nil
+				return nil, false, false
 			}
 			rule.RemotePolicies = selections.AsUint32Slice()
-			return append(rules, rule)
+			return append(rules, rule), false, false
 		}
 	}
 
 	// Get selections for each selector and count how many there are
-	allowSlices := make([][]uint32, 0, len(selectors))
-	denySlices := make([][]uint32, 0, len(selectors))
-	wildcardAllowFound := false
-	wildcardDenyFound := false
-	var allowCount, denyCount int
+	denySlices := make(map[policyTypes.Precedence][]uint32, len(selectors))
+	allowSlices := make(map[policyTypes.Precedence][]uint32, len(selectors))
+
+	var haveWildcardDeny, haveWildcardAllow bool
+	var wildcardDenyPolicy, wildcardAllowPolicy *policy.PerSelectorPolicy
+
 	for sel, l7 := range selectors {
-		if sel.IsWildcard() {
-			if l7.IsDeny() {
-				wildcardDenyFound = true
-				break
-			} else {
-				wildcardAllowFound = true
+		verdict := l7.GetVerdict()
+		if sel.IsWildcard() && l7.GetPriority() == tierBasePriority {
+			switch verdict {
+			case policyTypes.Deny:
+				haveWildcardDeny = true
+				wildcardDenyPolicy = l7
+			case policyTypes.Allow:
+				haveWildcardAllow = true
+				wildcardAllowPolicy = l7
 			}
 		}
 
@@ -1402,52 +1438,58 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		if len(selections) == 0 {
 			continue
 		}
-		if l7.IsDeny() {
-			denyCount += len(selections)
-			denySlices = append(denySlices, selections.AsUint32Slice())
-		} else {
-			allowCount += len(selections)
-			allowSlices = append(allowSlices, selections.AsUint32Slice())
+		precedence := l7.GetPriority().ToPrecedenceWithListenerPriority(l7.IsDeny(),
+			l7.IsRedirect(), l7.GetListenerPriority())
+		switch verdict {
+		case policyTypes.Deny:
+			denySlices[precedence] = append(denySlices[precedence], selections.AsUint32Slice()...)
+		case policyTypes.Allow:
+			allowSlices[precedence] = append(allowSlices[precedence], selections.AsUint32Slice()...)
 		}
 	}
 
-	if wildcardDenyFound {
-		return append(rules, &cilium.PortNetworkPolicyRule{
-			Verdict: DenyVerdict,
-		})
+	if haveWildcardDeny {
+		rule := s.initPortNetworkPolicyRule(wildcardDenyPolicy, tierBasePriority, tierLastPriority)
+		return append(rules, rule), true, false
 	}
-	if len(denySlices) > 0 {
-		// allocate slice and copy selected identities
-		denies := make([]uint32, 0, denyCount)
-		for _, selections := range denySlices {
-			denies = append(denies, selections...)
-		}
+	for precedence, denies := range denySlices {
 		slices.Sort(denies)
 		denies = slices.Compact(denies)
 
 		rules = append(rules, &cilium.PortNetworkPolicyRule{
+			Precedence:     uint32(precedence),
 			Verdict:        DenyVerdict,
 			RemotePolicies: denies,
 		})
 	}
 
-	if wildcardAllowFound {
-		rules = append(rules, &cilium.PortNetworkPolicyRule{})
-	} else if len(allowSlices) > 0 {
-		// allocate slice and copy selected identities
-		allows := make([]uint32, 0, allowCount)
-		for _, selections := range allowSlices {
-			allows = append(allows, selections...)
-		}
+	if haveWildcardAllow {
+		rule := s.initPortNetworkPolicyRule(wildcardAllowPolicy, tierBasePriority, tierLastPriority)
+		return append(rules, rule), false, true
+	}
+	for precedence, allows := range allowSlices {
 		slices.Sort(allows)
 		allows = slices.Compact(allows)
 
 		rules = append(rules, &cilium.PortNetworkPolicyRule{
+			Precedence:     uint32(precedence),
 			RemotePolicies: allows,
 		})
 	}
 
-	return rules
+	return rules, false, false
+}
+
+func isEmptyRuleButPrecedence(rule *cilium.PortNetworkPolicyRule) bool {
+	return rule.Verdict == nil && rule.RemotePolicies == nil &&
+		rule.Name == "" && rule.ProxyId == 0 && rule.L7Proto == "" && rule.L7 == nil &&
+		rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil &&
+		rule.ServerNames == nil
+}
+
+// isEmptyRule returns true if the rule has all its values as zero values.
+func isEmptyRule(rule *cilium.PortNetworkPolicyRule) bool {
+	return rule.Precedence == 0 && isEmptyRuleButPrecedence(rule)
 }
 
 func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4DirectionPolicy *policy.L4DirectionPolicy, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
@@ -1468,63 +1510,75 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 	}
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, l4Policy.Len())
-	wildcardAllowAll := false
-	wildcardDenyAll := false
 
-	// Check for wildcard port policy first
-	addWildcardRules := func(l4 *policy.L4Filter) {
-		if l4 == nil {
-			return
-		}
+	// Check for wildcard port policy first, one tier at the time
+	addWildcardRules := func(l4 *policy.L4Filter, tier policyTypes.Tier,
+		tierBasePriority, tierLastPriority policyTypes.Priority) (bool, bool) {
+		wildcardRules, wildcardDenyAll, wildcardAllowAll := s.getWildcardNetworkPolicyRules(selectors, tier, tierBasePriority, tierLastPriority, l4.PerSelectorPolicies)
 
-		wildcardRules := s.getWildcardNetworkPolicyRules(selectors, l4.PerSelectorPolicies)
+		if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+			for _, rule := range wildcardRules {
+				deny := rule.GetDeny()
 
-		for _, rule := range wildcardRules {
-			s.logger.Debug("Wildcard PortNetworkPolicyRule matching remote IDs",
-				logfields.EndpointID, ep.GetID(),
-				logfields.Version, selectors,
-				logfields.TrafficDirection, dir,
-				logfields.Port, "0",
-				logfields.IsDeny, rule.GetDeny(),
-				logfields.PolicyID, rule.RemotePolicies,
-			)
-
-			if len(rule.RemotePolicies) == 0 {
-				if rule.GetDeny() {
-					// Got an deny-all rule, which short-circuits all of
-					// the other rules.
-					wildcardDenyAll = true
-				} else {
-					// Got an allow-all rule, which can short-circuit all of
-					// the other rules.
-					wildcardAllowAll = true
-				}
+				s.logger.Debug("Wildcard PortNetworkPolicyRule matching remote IDs",
+					logfields.EndpointID, ep.GetID(),
+					logfields.Version, selectors,
+					logfields.TrafficDirection, dir,
+					logfields.Port, "0",
+					logfields.IsDeny, deny,
+					logfields.PolicyID, rule.RemotePolicies,
+					logfields.Tier, l4.Tier,
+				)
 			}
 		}
 
 		if len(wildcardRules) > 0 {
-			PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+			if len(wildcardRules) == 1 && isEmptyRule(wildcardRules[0]) {
+				wildcardRules = nil
+			} else if len(wildcardRules) > 1 {
+				envoypolicy.SortPortNetworkPolicyRules(wildcardRules)
+			}
+			portPolicy := &cilium.PortNetworkPolicy{
 				Port:     0,
 				EndPort:  0,
 				Protocol: envoy_config_core.SocketAddress_TCP,
-				Rules:    envoypolicy.SortPortNetworkPolicyRules(wildcardRules),
-			})
-		} else {
+				Rules:    wildcardRules,
+			}
+			PerPortPolicies = append(PerPortPolicies, portPolicy)
+		} else if s.logger.Enabled(context.Background(), slog.LevelDebug) {
 			s.logger.Debug("Skipping wildcard PortNetworkPolicy due to no matching remote identities",
 				logfields.EndpointID, ep.GetID(),
 				logfields.TrafficDirection, dir,
 				logfields.Port, "0",
+				logfields.Tier, l4.Tier,
 			)
 		}
+		return wildcardDenyAll, wildcardAllowAll
 	}
 
+	usesPrecedence := l4DirectionPolicy.UsesPrecedence()
+	tierBasePriority := policyTypes.LowestPriority
+	tierLastPriority := policyTypes.LowestPriority
+
+	// interate tier-by-tier
 	for i := range l4Policy {
-		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.ANY.String()))
-		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.TCP.String()))
-	}
+		tier := policyTypes.Tier(i)
+		if usesPrecedence {
+			tierBasePriority, tierLastPriority = l4DirectionPolicy.GetTierPriorities(tier)
+		}
+		wildcardAllowAll := false
+		for _, protocol := range []string{u8proto.ANY.String(), u8proto.TCP.String()} {
+			l4 := l4Policy[tier].ExactLookup("0", 0, protocol)
+			if l4 != nil {
+				denyAll, allowAll := addWildcardRules(l4, tier, tierBasePriority, tierLastPriority)
+				if denyAll {
+					break // lower tiers are skipped
+				}
+				wildcardAllowAll = wildcardAllowAll || allowAll
+			}
+		}
 
-	if !wildcardDenyAll {
-		for l4 := range l4Policy.Filters() {
+		for l4 := range l4Policy[tier].Filters() {
 			var protocol envoy_config_core.SocketAddress_Protocol
 			switch l4.U8Proto {
 			case u8proto.TCP, u8proto.ANY:
@@ -1556,13 +1610,16 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			var allowAllRule *cilium.PortNetworkPolicyRule
 			var denyAllRule *cilium.PortNetworkPolicyRule
 
-			for sel, l7 := range l4.PerSelectorPolicies {
-				rule, cs := s.getPortNetworkPolicyRule(ep, selectors, sel, l7, useFullTLSContext, useSDS, policySecretsNamespace)
-				if rule != nil {
-					if !cs {
-						canShortCircuit = false
-					}
+			for sel, psp := range l4.PerSelectorPolicies {
+				rule, csc := s.getPortNetworkPolicyRule(ep, selectors, sel, psp,
+					tierBasePriority, tierLastPriority,
+					useFullTLSContext, useSDS, policySecretsNamespace)
+				if rule == nil {
+					continue
+				}
+				canShortCircuit = canShortCircuit && csc
 
+				if s.logger.Enabled(context.Background(), slog.LevelDebug) {
 					s.logger.Debug("PortNetworkPolicyRule matching remote IDs",
 						logfields.EndpointID, ep.GetID(),
 						logfields.Version, selectors,
@@ -1572,22 +1629,23 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 						logfields.PolicyID, rule.RemotePolicies,
 						logfields.ServerNames, rule.ServerNames,
 					)
+				}
 
+				if psp.GetPriority() == tierBasePriority {
 					if rule.GetDeny() && len(rule.RemotePolicies) == 0 {
 						// Got an deny-all rule, which short-circuits all of
-						// the other rules on this port.
+						// the other rules on this port at this tier.
 						denyAllRule = rule
 						rules = []*cilium.PortNetworkPolicyRule{denyAllRule}
 						break
 					}
-
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 && rule.ProxyId == 0 {
-						// Got an allow-all rule, which can short-circuit all of
-						// the other rules on this port.
+					if isEmptyRuleButPrecedence(rule) {
+						// Got an allow-all rule, which can short-circuit
+						// all of the other rules on this port at this tier.
 						allowAllRule = rule
 					}
-					rules = append(rules, rule)
 				}
+				rules = append(rules, rule)
 			}
 
 			// No rule for this port matches any remote identity.
@@ -1602,7 +1660,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				continue
 			}
 
-			// Short-circuit rules if a rule allows all and all other rules can be short-circuited
+			// Short-circuit rules if a rule allows all and all other rules can be
+			// short-circuited
 			if denyAllRule == nil && canShortCircuit {
 				if wildcardAllowAll {
 					s.logger.Debug("Short circuiting HTTP rules due to wildcard allowing all and no other rules needing attention",
@@ -1622,15 +1681,23 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				}
 			}
 
+			if len(rules) > 1 {
+				envoypolicy.SortPortNetworkPolicyRules(rules)
+			} else if len(rules) == 1 && isEmptyRule(rules[0]) {
+				rules = nil
+			}
+
 			// NPDS supports port ranges.
-			PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+			portPolicy := &cilium.PortNetworkPolicy{
 				Port:     uint32(port),
 				EndPort:  uint32(l4.EndPort),
 				Protocol: protocol,
-				Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
-			})
+				Rules:    rules,
+			}
+			PerPortPolicies = append(PerPortPolicies, portPolicy)
 		}
 	}
+
 	if len(PerPortPolicies) == 0 {
 		return nil
 	}

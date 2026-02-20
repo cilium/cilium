@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -269,9 +270,21 @@ var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule12,
 }
 
+var ExpectedPortNetworkPolicyRule12Precedence = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint32{1001, 1002},
+	L7:             ExpectedHttpRule12,
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+}
+
 var ExpectedPortNetworkPolicyRule12Deny = &cilium.PortNetworkPolicyRule{
 	Verdict:        DenyVerdict,
 	RemotePolicies: []uint32{1001, 1002},
+}
+
+var ExpectedPortNetworkPolicyRule12DenyPrecedence = &cilium.PortNetworkPolicyRule{
+	Verdict:        DenyVerdict,
+	RemotePolicies: []uint32{1001, 1002},
+	Precedence:     uint32(policyTypes.MaxDenyPrecedence),
 }
 
 var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
@@ -283,9 +296,21 @@ var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
+var ExpectedPortNetworkPolicyRule122HeaderMatchPrecedence = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint32{1001, 1002},
+	L7:             ExpectedHttpRule122HeaderMatch,
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
+}
+
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
+}
+
+var ExpectedPortNetworkPolicyRule1Precedence = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint32{1001, 1003},
+	L7:             ExpectedHttpRule1,
+	Precedence:     uint32(policyTypes.MaxAllowPrecedence + 1),
 }
 
 var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
@@ -372,6 +397,20 @@ var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		Protocol: api.ProtoTCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
+		},
+	},
+})
+
+// L4PolicyMap5 is an L4-only policy, with no L7 rules.
+var L4PolicyMap5LowestPriority = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			wildcardCachedSelector: &policy.PerSelectorPolicy{
+				Priority: policyTypes.LowestPriority,
+				L7Rules:  api.L7Rules{},
+			},
 		},
 	},
 })
@@ -568,8 +607,12 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 
 	version := testSelectorCache.GetSelectorSnapshot()
 
-	obtained := xds.getWildcardNetworkPolicyRules(version, perSelectorPoliciesWithWildcard)
-	require.Equal(t, []*cilium.PortNetworkPolicyRule{{}}, obtained)
+	obtained, denyAll, allowAll := xds.getWildcardNetworkPolicyRules(version, 0, policyTypes.HighestPriority, policyTypes.LowestPriority, perSelectorPoliciesWithWildcard)
+	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
+		Precedence: uint32(policyTypes.MaxAllowPrecedence),
+	}}, obtained)
+	require.False(t, denyAll)
+	require.True(t, allowAll)
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
@@ -578,13 +621,17 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 		cachedRequiresV2Selector1: nil,
 	}
 
-	obtained = xds.getWildcardNetworkPolicyRules(version, perSelectorPolicies)
+	obtained, denyAll, allowAll = xds.getWildcardNetworkPolicyRules(version, 0, policyTypes.HighestPriority, policyTypes.LowestPriority, perSelectorPolicies)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{
+		Precedence:     uint32(policyTypes.MaxDenyPrecedence),
 		Verdict:        DenyVerdict,
 		RemotePolicies: []uint32{1001, 1002},
 	}, {
+		Precedence:     uint32(policyTypes.MaxAllowPrecedence),
 		RemotePolicies: []uint32{1001, 1002, 1003},
 	}}, obtained)
+	require.False(t, denyAll)
+	require.False(t, allowAll)
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
@@ -592,20 +639,40 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 
 	version := testSelectorCache.GetSelectorSnapshot()
 
-	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
+	// legacy defaults to 0 precedence
+
+	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12Deny, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.False(t, canShortCircuit)
 
-	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, false, false, "")
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.LowestPriority, policyTypes.LowestPriority, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
+	require.True(t, canShortCircuit)
+
+	// With precedence
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule12Precedence, obtained)
+	require.True(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12Deny, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule12DenyPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12HeaderMatch, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatchPrecedence, obtained)
+	require.False(t, canShortCircuit)
+
+	obtained, canShortCircuit = xds.getPortNetworkPolicyRule(ep, version, cachedSelector2, L7Rules1, policyTypes.HighestPriority, policyTypes.LowestPriority, false, false, "")
+	require.Equal(t, ExpectedPortNetworkPolicyRule1Precedence, obtained)
 	require.True(t, canShortCircuit)
 }
 
