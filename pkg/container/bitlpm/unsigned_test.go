@@ -481,7 +481,7 @@ func TestUnsignedAncestors(t *testing.T) {
 	// Create a uint Trie that contains overlapping ranges
 	// from 0-65535.
 	tu := NewUintTrie[uint16, string]()
-	for i := uint(0); i < 16; i++ {
+	for i := range uint(16) {
 		rng := uint16RangeMap[i]
 		entry := fmt.Sprintf("%d-%d", 0, rng)
 		tu.Upsert(i, rng, entry)
@@ -489,7 +489,7 @@ func TestUnsignedAncestors(t *testing.T) {
 	// Check to see that each range
 	// lookup returns all ranges that contain
 	// it.
-	for i := uint(0); i < 16; i++ {
+	for i := range uint(16) {
 		rng := uint16RangeMap[i]
 		entry := fmt.Sprintf("%d-%d", 0, rng)
 		t.Run(entry, func(t *testing.T) {
@@ -521,7 +521,7 @@ func TestUnsignedDescendants(t *testing.T) {
 	}
 	// Check to see that each range lookup returns
 	// all ranges that contain it.
-	for i := uint(0); i < 16; i++ {
+	for i := range uint(16) {
 		rng := uint16RangeMap[i]
 		entry := fmt.Sprintf("%d-%d", 0, rng)
 		t.Run(entry, func(t *testing.T) {
@@ -656,11 +656,11 @@ func BenchmarkTrieUpsert(b *testing.B) {
 	// mimic adding 2 octets worth of addresses
 	tri.Upsert(16, 0xffff_0000, emptyS)
 	count++
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperThree := 0xffff_0000 | i<<8
 		tri.Upsert(24, upperThree, emptyS)
 		count++
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			tri.Upsert(32, upperThree|t, emptyS)
 			count++
 		}
@@ -678,9 +678,9 @@ func BenchmarkMapUpdate(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	// mimic adding 2 octets worth of addresses
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			map32[0xffff_0000|upperOct|t] = emptyS
 			count++
 		}
@@ -698,11 +698,11 @@ func BenchmarkTrieAncestorsRange(b *testing.B) {
 	// mimic adding 2 octets worth of addresses
 	tri.Upsert(16, 0xffff_0000, emptyS)
 	count++
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
 		tri.Upsert(24, 0xffff_0000|upperOct, emptyS)
 		count++
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			tri.Upsert(32, 0xffff_0000|upperOct|t, emptyS)
 			count++
 		}
@@ -721,7 +721,7 @@ func BenchmarkTrieAncestorsRange(b *testing.B) {
 	if st == nil {
 		b.Fatal("expected valid lookup, but got nil")
 	}
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
 		var st *struct{}
 		tri.Ancestors(24, 0xffff_0000|upperOct, func(_ uint, _ uint32, v *struct{}) bool {
@@ -731,7 +731,7 @@ func BenchmarkTrieAncestorsRange(b *testing.B) {
 		if st == nil {
 			b.Fatal("expected valid lookup, but got nil")
 		}
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			var st *struct{}
 			tri.Ancestors(32, 0xffff_0000|upperOct|t, func(_ uint, _ uint32, v *struct{}) bool {
 				st = v
@@ -749,11 +749,11 @@ func BenchmarkTrieLongestPrefixMatch(b *testing.B) {
 	emptyS := &struct{}{}
 	count := uint(0)
 	// mimic adding 2 octets worth of addresses
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
 		tri.Upsert(24, 0xffff_0000|upperOct, emptyS)
 		count++
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			tri.Upsert(32, 0xffff_0000|upperOct|t, emptyS)
 			count++
 		}
@@ -764,9 +764,9 @@ func BenchmarkTrieLongestPrefixMatch(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			_, _, ok := tri.LongestPrefixMatch(0xffff_0000 | upperOct | t)
 			if !ok {
 				b.Fatal("expected valid lookup, but got nil")
@@ -780,9 +780,9 @@ func BenchmarkMapLookup(b *testing.B) {
 	emptyS := &struct{}{}
 	count := 0
 	// mimic adding 2 octets worth of addresses
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			map32[0xffff_0000|upperOct|t] = emptyS
 			count++
 		}
@@ -793,9 +793,9 @@ func BenchmarkMapLookup(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			v, ok := map32[0xffff_0000|upperOct|t]
 			if !ok || v == nil {
 				b.Fatalf("expected to get value from map lookup, got nil")
@@ -809,11 +809,11 @@ func BenchmarkTrieDelete(b *testing.B) {
 	emptyS := &struct{}{}
 	count := uint(0)
 	// mimic adding 2 octets worth of addresses
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
 		tri.Upsert(24, 0xffff_0000|upperOct, emptyS)
 		count++
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			tri.Upsert(32, 0xffff_0000|upperOct|t, emptyS)
 			count++
 		}
@@ -824,12 +824,12 @@ func BenchmarkTrieDelete(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
 		if !tri.Delete(24, 0xffff_0000|upperOct) {
 			b.Fatal("expected valid delete, but got nil")
 		}
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			if !tri.Delete(32, 0xffff_0000|upperOct|t) {
 				b.Fatal("expected valid lookup, but got nil")
 			}
@@ -846,9 +846,9 @@ func BenchmarkMapDelete(b *testing.B) {
 	emptyS := &struct{}{}
 	count := 0
 	// mimic adding 2 octets worth of addresses
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			map32[0xffff_0000|upperOct|t] = emptyS
 			count++
 		}
@@ -859,9 +859,9 @@ func BenchmarkMapDelete(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := uint32(0); i < 255; i++ {
+	for i := range uint32(255) {
 		upperOct := i << 8
-		for t := uint32(0); t < 255; t++ {
+		for t := range uint32(255) {
 			delete(map32, 0xffff_0000|upperOct|t)
 		}
 	}

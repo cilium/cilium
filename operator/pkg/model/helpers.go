@@ -239,7 +239,7 @@ func wildcardHostnamesIntersect(routeHostname, listenerHostname string) bool {
 
 	matchingLabels := 0
 
-	for i := 0; i < maxLength; i++ {
+	for i := range maxLength {
 		if routeSlice[i] == "*" || listenerSlice[i] == "*" {
 			break
 		}

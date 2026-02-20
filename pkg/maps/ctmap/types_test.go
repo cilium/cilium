@@ -12,7 +12,7 @@ import (
 )
 
 func TestMapKey(t *testing.T) {
-	for mapType := mapType(0); mapType < mapTypeMax; mapType++ {
+	for mapType := range mapTypeMax {
 		assert.NotNil(t, mapType.key())
 	}
 
@@ -45,7 +45,7 @@ func TestMaxEntries(t *testing.T) {
 			option.Config.CTMapEntriesGlobalTCP = tt.tcp
 			option.Config.CTMapEntriesGlobalAny = tt.any
 
-			for mapType := mapType(0); mapType < mapTypeMax; mapType++ {
+			for mapType := range mapTypeMax {
 				if mapType.isTCP() {
 					assert.Equal(t, tt.etcp, mapType.maxEntries())
 				} else {

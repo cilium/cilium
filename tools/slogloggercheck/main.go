@@ -152,7 +152,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 
 // checkLoggingCallArgs examines the arguments of a logging call for String() method invocations
 func (v *visitor) checkLoggingCallArgs(methodName string, args []ast.Expr) {
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		arg := args[i]
 
 		// Look for direct String() calls in the argument

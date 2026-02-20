@@ -328,7 +328,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 			return "", nil, err
 		}
 	} else {
-		for i := int32(0); i < toAllocate; i++ {
+		for range toAllocate {
 			ip, err := e.allocator.AllocateNext()
 			if err != nil {
 				panic("Unable to allocate IP from allocator")
@@ -462,7 +462,7 @@ func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addres
 				return nil, fmt.Errorf("subnet %s has not enough addresses available", eni.Subnet.ID)
 			}
 
-			for i := int32(0); i < addresses; i++ {
+			for range addresses {
 				ip, err := e.allocator.AllocateNext()
 				if err != nil {
 					panic("Unable to allocate IP from allocator")
@@ -538,7 +538,7 @@ func assignPrefixToENI(e *API, eni *eniTypes.ENI, prefixes int32) error {
 		}
 	}
 
-	for i := int32(0); i < prefixes; i++ {
+	for range prefixes {
 		// Get a new /28 prefix
 		pfx, err := e.pdAllocator.AllocateNext()
 		if err != nil {

@@ -137,7 +137,7 @@ func TestMeanProcessingDuration(t *testing.T) {
 		ParallelRequests:            2,
 	}, nil)
 
-	for i := int64(0); i < iterations; i++ {
+	for range iterations {
 		req, err := a.Wait(context.Background())
 		require.NoError(t, err)
 		require.NotNil(t, req)

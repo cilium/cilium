@@ -1514,7 +1514,7 @@ func (e *etcdClient) ListPrefixIfLocked(ctx context.Context, prefix string, lock
 	getR := txnReply.Responses[0].GetResponseRange()
 
 	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
-	for i := int64(0); i < getR.Count; i++ {
+	for i := range getR.Count {
 		pairs[string(getR.Kvs[i].Key)] = Value{
 			Data:        getR.Kvs[i].Value,
 			ModRevision: uint64(getR.Kvs[i].ModRevision),
@@ -1552,7 +1552,7 @@ func (e *etcdClient) ListPrefix(ctx context.Context, prefix string) (v KeyValueP
 	lr.Done()
 
 	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
-	for i := int64(0); i < getR.Count; i++ {
+	for i := range getR.Count {
 		pairs[string(getR.Kvs[i].Key)] = Value{
 			Data:        getR.Kvs[i].Value,
 			ModRevision: uint64(getR.Kvs[i].ModRevision),

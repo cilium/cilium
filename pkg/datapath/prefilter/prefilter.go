@@ -80,7 +80,7 @@ func (p *PreFilter) Dump(to []string) ([]string, int64) {
 
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	for i := prefixesV4Dyn; i < mapCount; i++ {
+	for i := range mapCount {
 		to = p.dumpOneMap(i, to)
 	}
 	return to, p.revision
@@ -229,7 +229,7 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 }
 
 func (p *PreFilter) init() error {
-	for i := prefixesV4Dyn; i < mapCount; i++ {
+	for i := range mapCount {
 		if err := p.initOneMap(i); err != nil {
 			return err
 		}
