@@ -76,6 +76,14 @@ type PortNetworkPolicyRuleSlice []*cilium.PortNetworkPolicyRule
 // the r2 rule.
 // L3-L4-only rules are less than L7 rules.
 func PortNetworkPolicyRuleLess(r1, r2 *cilium.PortNetworkPolicyRule) bool {
+	// First sort by precedence, highest precedence first
+	switch {
+	case r1.Precedence > r2.Precedence:
+		return true
+	case r1.Precedence < r2.Precedence:
+		return false
+	}
+
 	http1, http2 := r1.GetHttpRules(), r2.GetHttpRules()
 	switch {
 	case http1 == nil && http2 != nil:

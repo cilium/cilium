@@ -262,7 +262,7 @@ func (e mapStateEntry) withPassPriority(priority, tierPriority, nextTierPriority
 	}
 	*e.passes = append(*e.passes, passMeta{
 		precedence:        priority.ToPassPrecedence(),
-		tierMaxPrecedence: tierPriority.ToTierMaxPrecedence(),
+		tierMaxPrecedence: tierPriority.ToDenyPrecedence(),
 		tierMinPrecedence: nextTierPriority.ToPassPrecedence() + 0x100,
 	})
 	return e
@@ -1037,7 +1037,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		})
 
 		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
-		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), tt.args.key, entry, denyRules, changes)
+		ms.insertWithChanges(types.MaxDenyPrecedence, tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
 		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -2403,15 +2403,15 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, aKey, aEntry, allFeatures, changes)
 		}
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 
@@ -2422,14 +2422,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, bKey, bEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (in reverse) (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
@@ -2470,14 +2470,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyEgressKey, allowEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, aKey, aEntry, allFeatures, changes)
 		}
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2486,14 +2486,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys = emptyMapState(hivetest.Logger(t))
 
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, bKey, bEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.MaxDenyPrecedence, anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -3149,7 +3149,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 				// insert entries tier-by-tier, using the given permutation on each tier
 				for tier, perm := range tierPermutation {
 					for _, i := range tierPermutations[tier][perm] {
-						tierMaxPrecedence := tt.tiers[tier].basePriority.ToTierMaxPrecedence()
+						tierMaxPrecedence := tt.tiers[tier].basePriority.ToDenyPrecedence()
 						ms.insertWithChanges(tierMaxPrecedence, tierEntries[tier][i].key, tierEntries[tier][i].entry, features, changes)
 					}
 				}
