@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package ipamcell
 
 import (
 	"context"
@@ -22,6 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const (
+	// autoCIDR indicates that a CIDR should be allocated
+	autoCIDR = "auto"
+)
+
 type ipamInitializerParams struct {
 	cell.In
 
@@ -33,7 +38,7 @@ type ipamInitializerParams struct {
 	LocalNodeStore      *node.LocalNodeStore
 }
 
-type ipamInitializer struct {
+type IPAMInitializer struct {
 	logger              *slog.Logger
 	daemonConfig        *option.DaemonConfig
 	directRoutingDevice datapathTables.DirectRoutingDevice
@@ -42,8 +47,8 @@ type ipamInitializer struct {
 	localNodeStore      *node.LocalNodeStore
 }
 
-func newIPAMInitializer(params ipamInitializerParams) *ipamInitializer {
-	return &ipamInitializer{
+func newIPAMInitializer(params ipamInitializerParams) *IPAMInitializer {
+	return &IPAMInitializer{
 		logger:              params.Logger,
 		daemonConfig:        params.DaemonConfig,
 		directRoutingDevice: params.DirectRoutingDevice,
@@ -53,7 +58,7 @@ func newIPAMInitializer(params ipamInitializerParams) *ipamInitializer {
 	}
 }
 
-func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
+func (r *IPAMInitializer) ConfigureAndStartIPAM(ctx context.Context) {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -66,7 +71,7 @@ func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	if r.daemonConfig.IPv4Range != AutoCIDR {
+	if r.daemonConfig.IPv4Range != autoCIDR {
 		allocCIDR, err := cidr.ParseCIDR(r.daemonConfig.IPv4Range)
 		if err != nil {
 			logging.Fatal(
@@ -82,7 +87,7 @@ func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 		})
 	}
 
-	if r.daemonConfig.IPv6Range != AutoCIDR {
+	if r.daemonConfig.IPv6Range != autoCIDR {
 		allocCIDR, err := cidr.ParseCIDR(r.daemonConfig.IPv6Range)
 		if err != nil {
 			logging.Fatal(
@@ -108,12 +113,12 @@ func (r *ipamInitializer) configureAndStartIPAM(ctx context.Context) {
 	r.ipam.ConfigureAllocator()
 }
 
-func (r *ipamInitializer) RestoreFinished() {
+func (r *IPAMInitializer) RestoreFinished() {
 	r.ipam.RestoreFinished()
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived
-func (r *ipamInitializer) AutoComplete(ctx context.Context) error {
+func (r *IPAMInitializer) AutoComplete(ctx context.Context) error {
 	directRoutingDevice := ""
 	drd, _ := r.directRoutingDevice.Get(ctx, r.db.ReadTxn())
 	if drd != nil {
@@ -144,7 +149,7 @@ func (r *ipamInitializer) AutoComplete(ctx context.Context) error {
 	return nil
 }
 
-func (r *ipamInitializer) makeIPv6HostIP() net.IP {
+func (r *IPAMInitializer) makeIPv6HostIP() net.IP {
 	ipstr := "fc00::10CA:1"
 	ip := net.ParseIP(ipstr)
 	if ip == nil {
@@ -154,7 +159,7 @@ func (r *ipamInitializer) makeIPv6HostIP() net.IP {
 	return ip
 }
 
-func (r *ipamInitializer) setDefaultPrefix(device string, localNode *node.LocalNode) {
+func (r *IPAMInitializer) setDefaultPrefix(device string, localNode *node.LocalNode) {
 	if r.daemonConfig.EnableIPv4 {
 		isIPv6 := false
 
@@ -257,7 +262,7 @@ func (r *ipamInitializer) setDefaultPrefix(device string, localNode *node.LocalN
 
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
-func (r *ipamInitializer) ValidatePostInit(ctx context.Context) error {
+func (r *IPAMInitializer) ValidatePostInit(ctx context.Context) error {
 	ln, err := r.localNodeStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve local node: %w", err)

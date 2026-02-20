@@ -39,6 +39,8 @@ var Cell = cell.Module(
 
 	cell.Config(defaultIPAMConfig),
 
+	cell.Provide(newIPAMInitializer),
+
 	cell.Provide(newIPAddressManager),
 	cell.Provide(newIPAMAPIHandler),
 	cell.Provide(k8sResources.CiliumPodIPPoolResource),
