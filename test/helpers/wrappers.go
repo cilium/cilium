@@ -4,9 +4,7 @@
 package helpers
 
 import (
-	"context"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -148,14 +146,4 @@ func OpenSSLShowCerts(host string, port uint16, serverName string) string {
 		serverNameFlag = fmt.Sprintf("-servername %q", serverName)
 	}
 	return fmt.Sprintf("openssl s_client -connect %s:%d %s -showcerts | openssl x509 -outform PEM", host, port, serverNameFlag)
-}
-
-// GetBPFPacketsCount returns the number of packets for a given drop reason and
-// direction by parsing BPF metrics.
-func GetBPFPacketsCount(kubectl *Kubectl, pod, reason, direction string) (int, error) {
-	cmd := fmt.Sprintf("cilium-dbg bpf metrics list -o json | jq '[.[] | select(.reason == \"%s\") | select(.direction == \"%s\").packets] | add'", reason, direction)
-
-	res := kubectl.CiliumExecMustSucceed(context.TODO(), pod, cmd)
-
-	return strconv.Atoi(strings.TrimSpace(res.Stdout()))
 }
