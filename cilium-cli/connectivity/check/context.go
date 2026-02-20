@@ -574,6 +574,9 @@ func (ct *ConnectivityTest) report() error {
 			ct.LogOwners(allScenarios...)
 		}
 
+		if ct.params.ExitZeroOnFailure {
+			return nil
+		}
 		return fmt.Errorf("[%s] %d tests failed", ct.params.TestNamespace, nf)
 	}
 
