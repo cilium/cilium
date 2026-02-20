@@ -7,17 +7,19 @@ import (
 	"context"
 	"slices"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
-func filterByVerdicts(vs []flowpb.Verdict) FilterFunc {
+func filterByVerdicts(vs []flow.Verdict) FilterFunc {
 	return func(ev *v1.Event) bool {
-		flow := ev.GetFlow()
-		if flow == nil {
+		fl := ev.GetFlow()
+		if fl == nil {
 			return false
 		}
-		return slices.Contains(vs, flow.GetVerdict())
+
+		return slices.Contains(vs, flow.Verdict(fl.Verdict))
 	}
 }
 

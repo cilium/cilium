@@ -9,6 +9,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func filterByEncrypted(encryptedParams []bool) FilterFunc {
@@ -17,9 +18,8 @@ func filterByEncrypted(encryptedParams []bool) FilterFunc {
 			return true
 		}
 		switch f := ev.Event.(type) {
-		case *flowpb.Flow:
-			encrypted := f.GetIP().GetEncrypted()
-			return slices.Contains(encryptedParams, encrypted)
+		case *ir.Flow:
+			return slices.Contains(encryptedParams, f.IP.Encrypted)
 		}
 		return false
 	}

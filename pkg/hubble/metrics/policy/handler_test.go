@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/identity"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -22,8 +23,8 @@ func TestPolicyHandler(t *testing.T) {
 	h := &policyHandler{}
 	assert.NoError(t, h.Init(registry, &api.MetricConfig{}))
 	assert.NoError(t, testutil.CollectAndCompare(h.verdicts, strings.NewReader("")))
-	flow := flowpb.Flow{
-		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+	flow := ir.Flow{
+		EventType:        ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
 		TrafficDirection: flowpb.TrafficDirection_EGRESS,
 		PolicyMatchType:  monitorAPI.PolicyMatchNone,
 		Verdict:          flowpb.Verdict_DROPPED,
@@ -37,19 +38,19 @@ func TestPolicyHandler(t *testing.T) {
 
 	// Policy verdicts from host shouldn't be counted.
 	flow.PolicyMatchType = monitorAPI.PolicyMatchAll
-	flow.Source = &flowpb.Endpoint{Identity: uint32(identity.ReservedIdentityHost)}
+	flow.Source = ir.Endpoint{Identity: uint32(identity.ReservedIdentityHost)}
 	h.ProcessFlow(t.Context(), &flow)
 
 	// l7/http
-	flow.EventType = &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog}
+	flow.EventType = ir.EventType{Type: monitorAPI.MessageTypeAccessLog}
 	flow.Verdict = flowpb.Verdict_DROPPED
-	flow.L7 = &flowpb.Layer7{
-		Record: &flowpb.Layer7_Http{Http: &flowpb.HTTP{
+	flow.L7 = ir.Layer7{
+		HTTP: ir.HTTP{
 			Code:     0,
 			Method:   "POST",
-			Url:      "http://myhost/some/path",
+			URL:      "http://myhost/some/path",
 			Protocol: "http/1.1",
-		}}}
+		}}
 	h.ProcessFlow(t.Context(), &flow)
 
 	expected := strings.NewReader(`# HELP hubble_policy_verdicts_total Total number of Cilium network policy verdicts

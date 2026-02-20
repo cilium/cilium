@@ -6,12 +6,14 @@ package sock
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"strings"
 
 	"go4.org/netipx"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -49,7 +51,7 @@ func New(log *slog.Logger,
 ) (*Parser, error) {
 	args := &options.Options{
 		SkipUnknownCGroupIDs: true,
-		TraceSockNotifyDecoder: func(data []byte, decoded *flowpb.Flow) (*monitor.TraceSockNotify, error) {
+		TraceSockNotifyDecoder: func(data []byte, decoded *ir.Flow) (*monitor.TraceSockNotify, error) {
 			sock := &monitor.TraceSockNotify{}
 			return sock, sock.Decode(data)
 		},
@@ -75,7 +77,7 @@ func New(log *slog.Logger,
 
 // Decode takes a raw trace sock event payload obtained from the perf event ring
 // buffer and decodes it into a flow
-func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
+func (p *Parser) Decode(data []byte, decoded *ir.Flow) error {
 	if len(data) == 0 {
 		return errors.ErrEmptyData
 	}
@@ -125,17 +127,17 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	decoded.Verdict = decodeVerdict(sock.XlatePoint)
 	decoded.IP = decodeL3(srcIP, dstIP, ipVersion)
 	decoded.L4 = decodeL4(sock.L4Proto, srcPort, dstPort)
-	decoded.Source = srcEndpoint
+	decoded.Source = ir.ProtoToEp(srcEndpoint)
 	decoded.SourceNames = p.resolveNames(dstEndpoint.GetID(), srcIP)
 	decoded.SourceService = p.decodeService(srcIP, srcPort)
-	decoded.Destination = dstEndpoint
+	decoded.Destination = ir.ProtoToEp(dstEndpoint)
 	decoded.DestinationService = p.decodeService(dstIP, dstPort)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.GetID(), dstIP)
 	decoded.Type = flowpb.FlowType_SOCK
 	decoded.EventType = decodeCiliumEventType(sock.Type, sock.XlatePoint)
 	decoded.SockXlatePoint = flowpb.SocketTranslationPoint(sock.XlatePoint)
 	decoded.SocketCookie = sock.SockCookie
-	decoded.CgroupId = sock.CgroupId
+	decoded.CgroupID = sock.CgroupId
 	decoded.Summary = decodeSummary(sock)
 	return nil
 }
@@ -180,7 +182,7 @@ func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) n
 	return netip.Addr{}
 }
 
-func decodeL3(srcIP, dstIP netip.Addr, ipVersion flowpb.IPVersion) *flowpb.IP {
+func decodeL3(srcIP, dstIP netip.Addr, ipVersion flowpb.IPVersion) ir.IP {
 	var srcIPStr, dstIPStr string
 	if srcIP.IsValid() {
 		srcIPStr = srcIP.String()
@@ -189,36 +191,32 @@ func decodeL3(srcIP, dstIP netip.Addr, ipVersion flowpb.IPVersion) *flowpb.IP {
 		dstIPStr = dstIP.String()
 	}
 
-	return &flowpb.IP{
-		Source:      srcIPStr,
-		Destination: dstIPStr,
-		IpVersion:   ipVersion,
+	return ir.IP{
+		Source:      net.ParseIP(srcIPStr),
+		Destination: net.ParseIP(dstIPStr),
+		IPVersion:   ipVersion,
 	}
 }
 
-func decodeL4(proto uint8, srcPort, dstPort uint16) *flowpb.Layer4 {
+func decodeL4(proto uint8, srcPort, dstPort uint16) ir.Layer4 {
 	switch proto {
 	case monitor.L4ProtocolTCP:
-		return &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{
-					SourcePort:      uint32(srcPort),
-					DestinationPort: uint32(dstPort),
-				},
+		return ir.Layer4{
+			TCP: ir.TCP{
+				SourcePort:      uint32(srcPort),
+				DestinationPort: uint32(dstPort),
 			},
 		}
 	case monitor.L4ProtocolUDP:
-		return &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_UDP{
-				UDP: &flowpb.UDP{
-					SourcePort:      uint32(srcPort),
-					DestinationPort: uint32(dstPort),
-				},
+		return ir.Layer4{
+			UDP: ir.UDP{
+				SourcePort:      uint32(srcPort),
+				DestinationPort: uint32(dstPort),
 			},
 		}
 	}
 
-	return nil
+	return ir.Layer4{}
 }
 
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
@@ -229,12 +227,12 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	return nil
 }
 
-func (p *Parser) decodeService(ip netip.Addr, port uint16) *flowpb.Service {
+func (p *Parser) decodeService(ip netip.Addr, port uint16) ir.Service {
 	if p.serviceGetter != nil {
-		return p.serviceGetter.GetServiceByAddr(ip, port)
+		return ir.ProtoToService(p.serviceGetter.GetServiceByAddr(ip, port))
 	}
 
-	return nil
+	return ir.Service{}
 }
 
 func decodeVerdict(xlatePoint uint8) flowpb.Verdict {
@@ -260,8 +258,8 @@ func decodeRevNat(xlatePoint uint8) bool {
 	return false
 }
 
-func decodeCiliumEventType(eventType, subtype uint8) *flowpb.CiliumEventType {
-	return &flowpb.CiliumEventType{
+func decodeCiliumEventType(eventType, subtype uint8) ir.EventType {
+	return ir.EventType{
 		Type:    int32(eventType),
 		SubType: int32(subtype),
 	}

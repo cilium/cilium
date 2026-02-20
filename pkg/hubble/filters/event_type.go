@@ -8,15 +8,19 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func filterByEventType(types []*flowpb.EventTypeFilter) FilterFunc {
 	return func(ev *v1.Event) bool {
 		switch ev.Event.(type) {
-		case *flowpb.Flow:
-			event := ev.GetFlow().GetEventType()
-			if event == nil {
+		case *ir.Flow:
+			if ev.GetFlow() == nil {
+				return false
+			}
+			event := ev.GetFlow().EventType
+			if event.IsEmpty() {
 				return false
 			}
 			for _, typeFilter := range types {

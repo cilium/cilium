@@ -17,7 +17,8 @@ func filterByUUID(uuids []string) FilterFunc {
 		if flow == nil {
 			return false
 		}
-		return slices.Contains(uuids, flow.GetUuid())
+
+		return slices.Contains(uuids, flow.UUID)
 	}
 }
 

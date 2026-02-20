@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -66,11 +66,11 @@ func Test_LocalNodeWatcher(t *testing.T) {
 	})
 
 	t.Run("OnDecodedFlow", func(t *testing.T) {
-		var flow flowpb.Flow
+		var flow ir.Flow
 		stop, err := watcher.OnDecodedFlow(ctx, &flow)
 		require.False(t, stop)
 		require.NoError(t, err)
-		require.Equal(t, localNodeLabelSlice, flow.GetNodeLabels())
+		require.Equal(t, localNodeLabelSlice, flow.NodeLabels)
 	})
 
 	t.Run("update", func(t *testing.T) {
@@ -80,11 +80,11 @@ func Test_LocalNodeWatcher(t *testing.T) {
 		require.EventuallyWithT(
 			t,
 			func(c *assert.CollectT) {
-				var flow flowpb.Flow
+				var flow ir.Flow
 				stop, err := watcher.OnDecodedFlow(ctx, &flow)
 				if assert.False(c, stop) {
 					assert.NoError(c, err)
-					assert.Equal(c, updatedNodeLabelSlice, flow.GetNodeLabels(), "node labels mismatch")
+					assert.Equal(c, updatedNodeLabelSlice, flow.NodeLabels, "node labels mismatch")
 				}
 			},
 			10*time.Second,
@@ -94,11 +94,11 @@ func Test_LocalNodeWatcher(t *testing.T) {
 
 	t.Run("complete", func(t *testing.T) {
 		watcher.complete(nil)
-		var flow flowpb.Flow
+		var flow ir.Flow
 		stop, err := watcher.OnDecodedFlow(ctx, &flow)
 		require.False(t, stop)
 		require.NoError(t, err)
-		require.Empty(t, flow.GetNodeLabels())
+		require.Empty(t, flow.NodeLabels)
 	})
 }
 

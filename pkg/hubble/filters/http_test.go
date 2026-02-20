@@ -9,20 +9,19 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestHTTPFilters(t *testing.T) {
-	httpFlow := func(http *flowpb.HTTP) *v1.Event {
+	httpFlow := func(http ir.HTTP) *v1.Event {
 		return &v1.Event{
-			Event: &flowpb.Flow{
-				EventType: &flowpb.CiliumEventType{
+			Event: &ir.Flow{
+				EventType: ir.EventType{
 					Type: api.MessageTypeAccessLog,
 				},
-				L7: &flowpb.Layer7{
-					Record: &flowpb.Layer7_Http{
-						Http: http,
-					},
+				L7: ir.Layer7{
+					HTTP: http,
 				}},
 		}
 	}
@@ -50,10 +49,10 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Code: 200}),
-					httpFlow(&flowpb.HTTP{Code: 302}),
-					httpFlow(&flowpb.HTTP{Code: 404}),
-					httpFlow(&flowpb.HTTP{Code: 500}),
+					httpFlow(ir.HTTP{Code: 200}),
+					httpFlow(ir.HTTP{Code: 302}),
+					httpFlow(ir.HTTP{Code: 404}),
+					httpFlow(ir.HTTP{Code: 500}),
 				},
 			},
 			want: []bool{
@@ -74,15 +73,15 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Code: 302}),
-					httpFlow(&flowpb.HTTP{Code: 400}),
-					httpFlow(&flowpb.HTTP{Code: 404}),
-					httpFlow(&flowpb.HTTP{Code: 410}),
-					httpFlow(&flowpb.HTTP{Code: 004}),
-					httpFlow(&flowpb.HTTP{Code: 500}),
-					httpFlow(&flowpb.HTTP{Code: 501}),
-					httpFlow(&flowpb.HTTP{Code: 510}),
-					httpFlow(&flowpb.HTTP{Code: 050}),
+					httpFlow(ir.HTTP{Code: 302}),
+					httpFlow(ir.HTTP{Code: 400}),
+					httpFlow(ir.HTTP{Code: 404}),
+					httpFlow(ir.HTTP{Code: 410}),
+					httpFlow(ir.HTTP{Code: 004}),
+					httpFlow(ir.HTTP{Code: 500}),
+					httpFlow(ir.HTTP{Code: 501}),
+					httpFlow(ir.HTTP{Code: 510}),
+					httpFlow(ir.HTTP{Code: 050}),
 				},
 			},
 			want: []bool{
@@ -108,9 +107,9 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					httpFlow(&flowpb.HTTP{}),
-					httpFlow(&flowpb.HTTP{Code: 777}),
+					{Event: &ir.Flow{}},
+					httpFlow(ir.HTTP{}),
+					httpFlow(ir.HTTP{Code: 777}),
 				},
 			},
 			want: []bool{
@@ -202,7 +201,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Code: 200}),
+					httpFlow(ir.HTTP{Code: 200}),
 				},
 			},
 			want: []bool{
@@ -223,7 +222,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Code: 200}),
+					httpFlow(ir.HTTP{Code: 200}),
 				},
 			},
 			want: []bool{
@@ -252,7 +251,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Method: "gEt"}),
+					httpFlow(ir.HTTP{Method: "gEt"}),
 				},
 			},
 			want: []bool{
@@ -273,7 +272,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Method: "gEt"}),
+					httpFlow(ir.HTTP{Method: "gEt"}),
 				},
 			},
 			wantErr:         true,
@@ -299,7 +298,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Method: "DELETE"}),
+					httpFlow(ir.HTTP{Method: "DELETE"}),
 				},
 			},
 			want: []bool{
@@ -318,13 +317,13 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "/docs/"}),
-					httpFlow(&flowpb.HTTP{Url: "/docs/tutorial/"}),
-					httpFlow(&flowpb.HTTP{Url: "/post/"}),
-					httpFlow(&flowpb.HTTP{Url: "/post/0"}),
-					httpFlow(&flowpb.HTTP{Url: "/post/slug"}),
-					httpFlow(&flowpb.HTTP{Url: "/post/123?key=value"}),
-					httpFlow(&flowpb.HTTP{Url: "/slug"}),
+					httpFlow(ir.HTTP{URL: "/docs/"}),
+					httpFlow(ir.HTTP{URL: "/docs/tutorial/"}),
+					httpFlow(ir.HTTP{URL: "/post/"}),
+					httpFlow(ir.HTTP{URL: "/post/0"}),
+					httpFlow(ir.HTTP{URL: "/post/slug"}),
+					httpFlow(ir.HTTP{URL: "/post/123?key=value"}),
+					httpFlow(ir.HTTP{URL: "/slug"}),
 				},
 			},
 			want: []bool{
@@ -349,11 +348,11 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/"}),
-					httpFlow(&flowpb.HTTP{Url: "https://cilium.io/"}),
-					httpFlow(&flowpb.HTTP{Url: "https://not.cilium.io/"}),
-					httpFlow(&flowpb.HTTP{Url: "https://cilium.example.com/"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/docs/"}),
+					httpFlow(ir.HTTP{URL: "https://cilium.io/"}),
+					httpFlow(ir.HTTP{URL: "https://not.cilium.io/"}),
+					httpFlow(ir.HTTP{URL: "https://cilium.example.com/"}),
 				},
 			},
 			want: []bool{
@@ -375,9 +374,9 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/docs/"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/"}),
 				},
 			},
 			want: []bool{
@@ -397,13 +396,13 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/12"}),
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/125?key=value"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/post/125?key=value"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example/1243"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/docs/post"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/post/12"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/post/125?key=value"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/post/125?key=value"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/docs/example"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/docs/example/1243"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/docs/post"}),
 				},
 			},
 			want: []bool{
@@ -428,13 +427,13 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/12"}),
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/125?key=value"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/post/125?key=value"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example"}),
-					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
-					httpFlow(&flowpb.HTTP{Url: "http://example.com/docs/post"}),
-					httpFlow(&flowpb.HTTP{Url: "http://example.org/post/12"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/post/12"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/post/125?key=value"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/post/125?key=value"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/docs/example"}),
+					httpFlow(ir.HTTP{URL: "http://cilium.io/"}),
+					httpFlow(ir.HTTP{URL: "http://example.com/docs/post"}),
+					httpFlow(ir.HTTP{URL: "http://example.org/post/12"}),
 				},
 			},
 			want: []bool{
@@ -458,8 +457,8 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Url: "/post/0"}),
-					httpFlow(&flowpb.HTTP{Url: "?/post/0"}),
+					httpFlow(ir.HTTP{URL: "/post/0"}),
+					httpFlow(ir.HTTP{URL: "?/post/0"}),
 				},
 			},
 			want: []bool{
@@ -496,7 +495,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{{Key: "Content", Value: "foo"}}}),
+					httpFlow(ir.HTTP{Headers: []ir.HTTPHeader{{Key: "Content", Value: "foo"}}}),
 				},
 			},
 			want: []bool{
@@ -518,7 +517,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{{Key: "Content", Value: "bar"}}}),
+					httpFlow(ir.HTTP{Headers: []ir.HTTPHeader{{Key: "Content", Value: "bar"}}}),
 				},
 			},
 			want: []bool{
@@ -540,7 +539,7 @@ func TestHTTPFilters(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{Headers: []*flowpb.HTTPHeader{
+					httpFlow(ir.HTTP{Headers: []ir.HTTPHeader{
 						{Key: "Cache-control", Value: "no-cache"},
 						{Key: "Cache-control", Value: "no-store"},
 					}}),

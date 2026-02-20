@@ -12,15 +12,19 @@ import (
 
 func filterByNetworkInterface(ifaces []*flowpb.NetworkInterface) FilterFunc {
 	return func(ev *v1.Event) bool {
-		iface := ev.GetFlow().GetInterface()
-		if iface == nil {
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+
+		iface := ev.GetFlow().Interface
+		if iface.IsEmpty() {
 			return false
 		}
 		for _, f := range ifaces {
-			if idx := f.GetIndex(); idx > 0 && idx != iface.GetIndex() {
+			if idx := f.GetIndex(); idx > 0 && idx != iface.Index {
 				continue
 			}
-			if name := f.GetName(); name != "" && name != iface.GetName() {
+			if name := f.GetName(); name != "" && name != iface.Name {
 				continue
 			}
 			return true

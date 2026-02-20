@@ -17,11 +17,10 @@ func filterByDropReasonDesc(dropReasons []flowpb.DropReason) FilterFunc {
 		if flow == nil {
 			return false
 		}
-		verdict := flow.GetVerdict()
-		if verdict != flowpb.Verdict_DROPPED {
+		if flow.Verdict != flowpb.Verdict_DROPPED {
 			return false
 		}
-		return slices.Contains(dropReasons, flow.GetDropReasonDesc())
+		return slices.Contains(dropReasons, flow.DropReasonDesc)
 	}
 }
 

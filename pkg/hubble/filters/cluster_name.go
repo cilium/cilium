@@ -13,11 +13,19 @@ import (
 )
 
 func sourceClusterName(ev *v1.Event) string {
-	return ev.GetFlow().GetSource().GetClusterName()
+	if ev == nil || ev.GetFlow() == nil {
+		return ""
+	}
+
+	return ev.GetFlow().Source.ClusterName
 }
 
 func destinationClusterName(ev *v1.Event) string {
-	return ev.GetFlow().GetDestination().GetClusterName()
+	if ev == nil || ev.GetFlow() == nil {
+		return ""
+	}
+
+	return ev.GetFlow().Destination.ClusterName
 }
 
 func filterByClusterName(names []string, getClusterName func(*v1.Event) string) (FilterFunc, error) {

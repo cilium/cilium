@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestFlowProtocolFilter(t *testing.T) {
@@ -25,8 +26,8 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "udp",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"udp"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{UDP: ir.UDP{SourcePort: 53}},
 				}},
 			},
 			want: true,
@@ -35,9 +36,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "http",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"http"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{}}},
-					L7: &flowpb.Layer7{Record: &flowpb.Layer7_Http{Http: &flowpb.HTTP{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{TCP: ir.TCP{}},
+					L7: ir.Layer7{HTTP: ir.HTTP{Method: "GET"}},
 				}},
 			},
 			want: true,
@@ -46,8 +47,8 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "icmp (v4)",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"icmp"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv4{ICMPv4: &flowpb.ICMPv4{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{ICMPv4: ir.ICMP{Type: 1}},
 				}},
 			},
 			want: true,
@@ -56,8 +57,8 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "icmp (v6)",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"icmp"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv6{ICMPv6: &flowpb.ICMPv6{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{ICMPv6: ir.ICMP{Type: 1}},
 				}},
 			},
 			want: true,
@@ -66,8 +67,8 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "vrrp",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"vrrp"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_VRRP{VRRP: &flowpb.VRRP{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{VRRP: ir.VRRP{Type: 1}},
 				}},
 			},
 			want: true,
@@ -76,8 +77,8 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "igmp",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"igmp"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_IGMP{IGMP: &flowpb.IGMP{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{IGMP: ir.IGMP{Type: 1}},
 				}},
 			},
 			want: true,
@@ -86,8 +87,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 			name: "multiple protocols",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{TCP: ir.TCP{SourcePort: 80}},
+					L7: ir.Layer7{Kafka: ir.Kafka{Topic: "blee"}},
 				}},
 			},
 			want: true,

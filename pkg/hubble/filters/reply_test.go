@@ -6,10 +6,9 @@ package filters
 import (
 	"testing"
 
-	"google.golang.org/protobuf/types/known/wrapperspb"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -36,7 +35,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyYes}},
 			},
 			want: true,
 		},
@@ -44,7 +43,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "empty-param-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyNo}},
 			},
 			want: true,
 		},
@@ -52,7 +51,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyNo}},
 			},
 			want: true,
 		},
@@ -60,12 +59,12 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "trace-event-from-endpoint",
 			args: args{
 				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					EventType: &flowpb.CiliumEventType{
+				ev: &v1.Event{Event: &ir.Flow{
+					EventType: ir.EventType{
 						Type:    monitorAPI.MessageTypeTrace,
 						SubType: monitorAPI.TraceFromLxc,
 					},
-					IsReply: nil,
+					Reply: ir.ReplyUnknown,
 				}},
 			},
 			want: false,
@@ -74,12 +73,12 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "trace-event-to-endpoint",
 			args: args{
 				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					EventType: &flowpb.CiliumEventType{
+				ev: &v1.Event{Event: &ir.Flow{
+					EventType: ir.EventType{
 						Type:    monitorAPI.MessageTypeTrace,
 						SubType: monitorAPI.TraceToLxc,
 					},
-					IsReply: &wrapperspb.BoolValue{Value: false},
+					Reply: ir.ReplyNo,
 				}},
 			},
 			want: true,
@@ -88,7 +87,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "reply",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyYes}},
 			},
 			want: true,
 		},
@@ -96,7 +95,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "drop implies reply=false",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED, IsReply: nil}},
+				ev: &v1.Event{Event: &ir.Flow{Verdict: flowpb.Verdict_DROPPED, Reply: ir.ReplyUnknown}},
 			},
 			want: true,
 		},
@@ -104,7 +103,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: false}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyNo}},
 			},
 			want: false,
 		},
@@ -112,7 +111,7 @@ func Test_filterByReplyField(t *testing.T) {
 			name: "no-match-2",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IsReply: &wrapperspb.BoolValue{Value: true}}},
+				ev: &v1.Event{Event: &ir.Flow{Reply: ir.ReplyYes}},
 			},
 			want: false,
 		},

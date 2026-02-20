@@ -18,6 +18,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -200,7 +201,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		opts []options.Option
 
 		rawMsg []byte
-		flow   *flowpb.Flow
+		flow   ir.Flow
 		errMsg string
 	}{
 		{
@@ -242,19 +243,17 @@ func TestDecodeSockEvent(t *testing.T) {
 				SockCookie: 0xc0ffee,
 			},
 			opts: []options.Option{options.WithSkipUnknownCGroupIDs(false)},
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				Type:    flowpb.FlowType_SOCK,
 				Verdict: flowpb.Verdict_TRACED,
-				IP: &flowpb.IP{
-					Destination: "10.10.10.10",
-					IpVersion:   flowpb.IPVersion_IPv4,
+				IP: ir.IP{
+					Destination: net.ParseIP("10.10.10.10"),
+					IPVersion:   flowpb.IPVersion_IPv4,
 				},
-				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{
+				L4: ir.Layer4{UDP: ir.UDP{
 					DestinationPort: 8080,
-				}}},
-				Source:      &flowpb.Endpoint{},
-				Destination: &flowpb.Endpoint{},
-				EventType: &flowpb.CiliumEventType{
+				}},
+				EventType: ir.EventType{
 					Type:    monitorAPI.MessageTypeTraceSock,
 					SubType: monitor.XlatePointPreDirectionFwd,
 				},
@@ -273,32 +272,31 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRACED,
-				CgroupId: xwingCgroupId,
-				IP: &flowpb.IP{
-					Source:      xwingIPv4,
-					Destination: deathstarServiceV4,
-					IpVersion:   flowpb.IPVersion_IPv4,
+				CgroupID: xwingCgroupId,
+				IP: ir.IP{
+					Source:      net.ParseIP(xwingIPv4),
+					Destination: net.ParseIP(deathstarServiceV4),
+					IPVersion:   flowpb.IPVersion_IPv4,
 				},
-				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+				L4: ir.Layer4{TCP: ir.TCP{
 					DestinationPort: deathstarServicePort,
-				}}},
-				Source: &flowpb.Endpoint{
+				}},
+				Source: ir.Endpoint{
 					ID:        xwingEndpoint,
 					Identity:  xwingIdentity,
 					PodName:   xwingPodName,
 					Namespace: xwingPodNamespace,
 					Labels:    xwingLabels,
 				},
-				Destination:      &flowpb.Endpoint{},
 				DestinationNames: []string{deathstarServiceDomain},
-				DestinationService: &flowpb.Service{
+				DestinationService: ir.Service{
 					Name:      deathstarServiceName,
 					Namespace: deathstarServiceNamespace,
 				},
-				EventType: &flowpb.CiliumEventType{
+				EventType: ir.EventType{
 					Type:    monitorAPI.MessageTypeTraceSock,
 					SubType: monitor.XlatePointPreDirectionFwd,
 				},
@@ -316,32 +314,32 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
-				CgroupId: xwingCgroupId,
-				IP: &flowpb.IP{
-					Source:      xwingIPv4,
-					Destination: deathstarAltIPv4,
-					IpVersion:   flowpb.IPVersion_IPv4,
+				CgroupID: xwingCgroupId,
+				IP: ir.IP{
+					Source:      net.ParseIP(xwingIPv4),
+					Destination: net.ParseIP(deathstarAltIPv4),
+					IPVersion:   flowpb.IPVersion_IPv4,
 				},
-				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+				L4: ir.Layer4{TCP: ir.TCP{
 					DestinationPort: deathstarTargetPort,
-				}}},
-				Source: &flowpb.Endpoint{
+				}},
+				Source: ir.Endpoint{
 					ID:        xwingEndpoint,
 					Identity:  xwingIdentity,
 					PodName:   xwingPodName,
 					Namespace: xwingPodNamespace,
 					Labels:    xwingLabels,
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Identity:  deathstarIdentity,
 					PodName:   deathstarAltPodName,
 					Namespace: deathstarAltPodNamespace,
 					Labels:    deathstarLabels,
 				},
-				EventType: &flowpb.CiliumEventType{
+				EventType: ir.EventType{
 					Type:    monitorAPI.MessageTypeTraceSock,
 					SubType: monitor.XlatePointPostDirectionFwd,
 				},
@@ -360,32 +358,31 @@ func TestDecodeSockEvent(t *testing.T) {
 				L4Proto:    monitor.L4ProtocolTCP,
 				Flags:      monitor.TraceSockNotifyFlagIPv6,
 			},
-			flow: &flowpb.Flow{
+			flow: ir.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
-				CgroupId: xwingCgroupId,
-				IP: &flowpb.IP{
-					Source:      deathstarServiceV6,
-					Destination: xwingIPv6,
-					IpVersion:   flowpb.IPVersion_IPv6,
+				CgroupID: xwingCgroupId,
+				IP: ir.IP{
+					Source:      net.ParseIP(deathstarServiceV6),
+					Destination: net.ParseIP(xwingIPv6),
+					IPVersion:   flowpb.IPVersion_IPv6,
 				},
-				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+				L4: ir.Layer4{TCP: ir.TCP{
 					SourcePort: deathstarServicePort,
-				}}},
-				Source:      &flowpb.Endpoint{},
+				}},
 				SourceNames: []string{deathstarServiceDomain},
-				SourceService: &flowpb.Service{
+				SourceService: ir.Service{
 					Name:      deathstarServiceName,
 					Namespace: deathstarServiceNamespace,
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					ID:        xwingEndpoint,
 					Identity:  xwingIdentity,
 					PodName:   xwingPodName,
 					Namespace: xwingPodNamespace,
 					Labels:    xwingLabels,
 				},
-				EventType: &flowpb.CiliumEventType{
+				EventType: ir.EventType{
 					Type:    monitorAPI.MessageTypeTraceSock,
 					SubType: monitor.XlatePointPostDirectionRev,
 				},
@@ -405,8 +402,8 @@ func TestDecodeSockEvent(t *testing.T) {
 			},
 			opts: []options.Option{
 				options.WithSkipUnknownCGroupIDs(false),
-				options.WithTraceSockNotifyDecoder(func(data []byte, flow *flowpb.Flow) (*monitor.TraceSockNotify, error) {
-					flow.Uuid = "coffee"
+				options.WithTraceSockNotifyDecoder(func(data []byte, flow *ir.Flow) (*monitor.TraceSockNotify, error) {
+					flow.UUID = "coffee"
 					return &monitor.TraceSockNotify{
 						Type:       monitorAPI.MessageTypeTraceSock,
 						XlatePoint: monitor.XlatePointPostDirectionFwd,
@@ -417,20 +414,18 @@ func TestDecodeSockEvent(t *testing.T) {
 					}, nil
 				}),
 			},
-			flow: &flowpb.Flow{
-				Uuid:    "coffee",
+			flow: ir.Flow{
+				UUID:    "coffee",
 				Type:    flowpb.FlowType_SOCK,
 				Verdict: flowpb.Verdict_TRANSLATED,
-				IP: &flowpb.IP{
-					Destination: "192.10.21.20",
-					IpVersion:   flowpb.IPVersion_IPv4,
+				IP: ir.IP{
+					Destination: net.ParseIP("192.10.21.20"),
+					IPVersion:   flowpb.IPVersion_IPv4,
 				},
-				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{
+				L4: ir.Layer4{UDP: ir.UDP{
 					DestinationPort: 8081,
-				}}},
-				Source:      &flowpb.Endpoint{},
-				Destination: &flowpb.Endpoint{},
-				EventType: &flowpb.CiliumEventType{
+				}},
+				EventType: ir.EventType{
 					Type:    monitorAPI.MessageTypeTraceSock,
 					SubType: monitor.XlatePointPostDirectionFwd,
 				},
@@ -454,8 +449,8 @@ func TestDecodeSockEvent(t *testing.T) {
 				assert.NoError(t, err)
 				data = buf.Bytes()
 			}
-			flow := &flowpb.Flow{}
-			err = p.Decode(data, flow)
+			var flow ir.Flow
+			err = p.Decode(data, &flow)
 			if tc.errMsg != "" {
 				assert.ErrorContains(t, err, tc.errMsg)
 			} else {

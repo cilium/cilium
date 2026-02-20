@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"strings"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/monitor"
 )
 
@@ -80,7 +80,7 @@ func WithSkipUnknownCGroupIDs(enabled bool) Option {
 	}
 }
 
-type DropNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.DropNotify, error)
+type DropNotifyDecoderFunc func(data []byte, decoded *ir.Flow) (*monitor.DropNotify, error)
 
 func WithDropNotifyDecoder(decode DropNotifyDecoderFunc) Option {
 	return func(opt *Options) {
@@ -96,7 +96,7 @@ func WithDebugMsgDecoder(decode DebugMsgDecoderFunc) Option {
 	}
 }
 
-type DebugCaptureDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.DebugCapture, error)
+type DebugCaptureDecoderFunc func(data []byte, decoded *ir.Flow) (*monitor.DebugCapture, error)
 
 func WithDebugCaptureDecoder(decode DebugCaptureDecoderFunc) Option {
 	return func(opt *Options) {
@@ -104,7 +104,7 @@ func WithDebugCaptureDecoder(decode DebugCaptureDecoderFunc) Option {
 	}
 }
 
-type TraceNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.TraceNotify, error)
+type TraceNotifyDecoderFunc func(data []byte, decoded *ir.Flow) (*monitor.TraceNotify, error)
 
 func WithTraceNotifyDecoder(decode TraceNotifyDecoderFunc) Option {
 	return func(opt *Options) {
@@ -112,7 +112,7 @@ func WithTraceNotifyDecoder(decode TraceNotifyDecoderFunc) Option {
 	}
 }
 
-type PolicyVerdictNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.PolicyVerdictNotify, error)
+type PolicyVerdictNotifyDecoderFunc func(data []byte, decoded *ir.Flow) (*monitor.PolicyVerdictNotify, error)
 
 func WithPolicyVerdictNotifyDecoder(decode PolicyVerdictNotifyDecoderFunc) Option {
 	return func(opt *Options) {
@@ -120,7 +120,7 @@ func WithPolicyVerdictNotifyDecoder(decode PolicyVerdictNotifyDecoderFunc) Optio
 	}
 }
 
-type TraceSockNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.TraceSockNotify, error)
+type TraceSockNotifyDecoderFunc func(data []byte, decoded *ir.Flow) (*monitor.TraceSockNotify, error)
 
 func WithTraceSockNotifyDecoder(decode TraceSockNotifyDecoderFunc) Option {
 	return func(opt *Options) {
@@ -129,7 +129,7 @@ func WithTraceSockNotifyDecoder(decode TraceSockNotifyDecoderFunc) Option {
 }
 
 type L34PacketDecoder interface {
-	DecodePacket(payload []byte, decoded *pb.Flow, isL3Device, isIPv6, isVXLAN, isGeneve bool) (
+	DecodePacket(payload []byte, decoded *ir.Flow, isL3Device, isIPv6, isVXLAN, isGeneve bool) (
 		sourceIP, destinationIP netip.Addr,
 		sourcePort, destinationPort uint16,
 		err error,

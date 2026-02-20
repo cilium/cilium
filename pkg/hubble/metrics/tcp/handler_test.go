@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -45,14 +46,14 @@ func TestTcpHandler(t *testing.T) {
 
 	var supportedFlags = []struct {
 		name          string
-		flags         *pb.TCPFlags
+		flags         ir.TCPFlags
 		expectedLabel string
 	}{
-		{"SYN", &pb.TCPFlags{SYN: true}, "SYN"},
-		{"SYN_ACK", &pb.TCPFlags{SYN: true, ACK: true}, "SYN-ACK"},
-		{"FIN", &pb.TCPFlags{FIN: true}, "FIN"},
-		{"FIN_ACK", &pb.TCPFlags{FIN: true, ACK: true}, "FIN"},
-		{"RST", &pb.TCPFlags{RST: true}, "RST"},
+		{"SYN", ir.TCPFlags{SYN: true}, "SYN"},
+		{"SYN_ACK", ir.TCPFlags{SYN: true, ACK: true}, "SYN-ACK"},
+		{"FIN", ir.TCPFlags{FIN: true}, "FIN"},
+		{"FIN_ACK", ir.TCPFlags{FIN: true, ACK: true}, "FIN"},
+		{"RST", ir.TCPFlags{RST: true}, "RST"},
 	}
 
 	for _, tc := range supportedFlags {
@@ -108,15 +109,15 @@ func TestTcpHandler(t *testing.T) {
 
 	var unsupportedFlags = []struct {
 		name  string
-		flags *pb.TCPFlags
+		flags ir.TCPFlags
 	}{
-		{"empty", &pb.TCPFlags{}},
-		{"PSH", &pb.TCPFlags{PSH: true}},
-		{"ACK", &pb.TCPFlags{ACK: true}},
-		{"URG", &pb.TCPFlags{URG: true}},
-		{"ECE", &pb.TCPFlags{ECE: true}},
-		{"CWR", &pb.TCPFlags{CWR: true}},
-		{"NS", &pb.TCPFlags{NS: true}},
+		{"empty", ir.TCPFlags{}},
+		{"PSH", ir.TCPFlags{PSH: true}},
+		{"ACK", ir.TCPFlags{ACK: true}},
+		{"URG", ir.TCPFlags{URG: true}},
+		{"ECE", ir.TCPFlags{ECE: true}},
+		{"CWR", ir.TCPFlags{CWR: true}},
+		{"NS", ir.TCPFlags{NS: true}},
 	}
 
 	for _, tc := range unsupportedFlags {
@@ -150,21 +151,19 @@ func TestTcpHandler(t *testing.T) {
 
 }
 
-func buildFlow(flags *pb.TCPFlags) *pb.Flow {
-	return &pb.Flow{
-		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
-		IP: &pb.IP{
-			IpVersion: pb.IPVersion_IPv4,
+func buildFlow(flags ir.TCPFlags) *ir.Flow {
+	return &ir.Flow{
+		EventType: ir.EventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		IP: ir.IP{
+			IPVersion: pb.IPVersion_IPv4,
 		},
-		L4: &pb.Layer4{
-			Protocol: &pb.Layer4_TCP{
-				TCP: &pb.TCP{
-					Flags: flags,
-				},
+		L4: ir.Layer4{
+			TCP: ir.TCP{
+				Flags: flags,
 			},
 		},
-		Source:      &pb.Endpoint{Namespace: "foo"},
-		Destination: &pb.Endpoint{Namespace: "bar"},
+		Source:      ir.Endpoint{Namespace: "foo"},
+		Destination: ir.Endpoint{Namespace: "bar"},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
 }
