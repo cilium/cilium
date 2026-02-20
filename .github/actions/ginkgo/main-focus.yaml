@@ -27,7 +27,6 @@ focus:
 - "f16-datapath-service-ew-2"
 - "f17-datapath-service-ew-kube-proxy"
 - "f18-datapath-lrp"
-- "f19-mac-address"
 include:
   ###
   # K8sAgentChaosTest Graceful shutdown exits with a success message on SIGTERM
@@ -152,9 +151,6 @@ include:
     cliFocus: "K8sDatapathLRPTests"
 
   ###
-  # K8sSpecificMACAddressTests Check whether the pod is created Checks the pod's mac address
-  - focus: "f19-mac-address"
-    cliFocus: "K8sSpecificMACAddressTests"
 
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
@@ -250,6 +246,3 @@ exclude:
 
   - k8s-version: "1.33"
     focus: "f18-datapath-lrp"
-
-  - k8s-version: "1.33"
-    focus: "f19-mac-address"
