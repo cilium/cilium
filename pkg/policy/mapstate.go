@@ -647,7 +647,7 @@ func PassEntry(priority, tierPriority, nextTierPriority types.Priority, derivedF
 	return mapStateEntry{
 		passes: &passMetas{{
 			precedence:        priority.ToPassPrecedence(),
-			tierMaxPrecedence: tierPriority.ToTierMaxPrecedence(),
+			tierMaxPrecedence: tierPriority.ToDenyPrecedence(),
 			tierMinPrecedence: nextTierPriority.ToPassPrecedence() + 0x100,
 		}},
 		MapStateEntry:    types.InvalidEntry(),
@@ -1627,7 +1627,7 @@ type MapChange struct {
 // need to be added/deleted for that identity are accumulated before 'SyncMapChanges' is called, so
 // that when the changes are applied, all keys for that identity are applied at the same time.
 func (mc *MapChanges) AccumulateMapChanges(tier types.Tier, basePriority types.Priority, adds, deletes []identity.NumericIdentity, keys []Key, value mapStateEntry) {
-	tierMaxPrecedence := basePriority.ToTierMaxPrecedence()
+	tierMaxPrecedence := basePriority.ToDenyPrecedence()
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
 	for _, id := range adds {
