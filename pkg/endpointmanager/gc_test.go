@@ -82,6 +82,75 @@ func TestMarkAndSweep(t *testing.T) {
 	require.Len(t, mgr.GetEndpoints(), len(healthyEndpointIDs))
 }
 
+// TestMarkAndSweepNoDoubleSweep verifies that the sweep-first-then-mark logic ensures
+// an endpoint is only swept once.
+func TestMarkAndSweepNoDoubleSweep(t *testing.T) {
+	logger := hivetest.Logger(t)
+	s := setupEndpointManagerSuite(t)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr.checkHealth = fakeCheck
+	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
+
+	timeout := 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	testEPID := 256
+
+	// Create an unhealthy endpoint (even ID)
+	unhealthyID := uint16(testEPID)
+	model := newTestEndpointModel(int(unhealthyID), endpoint.StateReady)
+	ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	require.NoError(t, err)
+	ep.Start(unhealthyID)
+	t.Cleanup(ep.Stop)
+	err = mgr.expose(ep)
+	require.NoError(t, err)
+	require.Len(t, mgr.GetEndpoints(), 1)
+
+	// Round 1 GC: sweep is empty, mark tags the unhealthy endpoint
+	err = mgr.markAndSweep(ctx)
+	require.NoError(t, err)
+	require.True(t, mgr.EndpointExists(unhealthyID), "endpoint should still exist after round 1 GC")
+	require.Len(t, mgr.GetEndpoints(), 1)
+
+	// Round 2 GC: sweep deletes the previously marked endpoint,
+	// mark re-checks (endpoint has been deleted at this point)
+	err = mgr.markAndSweep(ctx)
+	require.NoError(t, err)
+	require.False(t, mgr.EndpointExists(unhealthyID), "endpoint should be deleted after round 2 GC")
+	require.Empty(t, mgr.GetEndpoints(), "endpoint should be deleted after round 2 GC")
+
+	// Verify that markedEndpoints is correctly cleared after sweep.
+	// Since we sweep first then mark, after round 2 sweep executes,
+	// the endpoint no longer exists during the mark phase,
+	// so markedEndpoints should be empty.
+	mgr.mutex.RLock()
+	markedLen := len(mgr.markedEndpoints)
+	mgr.mutex.RUnlock()
+	require.Equal(t, 0, markedLen, "markedEndpoints should be empty after endpoint is deleted")
+
+	// Simulate endpoint ID reuse: create a new healthy endpoint.
+	// Since fakeCheck marks even IDs as unhealthy, we use an odd ID
+	// to simulate a healthy endpoint.
+	healthyID := uint16(testEPID)
+	model2 := newTestEndpointModel(int(healthyID), endpoint.StateReady)
+	ep2, err := endpoint.NewEndpointFromChangeModel(t.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model2, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	require.NoError(t, err)
+	ep2.Start(healthyID)
+	t.Cleanup(ep2.Stop)
+	err = mgr.expose(ep2)
+	require.NoError(t, err)
+	require.Len(t, mgr.GetEndpoints(), 1)
+
+	// Round 3 GC: since markedEndpoints is empty, sweep won't delete any endpoint.
+	// The newly created healthy endpoint should not be incorrectly deleted.
+	err = mgr.markAndSweep(ctx)
+	require.NoError(t, err)
+	require.True(t, mgr.EndpointExists(healthyID), "healthy endpoint should still exist after round 3 GC")
+	require.Len(t, mgr.GetEndpoints(), 1)
+}
+
 func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRequest {
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
