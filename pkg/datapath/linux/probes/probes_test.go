@@ -127,3 +127,9 @@ func TestPrivilegedBIGTCPTunnel(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "6.20", "BIG TCP for UDP tunnels")
 	assert.NoError(t, HaveBIGTCPTunnel())
 }
+
+func TestPrivilegedHaveFibLookupTBID(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.5", "BPF_FIB_LOOKUP_TBID")
+	assert.NoError(t, HaveFibLookupTbid())
+}

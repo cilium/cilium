@@ -477,6 +477,42 @@ var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
 	return nil
 })
 
+// HaveFibLookupTbid tests whether or not the kernel supports the
+// BPF_FIB_LOOKUP_TBID flag for bpf_fib_lookup.
+// https://lore.kernel.org/bpf/20230505-bpf-add-tbid-fib-lookup-v1-0-fd99f7162e76@gmail.com/T/#u
+var HaveFibLookupTbid = sync.OnceValue(func() error {
+	var objs bpfgen.ProbesObjects
+
+	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
+			return fmt.Errorf("writing verifier log to stderr: %w", err)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("loading collection: %w", err)
+	}
+
+	defer objs.Close()
+
+	ret, err := objs.ProbeFibLookupTbid.Run(&ebpf.RunOptions{
+		// Newer kernels require that data is at least 14 bytes:
+		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
+		Data:   make([]byte, 14),
+		Repeat: 1,
+	})
+	if err != nil {
+		return fmt.Errorf("running probe: %w", err)
+	}
+
+	if ret != 0 {
+		return ErrNotSupported
+	}
+
+	return nil
+})
+
 // CreateHeaderFiles creates C header files with macros indicating which BPF
 // features are available in the kernel.
 func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
