@@ -1090,9 +1090,6 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext, hasNewPolicy bool) error {
 	e.PolicyDebug("applyPolicyMapChanges")
 
-	// Always update Envoy if policy has changed
-	updateEnvoy := hasNewPolicy
-
 	// Note that after successful endpoint regeneration the desired and realized policies are
 	// the same pointer. During the bpf regeneration possible incremental updates are collected
 	// on the newly computed desired policy, which is not fully realized yet. This is why we get
@@ -1112,20 +1109,17 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	hasEnvoyRedirect := e.desiredPolicy.SelectorPolicy.L4Policy.HasEnvoyRedirect()
-	if !changes.Empty() {
-		// updateEnvoy if there were any mapChanges, but only if the endpoint has Envoy
-		// redirects, or is an Ingress endpoint, which needs to enforce also the full L3/4
-		// policy.
-		//
-		// Even if there are no changes, we update the proxyWaitGroup for any in-progress
-		// NetworkPolicy update to be done if the endpoint has envoy redirects, so that the
-		// the expected policy is in place.
-		//
-		// 'updateEnvoy' is already set to 'true' if policy changed. In that case there can
-		// be new redirects and a full policy map update even if there were no incremental
-		// updates.
-		updateEnvoy = updateEnvoy || hasEnvoyRedirect || e.isIngress
-	}
+	// updateEnvoy when policy has changed, if the endpoint has Envoy redirects,
+	// or is an Ingress endpoint, which needs to enforce also the full L3/4 policy.
+	//
+	// Even if there are no changes, we update the proxyWaitGroup for any in-progress
+	// NetworkPolicy update to be done if the endpoint has envoy redirects, so that the
+	// the expected policy is in place.
+	//
+	// 'updateEnvoy' is already set to 'true' if policy changed. In that case there can
+	// be new redirects and a full policy map update even if there were no incremental
+	// updates.
+	updateEnvoy := hasNewPolicy || hasEnvoyRedirect || e.isIngress
 
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
