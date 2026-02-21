@@ -427,6 +427,10 @@ func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) er
 
 	// It doesn't exist so let's attempt to add it.
 	firstAttemptErr := a.xfrmStateCache.XfrmStateAdd(new)
+	if firstAttemptErr == nil {
+		scopedLog.Debug("Successfully added XFRM state")
+		return nil
+	}
 	if !os.IsExist(firstAttemptErr) {
 		return firstAttemptErr
 	}
@@ -444,7 +448,12 @@ func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) er
 	if !deletedSomething {
 		return firstAttemptErr
 	}
-	return a.xfrmStateCache.XfrmStateAdd(new)
+	scopedLog.Debug("Deleted conflicting XFRM state, retrying add")
+	if err := a.xfrmStateCache.XfrmStateAdd(new); err != nil {
+		return err
+	}
+	scopedLog.Debug("Successfully added XFRM state after resolving conflict")
+	return nil
 }
 
 // Temporarily remove an XFRM state to allow the addition of another,
@@ -1195,6 +1204,7 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 		return err
 	}
 	a.spi = spi
+	a.log.Debug("Updated BPF encrypt map with new SPI", logfields.SPI, spi)
 	return nil
 }
 
@@ -1237,23 +1247,29 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
+			a.log.Info("Loaded IPsec keyfile", logfields.SPI, spi, logfields.Path, keyfilePath)
 
-			// Update the IPSec key identity in the local node.
-			// This will set addrs.ipsecKeyIdentity in the node
-			// package, and eventually trigger an update to
-			// publish the updated information to k8s/kvstore.
+			// First, set up XFRM states for all nodes. This ensures our
+			// ingress XFRM states are ready to receive traffic encrypted
+			// with the new key before we advertise our new key to peers.
+			// AllNodeValidateImplementation calls nodeUpdate() for each
+			// node, which updates IPSec policies and states via
+			// ipsec.UpsertIPsecEndpoint().
+			a.log.Info("Updating IPsec XFRM states for all nodes", logfields.SPI, spi)
+			nodeHandler.AllNodeValidateImplementation()
+			a.log.Info("Completed IPsec XFRM state update", logfields.SPI, spi)
+
+			// Now advertise the new key. This updates the local node's
+			// EncryptionKey and triggers a CiliumNode CRD update, which
+			// informs peer nodes about our new key. Peers will then start
+			// using the new key for traffic to us, but our ingress XFRM
+			// states are already configured above.
 			a.localNode.Update(func(ln *node.LocalNode) {
 				ln.EncryptionKey = spi
 			})
 
-			// AllNodeValidateImplementation will eventually call
-			// nodeUpdate(), which is responsible for updating the
-			// IPSec policies and states for all the different EPs
-			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.AllNodeValidateImplementation()
-
-			// Push SPI update into BPF datapath now that XFRM state
-			// is configured.
+			// Push SPI update into BPF datapath now that XFRM states are
+			// configured and the new key is advertised.
 			if err := a.setIPSecSPI(spi); err != nil {
 				health.Degraded("Failed to set IPsec SPI", err)
 				a.log.Error("Failed to set IPsec SPI", logfields.Error, err)
