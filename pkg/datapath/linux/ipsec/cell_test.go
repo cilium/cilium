@@ -328,3 +328,38 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 		})
 	})
 }
+
+func TestMaxKeyRotationJitter(t *testing.T) {
+	tests := []struct {
+		name             string
+		rotationDuration time.Duration
+		expectedJitter   time.Duration
+	}{
+		{
+			name:             "jitter is 1/10 of rotation duration when enabled",
+			rotationDuration: 10 * time.Second,
+			expectedJitter:   1 * time.Second,
+		},
+		{
+			name:             "jitter with default rotation duration",
+			rotationDuration: 5 * time.Minute,
+			expectedJitter:   30 * time.Second,
+		},
+		{
+			name:             "jitter returns 0 when rotation duration is 0",
+			rotationDuration: 0,
+			expectedJitter:   0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			config := Config{
+				UserConfig: UserConfig{
+					IPsecKeyRotationDuration: tc.rotationDuration,
+				},
+			}
+			assert.Equal(t, tc.expectedJitter, config.MaxKeyRotationJitter())
+		})
+	}
+}
