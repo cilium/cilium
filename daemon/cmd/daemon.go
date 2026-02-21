@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -137,6 +139,17 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
 		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+	}
+
+	// If kernel does not support TBID lookup, we do not support dynamic pod
+	// egress routing.
+	if params.DaemonConfig.EnableFibTableIDAnnotation {
+		if err := probes.HaveFibLookupTbid(); err != nil {
+			if !errors.Is(err, probes.ErrNotSupported) {
+				return fmt.Errorf("unable to determine if kernel supports dynamic pod egress routing: %w", err)
+			}
+			return fmt.Errorf("kernel does not support dynamic pod egress routing (disable with --%s)", option.EnableFibTableIDAnnotation)
+		}
 	}
 
 	// If legacy routing mode was enabled, we do not support dynamic pod egress
