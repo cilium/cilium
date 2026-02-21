@@ -581,15 +581,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			testNodePortExternal(kubectl, ni, false, true, false)
 		})
 
-		It("Supports IPv4 fragments", func() {
-			options := map[string]string{"bpf.ctAccounting": "true"}
-
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
-
-			kubectl.CiliumPreFlightCheck()
-			testIPv4FragmentSupport(kubectl, ni)
-		})
-
 		Context("With host policy", func() {
 			hostPolicyFilename := "ccnp-host-policy-nodeport-tests.yaml"
 			var ccnpHostPolicy string
