@@ -518,6 +518,99 @@ will get directed to cluster DNS pods backed by the ``kube-dns`` service.
             $ kubectl exec -it cilium-mhnhz -n kube-system -- cilium-dbg service list | grep LocalRedirect
             11   10.96.0.10:53      LocalRedirect   1 => 10.244.1.49:53 (active)
 
+GKE Metadata Server with ToIP
+-----------------------------
+The GKE metadata server is a pod running in the host network namespace. The new version of GKE metadata server only
+listens on a specific secondary address from the loopback interface. GKE uses the IP table rule to redirect the traffic
+to the metadata server.
+
+If you are using the Cilium eBPF host routing, the traffic will skip the IP table rule and leave the node through the host interface. 
+To optimize the traffic path, you can use the local redirect policy with ``overrideIP`` field to redirect the traffic to the metadata server 
+pod on the local node with Cilium eBPF host routing.
+
+Assuming you have the following Helm values for Cilium:
+
+.. code-block:: yaml
+
+   bpf:
+     masquerade: true
+   kubeProxyReplacement: true
+   localRedirectPolicies:
+     enabled: true
+
+The GKE metadata server pod is deployed and binds to ``169.254.169.252:988``.
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get daemonsets.apps gke-metadata-server -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels
+    NAME                  LABELS
+    gke-metadata-server   map[addonmanager.kubernetes.io/mode:Reconcile k8s-app:gke-metadata-server]
+    $ kubectl get daemonsets gke-metadata-server -n kube-system -o yaml | grep 'addr'
+    - --addr=169.254.169.252:988
+
+To verify that traffic leaves the node through the host interface when no local redirect policy is configured, 
+run ``tcpdump`` on the node while curling the metadata server from a pod:
+
+.. code-block:: shell-session
+
+    $ tcpdump -ni eth0 'host 169.254.169.254'
+    tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+    listening on eth0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+    03:56:57.651551 IP 172.16.64.8.47478 > 169.254.169.254.80: Flags [S], seq 2476202555, win 42600, options [mss 1420,sackOK,TS val 1668833998 ecr 0,nop,wscale 7], length 0
+    03:56:57.652535 IP 169.254.169.254.80 > 172.16.64.8.47478: Flags [S.], seq 1674047236, ack 2476202556, win 65535, options [mss 1420,eol], length 0
+    03:56:57.652643 IP 172.16.64.8.47478 > 169.254.169.254.80: Flags [.], ack 1, win 42600, length 0
+
+You can use the following local redirect policy to redirect the traffic to the metadata server pod on the local node:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumLocalRedirectPolicy
+    metadata:
+      name: gke-metadata-server
+      namespace: kube-system
+    spec:
+      redirectBackend:
+        toIP: "169.254.169.252"
+        localEndpointSelector:
+          matchLabels:
+            k8s-app: "gke-metadata-server"
+        toPorts:
+        - port: "988"
+          protocol: "TCP"
+      redirectFrontend:
+        addressMatcher:
+          ip: "169.254.169.254"
+          toPorts:
+          - port: "80"
+            protocol: "TCP"
+
+After applying the local redirect policy, the traffic to the metadata server will be redirected to the node-local backend pod.
+You can check local redirect policy to see the policy has been applied from the cilium agent with the following command:
+
+.. code-block:: shell-session
+
+    $ cilium-dbg service list | grep LocalRedirect
+    19   169.254.169.254:80/TCP   LocalRedirect   1 => 169.254.169.252:988/TCP (active)
+
+
+
+You can use ``tcpdump`` on the host to verify the traffic is redirected to the node-local backend pod.
+
+As you can see from the following output the packet is sent to the node-local backend pod through ``lxc2140a2364964`` directly from the pod(10.36.1.28).
+You can't use ``169.254.169.254`` as the filter since destination write happens at socket level within pod namespace when kube-proxy replacement is enabled.
+
+.. code-block:: shell-session
+
+    $ tcpdump -ni any host 10.36.1.28
+    tcpdump: data link type LINUX_SLL2
+    tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+    listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+    16:15:24.159305 lxc2140a2364964 In  IP 10.36.1.28.60498 > 169.254.169.252.988: Flags [S], seq 3021950867, win 42600, options [mss 1420,sackOK,TS val 2370757965 ecr 0,nop,wscale 7], length 0
+    16:15:24.159398 lxc2140a2364964 Out IP 169.254.169.252.988 > 10.36.1.28.60498: Flags [S.], seq 2630511844, ack 3021950868, win 43648, options [mss 1420,sackOK,TS val 3754267760 ecr 2370757965,nop,wscale 7], length 0
+    16:15:24.159414 lxc2140a2364964 In  IP 10.36.1.28.60498 > 169.254.169.252.988: Flags [.], ack 1, win 333, options [nop,nop,TS val 2370757965 ecr 3754267760], length 0
+    16:15:24.159801 lxc2140a2364964 In  IP 10.36.1.28.60498 > 169.254.169.252.988: Flags [P.], seq 1:80, ack 1, win 333, options [nop,nop,TS val 2370757966 ecr 3754267760], length 79
+
 
 Advanced configurations
 =======================

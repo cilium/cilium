@@ -152,6 +152,14 @@ type RedirectBackend struct {
 	//
 	// +kubebuilder:validation:Required
 	ToPorts []PortInfo `json:"toPorts"`
+
+	// ToIP is an IP address used to override the Pod IP.
+	// This is useful when redirecting pod traffic to a DaemonSet running
+	// in the host network namespace, listening on the loopback interface or
+	// other interfaces for which Cilium cannot obtain the IP from Kubernetes.
+	// +kubebuilder:validation:XValidation:rule="isIP(self)", message="toIP must be a valid IP address"
+	// +kubebuilder:validation:Optional
+	ToIP string `json:"toIP,omitempty"`
 }
 
 // CiliumLocalRedirectPolicySpec specifies the configurations for redirecting traffic
@@ -159,6 +167,10 @@ type RedirectBackend struct {
 type CiliumLocalRedirectPolicySpec struct {
 	// RedirectFrontend specifies frontend configuration to redirect traffic from.
 	// It can not be empty.
+	// RedirectFrontend specifies the frontend configuration. Traffic is translated
+	// only if the address family (IPv4/IPv6) matches the RedirectBackend.
+	// Translation is unsupported if families differ.
+	// Example: IPv4 services are translated only if the backend is also IPv4.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="redirectFrontend is immutable"
