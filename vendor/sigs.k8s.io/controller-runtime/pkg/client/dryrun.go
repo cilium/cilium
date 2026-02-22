@@ -132,3 +132,7 @@ func (sw *dryRunSubResourceClient) Update(ctx context.Context, obj Object, opts 
 func (sw *dryRunSubResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	return sw.client.Patch(ctx, obj, patch, append(opts, DryRunAll)...)
 }
+
+func (sw *dryRunSubResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error {
+	return sw.client.Apply(ctx, obj, append(opts, DryRunAll)...)
+}

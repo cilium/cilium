@@ -386,3 +386,35 @@ func (uc *unstructuredClient) PatchSubResource(ctx context.Context, obj Object, 
 	u.GetObjectKind().SetGroupVersionKind(gvk)
 	return result
 }
+
+func (uc *unstructuredClient) ApplySubResource(ctx context.Context, obj runtime.ApplyConfiguration, subResource string, opts ...SubResourceApplyOption) error {
+	unstructuredApplyConfig, ok := obj.(*unstructuredApplyConfiguration)
+	if !ok {
+		return fmt.Errorf("bug: unstructured client got an applyconfiguration that was not %T but %T", &unstructuredApplyConfiguration{}, obj)
+	}
+	o, err := uc.resources.getObjMeta(unstructuredApplyConfig.Unstructured)
+	if err != nil {
+		return err
+	}
+
+	applyOpts := &SubResourceApplyOptions{}
+	applyOpts.ApplyOpts(opts)
+
+	body := obj
+	if applyOpts.SubResourceBody != nil {
+		body = applyOpts.SubResourceBody
+	}
+	req, err := apply.NewRequest(o, body)
+	if err != nil {
+		return fmt.Errorf("failed to create apply request: %w", err)
+	}
+
+	return req.
+		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		Resource(o.resource()).
+		Name(o.name).
+		SubResource(subResource).
+		VersionedParams(applyOpts.AsPatchOptions(), uc.paramCodec).
+		Do(ctx).
+		Into(unstructuredApplyConfig.Unstructured)
+}

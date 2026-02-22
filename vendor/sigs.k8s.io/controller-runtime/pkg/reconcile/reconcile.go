@@ -44,6 +44,11 @@ type Result struct {
 	// RequeueAfter if greater than 0, tells the Controller to requeue the reconcile key after the Duration.
 	// Implies that Requeue is true, there is no need to set Requeue to true at the same time as RequeueAfter.
 	RequeueAfter time.Duration
+
+	// Priority is the priority that will be used if the item gets re-enqueued (also if an error is returned).
+	// If Priority is not set the original Priority of the request is preserved.
+	// Note: Priority is only respected if the controller is using a priorityqueue.PriorityQueue.
+	Priority *int
 }
 
 // IsZero returns true if this result is empty.
@@ -174,7 +179,7 @@ type terminalError struct {
 	err error
 }
 
-// This function will return nil if te.err is nil.
+// Unwrap returns nil if te.err is nil.
 func (te *terminalError) Unwrap() error {
 	return te.err
 }

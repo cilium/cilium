@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	v1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,54 +31,79 @@ import (
 // Warnings represents warning messages.
 type Warnings []string
 
-// CustomValidator defines functions for validating an operation.
+// Validator defines functions for validating an operation.
 // The object to be validated is passed into methods as a parameter.
-type CustomValidator interface {
+type Validator[T runtime.Object] interface {
 	// ValidateCreate validates the object on creation.
 	// The optional warnings will be added to the response as warning messages.
 	// Return an error if the object is invalid.
-	ValidateCreate(ctx context.Context, obj runtime.Object) (warnings Warnings, err error)
+	ValidateCreate(ctx context.Context, obj T) (warnings Warnings, err error)
 
 	// ValidateUpdate validates the object on update.
 	// The optional warnings will be added to the response as warning messages.
 	// Return an error if the object is invalid.
-	ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings Warnings, err error)
+	ValidateUpdate(ctx context.Context, oldObj, newObj T) (warnings Warnings, err error)
 
 	// ValidateDelete validates the object on deletion.
 	// The optional warnings will be added to the response as warning messages.
 	// Return an error if the object is invalid.
-	ValidateDelete(ctx context.Context, obj runtime.Object) (warnings Warnings, err error)
+	ValidateDelete(ctx context.Context, obj T) (warnings Warnings, err error)
 }
 
-// WithCustomValidator creates a new Webhook for validating the provided type.
-func WithCustomValidator(scheme *runtime.Scheme, obj runtime.Object, validator CustomValidator) *Webhook {
+// CustomValidator defines functions for validating an operation.
+//
+// Deprecated: CustomValidator is deprecated, use Validator instead
+type CustomValidator = Validator[runtime.Object]
+
+// WithValidator creates a new Webhook for validating the provided type.
+func WithValidator[T runtime.Object](scheme *runtime.Scheme, validator Validator[T]) *Webhook {
 	return &Webhook{
-		Handler: &validatorForType{object: obj, validator: validator, decoder: NewDecoder(scheme)},
+		Handler: &validatorForType[T]{
+			validator: validator,
+			decoder:   NewDecoder(scheme),
+			new: func() T {
+				var zero T
+				typ := reflect.TypeOf(zero)
+				if typ.Kind() == reflect.Ptr {
+					return reflect.New(typ.Elem()).Interface().(T)
+				}
+				return zero
+			},
+		},
 	}
 }
 
-type validatorForType struct {
-	validator CustomValidator
-	object    runtime.Object
+// WithCustomValidator creates a new Webhook for a CustomValidator.
+//
+// Deprecated: WithCustomValidator is deprecated, use WithValidator instead
+func WithCustomValidator(scheme *runtime.Scheme, obj runtime.Object, validator CustomValidator) *Webhook {
+	return &Webhook{
+		Handler: &validatorForType[runtime.Object]{
+			validator: validator,
+			decoder:   NewDecoder(scheme),
+			new:       func() runtime.Object { return obj.DeepCopyObject() },
+		},
+	}
+}
+
+type validatorForType[T runtime.Object] struct {
+	validator Validator[T]
 	decoder   Decoder
+	new       func() T
 }
 
 // Handle handles admission requests.
-func (h *validatorForType) Handle(ctx context.Context, req Request) Response {
+func (h *validatorForType[T]) Handle(ctx context.Context, req Request) Response {
 	if h.decoder == nil {
 		panic("decoder should never be nil")
 	}
 	if h.validator == nil {
 		panic("validator should never be nil")
 	}
-	if h.object == nil {
-		panic("object should never be nil")
-	}
 
 	ctx = NewContextWithRequest(ctx, req)
 
-	// Get the object in the request
-	obj := h.object.DeepCopyObject()
+	obj := h.new()
 
 	var err error
 	var warnings []string
@@ -93,7 +119,7 @@ func (h *validatorForType) Handle(ctx context.Context, req Request) Response {
 
 		warnings, err = h.validator.ValidateCreate(ctx, obj)
 	case v1.Update:
-		oldObj := obj.DeepCopyObject()
+		oldObj := h.new()
 		if err := h.decoder.DecodeRaw(req.Object, obj); err != nil {
 			return Errored(http.StatusBadRequest, err)
 		}
