@@ -74,14 +74,14 @@ jobs:
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           # renovate: datasource=docker depName=golangci/golangci-lint
-          version: v2.9.0
+          version: v2.10.1
           skip-cache: true
           args: "--verbose --modules-download-mode=vendor"
       - name: Run golangci-lint-kubeapi
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           # renovate: datasource=docker depName=golangci/golangci-lint
-          version: v2.9.0
+          version: v2.10.1
           skip-cache: true
           args: "--verbose --modules-download-mode=vendor -c tools/golangci-lint-kubeapi/golangci-lint-kubeapi.yaml ./pkg/k8s/apis/cilium.io/..."
 
