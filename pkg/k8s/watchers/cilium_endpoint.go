@@ -20,12 +20,15 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -177,6 +180,15 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 				}
 			}
 		}()
+	}
+
+	// Record endpoint propagation delay metric for non-CES path.
+	// This mirrors the metric recording in cilium_endpoint_slice_subscriber.go (lines 56-58).
+	if endpoint != nil {
+		if ep := k.endpointManager.LookupCEPName(k8sUtils.GetObjNamespaceName(endpoint)); ep != nil {
+			timeSinceCepCreated := time.Since(ep.GetCreatedAt())
+			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
+		}
 	}
 
 	ln, err := k.localNodeStore.Get(context.TODO())
