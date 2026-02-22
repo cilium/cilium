@@ -3,8 +3,8 @@ name: Cyclonus Network Policy Test
 on:
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
     paths-ignore:
       - 'Documentation/**'
 
@@ -19,7 +19,7 @@ env:
 jobs:
   preflight-clusterrole:
     name: Preflight Clusterrole Check
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -42,7 +42,7 @@ jobs:
     name: Cyclonus Test
     env:
       job_name: "Cyclonus Test"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -86,7 +86,7 @@ jobs:
           until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -100,16 +100,6 @@ jobs:
           HELM_ARGS="\
             --wait \
             --namespace kube-system \
-            --set debug.enabled=true \
-            --set debug.verbose=envoy \
-            --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
-            --set-string=extraEnv[0].value=true \
-            --set-string=extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
-            --set-string=extraEnv[1].value=true \
-            --set-string=extraEnv[2].name=CILIUM_SLOG_DUP_ATTR_DETECTOR \
-            --set-string=extraEnv[2].value=true \
-            --set-string=extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
-            --set-string=extraEnv[3].value=true \
             --set-string=operator.extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
             --set-string=operator.extraEnv[0].value=true \
             --set-string=operator.extraEnv[1].name=CILIUM_INVALID_METRIC_VALUE_DETECTOR \
@@ -119,7 +109,11 @@ jobs:
             --set-string=operator.extraEnv[3].name=KUBE_CACHE_MUTATION_DETECTOR \
             --set-string=operator.extraEnv[3].value=true \
             --set nodeinit.enabled=true \
-            --set kubeProxyReplacement=true \
+            --set kubeProxyReplacement=false \
+            --set socketLB.enabled=false \
+            --set externalIPs.enabled=true \
+            --set nodePort.enabled=true \
+            --set hostPort.enabled=true \
             --set bpf.masquerade=false \
             --set ipam.mode=kubernetes \
             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
@@ -136,22 +130,24 @@ jobs:
             --set hubble.enabled=true \
             --set=hubble.metrics.enabled={dns,drop,tcp,flow,port-distribution,icmp,http}"
 
+          if [ -f ".github/actions/helm-default/ci-required-values.yaml" ]; then
+            HELM_ARGS+=" --values=.github/actions/helm-default/ci-required-values.yaml"
+          fi
+
           helm install cilium ./install/kubernetes/cilium $HELM_ARGS
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
 
           # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
+          # https://github.com/cilium/cilium/blob/v1.17/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
       - name: Run cyclonus network policy test
-        id: run-tests
         working-directory: test/k8s/manifests/netpol-cyclonus
         run: ./test-cyclonus.sh
 
       - name: Install Cilium CLI
-        if: ${{ always() }}
         uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -160,15 +156,30 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      - name: Wait for Cilium to be ready
-        if: ${{ always() }}
-        run: |
-          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
-
-      - name: Run common post steps
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Features tested
+        uses: ./.github/actions/feature-status
         with:
-          artifacts_suffix: "${{ env.job_name }}"
-          job_status: "${{ job.status }}"
-          junits-directory: 'test/k8s/manifests/netpol-cyclonus/cyclonus-results'
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
+
+      - name: Report cluster failure status and capture cilium-sysdump
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested
+          path: features-tested-*

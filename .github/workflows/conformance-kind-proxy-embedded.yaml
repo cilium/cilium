@@ -8,8 +8,8 @@ on:
       - 'test/**'
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -26,8 +26,8 @@ env:
 jobs:
   installation-and-connectivity:
     name: "Installation and Connectivity Test"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
     steps:
@@ -50,45 +50,6 @@ jobs:
         with:
           image-tag: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Add external docker network
-        uses: ./.github/actions/kind-external-network
-        id: external_network
-
-      - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
-        with:
-          version: ${{ env.KIND_VERSION }}
-          node_image: ${{ env.KIND_K8S_IMAGE }}
-          kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ${{ env.kind_config }}
-          wait: 0 # The control-plane never becomes ready, since no CNI is present
-
-      - name: Add external targets to kind cluster
-        uses: ./.github/actions/kind-external-targets
-        id: external_targets
-        with:
-          kind_network: ${{ steps.external_network.outputs.kind_network }}
-          ipv4_external_target: ${{ steps.external_network.outputs.ipv4_external_target }}
-          ipv4_other_external_target: ${{ steps.external_network.outputs.ipv4_other_external_target }}
-          ipv6_external_target: ${{ steps.external_network.outputs.ipv6_external_target }}
-          ipv6_other_external_target: ${{ steps.external_network.outputs.ipv6_other_external_target }}
-
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          hubble: false
-          include-unsafe-tests: true
-          test-concurrency: 5
-          external-cidr: ${{ steps.external_network.outputs.ipv4_external_cidr }}
-          external-cidrv6: ${{ steps.external_network.outputs.ipv6_external_cidr }}
-          external-ip: ${{ steps.external_network.outputs.ipv4_external_target }}
-          external-ipv6: ${{ steps.external_network.outputs.ipv6_external_target }}
-          external-other-ip: ${{ steps.external_network.outputs.ipv4_other_external_target }}
-          external-other-ipv6: ${{ steps.external_network.outputs.ipv6_other_external_target }}
-          external-other-target: ${{ steps.external_targets.outputs.other_external_target_name }}
-          external-target: ${{ steps.external_targets.outputs.external_target_name }}
-
       - name: Set up job variables
         id: vars
         run: |
@@ -104,13 +65,22 @@ jobs:
             --helm-set=envoy.enabled=false \
             --helm-set=ipv6.enabled=true \
             --wait=false"
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
-            --external-target-ca-namespace=external-target-secrets --external-target-ca-name=custom-ca \
-            --external-target-ipv6-capable"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --test-concurrency=5 \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+      - name: Create kind cluster
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.kind_config }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
@@ -136,7 +106,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          cilium status --wait
           kubectl -n kube-system get pods
 
       - name: Make JUnit report directory
@@ -144,7 +114,6 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test
-        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
@@ -171,11 +140,11 @@ jobs:
 
       - name: Run L7 related connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          cilium connectivity test --test="l7|sni|check-log-errors" \
             --curl-parallel 3 \
+            --log-code-owners --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --junit-file "cilium-junits/${{ env.job_name }}-without-secret-sync.xml" \
-            --junit-property github_job_step="Run connectivity test with secret sync disabled" \
-            --test="l7|sni|check-log-errors"
+            --junit-property github_job_step="Run connectivity test with secret sync disabled"
 
       - name: Features tested
         uses: ./.github/actions/feature-status
@@ -183,10 +152,39 @@ jobs:
           title: "Summary of all features tested"
           json-filename: "${{ env.job_name }}-without-secret-sync"
 
-      - name: Run common post steps
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          artifacts_suffix: "${{ env.job_name }}"
-          job_status: "${{ job.status }}"
-          capture_features_tested: false
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested
+          path: features-tested-*
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
