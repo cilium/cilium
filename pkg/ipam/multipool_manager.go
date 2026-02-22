@@ -761,6 +761,27 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 	return nil
 }
 
+func (m *multiPoolManager) capacity(family Family) uint64 {
+	m.poolsMutex.Lock()
+	defer m.poolsMutex.Unlock()
+
+	var cap uint64
+	for _, pool := range m.pools {
+		var p *cidrPool
+		switch family {
+		case IPv4:
+			p = pool.v4
+		case IPv6:
+			p = pool.v6
+		}
+		if p == nil {
+			continue
+		}
+		cap += uint64(p.capacity())
+	}
+	return uint64(cap)
+}
+
 func (m *multiPoolManager) getNode() *ciliumv2.CiliumNode {
 	m.nodeMutex.Lock()
 	defer m.nodeMutex.Unlock()
