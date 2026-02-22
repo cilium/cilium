@@ -184,9 +184,6 @@ type LogRecord struct {
 	// HTTP contains information for HTTP request/responses
 	HTTP *LogRecordHTTP `json:"HTTP,omitempty"`
 
-	// Kafka contains information for Kafka request/responses
-	Kafka *LogRecordKafka `json:"Kafka,omitempty"`
-
 	// DNS contains information for DNS request/responses
 	DNS *LogRecordDNS `json:"DNS,omitempty"`
 

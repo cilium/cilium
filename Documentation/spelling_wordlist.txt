@@ -5,7 +5,6 @@ Alibaba
 Aquantia
 Attestor
 Bertin
-blackhole
 Blanco
 Borkmann
 Brenden

@@ -64,10 +64,6 @@ func (l *LogRecordNotify) l7Proto() string {
 		return "http"
 	}
 
-	if l.Kafka != nil {
-		return "kafka"
-	}
-
 	if l.DNS != nil {
 		return "dns"
 	}
@@ -104,10 +100,6 @@ func (l *LogRecordNotify) DumpInfo(buf *bufio.Writer) {
 		}
 
 		fmt.Fprintf(buf, " %s %s => %d\n", http.Method, url, http.Code)
-	}
-
-	if kafka := l.Kafka; kafka != nil {
-		fmt.Fprintf(buf, " %s topic %s => %d\n", kafka.APIKey, kafka.Topic.Topic, kafka.ErrorCode)
 	}
 
 	if l.DNS != nil {
@@ -182,7 +174,6 @@ type LogRecordNotifyVerbose struct {
 	DstIdentity      uint64                     `json:"dstIdentity"`
 	Verdict          accesslog.FlowVerdict      `json:"verdict"`
 	HTTP             *accesslog.LogRecordHTTP   `json:"http,omitempty"`
-	Kafka            *accesslog.LogRecordKafka  `json:"kafka,omitempty"`
 	DNS              *accesslog.LogRecordDNS    `json:"dns,omitempty"`
 	L7               *accesslog.LogRecordL7     `json:"l7,omitempty"`
 }
@@ -202,7 +193,6 @@ func LogRecordNotifyToVerbose(n *LogRecordNotify) LogRecordNotifyVerbose {
 		DstIdentity:      n.DestinationEndpoint.Identity,
 		Verdict:          n.Verdict,
 		HTTP:             n.HTTP,
-		Kafka:            n.Kafka,
 		DNS:              n.DNS,
 		L7:               n.L7,
 	}

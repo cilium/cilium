@@ -439,7 +439,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 				td.cachedSelectorBar2: &PerSelectorPolicy{
 					Verdict:          types.Allow,
 					L7Parser:         L7ParserType("tester"),
-					ListenerPriority: ListenerPriorityProxylib,
+					ListenerPriority: ListenerPriorityNone,
 					L7Rules: api.L7Rules{
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},

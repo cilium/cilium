@@ -148,8 +148,7 @@ external software and protocols:
   of policy / datapath constructs, serialization and restore from disk.
 - `@cilium/envoy <https://github.com/orgs/cilium/teams/envoy>`__:
   Maintain the L7 proxy integration with Envoy. This includes the
-  configurations for Envoy via xDS protocols as well as the extensible
-  proxylib framework for Go-based layer 7 filters.
+  configurations for Envoy via xDS protocols.
 - `@cilium/egress-gateway <https://github.com/orgs/cilium/teams/egress-gateway>`__:
   Maintain the egress gateway control plane and datapath logic.
 - `@cilium/fqdn <https://github.com/orgs/cilium/teams/fqdn>`__:
