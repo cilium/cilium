@@ -4,7 +4,6 @@
 package translation
 
 import (
-	"cmp"
 	"fmt"
 	"maps"
 	goslices "slices"
@@ -20,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -318,27 +318,21 @@ func (i *cecTranslator) httpFilterChain(name string) (*envoy_config_listener.Fil
 }
 
 func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
-	tlsToHostnames := m.TLSSecretsToHostnames()
-	if len(tlsToHostnames) == 0 {
+	tlsData := m.TLSSecretsToHostnamesWithValidation()
+	if len(tlsData) == 0 {
 		return nil, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsToHostnames), func(a, b model.TLSSecret) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
-
-	for _, secret := range orderedSecrets {
-		hostNames := tlsToHostnames[secret]
-
+	for _, data := range tlsData {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
 		if err != nil {
 			return nil, err
 		}
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(hostNames),
+			FilterChainMatch: toFilterChainMatch(data.Hostnames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: httpConnectionManagerType,
@@ -347,7 +341,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 					},
 				},
 			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{secret}),
+			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
 		})
 	}
 
@@ -428,7 +422,7 @@ func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterC
 	return filterChains
 }
 
-func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *envoy_config_core_v3.TransportSocket {
+func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation) *envoy_config_core_v3.TransportSocket {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
@@ -446,6 +440,22 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) *env
 			TlsCertificateSdsSecretConfigs: tlsSdsConfig,
 		},
 	}
+
+	// Configure client validation (mTLS) if frontend validation is specified
+	if frontendValidation != nil && len(frontendValidation.CACertRefs) > 0 {
+		caCertRef := frontendValidation.CACertRefs[0]
+		downStreamContext.RequireClientCertificate = &wrapperspb.BoolValue{
+			Value: frontendValidation.RequireClientCertificate,
+		}
+		downStreamContext.CommonTlsContext.ValidationContextType =
+			&envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_ValidationContextSdsSecretConfig{
+				ValidationContextSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+					Name: fmt.Sprintf("%s/%s-cfgmap-%s",
+						ciliumSecretNamespace, caCertRef.Namespace, caCertRef.Name),
+				},
+			}
+	}
+
 	downstreamBytes, _ := proto.Marshal(&downStreamContext)
 
 	return &envoy_config_core_v3.TransportSocket{
