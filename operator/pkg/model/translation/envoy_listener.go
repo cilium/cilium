@@ -4,7 +4,6 @@
 package translation
 
 import (
-	"cmp"
 	"fmt"
 	"maps"
 	goslices "slices"
@@ -320,20 +319,14 @@ func (i *cecTranslator) httpFilterChain(name string) (*envoy_config_listener.Fil
 }
 
 func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
-	tlsToData := m.TLSSecretsToHostnamesWithValidation()
-	if len(tlsToData) == 0 {
+	tlsData := m.TLSSecretsToHostnamesWithValidation()
+	if len(tlsData) == 0 {
 		return nil, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsToData), func(a, b model.TLSSecret) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
-
-	for _, secret := range orderedSecrets {
-		data := tlsToData[secret]
-
+	for _, data := range tlsData {
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := i.desiredHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
 		if err != nil {
@@ -349,7 +342,7 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 					},
 				},
 			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{secret}, data.FrontendTLSValidation),
+			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
 		})
 	}
 
