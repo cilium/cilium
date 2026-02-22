@@ -58,17 +58,6 @@ func (m *OpenTelemetryAccessLogConfig) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetCommonConfig() == nil {
-		err := OpenTelemetryAccessLogConfigValidationError{
-			field:  "CommonConfig",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetCommonConfig()).(type) {
 		case interface{ ValidateAll() error }:
@@ -92,6 +81,64 @@ func (m *OpenTelemetryAccessLogConfig) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return OpenTelemetryAccessLogConfigValidationError{
 				field:  "CommonConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetHttpService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OpenTelemetryAccessLogConfigValidationError{
+				field:  "HttpService",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetGrpcService()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OpenTelemetryAccessLogConfigValidationError{
+				field:  "GrpcService",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -223,6 +270,100 @@ func (m *OpenTelemetryAccessLogConfig) validate(all bool) error {
 
 	}
 
+	// no validation rules for LogName
+
+	if all {
+		switch v := interface{}(m.GetBufferFlushInterval()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "BufferFlushInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "BufferFlushInterval",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBufferFlushInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OpenTelemetryAccessLogConfigValidationError{
+				field:  "BufferFlushInterval",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetBufferSizeBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "BufferSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+					field:  "BufferSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBufferSizeBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OpenTelemetryAccessLogConfigValidationError{
+				field:  "BufferSizeBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	for idx, item := range m.GetCustomTags() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+						field:  fmt.Sprintf("CustomTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OpenTelemetryAccessLogConfigValidationError{
+						field:  fmt.Sprintf("CustomTags[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OpenTelemetryAccessLogConfigValidationError{
+					field:  fmt.Sprintf("CustomTags[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return OpenTelemetryAccessLogConfigMultiError(errors)
 	}
@@ -237,7 +378,7 @@ type OpenTelemetryAccessLogConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OpenTelemetryAccessLogConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

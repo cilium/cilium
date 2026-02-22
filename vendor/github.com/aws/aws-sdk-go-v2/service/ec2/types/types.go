@@ -17037,6 +17037,9 @@ type PlacementGroup struct {
 	// Reserved for future use.
 	LinkedGroupId *string
 
+	// The service provider that manages the Placement Group.
+	Operator *OperatorResponse
+
 	// The number of partitions. Valid only if strategy is set to partition .
 	PartitionCount *int32
 

@@ -221,7 +221,7 @@ type GcpAuthnFilterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GcpAuthnFilterConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -333,7 +333,7 @@ type AudienceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AudienceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -448,7 +448,7 @@ type TokenCacheConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TokenCacheConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -580,7 +580,7 @@ type TokenHeaderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TokenHeaderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

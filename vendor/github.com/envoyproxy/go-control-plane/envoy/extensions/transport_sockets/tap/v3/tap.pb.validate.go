@@ -179,7 +179,7 @@ type TapMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TapMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -283,7 +283,7 @@ type SocketTapConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketTapConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

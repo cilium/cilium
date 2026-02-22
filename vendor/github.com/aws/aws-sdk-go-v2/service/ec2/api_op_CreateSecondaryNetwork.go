@@ -11,7 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates an Amazon secondary network.
+// Creates a secondary network.
 //
 // The allowed size for a secondary network CIDR block is between /28 netmask (16
 // IP addresses) and /12 netmask (1,048,576 IP addresses).

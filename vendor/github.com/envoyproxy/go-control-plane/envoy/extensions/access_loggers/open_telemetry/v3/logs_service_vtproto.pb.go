@@ -8,6 +8,8 @@ package open_telemetryv3
 
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	durationpb "github.com/planetscale/vtprotobuf/types/known/durationpb"
+	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
@@ -48,6 +50,110 @@ func (m *OpenTelemetryAccessLogConfig) MarshalToSizedBufferVTStrict(dAtA []byte)
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.CustomTags) > 0 {
+		for iNdEx := len(m.CustomTags) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.CustomTags[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.CustomTags[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x72
+		}
+	}
+	if len(m.FilterStateObjectsToLog) > 0 {
+		for iNdEx := len(m.FilterStateObjectsToLog) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.FilterStateObjectsToLog[iNdEx])
+			copy(dAtA[i:], m.FilterStateObjectsToLog[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.FilterStateObjectsToLog[iNdEx])))
+			i--
+			dAtA[i] = 0x6a
+		}
+	}
+	if m.BufferSizeBytes != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.BufferSizeBytes).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.BufferFlushInterval != nil {
+		size, err := (*durationpb.Duration)(m.BufferFlushInterval).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.LogName) > 0 {
+		i -= len(m.LogName)
+		copy(dAtA[i:], m.LogName)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.LogName)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.GrpcService != nil {
+		if vtmsg, ok := interface{}(m.GrpcService).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.GrpcService)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.HttpService != nil {
+		if vtmsg, ok := interface{}(m.HttpService).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.HttpService)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x42
 	}
 	if len(m.Formatters) > 0 {
 		for iNdEx := len(m.Formatters) - 1; iNdEx >= 0; iNdEx-- {
@@ -236,6 +342,56 @@ func (m *OpenTelemetryAccessLogConfig) SizeVT() (n int) {
 	}
 	if len(m.Formatters) > 0 {
 		for _, e := range m.Formatters {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if m.HttpService != nil {
+		if size, ok := interface{}(m.HttpService).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.HttpService)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.GrpcService != nil {
+		if size, ok := interface{}(m.GrpcService).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.GrpcService)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.LogName)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.BufferFlushInterval != nil {
+		l = (*durationpb.Duration)(m.BufferFlushInterval).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.BufferSizeBytes != nil {
+		l = (*wrapperspb.UInt32Value)(m.BufferSizeBytes).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if len(m.FilterStateObjectsToLog) > 0 {
+		for _, s := range m.FilterStateObjectsToLog {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.CustomTags) > 0 {
+		for _, e := range m.CustomTags {
 			if size, ok := interface{}(e).(interface {
 				SizeVT() int
 			}); ok {
