@@ -22,8 +22,8 @@ on:
         default: '{}'
   push:
     branches:
-    - main
-    - ft/main/**
+    - v1.17
+    - ft/v1.17/**
     paths-ignore:
     - 'Documentation/**'
 
@@ -54,7 +54,6 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
-    permissions: {}
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -62,9 +61,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
-    permissions:
-      statuses: write
+    runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -72,21 +69,12 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   integration-test:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      statuses: write
+    runs-on: ubuntu-latest
     env:
       job_name: "Integration Test"
     name: Hubble CLI Integration Test
     timeout-minutes: 20
     steps:
-      - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: pending
-
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -144,7 +132,7 @@ jobs:
 
       # Setup the cluster
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0 -C hubble
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0 -C hubble
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -176,7 +164,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          cilium status --wait
           kubectl -n kube-system get pods
 
       - name: Wait for hubble-relay to be running
@@ -184,7 +172,6 @@ jobs:
           kubectl -n kube-system rollout status deployment/hubble-relay
 
       - name: Run Hubble CLI integration test
-        id: run-tests
         timeout-minutes: 5
         run: |
           set -ex
@@ -206,28 +193,47 @@ jobs:
           done
 
           echo "verify we got some flows"
-          test "$(jq -r --slurp 'length' flows.json)" -gt 0
+          test $(jq -r --slurp 'length' flows.json) -gt 0
           echo "test piping flows into the CLI"
-          test "$(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length')" -eq "$(jq -r --slurp 'length' flows.json)"
+          test $(./hubble/hubble observe --input-file flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
 
-      - name: Run common post steps
-        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Features tested
+        uses: ./.github/actions/feature-status
         with:
-          artifacts_suffix: "${{ env.job_name }}"
-          job_status: "${{ job.status }}"
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
 
-  merge-upload-and-status:
-    name: Merge Upload and Status
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out-${{ join(matrix.*, '-') }}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-sysdump-out-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          path: cilium-sysdump-out-*.zip
+          retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested-${{ matrix.conformance-profile }}-${{ matrix.crd-channel }}
+          path: features-tested-*
+
+  commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: integration-test
-    uses: ./.github/workflows/common-post-jobs.yaml
-    permissions:
-      contents: read
-      actions: read
-      statuses: write
-    secrets: inherit
-    with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.integration-test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.integration-test.result }}

@@ -2,49 +2,11 @@ name: Conformance GKE (ci-gke)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  workflow_call:
-    inputs:
-      PR-number:
-        description: "Pull request number."
-        required: false
-        type: string
-      UID:
-        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
-        required: false
-        default: 1
-        type: number
-      context-ref:
-        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
-        required: false
-        type: string
-      SHA:
-        description: "SHA under test (head of the PR branch)."
-        required: false
-        type: string
-      base-SHA:
-        description: "SHA of the base branch (target branch of the PR)."
-        required: false
-        type: string
-      extra-args:
-        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
-        required: false
-        type: string
-        default: '{}'
-      is-workflow-call:
-        description: "Distinguish if it's a workflow_call event."
-        required: false
-        type: boolean
-        default: true
-
   workflow_dispatch:
     inputs:
       PR-number:
         description: "Pull request number."
         required: true
-      UID:
-        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
-        required: false
-        default: 1
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -58,9 +20,6 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  # Run every 12 hours
-  schedule:
-    - cron:  '0 3/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -79,34 +38,27 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
-  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number.
-  # The 'gke' suffix added to both schedule and workflow_dispatch ensures
-  # that for workflow_call events it doesn't conflict with other potential
-  # parallel workflow_call done to other workflows from the same parent
-  # workflow. As otherwise the group name would be identical.
+  #   - workflow_dispatch: PR number
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
-    gke
     ${{ github.event_name }}
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
-    ${{ inputs.UID }}
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 556.0.0
+  gcloud_version: 557.0.0
 
 jobs:
   echo-inputs:
@@ -120,7 +72,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -129,7 +81,7 @@ jobs:
 
   generate-matrix:
     name: Generate Matrix
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       empty: ${{ steps.set-matrix.outputs.empty }}
@@ -146,7 +98,6 @@ jobs:
           destination_directory="/tmp/generated/gke"
           mkdir -p "${destination_directory}"
 
-          # shellcheck disable=SC2010
           ls ${work_dir}/*.yaml | grep -v 'schema\|classic' | while read file;do
             filename=$(basename "$file")
             new_filename="${filename%.yaml}.json"
@@ -164,43 +115,10 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
-          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
-          WG=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
-          KPR=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
-          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
-
-          # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
-          fi
-
-          # Add IPsec options to all configurations if ipsec is true
-          if [[ "$IPSEC" == "true" ]]; then
-            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
-            jq '.config |= map(. + {"ipsec": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
-            mv /tmp/matrix.json.tmp /tmp/matrix.json
-          fi
-
-          # Add WireGuard options to all configurations if wireguard is true
-          if [[ "$WG" == "true" ]]; then
-            echo "::notice::WireGuard enabled - setting wireguard=true for all matrix entries"
-            jq '.config |= map(. + {"wireguard": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
-            mv /tmp/matrix.json.tmp /tmp/matrix.json
-          fi
-
-          # Add KPR options to all configurations if kpr is true
-          if [[ "$KPR" == "true" ]]; then
-            echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
-            jq '.config |= map(. + {"kpr": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
-            mv /tmp/matrix.json.tmp /tmp/matrix.json
-          fi
-
-          # Enable advanced features if requested
-          if [[ "$ADV_FEAT" == "true" ]]; then
-            jq '.config |= map(. + {"advanced-features": true})' /tmp/matrix.json > /tmp/matrix.json.tmp
-            mv /tmp/matrix.json.tmp /tmp/matrix.json
           fi
 
           echo "Generated matrix:"
@@ -253,28 +171,11 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
           echo "empty=$(jq '(.k8s | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
-  wait-for-images:
-    name: Wait for images
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-
-      - name: Wait for images
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ inputs.SHA || github.sha }}
-          images: cilium-ci operator-generic-ci hubble-relay-ci
-
   installation-and-connectivity:
     name: Installation and Connectivity Test
-    needs: [generate-matrix, wait-for-images]
+    needs: generate-matrix
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
       job_name: "Installation and Connectivity Test"
@@ -283,12 +184,6 @@ jobs:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
     steps:
-      - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: pending
-
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -316,17 +211,6 @@ jobs:
         with:
           label: ${{ github.event_name == 'workflow_dispatch' && inputs.PR-number || github.ref_name }}
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          external-target: 'google.com.'
-          external-cidr: '8.0.0.0/8'
-          external-ip: '8.8.8.8'
-          external-other-ip: '8.8.4.4'
-          hubble: false
-          test-concurrency: 5
-
       - name: Set up job variables
         id: vars
         run: |
@@ -336,33 +220,14 @@ jobs:
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.config.index }} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set tls.secretsBackend=k8s \
             --wait=false"
 
-          if [[ ${{ matrix.config.type }} == "tunnel" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel"
-          fi
-
-          if [[ "${{ matrix.ipsec }}" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
-          fi
-          if [[ "${{ matrix.wireguard }}" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
-          fi
-
-          if [[ "${{ matrix.kpr }}" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
-          fi
-
-          if [[ "${{ matrix.advanced-features }}" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
-              --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicies.enabled=true \
-              --helm-set egressGateway.enabled=true"
-          fi
-
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
-
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --external-target google.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -403,22 +268,9 @@ jobs:
           machine-type: e2-custom-2-4096
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
-      - name: Create ESP allow firewall rule
-        if: ${{ matrix.config.ipsec == 'true' }}
-        uses: ./.github/actions/gke-create-esp-rule
-        with:
-          cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone: ${{ matrix.k8s.zone }}
-
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
-
-      - name: Generate cilium-cli kubeconfig
-        id: gen-kubeconfig
-        uses: ./.github/actions/get-cloud-kubeconfig
-        with:
-          kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
@@ -428,7 +280,6 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
-          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -441,16 +292,23 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Create custom IPsec secret
-        if: ${{ matrix.config.ipsec == 'true' }}
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
         run: |
-          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Create custom IPsec secret
+        if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
+        run: |
+          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }} \
-          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }}
 
       - name: Wait for Cilium to be ready
         run: |
@@ -462,26 +320,24 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
-        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
 
-      - name: Run common post steps
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Features tested
+        uses: ./.github/actions/feature-status
         with:
-          artifacts_suffix: "gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})"
-          job_status: "${{ job.status }}"
-          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ join(matrix.config.*, ', ') }})"
 
-      - name: Clean up ESP allow firewall rule
-        if: ${{ always() && matrix.config.ipsec == 'true' }}
-        uses: ./.github/actions/gke-clean-esp-rule
-        with:
-          cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
-          cluster_zone: ${{ matrix.k8s.zone }}
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final-${{ matrix.k8s.version }}-${{ matrix.config.index }}-${{ matrix.config.type }}
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
         if: ${{ always() }}
@@ -492,27 +348,79 @@ jobs:
           gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
-  merge-upload-and-status:
-    name: Merge Upload and Status
-    if: ${{ always() && !inputs.is-workflow-call }}
-    needs: [generate-matrix, installation-and-connectivity]
-    uses: ./.github/workflows/common-post-jobs.yaml
-    secrets: inherit
-    with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
-      # The generate-matrix can be legitimately empty on older branches, so we
-      # consider that as success. On older branches the generated matrix will
-      # get fewer entries since the k8s versions will reach EOL and get removed
-      # from the matrix.
-      success: >-
-        ${{
-          needs.generate-matrix.result == 'success' &&
-        (
-          needs.installation-and-connectivity.result == 'success'
-          ||
-          (
-            needs.generate-matrix.outputs.empty == 'true' &&
-            github.ref_name != github.event.repository.default_branch
-          )
-        ) }}
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-sysdumps-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
+          path: cilium-sysdump-*.zip
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-junits-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
+          path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested-${{ matrix.config.index }}-${{ matrix.k8s.vmIndex }}
+          path: features-tested-*
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() && needs.installation-and-connectivity.result != 'skipped' }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: installation-and-connectivity
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge Sysdumps
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: installation-and-connectivity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.installation-and-connectivity.result }}
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
+          description: 'Skipped'

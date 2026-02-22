@@ -23,8 +23,8 @@ on:
 
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
     paths-ignore:
       - 'Documentation/**'
 
@@ -77,34 +77,16 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
-  wait-for-images:
-    name: Wait for images
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-
-      - name: Wait for images
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ inputs.SHA || github.sha }}
-          images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci clustermesh-apiserver-ci
-
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
-    needs: wait-for-images
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
@@ -151,12 +133,6 @@ jobs:
             cm-auth-mode: 'cluster'
 
     steps:
-      - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: pending
-
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -180,13 +156,6 @@ jobs:
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/cilium-newest/install/kubernetes/cilium
-
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          hubble: false
-          include-unsafe-tests: true
 
       - name: Set up job variables
         id: vars
@@ -220,7 +189,6 @@ jobs:
             --set=clustermesh.maxConnectedClusters=${{ matrix.max-connected-clusters }} \
             --set=clustermesh.config.enabled=true \
             --set=extraConfig.clustermesh-sync-timeout=10m \
-            --set=extraConfig.lb-init-wait-timeout=4m \
             --set=clustermesh.apiserver.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.kvstoremesh.readinessProbe.periodSeconds=1 \
             --set=clustermesh.apiserver.updateStrategy.rollingUpdate.maxSurge=1 `# Use surge update strategy to enable clients to failover` \
@@ -231,7 +199,10 @@ jobs:
           # Run only a limited subset of tests to reduce the amount of time
           # required. The full suite is run in conformance-clustermesh.
           CONNECTIVITY_TEST_DEFAULTS=" \
-            ${{ steps.e2e_config.outputs.test_flags }} \
+            --hubble=false \
+            --flow-validation=disabled \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --test='check-log-errors' \
@@ -243,7 +214,7 @@ jobs:
             --test='cluster-entity-multi-cluster/' \
             --test='!/pod-to-world' \
             --test='!/pod-to-cidr' \
-          "
+            --collect-sysdump-on-failure"
 
           CILIUM_INSTALL_ENCRYPTION=""
           if [ "${{ matrix.encryption }}" != "disabled" ]; then
@@ -270,7 +241,7 @@ jobs:
             envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
 
       - name: Create Kind cluster 1
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: ${{ env.clusterName1 }}
           version: ${{ env.KIND_VERSION }}
@@ -280,7 +251,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Create Kind cluster 2
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: ${{ env.clusterName2 }}
           version: ${{ env.KIND_VERSION }}
@@ -429,6 +400,14 @@ jobs:
           image-tag: ${{ steps.downgrade-branch.outputs.sha }}
           chart-dir: ./untrusted/cilium-downgrade/install/kubernetes/cilium
 
+      - name: Wait for images to be available (newest)
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci clustermesh-apiserver-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.newest-vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
       - name: Wait for images to be available (downgrade)
         timeout-minutes: 10
         shell: bash
@@ -438,7 +417,7 @@ jobs:
           done
 
 
-      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} in cluster1
+      - name: Install Cilium in cluster1
         id: install-cilium-cluster1
         env:
           KVSTORE_ID: 1
@@ -630,7 +609,6 @@ jobs:
           kubectl --context ${{ env.contextName2 }} logs -n ${{ steps.cilium-cli.outputs.namespace }} -l 'kind in (test-conn-disrupt, test-conn-disrupt-ns-traffic)' --prefix --previous --ignore-errors --timestamps
 
       - name: Run connectivity test - post-upgrade (${{ join(matrix.*, ', ') }})
-        id: run-tests
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} \
@@ -669,9 +647,7 @@ jobs:
       # to zero replicas, and restarting all agents. Existing connections should not be disrupted.
       # One exception to this is represented by Cilium being in charge of handling NodePort
       # traffic, as the simultaneous restart of the clustermesh-apiserver pods in both clusters
-      # after rolling out all agents can lead to a circular dependency, as service reconciliation
-      # needs to wait on clustermesh synchronization, which requires the clustermesh-apiserver
-      # service to be reconciled to include the new backends.
+      # after rolling out all agents can lead to a circular dependency (#30156).
       - name: Scale the clustermesh-apiserver replicas to 0
         if: ${{ !matrix.external-kvstore }}
         run: |
@@ -752,7 +728,7 @@ jobs:
           json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - cluster 2 - stress-test"
 
 
-      - name: Downgrade Cilium in cluster1 to ${{ steps.vars.outputs.downgrade_version }} and enable kvstoremesh again
+      - name: Downgrade Cilium in cluster1 and enable kvstoremesh again
         env:
           KVSTORE_ID: 1
         run: |
@@ -828,22 +804,71 @@ jobs:
           fi
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Run common post steps
-        if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          artifacts_suffix: "${{ matrix.name }}"
-          job_status: "${{ job.status }}"
-          capture_features_tested: false
-          capture_sysdump: false
+          name: cilium-sysdumps-${{ matrix.name }}
+          path: cilium-sysdump-*.zip
 
-  merge-upload-and-status:
-    name: Merge Upload and Status
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-junits-${{ matrix.name }}
+          path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested-${{ matrix.name }}
+          path: features-tested-*
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
     if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
     needs: upgrade-and-downgrade
-    uses: ./.github/workflows/common-post-jobs.yaml
-    secrets: inherit
-    with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.upgrade-and-downgrade.result == 'success' }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Merge Sysdumps
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge JUnits
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge Features tested
+        uses: ./.github/actions/merge-artifacts
+        with:
+          name: features-tested
+          pattern: features-tested-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: upgrade-and-downgrade
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.upgrade-and-downgrade.result }}

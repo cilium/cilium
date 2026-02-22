@@ -23,8 +23,8 @@ on:
 
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.17
+      - ft/v1.17/**
     paths-ignore:
       - 'Documentation/**'
 
@@ -60,6 +60,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  kind_config: .github/kind-config.yaml
   timeout: 5m
 
 jobs:
@@ -74,76 +75,20 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
-  wait-for-images:
-    name: Wait for images
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-
-      - name: Wait for images
-        uses: ./.github/actions/wait-for-images
-        with:
-          SHA: ${{ inputs.SHA || github.sha }}
-
-  generate-matrix:
-    name: Generate Matrix
-    runs-on: ubuntu-24.04
-    outputs:
-      matrix: ${{ steps.generate-matrix.outputs.matrix }}
-    steps:
-      - name: Checkout context ref (trusted)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ inputs.context-ref || github.sha }}
-          persist-credentials: false
-
-      - name: Convert YAML to JSON
-        run: |
-          work_dir=".github/actions/multi-pool"
-          destination_directory="/tmp/generated/multi-pool"
-          mkdir -p "${destination_directory}"
-
-          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
-
-      - name: Generate Matrix
-        id: generate-matrix
-        run: |
-          cd /tmp/generated/multi-pool
-          echo "Generated matrix:"
-          cat /tmp/generated/multi-pool/matrix.json
-          echo "matrix=$(jq -c . < /tmp/generated/multi-pool/matrix.json)" >> $GITHUB_OUTPUT
-
   multi-pool-ipam-conformance-test:
-    needs: [wait-for-images, generate-matrix]
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-
     name: Install and Connectivity Test
     env:
       job_name: "Install and Connectivity Test"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: pending
-
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -165,14 +110,6 @@ jobs:
           image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-        with:
-          hubble: false
-          include-unsafe-tests: true
-          test-concurrency: 5
-
       - name: Set up job variables
         id: vars
         run: |
@@ -190,35 +127,27 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
           # Notes:
-          #  - iptables-based masquerading does not support multiple non-masquerade
-          #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
-          #    non-masquerade CIDRs.
+          #  - Multi-pool IPAM only supports direct routing, thus we disable
+          #    tunnel mode and enable auto-direct-routes.
+          #  - Multi-pool IPAM only supports endpoint routes, thus we disable
+          #    the local-node-route.
           #  - helm/kind-action does not support BPF host routing, so we fall
           #    back on legacy host routing
           #    (https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247)
+          #  - iptables-based masquerading does not support multiple non-masquerade
+          #    CIDRs. Thus, we enable BPF masquerading where we can add multiple
+          #    non-masquerade CIDRs.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=hubble.relay.enabled=true \
+            --helm-set=autoDirectNodeRoutes=true \
+            --helm-set=routingMode=native \
+            --helm-set=endpointRoutes.enabled=true \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=bpf.hostLegacyRouting=true\
             --helm-set=ipMasqAgent.enabled=true \
-            --helm-set=ipam.mode=multi-pool"
-
-          if [ "${{ matrix.endpoint-routes }}" == "enabled" ]; then
-            CILIUM_INSTALL_ROUTES="--helm-set=endpointRoutes.enabled=true"
-          fi
-
-          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
-            --helm-set=autoDirectNodeRoutes=true"
-          fi
-
-          CILIUM_INSTALL_ENCRYPTION=""
-          if [ "${{ matrix.encryption }}" != "disabled" ]; then
-            CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
-          fi
-
-          CILIUM_INSTALL_MULTIPOOL_IPAM="--helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16,fd00::/104}' \
+            --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16}' \
+            --helm-set=ipam.mode=multi-pool \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv4.cidrs='{10.20.0.0/16}' \
@@ -226,39 +155,21 @@ jobs:
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.cidrs='{192.168.0.0/20}' \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv4.maskSize=27 \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.cidrs='{fd00::/120}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv6.maskSize=122 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.cidrs='{fd00::100/120}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.cilium-test-pool.ipv6.maskSize=122 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.cidrs='{fd00::200/120}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.client-pool.ipv6.maskSize=122 \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.cidrs='{fd00::300/120}' \
-            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv6.maskSize=122"
-          CILIUM_INSTALL_IPFAMILY="--helm-set=ipv4.enabled=true --helm-set=ipv6.enabled=true"
-          KIND_SVC_CIDR="10.243.0.0/16,fd00:10:243::/112"
+            --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
 
-          CONNECTIVITY_TEST_DEFAULTS=" ${{ steps.e2e_config.outputs.test_flags }} \
-            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
-            --junit-file \"cilium-junits/${{ env.job_name }} ${{ matrix.name }}.xml\" \
-            --junit-property github_job_step=\"Run tests ${{ matrix.name }}\" \
+          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --log-code-owners --code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS} \
+            --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
+            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
             --namespace-annotations=ipam.cilium.io/ip-pool=cilium-test-pool \
             --deployment-pod-annotations='{ \
                 \"client\":{\"ipam.cilium.io/ip-pool\":\"client-pool\"}, \
                 \"echo-other-node\":{\"ipam.cilium.io/ip-pool\":\"echo-other-node-pool\"} \
             }'"
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ROUTES} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-
-          echo kind_svc_cidr=${KIND_SVC_CIDR} >> $GITHUB_OUTPUT
-
-      - name: Generate Kind configuration files
-        run: |
-          SVCCIDR=${{ steps.vars.outputs.kind_svc_cidr }} \
-            IPFAMILY=dual \
-            KUBEPROXYMODE=none \
-            envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-multi-pool.yaml
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -272,22 +183,13 @@ jobs:
             install/kubernetes/cilium
 
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
-          config: ./.github/kind-config-multi-pool.yaml
+          config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
-
-      - name: Start Cilium KVStore
-        id: kvstore
-        if: matrix.kvstore == 'true'
-        run: |
-          make kind-kvstore-start KVSTORE_POD_NAME=kvstore KVSTORE_POD_PORT=2378
-
-          IP=$(kubectl --namespace kube-system get pod kvstore -o jsonpath='{.status.hostIP}')
-          echo config="--set=etcd.enabled=true --set=identityAllocationMode=kvstore --set=etcd.endpoints[0]=http://${IP}:2378" >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e3a20f4df0e49da32a381e8c91748f311d404134 # v0.19.1
@@ -298,42 +200,22 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
-      # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
-      # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
-      # Additionally, this is also required to workaround
-      # https://github.com/cilium/cilium/issues/23283#issuecomment-1597282247.
-      - name: Configure the coredns nameservers
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
         run: |
-          COREDNS_PATCH="
-          spec:
-            template:
-              spec:
-                dnsPolicy: None
-                dnsConfig:
-                  nameservers:
-                  - 8.8.4.4
-                  - 8.8.8.8
-          "
-
-          kubectl -n kube-system get configmap coredns -o yaml | \
-            sed '/loadbalance/a \        log' | kubectl replace -f -
-
-          kubectl patch deployment -n kube-system coredns --patch="$COREDNS_PATCH"
-
-      - name: Create the IPSec secret
-        if: matrix.encryption == 'ipsec'
-        run: |
-          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+          for image in cilium-ci operator-generic-ci hubble-relay-ci; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
 
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ steps.kvstore.outputs.config }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          cilium status --wait
           kubectl -n kube-system get pods
 
       - name: Make JUnit report directory
@@ -341,9 +223,15 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test
-        id: run-tests
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+            --junit-file "cilium-junits/${{ env.job_name }} - 1.xml" --junit-property github_job_step="Run connectivity test"
+
+      - name: Features tested
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }} - 1"
 
       - name: Collect Pod and Pool IPs
         id: ips
@@ -373,31 +261,51 @@ jobs:
           for ip in "${{ steps.ips.outputs.echo-other-node }}".split():
             assert ip_address(ip) in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
 
-      - name: Fetch artifacts
-        if: ${{ !success() }}
-        shell: bash
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
-          if [ "${{ matrix.kvstore }}" == "true" ]; then
-            echo
-            echo "# Retrieving Cilium etcd logs"
-            kubectl -n kube-system logs kvstore
-          fi
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Run common post steps
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
-          job_status: "${{ job.status }}"
-          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-*.zip
+          retention-days: 5
 
-  merge-upload-and-status:
-    name: Merge Upload and Status
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 5
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested
+          path: features-tested-*
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: multi-pool-ipam-conformance-test
-    uses: ./.github/workflows/common-post-jobs.yaml
-    secrets: inherit
-    with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.multi-pool-ipam-conformance-test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.multi-pool-ipam-conformance-test.result }}

@@ -70,7 +70,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -79,7 +79,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -95,18 +95,12 @@ jobs:
 
   setup-and-test:
     needs: [wait-for-images]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     name: Installation and Migration Test
     timeout-minutes: 30
     env:
       job_name: "Installation and Migration Test"
     steps:
-      - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.SHA || github.sha }}
-          status: pending
-
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
@@ -121,10 +115,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Get connectivity test flags
-        id: e2e_config
-        uses: ./.github/actions/cli-test-config
-
       - name: Set up job variables
         id: vars
         run: |
@@ -133,14 +123,10 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
-
-          CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
-
-          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Create kind cluster
-        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -175,7 +161,7 @@ jobs:
 
       - name: Wait for Cilium status to be ready
         run: |
-          cilium status --wait --interactive=false
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           mkdir -p cilium-junits
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
@@ -189,7 +175,6 @@ jobs:
           kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"enable-cilium-endpoint-slice":"true"}}'
 
           kubectl rollout restart -n kube-system deployment cilium-operator
-          # shellcheck disable=SC2034
           for i in $(seq 1 6);
           do
             if [[ $(kubectl get crd ciliumendpointslices.cilium.io) != "" ]]; then
@@ -202,35 +187,70 @@ jobs:
 
           kubectl rollout restart -n kube-system ds cilium
 
-          cilium status --wait --interactive=false
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Run tests after migration
-        id: run-tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ces-enable
           full-test: 'true'
-          test-concurrency: 5
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
-      - name: Run common post steps
-        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+      - name: Features tested
+        uses: ./.github/actions/feature-status
         with:
-          always_capture_sysdump: true
-          artifacts_suffix: "tests-ces-migrate"
-          job_status: "${{ job.status }}"
-          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
+          title: "Summary of all features tested"
+          json-filename: "${{ env.job_name }}"
 
-  merge-upload-and-status:
-    name: Merge Upload and Status
+      - name: Fetch artifacts
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          mkdir -p cilium-sysdumps
+
+          cilium sysdump --output-filename cilium-sysdumps-out
+
+      - name: Upload cilium-sysdumps
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdumps-out.zip
+          path: cilium-sysdumps-out.zip
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+
+      - name: Upload features tested
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: features-tested
+          path: features-tested-*
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: setup-and-test
-    uses: ./.github/workflows/common-post-jobs.yaml
-    secrets: inherit
-    with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.setup-and-test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}
