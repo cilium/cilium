@@ -816,7 +816,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		var rules []egressRule
 
 		for _, endpoint := range endpoints {
-			h := computeEndpointHash(endpoint.ep.UID)
+			h := computeEndpointHash(endpointID(endpoint.ep.UID))
 			gw := gateways[h%uint32(len(gateways))]
 			ifindex := egressIfindex
 

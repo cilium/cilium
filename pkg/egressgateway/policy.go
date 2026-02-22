@@ -252,7 +252,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	return nil
 }
 
-func computeEndpointHash(endpointUID types.UID) uint32 {
+func computeEndpointHash(endpointUID endpointID) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(endpointUID))
 	return h.Sum32()
