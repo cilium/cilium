@@ -100,7 +100,7 @@ type CheckRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -265,7 +265,7 @@ type DeniedHttpResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DeniedHttpResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -498,7 +498,7 @@ type OkHttpResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OkHttpResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -725,6 +725,47 @@ func (m *CheckResponse) validate(all bool) error {
 			}
 		}
 
+	case *CheckResponse_ErrorResponse:
+		if v == nil {
+			err := CheckResponseValidationError{
+				field:  "HttpResponse",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetErrorResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CheckResponseValidationError{
+						field:  "ErrorResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CheckResponseValidationError{
+						field:  "ErrorResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetErrorResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CheckResponseValidationError{
+					field:  "ErrorResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
@@ -743,7 +784,7 @@ type CheckResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CheckResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

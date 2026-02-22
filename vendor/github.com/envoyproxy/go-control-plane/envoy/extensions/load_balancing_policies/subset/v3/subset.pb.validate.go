@@ -205,7 +205,7 @@ type SubsetMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SubsetMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -318,7 +318,7 @@ type Subset_LbSubsetSelectorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Subset_LbSubsetSelectorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

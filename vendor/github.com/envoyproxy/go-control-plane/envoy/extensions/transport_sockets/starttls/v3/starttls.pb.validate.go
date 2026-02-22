@@ -141,7 +141,7 @@ type StartTlsConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StartTlsConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -310,7 +310,7 @@ type UpstreamStartTlsConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UpstreamStartTlsConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

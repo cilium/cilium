@@ -4,6 +4,7 @@ WRITE_MAILMAP := $(GOPATH)/bin/write_mailmap
 lint:
 	go vet ./...
 	go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+	go run github.com/kevinburke/differ@latest gofmt -s -w .
 
 test:
 	@# the timeout helps guard against infinite recursion

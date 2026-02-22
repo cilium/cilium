@@ -40,7 +40,7 @@ cilium install [flags]
       --set-file stringArray     Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-string stringArray   Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
   -f, --values strings           Specify helm values in a YAML file or a URL (can specify multiple)
-      --version string           Cilium version to install (default "v1.19.0")
+      --version string           Cilium version to install (default "v1.19.1")
       --wait                     Wait for helm install to finish
       --wait-duration duration   Maximum time to wait for status (default 5m0s)
 ```

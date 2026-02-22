@@ -84,7 +84,7 @@ type DependencyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DependencyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -320,7 +320,7 @@ type FilterDependenciesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterDependenciesMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -451,7 +451,7 @@ type MatchingRequirementsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MatchingRequirementsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -556,7 +556,7 @@ type MatchingRequirements_DataInputAllowListMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MatchingRequirements_DataInputAllowListMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

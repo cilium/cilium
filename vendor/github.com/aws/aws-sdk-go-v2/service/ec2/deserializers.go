@@ -135631,6 +135631,12 @@ func awsEc2query_deserializeDocumentPlacementGroup(v **types.PlacementGroup, dec
 				sv.LinkedGroupId = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("operator", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentOperatorResponse(&sv.Operator, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("partitionCount", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {

@@ -133,7 +133,7 @@ type VirtualHostMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m VirtualHostMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -307,7 +307,7 @@ type RouteConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteConfigurationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
