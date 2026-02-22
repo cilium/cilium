@@ -245,6 +245,14 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 			continue
 		}
 
+		// Skip rules that live inside a CILIUM_ chain — they will be cleared when
+		// the chain is flushed in doRemove. Only feeder rules (those in built-in
+		// chains that jump to a CILIUM_ chain) need explicit removal here, because
+		// iptables -X fails if the chain is still referenced by another chain.
+		if parts := strings.Fields(rule); len(parts) >= 2 && strings.HasPrefix(parts[1], match) {
+			continue
+		}
+
 		// do not remove feeder for chains that are set to be disabled
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
