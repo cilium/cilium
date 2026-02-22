@@ -150,7 +150,7 @@ func (n *namespacedClient) Patch(ctx context.Context, obj Object, patch Patch, o
 	return n.client.Patch(ctx, obj, patch, opts...)
 }
 
-func (n *namespacedClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+func (n *namespacedClient) setNamespaceForApplyConfigIfNamespaceScoped(obj runtime.ApplyConfiguration) error {
 	var gvk schema.GroupVersionKind
 	switch o := obj.(type) {
 	case applyConfiguration:
@@ -193,6 +193,14 @@ func (n *namespacedClient) Apply(ctx context.Context, obj runtime.ApplyConfigura
 		}
 	}
 
+	return nil
+}
+
+func (n *namespacedClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	if err := n.setNamespaceForApplyConfigIfNamespaceScoped(obj); err != nil {
+		return err
+	}
+
 	return n.client.Apply(ctx, obj, opts...)
 }
 
@@ -231,7 +239,10 @@ func (n *namespacedClient) Status() SubResourceWriter {
 
 // SubResource implements client.SubResourceClient.
 func (n *namespacedClient) SubResource(subResource string) SubResourceClient {
-	return &namespacedClientSubResourceClient{client: n.client.SubResource(subResource), namespace: n.namespace, namespacedclient: n}
+	return &namespacedClientSubResourceClient{
+		client:           n.client.SubResource(subResource),
+		namespacedclient: n,
+	}
 }
 
 // ensure namespacedClientSubResourceClient implements client.SubResourceClient.
@@ -239,8 +250,7 @@ var _ SubResourceClient = &namespacedClientSubResourceClient{}
 
 type namespacedClientSubResourceClient struct {
 	client           SubResourceClient
-	namespace        string
-	namespacedclient Client
+	namespacedclient *namespacedClient
 }
 
 func (nsw *namespacedClientSubResourceClient) Get(ctx context.Context, obj, subResource Object, opts ...SubResourceGetOption) error {
@@ -250,12 +260,12 @@ func (nsw *namespacedClientSubResourceClient) Get(ctx context.Context, obj, subR
 	}
 
 	objectNamespace := obj.GetNamespace()
-	if objectNamespace != nsw.namespace && objectNamespace != "" {
-		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	if objectNamespace != nsw.namespacedclient.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespacedclient.namespace)
 	}
 
 	if isNamespaceScoped && objectNamespace == "" {
-		obj.SetNamespace(nsw.namespace)
+		obj.SetNamespace(nsw.namespacedclient.namespace)
 	}
 
 	return nsw.client.Get(ctx, obj, subResource, opts...)
@@ -268,12 +278,12 @@ func (nsw *namespacedClientSubResourceClient) Create(ctx context.Context, obj, s
 	}
 
 	objectNamespace := obj.GetNamespace()
-	if objectNamespace != nsw.namespace && objectNamespace != "" {
-		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	if objectNamespace != nsw.namespacedclient.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespacedclient.namespace)
 	}
 
 	if isNamespaceScoped && objectNamespace == "" {
-		obj.SetNamespace(nsw.namespace)
+		obj.SetNamespace(nsw.namespacedclient.namespace)
 	}
 
 	return nsw.client.Create(ctx, obj, subResource, opts...)
@@ -287,12 +297,12 @@ func (nsw *namespacedClientSubResourceClient) Update(ctx context.Context, obj Ob
 	}
 
 	objectNamespace := obj.GetNamespace()
-	if objectNamespace != nsw.namespace && objectNamespace != "" {
-		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	if objectNamespace != nsw.namespacedclient.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespacedclient.namespace)
 	}
 
 	if isNamespaceScoped && objectNamespace == "" {
-		obj.SetNamespace(nsw.namespace)
+		obj.SetNamespace(nsw.namespacedclient.namespace)
 	}
 	return nsw.client.Update(ctx, obj, opts...)
 }
@@ -305,12 +315,19 @@ func (nsw *namespacedClientSubResourceClient) Patch(ctx context.Context, obj Obj
 	}
 
 	objectNamespace := obj.GetNamespace()
-	if objectNamespace != nsw.namespace && objectNamespace != "" {
-		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	if objectNamespace != nsw.namespacedclient.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespacedclient.namespace)
 	}
 
 	if isNamespaceScoped && objectNamespace == "" {
-		obj.SetNamespace(nsw.namespace)
+		obj.SetNamespace(nsw.namespacedclient.namespace)
 	}
 	return nsw.client.Patch(ctx, obj, patch, opts...)
+}
+
+func (nsw *namespacedClientSubResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error {
+	if err := nsw.namespacedclient.setNamespaceForApplyConfigIfNamespaceScoped(obj); err != nil {
+		return err
+	}
+	return nsw.client.Apply(ctx, obj, opts...)
 }

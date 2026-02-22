@@ -26,6 +26,7 @@ type Funcs struct {
 	SubResourceCreate func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error
 	SubResourceUpdate func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, opts ...client.SubResourceUpdateOption) error
 	SubResourcePatch  func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error
+	SubResourceApply  func(ctx context.Context, client client.Client, subResourceName string, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error
 }
 
 // NewClient returns a new interceptor client that calls the functions in funcs instead of the underlying client's methods, if they are not nil.
@@ -172,4 +173,11 @@ func (s subResourceInterceptor) Patch(ctx context.Context, obj client.Object, pa
 		return s.funcs.SubResourcePatch(ctx, s.client, s.subResourceName, obj, patch, opts...)
 	}
 	return s.client.SubResource(s.subResourceName).Patch(ctx, obj, patch, opts...)
+}
+
+func (s subResourceInterceptor) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	if s.funcs.SubResourceApply != nil {
+		return s.funcs.SubResourceApply(ctx, s.client, s.subResourceName, obj, opts...)
+	}
+	return s.client.SubResource(s.subResourceName).Apply(ctx, obj, opts...)
 }
