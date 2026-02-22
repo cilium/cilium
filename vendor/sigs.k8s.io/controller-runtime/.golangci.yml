@@ -1,179 +1,209 @@
+version: "2"
+run:
+  go: "1.25"
+  timeout: 10m
+  allow-parallel-runners: true
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
     - bidichk
     - bodyclose
     - copyloopvar
+    - depguard
     - dogsled
     - dupl
     - errcheck
     - errchkjson
     - errorlint
     - exhaustive
+    - forbidigo
     - ginkgolinter
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
+    - godoclint
     - goprintffuncname
-    - gosimple
     - govet
     - importas
     - ineffassign
+    - iotamixing
     - makezero
     - misspell
+    - modernize
     - nakedret
     - nilerr
     - nolintlint
     - prealloc
     - revive
     - staticcheck
-    - stylecheck
     - tagliatelle
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
-
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-      - shadow
-  importas:
-    no-unaliased: true
-    alias:
-      # Kubernetes
-      - pkg: k8s.io/api/core/v1
-        alias: corev1
-      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-        alias: apiextensionsv1
-      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-        alias: metav1
-      - pkg: k8s.io/apimachinery/pkg/api/errors
-        alias: apierrors
-      - pkg: k8s.io/apimachinery/pkg/util/errors
-        alias: kerrors
-      # Controller Runtime
-      - pkg: sigs.k8s.io/controller-runtime
-        alias: ctrl
-  revive:
+  settings:
+    depguard:
+      rules:
+        forbid-pkg-errors:
+          deny:
+            - pkg: sort
+              desc: Should be replaced with slices package
+    forbidigo:
+        forbid:
+          - pattern: context.Background
+            msg: Use ginkgos SpecContext or go testings t.Context instead
+          - pattern: context.TODO
+            msg: Use ginkgos SpecContext or go testings t.Context instead
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+        - buildtag
+      enable-all: true
+    importas:
+      alias:
+        - pkg: k8s.io/api/core/v1
+          alias: corev1
+        - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+          alias: apiextensionsv1
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+          alias: metav1
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: apierrors
+        - pkg: k8s.io/apimachinery/pkg/util/errors
+          alias: kerrors
+        - pkg: sigs.k8s.io/controller-runtime
+          alias: ctrl
+      no-unaliased: true
+    modernize:
+      disable:
+        - omitzero
+        - fmtappendf
+    revive:
+      rules:
+        # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        #
+        # Rules in addition to the recommended configuration above.
+        #
+        - name: bool-literal-in-expr
+        - name: constant-logical-expr
+  exclusions:
+    generated: strict
+    paths:
+      - zz_generated.*\.go$
+      - .*conversion.*\.go$
     rules:
-      # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: superfluous-else
-      - name: unreachable-code
-      - name: redefines-builtin-id
-      #
-      # Rules in addition to the recommended configuration above.
-      #
-      - name: bool-literal-in-expr
-      - name: constant-logical-expr
-
+      - linters:
+          - forbidigo
+        path-except: _test\.go
+      - linters:
+          - gosec
+        text: 'G108: Profiling endpoint is automatically exposed on /debug/pprof'
+      - linters:
+          - revive
+        text: 'exported: exported method .*\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported'
+      - linters:
+          - errcheck
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+      - linters:
+          - staticcheck
+        text: 'SA1019: .*The component config package has been deprecated and will be removed in a future release.'
+      # With Go 1.16, the new embed directive can be used with an un-named import,
+      # revive (previously, golint) only allows these to be imported in a main.go, which wouldn't work for us.
+      # This directive allows the embed package to be imported with an underscore everywhere.
+      - linters:
+          - revive
+        source: _ "embed"
+      # Exclude some packages or code to require comments, for example test code, or fake clients.
+      - linters:
+          - revive
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+        source: (func|type).*Fake.*
+      - linters:
+          - revive
+        path: fake_\.go
+        text: exported (method|function|type|const) (.+) should have comment or be unexported
+      # Disable unparam "always receives" which might not be really
+      # useful when building libraries.
+      - linters:
+          - unparam
+        text: always receives
+      # Dot imports for gomega and ginkgo are allowed
+      # within test files.
+      - path: _test\.go
+        text: should not use dot imports
+      - path: _test\.go
+        text: cyclomatic complexity
+      - path: _test\.go
+        text: 'G107: Potential HTTP request made with variable url'
+      # Append should be able to assign to a different var/slice.
+      - linters:
+          - gocritic
+        text: 'appendAssign: append result not assigned to the same slice'
+      - linters:
+          - gocritic
+        text: 'singleCaseSwitch: should rewrite switch statement to if statement'
+      # It considers all file access to a filename that comes from a variable problematic,
+      # which is naiv at best.
+      - linters:
+          - gosec
+        text: 'G304: Potential file inclusion via variable'
+      - linters:
+          - dupl
+        path: _test\.go
+      - linters:
+          - revive
+        path: .*/internal/.*
+      - linters:
+          - unused
+        # Seems to incorrectly trigger on the two implementations that are only
+        # used through an interface and not directly..?
+        # Likely same issue as https://github.com/dominikh/go-tools/issues/1616
+        path: pkg/controller/priorityqueue/metrics\.go
+      # The following are being worked on to remove their exclusion. This list should be reduced or go away all together over time.
+      # If it is decided they will not be addressed they should be moved above this comment.
+      - path: (.+)\.go$
+        text: Subprocess launch(ed with variable|ing should be audited)
+      - linters:
+          - gosec
+        path: (.+)\.go$
+        text: (G204|G104|G307)
+      - linters:
+          - staticcheck
+        path: (.+)\.go$
+        text: (ST1000|QF1008)
 issues:
-  max-same-issues: 0
   max-issues-per-linter: 0
-  # We are disabling default golangci exclusions because we want to help reviewers to focus on reviewing the most relevant
-  # changes in PRs and avoid nitpicking.
-  exclude-use-default: false
-  # List of regexps of issue texts to exclude, empty list by default.
-  exclude:
-    # The following are being worked on to remove their exclusion. This list should be reduced or go away all together over time.
-    # If it is decided they will not be addressed they should be moved above this comment.
-    - Subprocess launch(ed with variable|ing should be audited)
-    - (G204|G104|G307)
-    - "ST1000: at least one file in a package should have a package comment"
-  exclude-files:
-    - "zz_generated.*\\.go$"
-    - ".*conversion.*\\.go$"
-  exclude-rules:
-    - linters:
-        - gosec
-      text: "G108: Profiling endpoint is automatically exposed on /debug/pprof"
-    - linters:
-        - revive
-      text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
-    - linters:
-        - errcheck
-      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
-    - linters:
-        - staticcheck
-      text: "SA1019: .*The component config package has been deprecated and will be removed in a future release."
-    # With Go 1.16, the new embed directive can be used with an un-named import,
-    # revive (previously, golint) only allows these to be imported in a main.go, which wouldn't work for us.
-    # This directive allows the embed package to be imported with an underscore everywhere.
-    - linters:
-        - revive
-      source: _ "embed"
-    # Exclude some packages or code to require comments, for example test code, or fake clients.
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      source: (func|type).*Fake.*
-    - linters:
-        - revive
-      text: exported (method|function|type|const) (.+) should have comment or be unexported
-      path: fake_\.go
-    # Disable unparam "always receives" which might not be really
-    # useful when building libraries.
-    - linters:
-        - unparam
-      text: always receives
-    # Dot imports for gomega and ginkgo are allowed
-    # within test files.
-    - path: _test\.go
-      text: should not use dot imports
-    - path: _test\.go
-      text: cyclomatic complexity
-    - path: _test\.go
-      text: "G107: Potential HTTP request made with variable url"
-    # Append should be able to assign to a different var/slice.
-    - linters:
-        - gocritic
-      text: "appendAssign: append result not assigned to the same slice"
-    - linters:
-        - gocritic
-      text: "singleCaseSwitch: should rewrite switch statement to if statement"
-    # It considers all file access to a filename that comes from a variable problematic,
-    # which is naiv at best.
-    - linters:
-        - gosec
-      text: "G304: Potential file inclusion via variable"
-    - linters:
-        - dupl
-      path: _test\.go
-    - linters:
-        - revive
-      path: .*/internal/.*
-    - linters:
-        - unused
-      # Seems to incorrectly trigger on the two implementations that are only
-      # used through an interface and not directly..?
-      path: pkg/controller/priorityqueue/metrics\.go
-
-run:
-  go: "1.23"
-  timeout: 10m
-  allow-parallel-runners: true
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: strict
+    paths:
+      - zz_generated.*\.go$
+      - .*conversion.*\.go$

@@ -27,6 +27,9 @@ import (
 // WithFieldValidation wraps a Client and configures field validation, by
 // default, for all write requests from this client. Users can override field
 // validation for individual write requests.
+//
+// This wrapper has no effect on apply requests, as they do not support a
+// custom fieldValidation setting, it is always strict.
 func WithFieldValidation(c Client, validation FieldValidation) Client {
 	return &clientWithFieldValidation{
 		validation: validation,
@@ -51,6 +54,10 @@ func (c *clientWithFieldValidation) Update(ctx context.Context, obj Object, opts
 
 func (c *clientWithFieldValidation) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
 	return c.client.Patch(ctx, obj, patch, append([]PatchOption{c.validation}, opts...)...)
+}
+
+func (c *clientWithFieldValidation) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	return c.client.Apply(ctx, obj, opts...)
 }
 
 func (c *clientWithFieldValidation) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
@@ -103,4 +110,8 @@ func (c *subresourceClientWithFieldValidation) Update(ctx context.Context, obj O
 
 func (c *subresourceClientWithFieldValidation) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	return c.subresourceWriter.Patch(ctx, obj, patch, append([]SubResourcePatchOption{c.validation}, opts...)...)
+}
+
+func (c *subresourceClientWithFieldValidation) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error {
+	return c.subresourceWriter.Apply(ctx, obj, opts...)
 }

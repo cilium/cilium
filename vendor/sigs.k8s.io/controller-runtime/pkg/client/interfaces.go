@@ -61,6 +61,9 @@ type Reader interface {
 
 // Writer knows how to create, delete, and update Kubernetes objects.
 type Writer interface {
+	// Apply applies the given apply configuration to the Kubernetes cluster.
+	Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error
+
 	// Create saves the object obj in the Kubernetes cluster. obj must be a
 	// struct pointer so that obj can be updated with the content returned by the Server.
 	Create(ctx context.Context, obj Object, opts ...CreateOption) error
@@ -152,6 +155,9 @@ type SubResourceWriter interface {
 	// pointer so that obj can be updated with the content returned by the
 	// Server.
 	Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error
+
+	// Apply applies the given apply configurations subresource.
+	Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error
 }
 
 // SubResourceClient knows how to perform CRU operations on Kubernetes objects.

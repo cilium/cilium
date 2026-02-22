@@ -56,6 +56,10 @@ type Options struct {
 	// Without that, a single slow response from the API server can result
 	// in losing leadership.
 	RenewDeadline time.Duration
+
+	// LeaderLabels are an optional set of labels that will be set on the lease object
+	// when this replica becomes leader
+	LeaderLabels map[string]string
 }
 
 // NewResourceLock creates a new resource lock for use in a leader election loop.
@@ -63,7 +67,6 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 	if !options.LeaderElection {
 		return nil, nil
 	}
-
 	// Default resource lock to "leases". The previous default (from v0.7.0 to v0.11.x) was configmapsleases, which was
 	// used to migrate from configmaps to leases. Since the default was "configmapsleases" for over a year, spanning
 	// five minor releases, any actively maintained operators are very likely to have a released version that uses
@@ -93,22 +96,18 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 	}
 	id = id + "_" + string(uuid.NewUUID())
 
-	// Construct clients for leader election
-	rest.AddUserAgent(config, "leader-election")
+	// Construct config for leader election
+	config = rest.AddUserAgent(config, "leader-election")
 
+	// Timeout set for a client used to contact to Kubernetes should be lower than
+	// RenewDeadline to keep a single hung request from forcing a leader loss.
+	// Setting it to max(time.Second, RenewDeadline/2) as a reasonable heuristic.
 	if options.RenewDeadline != 0 {
-		return resourcelock.NewFromKubeconfig(options.LeaderElectionResourceLock,
-			options.LeaderElectionNamespace,
-			options.LeaderElectionID,
-			resourcelock.ResourceLockConfig{
-				Identity:      id,
-				EventRecorder: recorderProvider.GetEventRecorderFor(id),
-			},
-			config,
-			options.RenewDeadline,
-		)
+		timeout := max(options.RenewDeadline/2, time.Second)
+		config.Timeout = timeout
 	}
 
+	// Construct clients for leader election
 	corev1Client, err := corev1client.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -118,15 +117,19 @@ func NewResourceLock(config *rest.Config, recorderProvider recorder.Provider, op
 	if err != nil {
 		return nil, err
 	}
-	return resourcelock.New(options.LeaderElectionResourceLock,
+
+	return resourcelock.NewWithLabels(options.LeaderElectionResourceLock,
 		options.LeaderElectionNamespace,
 		options.LeaderElectionID,
 		corev1Client,
 		coordinationClient,
 		resourcelock.ResourceLockConfig{
-			Identity:      id,
-			EventRecorder: recorderProvider.GetEventRecorderFor(id),
+			Identity: id,
+			// TODO(clebs): Replace with the new events API after leader election is updated upstream.
+			// REF: https://github.com/kubernetes/kubernetes/issues/82846
+			EventRecorder: recorderProvider.GetEventRecorderFor(id), //nolint:staticcheck
 		},
+		options.LeaderLabels,
 	)
 }
 

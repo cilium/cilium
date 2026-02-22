@@ -10,13 +10,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+var logKind = logf.RuntimeLog.WithName("source").WithName("Kind")
 
 // Kind is used to provide a source of events originating inside the cluster from Watches (e.g. Pod Create).
 type Kind[object client.Object, request comparable] struct {
@@ -68,12 +72,12 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 				kindMatchErr := &meta.NoKindMatchError{}
 				switch {
 				case errors.As(lastErr, &kindMatchErr):
-					log.Error(lastErr, "if kind is a CRD, it should be installed before calling Start",
+					logKind.Error(lastErr, "if kind is a CRD, it should be installed before calling Start",
 						"kind", kindMatchErr.GroupKind)
 				case runtime.IsNotRegisteredError(lastErr):
-					log.Error(lastErr, "kind must be registered to the Scheme")
+					logKind.Error(lastErr, "kind must be registered to the Scheme")
 				default:
-					log.Error(lastErr, "failed to get informer from cache")
+					logKind.Error(lastErr, "failed to get informer from cache")
 				}
 				return false, nil // Retry.
 			}
@@ -87,14 +91,23 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 			return
 		}
 
-		_, err := i.AddEventHandler(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates).HandlerFuncs())
+		handlerRegistration, err := i.AddEventHandlerWithOptions(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates), toolscache.HandlerOptions{
+			Logger: &logKind,
+		})
 		if err != nil {
 			ks.startedErr <- err
 			return
 		}
+		// First, wait for the cache to sync. For real caches this waits for startup.
+		// For fakes with Synced=false, this returns immediately allowing fast failure.
 		if !ks.Cache.WaitForCacheSync(ctx) {
-			// Would be great to return something more informative here
 			ks.startedErr <- errors.New("cache did not sync")
+			close(ks.startedErr)
+			return
+		}
+		// Then wait for this specific handler to receive all initial events.
+		if !toolscache.WaitForCacheSync(ctx.Done(), handlerRegistration.HasSynced) {
+			ks.startedErr <- errors.New("handler did not sync")
 		}
 		close(ks.startedErr)
 	}()

@@ -29,11 +29,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	eventsv1client "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -95,6 +98,10 @@ type Manager interface {
 
 	// GetControllerOptions returns controller global configuration options.
 	GetControllerOptions() config.Controller
+
+	// GetConverterRegistry returns the converter registry that is used to store conversion.Converter
+	// for the conversion endpoint.
+	GetConverterRegistry() conversion.Registry
 }
 
 // Options are the arguments for creating a new Manager.
@@ -201,10 +208,15 @@ type Options struct {
 	// LeaseDuration time first.
 	LeaderElectionReleaseOnCancel bool
 
+	// LeaderElectionLabels allows a controller to supplement all leader election api calls with a set of custom labels based on
+	// the replica attempting to acquire leader status.
+	LeaderElectionLabels map[string]string
+
 	// LeaderElectionResourceLockInterface allows to provide a custom resourcelock.Interface that was created outside
 	// of the controller-runtime. If this value is set the options LeaderElectionID, LeaderElectionNamespace,
-	// LeaderElectionResourceLock, LeaseDuration, RenewDeadline and RetryPeriod will be ignored. This can be useful if you
-	// want to use a locking mechanism that is currently not supported, like a MultiLock across two Kubernetes clusters.
+	//  LeaderElectionResourceLock, LeaseDuration, RenewDeadline, RetryPeriod and LeaderElectionLeases will be ignored.
+	// This can be useful if you want to use a locking mechanism that is currently not supported, like a MultiLock across
+	// two Kubernetes clusters.
 	LeaderElectionResourceLockInterface resourcelock.Interface
 
 	// LeaseDuration is the duration that non-leader candidates will
@@ -314,6 +326,15 @@ type LeaderElectionRunnable interface {
 	NeedLeaderElection() bool
 }
 
+// warmupRunnable knows if a Runnable requires warmup. A warmup runnable is a runnable
+// that should be run when the manager is started but before it becomes leader.
+// Note: Implementing this interface is only useful when LeaderElection can be enabled, as the
+// behavior when leaderelection is not enabled is to run LeaderElectionRunnables immediately.
+type warmupRunnable interface {
+	// Warmup will be called when the manager is started but before it becomes leader.
+	Warmup(context.Context) error
+}
+
 // New returns a new Manager for creating Controllers.
 // Note that if ContentType in the given config is not set, "application/vnd.kubernetes.protobuf"
 // will be used for all built-in resources of Kubernetes, and "application/json" is for other types
@@ -323,7 +344,10 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		return nil, errors.New("must specify Config")
 	}
 	// Set default values for options fields
-	options = setOptionsDefaults(options)
+	options, err := setOptionsDefaults(config, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed setting manager default options: %w", err)
+	}
 
 	cluster, err := cluster.New(config, func(clusterOptions *cluster.Options) {
 		clusterOptions.Scheme = options.Scheme
@@ -390,6 +414,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 			LeaderElectionID:           options.LeaderElectionID,
 			LeaderElectionNamespace:    options.LeaderElectionNamespace,
 			RenewDeadline:              *options.RenewDeadline,
+			LeaderLabels:               options.LeaderElectionLabels,
 		})
 		if err != nil {
 			return nil, err
@@ -417,7 +442,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 	}
 
 	errChan := make(chan error, 1)
-	runnables := newRunnables(options.BaseContext, errChan)
+	runnables := newRunnables(options.BaseContext, errChan).withLogger(options.Logger)
 	return &controllerManager{
 		stopProcedureEngaged:          ptr.To(int64(0)),
 		cluster:                       cluster,
@@ -430,6 +455,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		logger:                        options.Logger,
 		elected:                       make(chan struct{}),
 		webhookServer:                 options.WebhookServer,
+		converterRegistry:             conversion.NewRegistry(),
 		leaderElectionID:              options.LeaderElectionID,
 		leaseDuration:                 *options.LeaseDuration,
 		renewDeadline:                 *options.RenewDeadline,
@@ -478,7 +504,7 @@ func defaultBaseContext() context.Context {
 }
 
 // setOptionsDefaults set default values for Options fields.
-func setOptionsDefaults(options Options) Options {
+func setOptionsDefaults(config *rest.Config, options Options) (Options, error) {
 	// Allow newResourceLock to be mocked
 	if options.newResourceLock == nil {
 		options.newResourceLock = leaderelection.NewResourceLock
@@ -492,14 +518,25 @@ func setOptionsDefaults(options Options) Options {
 	// This is duplicated with pkg/cluster, we need it here
 	// for the leader election and there to provide the user with
 	// an EventBroadcaster
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return options, err
+	}
+
+	evtCl, err := eventsv1client.NewForConfigAndClient(config, httpClient)
+	if err != nil {
+		return options, err
+	}
+
 	if options.EventBroadcaster == nil {
 		// defer initialization to avoid leaking by default
-		options.makeBroadcaster = func() (record.EventBroadcaster, bool) {
-			return record.NewBroadcaster(), true
+		options.makeBroadcaster = func() (record.EventBroadcaster, events.EventBroadcaster, bool) {
+			return record.NewBroadcaster(), events.NewBroadcaster(&events.EventSinkImpl{Interface: evtCl}), true
 		}
 	} else {
-		options.makeBroadcaster = func() (record.EventBroadcaster, bool) {
-			return options.EventBroadcaster, false
+		// keep supporting the options.EventBroadcaster in the old API, but do not introduce it for the new one.
+		options.makeBroadcaster = func() (record.EventBroadcaster, events.EventBroadcaster, bool) {
+			return options.EventBroadcaster, events.NewBroadcaster(&events.EventSinkImpl{Interface: evtCl}), false
 		}
 	}
 
@@ -544,6 +581,10 @@ func setOptionsDefaults(options Options) Options {
 		options.Logger = log.Log
 	}
 
+	if options.Controller.Logger.GetSink() == nil {
+		options.Controller.Logger = options.Logger
+	}
+
 	if options.BaseContext == nil {
 		options.BaseContext = defaultBaseContext
 	}
@@ -552,5 +593,5 @@ func setOptionsDefaults(options Options) Options {
 		options.WebhookServer = webhook.NewServer(webhook.Options{})
 	}
 
-	return options
+	return options, nil
 }

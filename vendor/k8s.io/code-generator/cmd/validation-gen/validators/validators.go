@@ -17,13 +17,30 @@ limitations under the License.
 package validators
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/gengo/v2/codetags"
 	"k8s.io/gengo/v2/generator"
 	"k8s.io/gengo/v2/types"
 )
 
-// TagValidator describes a single validation tag and how to use it.
+// TagValidator describes a single validation tag and how to use it. To be
+// findable by validation-gen, a TagValidator must be registered - see
+// RegisterTagValidator.
+//
+// TagValidators are always evaluated before TypeValidators and
+// FieldValidators. In general, TagValidators should not depend on other
+// TagValidators having been run already because users might specify tags in
+// the any order. The one exception to this rule is that some TagValidators may
+// be designated as "late" validators (see LateTagValidator), which means they
+// will be run after all non-late TagValidators.
+//
+// No other guarantees are made about the order of execution of TagValidators
+// or LateTagValidators. Instead of relying on tag ordering, TagValidators can
+// accumulate information internally and use a TypeValidator and/or
+// FieldValidator to finish the work.
 type TagValidator interface {
 	// Init initializes the implementation.  This will be called exactly once.
 	Init(cfg Config)
@@ -36,7 +53,7 @@ type TagValidator interface {
 	ValidScopes() sets.Set[Scope]
 
 	// GetValidations returns any validations described by this tag.
-	GetValidations(context Context, args []string, payload string) (Validations, error)
+	GetValidations(context Context, tag codetags.Tag) (Validations, error)
 
 	// Docs returns user-facing documentation for this tag.
 	Docs() TagDoc
@@ -50,7 +67,48 @@ type LateTagValidator interface {
 }
 
 // TypeValidator describes a validator which runs on every type definition.
+// To be findable by validation-gen, a TypeValidator must be registered - see
+// RegisterTypeValidator.
+//
+// TypeValidators are always processed after TagValidators, and after the type
+// has been fully processed (including all child fields and their types). This
+// means that they can "finish" work with data that was collected by
+// TagValidators.
+//
+// TypeValidators MUST NOT depend on other TypeValidators having been run
+// already.
 type TypeValidator interface {
+	// Init initializes the implementation.  This will be called exactly once.
+	Init(cfg Config)
+
+	// Name returns a unique name for this validator.  This is used for sorting
+	// and logging.
+	Name() string
+
+	// GetValidations returns any validations imposed by this validator for the
+	// given context.
+	//
+	// The way gengo handles type definitions varies between structs and other
+	// types.  For struct definitions (e.g. `type Foo struct {}`), the realType
+	// is the struct itself (the Kind field will be `types.Struct`) and the
+	// parentType will be nil.  For other types (e.g. `type Bar string`), the
+	// realType will be the underlying type and the parentType will be the
+	// newly defined type (the Kind field will be `types.Alias`).
+	GetValidations(context Context) (Validations, error)
+}
+
+// FieldValidator describes a validator which runs on every field definition.
+// To be findable by validation-gen, a FieldValidator must be registered - see
+// RegisterFieldValidator.
+//
+// FieldValidators are always processed after TagValidators and TypeValidators,
+// and after the field has been fully processed (including all child fields).
+// This means that they can "finish" work with data that was collected by
+// TagValidators.
+//
+// FieldValidators MUST NOT depend on other FieldValidators having been run
+// already.
+type FieldValidator interface {
 	// Init initializes the implementation.  This will be called exactly once.
 	Init(cfg Config)
 
@@ -94,11 +152,6 @@ type Scope string
 // Note: All of these values should be strings which can be used in an error
 // message such as "may not be used in %s".
 const (
-	// ScopeAny indicates that a validator may be use in any context.  This value
-	// should never appear in a Context struct, since that indicates a
-	// specific use.
-	ScopeAny Scope = "anywhere"
-
 	// ScopeType indicates a validation on a type definition, which applies to
 	// all instances of that type.
 	ScopeType Scope = "type definitions"
@@ -119,6 +172,9 @@ const (
 	// field or type.
 	ScopeMapVal Scope = "map values"
 
+	// ScopeConst indicates a validation which applies to constant values only.
+	ScopeConst Scope = "constant values"
+
 	// TODO: It's not clear if we need to distinguish (e.g.) list values of
 	// fields from list values of typedefs.  We could make {type,field} be
 	// orthogonal to {scalar, list, list-value, map, map-key, map-value} (and
@@ -133,38 +189,84 @@ type Context struct {
 	Scope Scope
 
 	// Type provides details about the type being validated.  When Scope is
-	// ScopeType, this is the underlying type.  When Scope is ScopeField, this
-	// is the field's type (including any pointerness).  When Scope indicates a
-	// list-value, map-key, or map-value, this is the type of that key or
-	// value.
+	// ScopeType, this is the newly defined type.  When Scope is ScopeField,
+	// this is the field's type (which may be a pointer, an alias, or both).
+	// When Scope indicates a list-value, map-key, or map-value, this is the
+	// type of that key or value (which, again, may be a pointer, and alias, or
+	// both). When Scope is ScopeConst this is the constant's type.
 	Type *types.Type
 
-	// Parent provides details about the logical parent type of the type being
-	// validated, when applicable.  When Scope is ScopeType, this is the
-	// newly-defined type (when it exists - gengo handles struct-type
-	// definitions differently that other "alias" type definitions).  When
-	// Scope is ScopeField, this is the field's parent struct's type.  When
-	// Scope indicates a list-value, map-key, or map-value, this is the type of
-	// the whole list or map.
-	//
-	// Because of how gengo handles struct-type definitions, this field may be
-	// nil in those cases.
-	Parent *types.Type
+	// Path provides a path to the type or field being validated. This is
+	// useful for identifying an exact context, e.g. to track information
+	// between related tags. When Scope is ScopeType, this is the Go package
+	// path and type name (e.g. "k8s.io/api/core/v1.Pod"). When Scope is
+	// ScopeField, this is the field path (e.g. "spec.containers[*].image").
+	// When Scope indicates a list-value, map-key, or map-value, this is the
+	// type or field path, as described above, with a suffix indicating
+	// that it refers to the keys or values. For ScopeConst, this will be nil.
+	Path *field.Path
 
-	// Member provides details about a field within a struct, when Scope is
+	// Member provides details about a field within a struct when Scope is
 	// ScopeField.  For all other values of Scope, this will be nil.
 	Member *types.Member
 
-	// Path provides the field path to the type or field being validated. This
-	// is useful for identifying an exact context, e.g. to track information
-	// between related tags.
-	Path *field.Path
+	// ListSelector provides a list of key-value pairs that represent criteria
+	// for selecting one or more items from a list.  When Scope is
+	// ScopeListVal, this will be non-nil.  An empty selector means that
+	// all items in the list should be selected.  For all other values of
+	// Scope, this will be nil.
+	ListSelector []ListSelectorTerm
+
+	// ParentPath provides a path to the parent type or field of the object
+	// being validated, when applicable. enabling unique identification of
+	// validation contexts for the same type in different locations.  When
+	// Scope is ScopeField, this is the path to the containing struct type or
+	// field (depending on where the validation tag was sepcified).  When Scope
+	// indicates a list-value, map-key, or map-value, this is the path to the
+	// list or map type or field (depending on where the validation tag was
+	// specified). When Scope is ScopeType, this is nil.
+	ParentPath *field.Path
+
+	// Constants provides access to all constants of the type being
+	// validated.  Only set when Scope is ScopeType.
+	Constants []*Constant
 }
+
+// Constant represents a constant value.
+type Constant struct {
+	Constant *types.Type
+	Tags     []codetags.Tag
+}
+
+// ListSelectorTerm represents a field name and value pair.
+type ListSelectorTerm struct {
+	// Field is the JSON name of the field to match.
+	Field string
+	// Value is the value to match.  This must be a primitive type which can
+	// be used as list-map keys: string, int, or bool.
+	Value any
+}
+
+// StabilityLevel indicates the stability of a validation tag.
+type StabilityLevel string
+
+const (
+	// Alpha indicates that a tag's semantics may change in the future.
+	Alpha StabilityLevel = "Alpha"
+	// Beta indicates that a tag's semantics will remain unchanged for the
+	// foreseeable future. This is used for soaking tags before qualifying to stable.
+	Beta StabilityLevel = "Beta"
+	// Stable indicates that a tag's semantics will remain unchanged for the
+	// foreseeable future.
+	Stable StabilityLevel = "Stable"
+)
 
 // TagDoc describes a comment-tag and its usage.
 type TagDoc struct {
 	// Tag is the tag name, without the leading '+'.
 	Tag string
+	// StabilityLevel is the stability level of the tag.
+	StabilityLevel StabilityLevel
 	// Args lists any arguments this tag might take.
 	Args []TagArgDoc
 	// Usage is how the tag is used, including arguments.
@@ -179,37 +281,57 @@ type TagDoc struct {
 	// never has a payload, this list should be empty, but if the payload is
 	// optional, this list should include an entry for "<none>".
 	Payloads []TagPayloadDoc
+	// PayloadsType is the type of the payloads.
+	PayloadsType codetags.ValueType
+	// PayloadsRequired is true if a payload is required.
+	PayloadsRequired bool
+	// AcceptsUnknownArgs is true if unknown args are accepted
+	AcceptsUnknownArgs bool
 }
 
-// TagArgDoc describes an argument for a tag (e.g. `+tagName(tagArg)`.
+func (td TagDoc) Arg(name string) (TagArgDoc, bool) {
+	for _, arg := range td.Args {
+		if arg.Name == name {
+			return arg, true
+		}
+	}
+	return TagArgDoc{}, false
+}
+
+// TagArgDoc describes an argument for a tag.
+//
+// For example,
+//
+//	`+tagName(arg)`
+//	`+tagName(name1: arg1, name2: arg2)`
 type TagArgDoc struct {
+	// Name of this arg. Not provided for positional args.
+	Name string
 	// Description is a short description of this arg (e.g. `<name>`).
 	Description string
+	// Type is the type of the arg.
+	Type codetags.ArgType
+	// Required is true if the argument is required.
+	Required bool
+	// Default is the effective value if no value is provided.
+	Default string
+	// Docs is a human-oriented string explaining this arg.
+	Docs string
 }
 
 // TagPayloadDoc describes a value for a tag (e.g. `+tagName=tagValue`).  Some
-// tags upport multiple payloads, including <none> (e.g. `+tagName`).
+// tags support multiple payloads, including <none> (e.g. `+tagName`).
 type TagPayloadDoc struct {
 	// Description is a short description of this payload (e.g. `<number>`).
 	Description string
-	// Docs is a human-orientd string explaining this payload.
+	// Docs is a human-oriented string explaining this payload.
 	Docs string
-	// Schema details a JSON payload's contents.
-	Schema []TagPayloadSchema
 }
 
-// TagPayloadSchema describes a JSON tag payload.
-type TagPayloadSchema struct {
-	Key     string
-	Value   string
-	Docs    string
-	Default string
-}
-
-// Validations defines the function calls and variables to generate to perform
+// Validations define the function calls and variables to generate to perform
 // validation.
 type Validations struct {
-	// Functions holds the function calls that should be generated to perform
+	// Functions hold the function calls that should be generated to perform
 	// validation.  These functions may not be called in order - they may be
 	// sorted based on their flags and other criteria.
 	//
@@ -229,11 +351,11 @@ type Validations struct {
 	// The standard arguments are not included in the FunctionGen.Args list.
 	Functions []FunctionGen
 
-	// Variables holds any variables which must be generated to perform
+	// Variables hold any variables which must be generated to perform
 	// validation.  Variables are not permitted in every context.
 	Variables []VariableGen
 
-	// Comments holds comments to emit (without the leanding "//").
+	// Comments holds comments to emit (without the leading "//").
 	Comments []string
 
 	// OpaqueType indicates that the type being validated is opaque, and that
@@ -293,7 +415,9 @@ const (
 	DefaultFlags FunctionFlags = 0
 
 	// ShortCircuit indicates that further validations should be skipped if
-	// this validator fails. Most validators are not fatal.
+	// this validator fails. If there are multiple validators with this flag
+	// set, they will ALL run, and if any of them fail, any non-short-circuit
+	// validators will be skipped.  Most validators are not fatal.
 	ShortCircuit FunctionFlags = 1 << iota
 
 	// NonError indicates that a failure of this validator should not be
@@ -339,6 +463,10 @@ type FunctionGen struct {
 	// TagName is the tag which triggered this function.
 	TagName string
 
+	// Cohort indicates a set of related functions which are processed
+	// together.
+	Cohort string
+
 	// Flags holds the options for this validator function.
 	Flags FunctionFlags
 
@@ -383,17 +511,22 @@ func (fg FunctionGen) WithConditions(conditions Conditions) FunctionGen {
 	return fg
 }
 
-// WithComment returns a new FunctionGen with a comment.
-func (fg FunctionGen) WithComment(comment string) FunctionGen {
-	fg.Comments = append(fg.Comments, comment)
+// WithComments returns a new FunctionGen with a comment.
+func (fg FunctionGen) WithComments(comments ...string) FunctionGen {
+	fg.Comments = append(fg.Comments, comments...)
 	return fg
 }
 
-// Variable creates a VariableGen for a given function name and extraArgs.
-func Variable(variable PrivateVar, initFunc FunctionGen) VariableGen {
+// WithComment returns a new FunctionGen with a comment.
+func (fg FunctionGen) WithComment(comment string) FunctionGen {
+	return fg.WithComments(comment)
+}
+
+// Variable creates a VariableGen for a given variable name and init value.
+func Variable(variable PrivateVar, initializer any) VariableGen {
 	return VariableGen{
-		Variable: variable,
-		InitFunc: initFunc,
+		Variable:    variable,
+		Initializer: initializer,
 	}
 }
 
@@ -401,8 +534,9 @@ type VariableGen struct {
 	// Variable holds the variable identifier.
 	Variable PrivateVar
 
-	// InitFunc describes the function call that the variable is assigned to.
-	InitFunc FunctionGen
+	// Initializer is the value to initialize the variable with.
+	// Initializer may be any function call or literal type supported by toGolangSourceDataLiteral.
+	Initializer any
 }
 
 // WrapperFunction describes a function literal which has the fingerprint of a
@@ -427,8 +561,74 @@ type FunctionLiteral struct {
 	Body       string
 }
 
+// StructLiteral represents a struct literal expression that can be used as
+// an argument to a validator.
+type StructLiteral struct {
+	// Type is the type of the struct literal to be generated.
+	Type types.Name
+	// TypeArgs are the generic type arguments for the struct type.
+	TypeArgs []*types.Type
+	Fields   []StructLiteralField
+}
+
+// SliceLiteral represents a slice literal expression that can be used as
+// an argument to a validator.
+type SliceLiteral struct {
+	// ElementType is the type of the elements in the slice.
+	ElementType types.Name
+	// ElementTypeArgs are the generic type arguments for the element type.
+	ElementTypeArgs []*types.Type
+	Elements        []any
+}
+
+type StructLiteralField struct {
+	Name  string
+	Value any
+}
+
 // ParamResult represents a parameter or a result of a function.
 type ParamResult struct {
 	Name string
 	Type *types.Type
+}
+
+// typeCheck checks that the argument and value types of the tag match the types
+// declared in the doc.
+func typeCheck(tag codetags.Tag, doc TagDoc) error {
+	for _, docArg := range doc.Args {
+		hasArg := false
+		for _, tagArg := range tag.Args {
+			if tagArg.Name == docArg.Name {
+				hasArg = true
+				if docArg.Type != tagArg.Type {
+					return fmt.Errorf("argument %q has wrong type: got %s, want %s",
+						tagArg, tagArg.Type, docArg.Type)
+				}
+				break
+			}
+		}
+		if !hasArg && docArg.Required {
+			if docArg.Name == "" {
+				return fmt.Errorf("missing required positional argument of type %s", docArg.Type)
+			} else {
+				return fmt.Errorf("missing named argument %q of type %s", docArg.Name, docArg.Type)
+			}
+		}
+	}
+
+	for _, tagArg := range tag.Args {
+		if _, ok := doc.Arg(tagArg.Name); !ok {
+			if !doc.AcceptsUnknownArgs {
+				return fmt.Errorf("unrecognized named argument %q", tagArg)
+			}
+		}
+	}
+	if tag.ValueType == codetags.ValueTypeNone {
+		if doc.PayloadsRequired {
+			return fmt.Errorf("missing required tag value of type %s", doc.PayloadsType)
+		}
+	} else if doc.PayloadsType != codetags.ValueTypeRaw && tag.ValueType != doc.PayloadsType {
+		return fmt.Errorf("tag value has wrong type: got %s, want %s", tag.ValueType, doc.PayloadsType)
+	}
+	return nil
 }
