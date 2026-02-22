@@ -4,10 +4,12 @@
 package nodemap
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
+	"os"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -62,7 +64,7 @@ func newMapV2(logger *slog.Logger, mapName string, conf Config) *nodeMapV2 {
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
 			ValueSize:  uint32(unsafe.Sizeof(NodeValueV2{})),
 			MaxEntries: conf.NodeMapMax,
-			Flags:      unix.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 			Pinning:    ebpf.PinByName,
 		}),
 	}
@@ -174,6 +176,13 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 }
 
 func (m *nodeMapV2) init() error {
+	if existing, err := ebpf.LoadRegisterMap(m.logger, MapNameV2); err == nil {
+		m.bpfMap = existing
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		m.logger.Debug("Falling back to recreate node map", logfields.Error, err)
+	}
+
 	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}
