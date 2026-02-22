@@ -690,7 +690,8 @@
       ]
     },
     {
-      // k8s dependencies will be updated manually along with tests on main branch.
+      // k8s major/minor updates are disabled on all branches.
+      // On main, they will be updated manually along with tests.
       // On stable branches, patch updates are allowed via the "k8s.io patch updates stable" rule.
       "enabled": false,
       "matchUpdateTypes": [
@@ -700,9 +701,6 @@
       "matchDepNames": [
         "/^k8s\\.io/",
         "/^sigs\\.k8s\\.io/"
-      ],
-      "matchBaseBranches": [
-        "main"
       ]
     },
     {
