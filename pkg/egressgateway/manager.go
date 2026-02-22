@@ -26,6 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -124,6 +126,15 @@ type Manager struct {
 	// endpoints allows reading endpoint CRD from k8s.
 	endpoints resource.Resource[*k8sTypes.CiliumEndpoint]
 
+	// endpointSlices allows reading CiliumEndpointSlice CRD from k8s.
+	// nil when CES feature is disabled.
+	endpointSlices resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
+
+	// cesTrackedEndpoints maps CES name -> set of endpointIDs that were last
+	// seen in that slice. Used to compute diffs on CES update events.
+	// Only non-nil when CES mode is active.
+	cesTrackedEndpoints map[string]map[endpointID]struct{}
+
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
@@ -174,6 +185,7 @@ type Params struct {
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
+	EndpointSlices    resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice] `optional:"true"`
 	Sysctl            sysctl.Sysctl
 
 	Lifecycle cell.Lifecycle
@@ -193,10 +205,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	if dcfg.IdentityAllocationMode != option.IdentityAllocationModeCRD {
 		return out, fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
-	}
-
-	if dcfg.EnableCiliumEndpointSlice {
-		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
 	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
@@ -237,8 +245,13 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policies:                      p.Policies,
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
+		endpointSlices:                p.EndpointSlices,
 		sysctl:                        p.Sysctl,
 		nodesAddresses2Labels:         make(map[string]map[string]string),
+	}
+
+	if p.EndpointSlices != nil {
+		manager.cesTrackedEndpoints = make(map[string]map[endpointID]struct{})
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -345,7 +358,18 @@ func (manager *Manager) processEvents(ctx context.Context) {
 
 	policyEvents := manager.policies.Events(ctx)
 	nodeEvents := manager.ciliumNodes.Events(ctx)
-	endpointEvents := manager.endpoints.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
+
+	// Decide which endpoint source to listen to based on whether CES is available.
+	// When one channel is nil, Go's select correctly ignores that case (reading
+	// from a nil channel blocks forever and is never selected).
+	var endpointEvents <-chan resource.Event[*k8sTypes.CiliumEndpoint]
+	var cesEvents <-chan resource.Event[*cilium_api_v2alpha1.CiliumEndpointSlice]
+
+	if manager.endpointSlices != nil {
+		cesEvents = manager.endpointSlices.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
+	} else {
+		endpointEvents = manager.endpoints.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
+	}
 
 	for {
 		select {
@@ -377,6 +401,15 @@ func (manager *Manager) processEvents(ctx context.Context) {
 				event.Done(nil)
 			} else {
 				manager.handleEndpointEvent(event)
+			}
+
+		case event := <-cesEvents:
+			if event.Kind == resource.Sync {
+				endpointSync = true
+				maybeTriggerReconcile()
+				event.Done(nil)
+			} else {
+				manager.handleCESEvent(event)
 			}
 		}
 	}
@@ -460,12 +493,23 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 }
 
 func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
+	manager.Lock()
+	defer manager.Unlock()
+
+	if err := manager.addEndpointLocked(endpoint); err != nil {
+		return err
+	}
+
+	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
+	return nil
+}
+
+// addEndpointLocked is the lock-free core of addEndpoint. The caller MUST hold
+// manager.Mutex.
+func (manager *Manager) addEndpointLocked(endpoint *k8sTypes.CiliumEndpoint) error {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
-
-	manager.Lock()
-	defer manager.Unlock()
 
 	logger := manager.logger.With(
 		logfields.K8sEndpointName, endpoint.Name,
@@ -509,9 +553,7 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	}
 
 	manager.epDataStore[epData.id] = epData
-
 	manager.setEventBitmap(eventUpdateEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
 
 	return nil
 }
@@ -520,13 +562,19 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.Lock()
 	defer manager.Unlock()
 
+	id := endpointID(endpoint.UID)
+	if id == "" {
+		// CES-sourced endpoints use namespace/name as their ID.
+		id = endpointID(endpoint.Namespace + "/" + endpoint.Name)
+	}
+
 	manager.logger.Debug(
 		"Deleted CiliumEndpoint",
 		logfields.K8sEndpointName, endpoint.Name,
 		logfields.K8sNamespace, endpoint.Namespace,
-		logfields.K8sUID, endpoint.UID,
+		logfields.K8sUID, id,
 	)
-	delete(manager.epDataStore, endpoint.UID)
+	delete(manager.epDataStore, id)
 
 	manager.setEventBitmap(eventDeleteEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
@@ -541,6 +589,87 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 		manager.deleteEndpoint(endpoint)
 		event.Done(nil)
 	}
+}
+
+// handleCESEvent expands a CiliumEndpointSlice into individual endpoint
+// add/delete calls. On upsert, it diffs against the previous state to detect
+// which endpoints were removed from the slice.
+func (manager *Manager) handleCESEvent(event resource.Event[*cilium_api_v2alpha1.CiliumEndpointSlice]) {
+	ces := event.Object
+
+	switch event.Kind {
+	case resource.Upsert:
+		event.Done(manager.onUpsertCES(ces))
+	case resource.Delete:
+		manager.onDeleteCES(ces)
+		event.Done(nil)
+	}
+}
+
+// onUpsertCES processes a CiliumEndpointSlice upsert event. It converts each
+// CoreCiliumEndpoint in the slice to a types.CiliumEndpoint and adds it to the
+// epDataStore. It also diffs against the previous snapshot of the slice to
+// remove endpoints that are no longer present.
+//
+// The entire operation runs under a single lock acquisition to avoid
+// intermediate states visible to the reconciliation goroutine and to avoid
+// per-endpoint lock/unlock overhead.
+func (manager *Manager) onUpsertCES(ces *cilium_api_v2alpha1.CiliumEndpointSlice) error {
+	manager.Lock()
+	defer manager.Unlock()
+
+	currentIDs := make(map[endpointID]struct{}, len(ces.Endpoints))
+
+	var firstErr error
+	for i := range ces.Endpoints {
+		ccep := &ces.Endpoints[i]
+		ep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep, ces.Namespace)
+		id := endpointID(ces.Namespace + "/" + ccep.Name)
+		currentIDs[id] = struct{}{}
+
+		if err := manager.addEndpointLocked(ep); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	// Diff: remove endpoints that were in the previous version of this slice
+	// but are no longer present.
+	if prev, ok := manager.cesTrackedEndpoints[ces.Name]; ok {
+		for id := range prev {
+			if _, stillPresent := currentIDs[id]; !stillPresent {
+				manager.logger.Debug(
+					"Deleted CiliumEndpoint (removed from CES)",
+					logfields.K8sUID, id,
+				)
+				delete(manager.epDataStore, id)
+				manager.setEventBitmap(eventDeleteEndpoint)
+			}
+		}
+	}
+	manager.cesTrackedEndpoints[ces.Name] = currentIDs
+
+	// Trigger reconciliation once for the entire slice update, rather than
+	// per-endpoint.
+	manager.reconciliationTrigger.TriggerWithReason("CES updated")
+
+	return firstErr
+}
+
+// onDeleteCES processes a CiliumEndpointSlice delete event. It removes all
+// endpoints that belonged to the deleted slice from the epDataStore.
+func (manager *Manager) onDeleteCES(ces *cilium_api_v2alpha1.CiliumEndpointSlice) {
+	manager.Lock()
+	defer manager.Unlock()
+
+	if tracked, ok := manager.cesTrackedEndpoints[ces.Name]; ok {
+		for id := range tracked {
+			delete(manager.epDataStore, id)
+		}
+		delete(manager.cesTrackedEndpoints, ces.Name)
+	}
+
+	manager.setEventBitmap(eventDeleteEndpoint)
+	manager.reconciliationTrigger.TriggerWithReason("CES deleted")
 }
 
 // handleNodeEvent takes care of node upserts and removals.

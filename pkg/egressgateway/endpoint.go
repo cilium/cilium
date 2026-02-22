@@ -32,9 +32,14 @@ type endpointID = types.UID
 func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels labels.Labels) (*endpointMetadata, error) {
 	var addrs []netip.Addr
 
-	if endpoint.UID == "" {
-		// this can happen when CiliumEndpointSlices are in use - which is not supported in the EGW yet
-		return nil, fmt.Errorf("endpoint has empty UID")
+	id := endpointID(endpoint.UID)
+	if id == "" {
+		// CES-sourced endpoints don't carry a Kubernetes UID.
+		// Fall back to namespace/name which is unique per endpoint.
+		if endpoint.Name == "" {
+			return nil, fmt.Errorf("endpoint has neither UID nor Name")
+		}
+		id = endpointID(endpoint.Namespace + "/" + endpoint.Name)
 	}
 
 	if endpoint.Networking == nil {
@@ -65,7 +70,7 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 	data := &endpointMetadata{
 		ips:    addrs,
 		labels: identityLabels.K8sStringMap(),
-		id:     endpoint.UID,
+		id:     id,
 		nodeIP: endpoint.Networking.NodeIP,
 	}
 
