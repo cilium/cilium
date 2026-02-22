@@ -156,7 +156,7 @@ func (wss *wqSyncStore) Run(ctx context.Context) {
 
 	wss.log.Info("Starting workqueue-based sync store", logfields.Workers, wss.workers)
 	wg.Add(int(wss.workers))
-	for i := uint(0); i < wss.workers; i++ {
+	for range wss.workers {
 		go func() {
 			defer wg.Done()
 			for wss.processNextItem(ctx) {

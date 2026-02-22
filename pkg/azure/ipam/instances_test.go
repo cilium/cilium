@@ -202,7 +202,7 @@ func TestExtractSubnetIDs(t *testing.T) {
 	// Create 100 instances across only 2 different subnets to test deduplication
 	instances := ipamTypes.NewInstanceMap()
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		instanceID := fmt.Sprintf("vm-%d", i)
 		interfaceID := fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss1/virtualMachines/%s/networkInterfaces/eth0", instanceID)
 

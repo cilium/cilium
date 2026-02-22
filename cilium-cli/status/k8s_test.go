@@ -86,7 +86,7 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 
 	c.status = map[string]*models.StatusResponse{}
 
-	for i := int32(0); i < available; i++ {
+	for i := range available {
 		podName := fmt.Sprintf("%s-%d", name, i)
 		c.addPod(namespace, podName, filter, []corev1.Container{{Image: "cilium:1.8"}}, corev1.PodStatus{Phase: corev1.PodRunning})
 
@@ -103,7 +103,7 @@ func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desir
 		}
 	}
 
-	for i := int32(0); i < unavailable; i++ {
+	for i := range unavailable {
 		podName := fmt.Sprintf("%s-%d", name, i+available)
 		c.addPod(namespace, podName, filter, []corev1.Container{{Image: "cilium:1.9"}}, corev1.PodStatus{Phase: corev1.PodFailed})
 		c.status[podName] = &models.StatusResponse{

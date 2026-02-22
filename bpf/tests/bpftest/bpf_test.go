@@ -390,7 +390,7 @@ func scapyParseAsserts(t *testing.T, scapyAssertMap *ebpf.Map) {
 
 	asserts := []map[string]any{}
 
-	for i := uint32(0); i < info.MaxEntries; i++ {
+	for i := range info.MaxEntries {
 		err = scapyAssertMap.Lookup(&i, &aval)
 		if err != nil {
 			t.Fatalf("error while getting iterating over the assert map: %s", err)

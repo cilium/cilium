@@ -607,7 +607,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	v4Cidrs := make([]*cidr.CIDR, 10)
 	v6Cidrs := make([]*cidr.CIDR, 10)
 	cidrPodCIDRs := make([]types.IPAMCIDR, 0, 20)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		c4 := cidr.MustParseCIDR(fmt.Sprintf("10.0.100.%d/32", i))
 		v4Cidrs[i] = c4
 		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMCIDR(c4.String()))
@@ -663,7 +663,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	<-events // first upsert (initial node)
 
 	// Allocate 5 IPv4 and 5 IPv6 IPs
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ip4 := net.ParseIP(fmt.Sprintf("10.0.100.%d", i))
 		_, err := mgr.allocateIP(ip4, fmt.Sprintf("pod4-%d", i), "default", IPv4, false)
 		assert.NoError(t, err)
@@ -691,7 +691,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	for _, c := range alloc[0].CIDRs {
 		remaining[string(c)] = struct{}{}
 	}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		assert.Contains(t, remaining, v4Cidrs[i].String(), "in-use CIDR %s should not be released", v4Cidrs[i].String())
 		assert.Contains(t, remaining, v6Cidrs[i].String(), "in-use CIDR %s should not be released", v6Cidrs[i].String())
 	}
