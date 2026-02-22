@@ -353,3 +353,135 @@ func Test_toTransportSocket(t *testing.T) {
 		})
 	}
 }
+
+func Test_httpsFilterChains_SharedSecretDifferentValidation(t *testing.T) {
+	translator := &cecTranslator{
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+		},
+	}
+
+	sharedSecret := model.TLSSecret{Name: "server-cert", Namespace: "gateway-ns"}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Hostname: "a.example.com",
+				TLS:      []model.TLSSecret{sharedSecret},
+				FrontendTLSValidation: &model.FrontendTLSValidation{
+					CACertRefs: []model.FullyQualifiedResource{
+						{Namespace: "gateway-ns", Name: "client-ca-a"},
+					},
+					RequireClientCertificate: true,
+				},
+			},
+			{
+				Hostname: "b.example.com",
+				TLS:      []model.TLSSecret{sharedSecret},
+				FrontendTLSValidation: &model.FrontendTLSValidation{
+					CACertRefs: []model.FullyQualifiedResource{
+						{Namespace: "gateway-ns", Name: "client-ca-b"},
+					},
+					RequireClientCertificate: false,
+				},
+			},
+		},
+	}
+
+	chains, err := translator.httpsFilterChains("listener", m)
+	assert.NoError(t, err)
+	assert.Len(t, chains, 2)
+
+	gotByHostname := map[string]struct {
+		requireClientCert bool
+		validationSDS     string
+	}{}
+
+	for _, chain := range chains {
+		assert.NotNil(t, chain.FilterChainMatch)
+		assert.Len(t, chain.FilterChainMatch.ServerNames, 1)
+		hostname := chain.FilterChainMatch.ServerNames[0]
+
+		downstreamCtx := downstreamTLSContextFromTransportSocket(t, chain.TransportSocket)
+		requireClientCert := downstreamCtx.RequireClientCertificate != nil && downstreamCtx.RequireClientCertificate.GetValue()
+		validationSDS := ""
+		if sds := downstreamCtx.CommonTlsContext.GetValidationContextSdsSecretConfig(); sds != nil {
+			validationSDS = sds.Name
+		}
+
+		gotByHostname[hostname] = struct {
+			requireClientCert bool
+			validationSDS     string
+		}{
+			requireClientCert: requireClientCert,
+			validationSDS:     validationSDS,
+		}
+	}
+
+	assert.Equal(t, map[string]struct {
+		requireClientCert bool
+		validationSDS     string
+	}{
+		"a.example.com": {
+			requireClientCert: true,
+			validationSDS:     "cilium-secrets/gateway-ns-cfgmap-client-ca-a",
+		},
+		"b.example.com": {
+			requireClientCert: false,
+			validationSDS:     "cilium-secrets/gateway-ns-cfgmap-client-ca-b",
+		},
+	}, gotByHostname)
+}
+
+func Test_httpsFilterChains_DeterministicAcrossListenerOrder(t *testing.T) {
+	translator := &cecTranslator{
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+		},
+	}
+
+	listeners := []model.HTTPListener{
+		{
+			Hostname: "b.example.com",
+			TLS:      []model.TLSSecret{{Name: "shared-cert", Namespace: "gateway-ns"}},
+			FrontendTLSValidation: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{Namespace: "gateway-ns", Name: "ca-fallback"},
+				},
+				RequireClientCertificate: false,
+			},
+		},
+		{
+			Hostname: "a.example.com",
+			TLS:      []model.TLSSecret{{Name: "shared-cert", Namespace: "gateway-ns"}},
+			FrontendTLSValidation: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{Namespace: "gateway-ns", Name: "ca-valid-only"},
+				},
+				RequireClientCertificate: true,
+			},
+		},
+	}
+
+	got1, err := translator.httpsFilterChains("listener", &model.Model{HTTP: listeners})
+	assert.NoError(t, err)
+
+	got2, err := translator.httpsFilterChains("listener", &model.Model{HTTP: []model.HTTPListener{listeners[1], listeners[0]}})
+	assert.NoError(t, err)
+
+	diffOutput := cmp.Diff(got1, got2, protocmp.Transform())
+	assert.Emptyf(t, diffOutput, "HTTPS filter chains differ for reordered listeners:\n%s", diffOutput)
+}
+
+func downstreamTLSContextFromTransportSocket(t *testing.T, ts *envoy_config_core_v3.TransportSocket) *envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext {
+	t.Helper()
+
+	assert.NotNil(t, ts)
+	typedConfig := ts.GetTypedConfig()
+	assert.NotNil(t, typedConfig)
+
+	downstreamCtx := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+	err := proto.Unmarshal(typedConfig.GetValue(), downstreamCtx)
+	assert.NoError(t, err)
+
+	return downstreamCtx
+}
