@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -518,20 +517,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.TunnelingEnabled() {
 		cDefinesMap["TUNNEL_MODE"] = "1"
 	}
-
-	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
-	if err != nil {
-		return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
-	}
-	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_NET_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
-
-	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
-	}
-	cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 

@@ -24,7 +24,7 @@ static __always_inline int
 ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 			      __be16 proxy_port)
 {
-	union macaddr __maybe_unused host_mac = CILIUM_HOST_MAC;
+	union macaddr __maybe_unused host_mac = CONFIG(cilium_host_mac);
 	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	int ret = 0;
 
@@ -53,7 +53,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * ctx_redirect_to_proxy_first().
 	 */
 
-	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
+	return ctx_redirect(ctx, CONFIG(cilium_net_ifindex), 0);
 }
 
 #ifdef ENABLE_IPV4

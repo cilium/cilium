@@ -170,7 +170,7 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 #ifdef ENABLE_ENDPOINT_ROUTES
 	return CTX_ACT_OK;
 #else
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, 0);
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), 0);
 #endif /* ENABLE_ENDPOINT_ROUTES */
 }
 
@@ -198,7 +198,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	int ret = 0;
-	union macaddr dst_mac = CILIUM_NET_MAC;
+	union macaddr dst_mac = CONFIG(cilium_net_mac);
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
@@ -310,7 +310,7 @@ overlay_encrypt:
 	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac, 0) != 0)
 		return DROP_WRITE_ERROR;
 
-	ret = ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
+	ret = ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
 	if (ret != CTX_ACT_REDIRECT)
 		return DROP_INVALID;
 	return ret;

@@ -97,7 +97,7 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 	 * cilium_host (peer) to ensure the packet is being considered to be
 	 * addressed to the host (PACKET_HOST).
 	 */
-	union macaddr cilium_net_mac = CILIUM_NET_MAC;
+	union macaddr cilium_net_mac = CONFIG(cilium_net_mac);
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(ctx, (__u8 *) &cilium_net_mac.addr, 0) < 0)
@@ -1557,7 +1557,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
@@ -1585,7 +1585,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;
@@ -1645,7 +1645,7 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(proto));
 
 	return ret;
@@ -1745,7 +1745,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 	 * and allow it to enter the foward path once punted to stack.
 	 */
-	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CILIUM_NET_IFINDEX)
+	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex))
 		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
@@ -1786,7 +1786,7 @@ out:
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, proto);
 
 	return ret;

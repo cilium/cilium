@@ -14,9 +14,6 @@
  */
 #include <lib/static_data.h>
 
-#define CILIUM_NET_IFINDEX 1
-#define CILIUM_HOST_IFINDEX 1
-
 #define LRU_MEM_FLAVOR 0
 
 #define UNKNOWN_ID 0
@@ -35,7 +32,6 @@
 #define LOCAL_NODE_ID 6
 #define REMOTE_NODE_ID 6
 #define KUBE_APISERVER_NODE_ID 7
-#define CILIUM_HOST_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
 #define CT_CONNECTION_LIFETIME_TCP	21600
 #define CT_CONNECTION_LIFETIME_NONTCP	60
@@ -95,7 +91,6 @@
 #define VTEP_MAP_SIZE 8
 #define ENDPOINTS_MAP_SIZE 65536
 #define METRICS_MAP_SIZE 65536
-#define CILIUM_NET_MAC  { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x57 } }
 #define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_SERVICE_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES	65536

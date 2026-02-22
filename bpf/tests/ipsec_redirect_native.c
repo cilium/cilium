@@ -11,6 +11,9 @@
 #include "tests/lib/ipsec.h"
 #include "tests/lib/node.h"
 
+const union macaddr cilium_net_mac = { .addr = {0xce, 0x72, 0xa7, 0x03, 0x88, 0x57} };
+ASSIGN_CONFIG(union macaddr, cilium_net_mac, cilium_net_mac)
+
 static __always_inline
 void set_src_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity)
 {
@@ -73,7 +76,7 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_oute
 static __always_inline
 int ipsec_redirect_checks(const struct __ctx_buff *ctx)
 {
-	union macaddr expected_l2_addr = CILIUM_NET_MAC;
+	union macaddr expected_l2_addr = CONFIG(cilium_net_mac);
 	__u32 *status_code;
 	struct ethhdr *l2;
 	int i;
