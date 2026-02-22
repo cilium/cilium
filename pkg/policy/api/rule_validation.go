@@ -619,6 +619,18 @@ func (pr *PortDenyRule) sanitize() error {
 	return nil
 }
 
+// isExtendedIPProtocol returns true if the protocol is an extended IP protocol
+// that does not use transport-layer ports (e.g., VRRP, IGMP, GRE, IPIP, ESP, AH).
+func isExtendedIPProtocol(proto L4Proto) bool {
+	switch proto {
+	case ProtoVRRP, ProtoIGMP,
+		ProtoGRE, ProtoIPIP, ProtoIPv6, ProtoESP, ProtoAH:
+		return true
+	default:
+		return false
+	}
+}
+
 func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 	if pp.Port == "" {
 		if !option.Config.EnableExtendedIPProtocols {
@@ -632,7 +644,9 @@ func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 	if iana.IsSvcName(pp.Port) {
 		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
 	} else if pp.Port != "" {
-		if pp.Port != "0" && (pp.Protocol == ProtoVRRP || pp.Protocol == ProtoIGMP) {
+		// Extended IP protocols and tunnel/encapsulation protocols do not have
+		// transport-layer ports. Require port to be empty or 0 for these protocols.
+		if pp.Port != "0" && isExtendedIPProtocol(pp.Protocol) {
 			return isZero, errors.New("port must be empty or 0")
 		}
 		p, err := strconv.ParseUint(pp.Port, 0, 16)
