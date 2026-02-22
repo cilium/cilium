@@ -285,6 +285,8 @@ data:
   ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
   ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
   ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
+  ingress-default-xff-num-trusted-hops: {{ .Values.ingressController.xffNumTrustedHops | quote }}
+  ingress-use-remote-address: {{ .Values.ingressController.useRemoteAddress | quote }}
   {{- if and .Values.ingressController.defaultSecretNamespace .Values.ingressController.defaultSecretName }}
   ingress-default-secret-namespace: {{ .Values.ingressController.defaultSecretNamespace | quote }}
   ingress-default-secret-name: {{ .Values.ingressController.defaultSecretName | quote }}
@@ -301,6 +303,7 @@ data:
   enable-gateway-api-app-protocol: {{ or .Values.gatewayAPI.enableAppProtocol .Values.gatewayAPI.enableAlpn | quote }}
   enable-gateway-api-alpn: {{ .Values.gatewayAPI.enableAlpn | quote }}
   gateway-api-xff-num-trusted-hops: {{ .Values.gatewayAPI.xffNumTrustedHops | quote }}
+  gateway-api-use-remote-address: {{ .Values.gatewayAPI.useRemoteAddress | quote }}
   gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}

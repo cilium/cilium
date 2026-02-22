@@ -969,6 +969,12 @@ ingressController:
   enforceHttps: true
   # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
+  # -- The number of additional proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
+  # For more information see: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#x-forwarded-for 
+  xffNumTrustedHops: 0
+  # -- Whether to ignore X-Forwarded-For header given by a client when envoy determines the trusted client address.
+  # For more information see: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#x-forwarded-for 
+  useRemoteAddress: true
   # -- IngressLBAnnotations are the annotation and label prefixes, which are used to filter annotations and/or labels to propagate from Ingress to the Load Balancer service
   ingressLBAnnotationPrefixes: ['lbipam.cilium.io', 'nodeipam.cilium.io', 'service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
   # @schema
@@ -1058,6 +1064,8 @@ gatewayAPI:
   enableAlpn: false
   # -- The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
   xffNumTrustedHops: 0
+  # -- Whether to ignore X-Forwarded-For header given by a client when envoy determines the trusted client address.
+  useRemoteAddress: true
   # -- Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local".
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy

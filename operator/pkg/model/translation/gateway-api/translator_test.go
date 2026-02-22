@@ -226,6 +226,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 				},
 				OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 					XFFNumTrustedHops: 2,
+					UseRemoteAddress:  true,
 				},
 				ListenerConfig: translation.ListenerConfig{
 					StreamIdleTimeoutSeconds: 300,
