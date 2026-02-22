@@ -753,6 +753,7 @@ setrlimit
 sfc
 sg
 sha
+sharedListenerPort
 sid
 sig
 skb

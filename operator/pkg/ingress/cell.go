@@ -38,30 +38,36 @@ var Cell = cell.Module(
 		IngressSharedLBServiceName:   "cilium-ingress",
 		IngressDefaultLBMode:         "dedicated",
 
-		IngressHostnetworkEnabled:            false,
-		IngressHostnetworkSharedListenerPort: 0,
-		IngressHostnetworkNodelabelselector:  "",
+		IngressHostnetworkEnabled:                    false,
+		IngressHostnetworkSharedListenerPort:         0,
+		IngressHostnetworkHTTPListenerPort:           0,
+		IngressHostnetworkHTTPSListenerPort:          0,
+		IngressHostnetworkTLSPassthroughListenerPort: 0,
+		IngressHostnetworkNodelabelselector:          "",
 	}),
 	cell.Invoke(registerReconciler),
 	cell.Provide(registerSecretSync),
 )
 
 type IngressConfig struct {
-	EnableIngressController              bool
-	EnforceIngressHTTPS                  bool
-	EnableIngressProxyProtocol           bool
-	EnableIngressSecretsSync             bool
-	IngressSecretsNamespace              string
-	IngressLBAnnotationPrefixes          []string
-	IngressSharedLBServiceName           string
-	IngressDefaultLBMode                 string
-	IngressDefaultSecretNamespace        string
-	IngressDefaultSecretName             string
-	IngressDefaultRequestTimeout         time.Duration
-	IngressHostnetworkEnabled            bool
-	IngressHostnetworkSharedListenerPort uint32
-	IngressHostnetworkNodelabelselector  string
-	IngressDefaultXffNumTrustedHops      uint32
+	EnableIngressController                      bool
+	EnforceIngressHTTPS                          bool
+	EnableIngressProxyProtocol                   bool
+	EnableIngressSecretsSync                     bool
+	IngressSecretsNamespace                      string
+	IngressLBAnnotationPrefixes                  []string
+	IngressSharedLBServiceName                   string
+	IngressDefaultLBMode                         string
+	IngressDefaultSecretNamespace                string
+	IngressDefaultSecretName                     string
+	IngressDefaultRequestTimeout                 time.Duration
+	IngressHostnetworkEnabled                    bool
+	IngressHostnetworkSharedListenerPort         uint32
+	IngressHostnetworkHTTPListenerPort           uint32
+	IngressHostnetworkHTTPSListenerPort          uint32
+	IngressHostnetworkTLSPassthroughListenerPort uint32
+	IngressHostnetworkNodelabelselector          string
+	IngressDefaultXffNumTrustedHops              uint32
 }
 
 func (r IngressConfig) Flags(flags *pflag.FlagSet) {
@@ -78,6 +84,9 @@ func (r IngressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Duration("ingress-default-request-timeout", r.IngressDefaultRequestTimeout, "Default request timeout for Ingress.")
 	flags.Bool("ingress-hostnetwork-enabled", r.IngressHostnetworkEnabled, "Exposes ingress listeners on the host network.")
 	flags.Uint32("ingress-hostnetwork-shared-listener-port", r.IngressHostnetworkSharedListenerPort, "Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)")
+	flags.Uint32("ingress-hostnetwork-http-listener-port", r.IngressHostnetworkHTTPListenerPort, "Port on the host network that gets used for the shared HTTP listener")
+	flags.Uint32("ingress-hostnetwork-https-listener-port", r.IngressHostnetworkHTTPSListenerPort, "Port on the host network that gets used for the shared HTTPS listener")
+	flags.Uint32("ingress-hostnetwork-tls-passthrough-listener-port", r.IngressHostnetworkTLSPassthroughListenerPort, "Port on the host network that gets used for the shared TLS passthrough listener")
 	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 	flags.Uint32("ingress-default-xff-num-trusted-hops", r.IngressDefaultXffNumTrustedHops, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 }
@@ -153,6 +162,9 @@ func registerReconciler(params ingressParams) error {
 
 		params.IngressConfig.IngressHostnetworkEnabled,
 		params.IngressConfig.IngressHostnetworkSharedListenerPort,
+		params.IngressConfig.IngressHostnetworkHTTPListenerPort,
+		params.IngressConfig.IngressHostnetworkHTTPSListenerPort,
+		params.IngressConfig.IngressHostnetworkTLSPassthroughListenerPort,
 	)
 
 	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
