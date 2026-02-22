@@ -22,7 +22,9 @@ See pkg/conversion for interface definitions required to ensure an API Type is c
 package conversion
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -31,28 +33,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	conversionmetrics "sigs.k8s.io/controller-runtime/pkg/webhook/conversion/metrics"
 )
 
 var (
 	log = logf.Log.WithName("conversion-webhook")
 )
 
-func NewWebhookHandler(scheme *runtime.Scheme) http.Handler {
-	return &webhook{scheme: scheme, decoder: NewDecoder(scheme)}
+func NewWebhookHandler(scheme *runtime.Scheme, registry Registry) http.Handler {
+	return &webhook{scheme: scheme, decoder: NewDecoder(scheme), registry: registry}
 }
 
 // webhook implements a CRD conversion webhook HTTP handler.
 type webhook struct {
-	scheme  *runtime.Scheme
-	decoder *Decoder
+	scheme   *runtime.Scheme
+	decoder  *Decoder
+	registry Registry
 }
 
 // ensure Webhook implements http.Handler
 var _ http.Handler = &webhook{}
 
 func (wh *webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	convertReview := &apix.ConversionReview{}
 	err := json.NewDecoder(r.Body).Decode(convertReview)
 	if err != nil {
@@ -69,7 +76,7 @@ func (wh *webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO(droot): may be move the conversion logic to a separate module to
 	// decouple it from the http layer ?
-	resp, err := wh.handleConvertRequest(convertReview.Request)
+	resp, err := wh.handleConvertRequest(ctx, convertReview.Request)
 	if err != nil {
 		log.Error(err, "failed to convert", "request", convertReview.Request.UID)
 		convertReview.Response = errored(err)
@@ -87,7 +94,18 @@ func (wh *webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // handles a version conversion request.
-func (wh *webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.ConversionResponse, error) {
+func (wh *webhook) handleConvertRequest(ctx context.Context, req *apix.ConversionRequest) (_ *apix.ConversionResponse, retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			conversionmetrics.WebhookPanics.WithLabelValues().Inc()
+
+			for _, fn := range utilruntime.PanicHandlers {
+				fn(ctx, r)
+			}
+			retErr = errors.New("internal error occurred during conversion")
+			return
+		}
+	}()
 	if req == nil {
 		return nil, fmt.Errorf("conversion request is nil")
 	}
@@ -102,7 +120,7 @@ func (wh *webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.Conv
 		if err != nil {
 			return nil, err
 		}
-		err = wh.convertObject(src, dst)
+		err = wh.convertObject(ctx, src, dst)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +138,7 @@ func (wh *webhook) handleConvertRequest(req *apix.ConversionRequest) (*apix.Conv
 // convertObject will convert given a src object to dst object.
 // Note(droot): couldn't find a way to reduce the cyclomatic complexity under 10
 // without compromising readability, so disabling gocyclo linter
-func (wh *webhook) convertObject(src, dst runtime.Object) error {
+func (wh *webhook) convertObject(ctx context.Context, src, dst runtime.Object) error {
 	srcGVK := src.GetObjectKind().GroupVersionKind()
 	dstGVK := dst.GetObjectKind().GroupVersionKind()
 
@@ -130,6 +148,10 @@ func (wh *webhook) convertObject(src, dst runtime.Object) error {
 
 	if srcGVK == dstGVK {
 		return fmt.Errorf("conversion is not allowed between same type %T", src)
+	}
+
+	if converter, ok := wh.registry.GetConverter(srcGVK.GroupKind()); ok {
+		return converter.ConvertObject(ctx, src, dst)
 	}
 
 	srcIsHub, dstIsHub := isHub(src), isHub(dst)

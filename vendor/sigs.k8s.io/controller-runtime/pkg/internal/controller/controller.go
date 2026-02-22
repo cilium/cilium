@@ -30,6 +30,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/internal/controller/metrics"
@@ -37,6 +38,59 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+// errReconciliationTimeout is the error used as the cause when the ReconciliationTimeout guardrail fires.
+// This allows us to distinguish wrapper timeouts from user-initiated context cancellations.
+var errReconciliationTimeout = errors.New("reconciliation timeout")
+
+// Options are the arguments for creating a new Controller.
+type Options[request comparable] struct {
+	// Reconciler is a function that can be called at any time with the Name / Namespace of an object and
+	// ensures that the state of the system matches the state specified in the object.
+	// Defaults to the DefaultReconcileFunc.
+	Do reconcile.TypedReconciler[request]
+
+	// RateLimiter is used to limit how frequently requests may be queued into the work queue.
+	RateLimiter workqueue.TypedRateLimiter[request]
+
+	// NewQueue constructs the queue for this controller once the controller is ready to start.
+	// This is a func because the standard Kubernetes work queues start themselves immediately, which
+	// leads to goroutine leaks if something calls controller.New repeatedly.
+	NewQueue func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request]
+
+	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 1.
+	MaxConcurrentReconciles int
+
+	// CacheSyncTimeout refers to the time limit set on waiting for cache to sync
+	// Defaults to 2 minutes if not set.
+	CacheSyncTimeout time.Duration
+
+	// Name is used to uniquely identify a Controller in tracing, logging and monitoring.  Name is required.
+	Name string
+
+	// LogConstructor is used to construct a logger to then log messages to users during reconciliation,
+	// or for example when a watch is started.
+	// Note: LogConstructor has to be able to handle nil requests as we are also using it
+	// outside the context of a reconciliation.
+	LogConstructor func(request *request) logr.Logger
+
+	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
+	// Defaults to true.
+	RecoverPanic *bool
+
+	// LeaderElected indicates whether the controller is leader elected or always running.
+	LeaderElected *bool
+
+	// EnableWarmup specifies whether the controller should start its sources
+	// when the manager is not the leader.
+	// Defaults to false, which means that the controller will wait for leader election to start
+	// before starting sources.
+	EnableWarmup *bool
+
+	// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
+	// By default, there is no timeout.
+	ReconciliationTimeout time.Duration
+}
 
 // Controller implements controller.Controller.
 type Controller[request comparable] struct {
@@ -83,6 +137,14 @@ type Controller[request comparable] struct {
 	// startWatches maintains a list of sources, handlers, and predicates to start when the controller is started.
 	startWatches []source.TypedSource[request]
 
+	// startedEventSourcesAndQueue is used to track if the event sources have been started.
+	// It ensures that we append sources to c.startWatches only until we call Start() / Warmup()
+	// It is true if startEventSourcesAndQueueLocked has been called at least once.
+	startedEventSourcesAndQueue bool
+
+	// didStartEventSourcesOnce is used to ensure that the event sources are only started once.
+	didStartEventSourcesOnce sync.Once
+
 	// LogConstructor is used to construct a logger to then log messages to users during reconciliation,
 	// or for example when a watch is started.
 	// Note: LogConstructor has to be able to handle nil requests as we are also using it
@@ -95,6 +157,38 @@ type Controller[request comparable] struct {
 
 	// LeaderElected indicates whether the controller is leader elected or always running.
 	LeaderElected *bool
+
+	// EnableWarmup specifies whether the controller should start its sources when the manager is not
+	// the leader. This is useful for cases where sources take a long time to start, as it allows
+	// for the controller to warm up its caches even before it is elected as the leader. This
+	// improves leadership failover time, as the caches will be prepopulated before the controller
+	// transitions to be leader.
+	//
+	// Setting EnableWarmup to true and NeedLeaderElection to true means the controller will start its
+	// sources without waiting to become leader.
+	// Setting EnableWarmup to true and NeedLeaderElection to false is a no-op as controllers without
+	// leader election do not wait on leader election to start their sources.
+	// Defaults to false.
+	EnableWarmup *bool
+
+	ReconciliationTimeout time.Duration
+}
+
+// New returns a new Controller configured with the given options.
+func New[request comparable](options Options[request]) *Controller[request] {
+	return &Controller[request]{
+		Do:                      options.Do,
+		RateLimiter:             options.RateLimiter,
+		NewQueue:                options.NewQueue,
+		MaxConcurrentReconciles: options.MaxConcurrentReconciles,
+		CacheSyncTimeout:        options.CacheSyncTimeout,
+		Name:                    options.Name,
+		LogConstructor:          options.LogConstructor,
+		RecoverPanic:            options.RecoverPanic,
+		LeaderElected:           options.LeaderElected,
+		EnableWarmup:            options.EnableWarmup,
+		ReconciliationTimeout:   options.ReconciliationTimeout,
+	}
 }
 
 // Reconcile implements reconcile.Reconciler.
@@ -116,7 +210,27 @@ func (c *Controller[request]) Reconcile(ctx context.Context, req request) (_ rec
 			panic(r)
 		}
 	}()
-	return c.Do.Reconcile(ctx, req)
+
+	var timeoutCause error
+	if c.ReconciliationTimeout > 0 {
+		timeoutCause = errReconciliationTimeout
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeoutCause(ctx, c.ReconciliationTimeout, timeoutCause)
+		defer cancel()
+	}
+
+	res, err := c.Do.Reconcile(ctx, req)
+
+	// Check if the reconciliation timed out due to our wrapper timeout guardrail.
+	// We check ctx.Err() == context.DeadlineExceeded first to ensure the context was actually
+	// cancelled due to a deadline (not parent cancellation or other reasons), then verify it was
+	// our specific timeout cause. This prevents false positives from parent context cancellations
+	// or other timeout scenarios.
+	if timeoutCause != nil && ctx.Err() == context.DeadlineExceeded && errors.Is(context.Cause(ctx), timeoutCause) {
+		ctrlmetrics.ReconcileTimeouts.WithLabelValues(c.Name).Inc()
+	}
+
+	return res, err
 }
 
 // Watch implements controller.Controller.
@@ -124,10 +238,9 @@ func (c *Controller[request]) Watch(src source.TypedSource[request]) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Controller hasn't started yet, store the watches locally and return.
-	//
-	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
-	if !c.Started {
+	// Sources weren't started yet, store the watches locally and return.
+	// These sources are going to be held until either Warmup() or Start(...) is called.
+	if !c.startedEventSourcesAndQueue {
 		c.startWatches = append(c.startWatches, src)
 		return nil
 	}
@@ -144,6 +257,21 @@ func (c *Controller[request]) NeedLeaderElection() bool {
 	return *c.LeaderElected
 }
 
+// Warmup implements the manager.WarmupRunnable interface.
+func (c *Controller[request]) Warmup(ctx context.Context) error {
+	if c.EnableWarmup == nil || !*c.EnableWarmup {
+		return nil
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Set the ctx so later calls to watch use this internal context
+	c.ctx = ctx
+
+	return c.startEventSourcesAndQueueLocked(ctx)
+}
+
 // Start implements controller.Controller.
 func (c *Controller[request]) Start(ctx context.Context) error {
 	// use an IIFE to get proper lock handling
@@ -158,34 +286,72 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 	// Set the internal context.
 	c.ctx = ctx
 
-	queue := c.NewQueue(c.Name, c.RateLimiter)
-	if priorityQueue, isPriorityQueue := queue.(priorityqueue.PriorityQueue[request]); isPriorityQueue {
-		c.Queue = priorityQueue
-	} else {
-		c.Queue = &priorityQueueWrapper[request]{TypedRateLimitingInterface: queue}
-	}
-	go func() {
-		<-ctx.Done()
-		c.Queue.ShutDown()
-	}()
-
 	wg := &sync.WaitGroup{}
 	err := func() error {
 		defer c.mu.Unlock()
 
 		// TODO(pwittrock): Reconsider HandleCrash
-		defer utilruntime.HandleCrash()
+		defer utilruntime.HandleCrashWithLogger(c.LogConstructor(nil))
 
 		// NB(directxman12): launch the sources *before* trying to wait for the
 		// caches to sync so that they have a chance to register their intended
 		// caches.
+		if err := c.startEventSourcesAndQueueLocked(ctx); err != nil {
+			return err
+		}
+
+		c.LogConstructor(nil).Info("Starting Controller")
+
+		// Launch workers to process resources
+		c.LogConstructor(nil).Info("Starting workers", "worker count", c.MaxConcurrentReconciles)
+		wg.Add(c.MaxConcurrentReconciles)
+		for i := 0; i < c.MaxConcurrentReconciles; i++ {
+			go func() {
+				defer wg.Done()
+				// Run a worker thread that just dequeues items, processes them, and marks them done.
+				// It enforces that the reconcileHandler is never invoked concurrently with the same object.
+				for c.processNextWorkItem(ctx) {
+				}
+			}()
+		}
+
+		c.Started = true
+		return nil
+	}()
+	if err != nil {
+		return err
+	}
+
+	<-ctx.Done()
+	c.LogConstructor(nil).Info("Shutdown signal received, waiting for all workers to finish")
+	wg.Wait()
+	c.LogConstructor(nil).Info("All workers finished")
+	return nil
+}
+
+// startEventSourcesAndQueueLocked launches all the sources registered with this controller and waits
+// for them to sync. It returns an error if any of the sources fail to start or sync.
+func (c *Controller[request]) startEventSourcesAndQueueLocked(ctx context.Context) error {
+	var retErr error
+
+	c.didStartEventSourcesOnce.Do(func() {
+		queue := c.NewQueue(c.Name, c.RateLimiter)
+		if priorityQueue, isPriorityQueue := queue.(priorityqueue.PriorityQueue[request]); isPriorityQueue {
+			c.Queue = priorityQueue
+		} else {
+			c.Queue = &priorityQueueWrapper[request]{TypedRateLimitingInterface: queue}
+		}
+		go func() {
+			<-ctx.Done()
+			c.Queue.ShutDown()
+		}()
+
 		errGroup := &errgroup.Group{}
 		for _, watch := range c.startWatches {
 			log := c.LogConstructor(nil)
 			_, ok := watch.(interface {
 				String() string
 			})
-
 			if !ok {
 				log = log.WithValues("source", fmt.Sprintf("%T", watch))
 			} else {
@@ -202,6 +368,7 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 				go func() {
 					defer close(sourceStartErrChan)
 					log.Info("Starting EventSource")
+
 					if err := watch.Start(ctx, c.Queue); err != nil {
 						sourceStartErrChan <- err
 						return
@@ -232,11 +399,7 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 				}
 			})
 		}
-		if err := errGroup.Wait(); err != nil {
-			return err
-		}
-
-		c.LogConstructor(nil).Info("Starting Controller")
+		retErr = errGroup.Wait()
 
 		// All the watches have been started, we can reset the local slice.
 		//
@@ -244,31 +407,12 @@ func (c *Controller[request]) Start(ctx context.Context) error {
 		// which won't be garbage collected if we hold a reference to it.
 		c.startWatches = nil
 
-		// Launch workers to process resources
-		c.LogConstructor(nil).Info("Starting workers", "worker count", c.MaxConcurrentReconciles)
-		wg.Add(c.MaxConcurrentReconciles)
-		for i := 0; i < c.MaxConcurrentReconciles; i++ {
-			go func() {
-				defer wg.Done()
-				// Run a worker thread that just dequeues items, processes them, and marks them done.
-				// It enforces that the reconcileHandler is never invoked concurrently with the same object.
-				for c.processNextWorkItem(ctx) {
-				}
-			}()
-		}
+		// Mark event sources as started after resetting the startWatches slice so that watches from
+		// a new Watch() call are immediately started.
+		c.startedEventSourcesAndQueue = true
+	})
 
-		c.Started = true
-		return nil
-	}()
-	if err != nil {
-		return err
-	}
-
-	<-ctx.Done()
-	c.LogConstructor(nil).Info("Shutdown signal received, waiting for all workers to finish")
-	wg.Wait()
-	c.LogConstructor(nil).Info("All workers finished")
-	return nil
+	return retErr
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
@@ -310,6 +454,7 @@ func (c *Controller[request]) initMetrics() {
 	ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.TerminalReconcileErrors.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.ReconcilePanics.WithLabelValues(c.Name).Add(0)
+	ctrlmetrics.ReconcileTimeouts.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.WorkerCount.WithLabelValues(c.Name).Set(float64(c.MaxConcurrentReconciles))
 	ctrlmetrics.ActiveWorkers.WithLabelValues(c.Name).Set(0)
 }
@@ -332,17 +477,20 @@ func (c *Controller[request]) reconcileHandler(ctx context.Context, req request,
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
 	result, err := c.Reconcile(ctx, req)
+	if result.Priority != nil {
+		priority = *result.Priority
+	}
 	switch {
 	case err != nil:
 		if errors.Is(err, reconcile.TerminalError(nil)) {
 			ctrlmetrics.TerminalReconcileErrors.WithLabelValues(c.Name).Inc()
 		} else {
-			c.Queue.AddWithOpts(priorityqueue.AddOpts{RateLimited: true, Priority: priority}, req)
+			c.Queue.AddWithOpts(priorityqueue.AddOpts{RateLimited: true, Priority: ptr.To(priority)}, req)
 		}
 		ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Inc()
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelError).Inc()
-		if !result.IsZero() {
-			log.Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes requeuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+		if result.RequeueAfter > 0 || result.Requeue { //nolint: staticcheck // We have to handle Requeue until it is removed
+			log.Info("Warning: Reconciler returned both a result with either RequeueAfter or Requeue set and a non-nil error. RequeueAfter and Requeue will always be ignored if the error is non-nil. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
 		}
 		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:
@@ -352,11 +500,11 @@ func (c *Controller[request]) reconcileHandler(ctx context.Context, req request,
 		// We need to drive to stable reconcile loops before queuing due
 		// to result.RequestAfter
 		c.Queue.Forget(req)
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{After: result.RequeueAfter, Priority: priority}, req)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{After: result.RequeueAfter, Priority: ptr.To(priority)}, req)
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelRequeueAfter).Inc()
-	case result.Requeue:
+	case result.Requeue: //nolint: staticcheck // We have to handle it until it is removed
 		log.V(5).Info("Reconcile done, requeueing")
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{RateLimited: true, Priority: priority}, req)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{RateLimited: true, Priority: ptr.To(priority)}, req)
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelRequeue).Inc()
 	default:
 		log.V(5).Info("Reconcile successful")

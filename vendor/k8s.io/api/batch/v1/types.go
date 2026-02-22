@@ -209,6 +209,7 @@ type PodFailurePolicyOnPodConditionsPattern struct {
 	// Specifies the required Pod condition status. To match a pod condition
 	// it is required that the specified status equals the pod condition status.
 	// Defaults to True.
+	// +optional
 	Status corev1.ConditionStatus `json:"status" protobuf:"bytes,2,req,name=status"`
 }
 
@@ -257,7 +258,7 @@ type PodFailurePolicy struct {
 type SuccessPolicy struct {
 	// rules represents the list of alternative rules for the declaring the Jobs
 	// as successful before `.status.succeeded >= .spec.completions`. Once any of the rules are met,
-	// the "SucceededCriteriaMet" condition is added, and the lingering pods are removed.
+	// the "SuccessCriteriaMet" condition is added, and the lingering pods are removed.
 	// The terminal state for such a Job has the "Complete" condition.
 	// Additionally, these rules are evaluated in order; Once the Job meets one of the rules,
 	// other rules are ignored. At most 20 elements are allowed.
@@ -347,7 +348,8 @@ type JobSpec struct {
 	SuccessPolicy *SuccessPolicy `json:"successPolicy,omitempty" protobuf:"bytes,16,opt,name=successPolicy"`
 
 	// Specifies the number of retries before marking this job failed.
-	// Defaults to 6
+	// Defaults to 6, unless backoffLimitPerIndex (only Indexed Job) is specified.
+	// When backoffLimitPerIndex is specified, backoffLimit defaults to 2147483647.
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty" protobuf:"varint,7,opt,name=backoffLimit"`
 
@@ -455,8 +457,6 @@ type JobSpec struct {
 	//
 	// When using podFailurePolicy, Failed is the the only allowed value.
 	// TerminatingOrFailed and Failed are allowed values when podFailurePolicy is not in use.
-	// This is an beta field. To use this, enable the JobPodReplacementPolicy feature toggle.
-	// This is on by default.
 	// +optional
 	PodReplacementPolicy *PodReplacementPolicy `json:"podReplacementPolicy,omitempty" protobuf:"bytes,14,opt,name=podReplacementPolicy,casttype=podReplacementPolicy"`
 
@@ -469,9 +469,6 @@ type JobSpec struct {
 	// by RFC 1123. All characters trailing the first "/" must be valid HTTP Path
 	// characters as defined by RFC 3986. The value cannot exceed 63 characters.
 	// This field is immutable.
-	//
-	// This field is beta-level. The job controller accepts setting the field
-	// when the feature gate JobManagedBy is enabled (enabled by default).
 	// +optional
 	ManagedBy *string `json:"managedBy,omitempty" protobuf:"bytes,15,opt,name=managedBy"`
 }

@@ -270,7 +270,8 @@ func NewDeltaFIFOWithOptions(opts DeltaFIFOOptions) *DeltaFIFO {
 }
 
 var (
-	_ = Queue(&DeltaFIFO{}) // DeltaFIFO is a Queue
+	_ = Queue(&DeltaFIFO{})             // DeltaFIFO is a Queue
+	_ = TransformingStore(&DeltaFIFO{}) // DeltaFIFO implements TransformingStore to allow memory optimizations
 )
 
 var (
@@ -301,6 +302,11 @@ func (f *DeltaFIFO) KeyOf(obj interface{}) (string, error) {
 		return d.Key, nil
 	}
 	return f.keyFunc(obj)
+}
+
+// Transformer implements the TransformingStore interface.
+func (f *DeltaFIFO) Transformer() TransformFunc {
+	return f.transformer
 }
 
 // HasSynced returns true if an Add/Update/Delete/AddIfNotPresent are called first,
@@ -549,7 +555,7 @@ func (f *DeltaFIFO) Pop(process PopProcessFunc) (interface{}, error) {
 func (f *DeltaFIFO) Replace(list []interface{}, _ string) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	keys := make(sets.String, len(list))
+	keys := make(sets.Set[string], len(list))
 
 	// keep backwards compat for old clients
 	action := Sync

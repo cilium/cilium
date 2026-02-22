@@ -28,12 +28,27 @@ import (
 
 // Result contains the result of a Reconciler invocation.
 type Result struct {
-	// Requeue tells the Controller to requeue the reconcile key.  Defaults to false.
+	// Requeue tells the Controller to perform a ratelimited requeue
+	// using the workqueues ratelimiter. Defaults to false.
+	//
+	// This setting is deprecated as it causes confusion and there is
+	// no good reason to use it. When waiting for an external event to
+	// happen, either the duration until it is supposed to happen or an
+	// appropriate poll interval should be used, rather than an
+	// interval emitted by a ratelimiter whose purpose it is to control
+	// retry on error.
+	//
+	// Deprecated: Use `RequeueAfter` instead.
 	Requeue bool
 
 	// RequeueAfter if greater than 0, tells the Controller to requeue the reconcile key after the Duration.
 	// Implies that Requeue is true, there is no need to set Requeue to true at the same time as RequeueAfter.
 	RequeueAfter time.Duration
+
+	// Priority is the priority that will be used if the item gets re-enqueued (also if an error is returned).
+	// If Priority is not set the original Priority of the request is preserved.
+	// Note: Priority is only respected if the controller is using a priorityqueue.PriorityQueue.
+	Priority *int
 }
 
 // IsZero returns true if this result is empty.
@@ -164,7 +179,7 @@ type terminalError struct {
 	err error
 }
 
-// This function will return nil if te.err is nil.
+// Unwrap returns nil if te.err is nil.
 func (te *terminalError) Unwrap() error {
 	return te.err
 }

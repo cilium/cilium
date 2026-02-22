@@ -54,6 +54,10 @@ func (f *clientWithFieldManager) Patch(ctx context.Context, obj Object, patch Pa
 	return f.c.Patch(ctx, obj, patch, append([]PatchOption{FieldOwner(f.owner)}, opts...)...)
 }
 
+func (f *clientWithFieldManager) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	return f.c.Apply(ctx, obj, append([]ApplyOption{FieldOwner(f.owner)}, opts...)...)
+}
+
 func (f *clientWithFieldManager) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
 	return f.c.Delete(ctx, obj, opts...)
 }
@@ -103,4 +107,8 @@ func (f *subresourceClientWithFieldOwner) Update(ctx context.Context, obj Object
 
 func (f *subresourceClientWithFieldOwner) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	return f.subresourceWriter.Patch(ctx, obj, patch, append([]SubResourcePatchOption{FieldOwner(f.owner)}, opts...)...)
+}
+
+func (f *subresourceClientWithFieldOwner) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error {
+	return f.subresourceWriter.Apply(ctx, obj, append([]SubResourceApplyOption{FieldOwner(f.owner)}, opts...)...)
 }

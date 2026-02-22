@@ -31,6 +31,7 @@ type multiMutating []Handler
 
 func (hs multiMutating) Handle(ctx context.Context, req Request) Response {
 	patches := []jsonpatch.JsonPatchOperation{}
+	warnings := []string{}
 	for _, handler := range hs {
 		resp := handler.Handle(ctx, req)
 		if !resp.Allowed {
@@ -42,6 +43,7 @@ func (hs multiMutating) Handle(ctx context.Context, req Request) Response {
 					resp.PatchType, admissionv1.PatchTypeJSONPatch))
 		}
 		patches = append(patches, resp.Patches...)
+		warnings = append(warnings, resp.Warnings...)
 	}
 	var err error
 	marshaledPatch, err := json.Marshal(patches)
@@ -55,6 +57,7 @@ func (hs multiMutating) Handle(ctx context.Context, req Request) Response {
 				Code: http.StatusOK,
 			},
 			Patch:     marshaledPatch,
+			Warnings:  warnings,
 			PatchType: func() *admissionv1.PatchType { pt := admissionv1.PatchTypeJSONPatch; return &pt }(),
 		},
 	}
@@ -71,11 +74,13 @@ func MultiMutatingHandler(handlers ...Handler) Handler {
 type multiValidating []Handler
 
 func (hs multiValidating) Handle(ctx context.Context, req Request) Response {
+	warnings := []string{}
 	for _, handler := range hs {
 		resp := handler.Handle(ctx, req)
 		if !resp.Allowed {
 			return resp
 		}
+		warnings = append(warnings, resp.Warnings...)
 	}
 	return Response{
 		AdmissionResponse: admissionv1.AdmissionResponse{
@@ -83,6 +88,7 @@ func (hs multiValidating) Handle(ctx context.Context, req Request) Response {
 			Result: &metav1.Status{
 				Code: http.StatusOK,
 			},
+			Warnings: warnings,
 		},
 	}
 }
