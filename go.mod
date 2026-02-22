@@ -119,22 +119,22 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.0
-	k8s.io/apiextensions-apiserver v0.32.0
-	k8s.io/apimachinery v0.32.0
-	k8s.io/cli-runtime v0.32.0
-	k8s.io/client-go v0.32.0
-	k8s.io/code-generator v0.32.0
-	k8s.io/component-base v0.32.0
-	k8s.io/endpointslice v0.32.0
+	k8s.io/api v0.35.1
+	k8s.io/apiextensions-apiserver v0.35.1
+	k8s.io/apimachinery v0.35.1
+	k8s.io/cli-runtime v0.35.1
+	k8s.io/client-go v0.35.1
+	k8s.io/code-generator v0.35.1
+	k8s.io/component-base v0.35.1
+	k8s.io/endpointslice v0.35.1
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.32.0
+	k8s.io/kubectl v0.35.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	sigs.k8s.io/controller-runtime v0.20.1
+	sigs.k8s.io/controller-runtime v0.23.1
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/gateway-api v1.2.1
-	sigs.k8s.io/mcs-api v0.1.1-0.20250116162235-62ede9a032dc
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/mcs-api v0.3.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
