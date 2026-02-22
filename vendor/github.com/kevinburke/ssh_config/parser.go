@@ -150,9 +150,14 @@ func (p *sshParser) parseKV() sshParserStateFn {
 	}
 	shortval := strings.TrimRightFunc(val.val, unicode.IsSpace)
 	spaceAfterValue := val.val[len(shortval):]
+	unquoted := shortval
+	if len(shortval) >= 2 && shortval[0] == '"' && shortval[len(shortval)-1] == '"' {
+		unquoted = shortval[1 : len(shortval)-1]
+	}
 	kv := &KV{
 		Key:             key.val,
-		Value:           shortval,
+		Value:           unquoted,
+		rawValue:        shortval,
 		spaceAfterValue: spaceAfterValue,
 		Comment:         comment,
 		hasEquals:       hasEquals,

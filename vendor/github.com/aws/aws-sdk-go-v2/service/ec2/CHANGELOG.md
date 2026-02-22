@@ -1,3 +1,11 @@
+# v1.290.0 (2026-02-17)
+
+* **Feature**: Add Operator field to CreatePlacementGroup and DescribePlacementGroup APIs.
+
+# v1.289.1 (2026-02-16)
+
+* **Documentation**: Documentation updates for EC2 Secondary Networks
+
 # v1.289.0 (2026-02-13)
 
 * **Feature**: This release adds geography information to EC2 region and availability zone APIs. DescribeRegions now includes a Geography field, while DescribeAvailabilityZones includes both Geography and SubGeography fields, enabling better geographic classification for AWS regions and zones.

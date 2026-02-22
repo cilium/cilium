@@ -58,6 +58,52 @@ func (m *Composite) validate(all bool) error {
 
 	var errors []error
 
+	{
+		sorted_keys := make([]string, len(m.GetNamedFilterChains()))
+		i := 0
+		for key := range m.GetNamedFilterChains() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetNamedFilterChains()[key]
+			_ = val
+
+			// no validation rules for NamedFilterChains[key]
+
+			if all {
+				switch v := interface{}(val).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, CompositeValidationError{
+							field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, CompositeValidationError{
+							field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(val).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return CompositeValidationError{
+						field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+
+		}
+	}
+
 	if len(errors) > 0 {
 		return CompositeMultiError(errors)
 	}
@@ -71,7 +117,7 @@ type CompositeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompositeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -205,7 +251,7 @@ type FilterChainConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterChainConfigurationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -347,7 +393,7 @@ type DynamicConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -520,6 +566,8 @@ func (m *ExecuteFilterAction) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for FilterChainName
+
 	if all {
 		switch v := interface{}(m.GetSamplePercent()).(type) {
 		case interface{ ValidateAll() error }:
@@ -563,7 +611,7 @@ type ExecuteFilterActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExecuteFilterActionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

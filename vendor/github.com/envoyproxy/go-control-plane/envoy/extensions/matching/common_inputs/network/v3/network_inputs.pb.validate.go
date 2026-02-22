@@ -72,7 +72,7 @@ type DestinationIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DestinationIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -174,7 +174,7 @@ type DestinationPortInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DestinationPortInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -276,7 +276,7 @@ type SourceIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourceIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -376,7 +376,7 @@ type SourcePortInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourcePortInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -476,7 +476,7 @@ type DirectSourceIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DirectSourceIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -578,7 +578,7 @@ type SourceTypeInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourceTypeInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -678,7 +678,7 @@ type ServerNameInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ServerNameInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -778,7 +778,7 @@ type TransportProtocolInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TransportProtocolInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -880,7 +880,7 @@ type ApplicationProtocolInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ApplicationProtocolInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -993,7 +993,7 @@ type FilterStateInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterStateInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1149,7 +1149,7 @@ type DynamicMetadataInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicMetadataInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1251,7 +1251,7 @@ type NetworkNamespaceInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m NetworkNamespaceInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1395,7 +1395,7 @@ type DynamicMetadataInput_PathSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicMetadataInput_PathSegmentMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -49,6 +49,28 @@ func (m *Composite) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.NamedFilterChains) > 0 {
+		for k := range m.NamedFilterChains {
+			v := m.NamedFilterChains[k]
+			baseI := i
+			size, err := v.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
 	return len(dAtA) - i, nil
 }
 
@@ -201,6 +223,13 @@ func (m *ExecuteFilterAction) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.FilterChainName) > 0 {
+		i -= len(m.FilterChainName)
+		copy(dAtA[i:], m.FilterChainName)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.FilterChainName)))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if m.FilterChain != nil {
 		size, err := m.FilterChain.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -274,6 +303,19 @@ func (m *Composite) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
+	if len(m.NamedFilterChains) > 0 {
+		for k, v := range m.NamedFilterChains {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.SizeVT()
+			}
+			l += 1 + protohelpers.SizeOfVarint(uint64(l))
+			mapEntrySize := 1 + len(k) + protohelpers.SizeOfVarint(uint64(len(k))) + l
+			n += mapEntrySize + 1 + protohelpers.SizeOfVarint(uint64(mapEntrySize))
+		}
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -356,6 +398,10 @@ func (m *ExecuteFilterAction) SizeVT() (n int) {
 	}
 	if m.FilterChain != nil {
 		l = m.FilterChain.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.FilterChainName)
+	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

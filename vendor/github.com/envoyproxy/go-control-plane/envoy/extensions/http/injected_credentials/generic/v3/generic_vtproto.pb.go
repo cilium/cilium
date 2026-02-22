@@ -49,6 +49,13 @@ func (m *Generic) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.HeaderValuePrefix) > 0 {
+		i -= len(m.HeaderValuePrefix)
+		copy(dAtA[i:], m.HeaderValuePrefix)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.HeaderValuePrefix)))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if len(m.Header) > 0 {
 		i -= len(m.Header)
 		copy(dAtA[i:], m.Header)
@@ -98,6 +105,10 @@ func (m *Generic) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	l = len(m.Header)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.HeaderValuePrefix)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}

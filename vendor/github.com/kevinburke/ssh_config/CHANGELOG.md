@@ -1,6 +1,23 @@
 # Changes
 
-## Unreleased
+## Version 1.6 (released February 16, 2026)
+
+- Support `~` as the user's home directory in `Include` directives, matching
+the behavior described in ssh_config(5). Thanks to Neil Williams for the report
+(#31).
+
+- Strip surrounding double quotes from parsed values. OpenSSH allows values
+like `IdentityFile "/path/to/file"`, but Get/GetAll previously returned the
+quotes as literal characters. Quotes are now stripped from the returned value
+while preserving the original text for faithful roundtripping via String() and
+MarshalText(). Thanks to Furkan Türkal for the report (#61).
+
+- Default to a space before `#` in end-of-line comments. When a Host or KV is
+created programmatically with an EOLComment, the output previously had no space
+before the `#` (e.g. `Host foo#comment`). A single space is now inserted by
+default. Thanks to Yonghui Cheng for the report (#50).
+
+## Version 1.5 (released February 14, 2026)
 
 - Implement Match support. Most of the Match spec is implemented, including
 `Match host`, `Match originalhost`, `Match user`, `Match localuser`, and `Match

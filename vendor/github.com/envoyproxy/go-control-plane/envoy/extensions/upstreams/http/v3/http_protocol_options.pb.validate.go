@@ -208,6 +208,103 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetRequestMirrorPolicies() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpProtocolOptionsValidationError{
+					field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetHashPolicy() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("HashPolicy[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("HashPolicy[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpProtocolOptionsValidationError{
+					field:  fmt.Sprintf("HashPolicy[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if all {
+		switch v := interface{}(m.GetRetryPolicy()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "RetryPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "RetryPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRetryPolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpProtocolOptionsValidationError{
+				field:  "RetryPolicy",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	oneofUpstreamProtocolOptionsPresent := false
 	switch v := m.UpstreamProtocolOptions.(type) {
 	case *HttpProtocolOptions_ExplicitHttpConfig_:
@@ -364,7 +461,7 @@ type HttpProtocolOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpProtocolOptionsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -611,7 +708,7 @@ type HttpProtocolOptions_ExplicitHttpConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpProtocolOptions_ExplicitHttpConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -804,7 +901,7 @@ type HttpProtocolOptions_UseDownstreamHttpConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpProtocolOptions_UseDownstreamHttpConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1025,7 +1122,7 @@ type HttpProtocolOptions_AutoHttpConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpProtocolOptions_AutoHttpConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1170,7 +1267,7 @@ type HttpProtocolOptions_OutlierDetectionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpProtocolOptions_OutlierDetectionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

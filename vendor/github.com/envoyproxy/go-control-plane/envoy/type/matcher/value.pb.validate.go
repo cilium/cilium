@@ -281,7 +281,7 @@ type ValueMatcherMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ValueMatcherMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -438,7 +438,7 @@ type ListMatcherMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ListMatcherMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -538,7 +538,7 @@ type ValueMatcher_NullMatchMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ValueMatcher_NullMatchMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

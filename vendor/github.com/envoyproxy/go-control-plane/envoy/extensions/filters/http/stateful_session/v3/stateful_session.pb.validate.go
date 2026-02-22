@@ -105,7 +105,7 @@ type StatefulSessionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StatefulSessionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -287,7 +287,7 @@ type StatefulSessionPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StatefulSessionPerRouteMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
