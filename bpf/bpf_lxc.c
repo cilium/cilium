@@ -960,8 +960,18 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						   auth_type, cookie);
 		}
 
-		if (verdict != CTX_ACT_OK)
+		if (verdict != CTX_ACT_OK) {
+			/* If policy_deny_response_enabled is set and the packet has been denied,
+			 * respond with an ICMPv6 "Destination Unreachable"
+			 */
+			if (CONFIG(policy_deny_response_enabled) &&
+			    (verdict == DROP_POLICY || verdict == DROP_POLICY_DENY)) {
+				ctx_store_meta(ctx, CB_VERDICT, verdict);
+				return tail_call_internal(ctx, CILIUM_CALL_IPV6_POLICY_DENIED,
+							ext_err);
+			}
 			return verdict;
+		}
 
 		break;
 	case CT_RELATED:
@@ -2664,5 +2674,43 @@ int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, SECLABEL_IPV4, ret, METRIC_EGRESS);
 }
 #endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+__declare_tail(CILIUM_CALL_IPV6_POLICY_DENIED)
+int tail_policy_denied_ipv6(struct __ctx_buff *ctx)
+{
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_ICMPV6,
+	};
+	/* Rate limit to 100 ICMPv6 replies per second, burstable to 1000 responses/s */
+	struct ratelimit_settings settings = {
+		.bucket_size = 1000,
+		.tokens_per_topup = 100,
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
+	__u32 verdict = ctx_load_meta(ctx, CB_VERDICT);
+	int ret;
+
+	rkey.key.icmpv6.netdev_idx = ctx_get_ifindex(ctx);
+	if (!ratelimit_check_and_take(&rkey, &settings)) {
+		ret = DROP_RATE_LIMITED;
+		goto drop_err;
+	}
+
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_ADM_PROHIBITED);
+	if (!ret) {
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, ctx_get_ifindex(ctx));
+		ret = redirect_self(ctx);
+
+		if (!IS_ERR(ret)) {
+			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, __DROP_REASON(verdict));
+			return ret;
+		}
+	}
+
+drop_err:
+	return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
+}
+#endif /* ENABLE_IPV6 */
 
 BPF_LICENSE("Dual BSD/GPL");

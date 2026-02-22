@@ -121,8 +121,8 @@ This behavior can be configured with the ``--policy-deny-response`` option:
   This provides immediate feedback to applications that the connection was rejected.
 
 .. note::
-   This is an experimental feature and only applies to ipv4 egress pod traffic denied by network policy.
-   Ingress traffic denial behavior and ipv6 are not supported currently. Check :gh-issue:`41859` for updates
+   This is an experimental feature and only applies to ipv4 and ipv6 egress pod traffic denied by network policy.
+   Ingress traffic denial behavior is not supported currently. Check :gh-issue:`41859` for updates
 
 .. warning::
    When using ``--policy-deny-response=icmp``, ensure that ICMP ingress traffic is allowed by your network policies. 

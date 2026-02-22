@@ -2246,7 +2246,7 @@ int tail_no_service_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = __tail_no_service_ipv6(ctx);
+	ret = generate_icmp6_reply(ctx, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH);
 	if (!ret) {
 		/* Redirect ICMP to the interface we received it on. */
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
