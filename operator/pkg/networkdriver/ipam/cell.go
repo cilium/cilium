@@ -11,11 +11,7 @@ import (
 // AutoCreateCiliumResourceIPPools contains pre-defined IP pools to be auto-created on startup.
 const AutoCreateCiliumResourceIPPools = "auto-create-cilium-resource-ip-pools"
 
-// Cell implements the operator side of Multi Pool Resource IPAM.
-var Cell = cell.Module(
-	"multi-pool-resource-ipam",
-	"Multi Pool DRA Resource IPAM",
-
+var Cell = cell.Group(
 	cell.Config(defaultConfig),
 
 	cell.ProvidePrivate(
