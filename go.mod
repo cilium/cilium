@@ -118,20 +118,20 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
-	k8s.io/api v0.35.0
-	k8s.io/apiextensions-apiserver v0.35.0
-	k8s.io/apimachinery v0.35.0
-	k8s.io/cli-runtime v0.35.0
-	k8s.io/client-go v0.35.0
-	k8s.io/component-base v0.35.0
-	k8s.io/endpointslice v0.35.0
+	k8s.io/api v0.35.1
+	k8s.io/apiextensions-apiserver v0.35.1
+	k8s.io/apimachinery v0.35.1
+	k8s.io/cli-runtime v0.35.1
+	k8s.io/client-go v0.35.1
+	k8s.io/component-base v0.35.1
+	k8s.io/endpointslice v0.35.1
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.35.0
-	k8s.io/utils v0.0.0-20260108192941-914a6e750570
+	k8s.io/kubectl v0.35.1
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	sigs.k8s.io/controller-runtime v0.23.1
 	sigs.k8s.io/gateway-api v1.4.0-rc.2
-	sigs.k8s.io/mcs-api v0.3.1-0.20251224112231-f4767b9e5a04
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20251224112231-f4767b9e5a04
+	sigs.k8s.io/mcs-api v0.3.1-0.20260211180202-33f6d88209e1
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20260211180202-33f6d88209e1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -277,8 +277,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.35.0 // indirect
-	k8s.io/code-generator v0.35.0 // indirect
+	k8s.io/apiserver v0.35.1 // indirect
+	k8s.io/code-generator v0.35.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	sigs.k8s.io/controller-tools v0.19.0 // indirect
