@@ -278,6 +278,22 @@
       ]
     },
     {
+      // Required so that Renovate creates a separate patch-only PR (staying
+      // within the current minor) even when a newer minor is also available.
+      // Without this, the global separateMinorPatch:false causes Renovate to
+      // produce a single "minor"-typed PR, which is then blocked by the
+      // "k8s major/minor updates disabled" rule and the patch PR never appears.
+      "matchDepNames": [
+        "/^k8s\\.io/",
+        "/^sigs\\.k8s\\.io/"
+      ],
+      "matchBaseBranches": [
+        "!main"
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true,
+    },
+    {
       // k8s.io dependencies: allow patch updates on stable branches
       "enabled": true,
       "groupName": "k8s.io patch updates stable",
