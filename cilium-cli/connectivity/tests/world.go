@@ -23,9 +23,21 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
+const FakeExternalTarget1 string = "fake.external.first.target"
+const FakeExternalTarget2 string = "fake.external.second.target"
+
+func curlFakeDNS(domain string, ip string) []string {
+	return []string{
+		"--resolve",
+		fmt.Sprintf("%s:80:%s", domain, ip),
+		"--resolve",
+		fmt.Sprintf("%s:443:%s", domain, ip),
+	}
+}
+
 // PodToWorld sends multiple HTTP(S) requests to ExternalTarget
 // from each client Pods.
-func PodToWorld(ipv6 bool, opts ...RetryOption) check.Scenario {
+func PodToWorld(ipv6 bool, fakeDNS bool, opts ...RetryOption) check.Scenario {
 	cond := &retryCondition{}
 	for _, op := range opts {
 		op(cond)
@@ -34,6 +46,7 @@ func PodToWorld(ipv6 bool, opts ...RetryOption) check.Scenario {
 		ScenarioBase: check.NewScenarioBase(),
 		rc:           cond,
 		ipv6:         ipv6,
+		fakeDNS:      fakeDNS,
 	}
 }
 
@@ -41,16 +54,34 @@ func PodToWorld(ipv6 bool, opts ...RetryOption) check.Scenario {
 type podToWorld struct {
 	check.ScenarioBase
 
-	rc   *retryCondition
-	ipv6 bool
+	rc      *retryCondition
+	ipv6    bool
+	fakeDNS bool
 }
 
 func (s *podToWorld) Name() string {
 	return "pod-to-world"
 }
 
+func (s *podToWorld) curlOptionalFakeDNS(domain string, ipFam features.IPFamily, params check.Parameters) []string {
+	if !s.fakeDNS {
+		return []string{}
+	}
+
+	var ipAddr string
+	if ipFam == features.IPFamilyV6 {
+		ipAddr = params.ExternalIPv6
+	} else {
+		ipAddr = params.ExternalIPv4
+	}
+	return curlFakeDNS(FakeExternalTarget1, ipAddr)
+}
+
 func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	extTarget := t.Context().Params().ExternalTarget
+	if s.fakeDNS {
+		extTarget = FakeExternalTarget1
+	}
 	http := check.HTTPEndpoint(extTarget+"-http", "http://"+extTarget)
 	https := check.HTTPEndpoint(extTarget+"-https", "https://"+extTarget)
 	httpsindex := check.HTTPEndpoint(extTarget+"-https-index", fmt.Sprintf("https://%s/index.html", extTarget))
@@ -73,6 +104,7 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 			// With http, over port 80.
 			httpOpts := s.rc.CurlOptions(http, ipFam, client, ct.Params())
+			httpOpts = append(httpOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("http-to-%s-%s-%d", extTarget, ipFam, i), &client, http, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, a.CurlCommand(http, httpOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
@@ -80,6 +112,7 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 			// With https, over port 443.
 			httpsOpts := s.rc.CurlOptions(https, ipFam, client, ct.Params())
+			httpsOpts = append(httpsOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("https-to-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, a.CurlCommand(https, httpsOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
@@ -87,6 +120,7 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 			// With https, over port 443, index.html.
 			httpsindexOpts := s.rc.CurlOptions(httpsindex, ipFam, client, ct.Params())
+			httpsindexOpts = append(httpsindexOpts, s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())...)
 			t.NewAction(s, fmt.Sprintf("https-to-%s-index-%s-%d", extTarget, ipFam, i), &client, httpsindex, ipFam).Run(func(a *check.Action) {
 				a.ExecInPod(ctx, a.CurlCommand(httpsindex, httpsindexOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
@@ -99,25 +133,44 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 
 // PodToWorld2 sends an HTTPS request to ExternalOtherTarget from random client
 // Pods.
-func PodToWorld2(ipv6 bool) check.Scenario {
+func PodToWorld2(ipv6 bool, fakeDNS bool) check.Scenario {
 	return &podToWorld2{
 		ScenarioBase: check.NewScenarioBase(),
 		ipv6:         ipv6,
+		fakeDNS:      fakeDNS,
 	}
 }
 
 // podToWorld2 implements a Scenario.
 type podToWorld2 struct {
 	check.ScenarioBase
-	ipv6 bool
+	ipv6    bool
+	fakeDNS bool
 }
 
 func (s *podToWorld2) Name() string {
 	return "pod-to-world-2"
 }
 
+func (s *podToWorld2) curlOptionalFakeDNS(domain string, ipFam features.IPFamily, params check.Parameters) []string {
+	if !s.fakeDNS {
+		return []string{}
+	}
+
+	var ipAddr string
+	if ipFam == features.IPFamilyV6 {
+		ipAddr = params.ExternalIPv6
+	} else {
+		ipAddr = params.ExternalIPv4
+	}
+	return curlFakeDNS(FakeExternalTarget2, ipAddr)
+}
+
 func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 	extTarget := t.Context().Params().ExternalOtherTarget
+	if s.fakeDNS {
+		extTarget = FakeExternalTarget2
+	}
 	https := check.HTTPEndpoint(extTarget+"-https", "https://"+extTarget)
 
 	fp := check.FlowParameters{
@@ -137,8 +190,9 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 			}
 
 			// With https, over port 443.
+			httpsOpts := s.curlOptionalFakeDNS(extTarget, ipFam, t.Context().Params())
 			t.NewAction(s, fmt.Sprintf("https-%s-%s-%d", extTarget, ipFam, i), &client, https, ipFam).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, a.CurlCommand(https))
+				a.ExecInPod(ctx, a.CurlCommand(https, httpsOpts...))
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 				a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
 			})
