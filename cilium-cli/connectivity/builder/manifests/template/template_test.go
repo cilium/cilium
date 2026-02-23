@@ -46,28 +46,38 @@ func TestRender(t *testing.T) {
 			},
 		},
 		{
-			name: "wildcard prefix",
+			name: "generate dns match pattern",
 			args: args{
 				data: struct {
-					ExternalTarget string
+					ExternalTarget      string
+					ExternalTargetOther string
 				}{
-					ExternalTarget: "one.one.one.one.",
+					ExternalTarget:      "one.one.one.one.",
+					ExternalTargetOther: "k8s.io.",
 				},
 			},
+			want: "out-default.yaml",
 		},
 		{
-			name: "random replace dns label",
+			name: "generate dns match pattern",
 			args: args{
 				data: struct {
-					ExternalTarget string
+					ExternalTarget      string
+					ExternalTargetOther string
 				}{
-					ExternalTarget: "foo-bar.example.test.cilium.io.",
+					ExternalTarget:      "test.foo-bar.example.default.svc.cluster.local.",
+					ExternalTargetOther: "test.bar-baz.example.external.svc.cluster.local",
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		testOutFile := "out.yaml"
+		if len(tt.want) > 0 {
+			testOutFile = tt.want
+		}
+
+		t.Run(fmt.Sprintf("%s_%s", tt.name, testOutFile), func(t *testing.T) {
 			testDir := fmt.Sprintf("testdata/%s", strings.ReplaceAll(tt.name, " ", "_"))
 			tmpl, err := os.ReadFile(fmt.Sprintf("%s/in.yaml", testDir))
 			require.NoError(t, err)
@@ -75,9 +85,77 @@ func TestRender(t *testing.T) {
 			got, err := Render(string(tmpl), tt.args.data)
 			require.NoError(t, err)
 
-			expected, err := os.ReadFile(fmt.Sprintf("%s/out.yaml", testDir))
+			expected, err := os.ReadFile(fmt.Sprintf("%s/%s", testDir, testOutFile))
 			require.NoError(t, err)
 			require.YAMLEq(t, string(expected), got)
+		})
+	}
+}
+
+func TestSplitCommonSuffix(t *testing.T) {
+	tests := []struct {
+		name       string
+		first      string
+		second     string
+		wantPrefix []string
+		wantSuffix []string
+	}{
+		{
+			name:       "Partial common suffix",
+			first:      "a.b.c.d.",
+			second:     "x.y.c.d",
+			wantPrefix: []string{"a", "b"},
+			wantSuffix: []string{"c", "d"},
+		},
+		{
+			name:       "No common suffix",
+			first:      "a.b",
+			second:     "c.d.",
+			wantPrefix: []string{"a", "b"},
+			wantSuffix: []string{},
+		},
+		{
+			name:       "Full match (first is suffix of second)",
+			first:      "c.d",
+			second:     "a.b.c.d.",
+			wantPrefix: []string{},
+			wantSuffix: []string{"c", "d"},
+		},
+		{
+			name:       "Identical slices",
+			first:      "a.b.",
+			second:     "a.b",
+			wantPrefix: []string{},
+			wantSuffix: []string{"a", "b"},
+		},
+		{
+			name:       "One slice is empty",
+			first:      "a.b",
+			second:     "",
+			wantPrefix: []string{"a", "b"},
+			wantSuffix: []string{},
+		},
+		{
+			name:       "Both slices are empty",
+			first:      "",
+			second:     "",
+			wantPrefix: []string{},
+			wantSuffix: []string{},
+		},
+		{
+			name:       "Common elements but not at the end",
+			first:      "a.common.b",
+			second:     "x.common.y",
+			wantPrefix: []string{"a", "common", "b"},
+			wantSuffix: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPrefix, gotSuffix := SplitCommonSuffix(tt.first, tt.second, ".")
+			require.Equal(t, tt.wantPrefix, gotPrefix)
+			require.Equal(t, tt.wantSuffix, gotSuffix)
 		})
 	}
 }
