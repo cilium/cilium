@@ -121,6 +121,7 @@ cilium-operator [flags]
       --kvstore-opt stringToString                                 Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
       --leader-election-lease-duration duration                    Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
       --leader-election-renew-deadline duration                    Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
+      --leader-election-resource-lock-timeout duration             Timeout for the HTTP requests to acquire/renew the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2)
       --leader-election-retry-period duration                      Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --limit-ipam-api-burst int                                   Upper burst limit when accessing external APIs (default 20)
       --limit-ipam-api-qps float                                   Queries per second limit when accessing external IPAM APIs (default 4)

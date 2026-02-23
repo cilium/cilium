@@ -148,6 +148,10 @@ const (
 	// tries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod = "leader-election-retry-period"
 
+	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
+	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
+	LeaderElectionResourceLockTimeout = "leader-election-resource-lock-timeout"
+
 	// AlibabaCloud options
 
 	// AlibabaCloudVPCID allows user to specific vpc
@@ -225,6 +229,10 @@ type OperatorConfig struct {
 	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
+
+	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
+	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
+	LeaderElectionResourceLockTimeout time.Duration
 
 	// IPAM options
 
@@ -311,6 +319,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
+	c.LeaderElectionResourceLockTimeout = vp.GetDuration(LeaderElectionResourceLockTimeout)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {

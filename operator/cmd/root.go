@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/shell"
@@ -19,6 +20,8 @@ import (
 	"google.golang.org/grpc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
@@ -537,16 +540,28 @@ func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clie
 		ns = metav1.NamespaceDefault
 	}
 
-	leResourceLock, err := resourcelock.NewFromKubeconfig(
+	// Create the resource lock for leader election with a configurable HTTP timeout.
+	// By default, the timeout is max(1s, RenewDeadline/2), matching the upstream
+	// NewFromKubeconfig behavior. Users with high-latency control planes can
+	// override this with --leader-election-resource-lock-timeout.
+	rlConfig := *clientset.RestConfig()
+	rlTimeout := operatorOption.Config.LeaderElectionResourceLockTimeout
+	if rlTimeout == 0 {
+		rlTimeout = max(time.Second, operatorOption.Config.LeaderElectionRenewDeadline/2)
+	}
+	rlConfig.Timeout = rlTimeout
+	leaderElectionClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(&rlConfig, "leader-election"))
+	leResourceLock, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
 		ns,
 		leaderElectionResourceLockName,
+		leaderElectionClient.CoreV1(),
+		leaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			// Identity name of the lock holder
 			Identity: operatorID,
 		},
-		clientset.RestConfig(),
-		operatorOption.Config.LeaderElectionRenewDeadline)
+	)
 	if err != nil {
 		logging.Fatal(log, "Failed to create resource lock for leader election", logfields.Error, err)
 	}
