@@ -2624,6 +2624,13 @@ func (e *Endpoint) setDown() error {
 	if err != nil {
 		return fmt.Errorf("setting interface %s down: %w", e.HostInterface(), err)
 	}
+	if link.Attrs().Index != e.GetIfIndex() {
+		// Interface with an index different from the one we were expecting.
+		// This can occur if the endpoint was deleted and recreated while the
+		// old endpoint's setDown() was executing. In this case, we should not
+		// set the new interface down.
+		return nil
+	}
 
 	return netlink.LinkSetDown(link)
 }
