@@ -5,8 +5,8 @@ package builder
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -38,8 +38,12 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
+	differentExternalTargets := func() bool {
+		return ct.Params().ExternalTarget != ct.Params().ExternalOtherTarget
+	}
 	yamlFile = templates["clientEgressTLSSNIOtherPolicyYAML"]
 	newTest(fmt.Sprintf("%s-denied", testName), ct).
+		WithCondition(differentExternalTargets).
 		WithCiliumVersion("!1.15.9 !1.15.10 !1.16.2 !1.16.3").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -54,8 +58,17 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
+	// targetOpLabels are the DNS target labels where wildcard replacement will be done.
+	targetOpLabels, _ := template.SplitCommonSuffix(ct.Params().ExternalTarget, ct.Params().ExternalOtherTarget, ".")
+	// If the template performed wildcard replacement on labels filtered above,
+	// external other target will be implicitly disallowed.
+	wildcardPatternOperableTarget := func() bool {
+		return len(targetOpLabels) > 1
+	}
+
 	yamlFile = templates["clientEgressTLSSNIWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-wildcard", testName), ct).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -72,6 +85,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 
 	yamlFile = templates["clientEgressTLSSNIWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-wildcard-denied", testName), ct).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -88,6 +102,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 
 	yamlFile = templates["clientEgressTLSSNIRandomWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-random-wildcard", testName), ct).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.20.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -104,6 +119,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 
 	yamlFile = templates["clientEgressTLSSNIRandomWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-random-wildcard-denied", testName), ct).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.20.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -118,15 +134,9 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
-	doubleWildcardCondition := func() bool {
-		// Only the double wildcard related tests if the external is long enough
-		// e.g. google.com. or k8s.io. will be skipped
-		return len(strings.Split(ct.Params().ExternalTarget, ".")) > 3
-	}
-
 	yamlFile = templates["clientEgressTLSSNIDoubleWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-double-wildcard", testName), ct).
-		WithCondition(doubleWildcardCondition).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
@@ -143,7 +153,7 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 
 	yamlFile = templates["clientEgressTLSSNIDoubleWildcardPolicyYAML"]
 	newTest(fmt.Sprintf("%s-double-wildcard-denied", testName), ct).
-		WithCondition(doubleWildcardCondition).
+		WithCondition(wildcardPatternOperableTarget).
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).

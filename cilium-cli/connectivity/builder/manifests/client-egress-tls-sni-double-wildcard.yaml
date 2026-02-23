@@ -13,4 +13,4 @@ specs:
       - port: "443"
         protocol: "TCP"
       serverNames:
-      - "{{wildcardPrefix (trimSuffix .ExternalTarget ".") 2}}"
+      - "{{ trimSuffix (generateDNSMatchPatternWithWildcard .ExternalTarget .ExternalOtherTarget "any-prefix") "." }}"

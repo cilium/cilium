@@ -27,37 +27,7 @@ func Render(temp string, data any) (string, error) {
 				return ipString + "/32" // otherwise assume IPv4
 			}
 		},
-		"wildcardPrefix": func(in string, times int) string {
-			labels := strings.Split(in, ".")
-			if times <= 0 || times > len(labels) {
-				return in
-			}
-
-			if times == 1 {
-				labels[0] = "*"
-				return strings.Join(labels[0:], ".")
-			}
-			return "**." + strings.Join(labels[times:], ".")
-		},
-		"randomReplaceDnsLabel": func(in string, replacement string) string {
-			labels := strings.Split(in, ".")
-			if len(labels) == 0 {
-				return in
-			}
-
-			labelIdx := randGen.IntN(len(labels))
-			label := labels[labelIdx]
-			labelLen := len(label)
-			if labelLen <= 0 {
-				return in
-			}
-
-			replaceStart := randGen.IntN(labelLen) // 3
-			replaceEnd := replaceStart + randGen.IntN(labelLen-replaceStart)
-			labels[labelIdx] = label[:replaceStart] + replacement + label[replaceEnd:]
-
-			return strings.Join(labels, ".") + "."
-		},
+		"generateDNSMatchPatternWithWildcard": GenerateDNSMatchPatternWithWildcard,
 	}
 
 	tm, err := template.New("template").Funcs(fns).Parse(temp)
@@ -71,4 +41,71 @@ func Render(temp string, data any) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+type wildcardSpecifierType string
+
+const (
+	wildcardSpecifierTypeAnyPrefix       wildcardSpecifierType = "any-prefix"
+	wildcardSpecifierTypeRandomAnyPrefix wildcardSpecifierType = "random-any-prefix"
+	wildcardSpecifierTypeSubdomainPrefix wildcardSpecifierType = "subdomain-prefix"
+	wildcardSpecifierTypeRandom          wildcardSpecifierType = "random"
+)
+
+func GenerateDNSMatchPatternWithWildcard(in, inExclusive string, typ wildcardSpecifierType) string {
+	opLabels, commonLabels := SplitCommonSuffix(in, inExclusive, ".")
+	// Labels to operate wildcard on must be greater than 1.
+	if len(opLabels) <= 1 {
+		return in
+	}
+
+	// Label indicating the first diff.
+	diffLabel := opLabels[len(opLabels)-1]
+	opLabels = opLabels[:len(opLabels)-1]
+
+	switch typ {
+	case wildcardSpecifierTypeAnyPrefix:
+		opLabels = []string{"**"}
+
+	case wildcardSpecifierTypeRandomAnyPrefix:
+		replaceIdx := randGen.IntN(len(opLabels))
+		opLabels = append([]string{"**"}, opLabels[replaceIdx+1:]...)
+
+	case wildcardSpecifierTypeSubdomainPrefix:
+		opLabels[0] = "*"
+
+	case wildcardSpecifierTypeRandom:
+		labelIdx := randGen.IntN(len(opLabels))
+		label := opLabels[labelIdx]
+
+		replaceStart := randGen.IntN(len(label))
+		replaceEnd := replaceStart + randGen.IntN(len(label)-replaceStart) + 1
+		opLabels[labelIdx] = label[:replaceStart] + "*" + label[replaceEnd:]
+
+	default:
+		return in
+	}
+
+	transformedLabels := append(opLabels, diffLabel)
+	return strings.Join(append(transformedLabels, commonLabels...), ".") + "."
+}
+
+func SplitCommonSuffix(first string, second string, delimiter string) ([]string, []string) {
+	first = strings.TrimSuffix(first, delimiter)
+	second = strings.TrimSuffix(second, delimiter)
+
+	if len(first) == 0 {
+		return []string{}, []string{}
+	}
+
+	labelsFirst := strings.Split(first, delimiter)
+	labelsSecond := strings.Split(second, delimiter)
+
+	i := len(labelsFirst) - 1
+	j := len(labelsSecond) - 1
+	for i >= 0 && j >= 0 && labelsFirst[i] == labelsSecond[j] {
+		i--
+		j--
+	}
+	return labelsFirst[:i+1], labelsFirst[i+1:]
 }
