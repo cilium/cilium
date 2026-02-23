@@ -1,0 +1,90 @@
+hive start
+
+# Add kind-control-plane and kind-worker nodes
+
+k8s/add kind-control-plane-node.yaml
+k8s/add kind-worker-node.yaml
+
+# Add a cluster configuration matching kind-worker node
+
+k8s/add driver-cluster-config.yaml
+
+# Verify that node config has been applied to kind-worker node in db
+
+* db/cmp netdriver-node-config node-config.table
+
+# Verify that node config has been applied to kind-worker node in k8s
+
+* k8s/list cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs '' -o all-configs-actual.yaml
+cmp all-configs-expected.yaml all-configs-actual.yaml
+
+hive stop
+
+# ----
+
+-- kind-control-plane-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-control-plane
+  name: kind-control-plane
+spec:
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+        kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node                ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-worker         driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"publishInterval":10,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}  Done    
+-- all-configs-expected.yaml --
+items:
+- apiVersion: cilium.io/v2alpha1
+  kind: CiliumNetworkDriverNodeConfig
+  metadata:
+    name: kind-worker
+    resourceVersion: "4"
+  spec:
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    driverName: dummy.cilium.k8s.io
+    pools:
+    - filter:
+        deviceManagers:
+        - dummy
+      name: dummy-pool
+    publishInterval: 10
+metadata:
+  resourceVersion: "4"

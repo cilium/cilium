@@ -1,0 +1,118 @@
+hive start
+
+# Add kind-control-plane and kind-worker nodes
+
+k8s/add kind-control-plane-node.yaml
+k8s/add kind-worker-node.yaml
+
+# Add a cluster configuration matching all nodes
+
+k8s/add driver-cluster-config.yaml
+
+# Verify that node config has been applied to both nodes in db
+
+* db/cmp netdriver-node-config node-config.table
+
+# Verify that node config has been applied to both nodes in k8s
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-control-plane -o kind-control-plane-config-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' kind-control-plane-config-actual.yaml
+* cmp kind-control-plane-config-expected.yaml kind-control-plane-config-actual.yaml
+
+# Delete the cluster config
+
+k8s/delete driver-cluster-config.yaml
+
+# Verify that node config has been removed for both nodes in db
+
+* db/empty netdriver-node-config
+
+hive stop
+
+# ----
+
+-- kind-control-plane-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-control-plane
+  name: kind-control-plane
+spec:
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- node-config.table --
+Node                ClusterConfig          Config                                                                                                                                                                                                                                           Status  Error
+kind-control-plane  driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"publishInterval":10,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}  Done    
+kind-worker         driver-cluster-config  {"draRegistrationRetryInterval":1,"draRegistrationTimeout":600,"publishInterval":10,"driverName":"dummy.cilium.k8s.io","pools":[{"name":"dummy-pool","filter":{"deviceManagers":["dummy"]}}],"deviceManagerConfigs":{"dummy":{"enabled":true}}}  Done    
+-- kind-worker-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+  resourceVersion: "<nr>"
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+  publishInterval: 10
+-- kind-control-plane-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-control-plane
+  resourceVersion: "<nr>"
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+  publishInterval: 10

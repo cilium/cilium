@@ -1,0 +1,98 @@
+hive start
+
+# Add kind-control-plane and kind-worker nodes
+
+k8s/add kind-control-plane-node.yaml
+k8s/add kind-worker-node.yaml
+
+# Add a cluster configuration matching kind-worker
+
+k8s/add driver-cluster-config.yaml
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+# Update kind-worker labels so that the cluster config does not match anymore
+
+k8s/add kind-worker-node-2.yaml
+
+# kind-worker config should be removed
+
+* db/empty netdriver-node-config
+
+hive stop
+
+# ----
+
+-- kind-control-plane-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-control-plane
+  name: kind-control-plane
+spec:
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+    config: match-me
+  name: kind-worker
+spec:
+
+-- driver-cluster-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+spec:
+  nodeSelector:
+    matchLabels:
+        config: match-me
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- kind-worker-node-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- kind-worker-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+  resourceVersion: "4"
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+  publishInterval: 10
+-- cluster-config.table --
+Name                     NodeConfig                                                                                                                                                                                                                                        NodeSelector                        Conditions                                       Age

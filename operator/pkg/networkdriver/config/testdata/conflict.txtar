@@ -1,0 +1,329 @@
+hive start
+
+# Add kind-control-plane and kind-worker nodes
+
+k8s/add kind-control-plane-node.yaml
+k8s/add kind-worker-node.yaml
+
+# Add a cluster configuration matching kind-worker
+
+k8s/add driver-cluster-config-1.yaml
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+# Add another cluster configuration conflicting with the previous one on kind-worker
+
+k8s/add driver-cluster-config-2.yaml
+
+# driver-cluster-config-2 should be marked as conflicting
+
+db/cmp netdriver-cluster-config cluster-config.table
+
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs driver-cluster-config-2 -o cluster-config-2-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' cluster-config-2-actual.yaml
+cmp cluster-config-2-expected-1.yaml cluster-config-2-actual.yaml
+
+# kind-worker node config should not be changed
+
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' kind-worker-config-actual.yaml
+cmp kind-worker-config-expected.yaml kind-worker-config-actual.yaml
+
+# update driver-cluster-config-2 to resolve conflict
+
+k8s/add driver-cluster-config-2-upd.yaml
+
+# both cluster configs should now be marked as non-conflicting
+
+db/cmp netdriver-cluster-config cluster-config-upd.table
+
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs driver-cluster-config-2 -o cluster-config-2-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' cluster-config-2-actual.yaml
+cmp cluster-config-2-expected-2.yaml cluster-config-2-actual.yaml
+
+# update again driver-cluster-config-2 to reintroduce the conflict
+
+k8s/add driver-cluster-config-2.yaml
+
+# driver-cluster-config-2 should be marked again as conflicting
+
+db/cmp netdriver-cluster-config cluster-config.table
+
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs driver-cluster-config-2 -o cluster-config-2-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' cluster-config-2-actual.yaml
+cmp cluster-config-2-expected-3.yaml cluster-config-2-actual.yaml
+
+# delete driver-cluster-config
+
+k8s/delete driver-cluster-config-1.yaml
+
+# driver-cluster-config-2 should now be marked as non-conflicting
+
+db/cmp netdriver-cluster-config cluster-config-upd-2.table
+
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs driver-cluster-config-2 -o cluster-config-2-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' cluster-config-2-actual.yaml
+cmp cluster-config-2-expected-4.yaml cluster-config-2-actual.yaml
+
+# kind-worker node config should be derived from driver-cluster-config-2
+
+* k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs kind-worker -o kind-worker-config-actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' kind-worker-config-actual.yaml
+* cmp kind-worker-config-expected-2.yaml kind-worker-config-actual.yaml
+
+hive stop
+
+# ----
+
+-- kind-control-plane-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-control-plane
+  name: kind-control-plane
+spec:
+
+-- kind-worker-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  labels:
+    kubernetes.io/hostname: kind-worker
+  name: kind-worker
+spec:
+
+-- driver-cluster-config-1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config
+  creationTimestamp: 2026-04-29T14:30:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+        kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 1
+    draRegistrationTimeout: 600
+    publishInterval: 10
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- driver-cluster-config-2.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-2
+  creationTimestamp: 2026-04-29T15:30:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+        kubernetes.io/hostname: kind-worker
+  spec:
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    publishInterval: 15
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-2"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+
+-- kind-worker-config-expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+  resourceVersion: "<nr>"
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 1
+  draRegistrationTimeout: 600
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool
+  publishInterval: 10
+-- cluster-config.table --
+Name                    IsConflicting       Status    Error
+driver-cluster-config   false               Done
+driver-cluster-config-2 true                Done
+-- cluster-config-2-expected-1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  creationTimestamp: "2026-04-29T15:30:00Z"
+  name: driver-cluster-config-2
+  resourceVersion: "<nr>"
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    driverName: dummy.cilium.k8s.io
+    pools:
+    - filter:
+        deviceManagers:
+        - dummy
+      name: dummy-pool-2
+    publishInterval: 15
+status:
+  conditions:
+  - lastTransitionTime: "2000-01-01T10:30:00Z"
+    message: ""
+    reason: configurationConflict
+    status: "True"
+    type: cilium.io/ConflictingClusterConfiguration
+-- driver-cluster-config-2-upd.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: driver-cluster-config-2
+  creationTimestamp: 2026-04-29T15:30:00Z
+spec:
+  nodeSelector:
+    matchLabels:
+        kubernetes.io/hostname: kind-control-plane
+  spec:
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    publishInterval: 15
+    driverName: "dummy.cilium.k8s.io"
+    pools:
+      - name: "dummy-pool-2"
+        filter:
+          deviceManagers:
+            - "dummy"
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+-- cluster-config-upd.table --
+Name                    IsConflicting       Status    Error
+driver-cluster-config   false               Done
+driver-cluster-config-2 false               Done
+-- cluster-config-2-expected-2.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  creationTimestamp: "2026-04-29T15:30:00Z"
+  name: driver-cluster-config-2
+  resourceVersion: "<nr>"
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-control-plane
+  spec:
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    driverName: dummy.cilium.k8s.io
+    pools:
+    - filter:
+        deviceManagers:
+        - dummy
+      name: dummy-pool-2
+    publishInterval: 15
+status: {}
+-- cluster-config-2-expected-3.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  creationTimestamp: "2026-04-29T15:30:00Z"
+  name: driver-cluster-config-2
+  resourceVersion: "<nr>"
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    driverName: dummy.cilium.k8s.io
+    pools:
+    - filter:
+        deviceManagers:
+        - dummy
+      name: dummy-pool-2
+    publishInterval: 15
+status:
+  conditions:
+  - lastTransitionTime: "2000-01-01T10:30:00Z"
+    message: ""
+    reason: configurationConflict
+    status: "True"
+    type: cilium.io/ConflictingClusterConfiguration
+-- cluster-config-2-expected-4.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  creationTimestamp: "2026-04-29T15:30:00Z"
+  name: driver-cluster-config-2
+  resourceVersion: "<nr>"
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: kind-worker
+  spec:
+    deviceManagerConfigs:
+      dummy:
+        enabled: true
+    draRegistrationRetryInterval: 2
+    draRegistrationTimeout: 500
+    driverName: dummy.cilium.k8s.io
+    pools:
+    - filter:
+        deviceManagers:
+        - dummy
+      name: dummy-pool-2
+    publishInterval: 15
+status: {}
+-- cluster-config-upd-2.table --
+Name                    IsConflicting       Status    Error
+driver-cluster-config-2 false               Done
+-- kind-worker-config-expected-2.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: kind-worker
+  resourceVersion: "<nr>"
+spec:
+  deviceManagerConfigs:
+    dummy:
+      enabled: true
+  draRegistrationRetryInterval: 2
+  draRegistrationTimeout: 500
+  driverName: dummy.cilium.k8s.io
+  pools:
+  - filter:
+      deviceManagers:
+      - dummy
+    name: dummy-pool-2
+  publishInterval: 15
