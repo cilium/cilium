@@ -29,6 +29,9 @@ inputs:
   external-other-target:
     description: "Extra DNS name for testing connectivity outside the cluster"
     required: false
+  external-target-fake-dns:
+    description: "Use DNS override for external targets in wildcard tests"
+    required: false
   flow-validation:
     default: false
     description: "Enable flow validation in the connectivity test"
@@ -83,6 +86,10 @@ runs:
           CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=${{ inputs.external-other-target }}")
         fi
 
+
+        if [ "${{ inputs.external-target-fake-dns }}" == "true" ]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-fake-dns")
+        fi
 
         if [ "${{ inputs.include-unsafe-tests }}" == "true" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--include-unsafe-tests")
