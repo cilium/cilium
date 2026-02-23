@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 
@@ -44,9 +43,7 @@ var bpfIPCacheDeleteCmd = &cobra.Command{
 			Usagef(cmd, "Invalid prefix address. "+usage)
 		}
 
-		ip := net.IP(prefix.Addr().AsSlice())
-		mask := net.CIDRMask(prefix.Bits(), 32)
-		key := ipcache.NewKey(ip, mask, clusterID)
+		key := ipcache.NewKey(prefix, clusterID)
 		if err := ipcache.IPCacheMap(nil).Delete(&key); err != nil {
 			fmt.Fprintf(os.Stderr, "Error deleting entry %s: %v\n", key, err)
 			os.Exit(1)

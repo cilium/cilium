@@ -5,7 +5,6 @@ package ipcache
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"strings"
 	"sync"
@@ -47,17 +46,11 @@ const staticPrefixBits = uint32(unsafe.Sizeof(Key{})-
 	unsafe.Sizeof(Key{}.IP)) * 8
 
 func (k Key) String() string {
-	var (
-		addr netip.Addr
-		ok   bool
-	)
+	var addr netip.Addr
 
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		addr, ok = netip.AddrFromSlice(k.IP[:net.IPv4len])
-		if !ok {
-			return "<unknown>"
-		}
+		addr = netip.AddrFrom4([4]byte(k.IP[:4]))
 	case bpf.EndpointKeyIPv6:
 		addr = netip.AddrFrom16(k.IP)
 	default:
@@ -77,7 +70,7 @@ func (k Key) Prefix() netip.Prefix {
 	prefixLen := int(k.Prefixlen - staticPrefixBits)
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		addr = netip.AddrFrom4(*(*[4]byte)(k.IP[:4]))
+		addr = netip.AddrFrom4([4]byte(k.IP[:4]))
 	case bpf.EndpointKeyIPv6:
 		addr = netip.AddrFrom16(k.IP)
 	}
@@ -92,29 +85,21 @@ func getPrefixLen(prefixBits int) uint32 {
 	return staticPrefixBits + uint32(prefixBits)
 }
 
-// NewKey returns an Key based on the provided IP address, mask, and ClusterID.
+// NewKey returns a Key based on the prefix and cluster ID.
 // The address family is automatically detected
-func NewKey(ip net.IP, mask net.IPMask, clusterID uint16) Key {
-	result := Key{}
-
-	ones, _ := mask.Size()
-	if ip4 := ip.To4(); ip4 != nil {
-		if mask == nil {
-			ones = net.IPv4len * 8
-		}
-		result.Prefixlen = getPrefixLen(ones)
-		result.Family = bpf.EndpointKeyIPv4
-		copy(result.IP[:], ip4)
-	} else {
-		if mask == nil {
-			ones = net.IPv6len * 8
-		}
-		result.Prefixlen = getPrefixLen(ones)
-		result.Family = bpf.EndpointKeyIPv6
-		copy(result.IP[:], ip)
+func NewKey(prefix netip.Prefix, clusterID uint16) Key {
+	result := Key{
+		Prefixlen: getPrefixLen(prefix.Bits()),
+		ClusterID: clusterID,
 	}
 
-	result.ClusterID = clusterID
+	addr := prefix.Addr()
+	copy(result.IP[:], addr.AsSlice())
+	if addr.Is4() {
+		result.Family = bpf.EndpointKeyIPv4
+	} else if addr.Is6() {
+		result.Family = bpf.EndpointKeyIPv6
+	}
 
 	return result
 }
@@ -180,11 +165,11 @@ func (v *RemoteEndpointInfo) String() string {
 		v.SecurityIdentity, v.Key, v.GetTunnelEndpoint(), v.Flags)
 }
 
-func (v *RemoteEndpointInfo) GetTunnelEndpoint() net.IP {
+func (v *RemoteEndpointInfo) GetTunnelEndpoint() netip.Addr {
 	if v.Flags&FlagIPv6TunnelEndpoint == 0 {
-		return v.TunnelEndpoint[:4]
+		return netip.AddrFrom4([4]byte(v.TunnelEndpoint[:4]))
 	}
-	return v.TunnelEndpoint[:]
+	return netip.AddrFrom16(v.TunnelEndpoint)
 }
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
@@ -192,22 +177,20 @@ func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
 // NewValue returns a RemoteEndpointInfo based on the provided security
 // identity, tunnel endpoint IP, IPsec key, and flags. The address family is
 // automatically detected.
-func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpointInfoFlags) RemoteEndpointInfo {
-	result := RemoteEndpointInfo{}
+func NewValue(secID uint32, tunnelEndpoint netip.Addr, key uint8, flags RemoteEndpointInfoFlags) RemoteEndpointInfo {
+	result := RemoteEndpointInfo{
+		SecurityIdentity: secID,
+		Key:              key,
+		Flags:            flags,
+	}
 
-	result.SecurityIdentity = secID
-	result.Key = key
-	result.Flags = flags
-
-	if tunnelEndpoint == nil {
+	if !tunnelEndpoint.IsValid() {
 		return result
 	}
 
 	result.Flags |= FlagHasTunnelEndpoint
-	if ip4 := tunnelEndpoint.To4(); ip4 != nil {
-		copy(result.TunnelEndpoint[:], ip4)
-	} else {
-		copy(result.TunnelEndpoint[:], tunnelEndpoint)
+	copy(result.TunnelEndpoint[:], tunnelEndpoint.AsSlice())
+	if tunnelEndpoint.Is6() {
 		result.Flags |= FlagIPv6TunnelEndpoint
 	}
 
