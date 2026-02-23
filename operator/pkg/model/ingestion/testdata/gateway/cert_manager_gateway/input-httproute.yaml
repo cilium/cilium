@@ -1,0 +1,17 @@
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: echo-a
+    namespace: default
+  spec:
+    parentRefs:
+      - name: echo-a
+        sectionName: http
+    hostnames:
+      - specific.example.com
+    rules:
+      - backendRefs:
+          - name: echo-a-internal
+            port: 8080
+  status:
+    parents: null

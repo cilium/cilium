@@ -1,0 +1,26 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: echo-a
+  namespace: default
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      hostname: "*.example.com"
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: specific.example.com
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: specific-example-com
+      allowedRoutes:
+        namespaces:
+          from: All
