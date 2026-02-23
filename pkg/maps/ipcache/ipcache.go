@@ -42,12 +42,9 @@ type Key struct {
 	IP types.IPv6 `align:"$union0"`
 }
 
-func getStaticPrefixBits() uint32 {
-	staticMatchSize := unsafe.Sizeof(Key{})
-	staticMatchSize -= unsafe.Sizeof(Key{}.Prefixlen)
-	staticMatchSize -= unsafe.Sizeof(Key{}.IP)
-	return uint32(staticMatchSize) * 8
-}
+const staticPrefixBits = uint32(unsafe.Sizeof(Key{})-
+	unsafe.Sizeof(Key{}.Prefixlen)-
+	unsafe.Sizeof(Key{}.IP)) * 8
 
 func (k Key) String() string {
 	var (
@@ -67,7 +64,7 @@ func (k Key) String() string {
 		return "<unknown>"
 	}
 
-	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
+	prefixLen := int(k.Prefixlen - staticPrefixBits)
 	clusterID := uint32(k.ClusterID)
 
 	return cmtypes.PrefixClusterFrom(netip.PrefixFrom(addr, prefixLen), cmtypes.WithClusterID(clusterID)).String()
@@ -77,7 +74,7 @@ func (k *Key) New() bpf.MapKey { return &Key{} }
 
 func (k Key) Prefix() netip.Prefix {
 	var addr netip.Addr
-	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
+	prefixLen := int(k.Prefixlen - staticPrefixBits)
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
 		addr = netip.AddrFrom4(*(*[4]byte)(k.IP[:4]))
@@ -92,7 +89,7 @@ func (k Key) Prefix() netip.Prefix {
 // indicates the number of bits in the IP that must match to match the entry in
 // the BPF ipcache.
 func getPrefixLen(prefixBits int) uint32 {
-	return getStaticPrefixBits() + uint32(prefixBits)
+	return staticPrefixBits + uint32(prefixBits)
 }
 
 // NewKey returns an Key based on the provided IP address, mask, and ClusterID.
