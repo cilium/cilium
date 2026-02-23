@@ -25,6 +25,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"basic http external traffic policy":                     {},
 		"basic http load balancer":                               {},
 		"multiple parentRefs":                                    {},
+		"cert manager gateway":                                   {},
 		"Conformance/HTTPRouteSimpleSameNamespace":               {},
 		"Conformance/HTTPRouteCrossNamespace":                    {},
 		"Conformance/HTTPExactPathMatching":                      {},
