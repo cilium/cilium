@@ -7,6 +7,9 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/netip"
+
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -58,7 +61,7 @@ func NewListener(m Map, mn monitorNotify, tunnelConf tunnel.Config, logger *slog
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
+	prefix netip.Prefix, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
 	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 	var (
 		k8sNamespace, k8sPodName string
@@ -83,11 +86,11 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 
 	switch modType {
 	case ipcache.Upsert:
-		msg := monitorAPI.IPCacheUpsertedMessage(cidr.String(), newIdentity, oldIdentityPtr,
+		msg := monitorAPI.IPCacheUpsertedMessage(prefix.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
 		l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
 	case ipcache.Delete:
-		msg := monitorAPI.IPCacheDeletedMessage(cidr.String(), newIdentity, oldIdentityPtr,
+		msg := monitorAPI.IPCacheDeletedMessage(prefix.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
 		l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
 	}
@@ -103,17 +106,17 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata, endpointFlags uint8) {
-	cidr := cidrCluster.AsIPNet()
+	prefix := cidrCluster.AsPrefix()
 
 	scopedLog := l.logger.With(
-		logfields.IPAddr, cidr,
+		logfields.IPAddr, prefix,
 		logfields.Identity, newID,
 		logfields.Modification, modType,
 	)
 
 	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
 
-	l.notifyMonitor(modType, cidr, oldHostIP, newHostIP, oldID, newID, encryptKey, k8sMeta)
+	l.notifyMonitor(modType, prefix, oldHostIP, newHostIP, oldID, newID, encryptKey, k8sMeta)
 
 	// TODO - see if we can factor this into an interface under something like
 	// pkg/datapath instead of in the daemon directly so that the code is more
@@ -121,13 +124,12 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 
 	// Update BPF Maps.
 
-	key := ipcacheMap.NewKey(cidr.IP, cidr.Mask, uint16(cidrCluster.ClusterID()))
+	key := ipcacheMap.NewKey(prefix, uint16(cidrCluster.ClusterID()))
 
 	switch modType {
 	case ipcache.Upsert:
-		var tunnelEndpoint net.IP
+		var tunnelEndpoint netip.Addr
 		if newHostIP != nil {
-
 			ln, err := l.localNodeStore.Get(context.Background())
 			if err != nil {
 				logging.Fatal(l.logger, "Failed to retrieve local node")
@@ -141,12 +143,12 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 			case tunnel.IPv4:
 				nodeIPv4 := ln.GetNodeIP(false)
 				if ip4 := newHostIP.To4(); ip4 != nil && !ip4.Equal(nodeIPv4) {
-					tunnelEndpoint = ip4
+					tunnelEndpoint, _ = netipx.FromStdIP(ip4)
 				}
 			case tunnel.IPv6:
 				nodeIPv6 := ln.GetNodeIP(true)
 				if !newHostIP.Equal(nodeIPv6) {
-					tunnelEndpoint = newHostIP
+					tunnelEndpoint, _ = netipx.FromStdIP(newHostIP)
 				}
 			}
 		}
