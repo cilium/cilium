@@ -5,7 +5,6 @@ package subnet
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"unsafe"
 
@@ -51,17 +50,11 @@ func getStaticPrefixBits() uint32 {
 }
 
 func (k SubnetMapKey) String() string {
-	var (
-		addr netip.Addr
-		ok   bool
-	)
+	var addr netip.Addr
 
 	switch k.Family {
 	case SubnetKeyIPv4:
-		addr, ok = netip.AddrFromSlice(k.IP[:net.IPv4len])
-		if !ok {
-			return "<unknown>"
-		}
+		addr = netip.AddrFrom4([4]byte(k.IP[:4]))
 	case SubnetKeyIPv6:
 		addr = netip.AddrFrom16(k.IP)
 	default:
