@@ -6,7 +6,6 @@ package nodemap
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"unsafe"
 
@@ -79,7 +78,7 @@ type NodeKey struct {
 func (k *NodeKey) String() string {
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		return net.IP(k.IP[:net.IPv4len]).String()
+		return netip.AddrFrom4([4]byte(k.IP[:4])).String()
 	case bpf.EndpointKeyIPv6:
 		return k.IP.String()
 	}
