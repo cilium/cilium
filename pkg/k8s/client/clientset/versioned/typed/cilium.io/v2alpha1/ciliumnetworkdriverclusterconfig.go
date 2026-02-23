@@ -26,6 +26,8 @@ type CiliumNetworkDriverClusterConfigsGetter interface {
 type CiliumNetworkDriverClusterConfigInterface interface {
 	Create(ctx context.Context, ciliumNetworkDriverClusterConfig *ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, opts v1.CreateOptions) (*ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, error)
 	Update(ctx context.Context, ciliumNetworkDriverClusterConfig *ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, ciliumNetworkDriverClusterConfig *ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2alpha1.CiliumNetworkDriverClusterConfig, error)
