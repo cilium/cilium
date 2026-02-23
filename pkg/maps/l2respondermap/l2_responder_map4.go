@@ -6,7 +6,6 @@ package l2respondermap
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"unsafe"
 
@@ -121,7 +120,7 @@ type L2ResponderKey struct {
 }
 
 func (k *L2ResponderKey) String() string {
-	return fmt.Sprintf("ip=%s, ifIndex=%d", net.IP(k.IP[:]), k.IfIndex)
+	return fmt.Sprintf("ip=%s, ifIndex=%d", k.IP, k.IfIndex)
 }
 
 func newL2ResponderKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
