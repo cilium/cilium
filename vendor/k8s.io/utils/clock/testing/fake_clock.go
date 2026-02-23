@@ -221,12 +221,24 @@ func (f *FakeClock) setTimeLocked(t time.Time) {
 	f.waiters = newWaiters
 }
 
-// HasWaiters returns true if After or AfterFunc has been called on f but not yet satisfied (so you can
-// write race-free tests).
+// HasWaiters returns true if Waiters() returns non-0 (so you can write race-free tests).
 func (f *FakeClock) HasWaiters() bool {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	return len(f.waiters) > 0
+}
+
+// Waiters returns the number of "waiters" on the clock (so you can write race-free
+// tests). A waiter exists for:
+//   - every call to After that has not yet signaled its channel.
+//   - every call to AfterFunc that has not yet called its callback.
+//   - every timer created with NewTimer which is currently ticking.
+//   - every ticker created with NewTicker which is currently ticking.
+//   - every ticker created with Tick.
+func (f *FakeClock) Waiters() int {
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+	return len(f.waiters)
 }
 
 // Sleep is akin to time.Sleep
@@ -256,36 +268,36 @@ func (i *IntervalClock) Since(ts time.Time) time.Duration {
 
 // After is unimplemented, will panic.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) After(d time.Duration) <-chan time.Time {
+func (*IntervalClock) After(_ time.Duration) <-chan time.Time {
 	panic("IntervalClock doesn't implement After")
 }
 
 // NewTimer is unimplemented, will panic.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) NewTimer(d time.Duration) clock.Timer {
+func (*IntervalClock) NewTimer(_ time.Duration) clock.Timer {
 	panic("IntervalClock doesn't implement NewTimer")
 }
 
 // AfterFunc is unimplemented, will panic.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+func (*IntervalClock) AfterFunc(_ time.Duration, _ func()) clock.Timer {
 	panic("IntervalClock doesn't implement AfterFunc")
 }
 
 // Tick is unimplemented, will panic.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) Tick(d time.Duration) <-chan time.Time {
+func (*IntervalClock) Tick(_ time.Duration) <-chan time.Time {
 	panic("IntervalClock doesn't implement Tick")
 }
 
 // NewTicker has no implementation yet and is omitted.
 // TODO: make interval clock use FakeClock so this can be implemented.
-func (*IntervalClock) NewTicker(d time.Duration) clock.Ticker {
+func (*IntervalClock) NewTicker(_ time.Duration) clock.Ticker {
 	panic("IntervalClock doesn't implement NewTicker")
 }
 
 // Sleep is unimplemented, will panic.
-func (*IntervalClock) Sleep(d time.Duration) {
+func (*IntervalClock) Sleep(_ time.Duration) {
 	panic("IntervalClock doesn't implement Sleep")
 }
 
