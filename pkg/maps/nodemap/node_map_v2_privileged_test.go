@@ -4,7 +4,6 @@
 package nodemap
 
 import (
-	"net"
 	"net/netip"
 	"testing"
 
@@ -39,7 +38,7 @@ func TestPrivilegedNodeMapV2(t *testing.T) {
 	toMap := func(key *NodeKey, val *NodeValueV2) {
 		address := key.IP.String()
 		if key.Family == bpf.EndpointKeyIPv4 {
-			address = net.IP(key.IP[:net.IPv4len]).String()
+			address = netip.AddrFrom4([4]byte(key.IP[:4])).String()
 		}
 		bpfNodeIDMap[val.NodeID] = address
 		bpfNodeSPI = append(bpfNodeSPI, uint8(val.SPI))
