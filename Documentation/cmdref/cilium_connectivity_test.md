@@ -41,6 +41,7 @@ cilium connectivity test [flags]
       --external-target string                                     Domain name to use as external target in connectivity tests (default "one.one.one.one.")
       --external-target-ca-name string                             Name of the CA secret for the external target. (default "cabundle")
       --external-target-ca-namespace string                        Namespace of the CA secret for the external target.
+      --external-target-fake-dns                                   Use DNS override for external targets in wildcard tests
       --external-target-ipv6-capable                               External target is IPv6 capable
       --flow-validation string                                     Enable Hubble flow validation { disabled | warning | strict } (default "warning")
       --force-deploy                                               Force re-deploying test artifacts

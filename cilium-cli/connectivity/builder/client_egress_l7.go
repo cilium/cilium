@@ -33,7 +33,12 @@ func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string,
 		WithCiliumPolicy(templates[templateName]).                    // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
-			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
+			tests.PodToWorld(
+				ct.Params().ExternalTargetIPv6Capable,
+				false,
+				tests.WithRetryDestPort(80),
+				tests.WithRetryPodLabel("other", "client"),
+			),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
