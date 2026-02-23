@@ -6,49 +6,30 @@ package bpf
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/container"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEventsSubscribe(t *testing.T) {
-	assert := assert.New(t)
-	logger := hivetest.Logger(t)
-	eb := &eventsBuffer{
-		logger:   logger,
-		buffer:   container.NewRingBuffer(0),
-		eventTTL: time.Second,
-	}
-	handle, err := eb.dumpAndSubscribe(nil, true)
-	assert.NoError(err)
+	eb := newEventsBuffer(hivetest.Logger(t), "test", 32, 0)
 
-	// should not block, buffer not full.
-	eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(123)}})
-	eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(124)}})
-	eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(125)}})
-	assert.Equal("key=123", (<-handle.C()).Key.String())
-	assert.Equal("key=124", (<-handle.C()).Key.String())
-
-	for i := range eventSubChanBufferSize {
-		assert.False(handle.isClosed(), "should not close until buffer is full")
-		assert.Len(eb.subscriptions, 1)
-		assert.Len(eb.subscriptions[0].c, i+1)
+	keys := []int{}
+	for i := range 32 {
 		eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(i)}})
 	}
-	time.Sleep(time.Millisecond * 20)
-	assert.True(handle.isClosed(), "after filling buffer, should be closed")
-	assert.Empty(eb.subscriptions)
 
-	handle, err = eb.dumpAndSubscribe(nil, true)
-	assert.NoError(err)
-	assert.False(handle.isClosed())
-	handle.Close()
-	handle.Close()
-	assert.True(handle.isClosed(), "after calling close, should be closed")
-	assert.Equal(0, eb.buffer.Size())
+	eb.dumpAndSubscribe(t.Context(), func(e Event) {
+		k := e.Key.(IntTestKey)
+		keys = append(keys, int(k))
+	}, true)
+
+	eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(1000)}})
+	eb.add(&Event{cacheEntry: cacheEntry{Key: IntTestKey(1001)}})
+
+	assert.Len(t, keys, 34)
+	assert.Equal(t, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1000, 1001}, keys)
 }
 
 type IntTestKey uint32

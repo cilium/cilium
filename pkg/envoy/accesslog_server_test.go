@@ -54,65 +54,59 @@ func (n *testNotifier) NewProxyLogRecord(l *accesslog.LogRecord) error {
 }
 
 func TestKafkaLogNoTopic(t *testing.T) {
-	node.WithTestLocalNodeStore(func() {
-		notifier := &testNotifier{}
-		accessLogServer := newTestAccessLogServer(t, notifier)
-		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
-			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-				CorrelationId: 76541,
-				ErrorCode:     42,
-				ApiVersion:    3,
-				ApiKey:        1,
-			}},
-		})
-
-		require.Len(t, notifier.kafka, 1)
-		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`, notifier.kafka[0])
+	notifier := &testNotifier{}
+	accessLogServer := newTestAccessLogServer(t, notifier)
+	accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
+		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+			CorrelationId: 76541,
+			ErrorCode:     42,
+			ApiVersion:    3,
+			ApiKey:        1,
+		}},
 	})
+
+	require.Len(t, notifier.kafka, 1)
+	require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`, notifier.kafka[0])
 }
 
 func TestKafkaLogSingleTopic(t *testing.T) {
-	node.WithTestLocalNodeStore(func() {
-		notifier := &testNotifier{}
-		accessLogServer := newTestAccessLogServer(t, notifier)
-		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
-			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-				CorrelationId: 76541,
-				ErrorCode:     42,
-				ApiVersion:    3,
-				ApiKey:        1,
-				Topics:        []string{"topic 1"},
-			}},
-		})
-
-		require.Len(t, notifier.kafka, 1)
-		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
+	notifier := &testNotifier{}
+	accessLogServer := newTestAccessLogServer(t, notifier)
+	accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
+		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+			CorrelationId: 76541,
+			ErrorCode:     42,
+			ApiVersion:    3,
+			ApiKey:        1,
+			Topics:        []string{"topic 1"},
+		}},
 	})
+
+	require.Len(t, notifier.kafka, 1)
+	require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
 }
 
 // TestKafkaLogMultipleTopics checks that a cilium.KafkaLogEntry with
 // multiple topics is split into multiple log messages, one per topic
 func TestKafkaLogMultipleTopics(t *testing.T) {
-	node.WithTestLocalNodeStore(func() {
-		notifier := &testNotifier{}
-		accessLogServer := newTestAccessLogServer(t, notifier)
-		accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
-			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-				CorrelationId: 76541,
-				ErrorCode:     42,
-				ApiVersion:    3,
-				ApiKey:        1,
-				Topics:        []string{"topic 1", "topic 2"},
-			}},
-		})
-
-		require.Len(t, notifier.kafka, 2)
-		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
-		require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`, notifier.kafka[1])
+	notifier := &testNotifier{}
+	accessLogServer := newTestAccessLogServer(t, notifier)
+	accessLogServer.logRecord(context.Background(), &cilium.LogEntry{
+		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+			CorrelationId: 76541,
+			ErrorCode:     42,
+			ApiVersion:    3,
+			ApiKey:        1,
+			Topics:        []string{"topic 1", "topic 2"},
+		}},
 	})
+
+	require.Len(t, notifier.kafka, 2)
+	require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`, notifier.kafka[0])
+	require.JSONEq(t, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`, notifier.kafka[1])
 }
 
 func newTestAccessLogServer(t *testing.T, notifier accesslog.LogRecordNotifier) *AccessLogServer {
-	accessLogger := accesslog.NewProxyAccessLogger(hivetest.Logger(t), accesslog.ProxyAccessLoggerConfig{}, notifier, nil)
+	accessLogger := accesslog.NewProxyAccessLogger(hivetest.Logger(t), accesslog.ProxyAccessLoggerConfig{}, notifier, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
 	return newAccessLogServer(hivetest.Logger(t), accessLogger, "", 0, nil, 0)
 }

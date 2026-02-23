@@ -24,6 +24,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 )
 
 var (
@@ -37,6 +38,11 @@ var (
 	}
 
 	mcsFixtures = []client.Object{
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default",
+			},
+		},
 		&mcsapiv1alpha1.ServiceExport{
 			TypeMeta: typeMetaSvcExport,
 			ObjectMeta: metav1.ObjectMeta{
@@ -253,8 +259,9 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		WithScheme(testScheme()).
 		Build()
 	r := &mcsAPIServiceReconciler{
-		Client: c,
-		Logger: hivetest.Logger(t),
+		Client:          c,
+		Logger:          hivetest.Logger(t),
+		NamespaceConfig: cmnamespace.Config{GlobalNamespacesByDefault: true},
 	}
 
 	t.Run("Test service creation/update with export and import", func(t *testing.T) {
@@ -290,7 +297,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			require.Len(t, svc.Spec.Ports, 2)
 			require.Equal(t, "my-port-1", svc.Spec.Ports[0].Name)
 			require.Equal(t, "my-port-target-port", svc.Spec.Ports[1].Name)
-			require.Equal(t, "test-target-port", svc.Spec.Ports[1].TargetPort.String())
 
 			svcImport := &mcsapiv1alpha1.ServiceImport{}
 			err = c.Get(context.Background(), key, svcImport)
@@ -418,4 +424,174 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 
 		require.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 	})
+}
+
+func Test_mcsDerivedService_NonGlobalNamespace(t *testing.T) {
+	nonGlobalFixtures := []client.Object{
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "non-global-ns",
+				Annotations: map[string]string{
+					annotation.GlobalNamespace: "false",
+				},
+			},
+		},
+		&mcsapiv1alpha1.ServiceImport{
+			TypeMeta: typeMetaSvcImport,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "non-global-svc",
+				Namespace: "non-global-ns",
+			},
+			Spec: mcsapiv1alpha1.ServiceImportSpec{
+				Ports: []mcsapiv1alpha1.ServicePort{{
+					Name: "test-port",
+					Port: 80,
+				}},
+			},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      derivedName(types.NamespacedName{Name: "non-global-svc", Namespace: "non-global-ns"}),
+				Namespace: "non-global-ns",
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP:  "10.0.0.100",
+				ClusterIPs: []string{"10.0.0.100"},
+			},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithObjects(nonGlobalFixtures...).
+		WithScheme(testScheme()).
+		Build()
+	r := &mcsAPIServiceReconciler{
+		Client:          c,
+		Logger:          hivetest.Logger(t),
+		NamespaceConfig: cmnamespace.Config{GlobalNamespacesByDefault: true},
+	}
+
+	t.Run("Test derived service deletion for non-global namespace", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "non-global-svc",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		keyDerived := types.NamespacedName{
+			Name:      derivedName(key),
+			Namespace: key.Namespace,
+		}
+		svc := &corev1.Service{}
+		err = c.Get(context.Background(), keyDerived, svc)
+		require.True(t, k8sApiErrors.IsNotFound(err), "Derived service should be deleted for non-global namespace")
+	})
+
+	t.Run("Test derived service not created for non-global namespace", func(t *testing.T) {
+		newSvcImport := &mcsapiv1alpha1.ServiceImport{
+			TypeMeta: typeMetaSvcImport,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "new-non-global-svc",
+				Namespace: "non-global-ns",
+			},
+			Spec: mcsapiv1alpha1.ServiceImportSpec{
+				Ports: []mcsapiv1alpha1.ServicePort{{
+					Name: "test-port",
+					Port: 80,
+				}},
+			},
+		}
+		err := c.Create(context.Background(), newSvcImport)
+		require.NoError(t, err)
+
+		key := types.NamespacedName{
+			Name:      "new-non-global-svc",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		keyDerived := types.NamespacedName{
+			Name:      derivedName(key),
+			Namespace: key.Namespace,
+		}
+		svc := &corev1.Service{}
+		err = c.Get(context.Background(), keyDerived, svc)
+		require.True(t, k8sApiErrors.IsNotFound(err), "Derived service should not be created for non-global namespace")
+	})
+}
+
+func TestGetDesiredIPs(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		svc      *corev1.Service
+		expected []string
+	}{
+		{
+			name: "headless service",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv4,IPv6",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: corev1.ClusterIPNone,
+				},
+			},
+			expected: []string{},
+		},
+		{
+			name: "no annotation",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					ClusterIP:  "10.0.0.1",
+					ClusterIPs: []string{"10.0.0.1", "fd00::1"},
+				},
+			},
+			expected: []string{"10.0.0.1", "fd00::1"},
+		},
+		{
+			name: "invert ips",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv6,IPv4",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
+				},
+			},
+			expected: []string{"fd00::2", "10.0.0.2"},
+		},
+		{
+			name: "filter one ip",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv6",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
+				},
+			},
+			expected: []string{"fd00::2"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ips := getDesiredIPs(tt.svc)
+			require.Equal(t, tt.expected, ips)
+		})
+	}
 }

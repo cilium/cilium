@@ -16,7 +16,7 @@ import (
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -25,11 +25,8 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
-)
-
-const (
-	kindServiceImport = "ServiceImport"
-	kindServiceExport = "ServiceExport"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 )
 
 // mcsAPIServiceReconciler is a controller that creates a derived service from
@@ -38,13 +35,15 @@ const (
 // the existing clustermesh features for the MCS API Support.
 type mcsAPIServiceReconciler struct {
 	client.Client
-	Logger *slog.Logger
+	Logger          *slog.Logger
+	NamespaceConfig cmnamespace.Config
 }
 
-func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger) *mcsAPIServiceReconciler {
+func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger, namespaceConfig cmnamespace.Config) *mcsAPIServiceReconciler {
 	return &mcsAPIServiceReconciler{
-		Client: mgr.GetClient(),
-		Logger: logger,
+		Client:          mgr.GetClient(),
+		Logger:          logger,
+		NamespaceConfig: namespaceConfig,
 	}
 }
 
@@ -68,16 +67,7 @@ func derivedName(name types.NamespacedName) string {
 	return "derived-" + strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hash.Sum(nil)))[:10]
 }
 
-func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Service) []corev1.ServicePort {
-	// Populate the derived service targetPort from the local service so that local
-	// EndpointSlice are generated correctly
-	localTargetPortMap := map[int32]intstr.IntOrString{}
-	if localSvc != nil {
-		for _, port := range localSvc.Spec.Ports {
-			localTargetPortMap[port.Port] = port.TargetPort
-		}
-	}
-
+func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport) []corev1.ServicePort {
 	ports := make([]corev1.ServicePort, 0, len(svcImport.Spec.Ports))
 	for _, port := range svcImport.Spec.Ports {
 		ports = append(ports, corev1.ServicePort{
@@ -85,7 +75,6 @@ func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Serv
 			Protocol:    port.Protocol,
 			AppProtocol: port.AppProtocol,
 			Port:        port.Port,
-			TargetPort:  localTargetPortMap[port.Port],
 		})
 	}
 
@@ -97,7 +86,38 @@ func getDesiredIPs(svc *corev1.Service) []string {
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone {
 		return []string{}
 	}
-	return slices.Clone(svc.Spec.ClusterIPs)
+
+	valIPFamilies, ok := svc.Annotations[annotation.SupportedIPFamilies]
+	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
+	if !ok || err != nil {
+		// Fallback to all ips if the annotation is not set. This is likely
+		// because we are upgrading to Cilium 1.19
+		return slices.Clone(svc.Spec.ClusterIPs)
+	}
+
+	// get IPs in the order of the supported ip families
+	ips := make([]string, 0, len(ipFamilies))
+	for _, family := range ipFamilies {
+		switch family {
+		case corev1.IPv4Protocol:
+			i := slices.IndexFunc(svc.Spec.ClusterIPs, func(ip string) bool {
+				return !strings.Contains(ip, ":")
+			})
+			if i == -1 {
+				continue
+			}
+			ips = append(ips, svc.Spec.ClusterIPs[i])
+		case corev1.IPv6Protocol:
+			i := slices.IndexFunc(svc.Spec.ClusterIPs, func(ip string) bool {
+				return strings.Contains(ip, ":")
+			})
+			if i == -1 {
+				continue
+			}
+			ips = append(ips, svc.Spec.ClusterIPs[i])
+		}
+	}
+	return ips
 }
 
 // patchServiceImport patches the ServiceImport with the derived service name and
@@ -147,6 +167,9 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
+			// Always prefer dual stack as we always rely on the supported
+			// ip families annotation to get the real ip families anyway
+			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 	if isHeadless {
@@ -161,6 +184,8 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 		return svcBase, false, nil
 	}
 
+	// Force prefer dual stack to migrate old services created in Cilium 1.18 or older
+	svc.Spec.IPFamilyPolicy = ptr.To(corev1.IPFamilyPolicyPreferDualStack)
 	if isHeadless != (svc.Spec.ClusterIP == corev1.ClusterIPNone) {
 		// We need to delete the derived service first if we need to switch
 		// to/from headless on a Service that already exists.
@@ -172,27 +197,22 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 	return &svc, true, nil
 }
 
-// getLocalServiceIfExported returns the service that we are currently exporting from. This
-// means that that the Service is only returned if a ServiceExport is also created
-func (r *mcsAPIServiceReconciler) getLocalServiceIfExported(ctx context.Context, req ctrl.Request) (*corev1.Service, error) {
-	var svcExport mcsapiv1alpha1.ServiceExport
-	if err := r.Client.Get(ctx, req.NamespacedName, &svcExport); err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-
-	var svc corev1.Service
-	if err := r.Client.Get(ctx, req.NamespacedName, &svc); err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-	return &svc, nil
-}
-
 func (r *mcsAPIServiceReconciler) getSvcImport(ctx context.Context, req ctrl.Request) (*mcsapiv1alpha1.ServiceImport, error) {
 	var svcImport mcsapiv1alpha1.ServiceImport
 	if err := r.Client.Get(ctx, req.NamespacedName, &svcImport); err != nil {
 		return nil, client.IgnoreNotFound(err)
 	}
 	return &svcImport, nil
+}
+
+func (r *mcsAPIServiceReconciler) getNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
+	var ns corev1.Namespace
+	key := types.NamespacedName{Name: name}
+
+	if err := r.Client.Get(ctx, key, &ns); err != nil {
+		return nil, client.IgnoreNotFound(err)
+	}
+	return &ns, nil
 }
 
 func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -204,19 +224,43 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return controllerruntime.Success()
 	}
 
-	localSvc, err := r.getLocalServiceIfExported(ctx, req)
-	if err != nil {
-		return controllerruntime.Fail(err)
-	}
-
 	derivedServiceName := derivedName(req.NamespacedName)
 	svc, svcExists, err := r.getBaseDerivedService(ctx, req, derivedServiceName, svcImport)
 	if err != nil {
 		return controllerruntime.Fail(err)
 	}
 
+	// Fetch namespace directly to avoid stale data from resource store.
+	// No Namespace watch needed since ServiceImport controller updates trigger reconciliation.
+	ns, err := r.getNamespace(ctx, req.Namespace)
+	if err != nil {
+		return controllerruntime.Fail(err)
+	}
+	if !cmnamespace.IsGlobalNamespace(ns, r.NamespaceConfig.GlobalNamespacesByDefault) {
+		if svcExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+		}
+		return controllerruntime.Success()
+	}
+
+	if val, ok := svcImport.Annotations[annotation.SupportedIPFamilies]; val == "" && ok {
+		// If we don't have any supported ip families, we can bail out and cleanup
+		// any existing derived service
+		if svcExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+		}
+		return controllerruntime.Success()
+	}
+
 	svc.Spec.Selector = map[string]string{}
-	svc.Spec.Ports = servicePorts(svcImport, localSvc)
+	svc.Spec.Ports = servicePorts(svcImport)
+	svc.Spec.InternalTrafficPolicy = ptr.To(ptr.Deref(svcImport.Spec.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster))
+	if svcImport.Spec.TrafficDistribution != nil {
+		svc.Spec.TrafficDistribution = ptr.To(*svcImport.Spec.TrafficDistribution)
+	} else {
+		svc.Spec.TrafficDistribution = nil
+	}
+
 	if err := ctrl.SetControllerReference(svcImport, svc, r.Scheme()); err != nil {
 		return controllerruntime.Fail(err)
 	}
@@ -235,6 +279,10 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if !svcExists {
 		if err := r.Client.Create(ctx, svc); err != nil {
+			if k8sApiErrors.IsForbidden(err) && k8sApiErrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+				r.Logger.InfoContext(ctx, "Aborting reconciliation because namespace is being terminated")
+				return controllerruntime.Success()
+			}
 			return controllerruntime.Fail(err)
 		}
 	} else {
@@ -260,7 +308,7 @@ func (r *mcsAPIServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
 		// Watch for changes to Services
 		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), kindServiceImport)
+			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), mcsapiv1alpha1.ServiceImportKindName)
 			if svcImportOwner == "" {
 				return []ctrl.Request{{NamespacedName: types.NamespacedName{
 					Name: obj.GetName(), Namespace: obj.GetNamespace(),

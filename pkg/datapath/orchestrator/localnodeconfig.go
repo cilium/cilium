@@ -7,13 +7,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -40,11 +43,15 @@ const (
 // pure data struct rather than complex APIs. When this data changes a new
 // LocalNodeConfiguration instance is generated. Previous LocalNodeConfiguration
 // is never mutated in-place.
+//
+// The returned channel will be closed for recoverable errors once the state of
+// failing condition changes.
 func newLocalNodeConfig(
 	ctx context.Context,
-	logger *slog.Logger,
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
+	sysctlOps sysctl.Sysctl,
+	tunnelCfg tunnel.Config,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
@@ -58,6 +65,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.WireguardAgent,
 	ipsecCfg datapath.IPsecConfig,
+	connectorConfig datapath.ConnectorConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -88,7 +96,9 @@ func newLocalNodeConfig(
 	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgAgent.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 		if drd == nil {
-			return datapath.LocalNodeConfiguration{}, nil, errors.New("direct routing device required but not configured")
+			// If the direct routing device is not present return the watch channel along with an error.
+			// Watch channel will be closed when there is an update to the DirectRouting device configuration.
+			return datapath.LocalNodeConfiguration{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
 		}
 
 		watchChans = append(watchChans, directRoutingDevWatch)
@@ -104,6 +114,13 @@ func newLocalNodeConfig(
 		}
 	}
 
+	ephemeralMin, err := getEphemeralPortRangeMin(sysctlOps)
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
+	}
+
+	hostEndpointID, _ := node.GetEndpointID()
+
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
@@ -113,13 +130,13 @@ func newLocalNodeConfig(
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
 		NativeRoutingCIDRIPv6:        datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode),
-		ServiceLoopbackIPv4:          node.GetServiceLoopbackIPv4(logger),
-		ServiceLoopbackIPv6:          node.GetServiceLoopbackIPv6(logger),
+		ServiceLoopbackIPv4:          localNode.Local.ServiceLoopbackIPv4,
+		ServiceLoopbackIPv6:          localNode.Local.ServiceLoopbackIPv6,
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
 		DeriveMasqIPAddrFromDevice:   masqInterface,
-		HostEndpointID:               node.GetEndpointID(),
+		HostEndpointID:               hostEndpointID,
 		DeviceMTU:                    mtuRoute.DeviceMTU,
 		RouteMTU:                     mtuRoute.RouteMTU,
 		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
@@ -127,13 +144,18 @@ func newLocalNodeConfig(
 		EnableIPv4:                   config.EnableIPv4,
 		EnableIPv6:                   config.EnableIPv6,
 		EnableEncapsulation:          config.TunnelingEnabled(),
+		TunnelProtocol:               tunnelCfg.EncapProtocol().ToDpID(),
+		TunnelPort:                   tunnelCfg.Port(),
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
+		EphemeralMin:                 uint16(ephemeralMin),
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
+		EnablePolicyAccounting:       config.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
 		EncryptNode:                  config.EncryptNode,
+		EnableConntrackAccounting:    config.BPFConntrackAccounting,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
@@ -141,5 +163,27 @@ func newLocalNodeConfig(
 		KPRConfig:                    kprCfg,
 		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
+		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
+		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 	}, common.MergeChannels(watchChans...), nil
+}
+
+// getEphemeralPortRangeMin returns the minimum ephemeral port from
+// net.ipv4.ip_local_port_range.
+func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
+	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
+	if err != nil {
+		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
+	}
+	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
+	if len(ephemeralPortRange) != 2 {
+		return 0, fmt.Errorf("invalid ephemeral port range: %s", ephemeralPortRangeStr)
+	}
+	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse min port value %s for ephemeral range: %w",
+			ephemeralPortRange[0], err)
+	}
+
+	return ephemeralPortMin, nil
 }

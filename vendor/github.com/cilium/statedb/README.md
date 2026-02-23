@@ -1,6 +1,6 @@
-# :memo: StateDB [![GoDoc](https://pkg.go.dev/badge/github.com/cilium/statedb)](https://pkg.go.dev/github.com/cilium/statedb) 
+# :memo: StateDB [![GoDoc](https://pkg.go.dev/badge/github.com/cilium/statedb)](https://pkg.go.dev/github.com/cilium/statedb)
 
-StateDB is an in-memory database for Go. The database is built on top of 
+StateDB is an in-memory database for Go. The database is built on top of
 [Persistent](https://en.wikipedia.org/wiki/Persistent_data_structure) [Adaptive Radix Trees](https://db.in.tum.de/~leis/papers/ART.pdf).
 
 StateDB is/supports:
@@ -40,7 +40,7 @@ made. This of course doesn't extend to references within the object.
 
 For "very important objects", please consider storing an interface type instead that
 contains getter methods and a safe way of mutating the object, e.g. via the builder
-pattern or a constructor function. 
+pattern or a constructor function.
 
 Also prefer persistent/immutable data structures within the object to avoid expensive
 copying on mutation. The `part` package comes with persistent `Map[K]V` and `Set[T]`.
@@ -63,7 +63,7 @@ func (o *MyObject) TableHeader() []string {
 
 // Define how to show the object in a formatted table
 func (o *MyObject) TableRow() []string {
-  return []string{strconv.FormatUInt(uint64(o.ID), 10), o.Foo}
+  return []string{strconv.FormatUint(uint64(o.ID), 10), o.Foo}
 }
 
 // Define how to index and query the object.
@@ -89,7 +89,7 @@ func example() {
   if err != nil { ... }
 
   wtxn := db.WriteTxn(myObjects)
-  
+
   // Insert some objects
   myObjects.Insert(wtxn, &MyObject{1, "a"})
   myObjects.Insert(wtxn, &MyObject{2, "b"})
@@ -106,7 +106,7 @@ func example() {
   if obj, _, found := myObjects.Get(wtxn, IDIndex.Query(2)); found {
     myObjects.Delete(wtxn, obj)
   }
-  
+
   if feelingLucky {
     // Commit the changes.
     wtxn.Commit()
@@ -131,7 +131,7 @@ func example() {
   for obj, revision := range myObjects.All() {
     ...
   }
-  
+
   // Iterate all objects and then wait until something changes.
   objs, watch := myObjects.AllWatch(txn)
   for obj := range objs { ... }
@@ -139,11 +139,11 @@ func example() {
 
   // Grab a new snapshot to read the new changes.
   txn = db.ReadTxn()
-  
+
   // Iterate objects with ID >= 2
   objs, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(2))
   for obj := range objs { ... }
-  
+
   // Iterate objects where ID is between 0x1000_0000 and 0x1fff_ffff
   objs, watch = myObjects.PrefixWatch(txn, IDIndex.Query(0x1000_0000))
   for obj := range objs { ... }
@@ -183,7 +183,7 @@ func (o *MyObject) TableHeader() []string {
 
 // Define how to show the object in a formatted table
 func (o *MyObject) TableRow() []string {
-  return []string{strconv.FormatUInt(uint64(o.ID), 10), o.Foo}
+  return []string{strconv.FormatUint(uint64(o.ID), 10), o.Foo}
 }
 ```
 
@@ -193,7 +193,7 @@ With the object defined, we can describe how it should be indexed. Indexes are
 constant values and can be defined as global variables alongside the object type.
 Indexes take two type parameters, your object type and the key type: `Index[MyObject, ID]`.
 Additionally you define two operations: `FromObject` that takes your object and returns
-a set of StateDB keys (zero or many), and `FromKey` that takes the key type of your choosing and 
+a set of StateDB keys (zero or many), and `FromKey` that takes the key type of your choosing and
 converts it to a StateDB key.
 
 ```go
@@ -282,7 +282,7 @@ if err != nil { return err }
 ```
 
 To insert objects into a table, we'll need to create a `WriteTxn`. This locks
-the target table(s) allowing for an atomic transaction change. 
+the target table(s) allowing for an atomic transaction change.
 
 ```go
 // Create a write transaction against the 'myObjects' table, locking
@@ -330,7 +330,7 @@ txn := db.ReadTxn()
 ```
 
 The `txn` is now a frozen snapshot of the database that we can use
-to read the data. 
+to read the data.
 
 ```go
 // Let's break out the types so you know what is going on.
@@ -381,7 +381,7 @@ for obj, revision := range objs { ... }
 objs, watch = myObjects.Prefix(txn, TagsIndex.Query("h"))
 for obj := range objs {
   ...
-} 
+}
 
 // closes when an object with a tag starting with "h" is inserted or deleted
 <-watch
@@ -449,7 +449,7 @@ been observed. Using `Changes` one can iterate over insertions and deletions.
 ```go
 // Let's iterate over both inserts and deletes. We need to use
 // a write transaction to create the change iterator as this needs to
-// register with the table to track the deleted objects. 
+// register with the table to track the deleted objects.
 
 wtxn := statedb.WriteTxn(myObjects)
 changeIter, err := myObjects.Changes(wtxn)
@@ -574,6 +574,93 @@ by the query methods.
   onlyIds = statedb.ToSeq(ids)
 ```
 
+### Longest Prefix Match (LPM) index
+
+In addition to the radix tree based indexes StateDB also supports bitwise
+Longest Prefix Match (LPM) indexes. These are useful for example for finding
+the object with the closest IP prefix for a given IP address.
+
+The `NetIPPrefixIndex` is an LPM index specialized for `netip.Prefix`:
+
+```go
+  type MyObject struct {
+    ID uint64
+    Prefix netip.Prefix
+  }
+
+  // prefixIndex indexes object by its IP prefix.
+  prefixIndex := statedb.NetIPPrefixIndex[*MyObject]{
+    Name: "Prefix",
+    FromObject: func(obj *MyObject) iter.Seq[netip.Prefix] {
+      return statedb.Just(obj.Prefix)
+    },
+    Unique: true,
+  }
+  myObjects, err := statedb.NewTable(db, "my-objects", IDIndex, prefixIndex)
+
+  // Insert an object with a prefix
+  txn := db.WriteTxn(myObjects)
+  myObjects.Insert(txn, &MyObject{ID: 1, Prefix: netip.MustParsePrefix("10.0.0.0/8")})
+  txn.Commit()
+
+  // Look up object with the longest prefix matching the address
+  obj, rev, found := myObjects.Get(db.ReadTxn(), prefixIndex.Query(netip.MustParseAddr("10.0.0.1")))
+
+  // Look up objects contained by the search prefix
+  for obj := range myObjects.Prefix(db.ReadTxn(), prefixIndex.QueryPrefix(netip.MustParsePrefix("10.1.0.0/16"))) {
+    ...
+  }
+
+  // Look up objects where the address part of the prefix is equal or higher than
+  // search address.
+  for obj := range myObjects.LowerBound(db.ReadTxn(), prefixIndex.Query(netip.MustParseAddr("10.0.0.1"))) {
+    ...
+  }
+```
+
+The `LPMIndex` allows defining an index for an arbitrary bit prefix:
+
+```go
+  type MyObject struct {
+    ID uint64
+    PortPrefix uint16
+    PortBits uint8
+  }
+
+  portIndex := statedb.LPMIndex[*MyObject]{
+    Name: "port",
+    Unique: true,
+    FromObject: func(obj *MyObject) iter.Seq2[[]byte, statedb.PrefixLen] {
+      return func(yield(data []byte, prefixLen statedb.PrefixLen)) {
+        yield(
+          binary.BigEndian.AppendUint16(nil, obj.PortPrefix),
+          statedb.PrefixLen(obj.PortBits),
+        )
+      }
+    },
+    FromString: func(key string) ([]byte, PrefixLen, error) { ... },
+  }
+
+  myObjects, err := statedb.NewTable(db, "my-objects", IDIndex, prefixIndex)
+
+  // Insert an object with a prefix
+  txn := db.WriteTxn(myObjects)
+  myObjects.Insert(txn, &MyObject{
+    ID: 1,
+    // Ports in range 4096-8192
+    PortPrefix: binary.BigEndian.AppendUint16(nil, 0b0001_0000_0000_0000),
+    PortBits: 8,
+  })
+  txn.Commit()
+
+  // Find the object that matches port 5000
+  obj, rev, found := myObjects.Get(db.ReadTxn(),
+    portIndex.Query(
+      binary.BigEndian.AppendUint16(5000),
+      statedb.PrefixLen(16),
+    ))
+```
+
 ### Performance considerations
 
 Needless to say, one should keep the duration of the write transactions
@@ -598,7 +685,7 @@ and hold the `iter.Seq2` instead of collecting the objects into a slice.
 The `part` package contains persistent `Map[K, V]` and `Set[T]` data structures.
 These, like StateDB, are implemented with the Persistent Adaptive Radix Trees.
 They are meant to be used as replacements for the built-in mutable Go hashmap
-in StateDB objects as they're persistent (operations return a copy) and thus 
+in StateDB objects as they're persistent (operations return a copy) and thus
 more efficient to copy and suitable to use in immutable objects.
 
 Here's how to use `Map[K, V]`:
@@ -698,4 +785,3 @@ or waiting for an object to be reconciled. On failures the reconciler will retry
 the operation at a later time. Reconciler supports health reporting and metrics.
 
 See the example application in `reconciler/example` for more information.
-

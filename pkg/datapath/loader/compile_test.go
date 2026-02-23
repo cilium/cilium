@@ -22,6 +22,7 @@ func TestPrivilegedCompile(t *testing.T) {
 		cpy := *p
 		cpy.Output = cpy.Source
 		cpy.OutputType = outputSource
+		cpy.Options = append(cpy.Options, "-Wno-unused-command-line-argument")
 		return &cpy
 	}
 

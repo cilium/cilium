@@ -2,6 +2,9 @@
 
 hive/start
 
+# Add two namespaces
+k8s/add namespace-1.yaml namespace-2.yaml
+
 # Add two CiliumEndpoints
 k8s/add endpoint-1.yaml endpoint-2.yaml
 
@@ -38,7 +41,34 @@ k8s/delete endpoint-2.yaml
 kvstore/list -o json cilium/state/ip ips-1+3.actual
 * cmp ips-1+3.actual ips-1+3.expected
 
+# Annotate namespace-1 as non-global
+k8s/update namespace-1-annotated.yaml
+
+# Wait for synchronization. No endpoints should remain synced
+kvstore/list -o json cilium/state/ip ips-empty.actual
+* empty ips-empty.actual
+
 # ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+
+-- namespace-1-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+  annotations:
+    clustermesh.cilium.io/global: "false"
 
 -- endpoint-1.yaml --
 apiVersion: cilium.io/v2

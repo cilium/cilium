@@ -149,7 +149,7 @@ func (g *GTPv1U) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 	if err != nil {
 		return err
 	}
-	data[0] |= (g.Version << 5)
+	data[0] = (g.Version << 5)
 	data[0] |= (1 << 4)
 	if g.ExtensionHeaderFlag {
 		data[0] |= 0x04

@@ -34,15 +34,14 @@ spec:
         protocol: UDP
       - port: "5353"
         protocol: TCP
-  # When node-local-dns is deployed with local IP,
-  # Cilium labels its ip as world.
-  # This change prevents failing the connectivity
-  # test for such environments.
+  # For nodelocaldns using a link-local address (the "localip" mode).
   - toPorts:
     - ports:
       - port: "53"
         protocol: UDP
       - port: "53"
         protocol: TCP
+    # Including 'world' here may still be needed for versions up to 1.16 (#997)
     toEntities:
-    - world
+      - host
+      - world

@@ -5,7 +5,7 @@ import (
 	"github.com/cilium/ebpf/internal/sys"
 )
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -output types_string.go -type=MapType,ProgramType,PinType
+//go:generate go tool stringer -output types_string.go -type=MapType,ProgramType,PinType
 
 // MapType indicates the type map structure
 // that will be initialized in the kernel.
@@ -144,7 +144,7 @@ func (mt MapType) hasPerCPUValue() bool {
 // canStoreMapOrProgram returns true if the Map stores references to another Map
 // or Program.
 func (mt MapType) canStoreMapOrProgram() bool {
-	return mt.canStoreMap() || mt.canStoreProgram()
+	return mt.canStoreMap() || mt.canStoreProgram() || mt == StructOpsMap
 }
 
 // canStoreMap returns true if the map type accepts a map fd
@@ -252,7 +252,7 @@ func ProgramTypeForPlatform(plat string, value uint32) (ProgramType, error) {
 // Will cause invalid argument (EINVAL) at program load time if set incorrectly.
 type AttachType uint32
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -type AttachType -trimprefix Attach
+//go:generate go tool stringer -type AttachType -trimprefix Attach
 
 // AttachNone is an alias for AttachCGroupInetIngress for readability reasons.
 const AttachNone AttachType = 0

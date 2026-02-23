@@ -63,6 +63,19 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return m.port, nil
 }
 
+func (m *MockPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Delete existing port allocation if any
+	delete(m.ports, name)
+
+	m.port++
+	m.ports[name] = &MockPort{port: m.port}
+
+	return m.port, nil
+}
+
 func (m *MockPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -600,6 +613,8 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 		logger:                      hivetest.Logger(t),
 		portAllocator:               NewMockPortAllocator(),
 		defaultMaxConcurrentRetries: 128,
+		defaultMaxConnections:       2048,
+		defaultMaxRequests:          4096,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
@@ -673,6 +688,8 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.NotNil(t, cb)
 	assert.Len(t, cb.Thresholds, 1)
 	assert.Equal(t, uint32(128), cb.Thresholds[0].MaxRetries.Value)
+	assert.Equal(t, uint32(2048), cb.Thresholds[0].MaxConnections.Value)
+	assert.Equal(t, uint32(4096), cb.Thresholds[0].MaxRequests.Value)
 	//
 	// Check that missing EDS config source is automatically filled in
 	//

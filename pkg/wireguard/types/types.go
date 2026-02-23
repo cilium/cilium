@@ -4,7 +4,9 @@
 // Common WireGuard types and constants
 package types
 
-import "github.com/cilium/cilium/api/v1/models"
+import (
+	"github.com/cilium/cilium/api/v1/models"
+)
 
 const (
 	// ListenPort is the port on which the WireGuard tunnel device listens on
@@ -23,6 +25,7 @@ type WireguardAgent interface {
 	Enabled() bool
 	Status(withPeers bool) (*models.WireguardStatus, error)
 	IfaceIndex() (uint32, error)
+	IfaceBufferMargins() (uint16, uint16, error)
 }
 
 // WireguardConfig exports the Enabled method rather than the whole config.

@@ -58,6 +58,52 @@ func (m *Composite) validate(all bool) error {
 
 	var errors []error
 
+	{
+		sorted_keys := make([]string, len(m.GetNamedFilterChains()))
+		i := 0
+		for key := range m.GetNamedFilterChains() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetNamedFilterChains()[key]
+			_ = val
+
+			// no validation rules for NamedFilterChains[key]
+
+			if all {
+				switch v := interface{}(val).(type) {
+				case interface{ ValidateAll() error }:
+					if err := v.ValidateAll(); err != nil {
+						errors = append(errors, CompositeValidationError{
+							field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				case interface{ Validate() error }:
+					if err := v.Validate(); err != nil {
+						errors = append(errors, CompositeValidationError{
+							field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+							reason: "embedded message failed validation",
+							cause:  err,
+						})
+					}
+				}
+			} else if v, ok := interface{}(val).(interface{ Validate() error }); ok {
+				if err := v.Validate(); err != nil {
+					return CompositeValidationError{
+						field:  fmt.Sprintf("NamedFilterChains[%v]", key),
+						reason: "embedded message failed validation",
+						cause:  err,
+					}
+				}
+			}
+
+		}
+	}
+
 	if len(errors) > 0 {
 		return CompositeMultiError(errors)
 	}
@@ -71,7 +117,7 @@ type CompositeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompositeMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -134,6 +180,142 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = CompositeValidationError{}
+
+// Validate checks the field values on FilterChainConfiguration with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *FilterChainConfiguration) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FilterChainConfiguration with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// FilterChainConfigurationMultiError, or nil if none found.
+func (m *FilterChainConfiguration) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FilterChainConfiguration) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetTypedConfig() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterChainConfigurationValidationError{
+						field:  fmt.Sprintf("TypedConfig[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterChainConfigurationValidationError{
+						field:  fmt.Sprintf("TypedConfig[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterChainConfigurationValidationError{
+					field:  fmt.Sprintf("TypedConfig[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return FilterChainConfigurationMultiError(errors)
+	}
+
+	return nil
+}
+
+// FilterChainConfigurationMultiError is an error wrapping multiple validation
+// errors returned by FilterChainConfiguration.ValidateAll() if the designated
+// constraints aren't met.
+type FilterChainConfigurationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FilterChainConfigurationMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FilterChainConfigurationMultiError) AllErrors() []error { return m }
+
+// FilterChainConfigurationValidationError is the validation error returned by
+// FilterChainConfiguration.Validate if the designated constraints aren't met.
+type FilterChainConfigurationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e FilterChainConfigurationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e FilterChainConfigurationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e FilterChainConfigurationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e FilterChainConfigurationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e FilterChainConfigurationValidationError) ErrorName() string {
+	return "FilterChainConfigurationValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e FilterChainConfigurationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sFilterChainConfiguration.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = FilterChainConfigurationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = FilterChainConfigurationValidationError{}
 
 // Validate checks the field values on DynamicConfig with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -211,7 +393,7 @@ type DynamicConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -356,6 +538,37 @@ func (m *ExecuteFilterAction) validate(all bool) error {
 	}
 
 	if all {
+		switch v := interface{}(m.GetFilterChain()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExecuteFilterActionValidationError{
+					field:  "FilterChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExecuteFilterActionValidationError{
+					field:  "FilterChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterChain()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExecuteFilterActionValidationError{
+				field:  "FilterChain",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for FilterChainName
+
+	if all {
 		switch v := interface{}(m.GetSamplePercent()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
@@ -398,7 +611,7 @@ type ExecuteFilterActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExecuteFilterActionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

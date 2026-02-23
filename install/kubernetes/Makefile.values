@@ -1,7 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-DIGESTS_PATH:=Makefile.digests
+-include Makefile.values.override
+
+DIGESTS_PATH ?= Makefile.digests
 include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
 export RELEASE_REGISTRY ?= quay.io
@@ -27,18 +29,18 @@ endif
 
 # renovate: datasource=docker
 export CERTGEN_REPO:=quay.io/cilium/certgen
-export CERTGEN_VERSION:=v0.2.4
-export CERTGEN_DIGEST:=sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff
+export CERTGEN_VERSION:=v0.3.2
+export CERTGEN_DIGEST:=sha256:19921f48ee7e2295ea4dca955878a6cd8d70e6d4219d08f688e866ece9d95d4d
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
-export CILIUM_NODEINIT_VERSION:=1755531540-60ee83e
-export CILIUM_NODEINIT_DIGEST:=sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757
+export CILIUM_NODEINIT_VERSION:=1763560095-8f36c34
+export CILIUM_NODEINIT_DIGEST:=sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37
-export CILIUM_ENVOY_DIGEST:=sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76
+export CILIUM_ENVOY_VERSION:=v1.36.5-1771332981-9e7e35f1d1f516c348c8b835dafde5c30fef9847
+export CILIUM_ENVOY_DIGEST:=sha256:aad0f49e84436d1857894d109e84d9f04fa31e9cc0e56e439fa7572a017a0baf
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
@@ -53,14 +55,14 @@ export HUBBLE_UI_FRONTEND_DIGEST:=sha256:661d5de7050182d495c6497ff0b007a7a1e3796
 # renovate: datasource=docker
 export SPIRE_INIT_REPO:=docker.io/library/busybox
 export SPIRE_INIT_VERSION:=1.37.0
-export SPIRE_INIT_DIGEST:=sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e
+export SPIRE_INIT_DIGEST:=sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
-export SPIRE_SERVER_VERSION:=1.9.6
-export SPIRE_SERVER_DIGEST:=sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4
+export SPIRE_SERVER_VERSION:=1.14.1
+export SPIRE_SERVER_DIGEST:=sha256:46a740705d5e15839552b1307aff44ef5ac42d9b444d073b4ccefd87c5269283
 
 # renovate: datasource=docker
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
-export SPIRE_AGENT_VERSION:=1.9.6
-export SPIRE_AGENT_DIGEST:=sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c
+export SPIRE_AGENT_VERSION:=1.14.1
+export SPIRE_AGENT_DIGEST:=sha256:7bb8469af28f00908a96a8a51fb36cbbcdfb85efe78e94b492f949f33284bf4d

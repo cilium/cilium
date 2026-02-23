@@ -266,7 +266,7 @@ type RateLimitQuotaFilterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaFilterConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -399,7 +399,7 @@ type RateLimitQuotaOverrideMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaOverrideMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -658,7 +658,7 @@ type RateLimitQuotaBucketSettingsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettingsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -822,7 +822,7 @@ type RateLimitQuotaBucketSettings_NoAssignmentBehaviorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_NoAssignmentBehaviorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1066,7 +1066,7 @@ type RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_ExpiredAssignmentBehaviorMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1315,7 +1315,7 @@ type RateLimitQuotaBucketSettings_DenyResponseSettingsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_DenyResponseSettingsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1485,7 +1485,7 @@ type RateLimitQuotaBucketSettings_BucketIdBuilderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_BucketIdBuilderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1594,7 +1594,7 @@ type RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_ReuseLastAssignmentM
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_ExpiredAssignmentBehavior_ReuseLastAssignmentMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1783,7 +1783,7 @@ type RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaBucketSettings_BucketIdBuilder_ValueBuilderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

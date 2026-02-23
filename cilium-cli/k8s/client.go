@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli/output"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -143,8 +143,7 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs st
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver); err != nil {
 		return nil, err
 	}
 
@@ -304,6 +303,10 @@ func (c *Client) CreateNamespace(ctx context.Context, namespace *corev1.Namespac
 	return c.Clientset.CoreV1().Namespaces().Create(ctx, namespace, opts)
 }
 
+func (c *Client) UpdateNamespace(ctx context.Context, namespace *corev1.Namespace, opts metav1.UpdateOptions) (*corev1.Namespace, error) {
+	return c.Clientset.CoreV1().Namespaces().Update(ctx, namespace, opts)
+}
+
 func (c *Client) GetNamespace(ctx context.Context, namespace string, options metav1.GetOptions) (*corev1.Namespace, error) {
 	return c.Clientset.CoreV1().Namespaces().Get(ctx, namespace, options)
 }
@@ -451,11 +454,6 @@ func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) (
 	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, defaults.ClusterMeshKVStoreMeshContainerName,
 		[]string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
 	if err != nil {
-		// Cilium v1.14 has a separate kvstoremesh container, with a separate binary
-		if strings.Contains(err.Error(), "stat /usr/bin/clustermesh-apiserver: no such file or directory") {
-			return nil, ErrKVStoreMeshStatusNotImplemented
-		}
-
 		// Try to figure out if the status command is not yet supported in this version
 		stderrStr := stderr.String()
 		if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
@@ -664,8 +662,16 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 	if err != nil {
 		return f
 	}
-	// Assume k3s if the k8s master node runs k3s
 	for _, node := range nodeList.Items {
+		if _, ok := node.Labels["cloud.google.com/gke-nodepool"]; ok {
+			f.Kind = KindGKE
+			return f
+		}
+		if _, ok := node.Labels["cloud.google.com/gke-os-distribution"]; ok {
+			f.Kind = KindGKE
+			return f
+		}
+
 		isMaster := node.Labels["node-role.kubernetes.io/master"]
 		if isMaster != "true" {
 			continue
@@ -674,6 +680,7 @@ func (c *Client) AutodetectFlavor(ctx context.Context) Flavor {
 		if !ok {
 			instanceType = node.Labels[corev1.LabelInstanceType]
 		}
+		// Assume k3s if the k8s master node runs k3s
 		if instanceType == "k3s" {
 			f.Kind = KindK3s
 			return f
@@ -744,10 +751,6 @@ func (c *Client) GetCiliumLocalRedirectPolicy(ctx context.Context, namespace, na
 
 func (c *Client) DeleteCiliumLocalRedirectPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Delete(ctx, name, opts)
-}
-
-func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
-	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
 
 func (c *Client) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
@@ -1063,11 +1066,11 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 }
 
 func (c *Client) GetRunningCiliumVersion(ciliumHelmReleaseName string) (string, error) {
-	release, err := action.NewGet(c.HelmActionConfig).Run(ciliumHelmReleaseName)
+	m, err := action.NewGetMetadata(c.HelmActionConfig).Run(ciliumHelmReleaseName)
 	if err != nil {
 		return "", err
 	}
-	return release.Chart.Metadata.Version, nil
+	return m.Version, nil
 }
 
 func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
@@ -1114,8 +1117,7 @@ func (c *Client) GetHelmValues(_ context.Context, releaseName string, namespace 
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver); err != nil {
 		return "", err
 	}
 	helmGetValsClient := action.NewGetValues(&actionConfig)
@@ -1138,8 +1140,7 @@ func (c *Client) GetHelmMetadata(_ context.Context, releaseName string, namespac
 	}
 	helmDriver := ""
 	actionConfig := action.Configuration{}
-	logger := func(_ string, _ ...any) {}
-	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver, logger); err != nil {
+	if err := actionConfig.Init(c.RESTClientGetter, namespace, helmDriver); err != nil {
 		return "", err
 	}
 

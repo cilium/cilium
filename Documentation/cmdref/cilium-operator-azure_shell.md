@@ -2,7 +2,7 @@
 
 ## cilium-operator-azure shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 cilium-operator-azure shell [command] [args]... [flags]

@@ -1,0 +1,42 @@
+name: Generate ZTunnel Certificates
+description: |
+  Generate TLS certificates for ztunnel and create the cilium-ztunnel-secrets
+  Kubernetes secret required for ztunnel encryption mode.
+runs:
+  using: composite
+  steps:
+    - id: generate-certs
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        ACTION_DIR="${{ github.action_path }}"
+        WORKDIR=$(mktemp -d)
+        trap "rm -rf ${WORKDIR}" EXIT
+
+        cd "${WORKDIR}"
+
+        # Bootstrap certificates: TLS between ztunnel and the Cilium agent xDS server
+        openssl genrsa -out bootstrap-private.key 2048
+        openssl req -x509 -new -nodes \
+            -key bootstrap-private.key \
+            -sha256 -days 3650 \
+            -out bootstrap-root.crt \
+            -config "${ACTION_DIR}/bootstrap.conf"
+
+        # CA certificates: used by Cilium agent to sign workload certificates for ztunnel mTLS
+        openssl genrsa -out ca-private.key 2048
+        openssl req -x509 -new -nodes \
+            -key ca-private.key \
+            -sha256 -days 3650 \
+            -out ca-root.crt \
+            -config "${ACTION_DIR}/ca.conf"
+
+        # Create Kubernetes secret
+        kubectl --namespace kube-system create secret generic cilium-ztunnel-secrets \
+            --from-file=bootstrap-private.key=bootstrap-private.key \
+            --from-file=bootstrap-root.crt=bootstrap-root.crt \
+            --from-file=ca-private.key=ca-private.key \
+            --from-file=ca-root.crt=ca-root.crt
+
+        echo "Successfully created cilium-ztunnel-secrets in kube-system namespace"

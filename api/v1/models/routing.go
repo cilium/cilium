@@ -53,7 +53,7 @@ func (m *Routing) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var routingTypeInterHostRoutingModePropEnum []interface{}
+var routingTypeInterHostRoutingModePropEnum []any
 
 func init() {
 	var res []string
@@ -95,7 +95,7 @@ func (m *Routing) validateInterHostRoutingMode(formats strfmt.Registry) error {
 	return nil
 }
 
-var routingTypeIntraHostRoutingModePropEnum []interface{}
+var routingTypeIntraHostRoutingModePropEnum []any
 
 func init() {
 	var res []string

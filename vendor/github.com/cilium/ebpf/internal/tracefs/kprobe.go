@@ -23,7 +23,7 @@ var (
 	ErrInvalidMaxActive = errors.New("can only set maxactive on kretprobes")
 )
 
-//go:generate go run golang.org/x/tools/cmd/stringer@latest -type=ProbeType -linecomment
+//go:generate go tool stringer -type=ProbeType -linecomment
 
 type ProbeType uint8
 

@@ -13,8 +13,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/client/bgp"
-	"github.com/cilium/cilium/pkg/bgpv1/api"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/api"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/command"
 )
 

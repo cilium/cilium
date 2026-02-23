@@ -15,14 +15,6 @@ metadata:
 
 rules:
 - apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - ""
   resources:
   - componentstatuses
@@ -39,14 +31,6 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cilium.io
-  resources:
-  - "*"
   verbs:
   - get
   - list

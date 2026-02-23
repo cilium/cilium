@@ -69,6 +69,10 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 
 	cfg := config.NewBPFSock(config.NodeConfig(lnc))
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
@@ -98,7 +102,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 		enabled[SendMsg4] = true
 		enabled[RecvMsg4] = true
 
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
 			enabled[GetPeerName4] = true
 		}
 
@@ -106,7 +110,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 			enabled[PostBind4] = true
 		}
 
-		if option.Config.EnableHealthDatapath {
+		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 			enabled[PreBind4] = true
 		}
 	}
@@ -120,7 +124,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 		enabled[SendMsg6] = true
 		enabled[RecvMsg6] = true
 
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
 			enabled[GetPeerName6] = true
 		}
 
@@ -128,7 +132,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 			enabled[PostBind6] = true
 		}
 
-		if option.Config.EnableHealthDatapath {
+		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 			enabled[PreBind6] = true
 		}
 	}

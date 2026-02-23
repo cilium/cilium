@@ -27,7 +27,7 @@ type LogAnalyticsClient struct {
 // NewLogAnalyticsClient creates a new instance of LogAnalyticsClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewLogAnalyticsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*LogAnalyticsClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -44,7 +44,7 @@ func NewLogAnalyticsClient(subscriptionID string, credential azcore.TokenCredent
 // to show throttling activities.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - location - The name of Azure region.
 //   - parameters - Parameters supplied to the LogAnalytics getRequestRateByInterval Api.
 //   - options - LogAnalyticsClientBeginExportRequestRateByIntervalOptions contains the optional parameters for the LogAnalyticsClient.BeginExportRequestRateByInterval
@@ -71,7 +71,7 @@ func (client *LogAnalyticsClient) BeginExportRequestRateByInterval(ctx context.C
 // show throttling activities.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *LogAnalyticsClient) exportRequestRateByInterval(ctx context.Context, location string, parameters RequestRateByIntervalInput, options *LogAnalyticsClientBeginExportRequestRateByIntervalOptions) (*http.Response, error) {
 	var err error
 	const operationName = "LogAnalyticsClient.BeginExportRequestRateByInterval"
@@ -109,7 +109,7 @@ func (client *LogAnalyticsClient) exportRequestRateByIntervalCreateRequest(ctx c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -122,7 +122,7 @@ func (client *LogAnalyticsClient) exportRequestRateByIntervalCreateRequest(ctx c
 // window.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - location - The name of Azure region.
 //   - parameters - The request body
 //   - options - LogAnalyticsClientBeginExportThrottledRequestsOptions contains the optional parameters for the LogAnalyticsClient.BeginExportThrottledRequests
@@ -148,7 +148,7 @@ func (client *LogAnalyticsClient) BeginExportThrottledRequests(ctx context.Conte
 // ExportThrottledRequests - Export logs that show total throttled Api requests for this subscription in the given time window.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 func (client *LogAnalyticsClient) exportThrottledRequests(ctx context.Context, location string, parameters ThrottledRequestsInput, options *LogAnalyticsClientBeginExportThrottledRequestsOptions) (*http.Response, error) {
 	var err error
 	const operationName = "LogAnalyticsClient.BeginExportThrottledRequests"
@@ -186,7 +186,7 @@ func (client *LogAnalyticsClient) exportThrottledRequestsCreateRequest(ctx conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {

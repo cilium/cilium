@@ -51,7 +51,7 @@ func (in *IPAMPoolAllocation) DeepCopyInto(out *IPAMPoolAllocation) {
 	*out = *in
 	if in.CIDRs != nil {
 		in, out := &in.CIDRs, &out.CIDRs
-		*out = make([]IPAMPodCIDR, len(*in))
+		*out = make([]IPAMCIDR, len(*in))
 		copy(*out, *in)
 	}
 	return

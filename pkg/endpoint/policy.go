@@ -43,9 +43,9 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
-// MapStateSize returns the size of the current desired policy map
-func (e *Endpoint) MapStateSize() int {
-	return e.desiredPolicy.Len()
+// PreviousMapState returns an empty policy.MapState with preallocated map sizes from the current one.
+func (e *Endpoint) PreviousMapState() *policy.MapState {
+	return e.desiredPolicy.GetMapState()
 }
 
 // GetNamedPort returns the port for the given name.
@@ -125,6 +125,7 @@ type policyGenerateResult struct {
 	policyRevision   uint64
 	endpointPolicy   *policy.EndpointPolicy
 	identityRevision int
+	identity         identityPkg.NumericIdentity
 }
 
 // Release resources held for the new policy
@@ -205,7 +206,16 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	result := &policyGenerateResult{
 		endpointPolicy:   e.desiredPolicy,
+		identity:         e.getIdentity(),
 		identityRevision: e.identityRevision,
+	}
+
+	// If selector policy is detached _before_ endpoint regeneration has started,
+	// we keep track of the timestamp to check how long it ends up in a detached state.
+	if e.desiredPolicy != nil {
+		if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
+			stats.policyDetachedTimestamp = &t
+		}
 	}
 	e.unlock()
 
@@ -299,14 +309,25 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 
 		return nil
 	}
+
 	// if the security identity changed, reject the policy computation
-	if e.identityRevision != res.identityRevision {
+	if e.getIdentity() != res.identity {
 		// Detach the rejected endpoint policy.
 		// This is needed to release resources held for the EndpointPolicy
 		res.release(e.getLogger())
 
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+	}
+
+	// if the security identity revision changed, reject the policy computation
+	if e.identityRevision != res.identityRevision {
+		// Detach the rejected endpoint policy.
+		// This is needed to release resources held for the EndpointPolicy
+		res.release(e.getLogger())
+
+		e.getLogger().Info("Endpoint SecurityIdentity revision changed during policy regeneration")
+		return fmt.Errorf("endpoint %d SecurityIdentity revision changed during policy regeneration", e.ID)
 	}
 
 	oldNextPolicyRevision := e.nextPolicyRevision
@@ -451,7 +472,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
-	if err := os.MkdirAll(tmpDir, 0777); err != nil {
+	if err := os.MkdirAll(tmpDir, 0o777); err != nil {
 		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
@@ -682,20 +703,14 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			if e.state == StateWaitingToRegenerate || e.state == StateRestoring {
-				// We can log this at less severity since a regeneration was already queued.
-				// This can happen if two policy updates come in quick succession, with the first
-				// affecting this endpoint and the second not.
-				e.getLogger().Info(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			} else {
-				e.getLogger().Warn(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			}
+			// FIXME: https://github.com/cilium/cilium/issues/36493
+			// Currently policy repository version can be bumped through multiple triggers
+			// async to each other. This can lead to out of order processing of regeneration
+			// events. Continue with endpoint regeneration to be safe but log as Info.
+			e.getLogger().Info(
+				"Endpoint missed a policy revision; triggering regeneration",
+				logfields.PolicyRevision, fromRev,
+			)
 		} else {
 			e.getLogger().Debug(
 				"Policy update is a no-op, bumping policyRevision",
@@ -911,14 +926,11 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	}
 
 	if !e.IsProxyDisabled() {
-		e.getLogger().Debug(
-			"Regenerate: Initial Envoy NetworkPolicy",
-			logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
-		)
+		e.getLogger().Debug("Regenerate: Initial Envoy NetworkPolicy")
 
 		stats.proxyPolicyCalculation.Start()
 		// Initial NetworkPolicy is not reverted
-		err, _ = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, nil)
+		err, _ = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, nil)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.getLogger().Warn(
@@ -1038,15 +1050,19 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return nil
 				}
-				logger := e.getLogger()
+				ln, err := e.localNodeStore.Get(ctx)
+				if err != nil {
+					e.runlock()
+					return controller.NewExitReason("Failed to get local node")
+				}
 
 				ID := e.SecurityIdentity.ID
-				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(logger))
+				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(ln))
 				if err != nil {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
 				}
-				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
+				key := node.GetEndpointEncryptKeyIndex(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
@@ -1092,22 +1108,29 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
+// If an identity was previously set and managed by the agent, it is
+// returned. If the endpoint was restored with an identity without having
+// executed SetIdentity during startup, the old identity is not returned.
 // Called with e.mutex Lock()ed
-func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
+func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToRelease *identityPkg.Identity) {
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
 		oldIdentity = e.SecurityIdentity.StringID()
 	}
 
 	// Current security identity for endpoint is its old identity - delete its
-	// reference from global identity manager, add add a reference to the new
-	// identity for the endpoint.
-	if newEndpoint {
+	// reference from global identity manager, add a reference to the new
+	// identity for the endpoint. If the endpoint has never had its identity set,
+	// we should not remove the old identity from the identity manager
+	if e.identitySet {
+		// ensure we return the identity in case we remove it
+		identityToRelease = e.SecurityIdentity
+		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
+	} else {
 		// TODO - GH-9354.
 		e.identityManager.Add(identity)
-	} else {
-		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	}
+	e.identitySet = true
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)
 
@@ -1130,12 +1153,13 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 			"Identity of endpoint changed",
 			logfields.IdentityNew, identity.StringID(),
 			logfields.IdentityOld, oldIdentity,
-			logfields.IdentityLabels, identity.Labels,
+			logfields.IdentityLabels, map[string]labels.Label(identity.Labels),
 		)
 	}
 	e.UpdateLogger(map[string]any{
 		logfields.Identity: identity.StringID(),
 	})
+	return identityToRelease
 }
 
 // UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If noTrackPort
@@ -1212,14 +1236,5 @@ func (e *Endpoint) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
 // setDNSRulesLocked is called when the Endpoint's DNS policy has been updated.
 // endpoint lock must be held.
 func (e *Endpoint) setDNSRulesLocked(rules restore.DNSRules) {
-	e.DNSRulesV2 = rules
-	// Keep V1 in tact in case of a downgrade.
-	e.DNSRules = make(restore.DNSRules)
-	for pp, rules := range rules {
-		proto := pp.Protocol()
-		// Filter out non-UDP/TCP protocol
-		if proto == uint8(u8proto.TCP) || proto == uint8(u8proto.UDP) {
-			e.DNSRules[pp.ToV1()] = rules
-		}
-	}
+	e.DNSRules = rules
 }

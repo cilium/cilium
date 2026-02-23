@@ -16,6 +16,10 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+func NewHandle(cfg *HandleConfig) (*netlink.Handle, error) {
+	return nil, netlink.ErrNotImplemented
+}
+
 func AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return nil, netlink.ErrNotImplemented
 }

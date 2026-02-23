@@ -5,6 +5,7 @@ package analyze
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"slices"
 	"testing"
@@ -24,7 +25,32 @@ func branchingProg(tb testing.TB, n int) asm.Instructions {
 		ins.Offset = 0
 		orig = append(orig, ins)
 	}
+	orig[0] = orig[0].WithSymbol("prog")
 	orig = append(orig, asm.Return())
+
+	return orig
+}
+
+func callingProg(tb testing.TB, n int) asm.Instructions {
+	tb.Helper()
+
+	// Each function call results in a new block.
+	// Exit is in its own block at the end of the program.
+	// Each function gets a block as well.
+	orig := make(asm.Instructions, 0, (n*3)+1)
+	for i := range n {
+		orig = append(orig, asm.Call.Label(fmt.Sprintf("fn%d", i)))
+	}
+	orig[0] = orig[0].WithSymbol("prog")
+	orig = append(orig, asm.Return())
+
+	for i := range n {
+		fn := []asm.Instruction{
+			asm.Mov.Imm(asm.R0, int32(i)).WithSymbol(fmt.Sprintf("fn%d", i)),
+			asm.Return(),
+		}
+		orig = append(orig, fn...)
+	}
 
 	return orig
 }
@@ -32,7 +58,7 @@ func branchingProg(tb testing.TB, n int) asm.Instructions {
 func TestMakeBlocksSimple(t *testing.T) {
 	// A valid program with no branches.
 	insns := asm.Instructions{
-		asm.Mov.Imm32(asm.R0, 0),
+		asm.Mov.Imm32(asm.R0, 0).WithSymbol("prog"),
 		asm.Return(),
 	}
 
@@ -57,7 +83,7 @@ func TestMakeBlocksSimple(t *testing.T) {
 func TestBlocksMultiplePredecessors(t *testing.T) {
 	// A program with multiple predecessors to the last block.
 	insns := asm.Instructions{
-		asm.Mov.Imm32(asm.R0, 1),
+		asm.Mov.Imm32(asm.R0, 1).WithSymbol("prog"),
 		asm.JEq.Imm(asm.R0, 0, "target"),
 		asm.Mov.Imm32(asm.R1, 1),
 		asm.JEq.Imm(asm.R1, 0, "target"),
@@ -71,30 +97,13 @@ func TestBlocksMultiplePredecessors(t *testing.T) {
 	blocks, err := MakeBlocks(insns)
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 3, blocks.count())
+	require.EqualValues(t, 3, blocks.count())
 
-	first := blocks.first()
-	assert.EqualValues(t, 0, first.id)
-	assert.Empty(t, first.predecessors)
-	assert.Equal(t, 0, first.start)
-	assert.Equal(t, 1, first.end)
-	assert.Equal(t, blocks[2], first.branch)
-	assert.Equal(t, blocks[1], first.fthrough)
-
-	second := blocks[1]
-	assert.EqualValues(t, 1, second.id)
-	assert.Len(t, second.predecessors, 1)
-	assert.Equal(t, first, second.predecessors[0])
-	assert.Equal(t, 2, second.start)
-	assert.Equal(t, 3, second.end)
-	assert.Equal(t, blocks[2], second.branch)
-	assert.Equal(t, blocks[2], second.fthrough)
-
-	last := blocks.last()
+	last := blocks[2]
 	assert.EqualValues(t, 2, last.id)
 	assert.Len(t, last.predecessors, 2)
-	assert.Equal(t, first, last.predecessors[0])
-	assert.Equal(t, second, last.predecessors[1])
+	assert.Contains(t, last.predecessors, blocks[0])
+	assert.Contains(t, last.predecessors, blocks[1])
 	assert.Equal(t, 4, last.start)
 	assert.Equal(t, 5, last.end)
 	assert.Nil(t, last.branch)
@@ -102,15 +111,15 @@ func TestBlocksMultiplePredecessors(t *testing.T) {
 
 	// Pull instructions from the last block and make sure it doesn't continue
 	// past the start of the block since it has multiple predecessors.
-	iter := last.iterateGlobal(blocks, insns)
+	bt := last.backtrack(insns)
 
-	require.True(t, iter.Previous())
-	assert.Equal(t, iter.Instruction(), &insns[5])
+	require.True(t, bt.Previous())
+	assert.Equal(t, bt.Instruction(), &insns[5])
 
-	require.True(t, iter.Previous())
-	assert.Equal(t, iter.Instruction(), &insns[4])
+	require.True(t, bt.Previous())
+	assert.Equal(t, bt.Instruction(), &insns[4])
 
-	require.False(t, iter.Previous())
+	require.False(t, bt.Previous())
 }
 
 func TestMakeBlocksManyBranches(t *testing.T) {
@@ -120,6 +129,52 @@ func TestMakeBlocksManyBranches(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.EqualValues(t, 1000, b.count())
+
+	b2, err := MakeBlocks(insns)
+	require.NoError(t, err)
+	assert.Equal(t, b, b2)
+}
+
+func TestMakeBlocksCalls(t *testing.T) {
+	// A valid program with calls.
+	insns := asm.Instructions{
+		asm.Mov.Imm(asm.R0, 0).WithSymbol("prog"),
+		asm.Call.Label("fn"),
+		asm.Return(),
+		asm.Mov.Imm32(asm.R0, 0).WithSymbol("fn"),
+		asm.Return(),
+	}
+
+	b, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	require.Len(t, b, 2)
+
+	blk := b.first()
+	assert.Empty(t, blk.predecessors)
+	assert.Nil(t, blk.fthrough)
+	assert.Nil(t, blk.branch)
+	assert.Equal(t, 0, blk.start)
+	assert.Equal(t, 2, blk.end)
+
+	blk = b[1]
+	assert.Empty(t, blk.predecessors)
+	assert.Nil(t, blk.fthrough)
+	assert.Nil(t, blk.branch)
+	assert.Equal(t, 3, blk.start)
+	assert.Equal(t, 4, blk.end)
+
+	b2, err := MakeBlocks(insns)
+	require.NoError(t, err)
+	assert.Equal(t, b, b2)
+}
+
+func TestMakeBlocksManyCalls(t *testing.T) {
+	insns := callingProg(t, 100)
+
+	b, err := MakeBlocks(insns)
+	require.NoError(t, err)
+	require.Len(t, b, 101)
 
 	b2, err := MakeBlocks(insns)
 	require.NoError(t, err)
@@ -141,9 +196,6 @@ func TestBlocksIterateLocal(t *testing.T) {
 	assert.True(t, iter.Next())
 	assert.False(t, iter.Next())
 	assert.Equal(t, 0, iter.index)
-
-	// Iterator has nowhere to move. First instruction is already pulled.
-	assert.False(t, iter.Previous())
 }
 
 func TestBlocksIterateGlobal(t *testing.T) {
@@ -169,46 +221,11 @@ func TestBlocksIterateGlobal(t *testing.T) {
 	// We should have seen all instructions.
 	assert.Equal(t, 100, i)
 	assert.Equal(t, 99, iter.index)
-
-	i = 0
-	for ; iter.Previous(); i++ {
-		assert.EqualValues(t, iter.index, iter.ins.Constant)
-	}
-
-	// Iterator should be back at the start.
-	assert.Equal(t, 99, i)
-	assert.Equal(t, 0, iter.index)
-}
-
-func TestBlocksIterateGlobalLoop(t *testing.T) {
-	insns := asm.Instructions{
-		asm.Mov.Imm32(asm.R0, 1).WithSymbol("loop"),
-		asm.JEq.Imm(asm.R0, 0, "exit"),
-		asm.Mov.Imm32(asm.R0, 0),
-		asm.JEq.Imm(asm.R0, 1, "loop"),
-		asm.Return().WithSymbol("exit"),
-	}
-
-	// Marshal instructions to fix up references.
-	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
-
-	bl, err := MakeBlocks(insns)
-	require.NoError(t, err)
-
-	assert.EqualValues(t, 3, bl.count())
-
-	iter := bl.first().iterateGlobal(bl, insns)
-	for iter.Previous() {
-	}
-
-	// Iterator should be back at the start and depth limit should be hit.
-	assert.Equal(t, 0, iter.index)
-	assert.Equal(t, uint8(maxDepth), iter.depth)
 }
 
 func TestBlocksIterateOffset(t *testing.T) {
 	insns := asm.Instructions{
-		asm.Mov.Imm(asm.R0, 0),
+		asm.Mov.Imm(asm.R0, 0).WithSymbol("prog"),
 		asm.LoadImm(asm.R0, 0xffffffff, asm.DWord),
 		asm.JEq.Imm(asm.R0, 0, "exit"),
 		asm.LoadImm(asm.R0, 0x11111111, asm.DWord),
@@ -248,6 +265,28 @@ func TestBlocksIterateOffset(t *testing.T) {
 	assert.False(t, iter.Next())
 }
 
+func TestBacktracker(t *testing.T) {
+	insns := asm.Instructions{
+		asm.Ja.Label("prog").WithSymbol("prog"),
+	}
+
+	b, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, b)
+
+	bt := b.first().backtrack(insns)
+
+	// Make sure single-instruction blocks work as expected.
+	// First call: true, 0.
+	require.True(t, bt.Previous())
+	assert.Equal(t, 0, bt.index)
+
+	// Second call: false, 0.
+	require.False(t, bt.Previous())
+	assert.Equal(t, 0, bt.index)
+}
+
 func TestBlocksDump(t *testing.T) {
 	insns := branchingProg(t, 100)
 
@@ -265,6 +304,24 @@ func BenchmarkComputeBlocks(b *testing.B) {
 
 	// Program with a 1000 branches resulting in 1000 blocks.
 	orig := branchingProg(b, 1000)
+
+	for b.Loop() {
+		b.StopTimer()
+		insns := slices.Clone(orig)
+		b.StartTimer()
+
+		if _, err := computeBlocks(insns); err != nil {
+			b.Fatal("Error making block list:", err)
+		}
+	}
+}
+
+func BenchmarkComputeBlocksCalls(b *testing.B) {
+	b.ReportAllocs()
+
+	// Program with 500 calls to 500 functions, resulting in 1000 blocks (plus 1
+	// for Exit).
+	orig := callingProg(b, 500)
 
 	for b.Loop() {
 		b.StopTimer()

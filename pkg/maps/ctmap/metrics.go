@@ -36,10 +36,6 @@ type gcStats struct {
 
 	// dumpError records any error that occurred during the dump.
 	dumpError error
-
-	// if enabled we emit regular logs about result of gc pass.
-	// disabled when run from dbg CLI (i.e. in bpf ct flush ...).
-	logResults bool
 }
 
 type gcFamily int
@@ -78,11 +74,10 @@ func (g gcProtocol) String() string {
 	}
 }
 
-func statStartGc(m *Map, logResults bool) gcStats {
+func statStartGc(m *Map) gcStats {
 	result := gcStats{
-		logger:     m.Logger,
-		DumpStats:  bpf.NewDumpStats(&m.Map),
-		logResults: logResults,
+		logger:    m.Logger,
+		DumpStats: bpf.NewDumpStats(&m.Map),
 	}
 	if m.mapType.isIPv6() {
 		result.family = gcFamilyIPv6
@@ -129,16 +124,6 @@ func (s *gcStats) finish() {
 		)
 	}
 
-	if s.logResults {
-		s.logger.Info("completed ctmap gc pass",
-			logfields.Family, s.family,
-			logfields.Protocol, s.proto,
-			logfields.Deleted, s.deleted,
-			logfields.Skipped, s.skipped,
-			logfields.AliveEntries, s.aliveEntries,
-		)
-	}
-
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
 	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
@@ -148,7 +133,8 @@ type NatGCStats struct {
 	*bpf.DumpStats
 
 	// family is the address family
-	Family gcFamily
+	Family    gcFamily
+	ClusterID uint32
 
 	IngressAlive   uint32
 	IngressDeleted uint32
@@ -156,10 +142,11 @@ type NatGCStats struct {
 	EgressAlive    uint32
 }
 
-func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
+func newNatGCStats(m *nat.Map, family gcFamily, clusterID uint32) NatGCStats {
 	return NatGCStats{
 		DumpStats: m.DumpStats(),
 		Family:    family,
+		ClusterID: clusterID,
 	}
 }
 

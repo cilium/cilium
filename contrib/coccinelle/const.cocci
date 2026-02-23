@@ -17,7 +17,7 @@ cnt = 0
 identifier f, fn, x, z, s1, s2;
 assignment operator op;
 expression e;
-type T0, T;
+type T0, T, T1;
 position p;
 @@
 
@@ -47,6 +47,10 @@ position p;
       when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
       when != f(..., x->z, ...)
+      when != f(..., (T1)x, ...)
+      when != f(..., (T1 *)x, ...)
+      when != f(..., (T1)x->z, ...)
+      when != f(..., (T1 *)x->z, ...)
       when != struct s1 s2 = { ..., .z = x, ... };
   }
 )

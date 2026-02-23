@@ -13,7 +13,7 @@ find . -not -regex ".*/vendor/.*" -not -path "./_build/*" -name "generated.proto
 # Delete cilium clientsets, informers & listers
 rm -rf ./pkg/k8s/client/{clientset,informers,listers}
 # Delete k8s slim clients
-rm -rf ./pkg/k8s/slim/k8s/{client,apiextensions-client}
+rm -rf ./pkg/k8s/slim/k8s/client
 
 # Generate all files
 make generate-k8s-api manifests

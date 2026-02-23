@@ -30,6 +30,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -49,8 +51,6 @@ import (
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
-
 	version.Force(k8sTestutils.DefaultVersion)
 	nodeTypes.SetName("testnode")
 
@@ -74,6 +74,8 @@ func TestScript(t *testing.T) {
 				daemonk8s.TablesCell,
 				metrics.Cell,
 
+				lbipamconfig.Cell,
+				nodeipamconfig.Cell,
 				lbcell.Cell,
 
 				node.LocalNodeStoreTestCell,
@@ -203,30 +205,10 @@ func (f *fakeSkipLBMap) DeleteLB4(key *lbmaps.SkipLB4Key) error {
 	return nil
 }
 
-// DeleteLB4ByAddrPort implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
-	panic("unimplemented")
-}
-
-// DeleteLB4ByNetnsCookie implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
-	panic("unimplemented")
-}
-
 // DeleteLB6 implements lbmap.SkipLBMap.
 func (f *fakeSkipLBMap) DeleteLB6(key *lbmaps.SkipLB6Key) error {
 	f.entries.Delete(*key)
 	return nil
-}
-
-// DeleteLB6ByAddrPort implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
-	panic("unimplemented")
-}
-
-// DeleteLB6ByNetnsCookie implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
-	panic("unimplemented")
 }
 
 var _ lbmaps.SkipLBMap = &fakeSkipLBMap{}

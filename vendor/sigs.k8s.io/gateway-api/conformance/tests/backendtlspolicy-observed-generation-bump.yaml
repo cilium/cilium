@@ -1,0 +1,45 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backendtlspolicy-observed-generation-bump
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - backendRefs:
+        - name: observed-generation-bump-test
+          port: 443
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: observed-generation-bump-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: observed-generation-bump-test
+  ports:
+    - name: "https"
+      protocol: TCP
+      port: 443
+      targetPort: 8443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: observed-generation-bump
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "observed-generation-bump-test"
+      sectionName: "https"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        name: "tls-checks-ca-certificate"
+    hostname: "abc.example.com"

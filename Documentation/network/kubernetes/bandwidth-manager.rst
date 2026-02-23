@@ -43,21 +43,17 @@ mode in Cilium.
 Cilium's bandwidth manager is disabled by default on new installations.
 To install Cilium with the bandwidth manager enabled, run
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set bandwidthManager.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: bandwidthManager.enabled=true
 
 To enable the bandwidth manager on an existing installation, run
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set bandwidthManager.enabled=true
-   kubectl -n kube-system rollout restart ds/cilium
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: bandwidthManager.enabled=true
+   :post-commands: kubectl -n kube-system rollout restart ds/cilium
 
 The native host networking devices are auto detected as native devices which have
 the default route on the host or have Kubernetes ``InternalIP`` or ``ExternalIP`` assigned.
@@ -234,14 +230,12 @@ can be 25x lower.
 
 To enable the bandwidth manager with BBR congestion control, deploy with the following:
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set bandwidthManager.enabled=true \\
-     --set bandwidthManager.bbr=true
-   kubectl -n kube-system rollout restart ds/cilium
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: bandwidthManager.enabled=true
+         bandwidthManager.bbr=true
+   :post-commands: kubectl -n kube-system rollout restart ds/cilium
 
 In order for BBR to work reliably for Pods, it requires a 5.18 or higher kernel.
 As outlined in our `Linux Plumbers 2021 talk <https://lpc.events/event/11/contributions/953/>`_,
@@ -283,15 +277,13 @@ In legacy routing mode, it is not possible to enable BBR for Cilium-managed pods
 possible to enable BBR for *only* the host network namespace by adding the
 ``bandwidthManager.bbrHostNamespaceOnly=true`` flag.
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set bandwidthManager.enabled=true \\
-     --set bandwidthManager.bbr=true
-     --set bandwidthManager.bbrHostNamespaceOnly=true
-   kubectl -n kube-system rollout restart ds/cilium
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: bandwidthManager.enabled=true
+         bandwidthManager.bbr=true
+         bandwidthManager.bbrHostNamespaceOnly=true
+   :post-commands: kubectl -n kube-system rollout restart ds/cilium
 
 With ``bandwidthManager.bbrHostNamespaceOnly``, processes in the host network
 namespace, including pods that set ``hostNetwork`` to ``true``, will use BBR.

@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -74,11 +75,15 @@ func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
 
 		if m.Addressing[i] != nil {
 			if err := m.Addressing[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("addressing" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -95,11 +100,15 @@ func (m *EndpointNetworking) validateHostAddressing(formats strfmt.Registry) err
 
 	if m.HostAddressing != nil {
 		if err := m.HostAddressing.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("host-addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("host-addressing")
 			}
+
 			return err
 		}
 	}
@@ -136,11 +145,15 @@ func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, form
 			}
 
 			if err := m.Addressing[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("addressing" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -159,11 +172,15 @@ func (m *EndpointNetworking) contextValidateHostAddressing(ctx context.Context, 
 		}
 
 		if err := m.HostAddressing.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("host-addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("host-addressing")
 			}
+
 			return err
 		}
 	}

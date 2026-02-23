@@ -37,7 +37,6 @@ func NewGetHealthzParams() GetHealthzParams {
 //
 // swagger:parameters GetHealthz
 type GetHealthzParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -46,6 +45,7 @@ type GetHealthzParams struct {
 	  In: header
 	*/
 	Brief *bool
+
 	/*If set to true, failure of the agent to connect to the Kubernetes control plane will cause the agent's health status to also fail.
 
 	  In: header

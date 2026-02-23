@@ -17,16 +17,17 @@ limitations under the License.
 package client
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -47,22 +48,30 @@ type clientRestResources struct {
 	// codecs are used to create a REST client for a gvk
 	codecs serializer.CodecFactory
 
-	// structuredResourceByType stores structured type metadata
-	structuredResourceByType map[schema.GroupVersionKind]*resourceMeta
-	// unstructuredResourceByType stores unstructured type metadata
-	unstructuredResourceByType map[schema.GroupVersionKind]*resourceMeta
-	mu                         sync.RWMutex
+	// resourceByType stores type metadata
+	resourceByType map[cacheKey]*resourceMeta
+
+	mu sync.RWMutex
+}
+
+type cacheKey struct {
+	gvk                  schema.GroupVersionKind
+	forceDisableProtoBuf bool
 }
 
 // newResource maps obj to a Kubernetes Resource and constructs a client for that Resource.
 // If the object is a list, the resource represents the item's type instead.
-func (c *clientRestResources) newResource(gvk schema.GroupVersionKind, isList, isUnstructured bool) (*resourceMeta, error) {
+func (c *clientRestResources) newResource(gvk schema.GroupVersionKind,
+	isList bool,
+	forceDisableProtoBuf bool,
+	isUnstructured bool,
+) (*resourceMeta, error) {
 	if strings.HasSuffix(gvk.Kind, "List") && isList {
 		// if this was a list, treat it as a request for the item's resource
 		gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
 	}
 
-	client, err := apiutil.RESTClientForGVK(gvk, isUnstructured, c.config, c.codecs, c.httpClient)
+	client, err := apiutil.RESTClientForGVK(gvk, forceDisableProtoBuf, isUnstructured, c.config, c.codecs, c.httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -73,52 +82,96 @@ func (c *clientRestResources) newResource(gvk schema.GroupVersionKind, isList, i
 	return &resourceMeta{Interface: client, mapping: mapping, gvk: gvk}, nil
 }
 
+type applyConfiguration interface {
+	GetName() *string
+	GetNamespace() *string
+	GetKind() *string
+	GetAPIVersion() *string
+}
+
 // getResource returns the resource meta information for the given type of object.
 // If the object is a list, the resource represents the item's type instead.
-func (c *clientRestResources) getResource(obj runtime.Object) (*resourceMeta, error) {
-	gvk, err := apiutil.GVKForObject(obj, c.scheme)
-	if err != nil {
-		return nil, err
+func (c *clientRestResources) getResource(obj any) (*resourceMeta, error) {
+	var gvk schema.GroupVersionKind
+	var err error
+	var isApplyConfiguration bool
+	switch o := obj.(type) {
+	case runtime.Object:
+		gvk, err = apiutil.GVKForObject(o, c.scheme)
+		if err != nil {
+			return nil, err
+		}
+	case runtime.ApplyConfiguration:
+		ac, ok := o.(applyConfiguration)
+		if !ok {
+			return nil, fmt.Errorf("%T is a runtime.ApplyConfiguration but not an applyConfiguration", o)
+		}
+		gvk, err = gvkFromApplyConfiguration(ac)
+		if err != nil {
+			return nil, err
+		}
+		isApplyConfiguration = true
+	default:
+		return nil, fmt.Errorf("bug: %T is neither a runtime.Object nor a runtime.ApplyConfiguration", o)
 	}
 
 	_, isUnstructured := obj.(runtime.Unstructured)
+	forceDisableProtoBuf := isUnstructured || isApplyConfiguration
 
 	// It's better to do creation work twice than to not let multiple
 	// people make requests at once
 	c.mu.RLock()
-	resourceByType := c.structuredResourceByType
-	if isUnstructured {
-		resourceByType = c.unstructuredResourceByType
-	}
-	r, known := resourceByType[gvk]
+
+	cacheKey := cacheKey{gvk: gvk, forceDisableProtoBuf: forceDisableProtoBuf}
+
+	r, known := c.resourceByType[cacheKey]
+
 	c.mu.RUnlock()
 
 	if known {
 		return r, nil
 	}
 
+	var isList bool
+	if runtimeObject, ok := obj.(runtime.Object); ok && meta.IsListType(runtimeObject) {
+		isList = true
+	}
+
 	// Initialize a new Client
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	r, err = c.newResource(gvk, meta.IsListType(obj), isUnstructured)
+	r, err = c.newResource(gvk, isList, forceDisableProtoBuf, isUnstructured)
 	if err != nil {
 		return nil, err
 	}
-	resourceByType[gvk] = r
+	c.resourceByType[cacheKey] = r
 	return r, err
 }
 
 // getObjMeta returns objMeta containing both type and object metadata and state.
-func (c *clientRestResources) getObjMeta(obj runtime.Object) (*objMeta, error) {
+func (c *clientRestResources) getObjMeta(obj any) (*objMeta, error) {
 	r, err := c.getResource(obj)
 	if err != nil {
 		return nil, err
 	}
-	m, err := meta.Accessor(obj)
-	if err != nil {
-		return nil, err
+	objMeta := &objMeta{resourceMeta: r}
+
+	switch o := obj.(type) {
+	case runtime.Object:
+		m, err := meta.Accessor(obj)
+		if err != nil {
+			return nil, err
+		}
+		objMeta.namespace = m.GetNamespace()
+		objMeta.name = m.GetName()
+	case applyConfiguration:
+		objMeta.namespace = ptr.Deref(o.GetNamespace(), "")
+		objMeta.name = ptr.Deref(o.GetName(), "")
+	default:
+		return nil, fmt.Errorf("object %T is neither a runtime.Object nor a runtime.ApplyConfiguration", obj)
 	}
-	return &objMeta{resourceMeta: r, Object: m}, err
+
+	return objMeta, nil
 }
 
 // resourceMeta stores state for a Kubernetes type.
@@ -146,6 +199,6 @@ type objMeta struct {
 	// resourceMeta contains type information for the object
 	*resourceMeta
 
-	// Object contains meta data for the object instance
-	metav1.Object
+	namespace string
+	name      string
 }

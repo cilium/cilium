@@ -23,10 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	mockipc "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -92,7 +92,6 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		Logger:     logger,
 	})
 	policyRepo.GetSelectorCache().SetLocalIdentityNotifier(nm)
-	node.SetTestLocalNodeStore()
 	option.Config.DNSProxyLockTimeout = defaults.DNSProxyLockTimeout
 	option.Config.FQDNProxyResponseMaxDelay = defaults.FQDNProxyResponseMaxDelay
 
@@ -100,15 +99,13 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		DNSMessageHandlerParams{
 			Logger:            logger,
 			NameManager:       nm,
-			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}),
+			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}, nil),
 		})
 
 	// Register rules (simulates applied policies).
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
-	for _, sel := range selectorsToAdd {
-		policyRepo.GetSelectorCache().AddFQDNSelector(dscu, policy.EmptyStringLabels, sel)
-	}
+	policyRepo.GetSelectorCache().AddSelectors(dscu, types.ToSelectors(selectorsToAdd...)...)
 
 	const nEndpoints int = 1024
 

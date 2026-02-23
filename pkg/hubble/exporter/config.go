@@ -76,6 +76,8 @@ func (f *exporterFactory) create(config *FlowLogConfig) (*exporter, error) {
 		WithAllowList(f.logger, config.IncludeFilters),
 		WithDenyList(f.logger, config.ExcludeFilters),
 		WithFieldMask(config.FieldMask),
+		WithFieldAggregate(config.FieldAggregate),
+		WithAggregationInterval(time.Duration(config.AggregationInterval)),
 		WithOnExportEventFunc(func(ctx context.Context, ev *v1.Event, encoder Encoder) (bool, error) {
 			stop := !config.IsActive()
 			return stop, nil
@@ -144,15 +146,17 @@ var _ ExporterConfig = (*FlowLogConfig)(nil)
 
 // FlowLogConfig represents configuration of single dynamic exporter.
 type FlowLogConfig struct {
-	Name           string      `json:"name,omitempty" yaml:"name,omitempty"`
-	FilePath       string      `json:"filePath,omitempty" yaml:"filePath,omitempty"`
-	FieldMask      FieldMask   `json:"fieldMask,omitempty" yaml:"fieldMask,omitempty"`
-	IncludeFilters FlowFilters `json:"includeFilters,omitempty" yaml:"includeFilters,omitempty"`
-	ExcludeFilters FlowFilters `json:"excludeFilters,omitempty" yaml:"excludeFilters,omitempty"`
-	FileMaxSizeMB  int         `json:"fileMaxSizeMb,omitempty" yaml:"fileMaxSizeMb,omitempty"`
-	FileMaxBackups int         `json:"fileMaxBackups,omitempty" yaml:"fileMaxBackups,omitempty"`
-	FileCompress   bool        `json:"fileCompress,omitempty" yaml:"fileCompress,omitempty"`
-	End            *time.Time  `json:"end,omitempty" yaml:"end,omitempty"`
+	Name                string         `json:"name,omitempty" yaml:"name,omitempty"`
+	FilePath            string         `json:"filePath,omitempty" yaml:"filePath,omitempty"`
+	FieldMask           FieldMask      `json:"fieldMask,omitempty" yaml:"fieldMask,omitempty"`
+	FieldAggregate      FieldAggregate `json:"fieldAggregate,omitempty" yaml:"fieldAggregate,omitempty"`
+	AggregationInterval Duration       `json:"aggregationInterval,omitempty" yaml:"aggregationInterval,omitempty"`
+	IncludeFilters      FlowFilters    `json:"includeFilters,omitempty" yaml:"includeFilters,omitempty"`
+	ExcludeFilters      FlowFilters    `json:"excludeFilters,omitempty" yaml:"excludeFilters,omitempty"`
+	FileMaxSizeMB       int            `json:"fileMaxSizeMb,omitempty" yaml:"fileMaxSizeMb,omitempty"`
+	FileMaxBackups      int            `json:"fileMaxBackups,omitempty" yaml:"fileMaxBackups,omitempty"`
+	FileCompress        bool           `json:"fileCompress,omitempty" yaml:"fileCompress,omitempty"`
+	End                 *time.Time     `json:"end,omitempty" yaml:"end,omitempty"`
 }
 
 // Equal implements ExporterConfig.
@@ -181,6 +185,14 @@ func (f *FlowLogConfig) equals(other *FlowLogConfig) bool {
 	}
 
 	if !f.FieldMask.equals(other.FieldMask) {
+		return false
+	}
+
+	if !f.FieldAggregate.equals(other.FieldAggregate) {
+		return false
+	}
+
+	if f.AggregationInterval != other.AggregationInterval {
 		return false
 	}
 
@@ -233,11 +245,64 @@ func (f FlowFilters) equals(other FlowFilters) bool {
 type FieldMask []string
 
 func (f FieldMask) equals(other FieldMask) bool {
-	xs := make([]string, len(f))
-	ys := make([]string, len(other))
-	copy(xs, f)
-	copy(ys, other)
+	xs := slices.Clone(f)
+	ys := slices.Clone(other)
 	slices.Sort(xs)
 	slices.Sort(ys)
-	return reflect.DeepEqual(xs, ys)
+	return slices.Equal(xs, ys)
+}
+
+// FieldAggregate is a slice of fields that are used for flowlog aggregation.
+type FieldAggregate []string
+
+func (f FieldAggregate) equals(other FieldAggregate) bool {
+	xs := slices.Clone(f)
+	ys := slices.Clone(other)
+	slices.Sort(xs)
+	slices.Sort(ys)
+	return slices.Equal(xs, ys)
+}
+
+// Duration is a wrapper around time.Duration that can unmarshal from YAML strings.
+type Duration time.Duration
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	duration, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = Duration(duration)
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	// Remove quotes from JSON string
+	var s string
+	if len(data) > 1 && data[0] == '"' && data[len(data)-1] == '"' {
+		s = string(data[1 : len(data)-1])
+	} else {
+		s = string(data)
+	}
+	duration, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	*d = Duration(duration)
+	return nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (d Duration) MarshalYAML() (any, error) {
+	return time.Duration(d).String(), nil
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + time.Duration(d).String() + `"`), nil
 }

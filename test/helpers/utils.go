@@ -292,39 +292,8 @@ func reportMapContext(ctx context.Context, path string, reportCmds map[string]st
 	}
 }
 
-// ManifestGet returns the full path of the given manifest corresponding to the
-// Kubernetes version being tested, if such a manifest exists, if not it
-// returns the global manifest file.
-// The paths are checked in order:
-// 1- base_path/integration/filename
-// 2- base_path/k8s_version/integration/filename
-// 3- base_path/k8s_version/filename
-// 4- base_path/filename
+// ManifestGet returns the full path of the given manifest.
 func ManifestGet(base, manifestFilename string) string {
-	// Try dependent integration file only if we have one configured. This is
-	// needed since no integration is "" and that causes us to find the
-	// base_path/filename before we check the base_path/k8s_version/filename
-	if integration := GetCurrentIntegration(); integration != "" {
-		fullPath := filepath.Join(K8sManifestBase, integration, manifestFilename)
-		_, err := os.Stat(fullPath)
-		if err == nil {
-			return filepath.Join(base, fullPath)
-		}
-
-		// try dependent k8s version and integration file
-		fullPath = filepath.Join(K8sManifestBase, GetCurrentK8SEnv(), integration, manifestFilename)
-		_, err = os.Stat(fullPath)
-		if err == nil {
-			return filepath.Join(base, fullPath)
-		}
-	}
-
-	// try dependent k8s version
-	fullPath := filepath.Join(K8sManifestBase, GetCurrentK8SEnv(), manifestFilename)
-	_, err := os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(base, fullPath)
-	}
 	return filepath.Join(base, K8sManifestBase, manifestFilename)
 }
 
@@ -406,10 +375,6 @@ func DoesNotRunOn54Kernel() bool {
 	return !RunsOn54Kernel()
 }
 
-func NativeRoutingCIDR() string {
-	return os.Getenv("NATIVE_CIDR")
-}
-
 // RunsOn54OrLaterKernel checks whether a test case is running on 5.4 or later kernel
 func RunsOn54OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn54Kernel()
@@ -420,31 +385,11 @@ func DoesNotRunOn54OrLaterKernel() bool {
 	return !RunsOn54OrLaterKernel()
 }
 
-// RunsOnGKE returns true if the tests are running on GKE.
-func RunsOnGKE() bool {
-	return GetCurrentIntegration() == CIIntegrationGKE
-}
-
-// DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
-func DoesNotRunOnGKE() bool {
-	return !RunsOnGKE()
-}
-
-// RunsOnAKS returns true if the tests are running on AKS.
-func RunsOnAKS() bool {
-	return GetCurrentIntegration() == CIIntegrationAKS
-}
-
-// DoesNotRunOnAKS is the complement function of DoesNotRunOnAKS.
-func DoesNotRunOnAKS() bool {
-	return !RunsOnAKS()
-}
-
 // RunsWithKubeProxyReplacement returns true if the kernel supports our
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOn54OrLaterKernel()
+	return RunsOn54OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of
@@ -549,11 +494,6 @@ func SkipRaceDetectorEnabled() bool {
 // DualStackSupported returns whether the current environment has DualStack IPv6
 // enabled or not for the cluster.
 func DualStackSupported() bool {
-	// AKS does not support dual stack yet
-	if IsIntegration(CIIntegrationAKS) {
-		return false
-	}
-
 	// We only have DualStack enabled in KIND.
 	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
@@ -561,11 +501,6 @@ func DualStackSupported() bool {
 // DualStackSupportBeta returns true if the environment has a Kubernetes version that
 // has support for k8s DualStack beta API types.
 func DualStackSupportBeta() bool {
-	// AKS does not support dual stack yet
-	if IsIntegration(CIIntegrationAKS) {
-		return false
-	}
-
 	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
 

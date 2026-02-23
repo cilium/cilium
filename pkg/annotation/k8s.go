@@ -125,6 +125,10 @@ const (
 	// we have patched its configuration to enabled MCS-API support.
 	CoreDNSAutoPatched = ClusterMeshPrefix + "/autoPatchedAt"
 
+	// SupportedIPFamilies is an internal annotation in MCS-API to track which
+	// ip families are used and supported by the local cluster
+	SupportedIPFamilies = ClusterMeshPrefix + "/supported-ip-families"
+
 	// ServiceLoadBalancingAlgorithm indicates which backend selection algorithm
 	// for a given Service to use. This annotation will override the default
 	// value set in bpf-lb-algorithm.
@@ -211,6 +215,10 @@ const (
 	// default pool when no pool selectors match. Can be set on pods or namespaces.
 	IPAMRequirePoolMatch = IPAMPrefix + "/require-pool-match"
 
+	// IPAMSkipMasquerade indicates whether the datapath should avoid masquerading
+	// connections from this IP pool when the cluster is in tunneling mode.
+	IPAMSkipMasquerade = IPAMPrefix + "/skip-masquerade"
+
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
@@ -224,6 +232,12 @@ const (
 	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
 
 	NoTrackHostPorts = NetworkPrefix + "/no-track-host-ports"
+
+	// GlobalNamespace is the annotation used to mark namespaces for global export in ClusterMesh.
+	GlobalNamespace = ClusterMeshPrefix + "/global"
+
+	// FIBTableID is the annotation used to specify the FIB table ID for egress routing.
+	FIBTableID = NetworkPrefix + "/fib-table-id"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.

@@ -59,7 +59,8 @@ type linuxNodeHandler struct {
 	nodes             map[nodeTypes.Identity]*nodeTypes.Node
 	ipsecUpdateNeeded map[nodeTypes.Identity]bool
 
-	nodeMap nodemap.MapV2
+	localNodeStore *node.LocalNodeStore
+	nodeMap        nodemap.MapV2
 	// Pool of available IDs for nodes.
 	nodeIDs *idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
@@ -95,13 +96,14 @@ func NewNodeHandler(
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
+	localNodeStore *node.LocalNodeStore,
 ) (datapath.NodeHandler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{})
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{}, localNodeStore)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -125,12 +127,14 @@ func newNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
 	ipsecCfg datapath.IPsecConfig,
+	localNodeStore *node.LocalNodeStore,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
 		datapathConfig:       datapathConfig,
 		nodeConfig:           datapath.LocalNodeConfiguration{},
 		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
+		localNodeStore:       localNodeStore,
 		nodeMap:              nodeMap,
 		nodeIDs:              idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:         map[string]uint16{},
@@ -170,7 +174,7 @@ func createDirectRouteSpec(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, ski
 
 	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
 		if skipUnreachable {
-			log.Warn("route to destination contains gateway, skipping route as not directly reachable",
+			log.Debug("route to destination contains gateway, skipping route as not directly reachable",
 				logfields.NodeIP, nodeIP,
 				logfields.GatewayIP, routes[0].Gw)
 			addRoute = false
@@ -698,11 +702,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 	if err := n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
-	}
-
-	// Clean up stale IP rules for IPsec. This can be removed in the v1.20 release.
-	if err := n.removeEncryptRules(); err != nil {
-		n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 	}
 
 	if newConfig.EnableIPSec {

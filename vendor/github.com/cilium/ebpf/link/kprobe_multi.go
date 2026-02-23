@@ -8,8 +8,7 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -126,11 +125,11 @@ func kprobeMulti(prog *ebpf.Program, opts KprobeMultiOptions, flags uint32) (Lin
 	}
 
 	if opts.Session {
-		if haveFeatErr := haveBPFLinkKprobeSession(); haveFeatErr != nil {
+		if haveFeatErr := features.HaveBPFLinkKprobeSession(); haveFeatErr != nil {
 			return nil, haveFeatErr
 		}
 	} else {
-		if haveFeatErr := haveBPFLinkKprobeMulti(); haveFeatErr != nil {
+		if haveFeatErr := features.HaveBPFLinkKprobeMulti(); haveFeatErr != nil {
 			return nil, haveFeatErr
 		}
 	}
@@ -157,12 +156,30 @@ func (kml *kprobeMultiLink) Update(_ *ebpf.Program) error {
 func (kml *kprobeMultiLink) Info() (*Info, error) {
 	var info sys.KprobeMultiLinkInfo
 	if err := sys.ObjInfo(kml.fd, &info); err != nil {
-		return nil, fmt.Errorf("kprobe multi link info: %s", err)
+		return nil, fmt.Errorf("kprobe multi link info: %w", err)
+	}
+	var addrs = make([]uint64, info.Count)
+	var cookies = make([]uint64, info.Count)
+	info = sys.KprobeMultiLinkInfo{
+		Addrs:   sys.SlicePointer(addrs),
+		Cookies: sys.SlicePointer(cookies),
+		Count:   uint32(len(addrs)),
+	}
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("kprobe multi link info: %w", err)
+	}
+	if info.Addrs.IsNil() {
+		addrs = nil
+	}
+	if info.Cookies.IsNil() {
+		cookies = nil
 	}
 	extra := &KprobeMultiInfo{
-		count:  info.Count,
-		flags:  info.Flags,
-		missed: info.Missed,
+		Count:   info.Count,
+		Flags:   info.Flags,
+		Missed:  info.Missed,
+		addrs:   addrs,
+		cookies: cookies,
 	}
 
 	return &Info{
@@ -172,85 +189,3 @@ func (kml *kprobeMultiLink) Info() (*Info, error) {
 		extra,
 	}, nil
 }
-
-var haveBPFLinkKprobeMulti = internal.NewFeatureTest("bpf_link_kprobe_multi", func() error {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Name: "probe_kpm_link",
-		Type: ebpf.Kprobe,
-		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
-			asm.Return(),
-		},
-		AttachType: ebpf.AttachTraceKprobeMulti,
-		License:    "MIT",
-	})
-	if errors.Is(err, unix.E2BIG) {
-		// Kernel doesn't support AttachType field.
-		return internal.ErrNotSupported
-	}
-	if err != nil {
-		return err
-	}
-	defer prog.Close()
-
-	fd, err := sys.LinkCreateKprobeMulti(&sys.LinkCreateKprobeMultiAttr{
-		ProgFd:     uint32(prog.FD()),
-		AttachType: sys.BPF_TRACE_KPROBE_MULTI,
-		Count:      1,
-		Syms:       sys.NewStringSlicePointer([]string{"vprintk"}),
-	})
-	switch {
-	case errors.Is(err, unix.EINVAL):
-		return internal.ErrNotSupported
-	// If CONFIG_FPROBE isn't set.
-	case errors.Is(err, unix.EOPNOTSUPP):
-		return internal.ErrNotSupported
-	case err != nil:
-		return err
-	}
-
-	fd.Close()
-
-	return nil
-}, "5.18")
-
-var haveBPFLinkKprobeSession = internal.NewFeatureTest("bpf_link_kprobe_session", func() error {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Name: "probe_kps_link",
-		Type: ebpf.Kprobe,
-		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
-			asm.Return(),
-		},
-		AttachType: ebpf.AttachTraceKprobeSession,
-		License:    "MIT",
-	})
-	if errors.Is(err, unix.E2BIG) {
-		// Kernel doesn't support AttachType field.
-		return internal.ErrNotSupported
-	}
-	if err != nil {
-		return err
-	}
-	defer prog.Close()
-
-	fd, err := sys.LinkCreateKprobeMulti(&sys.LinkCreateKprobeMultiAttr{
-		ProgFd:     uint32(prog.FD()),
-		AttachType: sys.BPF_TRACE_KPROBE_SESSION,
-		Count:      1,
-		Syms:       sys.NewStringSlicePointer([]string{"vprintk"}),
-	})
-	switch {
-	case errors.Is(err, unix.EINVAL):
-		return internal.ErrNotSupported
-	// If CONFIG_FPROBE isn't set.
-	case errors.Is(err, unix.EOPNOTSUPP):
-		return internal.ErrNotSupported
-	case err != nil:
-		return err
-	}
-
-	fd.Close()
-
-	return nil
-}, "6.10")

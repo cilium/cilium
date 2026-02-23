@@ -12,24 +12,23 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 const (
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupPolicyNetworkingV1Alpha2         = "policy.networking.k8s.io/v1alpha2::ClusterNetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumCIDRGroupV2                = "cilium/v2::CiliumCIDRGroup"
@@ -39,7 +38,7 @@ const (
 // policy related K8s resources (Kubernetes NetworkPolicy (KNP),
 // CiliumNetworkPolicy (CNP), ClusterwideCiliumNetworkPolicy (CCNP),
 // and CiliumCIDRGroup (CCG)), translates them to Cilium's own
-// policy representation (api.Rules) and updates the policy repository
+// policy representation (PolicyEntry) and updates the policy repository
 // (via PolicyManager) accordingly.
 var Cell = cell.Module(
 	"policy-k8s-watcher",
@@ -47,16 +46,6 @@ var Cell = cell.Module(
 
 	cell.Invoke(startK8sPolicyWatcher),
 )
-
-type PolicyManager interface {
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
-}
-
-type ipc interface {
-	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
-	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
-}
 
 type PolicyWatcherParams struct {
 	cell.In
@@ -75,13 +64,14 @@ type PolicyWatcherParams struct {
 	Services statedb.Table[*loadbalancer.Service]
 	Backends statedb.Table[*loadbalancer.Backend]
 
-	IPCache        *ipcache.IPCache
+	IPCache        policycell.IPCacher
 	PolicyImporter policycell.PolicyImporter
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_v2.CiliumCIDRGroup]
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
+	ClusterNetworkPolicies           resource.Resource[*policyv1alpha2.ClusterNetworkPolicy]
 
 	MetricsManager CNPMetrics
 }
@@ -110,6 +100,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		ciliumClusterwideNetworkPolicies: params.CiliumClusterwideNetworkPolicies,
 		ciliumCIDRGroups:                 params.CiliumCIDRGroups,
 		networkPolicies:                  params.NetworkPolicies,
+		clusterNetworkPolicies:           params.ClusterNetworkPolicies,
 
 		cnpCache:       make(map[resource.Key]*types.SlimCNP),
 		cidrGroupCache: make(map[string]*cilium_v2.CiliumCIDRGroup),
@@ -142,6 +133,12 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		p.knpSyncPending.Store(1)
 		p.registerResourceWithSyncFn(ctx, k8sAPIGroupNetworkingV1Core, func() bool {
 			return p.knpSyncPending.Load() == 0
+		})
+	}
+	if params.Config.EnableK8sClusterNetworkPolicy {
+		p.kcnpSyncPending.Store(1)
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupPolicyNetworkingV1Alpha2, func() bool {
+			return p.kcnpSyncPending.Load() == 0
 		})
 	}
 	if params.Config.EnableCiliumNetworkPolicy {

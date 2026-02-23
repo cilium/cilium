@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const (
@@ -56,10 +55,6 @@ func (f *fakeUserMgmtClient) UserEnforceAbsence(_ context.Context, name string) 
 }
 
 func TestUsersManagement(t *testing.T) {
-	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
-	leakOpts := testutils.GoleakIgnoreCurrent()
-	t.Cleanup(func() { testutils.GoleakVerifyNone(t, leakOpts) })
-
 	var client fakeUserMgmtClient
 	client.init()
 

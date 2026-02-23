@@ -262,21 +262,21 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 }
 
 func formatPolicyNames(policies []*flowpb.Policy) string {
-	msg := ""
+	var msg strings.Builder
 	i := 0
 	for _, policy := range policies {
 		if policy.GetKind() != "" && policy.GetName() != "" {
 			if i == 0 {
-				msg += " BY "
+				msg.WriteString(" BY ")
 			} else {
-				msg += ", "
+				msg.WriteString(", ")
 			}
-			msg += fmt.Sprintf("%s (%s)", policy.GetName(), policy.GetKind())
+			fmt.Fprintf(&msg, "%s (%s)", policy.GetName(), policy.GetKind())
 			i += 1
 		}
 	}
 
-	return msg
+	return msg.String()
 }
 
 func (p Printer) getSummary(f *flowpb.Flow) string {

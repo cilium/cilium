@@ -125,6 +125,8 @@ func (m *Config) validate(all bool) error {
 
 	}
 
+	// no validation rules for StatPrefix
+
 	if len(errors) > 0 {
 		return ConfigMultiError(errors)
 	}
@@ -138,7 +140,7 @@ type ConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -295,7 +297,7 @@ type Config_KeyValuePairMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Config_KeyValuePairMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -478,7 +480,7 @@ type Config_RuleMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Config_RuleMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

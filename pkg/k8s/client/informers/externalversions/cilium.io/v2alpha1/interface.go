@@ -21,8 +21,6 @@ type Interface interface {
 	CiliumBGPNodeConfigOverrides() CiliumBGPNodeConfigOverrideInformer
 	// CiliumBGPPeerConfigs returns a CiliumBGPPeerConfigInformer.
 	CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer
-	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
-	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
 	// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
 	CiliumCIDRGroups() CiliumCIDRGroupInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
@@ -75,11 +73,6 @@ func (v *version) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer {
 	return &ciliumBGPPeerConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
-func (v *version) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer {
-	return &ciliumBGPPeeringPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
 func (v *version) CiliumCIDRGroups() CiliumCIDRGroupInformer {
 	return &ciliumCIDRGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -92,7 +85,7 @@ func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 
 // CiliumGatewayClassConfigs returns a CiliumGatewayClassConfigInformer.
 func (v *version) CiliumGatewayClassConfigs() CiliumGatewayClassConfigInformer {
-	return &ciliumGatewayClassConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+	return &ciliumGatewayClassConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.

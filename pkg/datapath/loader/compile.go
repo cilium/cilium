@@ -38,27 +38,32 @@ const (
 	endpointPrefix = "bpf_lxc"
 	endpointProg   = endpointPrefix + "." + string(outputSource)
 	endpointObj    = endpointPrefix + ".o"
+	endpointConfig = endpointPrefix + ".json"
 
-	hostEndpointPrefix       = "bpf_host"
-	hostEndpointNetdevPrefix = "bpf_netdev_"
-	hostEndpointProg         = hostEndpointPrefix + "." + string(outputSource)
-	hostEndpointObj          = hostEndpointPrefix + ".o"
+	hostEndpointPrefix = "bpf_host"
+	hostEndpointProg   = hostEndpointPrefix + "." + string(outputSource)
+	hostEndpointObj    = hostEndpointPrefix + ".o"
+	hostEndpointConfig = hostEndpointPrefix + ".json"
 
 	networkPrefix = "bpf_network"
 	networkProg   = networkPrefix + "." + string(outputSource)
 	networkObj    = networkPrefix + ".o"
+	networkConfig = networkPrefix + ".json"
 
 	xdpPrefix = "bpf_xdp"
 	xdpProg   = xdpPrefix + "." + string(outputSource)
 	xdpObj    = xdpPrefix + ".o"
+	xdpConfig = xdpPrefix + ".json"
 
 	overlayPrefix = "bpf_overlay"
 	overlayProg   = overlayPrefix + "." + string(outputSource)
 	overlayObj    = overlayPrefix + ".o"
+	overlayConfig = overlayPrefix + ".json"
 
 	wireguardPrefix = "bpf_wireguard"
 	wireguardProg   = wireguardPrefix + "." + string(outputSource)
 	wireguardObj    = wireguardPrefix + ".o"
+	wireguardConfig = wireguardPrefix + ".json"
 )
 
 var (
@@ -363,7 +368,7 @@ func compileNetwork(ctx context.Context, logger *slog.Logger) error {
 }
 
 // compileOverlay compiles BPF programs in bpf_overlay.c.
-func compileOverlay(ctx context.Context, logger *slog.Logger, opts []string) error {
+func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -386,7 +391,6 @@ func compileOverlay(ctx context.Context, logger *slog.Logger, opts []string) err
 		Source:     overlayProg,
 		Output:     overlayObj,
 		OutputType: outputObject,
-		Options:    opts,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
 	if _, err := compile(ctx, logger, prog, dirs); err != nil {

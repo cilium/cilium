@@ -5,11 +5,11 @@ package monitor
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -48,21 +48,22 @@ const (
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
 type TraceNotify struct {
-	Type      uint8
-	ObsPoint  uint8
-	Source    uint16
-	Hash      uint32
-	OrigLen   uint32
-	CapLen    uint16
-	Version   uint16
-	SrcLabel  identity.NumericIdentity
-	DstLabel  identity.NumericIdentity
-	DstID     uint16
-	Reason    uint8
-	Flags     uint8
-	Ifindex   uint32
-	OrigIP    types.IPv6
-	IPTraceID uint64
+	Type       uint8                    `align:"type"`
+	ObsPoint   uint8                    `align:"subtype"`
+	Source     uint16                   `align:"source"`
+	Hash       uint32                   `align:"hash"`
+	OrigLen    uint32                   `align:"len_orig"`
+	CapLen     uint16                   `align:"len_cap"`
+	Version    uint8                    `align:"version"`
+	ExtVersion uint8                    `align:"ext_version"`
+	SrcLabel   identity.NumericIdentity `align:"src_label"`
+	DstLabel   identity.NumericIdentity `align:"dst_label"`
+	DstID      uint16                   `align:"dst_id"`
+	Reason     uint8                    `align:"reason"`
+	Flags      uint8                    `align:"flags"`
+	Ifindex    uint32                   `align:"ifindex"`
+	OrigIP     types.IPv6               `align:"$union0"`
+	IPTraceID  uint64                   `align:"ip_trace_id"`
 	// data
 }
 
@@ -95,7 +96,7 @@ func (tn *TraceNotify) Decode(data []byte) error {
 		return fmt.Errorf("unexpected TraceNotify data length, expected at least %d but got %d", traceNotifyV0Len, l)
 	}
 
-	version := byteorder.Native.Uint16(data[14:16])
+	version := data[14]
 
 	// Check against max version.
 	if version > TraceNotifyVersion2 {
@@ -108,7 +109,7 @@ func (tn *TraceNotify) Decode(data []byte) error {
 		if l := len(data); l < traceNotifyV2Len {
 			return fmt.Errorf("unexpected TraceNotify data length (version %d), expected at least %d but got %d", version, traceNotifyV2Len, l)
 		}
-		tn.IPTraceID = byteorder.Native.Uint64(data[48:56])
+		tn.IPTraceID = binary.NativeEndian.Uint64(data[48:56])
 		fallthrough
 	case TraceNotifyVersion1:
 		if l := len(data); l < traceNotifyV1Len {
@@ -120,17 +121,18 @@ func (tn *TraceNotify) Decode(data []byte) error {
 	// Decode logic for version >= v0.
 	tn.Type = data[0]
 	tn.ObsPoint = data[1]
-	tn.Source = byteorder.Native.Uint16(data[2:4])
-	tn.Hash = byteorder.Native.Uint32(data[4:8])
-	tn.OrigLen = byteorder.Native.Uint32(data[8:12])
-	tn.CapLen = byteorder.Native.Uint16(data[12:14])
+	tn.Source = binary.NativeEndian.Uint16(data[2:4])
+	tn.Hash = binary.NativeEndian.Uint32(data[4:8])
+	tn.OrigLen = binary.NativeEndian.Uint32(data[8:12])
+	tn.CapLen = binary.NativeEndian.Uint16(data[12:14])
 	tn.Version = version
-	tn.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
-	tn.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
-	tn.DstID = byteorder.Native.Uint16(data[24:26])
+	tn.ExtVersion = data[15]
+	tn.SrcLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[16:20]))
+	tn.DstLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[20:24]))
+	tn.DstID = binary.NativeEndian.Uint16(data[24:26])
 	tn.Reason = data[26]
 	tn.Flags = data[27]
-	tn.Ifindex = byteorder.Native.Uint32(data[28:32])
+	tn.Ifindex = binary.NativeEndian.Uint32(data[28:32])
 
 	return nil
 }
@@ -163,7 +165,7 @@ func (n *TraceNotify) TraceReasonIsReply() bool {
 // related, false otherwise.
 func (n *TraceNotify) TraceReasonIsEncap() bool {
 	switch n.TraceReason() {
-	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
+	case TraceReasonSRv6Encap:
 		return true
 	}
 	return false
@@ -180,10 +182,23 @@ func (n *TraceNotify) TraceReasonIsDecap() bool {
 }
 
 var (
-	traceNotifyLength = map[uint16]uint{
+	traceNotifyLength = map[uint8]uint{
 		TraceNotifyVersion0: traceNotifyV0Len,
 		TraceNotifyVersion1: traceNotifyV1Len,
 		TraceNotifyVersion2: traceNotifyV2Len,
+	}
+)
+
+const TraceNotifyExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	traceNotifyExtensionLengthFromVersion = map[uint8]uint{
+		// The TraceNotifyExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		TraceNotifyExtensionDisabled: 0,
 	}
 )
 
@@ -197,22 +212,22 @@ const (
 	TraceReasonUnknown
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
-	TraceReasonEncryptOverlay
+	TraceReasonDeprecatedEncryptOverlay
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
 	TraceReasonEncryptMask = uint8(0x80)
 )
 
 /* keep in sync with api/v1/flow/flow.proto */
 var traceReasons = map[uint8]string{
-	TraceReasonPolicy:               "new",
-	TraceReasonCtEstablished:        "established",
-	TraceReasonCtReply:              "reply",
-	TraceReasonCtRelated:            "related",
-	TraceReasonCtDeprecatedReopened: "reopened",
-	TraceReasonUnknown:              "unknown",
-	TraceReasonSRv6Encap:            "srv6-encap",
-	TraceReasonSRv6Decap:            "srv6-decap",
-	TraceReasonEncryptOverlay:       "encrypt-overlay",
+	TraceReasonPolicy:                   "new",
+	TraceReasonCtEstablished:            "established",
+	TraceReasonCtReply:                  "reply",
+	TraceReasonCtRelated:                "related",
+	TraceReasonCtDeprecatedReopened:     "reopened",
+	TraceReasonUnknown:                  "unknown",
+	TraceReasonSRv6Encap:                "srv6-encap",
+	TraceReasonSRv6Decap:                "srv6-decap",
+	TraceReasonDeprecatedEncryptOverlay: "encrypt-overlay",
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or
@@ -314,7 +329,7 @@ func (n *TraceNotify) OriginalIP() net.IP {
 //
 // Returns zero for invalid or unknown TraceNotify messages.
 func (n *TraceNotify) DataOffset() uint {
-	return traceNotifyLength[n.Version]
+	return traceNotifyLength[n.Version] + traceNotifyExtensionLengthFromVersion[n.ExtVersion]
 }
 
 // DumpInfo prints a summary of the trace messages.

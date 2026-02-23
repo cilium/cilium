@@ -42,6 +42,7 @@ $(YQ) ea '. as $$item ireduce ({}; . * $$item )' $(1) | envsubst >> $(2)
 endef
 
 COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml
+CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f -name "*.yaml")
 
 all: update-versions check-values-yaml docs lint
 
@@ -74,8 +75,9 @@ cilium/values.schema.json: cilium/values.yaml
 
 update-versions: update-chart cilium/values.yaml # Update the Helm values file to point to the current version.
 
-CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f)
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
+RAND_FILES := $(shell grep -R -l -e "rand" -e "shuffle" -e "genPrivateKey" -e "genCA" -e "genSignedCert" -e "UUID" -e "cilium.ca.setup" --include="*.yaml" $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates)
+RAND_SECRETS := $(foreach rand_file,$(RAND_FILES),$(shell grep -l -e 'kind: Secret' $(rand_file)))
 lint:
 	$(ECHO_CHECK)
 	$(QUIET)grep -RL $(COMMON_LABELS_EXCLUSIONS) .Values.commonLabels $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/*.yaml $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/**/*.yaml >> missing_label
@@ -92,6 +94,12 @@ lint:
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
 	done
 	$(QUIET)$(HELM) lint --with-subcharts --values ./cilium/values.yaml ./cilium
+	for rand_secret in $(RAND_SECRETS); do \
+                grep -q -l -e "cilium.io/helm-template-non-idempotent" $$rand_secret \
+                || (echo -e "$$rand_secret missing label \"cilium.io/helm-template-non-idempotent\".\nPlease add the label to it."; exit 1); \
+                grep -q -l -e "nonIdempotentAnnotations" $$rand_secret \
+                || (echo -e "$$rand_secret missing annotations placeholder \"nonIdempotentAnnotations\".\nPlease add it."; exit 1); \
+	done
 
 docs:
 	$(QUIET)$(HELM_DOCS)

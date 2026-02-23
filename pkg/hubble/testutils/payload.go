@@ -11,7 +11,6 @@ import (
 
 	"github.com/gopacket/gopacket"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -25,7 +24,7 @@ func CreateL3L4Payload(message any, layers ...gopacket.SerializableLayer) ([]byt
 		monitor.DropNotify,
 		monitor.PolicyVerdictNotify,
 		monitor.TraceNotify:
-		if err := binary.Write(buf, byteorder.Native, message); err != nil {
+		if err := binary.Write(buf, binary.NativeEndian, message); err != nil {
 			return nil, err
 		}
 	case monitorAPI.AgentNotify:

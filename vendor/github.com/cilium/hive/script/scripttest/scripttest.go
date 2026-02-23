@@ -103,19 +103,7 @@ func Run(t testing.TB, e *script.Engine, s *script.State, filename string, testS
 
 		if testing.Verbose() {
 			// Add the environment to the start of the script log.
-			wait, err := script.Env().Run(s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if wait != nil {
-				stdout, stderr, err := wait(s)
-				if err != nil {
-					t.Fatalf("env: %v\n%s", err, stderr)
-				}
-				if len(stdout) > 0 {
-					s.Logf("%s\n", stdout)
-				}
-			}
+			err = e.ExecuteLine(s, "env", log)
 		}
 
 		return e.Execute(s, filename, bufio.NewReader(testScript), log)

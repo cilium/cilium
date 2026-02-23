@@ -77,7 +77,7 @@ function kube::codegen::deepequal_helpers() {
             -name zz_generated.deepequal.go \
             | xargs -0 rm -f
 
-        go run github.com/cilium/deepequal-gen \
+        go tool github.com/cilium/deepequal-gen \
             -v "${v}" \
             --output-file zz_generated.deepequal.go \
             --go-header-file "${boilerplate}" \
@@ -91,14 +91,6 @@ kube::codegen::gen_client \
     --with-watch \
     --output-dir "${TMPDIR}/github.com/cilium/cilium/pkg/k8s/slim/k8s/client" \
     --output-pkg "github.com/cilium/cilium/pkg/k8s/slim/k8s/client" \
-    --plural-exceptions ${PLURAL_EXCEPTIONS} \
-    --boilerplate "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt"
-
-kube::codegen::gen_client \
-    "./pkg/k8s/slim/k8s/apis" \
-    --with-watch \
-    --output-dir "${TMPDIR}/github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client" \
-    --output-pkg "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client" \
     --plural-exceptions ${PLURAL_EXCEPTIONS} \
     --boilerplate "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt"
 

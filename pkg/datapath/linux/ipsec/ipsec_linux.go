@@ -68,7 +68,7 @@ const (
 	AllReqID = 0
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
-	DefaultReqID = 1
+	DefaultReqID = ipsec.DefaultReqID
 )
 
 type dir string
@@ -507,7 +507,7 @@ func (a *Agent) xfrmDeleteConflictingState(states []netlink.XfrmState, new *netl
 	for _, s := range states {
 		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
-			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
+			xfrmIPEqual(new.Dst, s.Dst) {
 			if err := a.xfrmStateCache.XfrmStateDel(&s); err != nil {
 				errs.Add(err)
 				continue
@@ -660,12 +660,14 @@ func getNodeIDAsHexFromXfrmMark(mark *netlink.XfrmMark) string {
 }
 
 func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
-	switch {
-	case mark == nil:
+	if mark == nil {
 		return dirUnspec
-	case mark.Value&linux_defaults.RouteMarkDecrypt != 0:
+	}
+	bitwiseResult := mark.Value & linux_defaults.RouteMarkMask
+	switch bitwiseResult {
+	case linux_defaults.RouteMarkDecrypt:
 		return dirIngress
-	case mark.Value&linux_defaults.RouteMarkEncrypt != 0:
+	case linux_defaults.RouteMarkEncrypt:
 		return dirEgress
 	}
 	return dirUnspec
@@ -1240,7 +1242,9 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 			// This will set addrs.ipsecKeyIdentity in the node
 			// package, and eventually trigger an update to
 			// publish the updated information to k8s/kvstore.
-			node.SetIPsecKeyIdentity(spi)
+			a.localNode.Update(func(ln *node.LocalNode) {
+				ln.EncryptionKey = spi
+			})
 
 			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the

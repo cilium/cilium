@@ -57,6 +57,46 @@ func (m *Geoip_XffConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
+func (m *Geoip_CustomHeaderConfig) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Geoip_CustomHeaderConfig) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *Geoip_CustomHeaderConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.HeaderName) > 0 {
+		i -= len(m.HeaderName)
+		copy(dAtA[i:], m.HeaderName)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.HeaderName)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Geoip) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -86,6 +126,16 @@ func (m *Geoip) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.CustomHeaderConfig != nil {
+		size, err := m.CustomHeaderConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.Provider != nil {
 		if vtmsg, ok := interface{}(m.Provider).(interface {
@@ -135,6 +185,20 @@ func (m *Geoip_XffConfig) SizeVT() (n int) {
 	return n
 }
 
+func (m *Geoip_CustomHeaderConfig) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.HeaderName)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *Geoip) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -153,6 +217,10 @@ func (m *Geoip) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.Provider)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.CustomHeaderConfig != nil {
+		l = m.CustomHeaderConfig.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

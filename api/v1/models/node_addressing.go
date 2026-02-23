@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -55,11 +56,15 @@ func (m *NodeAddressing) validateIPV4(formats strfmt.Registry) error {
 
 	if m.IPV4 != nil {
 		if err := m.IPV4.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv4")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv4")
 			}
+
 			return err
 		}
 	}
@@ -74,11 +79,15 @@ func (m *NodeAddressing) validateIPV6(formats strfmt.Registry) error {
 
 	if m.IPV6 != nil {
 		if err := m.IPV6.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv6")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv6")
 			}
+
 			return err
 		}
 	}
@@ -113,11 +122,15 @@ func (m *NodeAddressing) contextValidateIPV4(ctx context.Context, formats strfmt
 		}
 
 		if err := m.IPV4.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv4")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv4")
 			}
+
 			return err
 		}
 	}
@@ -134,11 +147,15 @@ func (m *NodeAddressing) contextValidateIPV6(ctx context.Context, formats strfmt
 		}
 
 		if err := m.IPV6.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv6")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv6")
 			}
+
 			return err
 		}
 	}

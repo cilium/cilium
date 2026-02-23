@@ -6,7 +6,6 @@ package driftchecker
 import (
 	"context"
 	"log/slog"
-	"reflect"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/dynamicconfig"
@@ -143,9 +143,7 @@ func TestComputeDelta(t *testing.T) {
 				ignoredFlags: sets.New[string](tt.ignored...),
 			}
 			result := c.computeDelta(tt.desired, tt.actual)
-			if !reflect.DeepEqual(tt.expected, result) {
-				t.Errorf("Expected %v, but got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

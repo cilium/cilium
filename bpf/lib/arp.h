@@ -7,7 +7,6 @@
 #include <linux/if_ether.h>
 #include "eth.h"
 #include "dbg.h"
-#include "drop.h"
 
 struct arp_eth {
 	unsigned char		ar_sha[ETH_ALEN];
@@ -17,9 +16,8 @@ struct arp_eth {
 } __packed;
 
 /* Check if packet is ARP request for IP */
-static __always_inline int arp_check(struct ethhdr *eth,
-				     const struct arphdr *arp,
-				     union macaddr *mac)
+static __always_inline bool
+arp_check(struct ethhdr *eth, const struct arphdr *arp, union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
 
@@ -77,13 +75,10 @@ arp_respond(struct __ctx_buff *ctx, union macaddr *smac, __be32 sip,
 {
 	int ret = arp_prepare_response(ctx, smac, sip, dmac, tip);
 
-	if (unlikely(ret != 0))
-		goto error;
+	if (IS_ERR(ret))
+		return ret;
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
 			   ctx_get_ifindex(ctx));
 	return ctx_redirect(ctx, ctx_get_ifindex(ctx), direction);
-
-error:
-	return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 }

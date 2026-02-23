@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/cilium/stream"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -105,15 +104,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 	}
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1000)
-	services <- resource.Event[*slim_corev1.Service]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
 	endpoints := make(chan resource.Event[*k8s.Endpoints], 1000)
-	endpoints <- resource.Event[*k8s.Endpoints]{
-		Kind: resource.Sync,
-		Done: func(error) {},
-	}
 
 	var (
 		writer *writer.Writer
@@ -552,13 +543,6 @@ func testHive(maps lbmaps.LBMaps,
 				},
 				func() loadbalancer.ExternalConfig { return extConfig },
 
-				func() reflectors.StreamsOut {
-					return reflectors.StreamsOut{
-						ServicesStream:  stream.FromChannel(services),
-						EndpointsStream: stream.FromChannel(endpoints),
-					}
-				},
-
 				func(lc cell.Lifecycle) lbmaps.LBMaps {
 					if rm, ok := maps.(*lbmaps.BPFLBMaps); ok {
 						lc.Append(rm)
@@ -570,6 +554,11 @@ func testHive(maps lbmaps.LBMaps,
 					m := maglev.New(maglevConfig, lc)
 					return m, maglevConfig
 				},
+
+				func() (<-chan resource.Event[*slim_corev1.Service], <-chan resource.Event[*k8s.Endpoints]) {
+					return services, endpoints
+				},
+				reflectors.EventStreamForBenchmark,
 			),
 
 			daemonk8s.PodTableCell,
@@ -590,7 +579,7 @@ func testHive(maps lbmaps.LBMaps,
 			// Reconcile tables to BPF maps
 			lbreconciler.Cell,
 
-			cell.Provide(lbmaps.NetnsCookieSupportFunc),
+			cell.Provide(reflectors.NetnsCookieSupportFunc),
 
 			cell.Provide(
 				tables.NewNodeAddressTable,

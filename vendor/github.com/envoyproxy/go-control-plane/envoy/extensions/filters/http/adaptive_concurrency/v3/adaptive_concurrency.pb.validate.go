@@ -181,7 +181,7 @@ type GradientControllerConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GradientControllerConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -410,7 +410,7 @@ type AdaptiveConcurrencyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AdaptiveConcurrencyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -572,7 +572,7 @@ type GradientControllerConfig_ConcurrencyLimitCalculationParamsMultiError []erro
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GradientControllerConfig_ConcurrencyLimitCalculationParamsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -838,7 +838,7 @@ type GradientControllerConfig_MinimumRTTCalculationParamsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GradientControllerConfig_MinimumRTTCalculationParamsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -1,0 +1,29 @@
+netns/create otherns
+link/add eth0 veth --peername veth0 --peerns otherns
+link/set veth0 --netns otherns up
+link/set eth0 up
+
+# device previously present in the system
+link/add eth0.10 dummy
+
+hive/start
+db/cmp devices devices.table
+
+# owner tries to take over same device
+add-device owner1 eth0.10.yaml
+remove-owner owner1
+
+# make sure reconciler does not cleanup incorrectly
+sleep 1s
+db/cmp devices devices.table
+
+-- devices.table --
+Name      Type     OperStatus
+lo        device   down
+eth0      veth     up
+eth0.10   dummy    down
+
+-- eth0.10.yaml --
+name: eth0.10
+parentDevice: eth0
+vlanID: 10

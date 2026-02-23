@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -31,13 +33,14 @@ type RouteReconcilerMetrics *reconciler.ExpVarMetrics
 
 func registerReconciler(
 	params reconciler.Params,
+	lc cell.Lifecycle,
 	tbl statedb.RWTable[*DesiredRoute],
 	devices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	config *option.DaemonConfig,
 ) (reconciler.Reconciler[*DesiredRoute], RouteReconcilerMetrics, error) {
 	metrics := reconciler.NewUnpublishedExpVarMetrics()
-	ops := newOps(params.Lifecycle, params.DB, tbl, devices, log, config)
+	ops := newOps(lc, params.DB, tbl, devices, log, config)
 	rec, err := reconciler.Register(
 		params,
 		tbl,
@@ -72,7 +75,7 @@ func newOps(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			var err error
-			ops.handle, err = netlink.NewHandle()
+			ops.handle, err = safenetlink.NewHandle(nil)
 			if err != nil {
 				return err
 			}
@@ -382,6 +385,19 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq
 	return nil
 }
 
+func addrToNetlinkVia(addr netip.Addr) *netlink.Via {
+	var family int
+	if addr.Is4() {
+		family = nl.FAMILY_V4
+	} else {
+		family = nl.FAMILY_V6
+	}
+	return &netlink.Via{
+		AddrFamily: family,
+		Addr:       addr.AsSlice(),
+	}
+}
+
 func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 	nlRoute := &netlink.Route{
 		Table: int(route.Table),
@@ -389,7 +405,15 @@ func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 	}
 
 	if route.Nexthop.IsValid() {
-		nlRoute.Gw = route.Nexthop.AsSlice()
+		if route.Prefix.Addr().Is4() == route.Nexthop.Is4() {
+			// If the family of the nexthop matches the family of
+			// the route, use RTA_GATEWAY.
+			nlRoute.Gw = route.Nexthop.AsSlice()
+		} else {
+			// If the family of the nexthop does not match the
+			// family of the route, use RTA_VIA.
+			nlRoute.Via = addrToNetlinkVia(route.Nexthop)
+		}
 	}
 
 	if route.Src.IsValid() {
@@ -422,6 +446,25 @@ func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 
 	if route.Type != 0 {
 		nlRoute.Type = int(route.Type)
+	}
+
+	for _, p := range route.MultiPath {
+		nh := &netlink.NexthopInfo{}
+		if p.Device != nil {
+			nh.LinkIndex = int(p.Device.Index)
+		}
+		if p.Nexthop.IsValid() {
+			if route.Prefix.Addr().Is4() == p.Nexthop.Is4() {
+				// If the family of the nexthop matches the family of
+				// the route, use RTA_GATEWAY.
+				nh.Gw = p.Nexthop.AsSlice()
+			} else {
+				// If the family of the nexthop does not match the
+				// family of the route, use RTA_VIA.
+				nh.Via = addrToNetlinkVia(p.Nexthop)
+			}
+		}
+		nlRoute.MultiPath = append(nlRoute.MultiPath, nh)
 	}
 
 	return nlRoute

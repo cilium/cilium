@@ -20,50 +20,42 @@ You need to have a functioning Cluster Mesh setup, please follow the
 
 Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kubernetes 1.35).
 
-You first need to install the required MCS-API CRDs:
-
-   .. code-block:: shell-session
-
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/79efdd37ed2bf99b4ade250e4c0f4d62a4e970a2/config/crd/multicluster.x-k8s.io_serviceexports.yaml
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/79efdd37ed2bf99b4ade250e4c0f4d62a4e970a2/config/crd/multicluster.x-k8s.io_serviceimports.yaml
-
-
 To install Cilium with MCS-API support, run:
 
-   .. parsed-literal::
-
-      helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set clustermesh.mcsapi.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: clustermesh.mcsapi.enabled=true
 
 To enable MCS-API support on an existing Cilium installation, run:
 
-   .. parsed-literal::
-
-      helm upgrade cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --reuse-values \\
-      --set clustermesh.mcsapi.enabled=true
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :set: clustermesh.mcsapi.enabled=true
+   :extra-args: --reuse-values
 
 Also checkout the :ref:`EndpointSlice synchronization <endpointslicesync>` feature
 if you need Headless Services support.
 
-If you set ```clustermesh.mcsapi.corednsAutoConfigure.enabled`` to ``true``, Cilium
+If you set ``clustermesh.mcsapi.corednsAutoConfigure.enabled`` to ``true``, Cilium
 will automatically configure and rollout CoreDNS for MCS-API support. Otherwise to
 configure CoreDNS manually, you need to execute the following steps:
 
-   .. code-block:: shell-session
+   .. parsed-literal::
 
-      # Adding RBAC to read SericeImports
-      kubectl create clusterrole coredns-mcsapi \
+      # (optional) Install MCS-API CRDs if Cilium has not yet started or automatic CRDs installation is disabled
+      kubectl apply -f |SCM_WEB|\/vendor/sigs.k8s.io/mcs-api/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+      kubectl apply -f |SCM_WEB|\/vendor/sigs.k8s.io/mcs-api/config/crd/multicluster.x-k8s.io_serviceimports.yaml
+
+      # Adding RBAC to read ServiceImports
+      kubectl create clusterrole coredns-mcsapi \\
          --verb=list,watch --resource=serviceimports.multicluster.x-k8s.io
-      kubectl create clusterrolebinding coredns-mcsapi \
+      kubectl create clusterrolebinding coredns-mcsapi \\
          --clusterrole=coredns-mcsapi --serviceaccount=kube-system:coredns
 
       # Configure CoreDNS to support MCS-API
-      kubectl get configmap -n kube-system coredns -o yaml | \
-         sed -e 's/cluster\.local/cluster.local clusterset.local/g' | \
-         sed -E 's/^(.*)kubernetes(.*)\{/\1kubernetes\2{\n\1   multicluster clusterset.local/' | \
+      kubectl get configmap -n kube-system coredns -o yaml | \\
+         sed -e 's/cluster\.local/cluster.local clusterset.local/g' | \\
+         sed -E 's/^(.*)kubernetes(.*)\{/\1kubernetes\2{\n\1   multicluster clusterset.local/' | \\
          kubectl replace -f-
 
       # Rollout CoreDNS to apply the change

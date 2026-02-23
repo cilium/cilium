@@ -438,14 +438,14 @@ func getMetricValue(name string, typ dto.MetricType, m *dto.Metric) (float64, st
 		return v, fmt.Sprintf("%f", v)
 	case dto.MetricType_SUMMARY:
 		s := m.Summary
-		x := ""
+		var x strings.Builder
 		for i, q := range s.Quantile {
-			x += fmt.Sprintf("p%d(%s%s)", int(100.0*(*q.Quantile)), prettyValue(*q.Value), suffix)
+			fmt.Fprintf(&x, "p%d(%s%s)", int(100.0*(*q.Quantile)), prettyValue(*q.Value), suffix)
 			if i != len(s.Quantile)-1 {
-				x += " "
+				x.WriteString(" ")
 			}
 		}
-		return 0.0, x
+		return 0.0, x.String()
 
 	case dto.MetricType_HISTOGRAM:
 		b := convertHistogram(m.Histogram)

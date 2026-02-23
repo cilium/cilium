@@ -244,6 +244,11 @@ kubeadmConfigPatches:
       extraArgs:
         authorization-always-allow-paths: /healthz,/readyz,/livez,/metrics
         bind-address: 0.0.0.0
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        container-log-max-size: "10M"
 EOF
 
 if [ "${secondary_network_flag}" = true ]; then

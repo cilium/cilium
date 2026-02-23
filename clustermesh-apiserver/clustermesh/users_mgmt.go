@@ -116,9 +116,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 		DoFunc:  us.sync,
 	})
 
-	us.wg.Add(1)
-	go func() {
-		defer us.wg.Done()
+	us.wg.Go(func() {
 
 		for {
 			select {
@@ -136,7 +134,7 @@ func (us *usersManager) Start(cell.HookContext) error {
 				return
 			}
 		}
-	}()
+	})
 
 	return nil
 }
@@ -171,7 +169,9 @@ func (us *usersManager) sync(ctx context.Context) error {
 			logfields.Error, err,
 			logfields.Path, us.ClusterUsersConfigPath,
 		)
-		return err
+		// We don't have to return an error to retry here since the filewatcher
+		// will notify us and we would be able to retry on actual file changes
+		return nil
 	}
 
 	// Mark all users as stale

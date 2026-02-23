@@ -101,7 +101,7 @@ var controllerTestFixture = []client.Object{
 					Name:     "https",
 					Hostname: ptr.To[gatewayv1.Hostname]("example.com"),
 					Port:     443,
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
 							{
 								Name: "tls-secret",
@@ -125,7 +125,7 @@ var controllerTestFixture = []client.Object{
 					Name:     "https",
 					Hostname: ptr.To[gatewayv1.Hostname]("example2.com"),
 					Port:     443,
-					TLS: &gatewayv1.GatewayTLSConfig{
+					TLS: &gatewayv1.ListenerTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{},
 					},
 				},
@@ -232,6 +232,28 @@ var controllerTestFixture = []client.Object{
 									"gateway": "allowed",
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	},
+
+	// Gateway with allowed routes invalid namespace selector
+	&gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-with-invalid-namespaces-selector",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name: "https",
+					Port: 80,
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromSelector),
 						},
 					},
 				},

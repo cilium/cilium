@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 
 	"github.com/cilium/ebpf"
@@ -60,7 +61,7 @@ type PerClusterCTMapper interface {
 
 	// GetClusterCTMaps returns the per-cluster maps for each known cluster ID.
 	// The returned maps need to be opened by the caller.
-	GetAllClusterCTMaps() []*Map
+	GetAllClusterCTMaps() []MapPair
 }
 
 // GetClusterCTMaps returns the per-cluster maps for the given cluster ID. The
@@ -111,14 +112,16 @@ type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string  { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+
 func (k *PerClusterCTMapKey) New() bpf.MapKey { return &PerClusterCTMapKey{} }
 
 type PerClusterCTMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterCTMapVal) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterCTMapVal) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
+
 func (v *PerClusterCTMapVal) New() bpf.MapValue { return &PerClusterCTMapVal{} }
 
 // NewPerClusterCTMaps returns a new instance of the per-cluster CT maps manager.
@@ -194,7 +197,7 @@ func (gm *perClusterCTMaps) DeleteClusterCTMaps(clusterID uint32) error {
 	)
 }
 
-func (gm *perClusterCTMaps) GetAllClusterCTMaps() []*Map {
+func (gm *perClusterCTMaps) GetAllClusterCTMaps() []MapPair {
 	gm.Lock()
 	defer gm.Unlock()
 
@@ -205,7 +208,17 @@ func (gm *perClusterCTMaps) GetAllClusterCTMaps() []*Map {
 			return nil
 		})
 	}
-	return maps
+
+	// Split into pairs
+	pairs := make([]MapPair, 0, len(maps)/2)
+	for p := range slices.Chunk(maps, 2) {
+		pairs = append(pairs, MapPair{
+			TCP: p[0],
+			Any: p[1],
+		})
+	}
+
+	return pairs
 }
 
 func (gm *perClusterCTMaps) getClusterCTMaps(clusterID uint32) ([]*Map, error) {
@@ -282,8 +295,7 @@ func newPerClusterCTMap(m mapType) *PerClusterCTMap {
 
 func (om *PerClusterCTMap) newInnerMap(clusterID uint32) *Map {
 	name := ClusterInnerMapName(om.m, clusterID)
-	im := newMap(name, om.m)
-	im.clusterID = clusterID
+	im := newMap(name, om.m, WithClusterID(clusterID))
 	return im
 }
 

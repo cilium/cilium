@@ -98,6 +98,7 @@ func (blder *WebhookBuilder) RecoverPanic(recoverPanic bool) *WebhookBuilder {
 }
 
 // WithCustomPath overrides the webhook's default path by the customPath
+//
 // Deprecated: WithCustomPath should not be used anymore.
 // Please use WithValidatorCustomPath or WithDefaulterCustomPath instead.
 func (blder *WebhookBuilder) WithCustomPath(customPath string) *WebhookBuilder {

@@ -27,7 +27,7 @@ type UsageClient struct {
 // NewUsageClient creates a new instance of UsageClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewUsageClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*UsageClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewUsageClient(subscriptionID string, credential azcore.TokenCredential, op
 // NewListPager - Gets, for the specified location, the current compute resource usage information as well as the limits for
 // compute resources under the subscription.
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - location - The name of Azure region.
 //   - options - UsageClientListOptions contains the optional parameters for the UsageClient.NewListPager method.
 func (client *UsageClient) NewListPager(location string, options *UsageClientListOptions) *runtime.Pager[UsageClientListResponse] {
@@ -85,7 +85,7 @@ func (client *UsageClient) listCreateRequest(ctx context.Context, location strin
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

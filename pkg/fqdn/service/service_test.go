@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -49,6 +50,7 @@ var (
 	destIdentity     = identity.NumericIdentity(2)
 	destEndpointId   = uint16(102)
 	sourceIP         = "1.2.3.4/32"
+	sourceIPV6       = "2001:db8::1/128"
 	destIP           = "5.6.7.8/32"
 )
 
@@ -319,10 +321,13 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 
 // addEndpointMapping adds source and destination endpoint to the server.
 func addEndpointMapping(t *testing.T, fqdnDataServer *FQDNDataServer) {
-	// Add the source endpoint mapping to the server
+	// Add the source endpoint mapping to the server with 2 IPs (IPv4 + IPv6)
 	prefix := netip.MustParsePrefix(sourceIP)
 	validCIDR := types.NewPrefixCluster(prefix, 0)
 	dummyIdentity := ipcache.Identity{ID: sourceIdentity}
+	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
+	prefix = netip.MustParsePrefix(sourceIPV6)
+	validCIDR = types.NewPrefixCluster(prefix, 0)
 	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
 	// Add the destination endpoint mapping to the server
 	prefix = netip.MustParsePrefix(destIP)
@@ -392,6 +397,15 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 			})
 			// Increment the count for each response received
 			if len(receivedResultClient.GetEgressL7DnsPolicy()) > 0 {
+				receivedRules := receivedResultClient.GetEgressL7DnsPolicy()
+				sourceEndpointIDPolicyCount := 0
+				for _, r := range receivedRules {
+					if r.GetSourceEndpointId() == uint32(sourceEndpointId) {
+						sourceEndpointIDPolicyCount++
+					}
+				}
+				// Ensure no duplicate policies for the same endpoint
+				require.Equal(t, 1, sourceEndpointIDPolicyCount)
 				count++
 			}
 			connected = true
@@ -722,22 +736,23 @@ func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *pol
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	dummySelectorCacheUser := &testpolicy.DummySelectorCacheUser{}
 	endpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("app=test"))
-	cachedSelector, _ := sc.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, endpointSelector)
+	cachedSelector, _ := sc.AddIdentitySelectorForTest(dummySelectorCacheUser, endpointSelector)
 	return cachedSelector, sc
 }
 
 // createPolicyIterator creates a common iterator for policy maps
-func (sp *testSelectorPolicy) createPolicyIterator(policyMap policy.L4PolicyMap) iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+func createPolicyIterator(policyMaps policy.L4PolicyMaps) iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
 	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
-		policyMap.ForEach(func(l4 *policy.L4Filter) bool {
+		for l4 := range policyMaps.Filters() {
 			for cs, perSelectorPolicy := range l4.PerSelectorPolicies {
-				return yield(l4, policy.PerSelectorPolicyTuple{
+				if !yield(l4, policy.PerSelectorPolicyTuple{
 					Policy:   perSelectorPolicy,
 					Selector: cs,
-				})
+				}) {
+					return
+				}
 			}
-			return true
-		})
+		}
 	}
 }
 
@@ -751,6 +766,7 @@ func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter,
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{
@@ -765,7 +781,7 @@ func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter,
 		},
 	})
 
-	return sp.createPolicyIterator(expectedPolicy)
+	return createPolicyIterator(expectedPolicy)
 }
 
 func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
@@ -780,6 +796,7 @@ func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filt
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeHTTP, // HTTP instead of DNS
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
@@ -791,7 +808,7 @@ func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filt
 		},
 	})
 
-	return sp.createPolicyIterator(expectedPolicy)
+	return createPolicyIterator(expectedPolicy)
 }
 
 func createSelectorPolicies(count int, policyType PolicyType) map[identity.NumericIdentity]policy.SelectorPolicy {

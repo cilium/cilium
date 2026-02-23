@@ -9,7 +9,11 @@ inputs:
     required: false
   sbom_name:
     description: 'Name for the SBOM artifact and file (e.g., "cilium_v1.2.3")'
-    required: true
+    required: false
+  attach_sbom:
+    description: 'Attach SBOM'
+    required: false
+    default: 'true'
   generate_sbom:
     description: 'Generate SBOM'
     required: false
@@ -30,22 +34,44 @@ inputs:
     description: 'Initial delay in seconds before first retry'
     required: false
     default: '10'
+  registry_username:
+    description: 'Registry username for cosign authentication'
+    required: false
+  registry_password:
+    description: 'Registry password for cosign authentication'
+    required: false
+  registry_url:
+    description: 'Registry URL for cosign authentication (e.g., quay.io)'
+    required: false
+    default: 'quay.io'
 
 runs:
   using: 'composite'
   steps:
     - name: Install Cosign
       if: ${{ inputs.install_cosign == 'true' }}
-      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
     - name: Generate SBOM
       if: ${{ inputs.generate_sbom == 'true' }}
-      uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+      uses: anchore/sbom-action@28d71544de8eaf1b958d335707167c5f783590ad # v0.22.2
       with:
         artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
         image: ${{ inputs.image_tag }}
         upload-release-assets: ${{ inputs.upload_sbom_release_assets  }}
+
+    # Login to registry for cosign to authenticate when pushing signatures
+    - name: Login to registry for cosign
+      if: ${{ inputs.registry_username != '' && inputs.registry_password != '' }}
+      shell: bash
+      env:
+        REGISTRY_USERNAME: ${{ inputs.registry_username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry_password }}
+        REGISTRY_URL: ${{ inputs.registry_url }}
+      run: |
+        echo "Logging into ${REGISTRY_URL} for cosign..."
+        echo "${REGISTRY_PASSWORD}" | cosign login "${REGISTRY_URL}" --username "${REGISTRY_USERNAME}" --password-stdin
 
     - name: Sign Container Image
       shell: bash
@@ -78,6 +104,7 @@ runs:
         sign_with_retry "${{ inputs.image }}"
 
     - name: Attach SBOM Attestation
+      if: ${{ inputs.attach_sbom == 'true' }}
       shell: bash
       run: |
         # Function to retry cosign attestation with exponential backoff

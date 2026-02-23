@@ -7,6 +7,29 @@
 #include <bpf/section.h>
 #include <bpf/loader.h>
 
+#include "eps.h"
+
+struct node_key {
+	__u16 pad1;
+	__u8 pad2;
+	__u8 family;
+	union {
+		struct {
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
+		};
+		union v6addr ip6;
+	};
+};
+
+struct node_value {
+	__u16 id;
+	__u8  spi;
+	__u8  pad;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct node_key);
@@ -16,7 +39,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_node_map_v2 __section_maps_btf;
 
-static __always_inline struct node_value *
+static __always_inline const struct node_value *
 lookup_ip4_node(__be32 ip4)
 {
 	struct node_key key = {};
@@ -30,7 +53,7 @@ lookup_ip4_node(__be32 ip4)
 static __always_inline __u16
 lookup_ip4_node_id(__be32 ip4)
 {
-	struct node_value *node_value;
+	const struct node_value *node_value;
 
 	node_value = lookup_ip4_node(ip4);
 	if (!node_value)
@@ -41,7 +64,7 @@ lookup_ip4_node_id(__be32 ip4)
 }
 
 # ifdef ENABLE_IPV6
-static __always_inline struct node_value *
+static __always_inline const struct node_value *
 lookup_ip6_node(const union v6addr *ip6)
 {
 	struct node_key key = {};
@@ -55,7 +78,7 @@ lookup_ip6_node(const union v6addr *ip6)
 static __always_inline __u16
 lookup_ip6_node_id(const union v6addr *ip6)
 {
-	struct node_value *node_value;
+	const struct node_value *node_value;
 
 	node_value = lookup_ip6_node(ip6);
 	if (!node_value)
@@ -66,7 +89,7 @@ lookup_ip6_node_id(const union v6addr *ip6)
 }
 # endif /* ENABLE_IPV6 */
 
-static __always_inline struct node_value *
+static __always_inline const struct node_value *
 lookup_node(const struct remote_endpoint_info *info)
 {
 # ifdef ENABLE_IPV6

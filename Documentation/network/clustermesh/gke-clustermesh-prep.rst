@@ -4,8 +4,8 @@
 GKE-to-GKE Clustermesh Preparation
 **********************************
 
-This is a step-by-step guide on how to install and prepare 
-Google Kubernetes Engine (GKE) clusters to meet the requirements 
+This is a step-by-step guide on how to install and prepare
+Google Kubernetes Engine (GKE) clusters to meet the requirements
 for the clustermesh feature.
 
 This guide describes how to deploy two zonal, single node GKE clusters
@@ -42,7 +42,7 @@ Create VPC
 Deploy clusters
 ###############
 
-1.  Set additional environment variables for values that will be reused in 
+1.  Set additional environment variables for values that will be reused in
     later steps.
 
     .. code-block:: bash
@@ -58,7 +58,7 @@ Deploy clusters
 
     .. note::
 
-        You can use different pod and services CIDRs than in the example, but make sure 
+        You can use different pod and services CIDRs than in the example, but make sure
         they meet the IP address range `rules <https://cloud.google.com/kubernetes-engine/docs/concepts/alias-ips#cluster_sizing>`__. But most
         importantly, make sure they do not overlap with the pods and services CIDRs in
         your other cluster(s).
@@ -83,7 +83,7 @@ Deploy clusters
         gcloud container clusters get-credentials ${CLUSTER} \
           --zone ${ZONE} \
           --project ${PROJECT_ID}
- 
+
     The node taint is used to prevent pods from being deployed/started until Cilium
     has been installed.
 
@@ -93,18 +93,17 @@ Deploy clusters
 
         Be sure to assign a unique ``cluster.id`` to each cluster.
 
-    .. code-block:: bash
+    .. parsed-literal::
 
-        cilium install \
-            --version |CHART_VERSION| \
-            --set cluster.id=1 \
+        cilium install |CHART_VERSION| \\
+            --set cluster.id=1 \\
             --set cluster.name=${CLUSTER}
 
 3.  Check the status of Cilium.
 
     .. code-block:: bash
 
-        cilium status   
+        cilium status
 
 4.  For each GKE cluster, save its context in an environment variable for use in
     the clustermesh setup process.
@@ -122,7 +121,7 @@ Peering VPC networks
 Google Cloud's VPCs are global in scope, so subnets within the same VPC can already communicate
 with each other internally -- regardless of region. So there is no VPC peering required!
 
-Node-to-node traffic between clusters is now possible. All requirements for 
+Node-to-node traffic between clusters is now possible. All requirements for
 clustermesh are met. Enabling clustermesh is explained in :ref:`gs_clustermesh`.
 
 Please reference environment variables exported in step 4 for any commands that require

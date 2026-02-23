@@ -25,7 +25,7 @@ func NewPerClusterMaps() *PerClusterMaps {
 func (maps *PerClusterMaps) OpenOrCreate() error { return nil }
 func (maps *PerClusterMaps) Close() error        { return nil }
 
-func (maps *PerClusterMaps) GetAllClusterCTMaps() []*ctmap.Map { return nil }
+func (maps *PerClusterMaps) GetAllClusterCTMaps() []ctmap.MapPair { return nil }
 
 func (maps *PerClusterMaps) CreateClusterCTMaps(clusterID uint32) error {
 	maps.Lock()

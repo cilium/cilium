@@ -66,7 +66,7 @@
 #define DROP_INVALID_VNI	-183
 #define DROP_INVALID_TC_BUFFER  -184
 #define DROP_NO_SID		-185
-#define DROP_MISSING_SRV6_STATE	-186 /* unused */
+#define DROP_UNUSED8		-186 /* unused */
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
 #define DROP_POLICY_AUTH_REQUIRED	-189
@@ -86,3 +86,4 @@
 #define DROP_EP_NOT_READY	-203
 #define DROP_NO_EGRESS_IP	-204
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
+#define DROP_NO_DEVICE		-206

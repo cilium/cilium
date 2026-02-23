@@ -38,7 +38,11 @@ func DefaultSockPath() string {
 		// If unset, fall back to default value
 		e = defaults.SockPath
 	}
-	return "unix://" + e
+	return e
+}
+
+func DefaultSockPathProtocol() string {
+	return "unix://" + DefaultSockPath()
 }
 
 func configureTransport(tr *http.Transport, proto, addr string) *http.Transport {
@@ -129,7 +133,7 @@ func WithBasePath(basePath string) func(options *runtimeOptions) {
 
 func NewTransport(host string) (*http.Transport, error) {
 	if host == "" {
-		host = DefaultSockPath()
+		host = DefaultSockPathProtocol()
 	}
 	schema, host, found := strings.Cut(host, "://")
 	if !found {
@@ -159,7 +163,7 @@ func NewRuntime(opts ...func(options *runtimeOptions)) (*runtime_client.Runtime,
 
 	host := r.host
 	if host == "" {
-		host = DefaultSockPath()
+		host = DefaultSockPathProtocol()
 	}
 
 	_, hostHeader, found := strings.Cut(host, "://")
@@ -501,14 +505,33 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Attach Mode:\t%s\n", status)
 	}
 
-	if sr.DatapathMode != "" {
-		status := "?"
-		if sr.DatapathMode == models.DatapathModeVeth {
-			status = "veth"
-		} else if sr.DatapathMode == models.DatapathModeNetkitDashL2 {
-			status = "netkit-l2"
-		} else if sr.DatapathMode == models.DatapathModeNetkit {
-			status = "netkit"
+	if sr.DatapathMode != "" || sr.ConfiguredDatapathMode != "" {
+		status := string(sr.DatapathMode)
+		switch sr.DatapathMode {
+		case models.DatapathModeVeth:
+		case models.DatapathModeNetkit:
+		case models.DatapathModeNetkitDashL2:
+		default:
+			status = "?"
+		}
+
+		configStatus := string(sr.ConfiguredDatapathMode)
+		switch sr.ConfiguredDatapathMode {
+		case models.ConfiguredDatapathModeAuto:
+		case models.ConfiguredDatapathModeVeth:
+		case models.ConfiguredDatapathModeNetkit:
+		case models.ConfiguredDatapathModeNetkitDashL2:
+		case "":
+			// If configStatus is unspecified, this may be a response from an
+			// older version of Cilium, which may not express a configured mode.
+			// By that definition, the operational mode _is_ the configured mode.
+			configStatus = status
+		default:
+			configStatus = "?"
+		}
+
+		if status != configStatus {
+			status = fmt.Sprintf("%s [Configured: %s]", status, configStatus)
 		}
 		fmt.Fprintf(w, "Device Mode:\t%s\n", status)
 	}
@@ -535,16 +558,16 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					status = "BPF"
 				}
 				if sr.KubeProxyReplacement != nil {
-					devStr := ""
+					var devStr strings.Builder
 					for i, dev := range sr.KubeProxyReplacement.DeviceList {
-						devStr += dev.Name
+						devStr.WriteString(dev.Name)
 						if i+1 != len(sr.KubeProxyReplacement.DeviceList) {
-							devStr += ", "
+							devStr.WriteString(", ")
 						}
 					}
 					status += fmt.Sprintf(
 						"\t[%s]\t%s %s",
-						devStr,
+						devStr.String(),
 						sr.Masquerading.SnatExclusionCidrV4,
 						sr.Masquerading.SnatExclusionCidrV6,
 					)

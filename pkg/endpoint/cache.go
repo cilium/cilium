@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"log/slog"
+	"maps"
 	"net/netip"
 	"strconv"
 
@@ -43,6 +44,8 @@ type epInfoCache struct {
 	ifIndex                int
 	parentIfIndex          int
 	netNsCookie            uint64
+	fibTableID             uint32
+	properties             map[string]any
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -59,13 +62,14 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		return &epInfoCache{
 			revision: e.nextPolicyRevision,
 
-			id:       e.GetID(),
-			identity: e.getIdentity(),
-			ifIndex:  e.GetIfIndex(),
-			mac:      e.GetNodeMAC(),
-			ipv4:     e.IPv4Address(),
-			ipv6:     e.IPv6Address(),
-			atHostNS: true,
+			id:         e.GetID(),
+			identity:   e.getIdentity(),
+			ifIndex:    e.GetIfIndex(),
+			mac:        e.GetNodeMAC(),
+			ipv4:       e.IPv4Address(),
+			ipv6:       e.IPv6Address(),
+			atHostNS:   true,
+			properties: maps.Clone(e.properties),
 
 			endpoint: e,
 		}
@@ -90,9 +94,15 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ifIndex:                e.ifIndex,
 		parentIfIndex:          e.parentIfIndex,
 		netNsCookie:            e.NetNsCookie,
+		fibTableID:             e.fibTableID,
+		properties:             maps.Clone(e.properties),
 
 		endpoint: e,
 	}
+}
+
+func (ep *epInfoCache) GetFibTableID() uint32 {
+	return ep.fibTableID
 }
 
 func (ep *epInfoCache) GetIfIndex() int {
@@ -189,4 +199,26 @@ func (ep *epInfoCache) IsHost() bool {
 
 func (ep *epInfoCache) IsAtHostNS() bool {
 	return ep.atHostNS
+}
+
+func (ep *epInfoCache) SkipMasqueradeV4() bool {
+	return ep.isProperty(PropertySkipMasqueradeV4)
+}
+
+func (ep *epInfoCache) SkipMasqueradeV6() bool {
+	return ep.isProperty(PropertySkipMasqueradeV6)
+}
+
+// isProperty checks if the value of the properties map is set, it's a boolean
+// and its value is 'true'.
+func (ep *epInfoCache) isProperty(propertyKey string) bool {
+	if v, ok := ep.properties[propertyKey]; ok {
+		isSet, ok := v.(bool)
+		return ok && isSet
+	}
+	return false
+}
+
+func (ep *epInfoCache) GetPropertyValue(key string) any {
+	return ep.properties[key]
 }

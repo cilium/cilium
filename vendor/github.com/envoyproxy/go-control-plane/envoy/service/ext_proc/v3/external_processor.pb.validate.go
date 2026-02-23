@@ -100,7 +100,7 @@ type ProtocolConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ProtocolConfigurationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -576,7 +576,7 @@ type ProcessingRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ProcessingRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -721,6 +721,8 @@ func (m *ProcessingResponse) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for RequestDrain
 
 	if all {
 		switch v := interface{}(m.GetOverrideMessageTimeout()).(type) {
@@ -1047,6 +1049,48 @@ func (m *ProcessingResponse) validate(all bool) error {
 			}
 		}
 
+	case *ProcessingResponse_StreamedImmediateResponse:
+		if v == nil {
+			err := ProcessingResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofResponsePresent = true
+
+		if all {
+			switch v := interface{}(m.GetStreamedImmediateResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ProcessingResponseValidationError{
+						field:  "StreamedImmediateResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ProcessingResponseValidationError{
+						field:  "StreamedImmediateResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStreamedImmediateResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ProcessingResponseValidationError{
+					field:  "StreamedImmediateResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
@@ -1075,7 +1119,7 @@ type ProcessingResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ProcessingResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1253,7 +1297,7 @@ type HttpHeadersMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpHeadersMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1343,6 +1387,10 @@ func (m *HttpBody) validate(all bool) error {
 
 	// no validation rules for EndOfStream
 
+	// no validation rules for EndOfStreamWithoutMessage
+
+	// no validation rules for GrpcMessageCompressed
+
 	if len(errors) > 0 {
 		return HttpBodyMultiError(errors)
 	}
@@ -1356,7 +1404,7 @@ type HttpBodyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpBodyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1484,7 +1532,7 @@ type HttpTrailersMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpTrailersMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1613,7 +1661,7 @@ type HeadersResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HeadersResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1741,7 +1789,7 @@ type BodyResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BodyResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1870,7 +1918,7 @@ type TrailersResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TrailersResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1933,6 +1981,236 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TrailersResponseValidationError{}
+
+// Validate checks the field values on StreamedImmediateResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *StreamedImmediateResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StreamedImmediateResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StreamedImmediateResponseMultiError, or nil if none found.
+func (m *StreamedImmediateResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StreamedImmediateResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Response.(type) {
+	case *StreamedImmediateResponse_HeadersResponse:
+		if v == nil {
+			err := StreamedImmediateResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetHeadersResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "HeadersResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "HeadersResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHeadersResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StreamedImmediateResponseValidationError{
+					field:  "HeadersResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *StreamedImmediateResponse_BodyResponse:
+		if v == nil {
+			err := StreamedImmediateResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetBodyResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "BodyResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "BodyResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetBodyResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StreamedImmediateResponseValidationError{
+					field:  "BodyResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *StreamedImmediateResponse_TrailersResponse:
+		if v == nil {
+			err := StreamedImmediateResponseValidationError{
+				field:  "Response",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetTrailersResponse()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "TrailersResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, StreamedImmediateResponseValidationError{
+						field:  "TrailersResponse",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetTrailersResponse()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return StreamedImmediateResponseValidationError{
+					field:  "TrailersResponse",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return StreamedImmediateResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// StreamedImmediateResponseMultiError is an error wrapping multiple validation
+// errors returned by StreamedImmediateResponse.ValidateAll() if the
+// designated constraints aren't met.
+type StreamedImmediateResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StreamedImmediateResponseMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StreamedImmediateResponseMultiError) AllErrors() []error { return m }
+
+// StreamedImmediateResponseValidationError is the validation error returned by
+// StreamedImmediateResponse.Validate if the designated constraints aren't met.
+type StreamedImmediateResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StreamedImmediateResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StreamedImmediateResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StreamedImmediateResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StreamedImmediateResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StreamedImmediateResponseValidationError) ErrorName() string {
+	return "StreamedImmediateResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StreamedImmediateResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStreamedImmediateResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StreamedImmediateResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StreamedImmediateResponseValidationError{}
 
 // Validate checks the field values on CommonResponse with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -2070,7 +2348,7 @@ type CommonResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CommonResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2272,7 +2550,7 @@ type ImmediateResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ImmediateResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2375,7 +2653,7 @@ type GrpcStatusMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GrpcStatusMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2509,7 +2787,7 @@ type HeaderMutationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HeaderMutationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2599,6 +2877,10 @@ func (m *StreamedBodyResponse) validate(all bool) error {
 
 	// no validation rules for EndOfStream
 
+	// no validation rules for EndOfStreamWithoutMessage
+
+	// no validation rules for GrpcMessageCompressed
+
 	if len(errors) > 0 {
 		return StreamedBodyResponseMultiError(errors)
 	}
@@ -2613,7 +2895,7 @@ type StreamedBodyResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamedBodyResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2784,7 +3066,7 @@ type BodyMutationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BodyMutationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

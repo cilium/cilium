@@ -24,7 +24,7 @@ See each sub-command's help for details on how to use the generated script.
       --context string             Kubernetes configuration context
       --helm-release-name string   Helm release name (default "cilium")
       --kubeconfig string          Path to the kubeconfig file
-  -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+  -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 ```
 
 ### SEE ALSO

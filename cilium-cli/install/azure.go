@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/getter"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

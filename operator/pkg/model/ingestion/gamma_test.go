@@ -24,6 +24,7 @@ func TestGammaConformance(t *testing.T) {
 		"Mesh Frontend":       {},
 		"multiple_parentRefs": {},
 		"multiple_HTTPRoutes": {},
+		"Mesh GRPC Weight":    {},
 	}
 
 	for name := range tests {
@@ -44,6 +45,7 @@ func readGammaInput(t *testing.T, testName string) GammaInput {
 	input := GammaInput{}
 
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(testName), "input-httproute.yaml"), &input.HTTPRoutes)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGammaTestdataDir, rewriteTestName(testName), "input-referencegrant.yaml"), &input.ReferenceGrants)
 

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/source"
@@ -330,7 +331,7 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 	return &flowpb.Endpoint{
 		ID:          uint32(endpoint.ID),
 		Identity:    uint32(endpoint.Identity),
-		ClusterName: endpoint.Labels.Get(string(source.Kubernetes) + "." + k8sConst.PolicyLabelCluster),
+		ClusterName: endpoint.Labels.Get(string(source.Kubernetes) + ciliumLabels.SourceDelimiter + k8sConst.PolicyLabelCluster),
 		Namespace:   namespace,
 		Labels:      labels,
 		PodName:     podName,

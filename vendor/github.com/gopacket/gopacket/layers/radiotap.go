@@ -1360,7 +1360,7 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 	// at least one present field will always be included, but we parse out the rest as well
 	offset := uint16(4)
 	m.Present = []RadioTapPresent{RadioTapPresent(binary.LittleEndian.Uint32(data[offset : offset+4]))}
-	for (binary.LittleEndian.Uint32(data[offset:offset+4]) & 0x80000000) != 0 {
+	for (m.Present[len(m.Present)-1] & RadioTapPresentEXT) != 0 {
 		// This parser only handles standard radiotap namespace,
 		// and expects all fields are packed in the first it_present.
 		// Extended bitmap will be just ignored.
@@ -1602,7 +1602,6 @@ func (m RadioTap) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serializ
 		binary.LittleEndian.PutUint32(buf[offset:offset+4], uint32(present))
 		offset += 4
 	}
-	offset += 4
 
 	// encode namespace values, alternating according to the namespace bits in the present bitmap
 	// first namespace will always be a radio tap namespace
@@ -1612,10 +1611,10 @@ func (m RadioTap) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serializ
 	vendorNamespaceIndex := 0
 	for _, present := range m.Present {
 		if radioTapNamespace {
-			offset += m.RadioTapValues[radioTapNamespaceIndex].serializeTo(buf, offset, present)
+			offset = m.RadioTapValues[radioTapNamespaceIndex].serializeTo(buf, offset, present)
 			radioTapNamespaceIndex += 1
 		} else if vendorNamespace {
-			offset += m.VendorValues[vendorNamespaceIndex].serializeTo(buf, offset, present)
+			offset = m.VendorValues[vendorNamespaceIndex].serializeTo(buf, offset, present)
 			vendorNamespaceIndex += 1
 		} else {
 			// TODO: this library does not yet handle fields defined on bits higher than 31, just break for now
@@ -1778,6 +1777,23 @@ func (m RadioTapNamespace) serializeTo(buf []byte, offset uint16, present RadioT
 
 		binary.LittleEndian.PutUint16(buf[offset+10:offset+12], m.VHT.PartialAID)
 
+		offset += 12
+	}
+
+	if present.Timestamp() {
+		offset += align(offset, 8)
+		offset += 12
+	}
+
+	if present.HE() {
+		offset += align(offset, 2)
+
+		binary.LittleEndian.PutUint16(buf[offset:], uint16(m.HE.Data1))
+		binary.LittleEndian.PutUint16(buf[offset+2:], uint16(m.HE.Data2))
+		binary.LittleEndian.PutUint16(buf[offset+4:], uint16(m.HE.Data3))
+		binary.LittleEndian.PutUint16(buf[offset+6:], uint16(m.HE.Data4))
+		binary.LittleEndian.PutUint16(buf[offset+8:], uint16(m.HE.Data5))
+		binary.LittleEndian.PutUint16(buf[offset+10:], uint16(m.HE.Data6))
 		offset += 12
 	}
 

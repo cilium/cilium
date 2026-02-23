@@ -55,7 +55,7 @@ runs:
   using: composite
   steps:
     - name: Provision LVH VMs
-      uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+      uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
@@ -64,7 +64,7 @@ runs:
         cpu: 4
         mem: 12G
         # renovate: datasource=github-tags depName=cilium/little-vm-helper
-        lvh-version: "v0.0.26"
+        lvh-version: "v0.0.28"
         install-dependencies: 'true'
         port-forward: ${{ inputs.port-forward }}
         ssh-connect-wait-retries: 600
@@ -78,7 +78,7 @@ runs:
         lvh: 'true'
 
     - name: Create K8s cluster
-      uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+      uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
       with:
         provision: 'false'
         cmd: |

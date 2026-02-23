@@ -6,7 +6,9 @@ package maglev
 import (
 	"encoding/binary"
 	"fmt"
+	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -63,8 +65,7 @@ func mkAddr(i int32) loadbalancer.L3n4Addr {
 	intToAddr := func(i int32) cmtypes.AddrCluster {
 		var addr [4]byte
 		binary.BigEndian.PutUint32(addr[:], uint32(i))
-		addrCluster, _ := cmtypes.AddrClusterFromIP(addr[:])
-		return addrCluster
+		return cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0)
 	}
 	a := loadbalancer.NewL3n4Addr(
 		loadbalancer.TCP,
@@ -80,18 +81,18 @@ func runLengthEncodeIDs(ids []loadbalancer.BackendID) string {
 	}
 	count := 1
 	current := ids[0]
-	var runs string
+	var runs strings.Builder
 	for _, id := range ids[1:] {
 		if id == current {
 			count++
 		} else {
-			runs += fmt.Sprintf("%d(%d),", current, count)
+			fmt.Fprintf(&runs, "%d(%d),", current, count)
 			count = 1
 			current = id
 		}
 	}
-	runs += fmt.Sprintf("%d(%d)", current, count)
-	return runs
+	fmt.Fprintf(&runs, "%d(%d)", current, count)
+	return runs.String()
 }
 
 func TestReproducible(t *testing.T) {

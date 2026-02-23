@@ -242,31 +242,6 @@ If you encounter issues after enabling TLS, you can use the following instructio
 
                 Then configure an issuer and install Cilium.
 
-    .. group-tab:: CronJob (certgen)
-
-        If you are using ArgoCD, you may encounter issues on the initial
-        installation because of how ArgoCD handles Helm hooks specified in the
-        ``helm.sh/hook`` annotation.
-
-        The ``hubble-generate-certs`` Job specifies a ``post-install`` Helm
-        hook in order to generate the required Certificates at initial install time, since
-        the CronJob will only run on the configured schedule which could be
-        hours or days after the initial installation.
-
-        Since ArgoCD will only run ``post-install`` hooks after all pods are
-        ready and running, you may encounter a situation where the
-        ``hubble-generate-certs`` Job is never run.
-
-        It cannot be configured as a ``pre-install`` hook because it requires Cilium
-        to be running first, and Hubble Relay cannot become ready until
-        certificates are provisioned.
-
-        To work around this, you can manually run the ``certgen`` CronJob:
-
-        .. code-block:: shell-session
-
-            $ kubectl -n kube-system create job hubble-generate-certs-initial --from cronjob/hubble-generate-certs
-
     .. group-tab:: Helm
 
         When using Helm certificates are not automatically renewed. If you

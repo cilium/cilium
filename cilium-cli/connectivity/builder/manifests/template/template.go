@@ -6,8 +6,14 @@ package template
 import (
 	"bytes"
 	"html/template"
+	"math/rand/v2"
 	"net/netip"
 	"strings"
+	"time"
+)
+
+var (
+	randGen = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0))
 )
 
 // Render executes temp template with data and returns the result
@@ -32,6 +38,25 @@ func Render(temp string, data any) (string, error) {
 				return strings.Join(labels[0:], ".")
 			}
 			return "**." + strings.Join(labels[times:], ".")
+		},
+		"randomReplaceDnsLabel": func(in string, replacement string) string {
+			labels := strings.Split(in, ".")
+			if len(labels) == 0 {
+				return in
+			}
+
+			labelIdx := randGen.IntN(len(labels))
+			label := labels[labelIdx]
+			labelLen := len(label)
+			if labelLen <= 0 {
+				return in
+			}
+
+			replaceStart := randGen.IntN(labelLen) // 3
+			replaceEnd := replaceStart + randGen.IntN(labelLen-replaceStart)
+			labels[labelIdx] = label[:replaceStart] + replacement + label[replaceEnd:]
+
+			return strings.Join(labels, ".") + "."
 		},
 	}
 

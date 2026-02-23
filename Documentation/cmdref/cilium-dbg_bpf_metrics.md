@@ -23,5 +23,6 @@ BPF datapath traffic metrics
 ### SEE ALSO
 
 * [cilium-dbg bpf](cilium-dbg_bpf.md)	 - Direct access to local BPF maps
+* [cilium-dbg bpf metrics flush](cilium-dbg_bpf_metrics_flush.md)	 - Clear BPF datapath traffic metrics (test purpose only)
 * [cilium-dbg bpf metrics list](cilium-dbg_bpf_metrics_list.md)	 - List BPF datapath traffic metrics
 

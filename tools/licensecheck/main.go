@@ -9,7 +9,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/google/go-licenses/licenses"
+	"github.com/google/go-licenses/v2/licenses"
 )
 
 var includeTests bool
@@ -35,7 +35,7 @@ func main() {
 		for _, l := range allowedLicenses {
 			fmt.Printf("  - %s\n", l)
 		}
-		fmt.Println("\nUnder certain circumstances, exceptions can be made for projects using a different license. For more information, please consult the following resources:\nhttps://github.com/cncf/foundation/blob/main/allowed-third-party-license-policy.md\nhttps://github.com/cncf/foundation/tree/main/license-exceptions")
+		fmt.Println("\nUnder certain circumstances, exceptions can be made for projects using a different license. For more information, please consult the following resources:\nhttps://github.com/cncf/foundation/blob/main/policies-guidance/allowed-third-party-license-policy.md\nhttps://github.com/cncf/foundation/tree/main/license-exceptions")
 		os.Exit(1)
 	}
 	fmt.Println("Licenses check OK")

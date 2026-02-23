@@ -18,11 +18,9 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/stream"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -117,14 +115,16 @@ type params struct {
 	Lifecycle cell.Lifecycle
 	DB        *statedb.DB
 	Table     statedb.RWTable[NatMapStats]
-	NatMap4   promise.Promise[nat.NatMap4]
-	NatMap6   promise.Promise[nat.NatMap6]
+	NatMap4   nat.NatMap4
+	NatMap6   nat.NatMap6
 	Jobs      job.Group
 	Metrics   natMetrics
 	Config    Config
 	LBConfig  loadbalancer.Config
 	Health    cell.Health
 }
+
+const nodePortMaxNAT = 65535
 
 func newStats(params params) (*Stats, error) {
 	if params.Config.NATMapStatInterval == 0 {
@@ -139,7 +139,7 @@ func newStats(params params) (*Stats, error) {
 
 	// number of available source-ports is ephemeral range subtracting those
 	// used by node-ports.
-	maxAvailPorts := config.NodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
+	maxAvailPorts := nodePortMaxNAT - (params.LBConfig.NodePortMax + 1)
 	m := &Stats{
 		logger:   params.Logger,
 		metrics:  params.Metrics,
@@ -156,22 +156,8 @@ func newStats(params params) (*Stats, error) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			ctx, cancel := context.WithTimeout(hc, time.Second*120)
-			defer cancel()
-			nmap4, err := params.NatMap4.Await(ctx)
-			if err != nil {
-				if !errors.Is(err, nat.ErrMapDisabled) {
-					return err
-				}
-			}
-			nmap6, err := params.NatMap6.Await(ctx)
-			if err != nil {
-				if !errors.Is(err, nat.ErrMapDisabled) {
-					return err
-				}
-			}
-			m.natMap4 = nmap4
-			m.natMap6 = nmap6
+			m.natMap4 = params.NatMap4
+			m.natMap6 = params.NatMap6
 			if m.natMap4 == nil && m.natMap6 == nil {
 				return nil
 			}

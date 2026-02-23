@@ -9,32 +9,10 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 )
 
-// PolicyPut inserts the `policyJSON`
-// Deprecated, to be removed in v1.19
-func (c *Client) PolicyPut(policyJSON string) (*models.Policy, error) {
-	params := policy.NewPutPolicyParams().WithPolicy(policyJSON).WithTimeout(api.ClientTimeout)
-	resp, err := c.Policy.PutPolicy(params)
-	if err != nil {
-		return nil, Hint(err)
-	}
-	return resp.Payload, nil
-}
-
-// PolicyReplace replaces the `policyJSON`
-// Deprecated, to be removed in v1.19
-func (c *Client) PolicyReplace(policyJSON string, replace bool, replaceWithLabels []string) (*models.Policy, error) {
-	params := policy.NewPutPolicyParams().WithPolicy(policyJSON).WithReplace(&replace).WithReplaceWithLabels(replaceWithLabels).WithTimeout(api.ClientTimeout)
-	resp, err := c.Policy.PutPolicy(params)
-	if err != nil {
-		return nil, Hint(err)
-	}
-	return resp.Payload, nil
-}
-
 // PolicyGet returns policy rules
 // Deprecated, to be removed in v1.19
-func (c *Client) PolicyGet(labels []string) (*models.Policy, error) {
-	params := policy.NewGetPolicyParams().WithLabels(labels).WithTimeout(api.ClientTimeout)
+func (c *Client) PolicyGet() (*models.Policy, error) {
+	params := policy.NewGetPolicyParams().WithTimeout(api.ClientTimeout)
 	resp, err := c.Policy.GetPolicy(params)
 	if err != nil {
 		return nil, Hint(err)
@@ -52,13 +30,12 @@ func (c *Client) PolicyCacheGet() (models.SelectorCache, error) {
 	return resp.Payload, nil
 }
 
-// PolicyDelete deletes policy rules
-// Deprecated, to be removed in v1.19
-func (c *Client) PolicyDelete(labels []string) (*models.Policy, error) {
-	params := policy.NewDeletePolicyParams().WithLabels(labels).WithTimeout(api.ClientTimeout)
-	resp, err := c.Policy.DeletePolicy(params)
+// SubjectPolicySelectorsGet returns the contents of the subject SelectorCache.
+func (c *Client) SubjectPolicySelectorsGet() (models.SelectorCache, error) {
+	params := policy.NewGetPolicySubjectSelectorsParams().WithTimeout(api.ClientTimeout)
+	resp, err := c.Policy.GetPolicySubjectSelectors(params)
 	if err != nil {
 		return nil, Hint(err)
 	}
-	return resp.Payload, Hint(err)
+	return resp.Payload, nil
 }

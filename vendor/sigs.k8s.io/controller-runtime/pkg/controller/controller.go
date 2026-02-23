@@ -91,8 +91,29 @@ type TypedOptions[request comparable] struct {
 	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
 	// priority queue.
 	//
-	// Note: This flag is disabled by default until a future version. It's currently in beta.
+	// Note: This flag is disabled by default until a future version. This feature is currently in beta.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/2374.
 	UsePriorityQueue *bool
+
+	// EnableWarmup specifies whether the controller should start its sources when the manager is not
+	// the leader. This is useful for cases where sources take a long time to start, as it allows
+	// for the controller to warm up its caches even before it is elected as the leader. This
+	// improves leadership failover time, as the caches will be prepopulated before the controller
+	// transitions to be leader.
+	//
+	// Setting EnableWarmup to true and NeedLeaderElection to true means the controller will start its
+	// sources without waiting to become leader.
+	// Setting EnableWarmup to true and NeedLeaderElection to false is a no-op as controllers without
+	// leader election do not wait on leader election to start their sources.
+	// Defaults to false.
+	//
+	// Note: This feature is currently in beta and subject to change.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/3220.
+	EnableWarmup *bool
+
+	// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
+	// By default, there is no timeout.
+	ReconciliationTimeout time.Duration
 }
 
 // DefaultFromConfig defaults the config from a config.Controller
@@ -123,6 +144,14 @@ func (options *TypedOptions[request]) DefaultFromConfig(config config.Controller
 
 	if options.NeedLeaderElection == nil {
 		options.NeedLeaderElection = config.NeedLeaderElection
+	}
+
+	if options.EnableWarmup == nil {
+		options.EnableWarmup = config.EnableWarmup
+	}
+
+	if options.ReconciliationTimeout == 0 {
+		options.ReconciliationTimeout = config.ReconciliationTimeout
 	}
 }
 
@@ -243,7 +272,7 @@ func NewTypedUnmanaged[request comparable](name string, options TypedOptions[req
 	}
 
 	// Create controller with dependencies set
-	return &controller.Controller[request]{
+	return controller.New[request](controller.Options[request]{
 		Do:                      options.Reconciler,
 		RateLimiter:             options.RateLimiter,
 		NewQueue:                options.NewQueue,
@@ -253,7 +282,9 @@ func NewTypedUnmanaged[request comparable](name string, options TypedOptions[req
 		LogConstructor:          options.LogConstructor,
 		RecoverPanic:            options.RecoverPanic,
 		LeaderElected:           options.NeedLeaderElection,
-	}, nil
+		EnableWarmup:            options.EnableWarmup,
+		ReconciliationTimeout:   options.ReconciliationTimeout,
+	}), nil
 }
 
 // ReconcileIDFromContext gets the reconcileID from the current context.

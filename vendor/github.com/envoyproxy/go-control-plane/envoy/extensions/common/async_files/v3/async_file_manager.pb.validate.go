@@ -132,7 +132,7 @@ type AsyncFileManagerConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AsyncFileManagerConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -247,7 +247,7 @@ type AsyncFileManagerConfig_ThreadPoolMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AsyncFileManagerConfig_ThreadPoolMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

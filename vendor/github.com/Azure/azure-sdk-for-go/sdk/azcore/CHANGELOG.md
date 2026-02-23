@@ -1,5 +1,27 @@
 # Release History
 
+## 1.21.0 (2026-01-12)
+
+### Features Added
+
+* Added `runtime/datetime` package which provides specialized time type wrappers for serializing and deserializing
+time values in various formats used by Azure services.
+
+### Other Changes
+
+* Aligned `cloud.AzureGovernment` and `cloud.AzureChina` audience values with Azure CLI
+
+## 1.20.0 (2025-11-06)
+
+### Features Added
+
+* Added `runtime.FetcherForNextLinkOptions.HTTPVerb` to specify the HTTP verb when fetching the next page via next link. Defaults to `http.MethodGet`.
+
+### Bugs Fixed
+
+* Fixed potential panic when decoding base64 strings.
+* Fixed an issue in resource identifier parsing which prevented it from returning an error for malformed resource IDs.
+
 ## 1.19.1 (2025-09-11)
 
 ### Bugs Fixed

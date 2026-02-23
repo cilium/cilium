@@ -23,7 +23,7 @@
 CHECK("tc", "lb4_tcp_single_scope")
 int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -50,7 +50,7 @@ int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "lb4_tcp_dual_scope")
 int test_lb4_tcp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -78,7 +78,7 @@ int test_lb4_tcp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "lb4_udp_single_scope")
 int test_lb4_udp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -105,7 +105,7 @@ int test_lb4_udp_single_scope(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "lb4_udp_dual_scope")
 int test_lb4_udp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -132,7 +132,7 @@ int test_lb4_udp_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 CHECK("tc", "lb4_proto_mismatch_nowild_single_scope")
 int test_lb4_proto_mismatch_nowild_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -159,7 +159,7 @@ int test_lb4_proto_mismatch_nowild_single_scope(__maybe_unused struct __ctx_buff
 CHECK("tc", "lb4_proto_mismatch_nowild_dual_scope")
 int test_lb4_proto_mismatch_nowild_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -186,7 +186,7 @@ int test_lb4_proto_mismatch_nowild_dual_scope(__maybe_unused struct __ctx_buff *
 CHECK("tc", "lb4_proto_mismatch_wild_single_scope")
 int test_lb4_proto_mismatch_wild_single_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,
@@ -225,7 +225,7 @@ int test_lb4_proto_mismatch_wild_single_scope(__maybe_unused struct __ctx_buff *
 CHECK("tc", "lb4_proto_mismatch_wild_dual_scope")
 int test_lb4_proto_mismatch_wild_dual_scope(__maybe_unused struct __ctx_buff *ctx)
 {
-	struct lb4_service *service;
+	const struct lb4_service *service;
 	struct lb4_key key = {
 		.address = FRONTEND_IP,
 		.dport = FRONTEND_PORT,

@@ -43,7 +43,7 @@ func NewCiliumBGPNodeConfigInformer(client versioned.Interface, resyncPeriod tim
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumBGPNodeConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumBGPNodeConfigInformer(client versioned.Interface, resyncPe
 				}
 				return client.CiliumV2alpha1().CiliumBGPNodeConfigs().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2alpha1.CiliumBGPNodeConfig{},
 		resyncPeriod,
 		indexers,

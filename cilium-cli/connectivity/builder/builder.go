@@ -31,6 +31,9 @@ var (
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
 
+	//go:embed manifests/client-egress-only-port-53.yaml
+	clientEgressOnlyPort53PolicyYAML string
+
 	//go:embed manifests/client-egress-to-fqdns.yaml
 	clientEgressToFQDNsPolicyYAML string
 
@@ -88,6 +91,9 @@ var (
 	//go:embed manifests/client-egress-tls-sni-double-wildcard.yaml
 	clientEgressTLSSNIDoubleWildcardPolicyYAML string
 
+	//go:embed manifests/client-egress-tls-sni-random-wildcard.yaml
+	clientEgressTLSSNIRandomWildcardPolicyYAML string
+
 	//go:embed manifests/client-egress-tls-sni-other.yaml
 	clientEgressTLSSNIOtherPolicyYAML string
 
@@ -111,6 +117,15 @@ var (
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
+
+	//go:embed manifests/bgp-peering-policy.yaml
+	bgpPeeringPolicyYAML string
+
+	//go:embed manifests/allow-ingress-specific-ns-ccnp.yaml
+	ingressfromSpecificNSYAML string
+
+	//go:embed manifests/allow-egress-specific-ns-ccnp.yaml
+	egresstoSpecificNSYAML string
 )
 
 var (
@@ -295,6 +310,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		echoIngressMutualAuthSpiffe{},
 		podToIngressService{},
 		outsideToIngressService{},
+		serviceLoopback{},
 		l7LB{},
 		dnsOnly{},
 		toFqdns{},
@@ -311,6 +327,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		multicast{},
 		strictModeEncryption{},
 		ipsecKeyDerivation{},
+		ztunnelPodToPodEncryption{},
 	}
 	return injectTests(tests, connTests...)
 }
@@ -322,6 +339,8 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		hostFirewallEgress{},
 		clientEgressL7TlsDenyWithoutHeaders{},
 		clientEgressL7TlsHeaders{},
+		egresstoSpecificNamespace{},
+		ingressfromSpecificNamespace{},
 	}
 	return injectTests(tests, ct)
 }
@@ -351,6 +370,7 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"clientEgressToFQDNsAndHTTPGetPolicyYAML":                    clientEgressToFQDNsAndHTTPGetPolicyYAML,
 		"clientEgressTLSSNIPolicyYAML":                               clientEgressTLSSNIPolicyYAML,
 		"clientEgressTLSSNIWildcardPolicyYAML":                       clientEgressTLSSNIWildcardPolicyYAML,
+		"clientEgressTLSSNIRandomWildcardPolicyYAML":                 clientEgressTLSSNIRandomWildcardPolicyYAML,
 		"clientEgressTLSSNIDoubleWildcardPolicyYAML":                 clientEgressTLSSNIDoubleWildcardPolicyYAML,
 		"clientEgressTLSSNIOtherPolicyYAML":                          clientEgressTLSSNIOtherPolicyYAML,
 		"clientEgressL7TLSSNIPolicyYAML":                             clientEgressL7TLSSNIPolicyYAML,
@@ -362,8 +382,11 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"clientEgressL7HTTPExternalYAML":                             clientEgressL7HTTPExternalYAML,
 		"clientEgressNodeLocalDNSYAML":                               clientEgressNodeLocalDNSYAML,
 		"clientEgressOnlyDNSPolicyYAML":                              clientEgressOnlyDNSPolicyYAML,
+		"clientEgressOnlyPort53PolicyYAML":                           clientEgressOnlyPort53PolicyYAML,
 		"echoIngressFromCIDRYAML":                                    echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                                         denyCIDRPolicyYAML,
+		"ingressfromSpecificNSYAML":                                  ingressfromSpecificNSYAML,
+		"egresstoSpecificNSYAML":                                     egresstoSpecificNSYAML,
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML

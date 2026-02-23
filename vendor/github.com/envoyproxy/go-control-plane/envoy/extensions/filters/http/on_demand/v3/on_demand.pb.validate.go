@@ -58,17 +58,6 @@ func (m *OnDemandCds) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetSource() == nil {
-		err := OnDemandCdsValidationError{
-			field:  "Source",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetSource()).(type) {
 		case interface{ ValidateAll() error }:
@@ -142,7 +131,7 @@ type OnDemandCdsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OnDemandCdsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -270,7 +259,7 @@ type OnDemandMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OnDemandMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -399,7 +388,7 @@ type PerRouteConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PerRouteConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -18,21 +18,17 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
-	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
-	slim_apiext_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -74,8 +70,9 @@ type (
 	MCSAPIClientset     = mcsapi_clientset.Clientset
 	KubernetesClientset = kubernetes.Clientset
 	SlimClientset       = slim_clientset.Clientset
-	APIExtClientset     = slim_apiext_clientset.Clientset
+	APIExtClientset     = apiext_clientset.Clientset
 	CiliumClientset     = cilium_clientset.Clientset
+	PolicyClientset     = policy_clientset.Clientset
 )
 
 // Clientset is a composition of the different client sets used by Cilium.
@@ -84,6 +81,7 @@ type Clientset interface {
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
+	policy_clientset.Interface
 	Getters
 
 	// Slim returns the slim client, which contains some of the same APIs as the
@@ -95,10 +93,6 @@ type Clientset interface {
 	// clientset can be used.
 	IsEnabled() bool
 
-	// Disable disables the client. Panics if called after the clientset has been
-	// started.
-	Disable()
-
 	// Config returns the configuration used to create this client.
 	Config() Config
 
@@ -108,13 +102,11 @@ type Clientset interface {
 
 // compositeClientset implements the Clientset using real clients.
 type compositeClientset struct {
-	started  bool
-	disabled bool
-
 	*MCSAPIClientset
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
+	*PolicyClientset
 	ClientsetGetters
 
 	controller        *controller.Manager
@@ -146,8 +138,8 @@ func newClientset(params compositeClientsetParams) (Clientset, *restConfigManage
 }
 
 func newClientsetForUserAgent(params compositeClientsetParams, name string) (Clientset, *restConfigManager, error) {
-	if !params.Config.isEnabled() {
-		return &compositeClientset{disabled: true}, nil, nil
+	if !params.Config.IsEnabled() {
+		return &compositeClientset{config: params.Config}, nil, nil
 	}
 
 	client := compositeClientset{
@@ -188,7 +180,7 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 		return nil, nil, fmt.Errorf("unable to create slim k8s client: %w", err)
 	}
 
-	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(rc, httpClient)
+	client.APIExtClientset, err = apiext_clientset.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
 	}
@@ -201,6 +193,11 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create k8s client: %w", err)
+	}
+
+	client.PolicyClientset, err = policy_clientset.NewForConfigAndClient(rc, httpClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create policy k8s client: %w", err)
 	}
 
 	client.ClientsetGetters = ClientsetGetters{&client}
@@ -229,14 +226,7 @@ func (c *compositeClientset) Discovery() discovery.DiscoveryInterface {
 }
 
 func (c *compositeClientset) IsEnabled() bool {
-	return c != nil && c.config.isEnabled() && !c.disabled
-}
-
-func (c *compositeClientset) Disable() {
-	if c.started {
-		panic("Clientset.Disable() called after it had been started")
-	}
-	c.disabled = true
+	return c != nil && c.config.IsEnabled()
 }
 
 func (c *compositeClientset) Config() Config {
@@ -267,8 +257,6 @@ func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
-	c.started = true
-
 	return nil
 }
 
@@ -277,7 +265,6 @@ func (c *compositeClientset) onStop(stopCtx cell.HookContext) error {
 		c.controller.RemoveAllAndWait()
 		c.closeAllConns()
 	}
-	c.started = false
 	return nil
 }
 
@@ -291,11 +278,11 @@ func (c *compositeClientset) startHeartbeat() {
 
 	heartBeat := func(ctx context.Context) error {
 		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
-		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
-		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
+		// our case because the amount of data transferred is bigger than doing a Get of /readyz.
+		// For this reason we have picked to perform a get on `/readyz` instead a get of a node.
 		//
 		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-		res := restClient.Get().Resource("healthz").Do(ctx)
+		res := restClient.Get().Resource("readyz").Do(ctx)
 		return res.Error()
 	}
 
@@ -444,11 +431,4 @@ func NewClientBuilder(params compositeClientsetParams) ClientBuilderFunc {
 		}
 		return c, nil
 	}
-}
-
-func init() {
-	// Register the metav1.Table and metav1.PartialObjectMetadata for the
-	// apiextclientset.
-	utilruntime.Must(slim_metav1.AddMetaToScheme(slim_apiextclientsetscheme.Scheme))
-	utilruntime.Must(slim_metav1beta1.AddMetaToScheme(slim_apiextclientsetscheme.Scheme))
 }

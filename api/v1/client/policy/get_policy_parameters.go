@@ -17,8 +17,6 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetPolicyParams creates a new GetPolicyParams object,
@@ -65,10 +63,6 @@ GetPolicyParams contains all the parameters to send to the API endpoint
 	Typically these are written to a http.Request.
 */
 type GetPolicyParams struct {
-
-	// Labels.
-	Labels models.Labels
-
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -122,17 +116,6 @@ func (o *GetPolicyParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithLabels adds the labels to the get policy params
-func (o *GetPolicyParams) WithLabels(labels models.Labels) *GetPolicyParams {
-	o.SetLabels(labels)
-	return o
-}
-
-// SetLabels adds the labels to the get policy params
-func (o *GetPolicyParams) SetLabels(labels models.Labels) {
-	o.Labels = labels
-}
-
 // WriteToRequest writes these params to a swagger request
 func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -140,11 +123,6 @@ func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 		return err
 	}
 	var res []error
-	if o.Labels != nil {
-		if err := r.SetBodyParam(o.Labels); err != nil {
-			return err
-		}
-	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

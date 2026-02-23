@@ -5,16 +5,15 @@ package option
 
 const (
 	PolicyTracing        = "PolicyTracing"
-	ConntrackAccounting  = "ConntrackAccounting"
 	Debug                = "Debug"
 	DebugLB              = "DebugLB"
 	DebugPolicy          = "DebugPolicy"
+	DebugTagged          = "DebugTagged"
 	DropNotify           = "DropNotification"
 	TraceNotify          = "TraceNotification"
 	TraceSockNotify      = "TraceSockNotification"
 	PolicyVerdictNotify  = "PolicyVerdictNotification"
 	PolicyAuditMode      = "PolicyAuditMode"
-	PolicyAccounting     = "PolicyAccounting"
 	MonitorAggregation   = "MonitorAggregationLevel"
 	SourceIPVerification = "SourceIPVerification"
 	AlwaysEnforce        = "always"
@@ -23,25 +22,23 @@ const (
 )
 
 var (
-	specConntrackAccounting = Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    nil,
-	}
-
 	specDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
 	specDebugLB = Option{
-		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
 	}
 
 	specDebugPolicy = Option{
 		Define:      "POLICY_DEBUG",
 		Description: "Enable debugging trace statements for policy enforcement",
+	}
+
+	specDebugTagged = Option{
+		Define:      "DEBUG_TAGGED",
+		Description: "Enable debugging trace statements for tagged packets",
 	}
 
 	specDropNotify = Option{
@@ -52,11 +49,6 @@ var (
 	specTraceNotify = Option{
 		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
-	}
-
-	specPolicyAccounting = Option{
-		Define:      "POLICY_ACCOUNTING",
-		Description: "Enable policy accounting ",
 	}
 
 	specPolicyVerdictNotify = Option{

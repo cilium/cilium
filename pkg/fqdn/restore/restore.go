@@ -45,12 +45,6 @@ func MakeV2PortProto(port uint16, proto u8proto.U8proto) PortProto {
 	return PortProto(PortProtoV2 | (uint32(proto) << 16) | uint32(port))
 }
 
-// IsPortV2 returns true if the PortProto
-// is Version 2.
-func (pp PortProto) IsPortV2() bool {
-	return PortProtoV2&pp == PortProtoV2
-}
-
 // Port returns the port of the PortProto
 func (pp PortProto) Port() uint16 {
 	return uint16(pp & 0x0000_ffff)
@@ -60,12 +54,6 @@ func (pp PortProto) Port() uint16 {
 // PortProto. It returns "0" for Version 1.
 func (pp PortProto) Protocol() uint8 {
 	return uint8((pp & 0xff_0000) >> 16)
-}
-
-// ToV1 returns the Version 1 (that is, "port")
-// version of the PortProto.
-func (pp PortProto) ToV1() PortProto {
-	return pp & 0x0000_ffff
 }
 
 // String returns the decimal representation
@@ -136,11 +124,11 @@ func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 	if b == nil {
 		return errors.New("cannot unmarshal nil into RuleIPOrCIDR")
 	}
-	if i := bytes.IndexByte(b, byte('@')); i >= 0 {
-		if i == len(b)-1 {
+	if before, after, found := bytes.Cut(b, []byte{'@'}); found {
+		if len(after) == 0 {
 			return errors.New("unexpected trailing @")
 		}
-		clusterIDStr := string(b[i+1:])
+		clusterIDStr := string(after)
 		clusterID, err := strconv.ParseUint(clusterIDStr, 10, 32)
 		if err != nil {
 			return fmt.Errorf("unable to parse clusterID: %w", err)
@@ -148,9 +136,9 @@ func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 		if clusterID != 0 {
 			return ErrRemoteClusterAddr
 		}
-		b = b[:i]
+		b = before
 	}
-	if i := bytes.IndexByte(b, byte('/')); i < 0 {
+	if !bytes.Contains(b, []byte{'/'}) {
 		var addr netip.Addr
 		if err = addr.UnmarshalText(b); err == nil {
 			*ip = RuleIPOrCIDR(netip.PrefixFrom(addr, 0xff))

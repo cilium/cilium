@@ -11,6 +11,20 @@
 #include "utils.h"
 #include "dbg.h"
 
+struct metrics_key {
+	__u8      reason;	/* 0: forwarded, >0 dropped */
+	__u8      dir:2,	/* 1: ingress 2: egress */
+		  pad:6;
+	__u16	  line;		/* __MAGIC_LINE__ */
+	__u8	  file;		/* __MAGIC_FILE__, needs to fit __id_for_file */
+	__u8	  reserved[3];	/* reserved for future extension */
+};
+
+struct metrics_value {
+	__u64	count;
+	__u64	bytes;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_HASH);
 	__type(key, struct metrics_key);

@@ -96,9 +96,10 @@ type dbState struct {
 	gcExited            chan struct{}
 	gcRateLimitInterval time.Duration
 	metrics             Metrics
+	writeTxnPool        sync.Pool
 }
 
-type dbRoot = readTxn
+type dbRoot = []*tableEntry
 
 type Option func(*opts)
 
@@ -131,10 +132,24 @@ func New(options ...Option) *DB {
 			gcRateLimitInterval: defaultGCRateLimitInterval,
 		},
 	}
+	db.updateWriteTxnPoolLocked(0)
 	db.handleName = "DB"
 	root := dbRoot{}
 	db.root.Store(&root)
 	return db
+}
+
+func (db *DB) updateWriteTxnPoolLocked(numTables int) {
+	const defaultNumTables = 4
+	db.writeTxnPool.New =
+		func() any {
+			return &writeTxnState{
+				db:           db,
+				tableEntries: make([]*tableEntry, 0, numTables),
+				smus:         make(internal.SortableMutexes, 0, defaultNumTables),
+				tableNames:   make([]string, 0, defaultNumTables),
+			}
+		}
 }
 
 func (db *DB) registerTable(table TableMeta) error {
@@ -154,6 +169,8 @@ func (db *DB) registerTable(table TableMeta) error {
 	table.setTablePos(pos)
 	root = append(root, table.tableEntry())
 
+	db.updateWriteTxnPoolLocked(len(root))
+
 	db.root.Store(&root)
 	return nil
 }
@@ -172,57 +189,60 @@ func (db *DB) ReadTxn() ReadTxn {
 // it until Commit() is called. To discard the changes call Abort().
 //
 // The returned WriteTxn is not thread-safe.
-func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
-	allTables := append(tables, table)
-	smus := internal.SortableMutexes{}
-	for _, table := range allTables {
-		smus = append(smus, table.sortableMutex())
+func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
+	txn := db.writeTxnPool.Get().(*writeTxnState)
+	txn.db = db
+
+	txn.smus = reuseSlice(txn.smus, len(tables))
+	for i, table := range tables {
+		txn.smus[i] = table.sortableMutex()
 		if table.tablePos() < 0 {
 			panic(tableError(table.Name(), ErrTableNotRegistered))
 		}
 	}
+
 	lockAt := time.Now()
-	smus.Lock()
+	txn.smus.Lock()
 	acquiredAt := time.Now()
-	root := *db.root.Load()
-	tableEntries := make([]*tableEntry, len(root))
 
-	txn := &writeTxn{
-		db:             db,
-		dbRoot:         root,
-		handle:         db.handleName,
-		acquiredAt:     time.Now(),
-		modifiedTables: tableEntries,
-		smus:           smus,
-	}
+	txn.oldRoot = db.root.Load()
 
-	var tableNames []string
-	for _, table := range allTables {
-		tableEntry := root[table.tablePos()]
-		tableEntry.indexes = slices.Clone(tableEntry.indexes)
-		tableEntries[table.tablePos()] = &tableEntry
-		tableNames = append(tableNames, table.Name())
+	// Clone the root. This new allocation will become the new root when
+	// we commit.
+	txn.tableEntries = slices.Clone(*txn.oldRoot)
+
+	txn.handle = db.handleName
+	txn.acquiredAt = acquiredAt
+
+	txn.tableNames = reuseSlice(txn.tableNames, len(tables))
+	for i, table := range tables {
+		pos := table.tablePos()
+		tableEntryCopy := *txn.tableEntries[pos]
+		tableEntryCopy.indexes = slices.Clone(tableEntryCopy.indexes)
+		tableEntryCopy.locked = true
+		txn.tableEntries[pos] = &tableEntryCopy
+		name := table.Name()
+		txn.tableNames[i] = name
 
 		db.metrics.WriteTxnTableAcquisition(
 			db.handleName,
-			table.Name(),
+			name,
 			table.sortableMutex().AcquireDuration(),
 		)
 		table.acquired(txn)
 	}
 
 	// Sort the table names so they always appear ordered in metrics.
-	sort.Strings(tableNames)
-	txn.tableNames = tableNames
-
+	sort.Strings(txn.tableNames)
 	db.metrics.WriteTxnTotalAcquisition(
 		db.handleName,
-		tableNames,
+		txn.tableNames,
 		acquiredAt.Sub(lockAt),
 	)
 
-	runtime.SetFinalizer(txn, txnFinalizer)
-	return txn
+	handle := &writeTxnHandle{txn, nil}
+	runtime.SetFinalizer(handle, txnFinalizer)
+	return handle
 }
 
 func (db *DB) GetTables(txn ReadTxn) (tbls []TableMeta) {
@@ -290,4 +310,12 @@ func (db *DB) NewHandle(name string) *DB {
 		handleName: name,
 		dbState:    db.dbState,
 	}
+}
+
+func reuseSlice[T any](s []T, length int) []T {
+	if cap(s) < length {
+		return make([]T, length)
+	}
+	s = s[:length]
+	return s
 }

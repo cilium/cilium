@@ -308,8 +308,8 @@ type statusPrinter interface {
 
 // parseNameAndLabels splits the key into name and labels based on the first ";" separator
 func parseNameAndLabels(key string) (string, string) {
-	if idx := strings.Index(key, ";"); idx != -1 {
-		return key[:idx], key[idx+1:]
+	if before, after, found := strings.Cut(key, ";"); found {
+		return before, after
 	}
 	return key, ""
 }

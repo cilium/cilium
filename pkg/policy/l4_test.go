@@ -17,9 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -139,7 +140,12 @@ func TestParserTypeMerge(t *testing.T) {
 }
 
 func TestCreateL4Filter(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	// disable allow local host to simplify the this test
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
+
+	td := newTestData(t, hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -154,12 +160,18 @@ func TestCreateL4Filter(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			Verdict: types.Allow,
+			L3:      eps,
+			Ingress: true,
+			L4:      []api.PortRule{*portrule},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol)
+		filter, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -169,7 +181,8 @@ func TestCreateL4Filter(t *testing.T) {
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		entry.Ingress = false
+		filter, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -182,7 +195,12 @@ func TestCreateL4Filter(t *testing.T) {
 }
 
 func TestCreateL4FilterAuthRequired(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	// disable allow local host to simplify the this test
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
+
+	td := newTestData(t, hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -197,13 +215,19 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
-	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			Verdict:        types.Allow,
+			L3:             eps,
+			Ingress:        true,
+			L4:             []api.PortRule{*portrule},
+			Authentication: &api.Authentication{Mode: api.AuthenticationModeDisabled},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol)
+		filter, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -213,7 +237,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil)
+		entry.Ingress = false
+		filter, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -228,7 +253,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 func TestCreateL4FilterMissingSecret(t *testing.T) {
 	// Suppress the expected warning logs for this test
 
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -248,15 +273,21 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			L3:      eps,
+			Ingress: true,
+			L4:      []api.PortRule{*portrule},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol)
+		_, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.Error(t, err)
 
-		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		entry.Ingress = false
+		_, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.Error(t, err)
 	}
 }
@@ -268,7 +299,7 @@ func (a SortablePolicyRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule }
 
 func TestJSONMarshal(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 	model := &models.L4Policy{}
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Egress))
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Ingress))
@@ -286,6 +317,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 80, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -298,6 +330,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 9090, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: "tester",
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
@@ -318,6 +351,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 8080, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -327,6 +361,7 @@ func TestJSONMarshal(t *testing.T) {
 						},
 					},
 					td.wildcardCachedSelector: &PerSelectorPolicy{
+						Verdict: types.Allow,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -360,7 +395,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",
@@ -376,7 +411,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "l7proto": "tester",
         "l7": [
           {
@@ -397,7 +432,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",
@@ -446,7 +481,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 	}
 	for i, portRange := range portRanges {
 		t.Run(fmt.Sprintf("%d-%d", portRange.startPort, portRange.endPort), func(tt *testing.T) {
-			l4Map := NewL4PolicyMap()
+			l4Map := makeL4PolicyMap()
 			startFilter := &L4Filter{
 				U8Proto:  u8proto.TCP,
 				Protocol: api.ProtoTCP,
@@ -527,7 +562,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 
 	newEmptyEndpointPolicy := func() *EndpointPolicy {
 		return &EndpointPolicy{
-			selectorPolicy:   &selectorPolicy{},
+			SelectorPolicy:   &selectorPolicy{},
 			PolicyOwner:      owner,
 			policyMapState:   emptyMapState(logger),
 			policyMapChanges: MapChanges{logger: logger},
@@ -585,7 +620,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			b.StartTimer()
 
 			for _, filter := range testL4Filters {
-				filter.toMapState(logger, epPolicy, 0, ChangeState{})
+				filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, 0, ChangeState{})
 			}
 		}
 	})
@@ -606,7 +641,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					psp := filter.PerSelectorPolicies
 					filter.PerSelectorPolicies = L7DataMap{ws: nil}
 
-					filter.toMapState(logger, epPolicy, 0, ChangeState{})
+					filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, 0, ChangeState{})
 					filter.PerSelectorPolicies = psp
 				}
 			}
@@ -620,7 +655,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					}
 
 					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
-					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
+					l4Policy.SyncMapChanges(filter, types.MockSelectorSnapshot())
 
 					closer, _ := epPolicy.ConsumeMapChanges()
 					closer()

@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/byteorder"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -198,7 +197,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		name string
 		msg  monitor.TraceSockNotify
 
-		skipUnknownCGroupIDs bool
+		opts []options.Option
 
 		rawMsg []byte
 		flow   *flowpb.Flow
@@ -230,8 +229,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				SockCookie: 0xc0ffee,
 				CgroupId:   1234,
 			},
-			skipUnknownCGroupIDs: true,
-			errMsg:               parserErrors.ErrEventSkipped.Error(),
+			errMsg: parserErrors.ErrEventSkipped.Error(),
 		},
 		{
 			name: "minimal",
@@ -243,7 +241,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				L4Proto:    monitor.L4ProtocolUDP,
 				SockCookie: 0xc0ffee,
 			},
-			skipUnknownCGroupIDs: false,
+			opts: []options.Option{options.WithSkipUnknownCGroupIDs(false)},
 			flow: &flowpb.Flow{
 				Type:    flowpb.FlowType_SOCK,
 				Verdict: flowpb.Verdict_TRACED,
@@ -275,7 +273,6 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
-			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRACED,
@@ -319,7 +316,6 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
-			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
@@ -364,7 +360,6 @@ func TestDecodeSockEvent(t *testing.T) {
 				L4Proto:    monitor.L4ProtocolTCP,
 				Flags:      monitor.TraceSockNotifyFlagIPv6,
 			},
-			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
@@ -398,19 +393,64 @@ func TestDecodeSockEvent(t *testing.T) {
 				Summary:        "TCP",
 			},
 		},
+		{
+			name: "custom decoder",
+			msg: monitor.TraceSockNotify{
+				Type:       monitorAPI.MessageTypeTraceSock,
+				XlatePoint: monitor.XlatePointPreDirectionFwd,
+				DstIP:      mustParseIP("10.10.10.10"),
+				DstPort:    8080,
+				L4Proto:    monitor.L4ProtocolUDP,
+				SockCookie: 0xc0ffee,
+			},
+			opts: []options.Option{
+				options.WithSkipUnknownCGroupIDs(false),
+				options.WithTraceSockNotifyDecoder(func(data []byte, flow *flowpb.Flow) (*monitor.TraceSockNotify, error) {
+					flow.Uuid = "coffee"
+					return &monitor.TraceSockNotify{
+						Type:       monitorAPI.MessageTypeTraceSock,
+						XlatePoint: monitor.XlatePointPostDirectionFwd,
+						DstIP:      mustParseIP("192.10.21.20"),
+						DstPort:    8081,
+						L4Proto:    monitor.L4ProtocolUDP,
+						SockCookie: 0xdecafbad,
+					}, nil
+				}),
+			},
+			flow: &flowpb.Flow{
+				Uuid:    "coffee",
+				Type:    flowpb.FlowType_SOCK,
+				Verdict: flowpb.Verdict_TRANSLATED,
+				IP: &flowpb.IP{
+					Destination: "192.10.21.20",
+					IpVersion:   flowpb.IPVersion_IPv4,
+				},
+				L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{
+					DestinationPort: 8081,
+				}}},
+				Source:      &flowpb.Endpoint{},
+				Destination: &flowpb.Endpoint{},
+				EventType: &flowpb.CiliumEventType{
+					Type:    monitorAPI.MessageTypeTraceSock,
+					SubType: monitor.XlatePointPostDirectionFwd,
+				},
+				SockXlatePoint: monitor.XlatePointPostDirectionFwd,
+				SocketCookie:   0xdecafbad,
+				Summary:        "UDP",
+			},
+		},
 	}
 
 	logger := hivetest.Logger(t)
-	p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, options.WithSkipUnknownCGroupIDs(false))
-	assert.NoError(t, err)
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			p.skipUnknownCGroupIDs = tc.skipUnknownCGroupIDs
+			p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, tc.opts...)
+			assert.NoError(t, err)
 			data := tc.rawMsg
 			if data == nil {
 				buf := &bytes.Buffer{}
-				err := binary.Write(buf, byteorder.Native, &tc.msg)
+				err := binary.Write(buf, binary.NativeEndian, &tc.msg)
 				assert.NoError(t, err)
 				data = buf.Bytes()
 			}

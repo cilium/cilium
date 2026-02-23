@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -41,13 +40,29 @@ type kprInitializer struct {
 	lbConfig     loadbalancer.Config
 	kprCfg       kpr.KPRConfig
 	wgCfg        wgTypes.WireguardConfig
-	ipsecAgent   datapath.IPsecAgent
 }
 
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 	if !r.kprCfg.KubeProxyReplacement {
-		option.Config.EnableHostLegacyRouting = true
+		option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
 	}
+
+	if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.IptablesMasqueradingEnabled():
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// KPR=true is needed or we might rely on netfilter.
+		case !r.kprCfg.KubeProxyReplacement:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
+		}
+		if msg != "" {
+			option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
+			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
+		}
+	}
+
 	r.logger.Info("kube-proxy replacement starting with the following config",
 		logfields.KPRConfiguration, r.kprCfg)
 
@@ -66,7 +81,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
 			}
-			option.Config.LoadBalancerRSSv4 = *cidr
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4 = *cidr
 		}
 
 		if option.Config.LoadBalancerRSSv6CIDR != "" {
@@ -83,12 +98,12 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
 			}
-			option.Config.LoadBalancerRSSv6 = *cidr
+			option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6 = *cidr
 		}
 
 		dsrIPIP := r.lbConfig.LoadBalancerUsesDSR() && r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP
 		if dsrIPIP && option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-			option.Config.EnableIPIPDevices = true
+			option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = true
 		}
 
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") && !dsrIPIP {
@@ -139,8 +154,8 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 				return fmt.Errorf("Node Port %q mode with IPIP socket mark logic requires %s dispatch.",
 					r.lbConfig.LBMode, loadbalancer.DSRDispatchIPIP)
 			}
-			option.Config.EnableHealthDatapath = true
-			option.Config.EnableIPIPDevices = true
+			option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath = true
+			option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = true
 		}
 	}
 
@@ -160,8 +175,8 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 	}
 
 	if !r.kprCfg.EnableSocketLB {
-		option.Config.EnableSocketLBTracing = false
-		option.Config.EnableSocketLBPeer = false
+		option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = false
+		option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer = false
 	}
 
 	if option.Config.DryMode {
@@ -179,12 +194,13 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 			return err
 		}
 
-		if option.Config.EnableHealthDatapath {
-			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
-				option.Config.EnableHealthDatapath = false
+		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
+			if probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil ||
+				probes.HaveProgramHelper(logger, ebpf.CGroupSockAddr, asm.FnSetsockopt) != nil {
+				option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath = false
 				if !option.Config.EnableIPIPTermination &&
 					option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-					option.Config.EnableIPIPDevices = false
+					option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices = false
 				}
 				logger.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
 			}
@@ -200,10 +216,10 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probes.HaveIPv6Support()
 
-		option.Config.EnableSocketLBPeer = true
+		option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet4GetPeername); err != nil {
-				option.Config.EnableSocketLBPeer = false
+				option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer = false
 			}
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet4Connect); err != nil {
 				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
@@ -215,7 +231,7 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 
 		if option.Config.EnableIPv6 {
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCgroupInet6GetPeername); err != nil {
-				option.Config.EnableSocketLBPeer = false
+				option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer = false
 			}
 			if err := probes.HaveAttachType(ebpf.CGroupSockAddr, ebpf.AttachCGroupInet6Connect); err != nil {
 				return fmt.Errorf("BPF host-reachable services for TCP needs kernel 4.17.0 or newer: %w", err)
@@ -225,11 +241,11 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 			}
 		}
 	} else {
-		option.Config.EnableSocketLBTracing = false
-		option.Config.EnableSocketLBPodConnectionTermination = false
+		option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = false
+		option.Config.UnsafeDaemonConfigOption.EnableSocketLBPodConnectionTermination = false
 
-		if option.Config.BPFSocketLBHostnsOnly {
-			option.Config.BPFSocketLBHostnsOnly = false
+		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
+			option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly = false
 			logger.Warn(fmt.Sprintf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB))
 		}
 	}
@@ -242,25 +258,6 @@ func (r *kprInitializer) FinishKubeProxyReplacementInit(devices []*tables.Device
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && r.kprCfg.EnableSocketLB {
 		markHostExtension(r.logger)
-	}
-
-	if !option.Config.EnableHostLegacyRouting {
-		msg := ""
-		switch {
-		// Needs host stack for packet handling.
-		case r.ipsecAgent.Enabled():
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", datapath.EnableIPSec)
-		// Non-BPF masquerade requires netfilter and hence CT.
-		case option.Config.IptablesMasqueradingEnabled():
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
-		// KPR=true is needed or we might rely on netfilter.
-		case !r.kprCfg.KubeProxyReplacement:
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
-		}
-		if msg != "" {
-			option.Config.EnableHostLegacyRouting = true
-			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
-		}
 	}
 
 	if option.Config.NodePortNat46X64 && r.lbConfig.LBMode != loadbalancer.LBModeSNAT {

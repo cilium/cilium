@@ -32,7 +32,6 @@ func NewGetBgpRoutesParams() GetBgpRoutesParams {
 //
 // swagger:parameters GetBgpRoutes
 type GetBgpRoutesParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -41,23 +40,27 @@ type GetBgpRoutesParams struct {
 	  In: query
 	*/
 	Afi string
+
 	/*IP address specifying a BGP neighbor.
 	Has to be specified only when table type is adj-rib-in or adj-rib-out.
 
 	  In: query
 	*/
 	Neighbor *string
+
 	/*Autonomous System Number (ASN) identifying a BGP virtual router instance.
 	If not specified, all virtual router instances are selected.
 
 	  In: query
 	*/
 	RouterAsn *int64
+
 	/*Subsequent Address Family Indicator (SAFI) of a BGP route
 	  Required: true
 	  In: query
 	*/
 	Safi string
+
 	/*BGP Routing Information Base (RIB) table type
 	  Required: true
 	  In: query
@@ -73,7 +76,6 @@ func (o *GetBgpRoutesParams) BindRequest(r *http.Request, route *middleware.Matc
 	var res []error
 
 	o.HTTPRequest = r
-
 	qs := runtime.Values(r.URL.Query())
 
 	qAfi, qhkAfi, _ := qs.GetOK("afi")
@@ -214,10 +216,10 @@ func (o *GetBgpRoutesParams) bindTableType(rawData []string, hasKey bool, format
 	return nil
 }
 
-// validateTableType carries on validations for parameter TableType
+// validateTableType carries out validations for parameter TableType
 func (o *GetBgpRoutesParams) validateTableType(formats strfmt.Registry) error {
 
-	if err := validate.EnumCase("table_type", "query", o.TableType, []interface{}{"loc-rib", "adj-rib-in", "adj-rib-out"}, true); err != nil {
+	if err := validate.EnumCase("table_type", "query", o.TableType, []any{"loc-rib", "adj-rib-in", "adj-rib-out"}, true); err != nil {
 		return err
 	}
 

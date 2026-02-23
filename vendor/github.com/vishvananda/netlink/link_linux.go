@@ -699,7 +699,7 @@ func (h *Handle) LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) erro
 			Vlan: uint32(vlan),
 			Qos:  uint32(qos),
 		},
-		VlanProto: (uint16(proto)>>8)&0xFF | (uint16(proto)&0xFF)<<8,
+		VlanProto: nl.Swap16(uint16(proto)),
 	}
 
 	vfVlanList.AddRtAttr(nl.IFLA_VF_VLAN_INFO, vfmsg.Serialize())
@@ -1330,6 +1330,9 @@ func addVxlanAttrs(vxlan *Vxlan, linkInfo *nl.RtAttr) {
 	}
 	if vxlan.FlowBased {
 		data.AddRtAttr(nl.IFLA_VXLAN_FLOWBASED, boolAttr(vxlan.FlowBased))
+	}
+	if vxlan.VniFilter {
+		data.AddRtAttr(nl.IFLA_VXLAN_VNIFILTER, boolAttr(vxlan.VniFilter))
 	}
 	if vxlan.NoAge {
 		data.AddRtAttr(nl.IFLA_VXLAN_AGEING, nl.Uint32Attr(0))
@@ -3087,6 +3090,8 @@ func parseVxlanData(link Link, data []syscall.NetlinkRouteAttr) {
 			vxlan.GBP = true
 		case nl.IFLA_VXLAN_FLOWBASED:
 			vxlan.FlowBased = int8(datum.Value[0]) != 0
+		case nl.IFLA_VXLAN_VNIFILTER:
+			vxlan.VniFilter = int8(datum.Value[0]) != 0
 		case nl.IFLA_VXLAN_AGEING:
 			vxlan.Age = int(native.Uint32(datum.Value[0:4]))
 			vxlan.NoAge = vxlan.Age == 0

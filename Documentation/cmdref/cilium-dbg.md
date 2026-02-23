@@ -47,7 +47,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters
 * [cilium-dbg preflight](cilium-dbg_preflight.md)	 - Cilium upgrade helper
 * [cilium-dbg service](cilium-dbg_service.md)	 - List services & loadbalancers
-* [cilium-dbg shell](cilium-dbg_shell.md)	 - Connect to the Cilium shell
+* [cilium-dbg shell](cilium-dbg_shell.md)	 - Connect to the shell
 * [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Dump StateDB contents as JSON
 * [cilium-dbg status](cilium-dbg_status.md)	 - Display status of daemon
 * [cilium-dbg sysdump](cilium-dbg_sysdump.md)	 - Provide instructions on dumping cluster-wide system state

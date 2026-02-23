@@ -5,7 +5,7 @@
 #include "common.h"
 #include "pktgen.h"
 #include "node_config.h"
-#include "lib/encrypt.h"
+#include "../lib/ipsec.h"
 
 /* we need to include bpf_host.c later for mocking of the IPsec hook to work
  * but both node_config.h and bpf_host.c define EVENT_SOURCE explicitly.
@@ -17,7 +17,7 @@
 #define ENABLE_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define ENABLE_IPSEC
+#define ENABLE_IPSEC 1
 
 bool hook_reached;
 

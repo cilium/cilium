@@ -86,6 +86,35 @@ func (m *Geoip) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetCustomHeaderConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GeoipValidationError{
+					field:  "CustomHeaderConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GeoipValidationError{
+					field:  "CustomHeaderConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCustomHeaderConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GeoipValidationError{
+				field:  "CustomHeaderConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if m.GetProvider() == nil {
 		err := GeoipValidationError{
 			field:  "Provider",
@@ -139,7 +168,7 @@ type GeoipMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GeoipMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -241,7 +270,7 @@ type Geoip_XffConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Geoip_XffConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -304,3 +333,116 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Geoip_XffConfigValidationError{}
+
+// Validate checks the field values on Geoip_CustomHeaderConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *Geoip_CustomHeaderConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Geoip_CustomHeaderConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// Geoip_CustomHeaderConfigMultiError, or nil if none found.
+func (m *Geoip_CustomHeaderConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Geoip_CustomHeaderConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetHeaderName()) < 1 {
+		err := Geoip_CustomHeaderConfigValidationError{
+			field:  "HeaderName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return Geoip_CustomHeaderConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// Geoip_CustomHeaderConfigMultiError is an error wrapping multiple validation
+// errors returned by Geoip_CustomHeaderConfig.ValidateAll() if the designated
+// constraints aren't met.
+type Geoip_CustomHeaderConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Geoip_CustomHeaderConfigMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Geoip_CustomHeaderConfigMultiError) AllErrors() []error { return m }
+
+// Geoip_CustomHeaderConfigValidationError is the validation error returned by
+// Geoip_CustomHeaderConfig.Validate if the designated constraints aren't met.
+type Geoip_CustomHeaderConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Geoip_CustomHeaderConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Geoip_CustomHeaderConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Geoip_CustomHeaderConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Geoip_CustomHeaderConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Geoip_CustomHeaderConfigValidationError) ErrorName() string {
+	return "Geoip_CustomHeaderConfigValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e Geoip_CustomHeaderConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGeoip_CustomHeaderConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Geoip_CustomHeaderConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Geoip_CustomHeaderConfigValidationError{}

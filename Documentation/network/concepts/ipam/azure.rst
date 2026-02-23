@@ -71,6 +71,86 @@ Configuration
   additional information how to install and run Prometheus including the
   Grafana dashboard.
 
+Custom Azure IPAM Configuration
+===============================
+
+Custom Azure IPAM configuration can be defined from Helm or with a custom CNI
+configuration ``ConfigMap``. 
+
+If you configure both helm and Custom CNI for the same field, Custom CNI is 
+preferred over Helm configuration.
+
+Helm
+----
+
+The Azure IPAM configuration can be specified via Helm, using either the ``--set`` flag
+or the helm value file.
+
+The following example configures Cilium to:
+
+* Use the interface ``eth0`` for pod IP allocation.
+* Set the minimum number of IPs to allocate to 10.
+
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: azure.enabled=true
+         azure.nodeSpec.azureInterfaceName=eth0
+         ipam.nodeSpec.ipamMinAllocate=10
+
+The full list of available options can be found in the :ref:`helm_reference`
+section in the ``azure.nodeSpec`` and ``ipam.nodeSpec`` sections.
+
+Create a CNI configuration
+--------------------------
+
+Create a ``cni-config.yaml`` file based on the template below. Fill in the
+``interface-name`` field:
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: cni-configuration
+     namespace: kube-system
+   data:
+     cni-config: |-
+       {
+         "cniVersion":"0.3.1",
+         "name":"cilium",
+         "plugins": [
+           {
+             "cniVersion":"0.3.1",
+             "type":"cilium-cni",
+             "azure": {
+               "interface-name":"eth0"
+             }
+           }
+         ]
+       }
+
+Additional parameters may be configured in the ``azure`` or ``ipam`` section of
+the CNI configuration file. See the list of Azure allocation parameters below
+for a reference of the supported options.
+
+Deploy the ``ConfigMap``:
+
+.. code-block:: shell-session
+
+   kubectl apply -f cni-config.yaml
+
+Configure Cilium to use the custom CNI configuration 
+----------------------------------------------------
+
+Using the instructions above to deploy Cilium and CNI config, specify the
+following additional arguments to Helm:
+
+.. code-block:: shell-session
+
+   --set cni.customConf=true \
+   --set cni.configMap=cni-configuration
+
 Azure Allocation Parameters
 ===========================
 
@@ -91,12 +171,9 @@ The following parameters are available to control the IP allocation:
 
   If unspecified, this value defaults to 8.
 
-``spec.ipam.max-above-watermark``
-  The maximum number of addresses to allocate beyond the addresses needed to
-  reach the PreAllocate watermark.  Going above the watermark can help reduce
-  the number of API calls to allocate IPs.
+``spec.azure.interface-name``
+  The name of the interface to use for IP allocation.
 
-  If let unspecified, the value defaults to 0.
 
 *******************
 Operational Details
@@ -185,6 +262,37 @@ interface:
 This means that the number of IPs allocated in a single allocation cycle can be
 less than what is required to fulfill ``spec.ipam.pre-allocate``.
 
+Static Public IP Allocation
+----------------------------
+
+Nodes can be assigned static public IPs from tagged Azure Public IP Prefixes.
+
+1. Create and tag a `Public IP Prefix <https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/public-ip-address-prefix>`__
+   in the same Resource Group as your nodes:
+
+   .. code-block:: shell-session
+
+      $ az network public-ip prefix create \
+        --resource-group $RESOURCE_GROUP \
+        --name $PREFIX_NAME \
+        --length 28 \
+        --tags prefix-tag-key=prefix-tag-value
+
+2. Set ``ipam.static-ip-tags`` in the CNI configuration:
+
+   .. code-block:: json
+
+      {
+        "ipam": {
+          "static-ip-tags": {
+            "prefix-tag-key": "prefix-tag-value"
+          }
+        }
+      }
+
+The Operator will assign a public IP from the first matching Prefix with available capacity.
+The Prefix ID will be stored in CiliumNode's ``status.ipam.assigned-static-ip``.
+
 IP Release
 ==========
 
@@ -203,6 +311,11 @@ When a node or instance terminates, the Kubernetes apiserver will send a node
 deletion event. This event will be picked up by the operator and the operator
 will delete the corresponding ``ciliumnodes.cilium.io`` custom resource.
 
+Masquerading
+============
+
+Masquerading is supported via the eBPF :ref:`ip-masq-agent <concepts_masquerading>` or by setting ``--ipv4-native-routing-cidr``.
+
 .. _ipam_azure_required_privileges:
 
 *******************
@@ -217,6 +330,14 @@ scope of the AKS cluster node resource group:
  * `NetworkInterface In VMSS - List Virtual Machine Scale Set Network Interfaces <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/networkinterface%20in%20vmss/listvirtualmachinescalesetnetworkinterfaces>`__
  * `Virtual Networks - List <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/virtualnetworks/list>`__
  * `Virtual Machine Scale Sets - List All <https://docs.microsoft.com/en-us/rest/api/compute/virtualmachinescalesets/listall>`__
+
+When using static public IP allocation with Public IP Prefixes, the following additional privileges are required:
+
+ * `Network Interfaces - Get <https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get>`__ (for standalone VMs only)
+ * `Public IP Prefixes - List All <https://learn.microsoft.com/en-us/rest/api/virtualnetwork/public-ip-prefixes/list-all>`__
+ * `Virtual Machine Scale Set VMs - Get <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machine-scale-set-vms/get>`__
+ * `Virtual Machine Scale Set VMs - Update <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machine-scale-set-vms/update>`__
+ * `Virtual Machines - Get <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/get>`__ (for standalone VMs only)
 
 .. note::
 

@@ -58,9 +58,6 @@ const (
 	// CNCCRDName is the full name of the CiliumNodeConfig CRD.
 	CNCCRDName = k8sconstv2.CNCKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
-	// BGPPCRDName is the full name of the BGPP CRD.
-	BGPPCRDName = k8sconstv2alpha1.BGPPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
-
 	// BGPClusterConfigCRDName is the full name of the BGP Cluster Config CRD.
 	BGPClusterConfigCRDName = k8sconstv2.BGPCCKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
@@ -147,10 +144,6 @@ func CustomResourceDefinitionList() map[string]*CRDList {
 			Name:     CECCRDName,
 			FullName: k8sconstv2.CECName,
 		},
-		synced.CRDResourceName(k8sconstv2alpha1.BGPPName): {
-			Name:     BGPPCRDName,
-			FullName: k8sconstv2alpha1.BGPPName,
-		},
 		synced.CRDResourceName(k8sconstv2.BGPCCName): {
 			Name:     BGPClusterConfigCRDName,
 			FullName: k8sconstv2.BGPCCName,
@@ -201,7 +194,7 @@ func CreateCustomResourceDefinitions(logger *slog.Logger, clientset apiextension
 
 	for _, r := range synced.AllCiliumCRDResourceNames() {
 		if crd, ok := crds[r]; ok {
-			if err := createCRD(logger, crd.Name, crd.FullName)(clientset); err != nil {
+			if err := createCRD(logger, clientset, crd.Name, crd.FullName); err != nil {
 				return err
 			}
 		} else {
@@ -246,9 +239,6 @@ var (
 	//go:embed crds/v2/ciliumenvoyconfigs.yaml
 	crdsv2Ciliumenvoyconfigs []byte
 
-	//go:embed crds/v2alpha1/ciliumbgppeeringpolicies.yaml
-	crdsv2Alpha1Ciliumbgppeeringpolicies []byte
-
 	//go:embed crds/v2/ciliumbgpclusterconfigs.yaml
 	crdsv2Ciliumbgpclusterconfigs []byte
 
@@ -290,8 +280,6 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes []byte
 	)
 
-	logAttr := slog.String("crdName", crdName)
-
 	switch crdName {
 	case CNPCRDName:
 		crdBytes = crdsCiliumnetworkpolicies
@@ -313,8 +301,6 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		crdBytes = crdsv2Ciliumclusterwideenvoyconfigs
 	case CECCRDName:
 		crdBytes = crdsv2Ciliumenvoyconfigs
-	case BGPPCRDName:
-		crdBytes = crdsv2Alpha1Ciliumbgppeeringpolicies
 	case BGPClusterConfigCRDName:
 		crdBytes = crdsv2Ciliumbgpclusterconfigs
 	case BGPPeerConfigCRDName:
@@ -339,7 +325,7 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	case CGCCCRDName:
 		crdBytes = crdsv2Alpha1CiliumGatewayClassConfigs
 	default:
-		logging.Fatal(logger, "Pregenerated CRD does not exist", logAttr)
+		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)
 	}
 
 	ciliumCRD := apiextensionsv1.CustomResourceDefinition{}
@@ -348,8 +334,8 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 		logging.Fatal(
 			logger,
 			"Error unmarshalling pregenerated CRD",
-			slog.Any(logfields.Error, err),
-			logAttr,
+			logfields.Error, err,
+			logfields.CRDName, crdName,
 		)
 	}
 
@@ -358,19 +344,19 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 
 // createCRD creates and updates a CRD.
 // It should be called on agent startup but is idempotent and safe to call again.
-func createCRD(logger *slog.Logger, crdVersionedName string, crdMetaName string) func(clientset apiextensionsclient.Interface) error {
-	return func(clientset apiextensionsclient.Interface) error {
-		ciliumCRD := GetPregeneratedCRD(logger, crdVersionedName)
+func createCRD(logger *slog.Logger, clientset apiextensionsclient.Interface, crdVersionedName string, crdMetaName string) error {
+	ciliumCRD := GetPregeneratedCRD(logger, crdVersionedName)
 
-		return crdhelpers.CreateUpdateCRD(
-			logger,
-			clientset,
-			constructV1CRD(crdMetaName, ciliumCRD),
-			crdhelpers.NewDefaultPoller(),
+	return crdhelpers.CreateUpdateCRD(
+		logger,
+		clientset,
+		constructV1CRD(crdMetaName, ciliumCRD),
+		crdhelpers.NewDefaultPoller(),
+		crdhelpers.NeedsUpdateV1Factory(
 			k8sconst.CustomResourceDefinitionSchemaVersionKey,
 			versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
-		)
-	}
+		),
+	)
 }
 
 func constructV1CRD(

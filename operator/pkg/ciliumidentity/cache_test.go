@@ -278,15 +278,15 @@ func TestCIDUsageInPods(t *testing.T) {
 }
 
 func TestCIDUsageInCES(t *testing.T) {
-	cep1 := cestest.CreateManagerEndpoint("cep1", 1000)
-	cep2 := cestest.CreateManagerEndpoint("cep2", 1000)
-	cep3 := cestest.CreateManagerEndpoint("cep3", 2000)
-	cep4 := cestest.CreateManagerEndpoint("cep4", 3000)
+	cep1 := cestest.CreateManagerEndpoint("cep1", 1000, "node1")
+	cep2 := cestest.CreateManagerEndpoint("cep2", 1000, "node1")
+	cep3 := cestest.CreateManagerEndpoint("cep3", 2000, "node1")
+	cep4 := cestest.CreateManagerEndpoint("cep4", 3000, "node1")
 	ces1 := cestest.CreateStoreEndpointSlice("ces1", "ns", []capi_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3, cep4})
 
-	cep5 := cestest.CreateManagerEndpoint("cep5", 1000)
-	cep6 := cestest.CreateManagerEndpoint("cep6", 1000)
-	cep7 := cestest.CreateManagerEndpoint("cep7", 2000)
+	cep5 := cestest.CreateManagerEndpoint("cep5", 1000, "node1")
+	cep6 := cestest.CreateManagerEndpoint("cep6", 1000, "node1")
+	cep7 := cestest.CreateManagerEndpoint("cep7", 2000, "node1")
 	ces2 := cestest.CreateStoreEndpointSlice("ces2", "ns", []capi_v2a1.CoreCiliumEndpoint{cep5, cep6, cep7})
 
 	assertTxt := "CES 1 is added"

@@ -384,7 +384,7 @@ type JwtProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -490,7 +490,7 @@ type JwtCacheConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtCacheConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -718,7 +718,7 @@ type RemoteJwksMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RemoteJwksMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -849,7 +849,7 @@ type JwksAsyncFetchMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwksAsyncFetchMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -981,7 +981,7 @@ type JwtHeaderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtHeaderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1087,7 +1087,7 @@ type ProviderWithAudiencesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ProviderWithAudiencesMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1393,6 +1393,47 @@ func (m *JwtRequirement) validate(all bool) error {
 			}
 		}
 
+	case *JwtRequirement_ExtractOnlyWithoutValidation:
+		if v == nil {
+			err := JwtRequirementValidationError{
+				field:  "RequiresType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetExtractOnlyWithoutValidation()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, JwtRequirementValidationError{
+						field:  "ExtractOnlyWithoutValidation",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, JwtRequirementValidationError{
+						field:  "ExtractOnlyWithoutValidation",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetExtractOnlyWithoutValidation()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return JwtRequirementValidationError{
+					field:  "ExtractOnlyWithoutValidation",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
@@ -1411,7 +1452,7 @@ type JwtRequirementMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtRequirementMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1474,6 +1515,109 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = JwtRequirementValidationError{}
+
+// Validate checks the field values on ExtractOnlyWithoutValidation with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ExtractOnlyWithoutValidation) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ExtractOnlyWithoutValidation with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ExtractOnlyWithoutValidationMultiError, or nil if none found.
+func (m *ExtractOnlyWithoutValidation) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ExtractOnlyWithoutValidation) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ExtractOnlyWithoutValidationMultiError(errors)
+	}
+
+	return nil
+}
+
+// ExtractOnlyWithoutValidationMultiError is an error wrapping multiple
+// validation errors returned by ExtractOnlyWithoutValidation.ValidateAll() if
+// the designated constraints aren't met.
+type ExtractOnlyWithoutValidationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ExtractOnlyWithoutValidationMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ExtractOnlyWithoutValidationMultiError) AllErrors() []error { return m }
+
+// ExtractOnlyWithoutValidationValidationError is the validation error returned
+// by ExtractOnlyWithoutValidation.Validate if the designated constraints
+// aren't met.
+type ExtractOnlyWithoutValidationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ExtractOnlyWithoutValidationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ExtractOnlyWithoutValidationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ExtractOnlyWithoutValidationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ExtractOnlyWithoutValidationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ExtractOnlyWithoutValidationValidationError) ErrorName() string {
+	return "ExtractOnlyWithoutValidationValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ExtractOnlyWithoutValidationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sExtractOnlyWithoutValidation.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ExtractOnlyWithoutValidationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ExtractOnlyWithoutValidationValidationError{}
 
 // Validate checks the field values on JwtRequirementOrList with the rules
 // defined in the proto definition for this message. If any rules are
@@ -1556,7 +1700,7 @@ type JwtRequirementOrListMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtRequirementOrListMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1703,7 +1847,7 @@ type JwtRequirementAndListMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtRequirementAndListMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1914,7 +2058,7 @@ type RequirementRuleMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RequirementRuleMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2071,7 +2215,7 @@ type FilterStateRuleMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterStateRuleMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2332,7 +2476,7 @@ type JwtAuthenticationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtAuthenticationMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2498,7 +2642,7 @@ type PerRouteConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PerRouteConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2631,7 +2775,7 @@ type JwtClaimToHeaderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtClaimToHeaderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -2733,7 +2877,7 @@ type JwtProvider_NormalizePayloadMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JwtProvider_NormalizePayloadMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

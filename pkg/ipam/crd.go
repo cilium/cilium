@@ -159,14 +159,14 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 					} else {
 						logger.Warn(
 							"Unknown CiliumNode object type received",
-							logfields.Type, reflect.TypeOf(oldNode),
-							logfields.Object, oldNode,
+							logfields.Type, reflect.TypeOf(newNode), //nolint:modernize // newNode is any, can't use TypeFor
+							logfields.Object, newNode,
 						)
 					}
 				} else {
 					logger.Warn(
 						"Unknown CiliumNode object type received",
-						logfields.Type, reflect.TypeOf(oldNode),
+						logfields.Type, reflect.TypeOf(oldNode), //nolint:modernize // oldNode is any, can't use TypeFor
 						logfields.Object, oldNode,
 					)
 				}
@@ -690,7 +690,13 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 		}
 	}
 
-	return nil, nil, fmt.Errorf("No more IPs available")
+	msg := "no IPs currently available on the node, allocation will be retried "
+	if n.conf.IPAMMode() == ipamOption.IPAMCRD {
+		msg += "once IPs are added to CiliumNode spec.ipam.pool"
+	} else {
+		msg += "once Cilium Operator allocates more IPs"
+	}
+	return nil, nil, errors.New(msg)
 }
 
 // totalPoolSize returns the total size of the allocation pool
@@ -819,14 +825,31 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.PrimaryMAC = iface.MAC
 				result.GatewayIP = iface.Gateway
 				result.CIDRs = append(result.CIDRs, iface.CIDR)
+				// Add manually configured Native Routing CIDR
+				if a.conf.IPv4NativeRoutingCIDR != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+				}
+				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
+				// Note that the resulting ip rules will not be dynamically regenerated if the
+				// ip-masq-agent configuration changes.
+				if a.conf.EnableIPMasqAgent {
+					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
+					for _, prefix := range nonMasqCidrs {
+						if ip.To4() != nil && prefix.Addr().Is4() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						} else if ip.To4() == nil && prefix.Addr().Is6() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						}
+					}
+				}
+
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
-				// anyway. To elaborate, Azure IPAM mode automatically sets
-				// option.Config.EgressMultiHomeIPRuleCompat to true, meaning
-				// that the CNI will not use the interface number when creating
-				// the pod rules and routes. We are hardcoding simply to bypass
-				// the parsing errors when InterfaceNumber is empty. See
-				// https://github.com/cilium/cilium/issues/15496.
+				// anyway. Azure IPAM does not use the per-interface egress rule
+				// priority meaning that the CNI will not use the interface
+				// number when creating the pod rules and routes. We are hardcoding
+				// simply to bypass the parsing errors when InterfaceNumber
+				// is empty. See https://github.com/cilium/cilium/issues/15496.
 				//
 				// TODO: Once https://github.com/cilium/cilium/issues/14705 is
 				// resolved, then we don't need to hardcode this anymore.

@@ -61,8 +61,6 @@ type ClientOption func(*runtime.ClientOperation)
 type ClientService interface {
 	DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error)
 
-	DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) (*DeletePolicyOK, error)
-
 	GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error)
 
 	GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error)
@@ -81,7 +79,7 @@ type ClientService interface {
 
 	GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
 
-	PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error)
+	GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -95,7 +93,7 @@ DNS name. The removed IP data will no longer be used in generated
 policies.
 */
 func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteFqdnCacheParams()
 	}
@@ -114,58 +112,23 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOp
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*DeleteFqdnCacheOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for DeleteFqdnCache: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-DeletePolicy deletes a policy sub tree
-
-Deprecated: will be removed in v1.19
-*/
-func (a *Client) DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) (*DeletePolicyOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewDeletePolicyParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "DeletePolicy",
-		Method:             "DELETE",
-		PathPattern:        "/policy",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &DeletePolicyReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*DeletePolicyOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for DeletePolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 
@@ -177,7 +140,7 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) 
 optionally filtered by DNS name, CIDR IP range or source.
 */
 func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnCacheParams()
 	}
@@ -196,17 +159,22 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) 
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetFqdnCacheOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetFqdnCache: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -219,7 +187,7 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) 
 optionally filtered by endpoint id, DNS name, CIDR IP range or source.
 */
 func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnCacheIDParams()
 	}
@@ -238,17 +206,22 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetFqdnCacheIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetFqdnCacheID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -261,7 +234,7 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 their corresponding regexes).
 */
 func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetFqdnNamesParams()
 	}
@@ -280,17 +253,22 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) 
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetFqdnNamesOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetFqdnNames: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -304,7 +282,7 @@ their identities, host addresses, Kubernetes pod names, etc.
 The list can optionally filtered by a CIDR IP range.
 */
 func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIPParams()
 	}
@@ -323,17 +301,22 @@ func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, err
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetIPOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -344,7 +327,7 @@ GetIdentity retrieves a list of identities that have metadata matching the provi
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
 */
 func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityParams()
 	}
@@ -363,17 +346,22 @@ func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetIdentityOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetIdentity: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -382,7 +370,7 @@ func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*
 GetIdentityEndpoints retrieves identities which are being used by local endpoints
 */
 func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityEndpointsParams()
 	}
@@ -401,17 +389,22 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts .
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetIdentityEndpointsOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetIdentityEndpoints: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -420,7 +413,7 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts .
 GetIdentityID retrieves identity
 */
 func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetIdentityIDParams()
 	}
@@ -439,17 +432,22 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetIdentityIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetIdentityID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -462,7 +460,7 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption
 Deprecated: will be removed in v1.19
 */
 func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPolicyParams()
 	}
@@ -481,17 +479,22 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetPolicyOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetPolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -500,7 +503,7 @@ func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetP
 GetPolicySelectors sees what selectors match which identities
 */
 func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetPolicySelectorsParams()
 	}
@@ -519,58 +522,66 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetPolicySelectorsOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetPolicySelectors: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 
 /*
-PutPolicy creates or update a policy sub tree
-
-Deprecated: will be removed in v1.19
+GetPolicySubjectSelectors sees what subject selectors match which identities on the local node
 */
-func (a *Client) PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error) {
-	// TODO: Validate the params before sending
+func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
+	// NOTE: parameters are not validated before sending
 	if params == nil {
-		params = NewPutPolicyParams()
+		params = NewGetPolicySubjectSelectorsParams()
 	}
 	op := &runtime.ClientOperation{
-		ID:                 "PutPolicy",
-		Method:             "PUT",
-		PathPattern:        "/policy",
+		ID:                 "GetPolicySubjectSelectors",
+		Method:             "GET",
+		PathPattern:        "/policy/subject-selectors",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &PutPolicyReader{formats: a.formats},
+		Reader:             &GetPolicySubjectSelectorsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
-	success, ok := result.(*PutPolicyOK)
+
+	// only one success response has to be checked
+	success, ok := result.(*GetPolicySubjectSelectorsOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for PutPolicy: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetPolicySubjectSelectors: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

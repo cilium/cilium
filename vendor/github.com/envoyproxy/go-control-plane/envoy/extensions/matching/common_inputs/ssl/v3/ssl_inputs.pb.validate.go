@@ -71,7 +71,7 @@ type UriSanInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UriSanInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -170,7 +170,7 @@ type DnsSanInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsSanInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -269,7 +269,7 @@ type SubjectInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SubjectInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

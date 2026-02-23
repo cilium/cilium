@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -64,6 +65,9 @@ type BgpPeer struct {
 
 	// Capabilities announced by the local peer
 	LocalCapabilities []*BgpCapabilities `json:"local-capabilities"`
+
+	// Name of peer
+	Name string `json:"name,omitempty"`
 
 	// IP Address of peer
 	PeerAddress string `json:"peer-address,omitempty"`
@@ -133,11 +137,15 @@ func (m *BgpPeer) validateFamilies(formats strfmt.Registry) error {
 
 		if m.Families[i] != nil {
 			if err := m.Families[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("families" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("families" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -154,11 +162,15 @@ func (m *BgpPeer) validateGracefulRestart(formats strfmt.Registry) error {
 
 	if m.GracefulRestart != nil {
 		if err := m.GracefulRestart.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("graceful-restart")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("graceful-restart")
 			}
+
 			return err
 		}
 	}
@@ -178,11 +190,15 @@ func (m *BgpPeer) validateLocalCapabilities(formats strfmt.Registry) error {
 
 		if m.LocalCapabilities[i] != nil {
 			if err := m.LocalCapabilities[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -220,11 +236,15 @@ func (m *BgpPeer) validateRemoteCapabilities(formats strfmt.Registry) error {
 
 		if m.RemoteCapabilities[i] != nil {
 			if err := m.RemoteCapabilities[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -271,11 +291,15 @@ func (m *BgpPeer) contextValidateFamilies(ctx context.Context, formats strfmt.Re
 			}
 
 			if err := m.Families[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("families" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("families" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -294,11 +318,15 @@ func (m *BgpPeer) contextValidateGracefulRestart(ctx context.Context, formats st
 		}
 
 		if err := m.GracefulRestart.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("graceful-restart")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("graceful-restart")
 			}
+
 			return err
 		}
 	}
@@ -317,11 +345,15 @@ func (m *BgpPeer) contextValidateLocalCapabilities(ctx context.Context, formats 
 			}
 
 			if err := m.LocalCapabilities[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("local-capabilities" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -342,11 +374,15 @@ func (m *BgpPeer) contextValidateRemoteCapabilities(ctx context.Context, formats
 			}
 
 			if err := m.RemoteCapabilities[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("remote-capabilities" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}

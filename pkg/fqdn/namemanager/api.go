@@ -24,6 +24,7 @@ import (
 var (
 	DNSSourceLookup     = "lookup"
 	DNSSourceConnection = "connection"
+	DNSSourceGlobal     = "global"
 )
 
 type NoEndpointIDMatch struct {
@@ -57,10 +58,31 @@ func (n *manager) model() *models.NameManager {
 // endpoint's DNSHistory. These are filtered by the specified matchers if
 // they are non-empty.
 //
-// Note that this does *NOT* dump the NameManager's own global DNSCache.
-//
 // endpointID may be "" in order to get DNS history for all endpoints.
 func (n *manager) dnsHistoryModel(endpointID string, prefixMatcher fqdn.PrefixMatcherFunc, nameMatcher fqdn.NameMatcherFunc, source string) (lookups []*models.DNSLookup, err error) {
+	if source == DNSSourceGlobal {
+		globalSourceEntries := []*models.DNSLookup{}
+		for _, lookup := range n.cache.Dump() {
+			// The API model needs strings
+			IPStrings := make([]string, 0, len(lookup.IPs))
+
+			for _, ip := range lookup.IPs {
+				IPStrings = append(IPStrings, ip.String())
+			}
+
+			globalSourceEntries = append(globalSourceEntries, &models.DNSLookup{
+				Fqdn:           lookup.Name,
+				Ips:            IPStrings,
+				LookupTime:     strfmt.DateTime(lookup.LookupTime),
+				TTL:            int64(lookup.TTL),
+				ExpirationTime: strfmt.DateTime(lookup.ExpirationTime),
+				EndpointID:     0,
+				Source:         DNSSourceGlobal,
+			})
+		}
+		return globalSourceEntries, nil
+	}
+
 	var eps []*endpoint.Endpoint
 	if endpointID == "" {
 		eps = n.params.EPMgr.GetEndpoints()
@@ -157,7 +179,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
 	for _, ep := range n.params.EPMgr.GetEndpoints() {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
-		n.cache.UpdateFromCache(ep.DNSHistory, nil)
+		n.cache.UpdateFromCache(ep.DNSHistory)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := fqdn.NewDNSCache(0)
@@ -169,7 +191,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
 		}
-		n.cache.UpdateFromCache(activeConnections, nil)
+		n.cache.UpdateFromCache(activeConnections)
 
 		// Persist the changes made to DNS{History, Zombies} for the endpoint.
 		if len(namesToRegen) > 0 || len(dead) > 0 {

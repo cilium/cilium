@@ -5,12 +5,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
@@ -103,257 +103,11 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, &EgressRule{}, newRule)
-}
-
-func TestIsLabelBasedEgress(t *testing.T) {
-	type args struct {
-		eg *EgressRule
-	}
-	type wanted struct {
-		isLabelBased bool
-	}
-
-	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWanted func() wanted
-	}{
-		{
-			name: "label-based-rule",
-			setupArgs: func() args {
-				return args{
-					eg: &EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToEndpoints: []EndpointSelector{
-								{
-									LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
-										"test": "true",
-									},
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
+	require.Equal(t, &EgressRule{
+		EgressCommonRule: EgressCommonRule{
+			ToCIDRSet: CIDRRuleSlice{},
 		},
-		{
-			name: "cidr-based-rule",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToCIDR: CIDRSlice{"192.0.0.0/3"},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-		{
-			name: "cidrset-based-rule",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToCIDRSet: CIDRRuleSlice{
-								{
-									Cidr: "192.0.0.0/3",
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-		{
-			name: "rule-with-requirements",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToRequires: []EndpointSelector{
-								{
-									LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
-										"test": "true",
-									},
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: false,
-				}
-			},
-		},
-		{
-			name: "rule-with-services",
-			setupArgs: func() args {
-
-				svcLabels := map[string]string{
-					"app": "tested-service",
-				}
-				selector := ServiceSelector(NewESFromMatchRequirements(svcLabels, nil))
-				return args{
-					&EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToServices: []Service{
-								{
-									K8sServiceSelector: &K8sServiceSelectorNamespace{
-										Selector:  selector,
-										Namespace: "",
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: false,
-				}
-			},
-		},
-		{
-			name: "rule-with-fqdn",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						ToFQDNs: FQDNSelectorSlice{
-							{
-								MatchName: "cilium.io",
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: false,
-				}
-			},
-		},
-		{
-			name: "rule-with-entities",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						EgressCommonRule: EgressCommonRule{
-							ToEntities: EntitySlice{
-								EntityHost,
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-		{
-			name: "rule-with-no-l3-specification",
-			setupArgs: func() args {
-				return args{
-					&EgressRule{
-						ToPorts: []PortRule{
-							{
-								Ports: []PortProtocol{
-									{
-										Port:     "80",
-										Protocol: ProtoTCP,
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-		{
-			name: "rule-with-icmp",
-			setupArgs: func() args {
-				icmpType := intstr.FromInt(8)
-				return args{
-					&EgressRule{
-						ICMPs: ICMPRules{
-							{
-								Fields: []ICMPField{
-									{
-										Type: &icmpType,
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-		{
-			name: "rule-with-icmp6",
-			setupArgs: func() args {
-				icmpType := intstr.FromInt(128)
-				return args{
-					&EgressRule{
-						ICMPs: ICMPRules{
-							{
-								Fields: []ICMPField{
-									{
-										Family: IPv6Family,
-										Type:   &icmpType,
-									},
-								},
-							},
-						},
-					},
-				}
-			},
-			setupWanted: func() wanted {
-				return wanted{
-					isLabelBased: true,
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		args := tt.setupArgs()
-		want := tt.setupWanted()
-		require.NoError(t, args.eg.sanitize(false), "Test name: %q", tt.name)
-		isLabelBased := args.eg.AllowsWildcarding()
-		require.Equal(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
-	}
+	}, newRule)
 }
 
 func TestEgressCommonRuleDeepEqual(t *testing.T) {
@@ -468,6 +222,52 @@ func TestEgressCommonRuleDeepEqual(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.expected, tc.in.DeepEqual(tc.other))
+		})
+	}
+}
+
+func TestEgressCommonRuleMarshalling(t *testing.T) {
+	testCases := []struct {
+		name     string
+		in       *EgressCommonRule
+		expected string
+	}{
+		{
+			name: "ToCIDRSet is nil",
+			in: &EgressCommonRule{
+				ToCIDRSet: nil,
+			},
+			expected: `{}`,
+		},
+		{
+			name: "ToCIDRSet is empty",
+			in: &EgressCommonRule{
+				ToCIDRSet: []CIDRRule{},
+			},
+			expected: `{"toCIDRSet":[]}`,
+		},
+		{
+			name: "ToCIDRSet has CIDR",
+			in: &EgressCommonRule{
+				ToCIDRSet: []CIDRRule{
+					{
+						Cidr: "192.168.1.0/24",
+					},
+				},
+			},
+			expected: `{"toCIDRSet":[{"cidr":"192.168.1.0/24"}]}`,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := json.Marshal(tc.in)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, string(data))
+
+			rule := EgressCommonRule{}
+			err = json.Unmarshal(data, &rule)
+			require.NoError(t, err)
+			require.True(t, tc.in.DeepEqual(&rule))
 		})
 	}
 }

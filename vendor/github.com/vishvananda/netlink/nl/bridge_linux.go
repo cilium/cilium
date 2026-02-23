@@ -7,6 +7,7 @@ import (
 
 const (
 	SizeofBridgeVlanInfo = 0x04
+	SizeofTunnelMsg      = 0x08
 )
 
 /* Bridge Flags */
@@ -85,3 +86,73 @@ const (
 	RTEXT_FILTER_BRVLAN
 	RTEXT_FILTER_BRVLAN_COMPRESSED
 )
+
+/* VXLAN VNI filter attributes */
+const (
+	VXLAN_VNIFILTER_UNSPEC = iota
+	VXLAN_VNIFILTER_ENTRY
+)
+
+const (
+	VXLAN_VNIFILTER_ENTRY_UNSPEC = iota
+	VXLAN_VNIFILTER_ENTRY_START
+	VXLAN_VNIFILTER_ENTRY_END
+)
+
+// struct tunnel_msg {
+//   __u8 family;
+//   __u8 flags;
+//   __u16 reserved2;
+//   __u32 ifindex;
+// };
+type TunnelMsg struct {
+	Family   uint8
+	Flags    uint8
+	Reserved uint16
+	Ifindex  uint32
+}
+
+func NewTunnelMsg(family uint8, ifindex int) *TunnelMsg {
+	return &TunnelMsg{
+		Family:  family,
+		Ifindex: uint32(ifindex),
+	}
+}
+
+func (msg *TunnelMsg) Len() int {
+	return SizeofTunnelMsg
+}
+
+func (msg *TunnelMsg) Serialize() []byte {
+	return (*(*[SizeofTunnelMsg]byte)(unsafe.Pointer(msg)))[:]
+}
+
+func DeserializeTunnelMsg(b []byte) *TunnelMsg {
+	return (*TunnelMsg)(unsafe.Pointer(&b[0:SizeofTunnelMsg][0]))
+}
+
+type BridgeVniInfo struct {
+	Vni    uint32
+	VniEnd uint32
+}
+
+func (b *BridgeVniInfo) String() string {
+	return fmt.Sprintf("%+v", *b)
+}
+
+func DeserializeBridgeVniInfo(b []byte) (*BridgeVniInfo, error) {
+	vni := &BridgeVniInfo{}
+	attrs, err := ParseRouteAttr(b)
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range attrs {
+		switch attr.Attr.Type {
+		case VXLAN_VNIFILTER_ENTRY_START:
+			vni.Vni = NativeEndian().Uint32(attr.Value)
+		case VXLAN_VNIFILTER_ENTRY_END:
+			vni.VniEnd = NativeEndian().Uint32(attr.Value)
+		}
+	}
+	return vni, nil
+}

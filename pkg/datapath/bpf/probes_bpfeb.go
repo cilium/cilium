@@ -55,6 +55,7 @@ type ProbesSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type ProbesProgramSpecs struct {
 	ProbeFibLookupSkipNeigh *ebpf.ProgramSpec `ebpf:"probe_fib_lookup_skip_neigh"`
+	ProbeFibLookupTbid      *ebpf.ProgramSpec `ebpf:"probe_fib_lookup_tbid"`
 }
 
 // ProbesMapSpecs contains maps before they are loaded into the kernel.
@@ -106,11 +107,13 @@ type ProbesVariables struct {
 // It can be passed to LoadProbesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ProbesPrograms struct {
 	ProbeFibLookupSkipNeigh *ebpf.Program `ebpf:"probe_fib_lookup_skip_neigh"`
+	ProbeFibLookupTbid      *ebpf.Program `ebpf:"probe_fib_lookup_tbid"`
 }
 
 func (p *ProbesPrograms) Close() error {
 	return _ProbesClose(
 		p.ProbeFibLookupSkipNeigh,
+		p.ProbeFibLookupTbid,
 	)
 }
 

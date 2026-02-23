@@ -447,6 +447,10 @@ type Backend struct {
 	// for the port of the Service.
 	AppProtocol *string `json:"app_protocol,omitempty"`
 
+	// TLS specifies details for TLS origination towards this backend.
+	// If unset, TLS must not be originated towards this backend.
+	TLS *BackendTLSOrigination
+
 	// Weight specifies the percentage of traffic to send to this backend.
 	// This is computed as weight/(sum of all weights in backends) * 100.
 	Weight *int32 `json:"weight,omitempty"`
@@ -460,6 +464,22 @@ type BackendPort struct {
 	// Name holds a string which will be used to connect to the port with a
 	// matching spec.ports[].name in the target Service.
 	Name string `json:"name,omitempty"`
+}
+
+// BackendTLSOrigination holds details required to configure TLS origination towards
+// a backend.
+type BackendTLSOrigination struct {
+	// CACertRef holds a reference to a CA Certificate. In the initial implementation,
+	// this is usually a ConfigMap, although it could be a Secret as well.
+	// This will probably be converted into a reference to a Secret in the secrets
+	// namespace as part of translation.
+	//
+	// If unset, Envoy should originate TLS, but validate the CA certificate using
+	// whatever certificate chains it already has.
+	CACertRef *FullyQualifiedResource
+
+	// SNI contains the hostname to be sent as the SNI when TLS is originated.
+	SNI string
 }
 
 // GetPort return the string representation of the port (either the port number or the port name)
@@ -544,15 +564,31 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
-// TLSBackendsToHostnames returns a map of TLS backends to hostnames.
-// This is only for TLS Passthrough listeners.
-func (m *Model) TLSBackendsToHostnames() map[string][]string {
-	res := make(map[string][]string)
+type TLSBackendDetails struct {
+	BackendKey string
+	Hostnames  []string
+}
+
+// TLSBackends returns a slice of TLSBackendDetails.
+// This is only used for TLS Passthrough listeners.
+//
+// The slice keeps the ordering of the model Listeners,
+// as the model Listeners are correctly sorted by hostname,
+// in decreasing order of specificity.
+//
+// This ensures that the rules that end up generated in the translation
+// process are in the correct most-specific to least-specific order.
+func (m *Model) TLSBackends() []TLSBackendDetails {
+	res := []TLSBackendDetails{}
+
 	for _, h := range m.TLSPassthrough {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
 				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
-				res[key] = append(res[key], route.Hostnames...)
+				res = append(res, TLSBackendDetails{
+					BackendKey: key,
+					Hostnames:  route.Hostnames,
+				})
 			}
 		}
 	}

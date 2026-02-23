@@ -7,8 +7,6 @@
 /* Enable debug output */
 #define DEBUG
 
-#define SECCTX_FROM_IPCACHE 1
-
 /* Set the LXC source address to be the address of pod one */
 #define LXC_IPV4 (__be32)v6_pod_one
 
@@ -20,12 +18,13 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6
-#define ENABLE_L2_ANNOUNCEMENTS
 
 #include "lib/bpf_host.h"
 
 #define V6_ALEN 16
 
+ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
+ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
 struct icmp6_opthdr {

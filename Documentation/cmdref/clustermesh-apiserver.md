@@ -19,6 +19,6 @@ Run the ClusterMesh apiserver
 * [clustermesh-apiserver kvstoremesh](clustermesh-apiserver_kvstoremesh.md)	 - Run KVStoreMesh
 * [clustermesh-apiserver kvstoremesh-dbg](clustermesh-apiserver_kvstoremesh-dbg.md)	 - CLI for interacting with KVStoreMesh
 * [clustermesh-apiserver mcsapi-coredns-cfg](clustermesh-apiserver_mcsapi-coredns-cfg.md)	 - Automatically configure CoreDNS with recommended MCS-API settings
-* [clustermesh-apiserver shell](clustermesh-apiserver_shell.md)	 - Connect to the Cilium shell
+* [clustermesh-apiserver shell](clustermesh-apiserver_shell.md)	 - Connect to the shell
 * [clustermesh-apiserver version](clustermesh-apiserver_version.md)	 - Print version information
 

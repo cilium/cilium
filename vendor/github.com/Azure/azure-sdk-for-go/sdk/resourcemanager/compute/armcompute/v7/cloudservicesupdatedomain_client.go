@@ -28,7 +28,7 @@ type CloudServicesUpdateDomainClient struct {
 // NewCloudServicesUpdateDomainClient creates a new instance of CloudServicesUpdateDomainClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewCloudServicesUpdateDomainClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*CloudServicesUpdateDomainClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {

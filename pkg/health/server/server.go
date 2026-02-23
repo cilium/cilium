@@ -6,7 +6,6 @@ package server
 import (
 	"fmt"
 	"log/slog"
-	"path"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
@@ -16,7 +15,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	ciliumPkg "github.com/cilium/cilium/pkg/client"
-	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
@@ -171,8 +169,6 @@ func (s *Server) collectNodeConnectivityMetrics(report *healthReport) {
 	if s.localStatus == nil || report == nil {
 		return
 	}
-	localClusterName, localNodeName := getClusterNodeName(s.localStatus.Name)
-
 	endpointStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 	nodeStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 
@@ -214,70 +210,70 @@ func (s *Server) collectNodeConnectivityMetrics(report *healthReport) {
 		s.nodesSeen[n.Name] = struct{}{}
 
 		// HTTP endpoint primary
-		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.HTTP,
 			metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
-			collectConnectivityMetric(s.logger, secondary.HTTP, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.HTTP,
 				metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// HTTP node primary
-		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.HTTP, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.HTTP,
 			metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
 
 		// HTTP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
-			collectConnectivityMetric(s.logger, secondary.HTTP, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.HTTP,
 				metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP endpoint primary
-		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.Icmp, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, endpointPathStatus.PrimaryAddress.Icmp,
 			metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
-			collectConnectivityMetric(s.logger, secondary.Icmp, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.Icmp,
 				metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 
 		// ICMP node primary
-		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.Icmp, localClusterName, localNodeName,
+		collectConnectivityMetric(s.logger, nodePathPrimaryAddress.Icmp,
 			metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
 
 		// ICMP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
-			collectConnectivityMetric(s.logger, secondary.Icmp, localClusterName, localNodeName,
+			collectConnectivityMetric(s.logger, secondary.Icmp,
 				metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
 		}
 	}
 
 	// Aggregated health statuses for endpoint connectivity
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelReachable).
+		metrics.LabelPeerEndpoint, metrics.LabelReachable).
 		Set(float64(endpointStatuses[healthClientPkg.ConnStatusReachable]))
 
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnreachable).
+		metrics.LabelPeerEndpoint, metrics.LabelUnreachable).
 		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnreachable]))
 
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerEndpoint, metrics.LabelUnknown).
+		metrics.LabelPeerEndpoint, metrics.LabelUnknown).
 		Set(float64(endpointStatuses[healthClientPkg.ConnStatusUnknown]))
 
 	// Aggregated health statuses for node connectivity
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelReachable).
+		metrics.LabelPeerNode, metrics.LabelReachable).
 		Set(float64(nodeStatuses[healthClientPkg.ConnStatusReachable]))
 
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnreachable).
+		metrics.LabelPeerNode, metrics.LabelUnreachable).
 		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnreachable]))
 
 	metrics.NodeHealthConnectivityStatus.WithLabelValues(
-		localClusterName, localNodeName, metrics.LabelPeerNode, metrics.LabelUnknown).
+		metrics.LabelPeerNode, metrics.LabelUnknown).
 		Set(float64(nodeStatuses[healthClientPkg.ConnStatusUnknown]))
 }
 
@@ -290,16 +286,6 @@ func collectConnectivityMetric(logger *slog.Logger, status *healthModels.Connect
 			metrics.NodeHealthConnectivityLatency.WithLabelValues(labels...).Observe(probe.HttpTimeout.Seconds())
 		}
 	}
-}
-
-// getClusterNodeName returns the cluster name and node name if possible.
-func getClusterNodeName(str string) (string, string) {
-	clusterName, nodeName := path.Split(str)
-	if len(clusterName) == 0 {
-		return ciliumDefaults.ClusterName, nodeName
-	}
-	// remove forward slash at the end if any for cluster name
-	return path.Dir(clusterName), nodeName
 }
 
 // GetStatusResponse returns the most recent cluster connectivity status.
@@ -429,7 +415,7 @@ func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool) (*Server, error) {
+func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, localNode node.LocalNode) (*Server, error) {
 	server := &Server{
 		logger:             logger,
 		startTime:          time.Now(),
@@ -447,18 +433,18 @@ func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool) (*Se
 	server.Client = cl
 	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(logger), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(localNode), config.HTTPPathPort)
 
 	return server, nil
 }
 
 // Get internal node ipv4/ipv6 addresses based on config enabled.
 // If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
-func getAddresses(logger *slog.Logger) []string {
+func getAddresses(localNode node.LocalNode) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ip := node.GetInternalIPv4(logger); ip != nil {
+		if ip := localNode.GetNodeInternalIPv4(); ip != nil {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv4 fails, then listen on all addresses.
@@ -467,7 +453,7 @@ func getAddresses(logger *slog.Logger) []string {
 	}
 
 	if option.Config.EnableIPv6 {
-		if ip := node.GetInternalIPv6(logger); ip != nil {
+		if ip := localNode.GetNodeInternalIPv6(); ip != nil {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv6 fails, then listen on all addresses.

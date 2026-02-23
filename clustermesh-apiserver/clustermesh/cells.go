@@ -14,7 +14,8 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,7 +31,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cilium ClusterMesh",
 
-	cell.Config(operator.MCSAPIConfig{}),
+	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
 
 	pprof.Cell(pprofConfig),
 	gops.Cell(defaults.EnableGops, defaults.GopsPortApiserver),
@@ -68,6 +69,9 @@ var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
 
+	// Provide the namespace manager.
+	cmnamespace.Cell,
+
 	cell.Group(
 		cell.Provide(
 			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
@@ -101,6 +105,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumIdentityOptions,
 			newCiliumIdentityConverter,
+			newCiliumIdentityNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumIdentity]),
 	),
@@ -109,6 +114,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumEndpointOptions,
 			newCiliumEndpointConverter,
+			newCiliumEndpointNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*types.CiliumEndpoint]),
 	),
@@ -117,6 +123,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumEndpointSliceOptions,
 			newCiliumEndpointSliceConverter,
+			newCiliumEndpointSliceNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2a1.CiliumEndpointSlice]),
 	),

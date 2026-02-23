@@ -169,6 +169,40 @@ func (m *AwsRequestSigning) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetMatchIncludedHeaders() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AwsRequestSigningValidationError{
+						field:  fmt.Sprintf("MatchIncludedHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AwsRequestSigningValidationError{
+						field:  fmt.Sprintf("MatchIncludedHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AwsRequestSigningValidationError{
+					field:  fmt.Sprintf("MatchIncludedHeaders[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return AwsRequestSigningMultiError(errors)
 	}
@@ -183,7 +217,7 @@ type AwsRequestSigningMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AwsRequestSigningMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -325,7 +359,7 @@ type AwsRequestSigningPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AwsRequestSigningPerRouteMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -458,7 +492,7 @@ type AwsRequestSigning_QueryStringMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AwsRequestSigning_QueryStringMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

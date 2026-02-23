@@ -60,6 +60,8 @@ const (
 	SupportMeshHTTPRouteBackendRequestHeaderModification FeatureName = "MeshHTTPRouteBackendRequestHeaderModification"
 	// This option indicates mesh support for HTTPRoute query param matching (extended conformance).
 	SupportMeshHTTPRouteQueryParamMatching FeatureName = "MeshHTTPRouteQueryParamMatching"
+	// This option indicates support for the name field in the HTTPRouteRule (extended conformance)
+	SupportMeshHTTPRouteNamedRouteRule FeatureName = "MeshHTTPRouteNamedRouteRule"
 )
 
 var (
@@ -103,9 +105,16 @@ var (
 		Name:    SupportMeshHTTPRouteBackendRequestHeaderModification,
 		Channel: FeatureChannelStandard,
 	}
+
 	// MeshHTTPRouteRedirectPath contains metadata for the MeshHTTPRouteRedirectPath feature.
 	MeshHTTPRouteQueryParamMatching = Feature{
 		Name:    SupportMeshHTTPRouteQueryParamMatching,
+		Channel: FeatureChannelStandard,
+	}
+
+	// MeshHTTPRouteNamedRouteRule contains metadata for the MeshHTTPRouteNamedRouteRule feature.
+	MeshHTTPRouteNamedRouteRule = Feature{
+		Name:    SupportMeshHTTPRouteNamedRouteRule,
 		Channel: FeatureChannelStandard,
 	}
 )
@@ -121,4 +130,5 @@ var MeshExtendedFeatures = sets.New(
 	MeshHTTPRouteRedirectPath,
 	MeshHTTPRouteBackendRequestHeaderModification,
 	MeshHTTPRouteQueryParamMatching,
+	MeshHTTPRouteNamedRouteRule,
 )

@@ -10,7 +10,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 )
+
+var denyPerSelectorPolicy = &PerSelectorPolicy{Verdict: types.Deny, Priority: 1000}
 
 // Tests in this file:
 //
@@ -38,7 +41,8 @@ import (
 
 // Case 1: deny all at L3 in both rules.
 func TestMergeDenyAllL3(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -72,7 +76,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
 		},
 		Ingress:    true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
@@ -107,7 +111,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 		},
 	}
 
-	expected = NewL4PolicyMap()
+	expected = L4PolicyMaps{makeL4PolicyMap()}
 	td.policyMapEquals(t, expected, nil, &rule)
 }
 
@@ -115,7 +119,8 @@ func TestMergeDenyAllL3(t *testing.T) {
 // in another rule. Should resolve to just allowing all on L3/L4 (first rule
 // shadows the second).
 func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 2A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -149,8 +154,8 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -194,8 +199,8 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.wildcardCachedSelector: denyPerSelectorPolicy,
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -209,7 +214,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 
 // Case 3: deny all on L4 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	selectDifferentEndpointsDenyAllL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -243,8 +248,8 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 		U8Proto:  6,
 		wildcard: nil,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
-			td.cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
+			td.cachedSelectorC: denyPerSelectorPolicy,
 		},
 		Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
@@ -260,7 +265,8 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 // another rule. Should resolve to just allowing all on L3/L4 (first rule
 // shadows the second) and denying that particular endpoint.
 func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 4A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -296,7 +302,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
@@ -343,7 +349,7 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA:        denyPerSelectorPolicy,
 			td.wildcardCachedSelector: nil,
 		},
 		Ingress: true,
@@ -360,7 +366,8 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 // endpoint in another rule. Should resolve to just allowing all on L3/L7 and
 // denying that particular endpoint.
 func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 5A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -401,10 +408,11 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -459,10 +467,11 @@ func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
 		U8Proto:  6,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
+			td.cachedSelectorA: denyPerSelectorPolicy,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},

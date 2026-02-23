@@ -29,7 +29,6 @@ var (
 	ErrKeyExist         = errors.New("key already exists")
 	ErrIterationAborted = errors.New("iteration aborted")
 	ErrMapIncompatible  = errors.New("map spec is incompatible with existing map")
-	errMapNoBTFValue    = errors.New("map spec does not contain a BTF Value")
 
 	// pre-allocating these errors here since they may get called in hot code paths
 	// and cause unnecessary memory allocations
@@ -187,28 +186,71 @@ func (spec *MapSpec) fixupMagicFields() (*MapSpec, error) {
 	return spec, nil
 }
 
-// dataSection returns the contents and BTF Datasec descriptor of the spec.
-func (ms *MapSpec) dataSection() ([]byte, *btf.Datasec, error) {
-	if ms.Value == nil {
-		return nil, nil, errMapNoBTFValue
-	}
-
-	ds, ok := ms.Value.(*btf.Datasec)
-	if !ok {
-		return nil, nil, fmt.Errorf("map value BTF is a %T, not a *btf.Datasec", ms.Value)
-	}
-
+// dataSection returns the contents of a datasec if the MapSpec represents one.
+func (ms *MapSpec) dataSection() ([]byte, error) {
 	if n := len(ms.Contents); n != 1 {
-		return nil, nil, fmt.Errorf("expected one key, found %d", n)
+		return nil, fmt.Errorf("expected one key, found %d", n)
 	}
 
 	kv := ms.Contents[0]
-	value, ok := kv.Value.([]byte)
-	if !ok {
-		return nil, nil, fmt.Errorf("value at first map key is %T, not []byte", kv.Value)
+	if key, ok := ms.Contents[0].Key.(uint32); !ok || key != 0 {
+		return nil, fmt.Errorf("expected contents to have key 0")
 	}
 
-	return value, ds, nil
+	value, ok := kv.Value.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("value at first map key is %T, not []byte", kv.Value)
+	}
+
+	return value, nil
+}
+
+// updateDataSection copies the values of variables into MapSpec.Contents[0].Value.
+//
+// Only variables declared in sectionName will be updated.
+func (ms *MapSpec) updateDataSection(vars map[string]*VariableSpec, sectionName string) error {
+	var specs []*VariableSpec
+	for _, vs := range vars {
+		if vs.SectionName != sectionName {
+			continue
+		}
+
+		specs = append(specs, vs)
+	}
+
+	if len(specs) == 0 {
+		return nil
+	}
+
+	data, err := ms.dataSection()
+	if err != nil {
+		return err
+	}
+
+	// Do not modify the original data slice, ms.Contents is a shallow copy.
+	data = slices.Clone(data)
+
+	slices.SortFunc(specs, func(a, b *VariableSpec) int {
+		return int(int64(a.Offset) - int64(b.Offset))
+	})
+
+	offset := uint32(0)
+	for _, v := range specs {
+		if v.Offset < offset {
+			return fmt.Errorf("variable %s (offset %d) overlaps with previous variable (offset %d)", v.Name, v.Offset, offset)
+		}
+
+		end := v.Offset + v.Size()
+		if int(end) > len(data) {
+			return fmt.Errorf("variable %s exceeds map size", v.Name)
+		}
+
+		copy(data[v.Offset:end], v.Value)
+		offset = end
+	}
+
+	ms.Contents = []MapKV{{Key: uint32(0), Value: data}}
+	return nil
 }
 
 func (ms *MapSpec) readOnly() bool {
@@ -334,7 +376,7 @@ func NewMap(spec *MapSpec) (*Map, error) {
 //
 // May return an error wrapping ErrMapIncompatible.
 func NewMapWithOptions(spec *MapSpec, opts MapOptions) (*Map, error) {
-	m, err := newMapWithOptions(spec, opts)
+	m, err := newMapWithOptions(spec, opts, btf.NewCache())
 	if err != nil {
 		return nil, fmt.Errorf("creating map: %w", err)
 	}
@@ -347,7 +389,7 @@ func NewMapWithOptions(spec *MapSpec, opts MapOptions) (*Map, error) {
 	return m, nil
 }
 
-func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
+func newMapWithOptions(spec *MapSpec, opts MapOptions, c *btf.Cache) (_ *Map, err error) {
 	closeOnError := func(c io.Closer) {
 		if err != nil {
 			c.Close()
@@ -397,7 +439,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
 			return nil, errors.New("inner maps cannot be pinned")
 		}
 
-		template, err := spec.InnerMap.createMap(nil)
+		template, err := spec.InnerMap.createMap(nil, c)
 		if err != nil {
 			return nil, fmt.Errorf("inner map: %w", err)
 		}
@@ -409,7 +451,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
 		innerFd = template.fd
 	}
 
-	m, err := spec.createMap(innerFd)
+	m, err := spec.createMap(innerFd, c)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +546,7 @@ func (m *Map) memorySize() (int, error) {
 
 // createMap validates the spec's properties and creates the map in the kernel
 // using the given opts. It does not populate or freeze the map.
-func (spec *MapSpec) createMap(inner *sys.FD) (_ *Map, err error) {
+func (spec *MapSpec) createMap(inner *sys.FD, c *btf.Cache) (_ *Map, err error) {
 	closeOnError := func(closer io.Closer) {
 		if err != nil {
 			closer.Close()
@@ -559,6 +601,42 @@ func (spec *MapSpec) createMap(inner *sys.FD) (_ *Map, err error) {
 			attr.BtfFd = uint32(handle.FD())
 			attr.BtfKeyTypeId = keyTypeID
 			attr.BtfValueTypeId = valueTypeID
+		}
+
+		if spec.Type == StructOpsMap {
+			if handle == nil {
+				return nil, fmt.Errorf("struct_ops requires BTF")
+			}
+
+			localValue, ok := btf.As[*btf.Struct](spec.Value)
+			if !ok {
+				return nil, fmt.Errorf("struct_ops: value must be struct")
+			}
+
+			targetValue, targetID, module, err := structOpsFindTarget(localValue, c)
+			if err != nil {
+				return nil, fmt.Errorf("struct_ops: %w", err)
+			}
+			defer module.Close()
+
+			spec = spec.Copy()
+			spec.ValueSize = targetValue.Size
+
+			attr.ValueSize = targetValue.Size
+			attr.BtfVmlinuxValueTypeId = targetID
+
+			if module != nil {
+				// BPF_F_VTYPE_BTF_OBJ_FD is required if the type comes from a module
+				attr.MapFlags |= sys.BPF_F_VTYPE_BTF_OBJ_FD
+				// set FD for the kernel module
+				attr.ValueTypeBtfObjFd = int32(module.FD())
+			}
+
+			// StructOpsMap forbids passing BtfKeyTypeId or BtfValueTypeId, but
+			// requires BtfFd. Do the simple thing and just zero out the fields.
+			// See https://github.com/torvalds/linux/blob/9b332cece987ee1790b2ed4c989e28162fa47860/kernel/bpf/syscall.c#L1382-L1384
+			attr.BtfKeyTypeId = 0
+			attr.BtfValueTypeId = 0
 		}
 	}
 

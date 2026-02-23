@@ -79,11 +79,16 @@ const (
 	SVCForwardingModeSNAT  = SVCForwardingMode("snat")
 )
 
-func ToSVCForwardingMode(s string) SVCForwardingMode {
+func ToSVCForwardingMode(s string, proto ...uint8) SVCForwardingMode {
 	switch s {
 	case LBModeDSR:
 		return SVCForwardingModeDSR
 	case LBModeSNAT:
+		return SVCForwardingModeSNAT
+	case LBModeHybrid:
+		if len(proto) > 0 && proto[0] == uint8(u8proto.TCP) {
+			return SVCForwardingModeDSR
+		}
 		return SVCForwardingModeSNAT
 	default:
 		return SVCForwardingModeUndef
@@ -529,6 +534,17 @@ type ServiceName struct {
 	// (<cluster>/)<namespace>/<name>
 	//             ^
 	clusterEndPos uint16
+}
+
+func (s *ServiceName) DeepEqual(other *ServiceName) bool {
+	switch {
+	case s == nil && other == nil:
+		return true
+	case s != nil && other != nil:
+		return *s == *other
+	default:
+		return false
+	}
 }
 
 func (s ServiceName) Cluster() string {

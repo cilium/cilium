@@ -84,7 +84,7 @@ func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	}
 
 	if icmp := l4.GetICMPv6(); icmp != nil {
-		labels := []string{"IPv4", layers.CreateICMPv6TypeCode(uint8(icmp.Type), uint8(icmp.Code)).String()}
+		labels := []string{"IPv6", layers.CreateICMPv6TypeCode(uint8(icmp.Type), uint8(icmp.Code)).String()}
 		labels = append(labels, labelValues...)
 		h.icmp.WithLabelValues(labels...).Inc()
 	}

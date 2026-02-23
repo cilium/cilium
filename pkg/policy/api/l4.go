@@ -173,18 +173,28 @@ type Listener struct {
 	Priority uint8 `json:"priority"`
 }
 
-// ServerName allows using prefix only wildcards to match DNS names.
+// ServerName allows using '*' wildcard specifier for matching server names with
+// the below semantics.
 //
-// - "*" matches 0 or more DNS valid characters, and may only occur at the
-// beginning of the pattern. As a special case a "*" as the leftmost character,
-// without a following "." matches all subdomains as well as the name to the right.
+// - `*` matches 0 or more DNS valid characters, and may occur anywhere in the pattern.
+// - `**.` is a special prefix which matches all multilevel subdomains in the prefix.
+//
+// As a special case the name "*" matches all valid DNS names.
 //
 // Examples:
-//   - `*.cilium.io` matches exactly one subdomain of cilium at that level www.cilium.io and blog.cilium.io match, cilium.io and google.com do not.
-//   - `**.cilium.io` matches more than one subdomain of cilium, e.g. sub1.sub2.cilium.io and sub.cilium.io match, cilium.io do not.
+//  1. `*.cilium.io` matches subdomains of cilium at that level
+//     www.cilium.io and blog.cilium.io match, cilium.io and google.com do not
+//  2. `*cilium.io` matches cilium.io and all subdomains ends with "cilium.io"
+//     except those containing "." separator, subcilium.io and sub-cilium.io match,
+//     www.cilium.io and blog.cilium.io does not
+//  3. `sub*.cilium.io` matches subdomains of cilium where the subdomain component
+//     begins with "sub". sub.cilium.io and subdomain.cilium.io match while www.cilium.io,
+//     blog.cilium.io, cilium.io and google.com do not
+//  4. `**.cilium.io` matches all multilevel subdomains of cilium.io.
+//     "app.cilium.io" and "test.app.cilium.io" match but not "cilium.io"
 //
 // +kubebuilder:validation:MaxLength=255
-// +kubebuilder:validation:Pattern=`^(\*?\*\.)?([-a-zA-Z0-9_]+\.?)+$`
+// +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_*]+[.]?)+$`
 // +kubebuilder:validation:OneOf
 type ServerName string
 
@@ -286,7 +296,7 @@ type L7Rules struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
-	HTTP []PortRuleHTTP `json:"http,omitempty"`
+	HTTP PortRulesHTTP `json:"http,omitempty"`
 
 	// Kafka-specific rules.
 	// Deprecated: This beta feature is deprecated and will be removed in a future release.
@@ -299,7 +309,7 @@ type L7Rules struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
-	DNS []PortRuleDNS `json:"dns,omitempty"`
+	DNS PortRulesDNS `json:"dns,omitempty"`
 
 	// Name of the L7 protocol for which the Key-value pair rules apply.
 	//
@@ -310,7 +320,7 @@ type L7Rules struct {
 	// Key-value pair rules.
 	//
 	// +kubebuilder:validation:Optional
-	L7 []PortRuleL7 `json:"l7,omitempty"`
+	L7 PortRulesL7 `json:"l7,omitempty"`
 }
 
 // Len returns the total number of rules inside `L7Rules`.

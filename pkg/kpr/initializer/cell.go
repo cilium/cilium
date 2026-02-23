@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -43,7 +42,6 @@ type kprInitializerParams struct {
 	LBConfig     loadbalancer.Config
 	KPRCfg       kpr.KPRConfig
 	WireguardCfg wgTypes.WireguardConfig
-	IPSecAgent   datapath.IPsecAgent
 }
 
 func newKPRInitializer(params kprInitializerParams) KPRInitializer {
@@ -54,6 +52,5 @@ func newKPRInitializer(params kprInitializerParams) KPRInitializer {
 		lbConfig:     params.LBConfig,
 		kprCfg:       params.KPRCfg,
 		wgCfg:        params.WireguardCfg,
-		ipsecAgent:   params.IPSecAgent,
 	}
 }

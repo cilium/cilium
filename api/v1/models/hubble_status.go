@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -61,11 +62,15 @@ func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
 
 	if m.Observer != nil {
 		if err := m.Observer.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("observer")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("observer")
 			}
+
 			return err
 		}
 	}
@@ -73,7 +78,7 @@ func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
 	return nil
 }
 
-var hubbleStatusTypeStatePropEnum []interface{}
+var hubbleStatusTypeStatePropEnum []any
 
 func init() {
 	var res []string
@@ -144,11 +149,15 @@ func (m *HubbleStatus) contextValidateObserver(ctx context.Context, formats strf
 		}
 
 		if err := m.Observer.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("observer")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("observer")
 			}
+
 			return err
 		}
 	}

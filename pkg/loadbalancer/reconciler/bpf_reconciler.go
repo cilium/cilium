@@ -25,12 +25,15 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -43,55 +46,13 @@ const (
 	WildcardPortNumber uint16 = 0
 )
 
-func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) (reconciler.Reconciler[*loadbalancer.Frontend], error) {
+func newBPFReconciler(p reconciler.Params, jobs job.Registry, health cell.Health, g job.Group, cfg loadbalancer.Config, ops *BPFOps, fes statedb.Table[*loadbalancer.Frontend], w *writer.Writer) promise.Promise[reconciler.Reconciler[*loadbalancer.Frontend]] {
+	resolve, promise := promise.New[reconciler.Reconciler[*loadbalancer.Frontend]]()
 	if !w.IsEnabled() {
-		return nil, nil
+		resolve.Resolve(nil)
 	}
-
-	// Use a custom lifecycle to start the reconciler so we can delay it starts until tables are initialized.
-	rlc := &cell.DefaultLifecycle{}
-	started := make(chan struct{})
-	p.Lifecycle.Append(cell.Hook{
-		OnStop: func(ctx cell.HookContext) error {
-			// Since starting happens asynchronously, wait for it to be done before trying to stop.
-			select {
-			case <-ctx.Done():
-			case <-started:
-			}
-			return rlc.Stop(p.Log, ctx)
-		},
-	})
-	p.Lifecycle = rlc
-
-	r, err := reconciler.Register(
-		p,
-		fes.(statedb.RWTable[*loadbalancer.Frontend]),
-
-		(*loadbalancer.Frontend).Clone,
-		func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {
-			fe.Status = s
-			return fe
-		},
-		func(fe *loadbalancer.Frontend) reconciler.Status {
-			return fe.Status
-		},
-		ops,
-		nil,
-
-		reconciler.WithRetry(
-			cfg.RetryBackoffMin,
-			cfg.RetryBackoffMax,
-		),
-
-		reconciler.WithPruning(
-			30*time.Minute,
-		),
-	)
-
 	g.Add(
 		job.OneShot("start-reconciler", func(ctx context.Context, health cell.Health) error {
-			defer close(started)
-
 			if len(ops.restoredServiceIDs) > 0 {
 				// We give a short grace period for initializers to finish populating the initial contents
 				// of the tables to avoid scaling down load-balancing due to e.g. seeing backends from k8s
@@ -111,16 +72,39 @@ func newBPFReconciler(p reconciler.Params, g job.Group, cfg loadbalancer.Config,
 				}
 			}
 
-			health.OK("Starting")
-			if err := rlc.Start(p.Log, ctx); err != nil {
-				return err
+			r, err := reconciler.Register(
+				p,
+				fes.(statedb.RWTable[*loadbalancer.Frontend]),
+
+				(*loadbalancer.Frontend).Clone,
+				func(fe *loadbalancer.Frontend, s reconciler.Status) *loadbalancer.Frontend {
+					fe.Status = s
+					return fe
+				},
+				func(fe *loadbalancer.Frontend) reconciler.Status {
+					return fe.Status
+				},
+				ops,
+				nil,
+
+				reconciler.WithRetry(
+					cfg.RetryBackoffMin,
+					cfg.RetryBackoffMax,
+				),
+
+				reconciler.WithPruning(
+					30*time.Minute,
+				),
+			)
+			if err == nil {
+				resolve.Resolve(r)
+			} else {
+				resolve.Reject(err)
 			}
-			health.OK("Started")
-			return nil
+			return err
 		}),
 	)
-
-	return r, err
+	return promise
 }
 
 type BPFOps struct {
@@ -335,7 +319,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 
 func svcKeyToAddr(svcKey maps.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
-	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
+	feAddrCluster := cmtypes.AddrClusterFrom(feIP, 0)
 	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return feL3n4Addr
@@ -519,35 +503,17 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		svcValue = svcValue.ToHost()
 
 		rawAddr := svcKey.GetAddress()
-		ac, ok := cmtypes.AddrClusterFromIP(rawAddr)
-		if !ok {
-			ops.log.Warn("Prune: bad address in service key", logfields.Key, svcKey)
-			return
-		}
+		ac := cmtypes.AddrClusterFrom(rawAddr, 0)
 
 		port := svcKey.GetPort()
 		proto := svcKey.GetProtocol()
 
 		// If this is a wildcard service entry, verify we have no frontend references.
 		if port == WildcardPortNumber && proto == uint8(WildcardProtoNumber) {
-
-			// Unfortunately rawAddr is of type net.IP, which we need to convert
-			// to a netip.Addr type in order to be useful as a map index.
-			var wildAddr netip.Addr
-			if svcKey.IsIPv6() {
-				var wildBytes [16]byte
-				copy(wildBytes[:], rawAddr.To16())
-				wildAddr = netip.AddrFrom16(wildBytes)
-			} else {
-				var wildBytes [4]byte
-				copy(wildBytes[:], rawAddr.To4())
-				wildAddr = netip.AddrFrom4(wildBytes)
-			}
-
 			// We only add this entry into toDelete if it has nothing in. Otherwise, we may
 			// end up deleting a wildcard who still has active parent entries.
-			if wildRefs := ops.wildcardReferences[wildAddr]; len(wildRefs) == 0 {
-				ops.log.Debug("pruneServiceMaps: deleting wild", logfields.Address, wildAddr)
+			if wildRefs := ops.wildcardReferences[rawAddr]; len(wildRefs) == 0 {
+				ops.log.Debug("pruneServiceMaps: deleting wild", logfields.Address, rawAddr)
 				toDelete = append(toDelete, svcKey.ToNetwork())
 			}
 
@@ -656,10 +622,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		// CIDR is part of the current set.
 		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
 		if ok {
-			cidr := key.GetCIDR()
-			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-			ones, _ := cidr.Mask.Size()
-			prefix := netip.PrefixFrom(cidrAddr, ones)
+			prefix := key.GetPrefix()
 			var cidrs sets.Set[netip.Prefix]
 			cidrs, ok = ops.prevSourceRanges[addr]
 			ok = ok && cidrs.Has(prefix)
@@ -667,7 +630,7 @@ func (ops *BPFOps) pruneSourceRanges() error {
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
 				logfields.ID, key.GetRevNATID(),
-				logfields.CIDR, key.GetCIDR())
+				logfields.CIDR, key.GetPrefix())
 			toDelete = append(toDelete, key)
 		}
 	}
@@ -865,7 +828,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 
-	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode)
+	checkSourceRange := svc.GetSourceRangesEnabled(svcType, ops.cfg.LBSourceRangeAllTypes)
+
+	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode, uint8(proto))
 	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
 		forwardingMode = svc.ForwardingMode
 	}
@@ -878,8 +843,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
-		SourceRangeDeny:  svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		CheckSourceRange: len(svc.SourceRanges) > 0,
+		CheckSourceRange: checkSourceRange,
+		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
 		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
@@ -909,10 +874,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
-	backendCount := len(orderedBackends)
 
 	// Update backends that are new or changed.
-	for i, be := range orderedBackends {
+	slotID := 1
+	for _, be := range orderedBackends {
 		var beID loadbalancer.BackendID
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
@@ -943,6 +908,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			ops.updateBackendRevision(beID, be.Address, be.Revision)
 		}
 
+		if be.State == loadbalancer.BackendStateMaintenance {
+			// Backends that are in maintenance are not included in the services map.
+			continue
+		}
+
 		// Update the service slot for the backend. We do this regardless
 		// if the backend entry is up-to-date since the backend slot order might've
 		// changed.
@@ -950,12 +920,12 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		// the slot ids here are sequential.
 		ops.log.Debug("Update service slot",
 			logfields.ID, beID,
-			logfields.Slot, i+1,
+			logfields.Slot, slotID,
 			logfields.BackendID, beID)
 
 		svcVal.SetBackendID(beID)
 		svcVal.SetRevNat(int(feID))
-		svcKey.SetBackendSlot(i + 1)
+		svcKey.SetBackendSlot(slotID)
 		if err := ops.upsertService(svcKey, svcVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}
@@ -999,7 +969,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		default:
 			inactiveCount++
 		}
+
+		slotID++
 	}
+	backendCount := slotID - 1
 
 	if activeCount == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -1153,8 +1126,28 @@ func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
 	switch fe.Type {
 	case loadbalancer.SVCTypeLoadBalancer,
 		loadbalancer.SVCTypeClusterIP:
+
 		// Only external scoped entries can parent wildcard entries
-		return fe.Address.Scope() == loadbalancer.ScopeExternal
+		if fe.Address.Scope() != loadbalancer.ScopeExternal {
+			return false
+		}
+
+		// We only want to program wildcard entries if LB-IPAM has allocated
+		// the VIP, otherwise we risk programming Node internal IPs into the
+		// datapath and causing connectivity faults.
+		lbClass := fe.Service.LoadBalancerClass
+		if lbClass == nil {
+			return ops.extCfg.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassLBIPAM
+		}
+
+		// The service has a loadBalancerClass, so we only include a wildcard
+		// service entry if it's a class Cilium actively manages, again to avoid
+		// programming wildcard entries for IP addresses we don't manage.
+		//
+		// TODO: improve this in future, perhaps by matching against known
+		// CiliumInternalIPs.
+		return *lbClass == cilium_api_v2alpha1.BGPLoadBalancerClass ||
+			*lbClass == cilium_api_v2alpha1.L2AnnounceLoadBalancerClass
 	}
 	return false
 }

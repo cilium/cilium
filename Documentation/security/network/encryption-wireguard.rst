@@ -61,8 +61,8 @@ on how to install the kernel module on your Linux distribution.
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \
-             --set encryption.enabled=true \
+          cilium install |CHART_VERSION| \\
+             --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
     .. group-tab:: Helm
@@ -70,12 +70,10 @@ on how to install the kernel module on your Linux distribution.
        If you are deploying Cilium with Helm by following
        :ref:`k8s_install_helm`, pass the following options:
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set encryption.enabled=true \\
-             --set encryption.type=wireguard
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: encryption.enabled=true
+                encryption.type=wireguard
 
 WireGuard may also be enabled manually by setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
@@ -232,9 +230,9 @@ options:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \
-             --set encryption.enabled=true \
-             --set encryption.type=wireguard \
+          cilium install |CHART_VERSION| \\
+             --set encryption.enabled=true \\
+             --set encryption.type=wireguard \\
              --set encryption.nodeEncryption=true
 
     .. group-tab:: Helm
@@ -242,13 +240,11 @@ options:
        If you are deploying Cilium with Helm by following
        :ref:`k8s_install_helm`, pass the following options:
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set encryption.enabled=true \\
-             --set encryption.type=wireguard \\
-             --set encryption.nodeEncryption=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: encryption.enabled=true
+                encryption.type=wireguard
+                encryption.nodeEncryption=true
 
 .. warning::
 

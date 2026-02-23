@@ -58,7 +58,7 @@ func (m *FrontendAddress) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var frontendAddressTypeProtocolPropEnum []interface{}
+var frontendAddressTypeProtocolPropEnum []any
 
 func init() {
 	var res []string
@@ -103,7 +103,7 @@ func (m *FrontendAddress) validateProtocol(formats strfmt.Registry) error {
 	return nil
 }
 
-var frontendAddressTypeScopePropEnum []interface{}
+var frontendAddressTypeScopePropEnum []any
 
 func init() {
 	var res []string

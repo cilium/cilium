@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -25,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -37,7 +37,7 @@ type Configuration struct {
 	common.Config
 	wait.TimeoutConfig
 
-	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo cmtypes.ClusterInfo
 
 	// RemoteClientFactory is the factory to create new backend instances.
@@ -60,7 +60,7 @@ type Configuration struct {
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	ServiceResolver dial.Resolver
 
 	// ServiceBackendResolver, if not nil, is used to perform service to backend resolution.
 	ServiceBackendResolver *dial.ServiceBackendResolver
@@ -71,6 +71,9 @@ type Configuration struct {
 	// ClusterIDsManager handles the reservation of the ClusterIDs associated
 	// with remote clusters, to ensure their uniqueness.
 	ClusterIDsManager clusterIDsManager
+
+	// ObserverFactories is the list of factories to instantiate additional observers.
+	ObserverFactories []observer.Factory `group:"clustermesh-observers"`
 
 	Metrics       Metrics
 	CommonMetrics common.Metrics
@@ -112,9 +115,6 @@ type ClusterMesh struct {
 	// is protected by its own mutex inside the structure.
 	globalServices *common.GlobalServiceCache
 
-	// nodeName is the name of the local node. This is used for logging and metrics
-	nodeName string
-
 	// syncTimeoutLogOnce ensures that the warning message triggered upon failure
 	// waiting for remote clusters synchronization is output only once.
 	syncTimeoutLogOnce sync.Once
@@ -130,10 +130,8 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 		return nil
 	}
 
-	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
 		conf:           c,
-		nodeName:       nodeName,
 		globalServices: common.NewGlobalServiceCache(c.Logger),
 		FeatureMetrics: c.FeatureMetrics,
 	}
@@ -157,8 +155,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 		NewRemoteCluster: cm.NewRemoteCluster,
 
-		NodeName: nodeName,
-		Metrics:  c.CommonMetrics,
+		Metrics: c.CommonMetrics,
 	})
 
 	lifecycle.Append(cm.common)
@@ -188,7 +185,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		),
 		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
-		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(rc.name)),
 	)
 
 	rc.remoteServices = cm.conf.StoreFactory.NewWatchStore(
@@ -205,16 +202,28 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			cm.conf.ServiceMerger.MergeExternalServiceDelete,
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.services) }),
-		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalServices.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalServices.WithLabelValues(rc.name)),
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(
 		cm.conf.Logger,
 		name, cm.conf.IPCache, cm.conf.StoreFactory, source.ClusterMesh,
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.ipcache) }),
-		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalEndpoints.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalEndpoints.WithLabelValues(rc.name)),
 	)
 	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
+
+	rc.observers = make(map[observer.Name]observer.Observer, len(cm.conf.ObserverFactories))
+	for _, factory := range cm.conf.ObserverFactories {
+		var (
+			synced     = make(chan struct{})
+			onceSynced = sync.OnceFunc(func() { close(synced) })
+			obs        = factory(name, onceSynced)
+		)
+
+		rc.observers[obs.Name()] = obs
+		rc.synced.observers[obs.Name()] = synced
+	}
 
 	return rc
 }
@@ -247,6 +256,18 @@ func (cm *ClusterMesh) ServicesSynced(ctx context.Context) error {
 // flag elapsed. It returns an error if the given context expired.
 func (cm *ClusterMesh) IPIdentitiesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.IPIdentities })
+}
+
+// ObserverSynced returns after that either the given named observer has received
+// the initial list of entries from all remote clusters, or the maximum wait period
+// controlled by the clustermesh-sync-timeout flag elapsed. It returns an error if
+// the given context expired, or if the target observer is not registered.
+func (cm *ClusterMesh) ObserverSynced(ctx context.Context, name observer.Name) error {
+	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn {
+		return func(ctx context.Context) error {
+			return rc.synced.Observer(ctx, name)
+		}
+	})
 }
 
 func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {

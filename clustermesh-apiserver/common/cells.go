@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/shell"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/health"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
@@ -14,9 +15,9 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 )
 
 var Cell = cell.Module(
@@ -50,5 +51,5 @@ var Cell = cell.Module(
 
 	// Shell for inspecting the clustermesh-apiserver/kvstoremesh.
 	// Listens on the 'shell.sock' UNIX socket.
-	shell.Cell,
+	shell.ServerCell(defaults.ShellSockPath),
 )

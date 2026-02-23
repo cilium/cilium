@@ -71,6 +71,10 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			params.Config.SkipUnknownCGroupIDs,
 		),
 	)
+	parserOpts = append(
+		parserOpts,
+		params.ParserOptions...,
+	)
 	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
 }
 
@@ -88,6 +92,8 @@ type payloadParserParams struct {
 	LinkCache         *link.LinkCache
 
 	Config config
+	// NOTE: ordering is not guaranteed, do not rely on it.
+	ParserOptions []parserOptions.Option `group:"hubble-parser-options"`
 }
 
 type payloadGetters struct {
@@ -162,11 +168,10 @@ func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Se
 		return nil
 	}
 	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, port, loadbalancer.ScopeExternal)
-	fe, _, found := h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+	txn := h.db.ReadTxn()
+	fe, found := loadbalancer.LookupFrontendByTuple(txn, h.frontends, addrCluster, loadbalancer.TCP, port, loadbalancer.ScopeExternal)
 	if !found {
-		addr := loadbalancer.NewL3n4Addr(loadbalancer.UDP, addrCluster, port, loadbalancer.ScopeExternal)
-		fe, _, found = h.frontends.Get(h.db.ReadTxn(), loadbalancer.FrontendByAddress(addr))
+		fe, found = loadbalancer.LookupFrontendByTuple(txn, h.frontends, addrCluster, loadbalancer.UDP, port, loadbalancer.ScopeExternal)
 	}
 	if !found {
 		return nil

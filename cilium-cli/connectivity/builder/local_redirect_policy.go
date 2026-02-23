@@ -22,10 +22,10 @@ var (
 type localRedirectPolicy struct{}
 
 func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]string) {
-	lrpFrontendIPV4 := "169.254.169.254"
-	lrpFrontendIPV6 := "fd00::169:254:169:254"
-	lrpFrontendIPSkipRedirectV4 := "169.254.169.255"
-	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:255"
+	lrpFrontendIPV4 := "169.254.169.249"
+	lrpFrontendIPV6 := "fd00::169:254:169:249"
+	lrpFrontendIPSkipRedirectV4 := "169.254.169.248"
+	lrpFrontendIPSkipRedirectV6 := "fd00::169:254:169:248"
 
 	lrpTest := newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {

@@ -1,0 +1,134 @@
+{{$namespaces := DefaultParam .CL2_NUM_TEST_NAMESPACES 1}}
+{{$deploymentsPerNamespace := DefaultParam .CL2_NUM_TEST_DEPLOYMENTS_PER_NAMESPACE 1}}
+
+{{$POD_INSTANCES_PER_DEPLOYMENT := DefaultParam .CL2_NUM_POD_INSTANCES_PER_DEPLOYMENT 1}}
+{{$CLIENT_INSTANCES_PER_DEPLOYMENT := DefaultParam .CL2_NUM_CLIENT_INSTANCES_PER_DEPLOYMENT 3}}
+{{$RULES_PER_NETWORK_POLICY := DefaultParam .CL2_NUM_RULES_PER_NETWORK_POLICY 100}}
+
+{{$podInstancesPerDeployment := $POD_INSTANCES_PER_DEPLOYMENT}}
+{{$perfClientInstancesPerDeployment := $CLIENT_INSTANCES_PER_DEPLOYMENT}}
+
+{{$perfClientRunDuration := DefaultParam .CL2_PERF_CLIENT_RUN_DURATION 60}}
+
+name: l7
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: Default
+  globalQPSLoad:
+    qps: 5
+    burst: 10
+
+steps:
+- module:
+    path: ./modules/workloads.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      tuningSet: Default
+      operationTimeout: 15m
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      replicasPerDeployment: {{$podInstancesPerDeployment}}
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+      perfClientRunDuration: {{$perfClientRunDuration}}
+
+- module:
+    path: ./../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+# Run Perf tests
+- module:
+    path: ./modules/http-perf.yaml
+    params:
+      scenario: without-l7-policy
+      tuningSet: Default
+      namespaces: {{$namespaces}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
+      runDuration: {{$perfClientRunDuration}}
+
+- name: Apply empty L7 visibility policy to server
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: Default
+    objectBundle:
+    - basename: l7-policy
+      objectTemplatePath: ./manifests/policy.yaml
+      templateFillMap:
+        policyAppName: http-server
+        rulesPerPolicy: 0
+
+# TODO: Find a better way to wait on policy implementation in datapath.
+- name: Wait for L7 visibility Policy to be applied
+  measurements:
+  - identifier: sleep
+    method: Sleep
+    params:
+      duration: 30s
+
+- module:
+    path: ./modules/http-perf.yaml
+    params:
+      scenario: with-l7-visibility-policy
+      tuningSet: Default
+      namespaces: {{$namespaces}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
+      runDuration: {{$perfClientRunDuration}}
+
+- name: Update L7 policy with HTTP allow rules
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: Default
+    objectBundle:
+    - basename: l7-policy
+      objectTemplatePath: ./manifests/policy.yaml
+      templateFillMap:
+        policyAppName: http-server
+        rulesPerPolicy: {{$RULES_PER_NETWORK_POLICY}}
+
+- name: Wait for L7 Policy to be applied
+  measurements:
+  - identifier: sleep
+    method: Sleep
+    params:
+      duration: 30s
+
+- module:
+    path: ./modules/http-perf.yaml
+    params:
+      scenario: with-l7-policy
+      tuningSet: Default
+      namespaces: {{$namespaces}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      clientInstancesPerDeployment: {{$perfClientInstancesPerDeployment}}
+      runDuration: {{$perfClientRunDuration}}
+
+- name: Wait for metrics convergence
+  measurements:
+  - identifier: sleep
+    method: Sleep
+    params:
+      duration: 30s
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
+      perfClientRunDuration: {{$perfClientRunDuration}}

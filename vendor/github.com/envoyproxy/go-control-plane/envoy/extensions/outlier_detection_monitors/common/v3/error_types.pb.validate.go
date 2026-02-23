@@ -100,7 +100,7 @@ type HttpErrorsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpErrorsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -200,7 +200,7 @@ type LocalOriginErrorsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m LocalOriginErrorsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -302,7 +302,7 @@ type DatabaseErrorsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DatabaseErrorsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -503,7 +503,7 @@ type ErrorBucketsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ErrorBucketsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

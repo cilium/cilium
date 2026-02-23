@@ -16,9 +16,7 @@
 #define BACKEND_PORT		tcp_svc_two
 
 static volatile const __u8 *client_mac = mac_one;
-
-/* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *lb_mac = mac_host;
 
 #include "lib/bpf_host.h"
 
@@ -152,8 +150,8 @@ static __always_inline int validate_packet(const struct __ctx_buff *ctx,
 		assert(l4->source == CLIENT_PORT);
 		assert(l4->dest == dport);
 		assert(l4->syn == 1);
-		assert(l4->seq == 123456);
-		assert(l4->window == 65535);
+		assert(l4->seq == bpf_htonl(123456));
+		assert(l4->window == bpf_htons(65535));
 		assert(l4->doff == 5);
 
 		break;

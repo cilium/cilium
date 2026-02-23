@@ -62,6 +62,25 @@ The name of the function has no significance for the tests themselves. The funct
 used as indicators in the kernel (at least the first 15 chars), used to populate tail call maps,
 and should be unique for the purposes of compilation.
 
+.. warning::
+
+    **Map Persistence Across Tests**
+
+    BPF maps are not cleared between ``CHECK`` programs in the same file.
+    Any map updates made in Test A will be visible to Test B.
+
+    If Test A updates a map entry (e.g. adds a tunnel endpoint), Test B will see
+    that entry. This allows for multi-stage testing where one test builds upon
+    the state of a previous one. However, if test isolation is intended clean up
+    map state or use unique data.
+
+.. note::
+
+    When a single ``.c`` file contains multiple tests, they are
+    executed in alphabetical order of the test names (the second argument to the
+    ``CHECK`` macro). This is important to consider if the tests have
+    dependencies on each other or on a shared state.
+
 .. code-block:: c
 
     #include "common.h"

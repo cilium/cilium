@@ -13,10 +13,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -142,7 +142,7 @@ type CollectionOptions struct {
 
 	// Maps to be renamed during loading. Key is the key in CollectionSpec.Maps,
 	// value is the new name.
-	MapRenames map[string]string
+	MapRenames []map[string]string
 
 	// MapReplacements passes along the inner map to MapReplacements inside
 	// the embedded ebpf.CollectionOptions struct.
@@ -150,6 +150,10 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// ConfigDumpPath is the path to write a file to containing the constants used
+	// during loading, typically to be included in sysdumps.
+	ConfigDumpPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -193,7 +197,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	logger.Debug("Loading Collection into kernel",
 		logfields.MapRenames, opts.MapRenames,
-		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
+		logfields.Constants, printConstants(opts.Constants),
 	)
 
 	// Copy spec so the modifications below don't affect the input parameter,
@@ -221,9 +225,13 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
-	keep, err := removeUnusedMaps(spec, opts.Keep, reach)
-	if err != nil {
+	fixed := fixedResources(spec, opts.Keep)
+	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
+	}
+
+	if err := dumpConstants(spec, opts); err != nil {
+		return nil, nil, fmt.Errorf("writing constants: %w", err)
 	}
 
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
@@ -251,13 +259,9 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, err
 	}
 
-	if logger.Enabled(context.Background(), slog.LevelDebug) {
-		if err := verifyUnusedMaps(coll, keep); err != nil {
-			logger.Debug(fmt.Sprintf("verifying unused maps: %v", err))
-		} else {
-			logger.Debug("Verified no unused maps after loading Collection")
-		}
-	}
+	// In debug mode, check that no maps were freed by the kernel after loading
+	// the Collection.
+	logFreedMaps(logger, coll, fixed)
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
 	// before returning the Collection, since commit() still needs to work when
@@ -276,47 +280,48 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 }
 
 // renameMaps applies renames to coll.
-func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
-	for name, rename := range renames {
-		mapSpec := coll.Maps[name]
-		if mapSpec == nil {
-			return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
-		}
+func renameMaps(coll *ebpf.CollectionSpec, allRenames []map[string]string) error {
+	alreadyRenamed := make(sets.Set[string])
+	for _, renames := range allRenames {
+		for name, rename := range renames {
+			spec := coll.Maps[name]
+			if spec == nil {
+				return fmt.Errorf("unknown map %q: can't rename to %q", name, rename)
+			}
 
-		mapSpec.Name = rename
+			if alreadyRenamed.Has(name) {
+				return fmt.Errorf("map %q already renamed to %q (conflicts with: %q)", name, spec.Name, rename)
+			}
+
+			spec.Name = rename
+			alreadyRenamed.Insert(name)
+		}
 	}
 
 	return nil
 }
 
-// applyConstants sets the values of BPF C runtime configurables defined using
-// the DECLARE_CONFIG macro.
-func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
-	if obj == nil {
-		return nil
+// logFreedMaps checks that no maps were freed by the kernel after loading
+// the given Collection.
+//
+// Only runs in debug mode due to its runtime cost.
+func logFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[string]) {
+	if !logger.Enabled(context.TODO(), slog.LevelDebug) {
+		return
 	}
 
-	constants, err := config.StructToMap(obj)
+	freed, err := freedMaps(coll, fixed)
+	if errors.Is(err, ebpf.ErrRestrictedKernel) {
+		logger.Debug("Cannot detect freed maps due to restricted kernel")
+		return
+	}
 	if err != nil {
-		return fmt.Errorf("converting struct to map: %w", err)
+		logger.Debug("Error detecting freed maps", logfields.Error, err)
 	}
 
-	for name, value := range constants {
-		constName := config.ConstantPrefix + name
-
-		v, ok := spec.Variables[constName]
-		if !ok {
-			return fmt.Errorf("can't set non-existent Variable %s", name)
-		}
-
-		if v.MapName() != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
-		}
-
-		if err := v.Set(value); err != nil {
-			return fmt.Errorf("setting Variable %s: %w", name, err)
-		}
+	if len(freed) > 0 {
+		logger.Debug("Maps freed by the kernel after dead code elimination", logfields.Maps, freed)
 	}
 
-	return nil
+	logger.Debug("No freed maps found after loading Collection")
 }

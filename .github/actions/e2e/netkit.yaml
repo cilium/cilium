@@ -1,6 +1,5 @@
 - name: 'netkit-1'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -9,9 +8,10 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit datapath mode - Ingress covered in other files, can skip
+  test-l7: 'false'
 - name: 'netkit-2'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -20,9 +20,10 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 datapath mode - Ingress covered in other files, can skip
+  test-l7: 'false'
 - name: 'netkit-3'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -31,9 +32,10 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   kvstore: 'true'
+  # L7 testing: Netkit + VXLAN - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-4'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -41,9 +43,10 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 + VXLAN - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-5'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -51,9 +54,10 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit + Geneve - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-6'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2'
   kube-proxy: 'none'
   kpr: 'true'
@@ -61,9 +65,10 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 + Geneve - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-7'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
   kube-proxy: 'none'
   kpr: 'true'
@@ -73,9 +78,10 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   host-fw: 'true'
+  # L7 testing: Netkit + host firewall - proxy traffic must traverse host firewall
+  test-l7: 'true'
 - name: 'netkit-8'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -86,9 +92,10 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit + CiliumEndpointSlice - can skip
+  test-l7: 'false'
 - name: 'netkit-9'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20250929.013214'
+  kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
   kube-proxy: 'none'
   kpr: 'true'
@@ -99,4 +106,5 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
-
+  # L7 testing: Netkit-L2 + CiliumEndpointSlice - similar to netkit-8, can skip
+  test-l7: 'false'

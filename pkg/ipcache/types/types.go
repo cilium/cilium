@@ -34,6 +34,7 @@ var (
 	ResourceKindEndpoint  = ResourceKind("ep")
 	ResourceKindFile      = ResourceKind("file")
 	ResourceKindNetpol    = ResourceKind("netpol")
+	ResourceKindKCNP      = ResourceKind("kcnp")
 	ResourceKindNode      = ResourceKind("node")
 )
 

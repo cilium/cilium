@@ -6,6 +6,7 @@ package mcsapi
 import (
 	"context"
 	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -23,7 +24,9 @@ import (
 	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 )
 
@@ -266,6 +269,45 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					}},
 				},
 			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-port-union-1",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-port-union-1",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{
+						{Name: "myport1", Port: 4242},
+					},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-port-union-2",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-port-union-2",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{
+						{Name: "myport1", Port: 4242},
+						{Name: "myport2", Port: 4243},
+					},
+				},
+			},
 
 			&mcsapiv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
@@ -339,6 +381,88 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "conflict-labels",
 					Namespace: "default",
+				},
+			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-internal-traffic-policy",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-internal-traffic-policy",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					InternalTrafficPolicy: ptr.To(corev1.ServiceInternalTrafficPolicyLocal),
+				},
+			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-traffic-distribution",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-traffic-distribution",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					TrafficDistribution: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
+				},
+			},
+
+			// Non-global namespace fixtures
+			&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "non-global-ns",
+					Annotations: map[string]string{
+						annotation.GlobalNamespace: "false",
+					},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "non-global-svc",
+					Namespace:         "non-global-ns",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "non-global-svc",
+					Namespace: "non-global-ns",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 8080,
+					}},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "remote-in-non-global",
+					Namespace:         "non-global-ns",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "remote-in-non-global",
+					Namespace: "non-global-ns",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 9090,
+					}},
 				},
 			},
 		}
@@ -448,6 +572,29 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			},
 			{
 				Cluster:                 remoteClusterName,
+				Name:                    "conflict-port-union-1",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-port-union-2",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+				},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
+			},
+			{
+				Cluster:                 remoteClusterName,
 				Name:                    "conflict-session-affinity",
 				Namespace:               "default",
 				ExportCreationTimestamp: olderTime,
@@ -487,10 +634,36 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					"my-label":  "test",
 					"my-label2": "test",
 				},
-
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1alpha1.ServicePort{},
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-internal-traffic-policy",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-traffic-distribution",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "remote-in-non-global",
+				Namespace:               "non-global-ns",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{{
+					Port: 9090,
+				}},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 		}
 	)
@@ -513,6 +686,8 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		cluster:                    localClusterName,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		enableIPv4:                 true,
+		namespaceConfig:            cmnamespace.Config{GlobalNamespacesByDefault: true},
 	}
 
 	t.Run("Service import creation with local-only", func(t *testing.T) {
@@ -775,8 +950,9 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			"exported-label": "",
 		}))
 		require.True(t, maps.Equal(svcImport.Annotations, map[string]string{
-			mcsapicontrollers.DerivedServiceAnnotation: "",
-			"exported-annotation":                      "",
+			"clustermesh.cilium.io/supported-ip-families": "IPv4",
+			mcsapicontrollers.DerivedServiceAnnotation:    "",
+			"exported-annotation":                         "",
 		}))
 	})
 
@@ -835,6 +1011,61 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
 	})
 
+	t.Run("ServiceExport in non-global namespace", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "non-global-svc",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		_, err = getServiceImport(c, key)
+		require.True(t, k8sApiErrors.IsNotFound(err), "ServiceImport should not exist for non-global namespace with no remote exports")
+
+		svcExport, err := getServiceExport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcExport)
+
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionReady)))
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
+
+		validCondition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid))
+		require.NotNil(t, validCondition)
+		require.Equal(t, string(ServiceExportReasonNamespaceNotGlobal), validCondition.Reason)
+		require.Contains(t, validCondition.Message, "not global")
+	})
+
+	t.Run("ServiceImport in non-global namespace with remote exports", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "remote-in-non-global",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svcImport, err := getServiceImport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		readyCondition := meta.FindStatusCondition(svcImport.Status.Conditions, string(mcsapiv1alpha1.ServiceImportConditionReady))
+		require.NotNil(t, readyCondition)
+		require.Equal(t, metav1.ConditionFalse, readyCondition.Status)
+		require.Equal(t, string(ServiceImportReasonNamespaceNotGlobal), readyCondition.Reason)
+
+		svcExport, err := getServiceExport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcExport)
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
+	})
+
 	conflictTests := []struct {
 		name                 string
 		remoteSvcImportValid func(*mcsapiv1alpha1.ServiceImport) bool
@@ -884,6 +1115,38 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
 		},
 		{
+			name: "conflict-port-union-1",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
+		},
+		{
+			name: "conflict-port-union-2",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
+		},
+		{
 			name: "conflict-session-affinity",
 			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return svcImport.Spec.SessionAffinity == corev1.ServiceAffinityClientIP
@@ -907,12 +1170,14 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			name: "conflict-annotations",
 			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return maps.Equal(svcImport.Annotations, map[string]string{
+					"clustermesh.cilium.io/supported-ip-families":   "IPv4",
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 					"service.cilium.io/lb-l7":                       "true",
 				})
 			},
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return maps.Equal(svcImport.Annotations, map[string]string{
+					"clustermesh.cilium.io/supported-ip-families":   "IPv4",
 					"service.cilium.io/global-sync-endpoint-slices": "true",
 				})
 			},
@@ -932,6 +1197,26 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				})
 			},
 			assertReason: mcsapiv1alpha1.ServiceExportReasonLabelsConflict,
+		},
+		{
+			name: "conflict-internal-traffic-policy",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return svcImport.Spec.InternalTrafficPolicy == nil
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return ptr.Equal(svcImport.Spec.InternalTrafficPolicy, ptr.To(corev1.ServiceInternalTrafficPolicyLocal))
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonInternalTrafficPolicyConflict,
+		},
+		{
+			name: "conflict-traffic-distribution",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return svcImport.Spec.TrafficDistribution == nil
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return ptr.Equal(svcImport.Spec.TrafficDistribution, ptr.To(corev1.ServiceTrafficDistributionPreferClose))
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonTrafficDistributionConflict,
 		},
 	}
 
@@ -961,11 +1246,11 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
 
+			condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
+			require.NotNil(t, condition)
+			require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			if conflictTest.assertMsgInclude != "" {
-				condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
-				require.NotNil(t, condition)
 				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
-				require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			}
 		})
 	}
@@ -1000,12 +1285,97 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
 
+			condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
+			require.NotNil(t, condition)
+			require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			if conflictTest.assertMsgInclude != "" {
-				condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
-				require.NotNil(t, condition)
 				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
-				require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			}
+		})
+	}
+}
+
+func newMCSAPISpecIPFamily(ipfamilies []corev1.IPFamily) *mcsapitypes.MCSAPIServiceSpec {
+	return &mcsapitypes.MCSAPIServiceSpec{
+		Cluster:                 "c1",
+		Name:                    "svc",
+		Namespace:               "default",
+		ExportCreationTimestamp: metav1.NewTime(time.Now()),
+		IPFamilies:              ipfamilies,
+	}
+}
+
+func TestIntersectIPFamilies(t *testing.T) {
+	tests := []struct {
+		name           string
+		svcExports     []*mcsapitypes.MCSAPIServiceSpec
+		expectFamilies []corev1.IPFamily
+		expectReason   mcsapiv1alpha1.ServiceExportConditionReason
+	}{
+		{
+			name: "all dual-stack",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "all legacy",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily(nil),
+			},
+			expectFamilies: nil,
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "dual-stack then narrows to IPv4",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "keep oldest single stack IPv6",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily(nil),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+		},
+		{
+			name: "simple conflict",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol}, // intersection remains base families per new behavior
+			expectReason:   mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+		},
+		{
+			name: "dual-stack then narrow to IPv4 and conflict with IPv6",
+			svcExports: []*mcsapitypes.MCSAPIServiceSpec{
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv4Protocol}),
+				newMCSAPISpecIPFamily([]corev1.IPFamily{corev1.IPv6Protocol}),
+			},
+			expectFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			expectReason:   mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			families, reason, _ := intersectIPFamilies(tc.svcExports)
+			require.Equal(t, tc.expectFamilies, families)
+			require.Equal(t, tc.expectReason, reason, tc.name)
 		})
 	}
 }

@@ -2,6 +2,9 @@
 
 hive/start
 
+# Create the namespace first (required for namespace manager)
+k8s/add namespace.yaml
+
 # 1. Add a service before endpoint slice
 k8s/add service.yaml
 
@@ -108,6 +111,12 @@ kvstore/list -o json cilium/state/services services.actual
 
 # ----
 
+-- namespace.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+
 -- service.yaml --
 apiVersion: v1
 kind: Service
@@ -151,6 +160,13 @@ endpoints:
   hints:
     forZones:
     - name: zone1
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: nodeport-worker
 ports:
 - name: http
   port: 8080

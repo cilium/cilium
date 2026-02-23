@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
-	"github.com/cilium/cilium/pkg/bgpv1/api"
+	"github.com/cilium/cilium/pkg/bgp/api"
 )
 
 const (
@@ -49,7 +49,7 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 			return err
 		}
 		// print the errors, but continue with printing results
-		fmt.Fprintf(os.Stderr, "Errors by retrieving routes: %v\n\n", err)
+		fmt.Fprintf(os.Stderr, "Errors retrieving peering state: %v\n\n", err)
 	}
 
 	return s.writeStatus(res)

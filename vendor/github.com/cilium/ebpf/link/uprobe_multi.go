@@ -8,8 +8,7 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
-	"github.com/cilium/ebpf/internal"
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -108,7 +107,7 @@ func (ex *Executable) uprobeMulti(symbols []string, prog *ebpf.Program, opts *Up
 	}
 
 	if err != nil {
-		if haveFeatErr := haveBPFLinkUprobeMulti(); haveFeatErr != nil {
+		if haveFeatErr := features.HaveBPFLinkUprobeMulti(); haveFeatErr != nil {
 			return nil, haveFeatErr
 		}
 		return nil, err
@@ -176,45 +175,54 @@ func (kml *uprobeMultiLink) Update(_ *ebpf.Program) error {
 	return fmt.Errorf("update uprobe_multi: %w", ErrNotSupported)
 }
 
-var haveBPFLinkUprobeMulti = internal.NewFeatureTest("bpf_link_uprobe_multi", func() error {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-		Name: "probe_upm_link",
-		Type: ebpf.Kprobe,
-		Instructions: asm.Instructions{
-			asm.Mov.Imm(asm.R0, 0),
-			asm.Return(),
-		},
-		AttachType: ebpf.AttachTraceUprobeMulti,
-		License:    "MIT",
-	})
-	if errors.Is(err, unix.E2BIG) {
-		// Kernel doesn't support AttachType field.
-		return internal.ErrNotSupported
+func (kml *uprobeMultiLink) Info() (*Info, error) {
+	var info sys.UprobeMultiLinkInfo
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("uprobe multi link info: %s", err)
 	}
-	if err != nil {
-		return err
+	var (
+		path          = make([]byte, info.PathSize)
+		refCtrOffsets = make([]uint64, info.Count)
+		addrs         = make([]uint64, info.Count)
+		cookies       = make([]uint64, info.Count)
+	)
+	info = sys.UprobeMultiLinkInfo{
+		Path:          sys.SlicePointer(path),
+		PathSize:      uint32(len(path)),
+		Offsets:       sys.SlicePointer(addrs),
+		RefCtrOffsets: sys.SlicePointer(refCtrOffsets),
+		Cookies:       sys.SlicePointer(cookies),
+		Count:         uint32(len(addrs)),
 	}
-	defer prog.Close()
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("uprobe multi link info: %s", err)
+	}
+	if info.Path.IsNil() {
+		path = nil
+	}
+	if info.Cookies.IsNil() {
+		cookies = nil
+	}
+	if info.Offsets.IsNil() {
+		addrs = nil
+	}
+	if info.RefCtrOffsets.IsNil() {
+		refCtrOffsets = nil
+	}
+	extra := &UprobeMultiInfo{
+		Count:         info.Count,
+		Flags:         info.Flags,
+		pid:           info.Pid,
+		offsets:       addrs,
+		cookies:       cookies,
+		refCtrOffsets: refCtrOffsets,
+		File:          unix.ByteSliceToString(path),
+	}
 
-	// We try to create uprobe multi link on '/' path which results in
-	// error with -EBADF in case uprobe multi link is supported.
-	fd, err := sys.LinkCreateUprobeMulti(&sys.LinkCreateUprobeMultiAttr{
-		ProgFd:     uint32(prog.FD()),
-		AttachType: sys.BPF_TRACE_UPROBE_MULTI,
-		Path:       sys.NewStringPointer("/"),
-		Offsets:    sys.SlicePointer([]uint64{0}),
-		Count:      1,
-	})
-	switch {
-	case errors.Is(err, unix.EBADF):
-		return nil
-	case errors.Is(err, unix.EINVAL):
-		return internal.ErrNotSupported
-	case err != nil:
-		return err
-	}
-
-	// should not happen
-	fd.Close()
-	return errors.New("successfully attached uprobe_multi to /, kernel bug?")
-}, "6.6")
+	return &Info{
+		info.Type,
+		info.Id,
+		ebpf.ProgramID(info.ProgId),
+		extra,
+	}, nil
+}

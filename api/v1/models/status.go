@@ -45,7 +45,7 @@ func (m *Status) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var statusTypeStatePropEnum []interface{}
+var statusTypeStatePropEnum []any
 
 func init() {
 	var res []string

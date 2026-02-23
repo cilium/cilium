@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -100,8 +101,9 @@ func (pe *PolicyEntry) String() string {
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
 
-// PolicyKey represents a key in the BPF policy map for an endpoint. It must
-// match the layout of policy_key in bpf/lib/common.h.
+// PolicyKey represents a key in the BPF policy map for an endpoint.
+//
+// Must be in sync with struct policy_key in <bpf/lib/policy.h>
 type PolicyKey struct {
 	Prefixlen        uint32 `align:"lpm_key"`
 	Identity         uint32 `align:"sec_label"`
@@ -147,15 +149,15 @@ const (
 	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - uint32(FullPrefixBits)
 )
 
-// PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
-// match the layout of policy_entry in bpf/lib/common.h.
+// PolicyEntry represents an entry in the BPF policy map for an endpoint.
+//
+// Must be in sync with struct policy_entry in <bpf/lib/policy.h>
 type PolicyEntry struct {
-	ProxyPortNetwork  uint16                        `align:"proxy_port"` // In network byte-order
-	Flags             policyEntryFlags              `align:"deny"`
-	AuthRequirement   policyTypes.AuthRequirement   `align:"auth_type"`
-	ProxyPortPriority policyTypes.ProxyPortPriority `align:"proxy_port_priority"`
-	Pad1              uint8                         `align:"pad1"`
-	Pad2              uint16                        `align:"pad2"`
+	ProxyPortNetwork uint16                      `align:"proxy_port"` // In network byte-order
+	Flags            policyEntryFlags            `align:"deny"`
+	AuthRequirement  policyTypes.AuthRequirement `align:"auth_type"`
+	Precedence       policyTypes.Precedence      `align:"precedence"`
+	Cookie           uint32                      `align:"cookie"`
 }
 
 // GetProxyPort returns the ProxyPortNetwork in host byte order
@@ -305,17 +307,12 @@ func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) Policy
 		PrefixLen: uint8(key.Prefixlen - StaticPrefixBits),
 	})
 
-	if pe.IsDeny() {
-		return PolicyEntry{
-			Flags: pef,
-		}
-	} else {
-		return PolicyEntry{
-			ProxyPortNetwork:  byteorder.HostToNetwork16(pe.ProxyPort),
-			Flags:             pef,
-			AuthRequirement:   pe.AuthRequirement,
-			ProxyPortPriority: pe.ProxyPortPriority,
-		}
+	return PolicyEntry{
+		ProxyPortNetwork: byteorder.HostToNetwork16(pe.ProxyPort),
+		Flags:            pef,
+		AuthRequirement:  pe.AuthRequirement,
+		Precedence:       pe.Precedence,
+		Cookie:           pe.Cookie,
 	}
 }
 
@@ -396,14 +393,15 @@ func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 
 		// Convert from policymap.PolicyEntry to policyTypes.MapStateEntry.
 		policyVal := policyTypes.MapStateEntry{
-			ProxyPortPriority: val.ProxyPortPriority,
-			ProxyPort:         val.GetProxyPort(),
-			AuthRequirement:   val.AuthRequirement,
+			Precedence:      val.Precedence,
+			ProxyPort:       val.GetProxyPort(),
+			AuthRequirement: val.AuthRequirement,
+			Cookie:          val.Cookie,
 		}.WithDeny(val.IsDeny())
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry
 		if !val.IsValid(key) {
-			policyVal.Invalid = true
+			policyVal.Invalidate()
 		}
 		out[policyKey] = policyVal
 	}
@@ -431,6 +429,7 @@ func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMa
 	path := bpf.LocalMapPath(logger, MapName, id)
 	mapType := ebpf.LPMTrie
 	flags := bpf.GetMapMemoryFlags(mapType)
+	flags |= unix.BPF_F_RDONLY_PROG
 
 	return &PolicyMap{
 		Map: bpf.NewMap(

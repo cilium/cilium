@@ -11,6 +11,7 @@ cilium clustermesh connect [flags]
 ### Options
 
 ```
+      --allow-mismatching-ca           Allow connecting clusters with mismatching CA certificates by adding remote CAs to the CA bundle
       --connection-mode string         Connection mode: unicast, bidirectional or mesh (default "bidirectional")
       --destination-context strings    Comma separated list of Kubernetes configuration contexts of destination cluster
       --destination-endpoint strings   IP of ClusterMesh service of destination cluster
@@ -27,7 +28,7 @@ cilium clustermesh connect [flags]
       --context string             Kubernetes configuration context
       --helm-release-name string   Helm release name (default "cilium")
       --kubeconfig string          Path to the kubeconfig file
-  -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+  -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 ```
 
 ### SEE ALSO

@@ -19,7 +19,7 @@ const (
 // Note list of supported advertisements is not exhaustive and can be extended in the future.
 // Consumer of this API should be able to handle unknown values.
 //
-// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service
+// +kubebuilder:validation:Enum=PodCIDR;CiliumPodIPPool;Service;Interface
 type BGPAdvertisementType string
 
 const (
@@ -31,6 +31,9 @@ const (
 
 	// BGPServiceAdvert when configured, Cilium will advertise service related routes to BGP peers.
 	BGPServiceAdvert BGPAdvertisementType = "Service"
+
+	// BGPInterfaceAdvert when configured, Cilium will advertise IPs applied on the configured local interface.
+	BGPInterfaceAdvert BGPAdvertisementType = "Interface"
 )
 
 // BGPServiceAddressType defines type of service address to be advertised.
@@ -73,8 +76,10 @@ type CiliumBGPAdvertisement struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
+	// +kubebuilder:validation:Required
 	Spec CiliumBGPAdvertisementSpec `json:"spec"`
 }
 
@@ -102,6 +107,9 @@ type CiliumBGPAdvertisementSpec struct {
 // set to the advertised routes.
 //
 // +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Service' || has(self.service)", message="service field is required for the 'Service' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType == 'Service' || !has(self.service)", message="service field is not allowed for non-'Service' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType != 'Interface' || has(self.interface)", message="interface field is required for the 'Interface' advertisementType"
+// +kubebuilder:validation:XValidation:rule="self.advertisementType == 'Interface' || !has(self.interface)", message="interface field is not allowed for non-'Interface' advertisementType"
 // +kubebuilder:validation:XValidation:rule="self.advertisementType != 'PodCIDR' || !has(self.selector)", message="selector field is not allowed for the 'PodCIDR' advertisementType"
 type BGPAdvertisement struct {
 	// AdvertisementType defines type of advertisement which has to be advertised.
@@ -109,10 +117,15 @@ type BGPAdvertisement struct {
 	// +kubebuilder:validation:Required
 	AdvertisementType BGPAdvertisementType `json:"advertisementType"`
 
-	// Service defines configuration options for advertisementType service.
+	// Service defines configuration options for the "Service" advertisementType.
 	//
 	// +kubebuilder:validation:Optional
 	Service *BGPServiceOptions `json:"service,omitempty"`
+
+	// Interface defines configuration options for the "Interface" advertisementType.
+	//
+	// +kubebuilder:validation:Optional
+	Interface *BGPInterfaceOptions `json:"interface,omitempty"`
 
 	// Selector is a label selector to select objects of the type specified by AdvertisementType.
 	// For the PodCIDR AdvertisementType it is not applicable. For other advertisement types,
@@ -149,6 +162,15 @@ type BGPServiceOptions struct {
 	// +kubebuilder:validation:Maximum=127
 	// +kubebuilder:validation:Optional
 	AggregationLengthIPv6 *int16 `json:"aggregationLengthIPv6,omitempty"`
+}
+
+// BGPInterfaceOptions defines the configuration for the Interface advertisement type.
+type BGPInterfaceOptions struct {
+	// Name of local interface of whose IP addresses will be advertised via BGP.
+	// Each IP address applied on the interface is advertised as a /32 prefix (for IPv4) or a /128 prefix (for IPv6).
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
 }
 
 // BGPAttributes defines additional attributes to set to the advertised NLRIs.

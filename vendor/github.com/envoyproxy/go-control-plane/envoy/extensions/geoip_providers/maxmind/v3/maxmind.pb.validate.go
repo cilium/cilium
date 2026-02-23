@@ -102,6 +102,17 @@ func (m *MaxMindConfig) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if !_MaxMindConfig_CountryDbPath_Pattern.MatchString(m.GetCountryDbPath()) {
+		err := MaxMindConfigValidationError{
+			field:  "CountryDbPath",
+			reason: "value does not match regex pattern \"^$|^.*\\\\.mmdb$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if m.GetCommonProviderConfig() == nil {
 		err := MaxMindConfigValidationError{
 			field:  "CommonProviderConfig",
@@ -156,7 +167,7 @@ type MaxMindConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MaxMindConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -227,3 +238,5 @@ var _MaxMindConfig_AsnDbPath_Pattern = regexp.MustCompile("^$|^.*\\.mmdb$")
 var _MaxMindConfig_AnonDbPath_Pattern = regexp.MustCompile("^$|^.*\\.mmdb$")
 
 var _MaxMindConfig_IspDbPath_Pattern = regexp.MustCompile("^$|^.*\\.mmdb$")
+
+var _MaxMindConfig_CountryDbPath_Pattern = regexp.MustCompile("^$|^.*\\.mmdb$")

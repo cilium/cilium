@@ -25,16 +25,16 @@ type MetaDataInfo struct {
 	SubnetID         string
 }
 
-func NewClient() (*metadataClient, error) {
-	client, err := newClient()
+func NewClient(ctx context.Context) (*metadataClient, error) {
+	client, err := newClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &metadataClient{client: client}, nil
 }
 
-func newClient() (*imds.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+func newClient(ctx context.Context) (*imds.Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +42,8 @@ func newClient() (*imds.Client, error) {
 	return imds.NewFromConfig(cfg), nil
 }
 
-func getMetadata(client *imds.Client, path string) (string, error) {
-	res, err := client.GetMetadata(context.TODO(), &imds.GetMetadataInput{
+func getMetadata(ctx context.Context, client *imds.Client, path string) (string, error) {
+	res, err := client.GetMetadata(ctx, &imds.GetMetadataInput{
 		Path: path,
 	})
 	if err != nil {
@@ -60,35 +60,35 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func (m *metadataClient) GetInstanceMetadata() (MetaDataInfo, error) {
+func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo, error) {
 
-	instanceID, err := getMetadata(m.client, "instance-id")
+	instanceID, err := getMetadata(ctx, m.client, "instance-id")
 	if err != nil {
 		return MetaDataInfo{}, err
 	}
 
-	instanceType, err := getMetadata(m.client, "instance-type")
+	instanceType, err := getMetadata(ctx, m.client, "instance-type")
 	if err != nil {
 		return MetaDataInfo{}, err
 	}
 
-	eth0MAC, err := getMetadata(m.client, "mac")
+	eth0MAC, err := getMetadata(ctx, m.client, "mac")
 	if err != nil {
 		return MetaDataInfo{}, err
 	}
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
-	vpcID, err := getMetadata(m.client, vpcIDPath)
+	vpcID, err := getMetadata(ctx, m.client, vpcIDPath)
 	if err != nil {
 		return MetaDataInfo{}, err
 	}
 
 	subnetIDPath := fmt.Sprintf("network/interfaces/macs/%s/subnet-id", eth0MAC)
-	subnetID, err := getMetadata(m.client, subnetIDPath)
+	subnetID, err := getMetadata(ctx, m.client, subnetIDPath)
 	if err != nil {
 		return MetaDataInfo{}, err
 	}
 
-	availabilityZone, err := getMetadata(m.client, "placement/availability-zone")
+	availabilityZone, err := getMetadata(ctx, m.client, "placement/availability-zone")
 	if err != nil {
 		return MetaDataInfo{}, err
 	}

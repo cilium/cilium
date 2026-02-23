@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -25,8 +24,9 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -155,7 +155,7 @@ var (
 	//
 	// The Table[NodeAddress] contains the actual assigned addresses on the node,
 	// but not for example external Kubernetes node addresses that may be merely
-	// NATd to a private address. Those can be queried through [node.LocalNodeStore].
+	// NATd to a private address. Those can be queried through Table[*node.LocalNode].
 	NodeAddressCell = cell.Module(
 		"node-address",
 		"Table of node addresses derived from system network devices",
@@ -216,13 +216,12 @@ type nodeAddressControllerParams struct {
 	Routes          statedb.Table[*Route]
 	NodeAddresses   statedb.RWTable[NodeAddress]
 	AddressScopeMax AddressScopeMax
-	LocalNode       *node.LocalNodeStore
+	Nodes           statedb.Table[*node.LocalNode]
 }
 
 type nodeAddressController struct {
 	nodeAddressControllerParams
 
-	k8sIPv4, k8sIPv6  netip.Addr
 	fallbackAddresses fallbackAddresses
 }
 
@@ -241,88 +240,54 @@ func (n *nodeAddressController) register() {
 	n.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if node, err := n.LocalNode.Get(ctx); err == nil {
-					n.updateK8sNodeIPs(node)
-				}
-
 				// Perform an initial synchronous reconciliation to populate the table.
 				// This ensures that dependent cells see the initial state when they start.
 				// The watch channels returned here will be the initial channels for the run loop.
-				initialDevicesWatch, initialRoutesWatch := n.reconcile()
+				ws := n.reconcile()
 
 				// Start the background job for continuous reconciliation.
 				n.Jobs.Add(job.OneShot("node-address-update", func(ctx context.Context, reporter cell.Health) error {
-					return n.run(ctx, reporter, initialDevicesWatch, initialRoutesWatch)
+					return n.run(ctx, ws)
 				}))
 				return nil
 			},
 		})
 }
 
-func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated bool) {
-	if ip := node.GetNodeIP(true); ip != nil {
-		if newIP, ok := netip.AddrFromSlice(ip); ok {
-			if newIP != n.k8sIPv6 {
-				n.k8sIPv6 = newIP
-				updated = true
-			}
-		}
-	}
-	if ip := node.GetNodeIP(false); ip != nil {
-		if newIP, ok := netip.AddrFromSlice(ip); ok {
-			if newIP != n.k8sIPv4 {
-				n.k8sIPv4 = newIP
-				updated = true
-			}
-		}
-	}
-	return
-}
-
-func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health, initialDevicesWatch, initialRoutesWatch <-chan struct{}) error {
-	localNodeChanges := stream.ToChannel(ctx, stream.Debounce(n.LocalNode, nodeAddressControllerMinInterval))
-	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
-
-	// Use the initial watch channels provided from the OnStart hook.
-	devicesWatch := initialDevicesWatch
-	routesWatch := initialRoutesWatch
-
+func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet) error {
 	for {
-		// Rate-limit to batch multiple updates together.
-		if err := limiter.Wait(ctx); err != nil {
-			return err
-		}
-
-		// Wait for changes from any input source.
-		select {
-		case <-ctx.Done():
+		// Wait for changes
+		closedChannels, err := ws.Wait(ctx, nodeAddressControllerMinInterval)
+		if err != nil {
 			return nil
-		case <-devicesWatch:
-			// A device has changed.
-		case <-routesWatch:
-			// A route has changed.
-		case localNode, ok := <-localNodeChanges:
-			if !ok {
-				localNodeChanges = nil
-				continue
-			}
-			// Update Kubernetes node IPs. Reconciliation will happen after rate-limiting.
-			n.updateK8sNodeIPs(localNode)
 		}
-
-		// Perform the full reconciliation and get new watch channels for the next iteration.
-		devicesWatch, routesWatch = n.reconcile()
+		if len(closedChannels) > 0 {
+			// Perform the full reconciliation and get new watch set
+			ws = n.reconcile()
+		}
 	}
 }
 
 // reconcile performs a full reconciliation of the NodeAddress table. It computes
 // the desired state from the Devices table and updates the NodeAddress table
 // to match it. It returns the read transaction and new watch channels for Devices and Routes.
-func (n *nodeAddressController) reconcile() (<-chan struct{}, <-chan struct{}) {
+func (n *nodeAddressController) reconcile() *statedb.WatchSet {
+	ws := statedb.NewWatchSet()
+
 	rtxn := n.DB.ReadTxn()
+
+	var k8sIPv4, k8sIPv6 netip.Addr
+	if localNode, _, watch, found := n.Nodes.GetWatch(rtxn, node.LocalNodeQuery); found {
+		k8sIPv4, _ = netip.AddrFromSlice(addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, false))
+		k8sIPv6, _ = netip.AddrFromSlice(addressing.ExtractNodeIP[nodeTypes.Address](localNode.IPAddresses, true))
+		ws.Add(watch)
+	}
+
 	// Get iterators for the current state and new watch channels.
 	allDevices, devicesWatch := n.Devices.AllWatch(rtxn)
+	ws.Add(devicesWatch)
 	localRoutes, routesWatch := n.Routes.PrefixWatch(rtxn, RouteIDIndex.Query(RouteID{Table: RT_TABLE_LOCAL}))
+	ws.Add(routesWatch)
 
 	// A map to hold the desired state of node addresses, keyed by device name.
 	newAddrsByDevice := make(map[string][]NodeAddress)
@@ -331,7 +296,7 @@ func (n *nodeAddressController) reconcile() (<-chan struct{}, <-chan struct{}) {
 	// Get addresses from devices
 	n.fallbackAddresses.clear()
 	for dev := range allDevices {
-		deviceAddrs := n.getAddressesFromDevice(dev)
+		deviceAddrs := n.getAddressesFromDevice(dev, k8sIPv4, k8sIPv6)
 		if deviceAddrs == nil {
 			continue
 		}
@@ -427,7 +392,7 @@ func (n *nodeAddressController) reconcile() (<-chan struct{}, <-chan struct{}) {
 		n.update(wtxn, nil, n.Health, deletedDevName)
 	}
 	wtxn.Commit()
-	return devicesWatch, routesWatch
+	return ws
 }
 
 // updates the node addresses of a single device.
@@ -497,7 +462,7 @@ func (n *nodeAddressController) shouldUseDeviceForNodeAddress(dev *Device) bool 
 	return true
 }
 
-func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8sIPv6 netip.Addr) []NodeAddress {
 	if !n.shouldUseDeviceForNodeAddress(dev) {
 		return nil
 	}
@@ -527,10 +492,18 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		index := len(addrs)
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
 		if addr.Addr.Is4() {
-			if addr.Addr.Unmap() == n.k8sIPv4.Unmap() {
-				// Address matches the K8s Node IP. Force this to be picked.
-				ipv4PublicIndex = index
-				ipv4PrivateIndex = index
+			if addr.Addr.Unmap() == k8sIPv4.Unmap() {
+				// Address matches the K8s Node IP. Prioritize it within its
+				// category (public or private) for NodePort address selection.
+				// We don't force it to both categories, as that would break
+				// the "prefer public over private" logic for Primary address
+				// selection used by BPF masquerading.
+				// See: https://github.com/cilium/cilium/issues/41866
+				if isPublic {
+					ipv4PublicIndex = index
+				} else {
+					ipv4PrivateIndex = index
+				}
 			}
 			if ipv4PublicIndex < 0 && isPublic {
 				ipv4PublicIndex = index
@@ -541,10 +514,18 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		}
 
 		if addr.Addr.Is6() {
-			if addr.Addr == n.k8sIPv6 {
-				// Address matches the K8s Node IP. Force this to be picked.
-				ipv6PublicIndex = index
-				ipv6PrivateIndex = index
+			if addr.Addr == k8sIPv6 {
+				// Address matches the K8s Node IP. Prioritize it within its
+				// category (public or private) for NodePort address selection.
+				// We don't force it to both categories, as that would break
+				// the "prefer public over private" logic for Primary address
+				// selection used by BPF masquerading.
+				// See: https://github.com/cilium/cilium/issues/41866
+				if isPublic {
+					ipv6PublicIndex = index
+				} else {
+					ipv6PrivateIndex = index
+				}
 			}
 			if ipv6PublicIndex < 0 && isPublic {
 				ipv6PublicIndex = index

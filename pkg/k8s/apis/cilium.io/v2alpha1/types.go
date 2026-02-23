@@ -17,18 +17,24 @@ type IPv4orIPv6CIDR string
 type EgressRule struct {
 	// Selects Namespaces using cluster-scoped labels. This field follows standard label
 	// selector semantics; if present but empty, it selects all namespaces.
+	//
+	// +kubebuilder:validation:Optional
 	NamespaceSelector *slimv1.LabelSelector `json:"namespaceSelector,omitempty"`
 
 	// This is a label selector which selects Pods. This field follows standard label
 	// selector semantics; if present but empty, it selects all pods.
+	//
+	// +kubebuilder:validation:Optional
 	PodSelector *slimv1.LabelSelector `json:"podSelector,omitempty"`
 }
 
 // CoreCiliumEndpoint is slim version of status of CiliumEndpoint.
 type CoreCiliumEndpoint struct {
 	// Name indicate as CiliumEndpoint name.
+	// +kubebuilder:validation:Optional
 	Name string `json:"name,omitempty"`
 	// IdentityID is the numeric identity of the endpoint
+	// +kubebuilder:validation:Optional
 	IdentityID int64 `json:"id,omitempty"`
 	// Networking is the networking properties of the endpoint.
 
@@ -37,9 +43,11 @@ type CoreCiliumEndpoint struct {
 	// Encryption is the encryption configuration of the node
 
 	// +kubebuilder:validation:Optional
-	Encryption cilium_v2.EncryptionSpec `json:"encryption"`
-	NamedPorts models.NamedPorts        `json:"named-ports,omitempty"`
+	Encryption cilium_v2.EncryptionSpec `json:"encryption,omitempty"`
+	// +kubebuilder:validation:Optional
+	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
 	// ServiceAccount is the service account of the endpoint.
+	// +kubebuilder:validation:Optional
 	ServiceAccount string `json:"service-account,omitempty"`
 }
 
@@ -54,14 +62,19 @@ type CiliumEndpointSlice struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Namespace indicate as CiliumEndpointSlice namespace.
 	// All the CiliumEndpoints within the same namespace are put together
 	// in CiliumEndpointSlice.
+	//
+	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace,omitempty"`
 
 	// Endpoints is a list of coreCEPs packed in a CiliumEndpointSlice
+	//
+	// +kubebuilder:validation:Required
 	Endpoints []CoreCiliumEndpoint `json:"endpoints"`
 }
 

@@ -1,7 +1,5 @@
 #! --lb-test-fault-probability=0.0
 # Test the handling for the ingress service created by the operator.
-# The control-plane should ignore the dummy ingress endpoint (192.192.192.192:9999), but
-# still process the service.
 # An extended version of this test that include CiliumEnvoyConfig processing can be found
 # from pkg/ciliumenvoyconfig/testdata/ingress.yaml.
 # Based on https://docs.cilium.io/en/stable/network/servicemesh/http/
@@ -9,7 +7,7 @@
 hive/start
 
 # Add the service and endpoints
-k8s/add svc-ingress.yaml eps-ingress.yaml
+k8s/add svc-ingress.yaml
 
 # Validate
 db/cmp services services.table
@@ -74,38 +72,3 @@ spec:
   type: LoadBalancer
 status:
   loadBalancer: {}
-
--- eps-ingress.yaml --
-addressType: IPv4
-apiVersion: discovery.k8s.io/v1
-endpoints:
-- addresses:
-  - 192.192.192.192
-  conditions:
-    ready: true
-kind: EndpointSlice
-metadata:
-  creationTimestamp: "2025-03-25T10:13:20Z"
-  generateName: cilium-ingress-basic-ingress-
-  generation: 1
-  labels:
-    cilium.io/ingress: "true"
-    endpointslice.kubernetes.io/managed-by: endpointslicemirroring-controller.k8s.io
-    kubernetes.io/service-name: cilium-ingress-basic-ingress
-  name: cilium-ingress-basic-ingress-gjh2c
-  namespace: default
-  ownerReferences:
-  - apiVersion: v1
-    blockOwnerDeletion: true
-    controller: true
-    kind: Endpoints
-    name: cilium-ingress-basic-ingress
-    uid: 9465c03a-ea0e-42bf-bd8d-56aabc86fcc2
-  resourceVersion: "126851"
-  uid: d93afa57-70a6-4b66-8906-16e53df84b3f
-ports:
-- name: ""
-  port: 9999
-  protocol: TCP
-
-

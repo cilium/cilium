@@ -17,10 +17,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: "2025-07-01T14:19:43Z"
-      message: HTTPRoute is not allowed to attach to this Gateway due to namespace
-        selector restrictions
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: "2025-07-01T14:19:43Z"
       message: Service reference is valid

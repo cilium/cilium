@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -65,11 +66,15 @@ func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
 
 		if m.NodesAdded[i] != nil {
 			if err := m.NodesAdded[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("nodes-added" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("nodes-added" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -91,11 +96,15 @@ func (m *ClusterNodeStatus) validateNodesRemoved(formats strfmt.Registry) error 
 
 		if m.NodesRemoved[i] != nil {
 			if err := m.NodesRemoved[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -134,11 +143,15 @@ func (m *ClusterNodeStatus) contextValidateNodesAdded(ctx context.Context, forma
 			}
 
 			if err := m.NodesAdded[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("nodes-added" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("nodes-added" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -159,11 +172,15 @@ func (m *ClusterNodeStatus) contextValidateNodesRemoved(ctx context.Context, for
 			}
 
 			if err := m.NodesRemoved[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}

@@ -81,7 +81,7 @@ func NewGetIdentityIDBadRequest() *GetIdentityIDBadRequest {
 // WriteResponse to the client
 func (o *GetIdentityIDBadRequest) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -106,7 +106,7 @@ func NewGetIdentityIDNotFound() *GetIdentityIDNotFound {
 // WriteResponse to the client
 func (o *GetIdentityIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

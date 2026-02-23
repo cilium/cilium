@@ -145,6 +145,35 @@ func (m *HttpBufferedTrace) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetUpstreamConnection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "UpstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "UpstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamConnection()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTraceValidationError{
+				field:  "UpstreamConnection",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return HttpBufferedTraceMultiError(errors)
 	}
@@ -159,7 +188,7 @@ type HttpBufferedTraceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpBufferedTraceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -514,7 +543,7 @@ type HttpStreamedTraceSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpStreamedTraceSegmentMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -742,7 +771,7 @@ type HttpBufferedTrace_MessageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HttpBufferedTrace_MessageMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

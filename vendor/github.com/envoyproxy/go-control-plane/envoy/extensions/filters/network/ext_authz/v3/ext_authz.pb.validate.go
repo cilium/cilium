@@ -150,6 +150,8 @@ func (m *ExtAuthz) validate(all bool) error {
 
 	// no validation rules for IncludeTlsSession
 
+	// no validation rules for SendTlsAlertOnDenial
+
 	if len(errors) > 0 {
 		return ExtAuthzMultiError(errors)
 	}
@@ -163,7 +165,7 @@ type ExtAuthzMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtAuthzMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

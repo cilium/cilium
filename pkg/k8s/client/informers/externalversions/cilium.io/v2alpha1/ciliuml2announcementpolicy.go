@@ -43,7 +43,7 @@ func NewCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPer
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumL2AnnouncementPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumL2AnnouncementPolicyInformer(client versioned.Interface, r
 				}
 				return client.CiliumV2alpha1().CiliumL2AnnouncementPolicies().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2alpha1.CiliumL2AnnouncementPolicy{},
 		resyncPeriod,
 		indexers,

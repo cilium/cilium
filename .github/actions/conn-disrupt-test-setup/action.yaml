@@ -6,6 +6,10 @@ inputs:
     required: false
     default: "/usr/local/bin/cilium"
     description: 'Path to the Cilium CLI binary'
+  include-conn-disrupt-test-l7-traffic:
+    required: false
+    default: 'false'
+    description: 'Include L7 traffic disruption test setup (--include-conn-disrupt-test-l7-traffic)'
 
 runs:
   using: composite
@@ -13,6 +17,10 @@ runs:
     - name: Setup Conn Disrupt Test
       shell: bash
       run: |
+        if [[ "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
+          EXTRA_ARG="--include-conn-disrupt-test-l7-traffic"
+        fi
+
         # Create pods which establish long lived connections. It will be used by
         # subsequent connectivity tests with --include-conn-disrupt-test to catch any
         # interruption in such flows.
@@ -24,4 +32,5 @@ runs:
           --conn-disrupt-dispatch-interval 0ms \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
-          --expected-xfrm-errors "+inbound_no_state"
+          --expected-xfrm-errors "+inbound_no_state" \
+          ${EXTRA_ARG}

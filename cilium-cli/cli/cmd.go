@@ -15,15 +15,20 @@ import (
 	"github.com/cilium/cilium/pkg/cmdref"
 )
 
-var (
-	contextName       string
-	namespace         string
-	impersonateAs     string
-	impersonateGroups []string
-	helmReleaseName   string
-	kubeConfig        string
+const ciliumNamespaceEnvVar = "CILIUM_NAMESPACE"
 
-	k8sClient *k8s.Client
+type RootParameters struct {
+	ContextName       string
+	Namespace         string
+	ImpersonateAs     string
+	ImpersonateGroups []string
+	HelmReleaseName   string
+	KubeConfig        string
+}
+
+var (
+	RootParams    RootParameters
+	RootK8sClient *k8s.Client
 )
 
 // NewDefaultCiliumCommand returns a new "cilium" cli cobra command without any additional hooks.
@@ -48,14 +53,20 @@ func NewCiliumCommand(hooks api.Hooks) *cobra.Command {
 				}
 			}
 
-			c, err := k8s.NewClient(contextName, kubeConfig, namespace, impersonateAs, impersonateGroups)
+			var err error
+			RootK8sClient, err = k8s.NewClient(
+				RootParams.ContextName,
+				RootParams.KubeConfig,
+				RootParams.Namespace,
+				RootParams.ImpersonateAs,
+				RootParams.ImpersonateGroups,
+			)
 			if err != nil {
 				return fmt.Errorf("unable to create Kubernetes client: %w", err)
 			}
 
-			k8sClient = c
-			ctx := api.SetNamespaceContextValue(context.Background(), namespace)
-			ctx = api.SetK8sClientContextValue(ctx, k8sClient)
+			ctx := api.SetNamespaceContextValue(context.Background(), RootParams.Namespace)
+			ctx = api.SetK8sClientContextValue(ctx, RootK8sClient)
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -90,12 +101,17 @@ Perform a connectivity test
 		SilenceUsage:  true, // avoid showing help when usage is correct but an error occurred
 	}
 
-	cmd.PersistentFlags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
-	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
-	cmd.PersistentFlags().StringVar(&impersonateAs, "as", "", "Username to impersonate for the operation. User could be a regular user or a service account in a namespace.")
-	cmd.PersistentFlags().StringArrayVar(&impersonateGroups, "as-group", []string{}, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
-	cmd.PersistentFlags().StringVar(&helmReleaseName, "helm-release-name", "cilium", "Helm release name")
-	cmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
+	cmd.PersistentFlags().StringVar(&RootParams.ContextName, "context", "", "Kubernetes configuration context")
+
+	defaultNamespace := "kube-system"
+	if envNamespace := os.Getenv(ciliumNamespaceEnvVar); envNamespace != "" {
+		defaultNamespace = envNamespace
+	}
+	cmd.PersistentFlags().StringVarP(&RootParams.Namespace, "namespace", "n", defaultNamespace, "Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var")
+	cmd.PersistentFlags().StringVar(&RootParams.ImpersonateAs, "as", "", "Username to impersonate for the operation. User could be a regular user or a service account in a namespace.")
+	cmd.PersistentFlags().StringArrayVar(&RootParams.ImpersonateGroups, "as-group", []string{}, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
+	cmd.PersistentFlags().StringVar(&RootParams.HelmReleaseName, "helm-release-name", "cilium", "Helm release name")
+	cmd.PersistentFlags().StringVar(&RootParams.KubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
 
 	cmd.AddCommand(
 		newCmdBgp(),

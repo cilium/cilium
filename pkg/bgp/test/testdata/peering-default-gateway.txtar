@@ -1,0 +1,195 @@
+#! --test-peering-ips=10.99.0.135,10.99.0.136,fd00::aa:bb:cc:135,fd00::aa:bb:cc:136
+
+# Tests IPv4 & IPv6 peering using DefaultGateway auto-discovery method.
+
+# Start the hive
+hive start
+
+# Configure v4 GoBGP server
+gobgp/add-server v4 65010 10.99.0.135 1790
+gobgp/add-peer -s v4 10.99.0.136 65001
+
+# Configure v6 GoBGP server
+gobgp/add-server v6 --router-id=1.2.3.4 65011 fd00::aa:bb:cc:135 1790
+gobgp/add-peer -s v6 fd00::aa:bb:cc:136 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-advertisement.yaml
+k8s/add bgp-node-config.yaml bgp-peer-config.yaml
+
+# Add a LoadBalancer service
+k8s/add service-lb.yaml
+
+# Validate that there are no BGP peers configured yet
+bgp/peers -o peers.actual --no-uptime
+* cmp bgp-peers-empty.expected peers.actual
+
+# Add device and routes entries into statedb
+db/insert devices devices.yaml
+db/insert routes routes.yaml
+
+# Wait for v4 peering to be established
+gobgp/wait-state -s v4 10.99.0.136 ESTABLISHED
+
+# Wait for v6 peering to be established
+gobgp/wait-state -s v6 fd00::aa:bb:cc:136 ESTABLISHED
+
+# Validate discovered BGP peers
+bgp/peers -o peers.actual --no-uptime
+* cmp bgp-peers-discovered.expected peers.actual
+
+# Validate routes on v4 server
+gobgp/routes -s v4 -o routes.actual
+* cmp gobgp-routes-v4.expected routes.actual
+
+# Validate routes on v6 server
+gobgp/routes -s v6 -o routes.actual
+* cmp gobgp-routes-v6.expected routes.actual
+
+#####
+
+-- devices.yaml --
+index: 1
+name: test1
+type: veth
+selected: true
+operstatus: up
+---
+index: 2
+name: test2
+type: veth
+selected: true
+operstatus: up
+
+-- routes.yaml --
+linkindex: 1
+dst: 0.0.0.0/0
+gw: 10.99.0.135
+---
+linkindex: 2
+dst: ::/0
+gw: fd00::aa:bb:cc:135
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.0.136
+    type: InternalIP
+  - ip: fd00::aa:bb:cc:136
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    routerID: 5.6.7.8
+    peers:
+    - name: gw-peer-v4
+      peerASN: 65010
+      localAddress: 10.99.0.136
+      autoDiscovery:
+        mode: DefaultGateway
+        defaultGateway:
+          addressFamily: ipv4
+      peerConfigRef:
+        name: gw-peer-config
+    - name: gw-peer-v6
+      peerASN: 65011
+      localAddress: fd00::aa:bb:cc:136
+      autoDiscovery:
+        mode: DefaultGateway
+        defaultGateway:
+          addressFamily: ipv6
+      peerConfigRef:
+        name: gw-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gw-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: NotIn, values: [ nonExistingValue ] }
+
+-- service-lb.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- bgp-peers-empty.expected --
+Instance   Peer   Session State   Uptime   Family   Received   Accepted   Advertised
+-- bgp-peers-discovered.expected --
+Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+tor        gw-peer-v4   established     -        ipv4-unicast   0          0          2
+           gw-peer-v6   established     -        ipv4-unicast   0          0          2
+-- gobgp-routes-v4.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.0.136   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.136}]
+172.16.1.1/32   10.99.0.136   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.0.136}]
+-- gobgp-routes-v6.expected --
+Prefix          NextHop              Attrs
+10.244.0.0/24   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [10.244.0.0/24]}}]
+172.16.1.1/32   fd00::aa:bb:cc:136   [{Origin: i} {AsPath: 65001} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:cc:136, NLRIs: [172.16.1.1/32]}}]

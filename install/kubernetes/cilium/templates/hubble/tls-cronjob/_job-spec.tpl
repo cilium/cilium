@@ -23,7 +23,7 @@ spec:
             allowPrivilegeEscalation: false
           {{- with .Values.certgen.resources }}
           resources:
-          {{- toYaml . | nindent 10 }}
+          {{- toYaml . | nindent 12 }}
           {{- end }}
           command:
             - "/usr/bin/cilium-certgen"
@@ -152,5 +152,7 @@ spec:
       affinity:
       {{- toYaml . | nindent 8 }}
       {{- end }}
-  ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
+  {{- with .Values.certgen.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ . }}
+  {{- end }}
 {{- end }}

@@ -72,7 +72,7 @@ type DestinationIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DestinationIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -174,7 +174,7 @@ type DestinationPortInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DestinationPortInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -276,7 +276,7 @@ type SourceIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourceIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -376,7 +376,7 @@ type SourcePortInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourcePortInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -476,7 +476,7 @@ type DirectSourceIPInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DirectSourceIPInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -578,7 +578,7 @@ type SourceTypeInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SourceTypeInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -678,7 +678,7 @@ type ServerNameInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ServerNameInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -778,7 +778,7 @@ type TransportProtocolInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TransportProtocolInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -880,7 +880,7 @@ type ApplicationProtocolInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ApplicationProtocolInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -993,7 +993,7 @@ type FilterStateInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterStateInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1149,7 +1149,7 @@ type DynamicMetadataInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicMetadataInputMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1214,6 +1214,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = DynamicMetadataInputValidationError{}
+
+// Validate checks the field values on NetworkNamespaceInput with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *NetworkNamespaceInput) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on NetworkNamespaceInput with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// NetworkNamespaceInputMultiError, or nil if none found.
+func (m *NetworkNamespaceInput) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *NetworkNamespaceInput) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return NetworkNamespaceInputMultiError(errors)
+	}
+
+	return nil
+}
+
+// NetworkNamespaceInputMultiError is an error wrapping multiple validation
+// errors returned by NetworkNamespaceInput.ValidateAll() if the designated
+// constraints aren't met.
+type NetworkNamespaceInputMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m NetworkNamespaceInputMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m NetworkNamespaceInputMultiError) AllErrors() []error { return m }
+
+// NetworkNamespaceInputValidationError is the validation error returned by
+// NetworkNamespaceInput.Validate if the designated constraints aren't met.
+type NetworkNamespaceInputValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e NetworkNamespaceInputValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e NetworkNamespaceInputValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e NetworkNamespaceInputValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e NetworkNamespaceInputValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e NetworkNamespaceInputValidationError) ErrorName() string {
+	return "NetworkNamespaceInputValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e NetworkNamespaceInputValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sNetworkNamespaceInput.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = NetworkNamespaceInputValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = NetworkNamespaceInputValidationError{}
 
 // Validate checks the field values on DynamicMetadataInput_PathSegment with
 // the rules defined in the proto definition for this message. If any rules
@@ -1293,7 +1395,7 @@ type DynamicMetadataInput_PathSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DynamicMetadataInput_PathSegmentMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

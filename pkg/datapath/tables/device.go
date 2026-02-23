@@ -158,10 +158,6 @@ type DeviceAddress struct {
 	Scope     RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
 }
 
-func (d *DeviceAddress) AsIP() net.IP {
-	return d.Addr.AsSlice()
-}
-
 func (d *DeviceAddress) String() string {
 	return fmt.Sprintf("%s (secondary=%v, scope=%d)", d.Addr, d.Secondary, d.Scope)
 }

@@ -19,6 +19,29 @@ func BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 }
 
 func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
+	// ifindex 0 means no filtering (return all devices)
+	return h.bridgeVlanTunnelShowBy(0)
+}
+
+// BridgeVlanTunnelShowDev gets vlanid-tunnelid mapping for a specific device.
+// Equivalent to: `bridge vlan tunnelshow dev DEV`
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
+	return pkgHandle.BridgeVlanTunnelShowDev(link)
+}
+
+func (h *Handle) BridgeVlanTunnelShowDev(link Link) ([]nl.TunnelInfo, error) {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	return h.bridgeVlanTunnelShowBy(int32(base.Index))
+}
+
+// bridgeVlanTunnelShowBy performs a bridge VLAN tunnel dump and optionally
+// filters by device ifindex.
+// When ifindex is 0, all devices are returned.
+func (h *Handle) bridgeVlanTunnelShowBy(ifindex int32) ([]nl.TunnelInfo, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_DUMP)
 	msg := nl.NewIfInfomsg(unix.AF_BRIDGE)
 	req.AddData(msg)
@@ -31,6 +54,10 @@ func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 	ret := make([]nl.TunnelInfo, 0)
 	for _, m := range msgs {
 		msg := nl.DeserializeIfInfomsg(m)
+
+		if ifindex != 0 && msg.Index != ifindex {
+			continue
+		}
 
 		attrs, err := nl.ParseRouteAttr(m[msg.Len():])
 		if err != nil {
@@ -53,6 +80,11 @@ func (h *Handle) BridgeVlanTunnelShow() ([]nl.TunnelInfo, error) {
 					}
 				}
 			}
+		}
+		// Each device has exactly one message in the dump;
+		// return early once we've processed the target device.
+		if ifindex != 0 {
+			return ret, executeErr
 		}
 	}
 	return ret, executeErr
@@ -296,4 +328,117 @@ func (h *Handle) bridgeVlanModify(cmd int, link Link, vid, vidEnd uint16, tunid,
 	req.AddData(br)
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	return err
+}
+
+// BridgeVniAdd adds a new vni filter entry
+// Equivalent to: `bridge vni add dev DEV vni VNI`
+func BridgeVniAdd(link Link, vni uint32) error {
+	return pkgHandle.BridgeVniAdd(link, vni)
+}
+
+// BridgeVniAdd adds a new vni filter entry
+// Equivalent to: `bridge vni add dev DEV vni VNI`
+func (h *Handle) BridgeVniAdd(link Link, vni uint32) error {
+	return h.bridgeVniModify(unix.RTM_NEWTUNNEL, link, vni, 0)
+}
+
+// BridgeVniAddRange adds a new vni filter entry
+// Equivalent to: `bridge vni add dev DEV vni VNI-VNIEND`
+func BridgeVniAddRange(link Link, vniStart, vniEnd uint32) error {
+	return pkgHandle.BridgeVniAddRange(link, vniStart, vniEnd)
+}
+
+// BridgeVniAddRange adds a new vni filter entry
+// Equivalent to: `bridge vni add dev DEV vni VNI-VNIEND`
+func (h *Handle) BridgeVniAddRange(link Link, vniStart, vniEnd uint32) error {
+	return h.bridgeVniModify(unix.RTM_NEWTUNNEL, link, vniStart, vniEnd)
+}
+
+// BridgeVniDel deletes a vni filter entry
+// Equivalent to: `bridge vni del dev DEV vni VNI`
+func BridgeVniDel(link Link, vni uint32) error {
+	return pkgHandle.BridgeVniDel(link, vni)
+}
+
+// BridgeVniDel deletes a vni filter entry
+// Equivalent to: `bridge vni del dev DEV vni VNI`
+func (h *Handle) BridgeVniDel(link Link, vni uint32) error {
+	return h.bridgeVniModify(unix.RTM_DELTUNNEL, link, vni, 0)
+}
+
+// BridgeVniDelRange deletes a vni filter entry
+// Equivalent to: `bridge vni del dev DEV vni VNI-VNIEND`
+func BridgeVniDelRange(link Link, vniStart, vniEnd uint32) error {
+	return pkgHandle.BridgeVniDelRange(link, vniStart, vniEnd)
+}
+
+// BridgeVniDelRange deletes a vni filter entry
+// Equivalent to: `bridge vni del dev DEV vni VNI-VNIEND`
+func (h *Handle) BridgeVniDelRange(link Link, vniStart, vniEnd uint32) error {
+	return h.bridgeVniModify(unix.RTM_DELTUNNEL, link, vniStart, vniEnd)
+}
+
+func (h *Handle) bridgeVniModify(cmd int, link Link, vniStart, vniEnd uint32) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(cmd, unix.NLM_F_ACK)
+
+	msg := nl.NewTunnelMsg(unix.AF_BRIDGE, base.Index)
+	req.AddData(msg)
+
+	entry := nl.NewRtAttr(unix.NLA_F_NESTED|nl.VXLAN_VNIFILTER_ENTRY, nil)
+	entry.AddRtAttr(nl.VXLAN_VNIFILTER_ENTRY_START, nl.Uint32Attr(vniStart))
+	if vniEnd != 0 {
+		entry.AddRtAttr(nl.VXLAN_VNIFILTER_ENTRY_END, nl.Uint32Attr(vniEnd))
+	}
+	req.AddData(entry)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
+// BridgeVniList gets a map of device id to vni filter infos.
+// Equivalent to: `bridge vni show`
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func BridgeVniList() (map[int32][]*nl.BridgeVniInfo, error) {
+	return pkgHandle.BridgeVniList()
+}
+
+// BridgeVniList gets a map of device id to vni filter infos.
+// Equivalent to: `bridge vni show`
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
+func (h *Handle) BridgeVniList() (map[int32][]*nl.BridgeVniInfo, error) {
+	req := h.newNetlinkRequest(unix.RTM_GETTUNNEL, unix.NLM_F_DUMP)
+	msg := nl.NewTunnelMsg(unix.AF_BRIDGE, 0)
+	req.AddData(msg)
+
+	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWTUNNEL)
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
+		return nil, executeErr
+	}
+
+	ret := make(map[int32][]*nl.BridgeVniInfo)
+	for _, m := range msgs {
+		tunnelMsg := nl.DeserializeTunnelMsg(m)
+		ifindex := int32(tunnelMsg.Ifindex)
+
+		attrs, err := nl.ParseRouteAttr(m[nl.SizeofTunnelMsg:])
+		if err != nil {
+			return nil, err
+		}
+		for _, attr := range attrs {
+			if attr.Attr.Type&nl.NLA_TYPE_MASK == nl.VXLAN_VNIFILTER_ENTRY {
+				vniInfo, err := nl.DeserializeBridgeVniInfo(attr.Value)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse vni info: %v", err)
+				}
+				ret[ifindex] = append(ret[ifindex], vniInfo)
+			}
+		}
+	}
+	return ret, executeErr
 }

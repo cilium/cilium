@@ -25,6 +25,7 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithCondition(func() bool {
 			return !versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
 		}).
+		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
 			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
 		)
@@ -46,6 +47,7 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.EncryptionPod),
+			features.RequireDisabled(features.Ztunnel),
 		).
 		WithCiliumPolicy(clientsEgressL7HTTPFromAnyPolicyYAML).
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).

@@ -118,5 +118,25 @@ func (f *FakeListerWatcher) List(options v1.ListOptions) (runtime.Object, error)
 
 // Watch implements cache.ListerWatcher.
 func (f *FakeListerWatcher) Watch(options v1.ListOptions) (watch.Interface, error) {
+	// Support WatchList semantics: if SendInitialEvents is true, send Added events
+	// for all initial objects, followed by a Bookmark event.
+	if options.SendInitialEvents != nil && *options.SendInitialEvents {
+		go func() {
+			// Send Added events for all initial objects
+			for _, obj := range f.initialObjects {
+				f.watcher.Add(obj)
+				f.added.Insert(getNamespacedName(obj))
+			}
+			// Send a Bookmark event to signal the end of initial events
+			f.watcher.Action(watch.Bookmark, &v1.PartialObjectMetadata{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "0",
+					Annotations: map[string]string{
+						v1.InitialEventsAnnotationKey: "true",
+					},
+				},
+			})
+		}()
+	}
 	return f.watcher, nil
 }

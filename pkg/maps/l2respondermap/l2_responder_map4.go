@@ -6,7 +6,6 @@ package l2respondermap
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"unsafe"
 
@@ -114,14 +113,14 @@ func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 
 // L2ResponderKey implements the bpf.MapKey interface.
 //
-// Must be in sync with struct l2_responder_v4_key in bpf/...
+// Must be in sync with struct l2_responder_v4_key in <bpf/lib/l2_responder.h>
 type L2ResponderKey struct {
 	IP      types.IPv4 `align:"ip4"`
 	IfIndex uint32     `align:"ifindex"`
 }
 
 func (k *L2ResponderKey) String() string {
-	return fmt.Sprintf("ip=%s, ifIndex=%d", net.IP(k.IP[:]), k.IfIndex)
+	return fmt.Sprintf("ip=%s, ifIndex=%d", k.IP, k.IfIndex)
 }
 
 func newL2ResponderKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {

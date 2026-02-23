@@ -147,24 +147,6 @@ func MustParseAddrCluster(s string) AddrCluster {
 	return addrCluster
 }
 
-// AddrClusterFromIP parses the given net.IP using netipx.FromStdIP and returns
-// AddrCluster with ClusterID = 0.
-func AddrClusterFromIP(ip net.IP) (AddrCluster, bool) {
-	addr, ok := netipx.FromStdIP(ip)
-	if !ok {
-		return AddrCluster{}, false
-	}
-	return AddrCluster{addr: addr, clusterID: 0}, true
-}
-
-func MustAddrClusterFromIP(ip net.IP) AddrCluster {
-	addr, ok := AddrClusterFromIP(ip)
-	if !ok {
-		panic("cannot convert net.IP to AddrCluster")
-	}
-	return addr
-}
-
 // AddrClusterFrom creates AddrCluster from netip.Addr and ClusterID
 func AddrClusterFrom(addr netip.Addr, clusterID uint32) AddrCluster {
 	return AddrCluster{addr: addr, clusterID: clusterID}

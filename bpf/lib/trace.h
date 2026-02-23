@@ -37,11 +37,11 @@ enum trace_reason {
 	TRACE_REASON_CT_ESTABLISHED = CT_ESTABLISHED,
 	TRACE_REASON_CT_REPLY = CT_REPLY,
 	TRACE_REASON_CT_RELATED = CT_RELATED,
-	TRACE_REASON_RESERVED,
+	TRACE_REASON_RESERVED,      /* Previous TRACE_REASON_CT_REOPENED. */
 	TRACE_REASON_UNKNOWN,
 	TRACE_REASON_SRV6_ENCAP,
 	TRACE_REASON_SRV6_DECAP,
-	TRACE_REASON_ENCRYPT_OVERLAY,
+	TRACE_REASON_RESERVED_2,    /* Previous TRACE_REASON_ENCRYPT_OVERLAY. */
 	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
 	 * new values below it, they would match with that mask.
 	 */
@@ -60,6 +60,11 @@ enum {
 
 #ifndef MONITOR_AGGREGATION
 #define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
+#endif
+
+#ifndef TRACE_EXTENSION
+#define TRACE_EXTENSION
+#define trace_extension_hook(ctx, msg) do {} while (0)
 #endif
 
 /**
@@ -167,6 +172,7 @@ struct trace_notify {
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
+	TRACE_EXTENSION
 };
 
 #ifdef TRACE_NOTIFY
@@ -247,10 +253,11 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.reason		= reason,
 		.flags		= flags,
 		.ifindex	= ifindex,
-		.ip_trace_id = ip_trace_id,
+		.ip_trace_id	= ip_trace_id,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -299,9 +306,10 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.flags		= flags,
 		.orig_ip4	= orig_addr,
-		.ip_trace_id = ip_trace_id,
+		.ip_trace_id	= ip_trace_id,
 	};
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -349,11 +357,12 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.reason		= reason,
 		.ifindex	= ifindex,
 		.flags		= flags,
-		.ip_trace_id = ip_trace_id,
+		.ip_trace_id	= ip_trace_id,
 	};
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));

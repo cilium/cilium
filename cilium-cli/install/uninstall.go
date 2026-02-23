@@ -11,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -120,9 +121,14 @@ func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, actionConfig *ac
 	// First, delete test namespace and wait for it to terminate (if Wait is set)
 	k.DeleteTestNamespace(ctx)
 	helmClient := action.NewUninstall(actionConfig)
-	helmClient.Wait = k.params.Wait
 	if k.params.Wait {
+		helmClient.WaitStrategy = kube.StatusWatcherStrategy
 		helmClient.DeletionPropagation = "foreground"
+	} else {
+		// Helm v4 always requires a WaitStrategy. HookOnlyStrategy waits only
+		// for hooks to complete without waiting for chart resources to be ready,
+		// which preserves the old Wait:false behavior.
+		helmClient.WaitStrategy = kube.HookOnlyStrategy
 	}
 	helmClient.Timeout = k.params.Timeout
 	if _, err := helmClient.Run(k.params.HelmReleaseName); err != nil {

@@ -168,8 +168,6 @@ func (i *IngressRule) sanitize(hostPolicy bool) error {
 		}
 	}
 
-	i.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -197,8 +195,6 @@ func (i *IngressDenyRule) sanitize() error {
 			return err
 		}
 	}
-
-	i.SetAggregatedSelectors()
 
 	return nil
 }
@@ -229,12 +225,6 @@ func (i *IngressCommonRule) sanitize() error {
 
 	for n := range i.FromEndpoints {
 		if err := i.FromEndpoints[n].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for n := range i.FromRequires {
-		if err := i.FromRequires[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -361,8 +351,6 @@ func (e *EgressRule) sanitize(hostPolicy bool) error {
 		}
 	}
 
-	e.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -412,8 +400,6 @@ func (e *EgressDenyRule) sanitize() error {
 		}
 	}
 
-	e.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -442,12 +428,6 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 
 	for i := range e.ToEndpoints {
 		if err := e.ToEndpoints[i].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for i := range e.ToRequires {
-		if err := e.ToRequires[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -718,11 +698,11 @@ func (c *CIDRRule) sanitize() error {
 	if len(c.Cidr) > 0 {
 		cnt++
 	}
-	if c.CIDRGroupSelector != nil {
+	if c.CIDRGroupSelector.LabelSelector != nil {
 		cnt++
-		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
-		if err := es.Sanitize(); err != nil {
-			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
+		c.CIDRGroupSelector = NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector.LabelSelector)
+		if err := c.CIDRGroupSelector.Sanitize(); err != nil {
+			return fmt.Errorf("failed to sanitize cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}
 	if cnt == 0 {
@@ -732,7 +712,7 @@ func (c *CIDRRule) sanitize() error {
 		return fmt.Errorf("more than one of cidr, cidrGroupRef, or cidrGroupSelector may not be set")
 	}
 
-	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector != nil {
+	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector.LabelSelector != nil {
 		return nil // these are selectors;
 	}
 

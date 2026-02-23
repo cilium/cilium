@@ -494,67 +494,7 @@ One can then invoke the client CLI using that server IP address (10.11.51.247 in
 
 Note that in the above example, ingress policy is not enforced for the Cassandra server endpoint, so no data will flow through the
 Cassandra parser.  A simple ''allow all'' L7 Cassandra policy can be used to send all data to the Cassandra server through the 
-Go Cassandra parser.  This policy has a single empty rule, which matches all requests.  An allow all policy looks like: 
-
-.. code-block:: json
-
-  [ { 
-    "endpointSelector": {"matchLabels":{"id":"cass-server"}}, 
-    "ingress": [ {
-	  "toPorts": [{
-		  "ports": [{"port": "9042", "protocol": "TCP"}],
-            		"rules": {
-                		"l7proto": "cassandra",
-                		"l7": [{}]
-            		}
-		}]
-	  } ] 
-  }]
-
-
-A policy can be imported into cilium using ``cilium policy import``, after which another call to ``cilium-dbg endpoint list``
-confirms that ingress policy is now in place on the server.  If the above policy was saved to a file cass-allow-all.json, 
-one would run: 
-
-.. code-block:: shell-session
-
-    $ cilium-dbg policy import cass-allow-all.json
-    Revision: 1
-    $ cilium-dbg endpoint list
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS   
-               ENFORCEMENT        ENFORCEMENT                                                                                     
-    2987       Enabled            Disabled          31423      container:id=cass-server      f00d::a0b:0:0:bab    10.11.51.247    ready   
-    27333      Disabled           Disabled          4          reserved:health               f00d::a0b:0:0:6ac5   10.11.92.46     ready   
-    50923      Disabled           Disabled          18253      container:id=cass-client      f00d::a0b:0:0:c6eb   10.11.175.191   ready 
-
-Note that policy is now showing as ''Enabled'' for the Cassandra server on ingress. 
-
-To remove this or any other policy, run: 
-
-.. code-block:: shell-session
-
-    $ cilium-dbg policy delete --all 
-
-To install a new policy, first delete, and then run ``cilium policy import`` again.  For example, the following policy would allow
-select statements on a specific set of tables to this Cassandra server, but deny all other queries. 
-
-.. code-block:: json
-
-  [ {
-    "endpointSelector": {"matchLabels":{"id":"cass-server"}},
-    "ingress": [ {
-          "toPorts": [{
-                  "ports": [{"port": "9042", "protocol": "TCP"}],
-                        "rules": {
-                                "l7proto": "cassandra",
-                                "l7": [
-                                       { "query_action" : "select", "query_table": "^system.*"},
-                                       { "query_action" : "select", "query_table" : "^posts_db.posts$"}
-
-                                ]}
-                        }]
-         }]
-  } ]
+Go Cassandra parser.  This policy has a single empty rule, which matches all requests.
 
 When performing manual testing, remember that each time you change your Go proxy code, you must
 re-run ``make`` and ``sudo make install`` and then restart the cilium-agent process.  If the only changes

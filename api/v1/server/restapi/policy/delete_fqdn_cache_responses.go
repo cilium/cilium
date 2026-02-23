@@ -36,7 +36,7 @@ func NewDeleteFqdnCacheOK() *DeleteFqdnCacheOK {
 // WriteResponse to the client
 func (o *DeleteFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -104,7 +104,7 @@ func NewDeleteFqdnCacheForbidden() *DeleteFqdnCacheForbidden {
 // WriteResponse to the client
 func (o *DeleteFqdnCacheForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(403)
 }

@@ -26,9 +26,13 @@ import (
 // With previous-generation instance types, resizing an EBS volume might require
 // detaching and reattaching the volume or stopping and restarting the instance.
 //
-// After modifying a volume, you must wait at least six hours and ensure that the
-// volume is in the in-use or available state before you can modify the same
-// volume. This is sometimes referred to as a cooldown period.
+// After you initiate a volume modification, you must wait for that modification
+// to reach the completed state before you can initiate another modification for
+// the same volume. You can modify a volume up to four times within a rolling
+// 24-hour period, as long as the volume is in the in-use or available state, and
+// all previous modifications for that volume are completed . If you exceed this
+// limit, you get an error message that indicates when you can perform your next
+// modification.
 //
 // [Monitor the progress of volume modifications]: https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html
 // [Amazon EBS Elastic Volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html
@@ -72,13 +76,12 @@ type ModifyVolumeInput struct {
 	//
 	//   - io2 : 100 - 256,000 IOPS
 	//
-	// For io2 volumes, you can achieve up to 256,000 IOPS on [instances built on the Nitro System]. On other instances,
-	// you can achieve performance up to 32,000 IOPS.
+	// [Instances built on the Nitro System]can support up to 256,000 IOPS. Other instances can support up to 32,000 IOPS.
 	//
 	// Default: The existing value is retained if you keep the same volume type. If
 	// you change the volume type to io1 , io2 , or gp3 , the default is 3,000.
 	//
-	// [instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable
@@ -235,40 +238,7 @@ func (c *Client) addOperationModifyVolumeMiddlewares(stack *middleware.Stack, op
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

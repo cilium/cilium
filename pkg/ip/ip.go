@@ -899,3 +899,8 @@ func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
 	}
 	return addrs
 }
+
+// CompareUnMap unmap 2 addresses before comparing
+func CompareUnmap(addr1, addr2 netip.Addr) int {
+	return addr1.Unmap().Compare(addr2.Unmap())
+}

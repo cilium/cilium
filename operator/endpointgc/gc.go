@@ -75,7 +75,7 @@ func registerGC(p params) {
 
 func (g *GC) Start(ctx cell.HookContext) error {
 	if g.once {
-		if !g.checkForCiliumEndpointCRD(ctx) {
+		if !CheckForCiliumEndpointCRD(ctx, g.clientset, g.logger) {
 			// CEP GC set to once and CRD is not present, NOT starting GC
 			return nil
 		}
@@ -103,16 +103,16 @@ func (g *GC) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (g *GC) checkForCiliumEndpointCRD(ctx cell.HookContext) bool {
-	_, err := g.clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
+func CheckForCiliumEndpointCRD(ctx cell.HookContext, clientset k8sClient.Clientset, logger *slog.Logger) bool {
+	_, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
 		ctx, cilium_api_v2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
 	)
 	if err == nil {
 		return true
 	} else if k8serrors.IsNotFound(err) {
-		g.logger.InfoContext(ctx, "CiliumEndpoint CRD cannot be found, skipping garbage collection", logfields.Error, err)
+		logger.InfoContext(ctx, "CiliumEndpoint CRD cannot be found, skipping garbage collection", logfields.Error, err)
 	} else {
-		g.logger.ErrorContext(ctx, "Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
+		logger.ErrorContext(ctx, "Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
 			logfields.Error, err)
 	}
 	return false
@@ -154,6 +154,16 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 		// will delete all CEPs in the cluster regardless of the pod
 		// state.
 		return true
+	}
+
+	// In rare cases when ciliumendpoint is too new, and we haven't received pod
+	// notifications, we might delete this ciliumendpoint unexpectedly. Whie we
+	// are still prone to the cache delay if g.interval is too small or when the
+	// watch cache for pods has an arbitrary delay, the chance is much lower than
+	// it is today.
+	if time.Since(cep.CreationTimestamp.Time) < g.interval {
+		scopedLog.DebugContext(ctx, "CiliumEndpoint is too new", logfields.Name, cep.Namespace+"/"+cep.Name)
+		return false
 	}
 
 	podChecked := false

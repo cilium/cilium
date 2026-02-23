@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -77,15 +79,12 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 }
 
 func makeRequest(t *testing.T, exp *http.ExpectedResponse) []string {
+	return makeRequestWithCount(t, exp, 0)
+}
+
+func makeRequestWithCount(t *testing.T, exp *http.ExpectedResponse, count int) []string {
 	if exp.Request.Host == "" {
 		exp.Request.Host = "echo"
-	}
-	if exp.Request.Method == "" {
-		exp.Request.Method = "GET"
-	}
-
-	if exp.Response.StatusCode == 0 {
-		exp.Response.StatusCode = 200
 	}
 
 	r := exp.Request
@@ -93,13 +92,32 @@ func makeRequest(t *testing.T, exp *http.ExpectedResponse) []string {
 	if protocol == "" {
 		protocol = "http"
 	}
+
+	// Only set default method for HTTP protocols, not for gRPC
+	if protocol != "grpc" && exp.Request.Method == "" {
+		exp.Request.Method = "GET"
+	}
+
+	// if the deprecated field StatusCode is set, append it to StatusCodes for backwards compatibility
+	//nolint:staticcheck
+	if exp.Response.StatusCode != 0 {
+		exp.Response.StatusCodes = append(exp.Response.StatusCodes, exp.Response.StatusCode)
+	}
+
+	if len(exp.Response.StatusCodes) == 0 {
+		exp.Response.StatusCodes = []int{200}
+	}
+
 	host := http.CalculateHost(t, r.Host, protocol)
 	args := []string{"client", fmt.Sprintf("%s://%s%s", protocol, host, r.Path)}
-	if r.Method != "" {
+	if protocol != "grpc" && r.Method != "" {
 		args = append(args, "--method="+r.Method)
 	}
 	for k, v := range r.Headers {
 		args = append(args, "-H", fmt.Sprintf("%v:%v", k, v))
+	}
+	if count > 0 {
+		args = append(args, fmt.Sprintf("--count=%d", count))
 	}
 	return args
 }
@@ -110,8 +128,33 @@ func compareRequest(exp http.ExpectedResponse, resp Response) error {
 	}
 	wantReq := exp.ExpectedRequest
 	wantResp := exp.Response
-	if fmt.Sprint(wantResp.StatusCode) != resp.Code {
-		return fmt.Errorf("wanted status code %v, got %v", wantResp.StatusCode, resp.Code)
+
+	// Parse the response status code
+	statusCode, err := strconv.Atoi(resp.Code)
+	if err != nil {
+		return fmt.Errorf("invalid status code '%v': %v", resp.Code, err)
+	}
+
+	// Handle gRPC protocol special case for status code mapping
+	if strings.ToLower(exp.Request.Protocol) == "grpc" {
+		// For gRPC, we need to handle the status code mapping
+		// The Istio echo client reports HTTP status codes even for gRPC requests
+		expectedStatusCodes := make([]int, len(wantResp.StatusCodes))
+		copy(expectedStatusCodes, wantResp.StatusCodes)
+
+		// Map gRPC status 0 (OK) to HTTP 200 if needed
+		for i, code := range expectedStatusCodes {
+			if code == 0 {
+				expectedStatusCodes[i] = 200
+			}
+		}
+
+		if !slices.Contains(expectedStatusCodes, statusCode) {
+			return fmt.Errorf("wanted gRPC status code to be one of %v (mapped to HTTP), got %d", wantResp.StatusCodes, statusCode)
+		}
+	} else if !slices.Contains(wantResp.StatusCodes, statusCode) {
+		// For HTTP, use the status codes directly
+		return fmt.Errorf("wanted status code to be one of %v, got %d", wantResp.StatusCodes, statusCode)
 	}
 	if wantReq.Headers != nil {
 		if resp.RequestHeaders == nil {
@@ -238,4 +281,25 @@ func (m *MeshPod) CaptureRequestResponseAndCompare(t *testing.T, exp http.Expect
 		return []string{}, Response{}, err
 	}
 	return req, resp, nil
+}
+
+// RequestBatch executes a batch of requests using the --count flag and returns all responses
+func (m *MeshPod) RequestBatch(t *testing.T, exp http.ExpectedResponse, count int) ([]Response, error) {
+	req := makeRequestWithCount(t, &exp, count)
+
+	resp, err := m.request(req)
+	if err != nil {
+		return nil, fmt.Errorf("batch request failed: %w", err)
+	}
+
+	// Split the output by response boundaries
+	// Each response is separated by a blank line in the output
+	responses := parseMultipleResponses(resp.RawContent)
+
+	tlog.Logf(t, "Processed %d requests", len(responses))
+	if len(responses) != count {
+		return nil, fmt.Errorf("expected %d responses but got %d", count, len(responses))
+	}
+
+	return responses, nil
 }

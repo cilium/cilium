@@ -58,6 +58,17 @@ type CreateIpamScopeInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The configuration that links an Amazon VPC IPAM scope to an external authority
+	// system. It specifies the type of external system and the external resource
+	// identifier that identifies your account or instance in that system.
+	//
+	// In IPAM, an external authority is a third-party IP address management system
+	// that provides CIDR blocks when you provision address space for top-level IPAM
+	// pools. This allows you to use your existing IP management system to control
+	// which address ranges are allocated to Amazon Web Services while using Amazon VPC
+	// IPAM to manage subnets within those ranges.
+	ExternalAuthorityConfiguration *types.ExternalAuthorityConfiguration
+
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
 	// the filter name and the tag value as the filter value. For example, to find all
 	// resources that have a tag with the key Owner and the value TeamA , specify
@@ -175,40 +186,7 @@ func (c *Client) addOperationCreateIpamScopeMiddlewares(stack *middleware.Stack,
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

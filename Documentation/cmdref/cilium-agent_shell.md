@@ -2,7 +2,7 @@
 
 ## cilium-agent shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 cilium-agent shell [command] [args]... [flags]

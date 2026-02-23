@@ -21,7 +21,7 @@ inputs:
     default: 'true'
   underlay:
     description: 'Underlay protocol for the VXLAN or GENEVE tunnels'
-    default: 'ipv4'
+    default: 'auto'
   kpr:
     description: 'Enable kube-proxy replacement'
     default: 'false'
@@ -37,9 +37,12 @@ inputs:
   encryption-node:
     description: 'Enable node-to-node encryption (WireGuard only)'
     default: 'false'
-  encryption-strict-mode:
-    description: 'Enable strict mode encryption (WireGuard only)'
+  encryption-strict-egress:
+    description: 'Enable strict mode egress encryption'
     default: ''
+  encryption-strict-ingress:
+    description: 'Enable strict mode ingress encryption (WireGuard only)'
+    default: 'false'
   egress-gateway:
     description: 'Enable egress gateway'
     default: 'false'
@@ -89,7 +92,6 @@ runs:
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --helm-set=l2NeighDiscovery.enabled=true \
-            --helm-set-string=encryption.ipsec.keyRotationDuration="1m" \
             --set='${{ inputs.misc }}' \
             --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
             --set-string=extraEnv[0].value=true \
@@ -190,9 +192,12 @@ runs:
             if [ "${{ inputs.encryption-node }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ inputs.encryption-node }}"
             fi
-            if [ "${{ inputs.encryption-strict-mode }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.strictMode.enabled=${{ inputs.encryption-strict-mode }}"
-              ENCRYPT+=" --helm-set=encryption.strictMode.cidr=10.244.0.0/16"
+            if [ "${{ inputs.encryption-strict-egress }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.strictMode.egress.enabled=${{ inputs.encryption-strict-egress }}"
+              ENCRYPT+=" --helm-set=encryption.strictMode.egress.cidr=10.244.0.0/16"
+            fi
+            if [ "${{ inputs.encryption-strict-ingress }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.strictMode.ingress.enabled=${{ inputs.encryption-strict-ingress }}"
             fi
           fi
 
@@ -214,7 +219,7 @@ runs:
 
           LOCAL_REDIRECT_POLICY=""
           if [ "${{ inputs.local-redirect-policy }}" == "true" ]; then
-            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
+            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicies.enabled=true"
           fi
 
           BGP_CONTROL_PLANE=""

@@ -220,3 +220,22 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{/* validate Standalone DNS Proxy */}}
+{{- if .Values.standaloneDnsProxy.enabled }}
+  {{- if not .Values.dnsProxy.proxyPort }}
+    {{ fail "standaloneDnsProxy requires dnsProxy.proxyPort to be explicitly set (e.g., 10094)" }}
+  {{- end }}
+  {{- if eq (int .Values.dnsProxy.proxyPort) 0 }}
+    {{ fail "standaloneDnsProxy requires dnsProxy.proxyPort to be set to a non-zero value (e.g., 10094). The standalone DNS proxy uses the same DNS configuration as the agent." }}
+  {{- end }}
+{{- end }}
+
+{{/* validate we don't run tproxy with netkit - see GH issue 39892 */}}
+{{- if hasKey .Values "bpf" }}
+  {{- if and (hasKey .Values.bpf "tproxy") (hasKey .Values.bpf "datapathMode") }}
+    {{- if and (.Values.bpf.tproxy) (list "netkit" "netkit-l2" | has .Values.bpf.datapathMode) }}
+      {{ fail ".Values.bpf.tproxy cannot be enabled with .Values.bpf.datapathMode=netkit or .Values.bpf.datapathMode=netkit-l2" }}
+    {{- end }}
+  {{- end }}
+{{- end }}

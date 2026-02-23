@@ -335,7 +335,7 @@ type AwsCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AwsCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -461,7 +461,7 @@ type InlineCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m InlineCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -608,7 +608,7 @@ type AssumeRoleWithWebIdentityCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AssumeRoleWithWebIdentityCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -744,7 +744,7 @@ type CredentialsFileCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CredentialsFileCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1024,7 +1024,7 @@ type IAMRolesAnywhereCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m IAMRolesAnywhereCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1127,7 +1127,7 @@ type ConfigCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ConfigCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1229,7 +1229,7 @@ type ContainerCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ContainerCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1332,7 +1332,7 @@ type EnvironmentCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EnvironmentCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1437,7 +1437,7 @@ type InstanceProfileCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m InstanceProfileCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1615,7 +1615,7 @@ type AssumeRoleCredentialProviderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AssumeRoleCredentialProviderMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

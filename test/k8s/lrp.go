@@ -18,7 +18,7 @@ import (
 
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
-var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() && helpers.DoesNotRunOnAKS() }, "K8sDatapathLRPTests", func() {
+var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() }, "K8sDatapathLRPTests", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
@@ -43,7 +43,7 @@ var _ = SkipDescribeIf(func() bool { return helpers.RunsOn54Kernel() && helpers.
 		kubectl.CiliumReport("cilium-dbg lrp list", "cilium-dbg service list")
 	})
 
-	SkipContextIf(func() bool { return helpers.RunsOnAKS() }, "Checks local redirect policy", func() {
+	Context("Checks local redirect policy", func() {
 		const (
 			lrpServiceName = "lrp-demo-service"
 			be1Name        = "k8s1-backend"

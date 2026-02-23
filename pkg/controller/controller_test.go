@@ -20,7 +20,33 @@ func TestUpdateRemoveController(t *testing.T) {
 	mngr := NewManager()
 	mngr.UpdateController("test", ControllerParams{})
 	require.NoError(t, mngr.RemoveController("test"))
-	require.Error(t, mngr.RemoveController("not-exits"))
+}
+
+func TestRemoveControllerNotFound(t *testing.T) {
+	mngr := NewManager()
+
+	err := mngr.RemoveController("not-exists")
+	require.ErrorIs(t, err, errControllerNotFound)
+}
+
+func TestRemoveControllerEmptyMap(t *testing.T) {
+	var mngr Manager
+
+	err := mngr.RemoveController("not-exists")
+	require.ErrorIs(t, err, errControllerMapEmpty)
+}
+
+func TestRemoveControllerAndWaitNotFound(t *testing.T) {
+	mngr := NewManager()
+
+	require.NoError(t, mngr.RemoveControllerAndWait("not-exists"))
+}
+
+func TestRemoveControllerAndWaitEmptyMap(t *testing.T) {
+	var mngr Manager
+
+	err := mngr.RemoveControllerAndWait("not-exists")
+	require.ErrorIs(t, err, errControllerMapEmpty)
 }
 
 func TestCreateController(t *testing.T) {

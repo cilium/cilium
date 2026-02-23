@@ -4,6 +4,7 @@
 package suite
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -134,11 +136,9 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 
 	cpt.agentHandle.populateCiliumAgentOptions(cpt.tempDir, modConfig)
 
-	daemon, err := cpt.agentHandle.startCiliumAgent()
-	if err != nil {
+	if err := cpt.agentHandle.hive.Start(cpt.agentHandle.log, context.TODO()); err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
-	cpt.agentHandle.d = daemon
 	cpt.FakeNodeHandler = cpt.agentHandle.fnh
 
 	return cpt
@@ -183,7 +183,11 @@ func (cpt *ControlPlaneTest) UpdateObjects(objs ...k8sRuntime.Object) *ControlPl
 				accepted = true
 
 				if _, err := td.tracker.Get(gvr, ns, name); err == nil {
-					if err := td.tracker.Update(gvr, obj, ns); err != nil {
+					// We use Patch, instead of Update, as the latter additionally
+					// enforces optimistic concurrency control (i.e., it returns
+					// an error if the resource version does not match), which we
+					// don't need in this context.
+					if err := td.tracker.Patch(gvr, obj, ns); err != nil {
 						t.Fatalf("Failed to update object %T: %s", obj, err)
 					}
 				} else {
@@ -326,7 +330,7 @@ func gvrAndName(obj k8sRuntime.Object) (gvr schema.GroupVersionResource, ns stri
 	}
 	ns = objMeta.GetNamespace()
 	name = objMeta.GetName()
-	return
+	return gvr, ns, name
 }
 
 func matchFieldSelector(obj k8sRuntime.Object, selector fields.Selector) bool {
@@ -395,7 +399,9 @@ func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
 	selector := fw.restrictions.Fields
 	go func() {
 		for event := range fw.parent.ResultChan() {
-			if matchFieldSelector(event.Object, selector) {
+			// Always allow Bookmark events through - they're used for WatchList
+			// semantics and don't have the fields that selectors match against.
+			if event.Type == watch.Bookmark || matchFieldSelector(event.Object, selector) {
 				fw.events <- event
 			}
 		}
@@ -491,7 +497,7 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 		case k8sTesting.ListActionImpl:
 			filterList(ret, action.GetListRestrictions())
 		}
-		return
+		return handled, ret, err
 	})
 
 	f.PrependWatchReactor(
@@ -500,7 +506,14 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 			w := action.(k8sTesting.WatchAction)
 			gvr := w.GetResource()
 			ns := w.GetNamespace()
-			watch, err := o.Watch(gvr, ns)
+
+			// Extract ListOptions for WatchList semantics (SendInitialEvents)
+			var opts []metav1.ListOptions
+			if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+				opts = append(opts, watchAction.ListOptions)
+			}
+
+			watch, err := o.Watch(gvr, ns, opts...)
 			if err != nil {
 				return false, nil, err
 			}

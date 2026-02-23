@@ -58,7 +58,7 @@ func TestRegisterController(t *testing.T) {
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	// wait for all CEPs to be deleted except for those with running pods or
 	// cilium node owner reference
-	waitForCEPs(t, cepStore, 2)
+	waitForCEPs(t, cepStore, 3)
 	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -134,7 +134,7 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 	// wait for potential GC
 	time.Sleep(500 * time.Millisecond)
 	// gc is disabled so no CEPs should be deleted
-	waitForCEPs(t, cepStore, 6)
+	waitForCEPs(t, cepStore, 7)
 	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -170,6 +170,10 @@ func prepareCiliumEndpoints(t *testing.T, fakeClient *k8sClient.FakeClientset) {
 	cepWithOwnerPodDoesntExist := createCiliumEndpoint("cep6", "ns")
 	cepWithOwnerPodDoesntExist.OwnerReferences = []meta_v1.OwnerReference{createOwnerReference("Pod", "pod6")}
 	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cepWithOwnerPodDoesntExist, meta_v1.CreateOptions{})
+	// - CEP that is just created
+	cepWithRecentCreationTime := createCiliumEndpoint("cep7", "ns")
+	cepWithRecentCreationTime.CreationTimestamp = meta_v1.Now()
+	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cepWithRecentCreationTime, meta_v1.CreateOptions{})
 
 	// Create Pods
 	// - pod that is running for cep2

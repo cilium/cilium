@@ -81,6 +81,8 @@ var (
 			Insert(features.SetsToNamesSet(
 				features.GatewayExtendedFeatures,
 				features.HTTPRouteExtendedFeatures,
+				features.BackendTLSPolicyCoreFeatures,
+				features.BackendTLSPolicyExtendedFeatures,
 			).UnsortedList()...),
 	}
 
@@ -119,7 +121,6 @@ var (
 		ExtendedFeatures: sets.New[features.FeatureName]().
 			Insert(features.SetsToNamesSet(
 				features.MeshExtendedFeatures,
-				features.HTTPRouteExtendedFeatures,
 			).UnsortedList()...),
 	}
 

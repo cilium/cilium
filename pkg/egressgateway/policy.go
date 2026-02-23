@@ -15,20 +15,22 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // policyGatewayConfig is the internal representation of an egress gateway,
 // describing which node should act as egress gateway for a given policy.
 type policyGatewayConfig struct {
-	nodeSelector api.EndpointSelector
+	nodeSelector *policyTypes.LabelSelector
 	iface        string
 	egressIP     netip.Addr
 }
@@ -42,6 +44,8 @@ type policyGatewayConfig struct {
 type gatewayConfig struct {
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
+	// egressIfindex is the ifindex of the interface used to SNAT traffic
+	egressIfindex uint32
 	// egressIP4 is the IP used to SNAT traffic with IPv4 policies
 	egressIP4 netip.Addr
 	// egressIP6 is the IP used to SNAT traffic with IPv6 policies
@@ -60,8 +64,8 @@ type PolicyConfig struct {
 	// id is the parsed config name and namespace
 	id types.NamespacedName
 
-	endpointSelectors []api.EndpointSelector
-	nodeSelectors     []api.EndpointSelector
+	endpointSelectors []*policyTypes.LabelSelector
+	nodeSelectors     []*policyTypes.LabelSelector
 	dstCIDRs          []netip.Prefix
 	excludedCIDRs     []netip.Prefix
 	policyGwConfigs   []policyGatewayConfig
@@ -76,9 +80,10 @@ type policyID = types.NamespacedName
 // matchesEndpointLabels determines if the given endpoint is a match for the
 // policy config based on matching labels.
 func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
-	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
-	for _, selector := range config.endpointSelectors {
-		if selector.Matches(labelsToMatch) {
+	labelsToMatch := labels.K8sSet(endpointInfo.labels)
+
+	for i := range config.endpointSelectors {
+		if policyTypes.Matches(config.endpointSelectors[i], labelsToMatch) {
 			return true
 		}
 	}
@@ -91,9 +96,9 @@ func (config *PolicyConfig) matchesNodeLabels(nodeLabels map[string]string) bool
 	if len(config.nodeSelectors) == 0 {
 		return true
 	}
-	labelsToMatch := k8sLabels.Set(nodeLabels)
-	for _, selector := range config.nodeSelectors {
-		if selector.Matches(labelsToMatch) {
+	labelsToMatch := labels.K8sSet(nodeLabels)
+	for i := range config.nodeSelectors {
+		if policyTypes.Matches(config.nodeSelectors[i], labelsToMatch) {
 			return true
 		}
 	}
@@ -111,7 +116,7 @@ func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]
 }
 
 func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) bool {
-	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
+	return policyTypes.Matches(config.nodeSelector, labels.K8sSet(node.Labels))
 }
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
@@ -170,6 +175,14 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		// If the gateway config specifies an interface, use the first IPv4/v6 assigned to that
 		// interface as egress IPs
 		gwc.ifaceName = gc.iface
+
+		iface, err := safenetlink.LinkByName(gwc.ifaceName)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
+		}
+
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
@@ -205,6 +218,8 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
+		gwc.egressIfindex = uint32(iface.Attrs().Index)
+
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
@@ -289,7 +304,7 @@ func parseEgressGateway(egressGateway *v2.EgressGateway) (*policyGatewayConfig, 
 	}
 
 	policyGwc := &policyGatewayConfig{
-		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
+		nodeSelector: policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressGateway.NodeSelector)),
 		iface:        egressGateway.Interface,
 	}
 
@@ -309,8 +324,8 @@ func parseEgressGateway(egressGateway *v2.EgressGateway) (*policyGatewayConfig, 
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
-	var endpointSelectorList []api.EndpointSelector
-	var nodeSelectorList []api.EndpointSelector
+	var endpointSelectorList []*policyTypes.LabelSelector
+	var nodeSelectorList []*policyTypes.LabelSelector
 	var dstCidrList []netip.Prefix
 	var excludedCIDRs []netip.Prefix
 	var policyGwConfigs []policyGatewayConfig
@@ -372,7 +387,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		if egressRule.NodeSelector != nil {
 			nodeSelectorList = append(
 				nodeSelectorList,
-				api.NewESFromK8sLabelSelector("", egressRule.NodeSelector))
+				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressRule.NodeSelector)))
 		}
 		if egressRule.NamespaceSelector != nil {
 			prefixedNsSelector := egressRule.NamespaceSelector
@@ -400,11 +415,11 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 
 			endpointSelectorList = append(
 				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", prefixedNsSelector, egressRule.PodSelector))
+				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, prefixedNsSelector, egressRule.PodSelector)))
 		} else if egressRule.PodSelector != nil {
 			endpointSelectorList = append(
 				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", egressRule.PodSelector))
+				policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressRule.PodSelector)))
 		} else {
 			return nil, fmt.Errorf("cannot have both nil namespace selector and nil pod selector")
 		}

@@ -245,9 +245,7 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 		changed = changed || c
 	}
 
-	// If the metadata for this resource hasn't changed, *or* it has
-	// no effect on the flattened metadata, then return zero affected prefixes.
-	if !changed || m.m[prefix].flattened.has(src, info) {
+	if !changed {
 		return nil
 	}
 
@@ -738,9 +736,6 @@ func (ipc *IPCache) resolveIdentity(prefix cmtypes.PrefixCluster, info *resource
 			logfields.Labels, lbls,
 		)
 		return nil, false, err
-	}
-	if lbls.HasWorldLabel() {
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
 }

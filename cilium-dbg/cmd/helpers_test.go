@@ -82,7 +82,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "label-configuration": {},
       "options": {
         "Conntrack": "Enabled",
-        "ConntrackAccounting": "Enabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
         "DebugPolicy": "Enabled",
@@ -270,7 +269,6 @@ func TestExpandNestedJSON(t *testing.T) {
         "label-configuration": {},
         "options": {
           "Conntrack": "Enabled",
-          "ConntrackAccounting": "Enabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
           "DebugPolicy": "Enabled",
@@ -292,7 +290,6 @@ func TestExpandNestedJSON(t *testing.T) {
       "label-configuration": {},
       "options": {
         "Conntrack": "Enabled",
-        "ConntrackAccounting": "Enabled",
         "Debug": "Enabled",
         "DebugLB": "Enabled",
         "DebugPolicy": "Enabled",
@@ -510,7 +507,6 @@ func TestExpandNestedJSON(t *testing.T) {
         "label-configuration": {},
         "options": {
           "Conntrack": "Enabled",
-          "ConntrackAccounting": "Enabled",
           "Debug": "Enabled",
           "DebugLB": "Enabled",
           "DebugPolicy": "Enabled",
@@ -569,6 +565,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 		port             uint16
 		protos           []u8proto.U8proto
 		isDeny           bool
+		cookie           uint32
 	}{
 		{
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
@@ -611,6 +608,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
 			invalid:          false,
 			isDeny:           true,
+			cookie:           0x010203,
 			mapBaseName:      "cilium_policy_v2_reserved_1",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
@@ -621,6 +619,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			args:             []string{"123", "egress", "12345", "1/tcp"},
 			invalid:          false,
 			isDeny:           true,
+			cookie:           0x010203,
 			mapBaseName:      "cilium_policy_v2_00123",
 			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
@@ -631,6 +630,7 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 			args:             []string{"123", "ingress", "12345", "1"},
 			invalid:          false,
 			isDeny:           true,
+			cookie:           0x010203,
 			mapBaseName:      "cilium_policy_v2_00123",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
@@ -641,13 +641,14 @@ func TestParsePolicyUpdateArgsHelper(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 	for _, tt := range tests {
-		args, err := parsePolicyUpdateArgsHelper(logger, tt.args, tt.isDeny)
+		args, err := parsePolicyUpdateArgsHelper(logger, tt.args, tt.isDeny, tt.cookie)
 
 		if tt.invalid {
 			require.Error(t, err)
 		} else {
 			require.NoError(t, err)
 			require.Equal(t, args.isDeny, tt.isDeny)
+			require.Equal(t, args.cookie, tt.cookie)
 			require.Equal(t, path.Base(args.path), tt.mapBaseName)
 			require.Equal(t, args.trafficDirection, tt.trafficDirection)
 			require.Equal(t, args.label, tt.peerLbl)

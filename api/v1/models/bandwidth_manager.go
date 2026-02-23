@@ -50,7 +50,7 @@ func (m *BandwidthManager) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var bandwidthManagerTypeCongestionControlPropEnum []interface{}
+var bandwidthManagerTypeCongestionControlPropEnum []any
 
 func init() {
 	var res []string

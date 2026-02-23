@@ -60,12 +60,10 @@ Enable Hubble in Cilium
         If you installed Cilium via ``helm install``, Hubble is enabled by default.
         You may enable Hubble Relay with the following command:
 
-        .. parsed-literal::
-
-           helm upgrade cilium |CHART_RELEASE| \\
-              --namespace kube-system \\
-              --reuse-values \\
-              --set hubble.relay.enabled=true
+        .. cilium-helm-upgrade::
+           :namespace: kube-system
+           :extra-args: --reuse-values
+           :set: hubble.relay.enabled=true
 
 Run ``cilium status`` to validate that Hubble is enabled and running:
 
@@ -112,7 +110,7 @@ Select the tab for your platform below and install the latest release of Hubble 
 
       .. code-block:: shell-session
 
-         HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
+         HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/main/stable.txt)
          HUBBLE_ARCH=amd64
          if [ "$(uname -m)" = "aarch64" ]; then HUBBLE_ARCH=arm64; fi
          curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-linux-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
@@ -126,7 +124,7 @@ Select the tab for your platform below and install the latest release of Hubble 
 
       .. code-block:: shell-session
 
-         HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)
+         HUBBLE_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/hubble/main/stable.txt)
          HUBBLE_ARCH=amd64
          if [ "$(uname -m)" = "arm64" ]; then HUBBLE_ARCH=arm64; fi
          curl -L --fail --remote-name-all https://github.com/cilium/hubble/releases/download/$HUBBLE_VERSION/hubble-darwin-${HUBBLE_ARCH}.tar.gz{,.sha256sum}
@@ -140,7 +138,7 @@ Select the tab for your platform below and install the latest release of Hubble 
 
       .. code-block:: shell-session
 
-         curl -LO "https://raw.githubusercontent.com/cilium/hubble/master/stable.txt"
+         curl -LO "https://raw.githubusercontent.com/cilium/hubble/main/stable.txt"
          set /p HUBBLE_VERSION=<stable.txt
          curl -L --fail -O "https://github.com/cilium/hubble/releases/download/%HUBBLE_VERSION%/hubble-windows-amd64.tar.gz"
          curl -L --fail -O "https://github.com/cilium/hubble/releases/download/%HUBBLE_VERSION%/hubble-windows-amd64.tar.gz.sha256sum"

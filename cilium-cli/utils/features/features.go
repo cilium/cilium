@@ -41,9 +41,10 @@ const (
 
 	HealthChecking Feature = "health-checking"
 
-	EncryptionPod        Feature = "encryption-pod"
-	EncryptionNode       Feature = "encryption-node"
-	EncryptionStrictMode Feature = "enable-encryption-strict-mode"
+	EncryptionPod              Feature = "encryption-pod"
+	EncryptionNode             Feature = "encryption-node"
+	EncryptionStrictMode       Feature = "enable-encryption-strict-mode"
+	EncryptionStrictModeEgress Feature = "enable-encryption-strict-mode-egress"
 
 	IPv4 Feature = "ipv4"
 	IPv6 Feature = "ipv6"
@@ -102,8 +103,6 @@ const (
 
 	EnableEnvoyConfig Feature = "enable-envoy-config"
 
-	WireguardEncapsulate Feature = "wireguard-encapsulate"
-
 	CiliumIPAMMode Feature = "ipam"
 
 	IPsecEnabled                  Feature = "enable-ipsec"
@@ -122,6 +121,12 @@ const (
 	L7LoadBalancer Feature = "loadbalancer-l7"
 
 	RHEL Feature = "rhel"
+
+	ExternalEnvoyProxy Feature = "external-envoy-proxy"
+
+	Ztunnel Feature = "enable-ztunnel"
+
+	DefaultGlobalNamespace Feature = "clustermesh-default-global-namespace"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -360,10 +365,6 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 		Enabled: cm.Data[string(EnableEnvoyConfig)] == "true",
 	}
 
-	fs[WireguardEncapsulate] = Status{
-		Enabled: cm.Data[string(WireguardEncapsulate)] == "true",
-	}
-
 	fs[CiliumIPAMMode] = Status{
 		Mode: cm.Data[string(CiliumIPAMMode)],
 	}
@@ -396,8 +397,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 		Enabled: cm.Data[string(Multicast)] == "true",
 	}
 
-	fs[EncryptionStrictMode] = Status{
-		Enabled: cm.Data[string(EncryptionStrictMode)] == "true",
+	fs[EncryptionStrictModeEgress] = Status{
+		// EncryptionStrictMode is deprecated, but we still support it for backwards compatibility until Cilium 1.17
+		// is EOL.
+		Enabled: cm.Data[string(EncryptionStrictMode)] == "true" || cm.Data[string(EncryptionStrictModeEgress)] == "true",
 	}
 
 	// This could be enabled via ClusterRole check as well, so only
@@ -417,6 +420,14 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
+
+	fs[Ztunnel] = Status{
+		Enabled: cm.Data["enable-ztunnel"] == "true",
+	}
+
+	fs[DefaultGlobalNamespace] = Status{
+		Enabled: cm.Data[string(DefaultGlobalNamespace)] == "true",
+	}
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {

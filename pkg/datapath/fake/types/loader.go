@@ -23,10 +23,6 @@ func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, l
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeConfiguration, extraCArgs []string) error {
-	panic("implement me")
-}
-
 func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration, _ *datapath.LocalNodeConfiguration) (string, error) {
 	panic("implement me")
 }
@@ -38,16 +34,12 @@ func (f *FakeLoader) CallsMapPath(id uint16) string {
 	return ""
 }
 
-func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
-	return ""
-}
-
 func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 	return nil
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp datapath.BigTCPConfiguration) error {
 	return nil
 }
 

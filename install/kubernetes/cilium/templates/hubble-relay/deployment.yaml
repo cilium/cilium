@@ -50,6 +50,11 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      {{- if kindIs "bool" .Values.hubble.hostUsers }}
+      hostUsers: {{ .Values.hubble.hostUsers }}
+      {{- end }}
+      {{- end }}
       {{- with .Values.hubble.relay.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

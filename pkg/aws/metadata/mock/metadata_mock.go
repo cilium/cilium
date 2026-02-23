@@ -3,7 +3,11 @@
 
 package mock
 
-import "github.com/cilium/cilium/pkg/aws/metadata"
+import (
+	"context"
+
+	"github.com/cilium/cilium/pkg/aws/metadata"
+)
 
 type metadataMock struct {
 }
@@ -13,6 +17,6 @@ func NewMetadataMock() (*metadataMock, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func (m *metadataMock) GetInstanceMetadata() (metadata.MetaDataInfo, error) {
+func (m *metadataMock) GetInstanceMetadata(ctx context.Context) (metadata.MetaDataInfo, error) {
 	return metadata.MetaDataInfo{}, nil
 }

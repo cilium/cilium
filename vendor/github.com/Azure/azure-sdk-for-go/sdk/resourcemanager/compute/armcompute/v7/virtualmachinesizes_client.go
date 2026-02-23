@@ -27,7 +27,7 @@ type VirtualMachineSizesClient struct {
 // NewVirtualMachineSizesClient creates a new instance of VirtualMachineSizesClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewVirtualMachineSizesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*VirtualMachineSizesClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -42,7 +42,7 @@ func NewVirtualMachineSizesClient(subscriptionID string, credential azcore.Token
 
 // NewListPager - This API is deprecated. Use Resources Skus [https://docs.microsoft.com/rest/api/compute/resourceskus/list]
 //
-// Generated from API version 2024-11-01
+// Generated from API version 2025-04-01
 //   - location - The name of Azure region.
 //   - options - VirtualMachineSizesClientListOptions contains the optional parameters for the VirtualMachineSizesClient.NewListPager
 //     method.
@@ -85,7 +85,7 @@ func (client *VirtualMachineSizesClient) listCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-11-01")
+	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

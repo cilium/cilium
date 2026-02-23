@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -43,7 +42,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 		IPTraceID: 0x2b_2c_2d_2e_2f_30_31_32,
 	}
 	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, byteorder.Native, in)
+	err := binary.Write(buf, binary.NativeEndian, in)
 	require.NoError(t, err)
 
 	out := TraceNotify{}
@@ -64,6 +63,86 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
 	require.Equal(t, in.IPTraceID, out.IPTraceID)
+}
+
+func TestDecodeTraceNotifyExtension(t *testing.T) {
+	setTmpExtVer := func(extVer uint8, extLen uint) {
+		oldLen, ok := traceNotifyExtensionLengthFromVersion[extVer]
+		if !ok {
+			t.Cleanup(func() { delete(traceNotifyExtensionLengthFromVersion, extVer) })
+		} else {
+			t.Cleanup(func() { traceNotifyExtensionLengthFromVersion[extVer] = oldLen })
+		}
+		traceNotifyExtensionLengthFromVersion[extVer] = extLen
+	}
+
+	setTmpExtVer(1, 4)
+	setTmpExtVer(2, 8)
+	setTmpExtVer(3, 16)
+
+	tcs := []struct {
+		name      string
+		tn        TraceNotify
+		extension []uint32
+	}{
+		{
+			name: "no extension",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 0,
+			},
+		},
+		{
+			name: "extension 1",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 1,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+			},
+		},
+		{
+			name: "extension 2",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 2,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+			},
+		},
+		{
+			name: "extension 2",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 3,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+				0xFA1AFE1,
+				0xF00DF00D,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		buf := bytes.NewBuffer(nil)
+		err := binary.Write(buf, binary.NativeEndian, tc.tn)
+		require.NoError(t, err)
+		err = binary.Write(buf, binary.NativeEndian, tc.extension)
+		require.NoError(t, err)
+		err = binary.Write(buf, binary.NativeEndian, uint32(0xDEADBEEF))
+		require.NoError(t, err)
+
+		output := &TraceNotify{}
+		err = output.Decode(buf.Bytes())
+		require.NoError(t, err)
+
+		require.Equal(t, uint32(0xDEADBEEF), binary.NativeEndian.Uint32(buf.Bytes()[output.DataOffset():]))
+	}
 }
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
@@ -316,7 +395,7 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 	input := TraceNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -336,7 +415,7 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 	}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 

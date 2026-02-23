@@ -150,7 +150,7 @@ type DnsTableMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTableMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -277,7 +277,7 @@ type DnsTable_AddressListMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_AddressListMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -454,7 +454,7 @@ type DnsTable_DnsServiceProtocolMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsServiceProtocolMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -678,7 +678,7 @@ type DnsTable_DnsServiceTargetMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsServiceTargetMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -910,7 +910,7 @@ type DnsTable_DnsServiceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsServiceMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1059,7 +1059,7 @@ type DnsTable_DnsServiceListMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsServiceListMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1274,7 +1274,7 @@ type DnsTable_DnsEndpointMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsEndpointMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1457,7 +1457,7 @@ type DnsTable_DnsVirtualDomainMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsTable_DnsVirtualDomainMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

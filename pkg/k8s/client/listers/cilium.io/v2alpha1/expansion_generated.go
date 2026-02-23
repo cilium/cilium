@@ -25,10 +25,6 @@ type CiliumBGPNodeConfigOverrideListerExpansion interface{}
 // CiliumBGPPeerConfigLister.
 type CiliumBGPPeerConfigListerExpansion interface{}
 
-// CiliumBGPPeeringPolicyListerExpansion allows custom methods to be added to
-// CiliumBGPPeeringPolicyLister.
-type CiliumBGPPeeringPolicyListerExpansion interface{}
-
 // CiliumCIDRGroupListerExpansion allows custom methods to be added to
 // CiliumCIDRGroupLister.
 type CiliumCIDRGroupListerExpansion interface{}
@@ -40,6 +36,10 @@ type CiliumEndpointSliceListerExpansion interface{}
 // CiliumGatewayClassConfigListerExpansion allows custom methods to be added to
 // CiliumGatewayClassConfigLister.
 type CiliumGatewayClassConfigListerExpansion interface{}
+
+// CiliumGatewayClassConfigNamespaceListerExpansion allows custom methods to be added to
+// CiliumGatewayClassConfigNamespaceLister.
+type CiliumGatewayClassConfigNamespaceListerExpansion interface{}
 
 // CiliumL2AnnouncementPolicyListerExpansion allows custom methods to be added to
 // CiliumL2AnnouncementPolicyLister.

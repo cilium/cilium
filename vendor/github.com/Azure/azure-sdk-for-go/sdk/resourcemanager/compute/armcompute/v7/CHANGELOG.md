@@ -1,5 +1,84 @@
 # Release History
 
+## 7.3.0 (2026-01-23)
+### Features Added
+
+- New enum type `GalleryScriptParameterType` with values `GalleryScriptParameterTypeBoolean`, `GalleryScriptParameterTypeDouble`, `GalleryScriptParameterTypeEnum`, `GalleryScriptParameterTypeInt`, `GalleryScriptParameterTypeString`
+- New enum type `StorageAccountStrategy` with values `StorageAccountStrategyDefaultStandardLRS`, `StorageAccountStrategyPreferStandardZRS`
+- New function `*ClientFactory.NewGalleryScriptVersionsClient() *GalleryScriptVersionsClient`
+- New function `*ClientFactory.NewGalleryScriptsClient() *GalleryScriptsClient`
+- New function `NewGalleryScriptVersionsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryScriptVersionsClient, error)`
+- New function `*GalleryScriptVersionsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, galleryScriptVersion GalleryScriptVersion, options *GalleryScriptVersionsClientBeginCreateOrUpdateOptions) (*runtime.Poller[GalleryScriptVersionsClientCreateOrUpdateResponse], error)`
+- New function `*GalleryScriptVersionsClient.BeginDelete(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, options *GalleryScriptVersionsClientBeginDeleteOptions) (*runtime.Poller[GalleryScriptVersionsClientDeleteResponse], error)`
+- New function `*GalleryScriptVersionsClient.Get(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, options *GalleryScriptVersionsClientGetOptions) (GalleryScriptVersionsClientGetResponse, error)`
+- New function `*GalleryScriptVersionsClient.NewListByGalleryScriptPager(resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptVersionsClientListByGalleryScriptOptions) *runtime.Pager[GalleryScriptVersionsClientListByGalleryScriptResponse]`
+- New function `*GalleryScriptVersionsClient.BeginUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, galleryScriptVersion GalleryScriptVersionUpdate, options *GalleryScriptVersionsClientBeginUpdateOptions) (*runtime.Poller[GalleryScriptVersionsClientUpdateResponse], error)`
+- New function `NewGalleryScriptsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryScriptsClient, error)`
+- New function `*GalleryScriptsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScript, options *GalleryScriptsClientBeginCreateOrUpdateOptions) (*runtime.Poller[GalleryScriptsClientCreateOrUpdateResponse], error)`
+- New function `*GalleryScriptsClient.BeginDelete(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptsClientBeginDeleteOptions) (*runtime.Poller[GalleryScriptsClientDeleteResponse], error)`
+- New function `*GalleryScriptsClient.Get(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptsClientGetOptions) (GalleryScriptsClientGetResponse, error)`
+- New function `*GalleryScriptsClient.NewListByGalleryPager(resourceGroupName string, galleryName string, options *GalleryScriptsClientListByGalleryOptions) *runtime.Pager[GalleryScriptsClientListByGalleryResponse]`
+- New function `*GalleryScriptsClient.BeginUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScriptUpdate, options *GalleryScriptsClientBeginUpdateOptions) (*runtime.Poller[GalleryScriptsClientUpdateResponse], error)`
+- New struct `GalleryScript`
+- New struct `GalleryScriptList`
+- New struct `GalleryScriptParameter`
+- New struct `GalleryScriptProperties`
+- New struct `GalleryScriptUpdate`
+- New struct `GalleryScriptVersion`
+- New struct `GalleryScriptVersionList`
+- New struct `GalleryScriptVersionProperties`
+- New struct `GalleryScriptVersionPublishingProfile`
+- New struct `GalleryScriptVersionSafetyProfile`
+- New struct `GalleryScriptVersionUpdate`
+- New struct `ScriptSource`
+- New field `StorageAccountStrategy` in struct `GalleryApplicationVersionPublishingProfile`
+- New field `StorageAccountStrategy` in struct `GalleryImageVersionPublishingProfile`
+
+
+## 7.2.0 (2025-11-21)
+### Features Added
+
+- New field `EnableFips1403Encryption` in struct `AdditionalCapabilities`
+- New field `SnapshotAccessState` in struct `DiskRestorePointInstanceView`
+- New field `InstantAccess` in struct `RestorePointCollectionProperties`
+- New field `InstantAccessDurationMinutes` in struct `RestorePointProperties`
+
+
+## 7.1.0 (2025-10-09)
+### Features Added
+
+- New value `OrchestrationServiceNamesAutomaticZoneRebalancing` added to enum type `OrchestrationServiceNames`
+- New value `ZonePlacementPolicyTypeAuto` added to enum type `ZonePlacementPolicyType`
+- New enum type `HighSpeedInterconnectPlacement` with values `HighSpeedInterconnectPlacementNone`, `HighSpeedInterconnectPlacementTrunk`
+- New enum type `OrchestrationServiceOperationStatus` with values `OrchestrationServiceOperationStatusCompleted`, `OrchestrationServiceOperationStatusInProgress`
+- New enum type `ReservationType` with values `ReservationTypeBlock`, `ReservationTypeTargeted`
+- New enum type `ScriptShellTypes` with values `ScriptShellTypesDefault`, `ScriptShellTypesPowershell7`
+- New function `*VirtualMachineScaleSetsClient.BeginScaleOut(context.Context, string, string, VMScaleSetScaleOutInput, *VirtualMachineScaleSetsClientBeginScaleOutOptions) (*runtime.Poller[VirtualMachineScaleSetsClientScaleOutResponse], error)`
+- New struct `AllInstancesDown`
+- New struct `MaxInstancePercentPerZonePolicy`
+- New struct `ScheduleProfile`
+- New struct `VMScaleSetScaleOutInput`
+- New struct `VMScaleSetScaleOutInputProperties`
+- New struct `ZoneAllocationPolicy`
+- New field `ReservationType` in struct `CapacityReservationGroupProperties`
+- New field `ScheduleProfile` in struct `CapacityReservationProperties`
+- New field `ScheduledEventsAPIVersion` in struct `EventGridAndResourceGraph`
+- New field `LastStatusChangeTime`, `LatestOperationStatus` in struct `OrchestrationServiceSummary`
+- New field `AddProxyAgentExtension` in struct `ProxyAgentSettings`
+- New field `ZoneAllocationPolicy` in struct `ResiliencyPolicy`
+- New field `AllInstancesDown` in struct `ScheduledEventsPolicy`
+- New field `Tags` in struct `VirtualMachineNetworkInterfaceConfiguration`
+- New field `Tags` in struct `VirtualMachinePublicIPAddressConfiguration`
+- New field `GalleryScriptReferenceID`, `ScriptShell` in struct `VirtualMachineRunCommandScriptSource`
+- New field `Placement` in struct `VirtualMachineScaleSet`
+- New field `Tags` in struct `VirtualMachineScaleSetNetworkConfiguration`
+- New field `HighSpeedInterconnectPlacement` in struct `VirtualMachineScaleSetProperties`
+- New field `Tags` in struct `VirtualMachineScaleSetPublicIPAddressConfiguration`
+- New field `Tags` in struct `VirtualMachineScaleSetUpdateNetworkConfiguration`
+- New field `Tags` in struct `VirtualMachineScaleSetUpdatePublicIPAddressConfiguration`
+- New field `PatchNameMasksToExclude`, `PatchNameMasksToInclude` in struct `WindowsParameters`
+
+
 ## 7.0.0 (2025-07-23)
 ### Breaking Changes
 

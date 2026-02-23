@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"slices"
 	"strings"
 
-	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/kallsyms"
@@ -71,7 +72,7 @@ func (cs *CollectionSpec) Copy() *CollectionSpec {
 	}
 
 	for name, spec := range cs.Variables {
-		cpy.Variables[name] = spec.copy(&cpy)
+		cpy.Variables[name] = spec.Copy()
 	}
 	if cs.Variables == nil {
 		cpy.Variables = nil
@@ -91,97 +92,6 @@ func copyMapOfSpecs[T interface{ Copy() T }](m map[string]T) map[string]T {
 	}
 
 	return cpy
-}
-
-// RewriteMaps replaces all references to specific maps.
-//
-// Use this function to use pre-existing maps instead of creating new ones
-// when calling NewCollection. Any named maps are removed from CollectionSpec.Maps.
-//
-// Returns an error if a named map isn't used in at least one program.
-//
-// Deprecated: Pass CollectionOptions.MapReplacements when loading the Collection
-// instead.
-func (cs *CollectionSpec) RewriteMaps(maps map[string]*Map) error {
-	for symbol, m := range maps {
-		// have we seen a program that uses this symbol / map
-		seen := false
-		for progName, progSpec := range cs.Programs {
-			err := progSpec.Instructions.AssociateMap(symbol, m)
-
-			switch {
-			case err == nil:
-				seen = true
-
-			case errors.Is(err, asm.ErrUnreferencedSymbol):
-				// Not all programs need to use the map
-
-			default:
-				return fmt.Errorf("program %s: %w", progName, err)
-			}
-		}
-
-		if !seen {
-			return fmt.Errorf("map %s not referenced by any programs", symbol)
-		}
-
-		// Prevent NewCollection from creating rewritten maps
-		delete(cs.Maps, symbol)
-	}
-
-	return nil
-}
-
-// MissingConstantsError is returned by [CollectionSpec.RewriteConstants].
-type MissingConstantsError struct {
-	// The constants missing from .rodata.
-	Constants []string
-}
-
-func (m *MissingConstantsError) Error() string {
-	return fmt.Sprintf("some constants are missing from .rodata: %s", strings.Join(m.Constants, ", "))
-}
-
-// RewriteConstants replaces the value of multiple constants.
-//
-// The constant must be defined like so in the C program:
-//
-//	volatile const type foobar;
-//	volatile const type foobar = default;
-//
-// Replacement values must be of the same length as the C sizeof(type).
-// If necessary, they are marshalled according to the same rules as
-// map values.
-//
-// From Linux 5.5 the verifier will use constants to eliminate dead code.
-//
-// Returns an error wrapping [MissingConstantsError] if a constant doesn't exist.
-//
-// Deprecated: Use [CollectionSpec.Variables] to interact with constants instead.
-// RewriteConstants is now a wrapper around the VariableSpec API.
-func (cs *CollectionSpec) RewriteConstants(consts map[string]interface{}) error {
-	var missing []string
-	for n, c := range consts {
-		v, ok := cs.Variables[n]
-		if !ok {
-			missing = append(missing, n)
-			continue
-		}
-
-		if !v.Constant() {
-			return fmt.Errorf("variable %s is not a constant", n)
-		}
-
-		if err := v.Set(c); err != nil {
-			return fmt.Errorf("rewriting constant %s: %w", n, err)
-		}
-	}
-
-	if len(missing) != 0 {
-		return fmt.Errorf("rewrite constants: %w", &MissingConstantsError{Constants: missing})
-	}
-
-	return nil
 }
 
 // Assign the contents of a CollectionSpec to a struct.
@@ -512,7 +422,11 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return m, nil
 	}
 
-	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
+	if err := mapSpec.updateDataSection(cl.coll.Variables, mapName); err != nil {
+		return nil, fmt.Errorf("assembling contents of map %s: %w", mapName, err)
+	}
+
+	m, err := newMapWithOptions(mapSpec, cl.opts.Maps, cl.types)
 	if err != nil {
 		return nil, fmt.Errorf("map %s: %w", mapName, err)
 	}
@@ -581,6 +495,7 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 	}
 
 	cl.programs[progName] = prog
+
 	return prog, nil
 }
 
@@ -594,19 +509,7 @@ func (cl *collectionLoader) loadVariable(varName string) (*Variable, error) {
 		return nil, fmt.Errorf("unknown variable %s", varName)
 	}
 
-	// Get the key of the VariableSpec's MapSpec in the CollectionSpec.
-	var mapName string
-	for n, ms := range cl.coll.Maps {
-		if ms == varSpec.m {
-			mapName = n
-			break
-		}
-	}
-	if mapName == "" {
-		return nil, fmt.Errorf("variable %s: underlying MapSpec %s was removed from CollectionSpec", varName, varSpec.m.Name)
-	}
-
-	m, err := cl.loadMap(mapName)
+	m, err := cl.loadMap(varSpec.SectionName)
 	if err != nil {
 		return nil, fmt.Errorf("variable %s: %w", varName, err)
 	}
@@ -623,14 +526,14 @@ func (cl *collectionLoader) loadVariable(varName string) (*Variable, error) {
 		mm, err = m.Memory()
 	}
 	if err != nil && !errors.Is(err, ErrNotSupported) {
-		return nil, fmt.Errorf("variable %s: getting memory for map %s: %w", varName, mapName, err)
+		return nil, fmt.Errorf("variable %s: getting memory for map %s: %w", varName, varSpec.SectionName, err)
 	}
 
 	v, err := newVariable(
-		varSpec.name,
-		varSpec.offset,
-		varSpec.size,
-		varSpec.t,
+		varSpec.Name,
+		varSpec.Offset,
+		varSpec.Size(),
+		varSpec.Type,
 		mm,
 	)
 	if err != nil {
@@ -688,11 +591,109 @@ func (cl *collectionLoader) populateDeferredMaps() error {
 			}
 		}
 
+		if mapSpec.Type == StructOpsMap {
+			// populate StructOps data into `kernVData`
+			if err := cl.populateStructOps(m, mapSpec); err != nil {
+				return err
+			}
+		}
+
 		// Populate and freeze the map if specified.
 		if err := m.finalize(mapSpec); err != nil {
 			return fmt.Errorf("populating map %s: %w", mapName, err)
 		}
 	}
+
+	return nil
+}
+
+// populateStructOps translates the user struct bytes into the kernel value struct
+// layout for a struct_ops map and writes the result back to mapSpec.Contents[0].
+func (cl *collectionLoader) populateStructOps(m *Map, mapSpec *MapSpec) error {
+	userType, ok := btf.As[*btf.Struct](mapSpec.Value)
+	if !ok {
+		return fmt.Errorf("value should be a *Struct")
+	}
+
+	userData, err := mapSpec.dataSection()
+	if err != nil {
+		return fmt.Errorf("getting data section: %w", err)
+	}
+	if len(userData) < int(userType.Size) {
+		return fmt.Errorf("user data too short: have %d, need at least %d", len(userData), userType.Size)
+	}
+
+	vType, _, module, err := structOpsFindTarget(userType, cl.types)
+	if err != nil {
+		return fmt.Errorf("struct_ops value type %q: %w", userType.Name, err)
+	}
+	defer module.Close()
+
+	// Find the inner ops struct embedded in the value struct.
+	kType, kTypeOff, err := structOpsFindInnerType(vType)
+	if err != nil {
+		return err
+	}
+
+	kernVData := make([]byte, int(vType.Size))
+	for _, m := range userType.Members {
+		i := slices.IndexFunc(kType.Members, func(km btf.Member) bool {
+			return km.Name == m.Name
+		})
+
+		// Allow field to not exist in target as long as the source is zero.
+		if i == -1 {
+			mSize, err := btf.Sizeof(m.Type)
+			if err != nil {
+				return fmt.Errorf("sizeof(user.%s): %w", m.Name, err)
+			}
+			srcOff := int(m.Offset.Bytes())
+			if srcOff < 0 || srcOff+mSize > len(userData) {
+				return fmt.Errorf("member %q: userdata is too small", m.Name)
+			}
+
+			// let fail if the field in type user type is missing in type kern type
+			if !structOpsIsMemZeroed(userData[srcOff : srcOff+mSize]) {
+				return fmt.Errorf("%s doesn't exist in %s, but it has non-zero value", m.Name, kType.Name)
+			}
+
+			continue
+		}
+
+		km := kType.Members[i]
+
+		switch btf.UnderlyingType(m.Type).(type) {
+		case *btf.Pointer:
+			// If this is a pointer → resolve struct_ops program.
+			psKey := kType.Name + ":" + m.Name
+			for k, ps := range cl.coll.Programs {
+				if ps.AttachTo == psKey {
+					p, ok := cl.programs[k]
+					if !ok || p == nil {
+						return nil
+					}
+					if err := structOpsPopulateValue(km, kernVData[kTypeOff:], p); err != nil {
+						return err
+					}
+				}
+			}
+
+		default:
+			// Otherwise → memcpy the field contents.
+			if err := structOpsCopyMember(m, km, userData, kernVData[kTypeOff:]); err != nil {
+				return fmt.Errorf("field %s: %w", kType.Name, err)
+			}
+		}
+	}
+
+	// Populate the map explicitly and keep a reference on cl.programs.
+	// This is necessary because we may inline fds into kernVData which
+	// may become invalid if the GC frees them.
+	if err := m.Put(uint32(0), kernVData); err != nil {
+		return err
+	}
+	mapSpec.Contents = nil
+	runtime.KeepAlive(cl.programs)
 
 	return nil
 }

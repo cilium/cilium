@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
@@ -29,22 +28,11 @@
 /* Inter-cluster SNAT is mandatory for overlapping PodCIDR support for now */
 #define ENABLE_INTER_CLUSTER_SNAT
 
-/* Import map definitions and some default values */
-#include <bpf/config/node.h>
-
-/* Overwrite the default port range defined in node_config.h
- * to have deterministic source port selection.
+/* Import map definitions and some default values and set port ranges to have
+ * deterministic source port selection
  */
-#undef NODEPORT_PORT_MAX
-#undef NODEPORT_PORT_MIN_NAT
-#undef NODEPORT_PORT_MAX_NAT
-#define NODEPORT_PORT_MAX 32767
-#define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
-#define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
-
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
+#define NODEPORT_PORT_MAX_NAT 32768
+#include "nodeport_defaults.h"
 
 /*
  * Test configurations
@@ -99,6 +87,9 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
+
+/* Overwrite (local) cluster_id defined in clustermesh.h */
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 #include "lib/endpoint.h"
 
@@ -242,8 +233,8 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x777f))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xd71f))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xd71f));
 
 	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	if (meta != 1)
@@ -335,8 +326,8 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x776f))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xd70f))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xd70f));
 
 	test_finish();
 }
@@ -409,8 +400,8 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x7771))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0xd711))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xd711));
 
 	meta = ctx_load_meta(ctx, CB_DELIVERY_REDIRECT);
 	if (meta != 1)

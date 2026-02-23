@@ -26,6 +26,8 @@ type parserCache struct {
 	tcp     layers.TCP
 	udp     layers.UDP
 	sctp    layers.SCTP
+	vrrp    layers.VRRPv2
+	igmp    layers.IGMPv1or2
 	decoded []gopacket.LayerType
 
 	overlay struct {
@@ -39,6 +41,8 @@ type parserCache struct {
 		tcp     layers.TCP
 		udp     layers.UDP
 		sctp    layers.SCTP
+		vrrp    layers.VRRPv2
+		igmp    layers.IGMPv1or2
 		decoded []gopacket.LayerType
 	}
 }
@@ -80,6 +84,7 @@ func initParser() {
 			&cache.ip4, &cache.ip6,
 			&cache.icmp4, &cache.icmp6,
 			&cache.tcp, &cache.udp, &cache.sctp,
+			&cache.vrrp, &cache.igmp,
 		}
 		overlayDecoders := []gopacket.DecodingLayer{
 			&cache.overlay.vxlan, &cache.overlay.geneve,
@@ -87,6 +92,7 @@ func initParser() {
 			&cache.overlay.ip4, &cache.overlay.ip6,
 			&cache.overlay.icmp4, &cache.overlay.icmp6,
 			&cache.overlay.tcp, &cache.overlay.udp, &cache.overlay.sctp,
+			&cache.overlay.vrrp, &cache.overlay.igmp,
 		}
 		parserL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 		parserL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
@@ -144,15 +150,21 @@ func getEthInfo(isOverlay bool) string {
 	return fmt.Sprintf("%s -> %s %s", target.SrcMAC, target.DstMAC, target.EthernetType.String())
 }
 
-// ConnectionInfo contains tuple information and icmp code for a connection
+// ConnectionInfo contains tuple information (IP addresses, ports, protocol)
+// and protocol-specific fields (e.g., ICMP, VRRP, IGMP) for a connection.
 type ConnectionInfo struct {
-	SrcIP    net.IP
-	DstIP    net.IP
-	SrcPort  uint16
-	DstPort  uint16
-	Proto    string
-	IcmpCode string
-	Tunnel   *ConnectionInfo
+	SrcIP            net.IP
+	DstIP            net.IP
+	SrcPort          uint16
+	DstPort          uint16
+	Proto            string
+	IcmpCode         string
+	VrrpType         string
+	VrrpVrID         string
+	VrrpPriority     string
+	IgmpType         string
+	IgmpGroupAddress string
+	Tunnel           *ConnectionInfo
 }
 
 func (c *ConnectionInfo) isOverlay() bool {
@@ -188,6 +200,12 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 		case layers.LayerTypeICMPv6:
 			c.Proto = "icmp"
 			c.IcmpCode = cache.icmp6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			c.Proto = "vrrp"
+			c.VrrpType, c.VrrpVrID, c.VrrpPriority = cache.vrrp.Type.String(), fmt.Sprintf("%d", cache.vrrp.VirtualRtrID), fmt.Sprintf("%d", cache.vrrp.Priority)
+		case layers.LayerTypeIGMP:
+			c.Proto = "igmp"
+			c.IgmpType, c.IgmpGroupAddress = cache.igmp.Type.String(), cache.igmp.GroupAddress.String()
 		}
 	}
 
@@ -241,6 +259,12 @@ func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
 		case layers.LayerTypeICMPv6:
 			c.Proto = "icmp"
 			c.IcmpCode = cache.overlay.icmp6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			c.Proto = "vrrp"
+			c.VrrpType, c.VrrpVrID, c.VrrpPriority = cache.vrrp.Type.String(), fmt.Sprintf("%d", cache.vrrp.VirtualRtrID), fmt.Sprintf("%d", cache.vrrp.Priority)
+		case layers.LayerTypeIGMP:
+			c.Proto = "igmp"
+			c.IgmpType, c.IgmpGroupAddress = cache.overlay.igmp.Type.String(), cache.overlay.igmp.GroupAddress.String()
 		}
 	}
 
@@ -306,6 +330,10 @@ func GetConnectionSummary(data []byte, opts *decodeOpts) string {
 	switch {
 	case c.Proto == "icmp":
 		str += fmt.Sprintf("%s -> %s %s %s", c.SrcIP, c.DstIP, c.Proto, c.IcmpCode)
+	case c.Proto == "vrrp":
+		str += fmt.Sprintf("%s -> %s %s %s %s %s", c.SrcIP, c.DstIP, c.Proto, c.VrrpType, c.VrrpVrID, c.VrrpPriority)
+	case c.Proto == "igmp":
+		str += fmt.Sprintf("%s -> %s %s %s %s", c.SrcIP, c.DstIP, c.Proto, c.IgmpType, c.IgmpGroupAddress)
 	case c.Proto != "":
 		str += fmt.Sprintf("%s -> %s %s",
 			net.JoinHostPort(c.SrcIP.String(), strconv.Itoa(int(c.SrcPort))),
@@ -385,6 +413,10 @@ func Dissect(buf *bufio.Writer, dissect bool, data []byte, opts *decodeOpts) {
 			fmt.Fprintln(buf, gopacket.LayerString(&cache.icmp4))
 		case layers.LayerTypeICMPv6:
 			fmt.Fprintln(buf, gopacket.LayerString(&cache.icmp6))
+		case layers.LayerTypeVRRP:
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.vrrp))
+		case layers.LayerTypeIGMP:
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.igmp))
 		default:
 			fmt.Fprintln(buf, "Unknown layer")
 		}
@@ -431,6 +463,10 @@ func Dissect(buf *bufio.Writer, dissect bool, data []byte, opts *decodeOpts) {
 			fmt.Fprintln(buf, gopacket.LayerString(&cache.overlay.icmp4))
 		case layers.LayerTypeICMPv6:
 			fmt.Fprintln(buf, gopacket.LayerString(&cache.overlay.icmp6))
+		case layers.LayerTypeVRRP:
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.overlay.vrrp))
+		case layers.LayerTypeIGMP:
+			fmt.Fprintln(buf, gopacket.LayerString(&cache.overlay.igmp))
 		default:
 			fmt.Fprintln(buf, "Unknown layer")
 		}
@@ -472,6 +508,8 @@ type DissectSummary struct {
 	SCTP     string `json:"sctp,omitempty"`
 	ICMPv4   string `json:"icmpv4,omitempty"`
 	ICMPv6   string `json:"icmpv6,omitempty"`
+	VRRP     string `json:"vrrp,omitempty"`
+	IGMP     string `json:"igmp,omitempty"`
 	L2       *Flow  `json:"l2,omitempty"`
 	L3       *Flow  `json:"l3,omitempty"`
 	L4       *Flow  `json:"l4,omitempty"`
@@ -540,6 +578,10 @@ func GetDissectSummary(data []byte, opts *decodeOpts) *DissectSummary {
 			ret.ICMPv4 = gopacket.LayerString(&cache.icmp4)
 		case layers.LayerTypeICMPv6:
 			ret.ICMPv6 = gopacket.LayerString(&cache.icmp6)
+		case layers.LayerTypeVRRP:
+			ret.VRRP = gopacket.LayerString(&cache.vrrp)
+		case layers.LayerTypeIGMP:
+			ret.IGMP = gopacket.LayerString(&cache.igmp)
 		}
 	}
 
@@ -616,6 +658,10 @@ func GetDissectSummary(data []byte, opts *decodeOpts) *DissectSummary {
 			ret.ICMPv4 = gopacket.LayerString(&cache.overlay.icmp4)
 		case layers.LayerTypeICMPv6:
 			ret.ICMPv6 = gopacket.LayerString(&cache.overlay.icmp6)
+		case layers.LayerTypeVRRP:
+			ret.VRRP = gopacket.LayerString(&cache.overlay.vrrp)
+		case layers.LayerTypeIGMP:
+			ret.IGMP = gopacket.LayerString(&cache.overlay.igmp)
 		}
 	}
 

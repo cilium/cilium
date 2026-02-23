@@ -116,7 +116,7 @@ func New(addr string) *Pinger {
 		protocol:          "udp",
 		awaitingSequences: firstSequence,
 		TTL:               64,
-		tclass:            192, // CS6 (network control)
+		tclass:            0,
 		logger:            StdLogger{Logger: log.New(log.Writer(), log.Prefix(), log.Flags())},
 	}
 }
@@ -565,6 +565,15 @@ func (p *Pinger) RunWithContext(ctx context.Context) error {
 		}
 		conn.SetIfIndex(iface.Index)
 	}
+
+	if p.Source != "" {
+		ip := net.ParseIP(p.Source)
+		if ip == nil {
+			return fmt.Errorf("invalid source address: %s", p.Source)
+		}
+		conn.SetSource(ip)
+	}
+
 	return p.run(ctx, conn)
 }
 

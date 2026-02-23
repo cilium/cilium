@@ -15,7 +15,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 
-#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_GENEVE
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
@@ -42,8 +41,7 @@
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
-/* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *lb_mac = mac_host;
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *backend_node_mac = mac_six;
@@ -84,6 +82,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -193,8 +193,8 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
-	if (l4->check != bpf_htons(0xd7d0))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+	if (l4->check != bpf_htons(0x3771))
+		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
 
 	test_finish();
 }
@@ -324,7 +324,7 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (l3->check != bpf_htons(0x5371))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
-	if (udp->dest != bpf_htons(TUNNEL_PORT))
+	if (udp->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port");
 
 	__be32 sec_id;
@@ -368,8 +368,8 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (tcp_inner->dest != BACKEND_PORT)
 		test_fatal("innerDstPort hasn't been NATed to backend port");
 
-	if (tcp_inner->check != bpf_htons(0xd7cf))
-		test_fatal("L4 checksum is invalid: %x", bpf_htons(tcp_inner->check));
+	if (tcp_inner->check != bpf_htons(0x3770))
+		test_fatal("L4 checksum is invalid: %x != %x", tcp_inner->check, bpf_htons(0x3770));
 
 	test_finish();
 }

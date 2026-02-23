@@ -112,7 +112,7 @@ type TrdsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TrdsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -403,7 +403,7 @@ type ThriftProxyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ThriftProxyMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -559,7 +559,7 @@ type ThriftFilterMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ThriftFilterMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -681,7 +681,7 @@ type ThriftProtocolOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ThriftProtocolOptionsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

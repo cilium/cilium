@@ -65,24 +65,32 @@ func mergeStringList(a, b stringList) stringList {
 type ruleOrigin unique.Handle[RuleMeta]
 
 func (ro ruleOrigin) Value() RuleMeta {
+	// Avoid nil pointer dereference if handle is empty
+	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
+		return RuleMeta{}
+	}
 	return (unique.Handle[RuleMeta])(ro).Value()
 }
 
 func (ro ruleOrigin) LabelsString() labels.LabelArrayListString {
+	// Avoid nil pointer dereference if handle is empty
+	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
+		return ""
+	}
 	return ro.Value().labels
 }
 
 func (ro ruleOrigin) LogString() string {
+	// Avoid nil pointer dereference if handle is empty
+	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
+		return ""
+	}
 	out, _ := json.Marshal(ro.Value().log.List())
 	return string(out)
 }
 
 func (ro ruleOrigin) GetLabelArrayList() labels.LabelArrayList {
 	return labels.LabelArrayListFromString(ro.LabelsString())
-}
-
-func (ro ruleOrigin) stringLabels() stringLabels {
-	return newStringLabels(ro.LabelsString())
 }
 
 func (rm RuleMeta) Log() []string {
@@ -112,10 +120,10 @@ func (ro ruleOrigin) Merge(other ruleOrigin) ruleOrigin {
 	}
 
 	// do not merge zero values
-	if ro.Value() == (RuleMeta{}) {
+	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
 		return other
 	}
-	if other.Value() == (RuleMeta{}) {
+	if unique.Handle[RuleMeta](other) == (unique.Handle[RuleMeta]{}) {
 		return ro
 	}
 
@@ -136,6 +144,10 @@ type stringLabels unique.Handle[labels.LabelArrayListString]
 var EmptyStringLabels = makeStringLabels(nil)
 
 func (sl stringLabels) Value() labels.LabelArrayListString {
+	// Avoid nil pointer dereference if handle is empty
+	if unique.Handle[labels.LabelArrayListString](sl) == (unique.Handle[labels.LabelArrayListString]{}) {
+		return ""
+	}
 	return unique.Handle[labels.LabelArrayListString](sl).Value()
 }
 

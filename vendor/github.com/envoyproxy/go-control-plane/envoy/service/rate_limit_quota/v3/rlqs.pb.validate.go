@@ -128,7 +128,7 @@ type RateLimitQuotaUsageReportsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaUsageReportsMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -275,7 +275,7 @@ type RateLimitQuotaResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -424,7 +424,7 @@ type BucketIdMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BucketIdMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -612,7 +612,7 @@ type RateLimitQuotaUsageReports_BucketQuotaUsageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaUsageReports_BucketQuotaUsageMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -857,7 +857,7 @@ type RateLimitQuotaResponse_BucketActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaResponse_BucketActionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1023,7 +1023,7 @@ type RateLimitQuotaResponse_BucketAction_QuotaAssignmentActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaResponse_BucketAction_QuotaAssignmentActionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1140,7 +1140,7 @@ type RateLimitQuotaResponse_BucketAction_AbandonActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitQuotaResponse_BucketAction_AbandonActionMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

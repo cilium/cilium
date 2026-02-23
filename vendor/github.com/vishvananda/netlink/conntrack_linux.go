@@ -366,6 +366,8 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 	//	<BEuint64>
 	//	<len, CTA_TIMEOUT>
 	//	<BEuint64>
+	//	<len, CTA_LABELS>
+	//	<binary data>
 	//	<len, NLA_F_NESTED|CTA_PROTOINFO>
 
 	// CTA_TUPLE_ORIG
@@ -392,6 +394,14 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 	ctTimeout := nl.NewRtAttr(nl.CTA_TIMEOUT, nl.BEUint32Attr(s.TimeOut))
 
 	payload = append(payload, ctTupleOrig, ctTupleReply, ctMark, ctTimeout)
+	// Labels: nil => do not send; 16 zero bytes => clear all labels.
+	if s.Labels != nil {
+		if len(s.Labels) != 16 {
+			return nil, fmt.Errorf("conntrack CTA_LABELS must be 16 bytes, got %d", len(s.Labels))
+		}
+		ctLabels := nl.NewRtAttr(nl.CTA_LABELS, s.Labels)
+		payload = append(payload, ctLabels)
+	}
 
 	if s.ProtoInfo != nil {
 		switch p := s.ProtoInfo.(type) {

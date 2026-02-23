@@ -4,6 +4,7 @@
 package byteorder
 
 import (
+	"encoding/binary"
 	"net"
 	"net/netip"
 )
@@ -13,10 +14,10 @@ import (
 func NetIPv4ToHost32(ip net.IP) uint32 {
 	ipv4 := ip.To4()
 	_ = ipv4[3] // Assert length of ipv4.
-	return Native.Uint32(ipv4)
+	return binary.NativeEndian.Uint32(ipv4)
 }
 
 func NetIPAddrToHost32(ip netip.Addr) uint32 {
 	ipv4 := ip.As4()
-	return Native.Uint32(ipv4[:])
+	return binary.NativeEndian.Uint32(ipv4[:])
 }

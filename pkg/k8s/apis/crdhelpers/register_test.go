@@ -88,7 +88,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
-				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
 			},
 			wantErr: false,
 		},
@@ -99,7 +99,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				require.NoError(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
-				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
 			},
 			wantErr: false,
 		},
@@ -126,7 +126,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
 			},
 			wantErr: false,
 		},
@@ -166,7 +166,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				crd := getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
-				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), labelKey, minVersion)
+				return CreateUpdateCRD(hivetest.Logger(t), client, crd, newFakePoller(), NeedsUpdateV1Factory(labelKey, minVersion))
 			},
 			wantErr: false,
 		},
@@ -181,31 +181,41 @@ func TestCreateUpdateCRD(t *testing.T) {
 func TestNeedsUpdateNoValidation(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Spec.Versions[0].Schema = nil
-	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
+	needUpdates, err := NeedsUpdateV1Factory(labelKey, minVersion)(nil, v1CRD)
+	require.NoError(t, err)
+	require.True(t, needUpdates)
 }
 
 func TestNeedsUpdateNoLabels(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels = nil
-	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
+	needUpdates, err := NeedsUpdateV1Factory(labelKey, minVersion)(nil, v1CRD)
+	require.NoError(t, err)
+	require.True(t, needUpdates)
 }
 
 func TestNeedsUpdateNoVersionLabel(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels = map[string]string{"test": "test"}
-	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
+	needUpdates, err := NeedsUpdateV1Factory(labelKey, minVersion)(nil, v1CRD)
+	require.NoError(t, err)
+	require.True(t, needUpdates)
 }
 
 func TestNeedsUpdateOlderVersion(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "0.9"
-	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
+	needUpdates, err := NeedsUpdateV1Factory(labelKey, minVersion)(nil, v1CRD)
+	require.NoError(t, err)
+	require.True(t, needUpdates)
 }
 
 func TestNeedsUpdateCorruptedVersion(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
-	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
+	needUpdates, err := NeedsUpdateV1Factory(labelKey, minVersion)(nil, v1CRD)
+	require.NoError(t, err)
+	require.True(t, needUpdates)
 }
 
 func TestFQDNNameRegex(t *testing.T) {

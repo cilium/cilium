@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -71,11 +72,15 @@ func (m *IPAMResponse) validateAddress(formats strfmt.Registry) error {
 
 	if m.Address != nil {
 		if err := m.Address.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("address")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("address")
 			}
+
 			return err
 		}
 	}
@@ -91,11 +96,15 @@ func (m *IPAMResponse) validateHostAddressing(formats strfmt.Registry) error {
 
 	if m.HostAddressing != nil {
 		if err := m.HostAddressing.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("host-addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("host-addressing")
 			}
+
 			return err
 		}
 	}
@@ -110,11 +119,15 @@ func (m *IPAMResponse) validateIPV4(formats strfmt.Registry) error {
 
 	if m.IPV4 != nil {
 		if err := m.IPV4.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv4")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv4")
 			}
+
 			return err
 		}
 	}
@@ -129,11 +142,15 @@ func (m *IPAMResponse) validateIPV6(formats strfmt.Registry) error {
 
 	if m.IPV6 != nil {
 		if err := m.IPV6.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv6")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv6")
 			}
+
 			return err
 		}
 	}
@@ -172,11 +189,15 @@ func (m *IPAMResponse) contextValidateAddress(ctx context.Context, formats strfm
 	if m.Address != nil {
 
 		if err := m.Address.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("address")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("address")
 			}
+
 			return err
 		}
 	}
@@ -189,11 +210,15 @@ func (m *IPAMResponse) contextValidateHostAddressing(ctx context.Context, format
 	if m.HostAddressing != nil {
 
 		if err := m.HostAddressing.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("host-addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("host-addressing")
 			}
+
 			return err
 		}
 	}
@@ -210,11 +235,15 @@ func (m *IPAMResponse) contextValidateIPV4(ctx context.Context, formats strfmt.R
 		}
 
 		if err := m.IPV4.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv4")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv4")
 			}
+
 			return err
 		}
 	}
@@ -231,11 +260,15 @@ func (m *IPAMResponse) contextValidateIPV6(ctx context.Context, formats strfmt.R
 		}
 
 		if err := m.IPV6.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("ipv6")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("ipv6")
 			}
+
 			return err
 		}
 	}

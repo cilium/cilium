@@ -25,11 +25,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -68,6 +70,8 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 		metrics.Cell,
 		maglev.Cell,
 		lbmaps.Cell,
+		lbipamconfig.Cell,
+		nodeipamconfig.Cell,
 		loadbalancer.ConfigCell,
 
 		cell.Provide(
@@ -84,10 +88,12 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() testSyncChan { return syncChan },
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
-					BPFSocketLBHostnsOnly:                  hostOnly,
-					EnableSocketLBPodConnectionTermination: true,
-					EnableIPv4:                             true,
-					EnableIPv6:                             true,
+					UnsafeDaemonConfigOption: option.UnsafeDaemonConfig{
+						BPFSocketLBHostnsOnly:                  hostOnly,
+						EnableSocketLBPodConnectionTermination: true,
+					},
+					EnableIPv4: true,
+					EnableIPv6: true,
 				}
 			},
 			func() kpr.KPRConfig {

@@ -53,7 +53,7 @@ type DeleteNetworkInterfacePermissionInput struct {
 // Contains the output for DeleteNetworkInterfacePermission.
 type DeleteNetworkInterfacePermissionOutput struct {
 
-	// Returns true if the request succeeds, otherwise returns an error.
+	// Is true if the request succeeds and an error otherwise.
 	Return *bool
 
 	// Metadata pertaining to the operation's result.
@@ -156,40 +156,7 @@ func (c *Client) addOperationDeleteNetworkInterfacePermissionMiddlewares(stack *
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

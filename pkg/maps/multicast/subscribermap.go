@@ -205,11 +205,7 @@ func (m GroupV4OuterMap) ListIterator() ([]netip.Addr, error) {
 
 	iter := m.Iterate()
 	for iter.Next(&key, &val) {
-		ip, ok := key.ToNetIPAddr()
-		if !ok {
-			return out, fmt.Errorf("failed to convert key to netip.Addr")
-		}
-		out = append(out, ip)
+		out = append(out, netip.AddrFrom4(key.Group))
 	}
 
 	return out, iter.Err()
@@ -237,11 +233,7 @@ func (m GroupV4OuterMap) ListBatch() ([]netip.Addr, error) {
 	}
 
 	for i := 0; i < len(keys) && i < count; i++ {
-		group, ok := keys[i].ToNetIPAddr()
-		if !ok {
-			return nil, fmt.Errorf("failed to convert GroupV4Key.Group to netip.Addr")
-		}
-		out = append(out, group)
+		out = append(out, netip.AddrFrom4(keys[i].Group))
 	}
 
 	return out, nil
@@ -261,10 +253,6 @@ func NewGroupV4KeyFromNetIPAddr(ip netip.Addr) (out GroupV4Key, err error) {
 	return out, nil
 }
 
-func (k GroupV4Key) ToNetIPAddr() (netip.Addr, bool) {
-	return netip.AddrFromSlice(k.Group[:])
-}
-
 // GroupV4Val is the value of a GroupV4OuterMap.
 // It is a file descriptor for an inner SubscriberV4InnerMap.
 type GroupV4Val struct {
@@ -280,6 +268,7 @@ func OpenGroupV4OuterMap(logger *slog.Logger, name string) (*GroupV4OuterMap, er
 	return &GroupV4OuterMap{
 		Map:                  m,
 		batchLookupSupported: haveBatchLookupSupport[GroupV4Key, GroupV4Val](m),
+		logger:               logger,
 	}, nil
 }
 

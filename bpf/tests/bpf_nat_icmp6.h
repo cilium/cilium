@@ -9,7 +9,7 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_MASQUERADE_IPV6
+#define ENABLE_MASQUERADE_IPV6		1
 
 #include "lib/bpf_host.h"
 

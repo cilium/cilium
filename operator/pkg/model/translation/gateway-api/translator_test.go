@@ -59,6 +59,10 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/httproute_request_redirect_with_multi_httplisteners"},
 		{name: "conformance/httproute_backend_protocol_h_2_c_app_protocol"},
 
+		// TLSRoute related tests
+
+		{name: "conformance/tlsroute_hostname_intersection"},
+
 		// GAMMA related tests
 		{name: "conformance/gamma/mesh_frontend"},
 		{name: "conformance/gamma/mesh_ports"},
@@ -79,7 +83,7 @@ func Test_translator_Translate(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, _, err := trans.Translate(input)
+			cec, svc, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
@@ -193,7 +197,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					expectedService := &corev1.Service{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
-					cec, svc, ep, err := trans.Translate(input)
+					cec, svc, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, expectedService, svc, "Service mismatch")
 
@@ -201,7 +205,6 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					if len(diffOutput) != 0 {
 						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
 					}
-					require.NotNil(t, ep)
 				})
 			}
 		})
@@ -247,7 +250,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, ep, err := trans.Translate(input)
+			cec, svc, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
@@ -257,8 +260,6 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 
 			require.NotNil(t, svc)
 			assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
-
-			require.NotNil(t, ep)
 		})
 	}
 }

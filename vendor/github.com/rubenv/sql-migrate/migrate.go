@@ -640,7 +640,7 @@ func (ms MigrationSet) planMigrationCommon(db *sql.DB, dialect string, m Migrati
 	}
 
 	// Sort migrations that have been run by Id.
-	var existingMigrations []*Migration
+	existingMigrations := make([]*Migration, 0, len(migrationRecords))
 	for _, migrationRecord := range migrationRecords {
 		existingMigrations = append(existingMigrations, &Migration{
 			Id: migrationRecord.Id,

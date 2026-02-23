@@ -60,7 +60,6 @@ func newTestBWManager() types.BandwidthManager {
 }
 
 func TestCollectStaleMapGarbage(t *testing.T) {
-
 	testCases := []struct {
 		name            string
 		endpoints       []uint16
@@ -78,10 +77,6 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedPaths:    []string{},
 			removedMappings: []int{},
@@ -94,17 +89,9 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			paths: []string{
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_v2_00001",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedMappings: []int{
 				1,
@@ -118,10 +105,6 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			paths: []string{
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_v2_00042",
@@ -136,18 +119,10 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			paths: []string{
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedMappings: []int{
 				1,
@@ -163,24 +138,12 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			paths: []string{
 				"cilium_policy_v2_1",
 				"cilium_policy_v2_42",
-				"cilium_ct6_1",
-				"cilium_ct4_1",
-				"cilium_ct_any6_1",
-				"cilium_ct_any4_1",
 				"cilium_policy_v2_00001",
 				"cilium_policy_v2_00042",
-				"cilium_ct6_00001",
-				"cilium_ct4_00001",
-				"cilium_ct_any6_00001",
-				"cilium_ct_any4_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_v2_1",
 				"cilium_policy_v2_42",
-				"cilium_ct6_1",
-				"cilium_ct4_1",
-				"cilium_ct_any6_1",
-				"cilium_ct_any4_1",
 			},
 			removedMappings: []int{},
 		},
@@ -190,7 +153,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -225,7 +188,7 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_policy_01234",
 		}
 		bwManager := newTestBWManager()
-		sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)

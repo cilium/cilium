@@ -254,7 +254,7 @@ func (p *Proxy) createNewRedirect(
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
 
-	scopedLog.Info("Created new proxy instance",
+	scopedLog.Debug("Created new proxy instance",
 		logfields.Object, redirect,
 		logfields.ProxyPort, pp.ProxyPort)
 
@@ -328,11 +328,11 @@ func (p *Proxy) removeRedirect(id string) {
 	}
 }
 
-func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, wg)
 }
 
-func (p *Proxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+func (p *Proxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	p.envoyIntegration.UseCurrentNetworkPolicy(ep, policy, wg)
 }
 

@@ -36,6 +36,8 @@ repository in the Cilium project:
   These owners are a stand-in for the user community to bring a user
   perspective to the review process. Consider how information is presented,
   consistency of flags and options.
+- `@cilium/committers <https://github.com/orgs/cilium/teams/committers>`__:
+  Cilium contributors with commit access.
 - `@cilium/ci-structure <https://github.com/orgs/cilium/teams/ci-structure>`__:
   Provide guidance around the best use of Cilium project continuous
   integration and testing infrastructure, including GitHub actions, VM
@@ -129,6 +131,7 @@ specific cloud providers:
 - `@cilium/alibabacloud <https://github.com/orgs/cilium/teams/alibabacloud>`__
 - `@cilium/aws <https://github.com/orgs/cilium/teams/aws>`__
 - `@cilium/azure <https://github.com/orgs/cilium/teams/azure>`__
+- `@cilium/gke <https://github.com/orgs/cilium/teams/gke>`__
 
 Cilium Internals
 ++++++++++++++++
@@ -141,8 +144,8 @@ external software and protocols:
   Maintain the deprecated docker-plugin.
 - `@cilium/endpoint <https://github.com/orgs/cilium/teams/endpoint>`__:
   Provide background on how the Cilium Endpoint package fits into the overall
-  agent architecture, relationship with generation of policy / datapath
-  constructs, serialization and restore from disk.
+  cluster architecture, lifecycle of endpoints, relationship with generation
+  of policy / datapath constructs, serialization and restore from disk.
 - `@cilium/envoy <https://github.com/orgs/cilium/teams/envoy>`__:
   Maintain the L7 proxy integration with Envoy. This includes the
   configurations for Envoy via xDS protocols as well as the extensible
@@ -223,3 +226,7 @@ external software and protocols:
 - `@cilium/wireguard <https://github.com/orgs/cilium/teams/wireguard>`__:
   Maintain the kernel WireGuard configuration and datapath impacts related to
   ensuring traffic is encrypted correctly when WireGuard mode is enabled.
+- `@cilium/ztunnel <https://github.com/orgs/cilium/teams/ztunnel>`__:
+  Maintain the ztunnel mTLS-proxy integration in Cilium to ensure the ztunnel
+  agent receives the necessary information to successfully proxy pod-to-pod
+  traffic through mTLS tunnels.

@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -76,11 +77,15 @@ func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
 
 	if m.EnabledProtocols != nil {
 		if err := m.EnabledProtocols.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("enabledProtocols")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("enabledProtocols")
 			}
+
 			return err
 		}
 	}
@@ -88,7 +93,7 @@ func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
 	return nil
 }
 
-var masqueradingTypeModePropEnum []interface{}
+var masqueradingTypeModePropEnum []any
 
 func init() {
 	var res []string
@@ -153,11 +158,15 @@ func (m *Masquerading) contextValidateEnabledProtocols(ctx context.Context, form
 		}
 
 		if err := m.EnabledProtocols.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("enabledProtocols")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("enabledProtocols")
 			}
+
 			return err
 		}
 	}

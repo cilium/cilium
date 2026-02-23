@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,23 +53,15 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
-	t.Cleanup(func() {
-		// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
-		leakOpts := testutils.GoleakIgnoreCurrent()
-		testutils.GoleakVerifyNone(t,
-			leakOpts,
-		)
-	})
-
 	version.Force(k8sTestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption
@@ -98,6 +91,8 @@ func TestScript(t *testing.T) {
 			lbcell.Cell,
 
 			maglev.Cell,
+			lbipamconfig.Cell,
+			nodeipamconfig.Cell,
 			node.LocalNodeStoreTestCell,
 			cni.Cell,
 			ipset.Cell,

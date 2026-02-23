@@ -38,6 +38,7 @@ type RemoteCluster interface {
 
 	Stop()
 	Remove(ctx context.Context)
+	RevokeCache(ctx context.Context)
 }
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -59,6 +60,8 @@ type remoteCluster struct {
 	resolvers []dial.Resolver
 
 	controllers *controller.Manager
+
+	ttlChecker *cacheTTLChecker
 
 	// wg is used to wait for the termination of the goroutines spawned by the
 	// controller upon reconnection for long running background tasks.
@@ -101,9 +104,10 @@ type remoteCluster struct {
 	// for testing purposes.
 	clusterLockFactory func() *clusterLock
 
-	metricLastFailureTimestamp prometheus.Gauge
-	metricReadinessStatus      prometheus.Gauge
-	metricTotalFailures        prometheus.Gauge
+	metricLastFailureTimestamp  prometheus.Gauge
+	metricReadinessStatus       prometheus.Gauge
+	metricTotalFailures         prometheus.Gauge
+	metricTotalCacheRevocations prometheus.Gauge
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
@@ -131,6 +135,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 		controller.ControllerParams{
 			Group: remoteConnectionControllerGroup,
 			DoFunc: func(ctx context.Context) error {
+				rc.ttlChecker.StartIfNeeded()
 				rc.releaseOldConnection()
 
 				clusterLock := rc.clusterLockFactory()
@@ -169,12 +174,10 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.mutex.Unlock()
 
 				ctx, cancel := context.WithCancel(ctx)
-				rc.wg.Add(1)
-				go func() {
+				rc.wg.Go(func() {
 					rc.watchdog(ctx, backend, clusterLock)
 					cancel()
-					rc.wg.Done()
-				}()
+				})
 
 				rc.logger.Info(
 					"Connection to remote cluster established",
@@ -212,16 +215,19 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				ready := make(chan error)
 
+				// We successfully reconnected to the remote cluster, so we can
+				// stop the TTL checker. Let's make sure that it actually terminated,
+				// so that we don't risk race conditions with the next operations.
+				rc.ttlChecker.Stop()
+
 				// Let's execute the long running logic in background. This allows
 				// to return early from the controller body, so that the statistics
 				// are updated correctly. Instead, blocking until rc.Run terminates
 				// would prevent a previous failure from being cleared out.
-				rc.wg.Add(1)
-				go func() {
+				rc.wg.Go(func() {
 					rc.Run(ctx, backend, config, ready)
 					cancel()
-					rc.wg.Done()
-				}()
+				})
 
 				if err := <-ready; err != nil {
 					select {
@@ -364,6 +370,7 @@ func (rc *remoteCluster) connect() {
 // we would break existing connections when the agent gets restarted.
 func (rc *remoteCluster) onStop() {
 	_ = rc.controllers.RemoveControllerAndWait(rc.remoteConnectionControllerName)
+	rc.ttlChecker.Stop()
 	rc.Stop()
 }
 
@@ -408,10 +415,67 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 		Ready:       rc.isReadyLocked(),
 		Connected:   rc.backend != nil,
 		Status:      backendStatus,
-		Config:      rc.config,
+		Config:      rc.config.DeepCopy(),
 		NumFailures: int64(rc.failures),
 		LastFailure: strfmt.DateTime(rc.lastFailure),
 	}
 
 	return status
+}
+
+type cacheTTLChecker struct {
+	logger *slog.Logger
+	ttl    time.Duration
+
+	onExpiration func(context.Context)
+
+	checking bool
+	wg       sync.WaitGroup
+	cancel   context.CancelFunc
+}
+
+func newTTLChecker(log *slog.Logger, ttl time.Duration, onExpiration func(context.Context)) *cacheTTLChecker {
+	return &cacheTTLChecker{
+		logger:       log,
+		ttl:          ttl,
+		onExpiration: onExpiration,
+
+		// No need to check until we connected once.
+		checking: true,
+		cancel:   func() {},
+	}
+}
+
+func (tc *cacheTTLChecker) StartIfNeeded() {
+	// Nothing to do in case the TTL checker is disabled, or it is already
+	// running in background.
+	if tc.ttl == 0 || tc.checking {
+		return
+	}
+
+	tc.logger.Info("Starting remote cluster cache TTL timer", logfields.TTL, tc.ttl)
+	ctx, cancel := context.WithCancel(context.Background())
+	tc.cancel = cancel
+	tc.checking = true
+
+	tc.wg.Go(func() {
+		select {
+		case <-time.After(tc.ttl):
+			tc.logger.Warn("Remote cluster cache TTL expired, revoking cache", logfields.TTL, tc.ttl)
+			tc.onExpiration(ctx)
+		case <-ctx.Done():
+			tc.logger.Debug("Remote cluster cache TTL timer cancelled")
+		}
+
+		cancel()
+	})
+}
+
+func (tc *cacheTTLChecker) Stop() {
+	tc.cancel()
+	tc.wg.Wait()
+
+	// No need to restart the checker after a first timeout unless we successfully
+	// connected again, as calling onExpiration would be a no-op anyways.
+	tc.checking = false
 }

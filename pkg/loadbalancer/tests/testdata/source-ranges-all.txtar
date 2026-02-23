@@ -1,0 +1,151 @@
+#! --bpf-lb-source-range-all-types=true
+
+# Start the test application
+hive start
+
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table 
+
+# Validate map contents
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Set the deny source range policy
+sed 'placeholder: placeholder' 'service.cilium.io/src-ranges-policy: deny' service.yaml
+k8s/update service.yaml
+db/cmp services services_deny.table
+
+# Validate that the service entries now have the 'source-range+deny' set.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_deny.expected lbmaps.actual
+
+# Explicitly set to "allow"
+sed 'service.cilium.io/src-ranges-policy: deny' 'service.cilium.io/src-ranges-policy: allow' service.yaml
+k8s/update service.yaml
+db/cmp services services.table
+
+# Validate that the service entries are back to allow.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml
+
+# Maps and tables should be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         SourceRanges=10.0.0.0/8
+
+-- services_deny.table --
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         SourceRanges=10.0.0.0/8, SourceRangesPolicy=deny
+
+-- frontends.table --
+Address               Type          ServiceName   PortName   Backends            Status
+10.0.0.1:80/TCP       ClusterIP     test/echo     http       10.244.1.1:80/TCP   Done
+10.0.0.2:80/TCP       LoadBalancer  test/echo     http       10.244.1.1:80/TCP   Done
+
+-- backends.table --
+Address             Instances          NodeName
+10.244.1.1:80/TCP   test/echo (http)   nodeport-worker
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  annotations:
+    placeholder: placeholder
+spec:
+  clusterIP: 10.0.0.1
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+  loadBalancerSourceRanges:
+    - 10.0.0.0/8
+status:
+  loadBalancer:
+    ingress: 
+      - ip: 10.0.0.2
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: echo
+    uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.0.0.1:80
+REV: ID=2 ADDR=10.0.0.2:80
+SRCRANGE: ID=1 CIDR=10.0.0.0/8
+SRCRANGE: ID=2 CIDR=10.0.0.0/8
+SVC: ID=0 ADDR=10.0.0.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+check source-range
+-- lbmaps_deny.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.0.0.1:80
+REV: ID=2 ADDR=10.0.0.2:80
+SRCRANGE: ID=1 CIDR=10.0.0.0/8
+SRCRANGE: ID=2 CIDR=10.0.0.0/8
+SVC: ID=0 ADDR=10.0.0.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range+deny
+SVC: ID=1 ADDR=10.0.0.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+check source-range+deny
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer+check source-range+deny
+SVC: ID=2 ADDR=10.0.0.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+check source-range+deny

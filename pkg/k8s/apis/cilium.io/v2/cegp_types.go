@@ -22,8 +22,10 @@ type CiliumEgressGatewayPolicy struct {
 	metav1.TypeMeta `json:",inline"`
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
+	// +kubebuilder:validation:Optional
 	Spec CiliumEgressGatewayPolicySpec `json:"spec,omitempty"`
 }
 
@@ -48,10 +50,14 @@ type CIDR string
 type CiliumEgressGatewayPolicySpec struct {
 	// Egress represents a list of rules by which egress traffic is
 	// filtered from the source pods.
+	//
+	// +kubebuilder:validation:Required
 	Selectors []EgressRule `json:"selectors"`
 
 	// DestinationCIDRs is a list of destination CIDRs for destination IP addresses.
 	// If a destination IP matches any one CIDR, it will be selected.
+	//
+	// +kubebuilder:validation:Required
 	DestinationCIDRs []CIDR `json:"destinationCIDRs"`
 
 	// ExcludedCIDRs is a list of destination CIDRs that will be excluded
@@ -60,11 +66,13 @@ type CiliumEgressGatewayPolicySpec struct {
 	// effect.
 	//
 	// +kubebuilder:validation:Optional
-	ExcludedCIDRs []CIDR `json:"excludedCIDRs"`
+	ExcludedCIDRs []CIDR `json:"excludedCIDRs,omitempty"`
 
 	// EgressGateway is the gateway node responsible for SNATing traffic.
 	// In case multiple nodes are a match for the given set of labels, the first node
 	// in lexical ordering based on their name will be selected.
+	//
+	// +kubebuilder:validation:Required
 	EgressGateway *EgressGateway `json:"egressGateway"`
 
 	// Optional list of gateway nodes responsible for SNATing traffic.
@@ -102,6 +110,8 @@ type EgressGateway struct {
 	// When none of the Interface or EgressIP fields is specified, the
 	// policy will use the first IPv4 assigned to the interface with the
 	// default route.
+	//
+	// +kubebuilder:validation:Optional
 	Interface string `json:"interface,omitempty"`
 
 	// EgressIP is the source IP address that the egress traffic is SNATed
@@ -117,19 +127,26 @@ type EgressGateway struct {
 	// default route.
 	//
 	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:Optional
 	EgressIP string `json:"egressIP,omitempty"`
 }
 
 type EgressRule struct {
 	// Selects Namespaces using cluster-scoped labels. This field follows standard label
 	// selector semantics; if present but empty, it selects all namespaces.
+	//
+	// +kubebuilder:validation:Optional
 	NamespaceSelector *slimv1.LabelSelector `json:"namespaceSelector,omitempty"`
 
 	// This is a label selector which selects Pods. This field follows standard label
 	// selector semantics; if present but empty, it selects all pods.
+	//
+	// +kubebuilder:validation:Optional
 	PodSelector *slimv1.LabelSelector `json:"podSelector,omitempty"`
 
 	// This is a label selector which selects Pods by Node. This field follows standard label
 	// selector semantics; if present but empty, it selects all nodes.
+	//
+	// +kubebuilder:validation:Optional
 	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
 }

@@ -4,7 +4,6 @@
 package proxy
 
 import (
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
@@ -12,7 +11,7 @@ import (
 )
 
 type DNSProxier interface {
-	GetRules(*versioned.VersionHandle, uint16) (restore.DNSRules, error)
+	GetRules(uint16) (restore.DNSRules, error)
 	RemoveRestoredRules(uint16)
 	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) (revert.RevertFunc, error)
 	GetBindPort() uint16

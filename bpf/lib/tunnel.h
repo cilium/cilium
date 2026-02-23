@@ -4,6 +4,13 @@
 #pragma once
 
 #include <linux/ipv6.h>
+#include <lib/static_data.h>
+
+#define TUNNEL_PROTOCOL_VXLAN 1
+#define TUNNEL_PROTOCOL_GENEVE 2
+DECLARE_CONFIG(__u8, tunnel_protocol,
+	       "The identifier of the tunnel protocol used for the overlay network")
+DECLARE_CONFIG(__u16, tunnel_port, "Port number used for the overlay network")
 
 /* The high-order bit of the Geneve option type indicates that
  * this is a critical option.

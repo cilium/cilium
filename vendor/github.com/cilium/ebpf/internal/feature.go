@@ -16,6 +16,10 @@ var ErrNotSupported = errors.New("not supported")
 // operating system.
 var ErrNotSupportedOnOS = fmt.Errorf("%w on %s", ErrNotSupported, runtime.GOOS)
 
+// ErrRestrictedKernel is returned when kernel address information is restricted
+// by kernel.kptr_restrict and/or net.core.bpf_jit_harden sysctls.
+var ErrRestrictedKernel = errors.New("restricted by kernel.kptr_restrict and/or net.core.bpf_jit_harden sysctls")
+
 // UnsupportedFeatureError is returned by FeatureTest() functions.
 type UnsupportedFeatureError struct {
 	// The minimum version required for this feature.

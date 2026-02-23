@@ -291,7 +291,7 @@ static __always_inline int
 ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	int ret = CTX_ACT_OK;
-	__u16 proto;
+	__be16 proto;
 
 	/**
 	 * For reply traffic to egress proxy for a local endpoint, we skip the

@@ -8,14 +8,17 @@ Start by looking at `tc_l2_announce.c` test as a reference, along with the
 Steps:
 
 0. Create the BPF unit test skeleton, if test is not there
-1. Define the buffer you will use in the section "Test buffer definitions"
-   within `bpf/tests/scapy/pkt_defs.py`, following the format below
+1. Define the buffer you will use in a file `bpf/tests/scapy/<test_name>_pkt_defs.py`,
+   following the format below:
 ```
-## <Test name>
+## <Test name> (test_file_name.c)
 
-<test_name>_<packet_name> = Ether()/...
+<test_name>_<packet_name> = (
+  Ether()/...
 ...
+)
 ```
+   Packet definitions are global, so make sure to prefix them with `test_name`.
 2. In the `_pktgen` section of the test, declare the buffer using
    `BUF_DECL(LOCAL_NAME, <test_name>_<packet_name>)`, and then push the buffer
    bytes to the builder using `BUILDER_PUSH_BUF(builder, LOCAL_NAME)`.
@@ -87,7 +90,8 @@ layers, irrelevant or reasonable defaults. Make sure TTL are adjusted (e.g. +1
 in some cases).
 
 Replace values with the constants defined in `pkt_defs.py` (e.g.MACs, IPs). Add
-any new value necessary in `pkt_defs.py`:
+any new value necessary in `pkt_defs.py` (if common) or in your specific
+`test_pkt_defs.py`:
 
 ```
 l2_announce6_ns = (

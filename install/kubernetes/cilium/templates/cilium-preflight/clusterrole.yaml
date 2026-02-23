@@ -40,8 +40,10 @@ rules:
   - namespaces
   - services
   - pods
-  - endpoints
   - nodes
+{{- if $readSecretsOnlyFromSecretsNamespace }}
+  - secrets
+{{- end }}
   verbs:
   - get
   - list
@@ -87,19 +89,10 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if $readSecretsOnlyFromSecretsNamespace }}
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-{{- end }}
 - apiGroups:
   - cilium.io
   resources:
   - ciliumloadbalancerippools
-  - ciliumbgppeeringpolicies
   - ciliumbgpnodeconfigs
   - ciliumbgpadvertisements
   - ciliumbgppeerconfigs
@@ -159,4 +152,14 @@ rules:
   - ciliumbgpnodeconfigs/status
   verbs:
   - patch
+{{- if .Values.k8sClusterNetworkPolicy.enabled }}
+- apiGroups:
+  - policy.networking.k8s.io
+  resources:
+  - clusternetworkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
 {{- end }}

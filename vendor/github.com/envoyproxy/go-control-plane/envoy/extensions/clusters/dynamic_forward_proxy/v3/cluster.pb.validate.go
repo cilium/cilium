@@ -167,7 +167,7 @@ type ClusterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -357,7 +357,7 @@ type SubClustersConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SubClustersConfigMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -87,16 +87,30 @@ int check1(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "ctx_mark_is_wireguard_success")
+CHECK("tc", "ctx_is_encrypt_success")
 int check2(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	assert(!ctx_mark_is_wireguard(ctx));
+	assert(!ctx_is_encrypt(ctx));
 
 	ctx->mark = MARK_MAGIC_ENCRYPT;
 
-	assert(ctx_mark_is_wireguard(ctx));
+	assert(ctx_is_encrypt(ctx));
+
+	test_finish();
+}
+
+CHECK("tc", "ctx_is_decrypt_success")
+int check3(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert(!ctx_is_decrypt(ctx));
+
+	ctx->mark = MARK_MAGIC_DECRYPT;
+
+	assert(ctx_is_decrypt(ctx));
 
 	test_finish();
 }

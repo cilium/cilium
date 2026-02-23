@@ -72,7 +72,7 @@ type StreamMetricsResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamMetricsResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -237,7 +237,7 @@ type StreamMetricsMessageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamMetricsMessageMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -379,7 +379,7 @@ type StreamMetricsMessage_IdentifierMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StreamMetricsMessage_IdentifierMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

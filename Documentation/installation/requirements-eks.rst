@@ -37,10 +37,11 @@ For more information on AWS ENI mode, see :ref:`ipam_eni`.
 
         apiVersion: eksctl.io/v1alpha5
         kind: ClusterConfig
-        ...
+        # ...
         managedNodeGroups:
         - name: ng-1
-          ...
+          # ...
+          #
           # taint nodes so that application pods are
           # not scheduled/executed until Cilium is deployed.
           # Alternatively, see the note above regarding taint effects.

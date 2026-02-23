@@ -7,8 +7,6 @@ import "maps"
 
 var (
 	endpointMutableOptionLibrary = OptionLibrary{
-		ConntrackAccounting:  &specConntrackAccounting,
-		PolicyAccounting:     &specPolicyAccounting,
 		Debug:                &specDebug,
 		DebugLB:              &specDebugLB,
 		DebugPolicy:          &specDebugPolicy,

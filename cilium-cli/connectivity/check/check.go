@@ -71,7 +71,6 @@ type Parameters struct {
 	Debug                     bool
 	Timestamp                 bool
 	PauseOnFail               bool
-	SkipIPCacheCheck          bool
 	Perf                      bool
 	PerfParameters            PerfParameters
 	CurlImage                 string
@@ -117,6 +116,7 @@ type Parameters struct {
 	IncludeConnDisruptTest              bool
 	IncludeConnDisruptTestNSTraffic     bool
 	IncludeConnDisruptTestEgressGateway bool
+	IncludeConnDisruptTestL7Traffic     bool
 	ConnDisruptTestSetup                bool
 	ConnDisruptTestRestartsPath         string
 	ConnDisruptTestXfrmErrorsPath       string

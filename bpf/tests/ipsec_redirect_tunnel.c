@@ -7,14 +7,16 @@
 
 #include "node_config.h"
 
-/* must define `HAVE_ENCAP 1` before including 'lib/encrypt.h'.
- * lib/encrypt.h eventually imports overloadable_skb.h which exposes
+/* must define `HAVE_ENCAP 1` before including 'lib/ipsec.h'.
+ * lib/ipsec.h eventually imports overloadable_skb.h which exposes
  * ctx_is_overlay, utilized within 'ipsec_maybe_redirect_to_encrypt'
  */
 #define HAVE_ENCAP 1
-#include "lib/encrypt.h"
-#include "lib/node.h"
+#include "../lib/ipsec.h"
+
+#include "tests/lib/node.h"
 #include "tests/lib/ipcache.h"
+#include "tests/lib/ipsec.h"
 
 static __always_inline
 int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4)
@@ -29,10 +31,7 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 	else
 		node_v6_add_entry((const union v6addr *)DST_NODE_IP_6, DST_NODE_ID, TARGET_SPI);
 
-	struct encrypt_config cfg = {
-		.encrypt_key = BAD_SPI,
-	};
-	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
+	ipsec_set_encrypt_state(BAD_SPI);
 
 	/*
 	 * Ensure encryption mark is set for overlay traffic with source

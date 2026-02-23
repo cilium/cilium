@@ -304,7 +304,7 @@ type AdmissionControlMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AdmissionControlMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -464,7 +464,7 @@ type AdmissionControl_SuccessCriteriaMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AdmissionControl_SuccessCriteriaMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -615,7 +615,7 @@ type AdmissionControl_SuccessCriteria_HttpCriteriaMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AdmissionControl_SuccessCriteria_HttpCriteriaMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -735,7 +735,7 @@ type AdmissionControl_SuccessCriteria_GrpcCriteriaMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AdmissionControl_SuccessCriteria_GrpcCriteriaMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

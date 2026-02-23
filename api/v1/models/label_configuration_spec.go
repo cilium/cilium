@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -45,11 +46,15 @@ func (m *LabelConfigurationSpec) validateUser(formats strfmt.Registry) error {
 	}
 
 	if err := m.User.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("user")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("user")
 		}
+
 		return err
 	}
 
@@ -73,11 +78,15 @@ func (m *LabelConfigurationSpec) ContextValidate(ctx context.Context, formats st
 func (m *LabelConfigurationSpec) contextValidateUser(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.User.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("user")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("user")
 		}
+
 		return err
 	}
 

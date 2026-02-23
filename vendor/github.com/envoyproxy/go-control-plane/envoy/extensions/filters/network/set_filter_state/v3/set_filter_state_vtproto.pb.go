@@ -49,6 +49,30 @@ func (m *Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.OnDownstreamTlsHandshake) > 0 {
+		for iNdEx := len(m.OnDownstreamTlsHandshake) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.OnDownstreamTlsHandshake[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.OnDownstreamTlsHandshake[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
 	if len(m.OnNewConnection) > 0 {
 		for iNdEx := len(m.OnNewConnection) - 1; iNdEx >= 0; iNdEx-- {
 			if vtmsg, ok := interface{}(m.OnNewConnection[iNdEx]).(interface {
@@ -84,6 +108,18 @@ func (m *Config) SizeVT() (n int) {
 	_ = l
 	if len(m.OnNewConnection) > 0 {
 		for _, e := range m.OnNewConnection {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.OnDownstreamTlsHandshake) > 0 {
+		for _, e := range m.OnDownstreamTlsHandshake {
 			if size, ok := interface{}(e).(interface {
 				SizeVT() int
 			}); ok {

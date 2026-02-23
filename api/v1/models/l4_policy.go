@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -59,11 +60,15 @@ func (m *L4Policy) validateEgress(formats strfmt.Registry) error {
 
 		if m.Egress[i] != nil {
 			if err := m.Egress[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("egress" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -85,11 +90,15 @@ func (m *L4Policy) validateIngress(formats strfmt.Registry) error {
 
 		if m.Ingress[i] != nil {
 			if err := m.Ingress[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("ingress" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -128,11 +137,15 @@ func (m *L4Policy) contextValidateEgress(ctx context.Context, formats strfmt.Reg
 			}
 
 			if err := m.Egress[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("egress" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -153,11 +166,15 @@ func (m *L4Policy) contextValidateIngress(ctx context.Context, formats strfmt.Re
 			}
 
 			if err := m.Ingress[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("ingress" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}

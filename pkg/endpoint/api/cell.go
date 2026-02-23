@@ -5,6 +5,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -116,8 +117,16 @@ type endpointAPIHandlerOut struct {
 
 func newEndpointAPIHandler(params endpointAPIHandlerParams) endpointAPIHandlerOut {
 	endpointStateRestoreCompleteWaitFn := func(ctx context.Context) error {
-		_, err := params.EndpointRestorerPromise.Await(ctx)
-		return err
+		restorer, err := params.EndpointRestorerPromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for restorer promise: %w", err)
+		}
+
+		if err := restorer.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+			return fmt.Errorf("failed to wait for initiated endpoint restoration: %w", err)
+		}
+
+		return nil
 	}
 
 	return endpointAPIHandlerOut{

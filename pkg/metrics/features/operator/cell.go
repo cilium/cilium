@@ -13,10 +13,10 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ciliumenvoyconfig2 "github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/ingress"
-	"github.com/cilium/cilium/operator/pkg/lbipam"
-	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 )
 
 var (
@@ -57,9 +57,9 @@ type featuresParams struct {
 	OperatorConfig *operatorOption.OperatorConfig
 
 	IngressController ingress.IngressConfig
-	LBIPAM            lbipam.Config
+	LBIPAM            lbipamconfig.Config
 	LBConfig          ciliumenvoyconfig2.LoadBalancerConfig
-	NodeIPAM          nodeipam.NodeIPAMConfig
+	NodeIPAM          nodeipamconfig.NodeIPAMConfig
 }
 
 func (p featuresParams) IsIngressControllerEnabled() bool {

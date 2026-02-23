@@ -35,24 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func devicesControllerTestSetup(t *testing.T) {
-	t.Cleanup(func() {
-		testutils.GoleakVerifyNone(
-			t,
-			testutils.GoleakIgnoreCurrent(),
-			// Ignore loop() and the netlink goroutines. These are left behind as netlink library has a bug
-			// that causes it to be stuck in Recvfrom even after stop channel closes.
-			// This is fixed by https://github.com/vishvananda/netlink/pull/793, but that has not been merged.
-			// These goroutines will terminate after any route or address update.
-			testutils.GoleakIgnoreTopFunction("github.com/cilium/cilium/pkg/datapath/linux.(*devicesController).loop"),
-			testutils.GoleakIgnoreTopFunction("syscall.Syscall6"), // Recvfrom
-		)
-	})
-}
-
 func TestPrivilegedDevicesControllerScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
-	devicesControllerTestSetup(t)
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var err error

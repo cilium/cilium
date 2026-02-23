@@ -1023,16 +1023,20 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble Relay deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
+				deployments, err := c.Client.ListDeployment(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.HubbleRelayLabelSelector,
+				})
 				if err != nil {
-					if k8sErrors.IsNotFound(err) {
-						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble is not enabled", hubbleRelayDeploymentName, c.Options.CiliumNamespace)
-						return nil
-					}
 					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
 				}
-				if err := c.WriteYAML(hubbleRelayDeploymentFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Hubble Relay deployment: %w", err)
+				if len(deployments.Items) == 0 {
+					c.logWarn("Deployment with label %q not found in namespace %q - this is expected if Hubble is not enabled", c.Options.HubbleRelayLabelSelector, c.Options.CiliumNamespace)
+					return nil
+				}
+				for i := range deployments.Items {
+					if err := c.WriteYAML(hubbleRelayDeploymentFileName, &deployments.Items[i]); err != nil {
+						return fmt.Errorf("failed to collect the Hubble Relay deployment %q: %w", deployments.Items[i].Name, err)
+					}
 				}
 				return nil
 			},
@@ -1041,16 +1045,20 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Hubble UI deployment",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleUIDeploymentName, metav1.GetOptions{})
+				deployments, err := c.Client.ListDeployment(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.HubbleUILabelSelector,
+				})
 				if err != nil {
-					if k8sErrors.IsNotFound(err) {
-						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble UI is not enabled", hubbleUIDeploymentName, c.Options.CiliumNamespace)
-						return nil
-					}
 					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
 				}
-				if err := c.WriteYAML(hubbleUIDeploymentFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Hubble UI deployment: %w", err)
+				if len(deployments.Items) == 0 {
+					c.logWarn("Deployment with label %q not found in namespace %q - this is expected if Hubble UI is not enabled", c.Options.HubbleUILabelSelector, c.Options.CiliumNamespace)
+					return nil
+				}
+				for i := range deployments.Items {
+					if err := c.WriteYAML(hubbleUIDeploymentFileName, &deployments.Items[i]); err != nil {
+						return fmt.Errorf("failed to collect the Hubble UI deployment %q: %w", deployments.Items[i].Name, err)
+					}
 				}
 				return nil
 			},
@@ -2175,18 +2183,20 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 func (c *Collector) getBGPControlPlaneTasks() []Task {
 	return []Task{
 		// BGPv1 resource
+		// NOTE: BGPv1 was removed in v1.19, this can be removed once v1.18 is out of support
 		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				return nil
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "ciliumbgppeeringpolicies",
+						Version:  "v2alpha1",
+					},
+					fmt.Sprintf(k8sResourceFileName, "ciliumbgppeeringpolicies"),
+				)
 			},
 		},
 		// BGPv2 resources - can be either v2 or v2alpha1 version
@@ -2308,11 +2318,11 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 // you think it does.
 func removeTopDirectory(path string) (string, error) {
 	// file separator hardcoded because sysdump always created on Linux OS
-	index := strings.IndexByte(path, '/')
-	if index < 0 {
+	_, after, found := strings.Cut(path, "/")
+	if !found {
 		return "", fmt.Errorf("invalid path %q", path)
 	}
-	return path[index+1:], nil
+	return after, nil
 }
 
 func untar(src string, dst string) error {
@@ -2569,12 +2579,17 @@ func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName s
 		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
 			outputStr, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
 				lsCommand,
+				"-1",
 				c.Options.CNIConfigDirectory,
 			})
 			if err != nil {
 				return err
 			}
 			for cniFileName := range strings.SplitSeq(strings.TrimSpace(outputStr.String()), "\n") {
+				// Skip empty filenames (from trailing newlines or extra whitespace)
+				if cniFileName == "" {
+					continue
+				}
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
 				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
 					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{
@@ -2846,6 +2861,30 @@ func (c *Collector) submitFlavorSpecificTasks(f k8s.Flavor) error {
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to submit %q task: %w", awsNodeDaemonSetName, err)
+		}
+		return nil
+	case k8s.KindGKE:
+		if err := c.Pool.Submit(gkeConfigMapsName, func(ctx context.Context) error {
+			// Collect additional, GKE specific configmaps.
+			for cm, filename := range map[string]string{
+				gkeHubbleConfigMap:   gkeCiliumHubbleConfigFileName,
+				gkeOverrideConfigMap: gkeCiliumOverrideConfigFileName,
+			} {
+				configMap, err := c.Client.GetConfigMap(ctx, metav1.NamespaceSystem, cm, metav1.GetOptions{})
+				if err != nil {
+					if k8sErrors.IsNotFound(err) {
+						c.logDebug("ConfigMap %q not found in namespace %q, skipping", cm, metav1.NamespaceSystem)
+						continue
+					}
+					return fmt.Errorf("get '%s/%s' configmap: %w", metav1.NamespaceSystem, cm, err)
+				}
+				if err := c.WriteYAML(filename, configMap); err != nil {
+					return fmt.Errorf("write '%s/%s' configmap: %w", metav1.NamespaceSystem, cm, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("submit %q task: %w", gkeConfigMapsName, err)
 		}
 		return nil
 	default:

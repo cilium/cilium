@@ -126,10 +126,11 @@ func (nc *CiliumNodeConverter) Convert(event resource.Event[*cilium_api_v2.Ciliu
 
 func newCiliumIdentityOptions() Options[*cilium_api_v2.CiliumIdentity] {
 	return Options[*cilium_api_v2.CiliumIdentity]{
-		Enabled:   true,
-		Resource:  "CiliumIdentity",
-		Prefix:    path.Join(identityCache.IdentitiesPath, "id"),
-		StoreOpts: []store.WSSOpt{store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath)},
+		Enabled:    true,
+		Resource:   "CiliumIdentity",
+		Prefix:     path.Join(identityCache.IdentitiesPath, "id"),
+		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath)},
+		Namespaced: true,
 	}
 }
 
@@ -166,10 +167,11 @@ func (ic *CiliumIdentityConverter) Convert(event resource.Event[*cilium_api_v2.C
 
 func newCiliumEndpointOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*types.CiliumEndpoint] {
 	return Options[*types.CiliumEndpoint]{
-		Enabled:   !cfg.EnableCiliumEndpointSlice,
-		Resource:  "CiliumEndpoint",
-		Prefix:    path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
-		StoreOpts: []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+		Enabled:    !cfg.EnableCiliumEndpointSlice,
+		Resource:   "CiliumEndpoint",
+		Prefix:     path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+		Namespaced: true,
 	}
 }
 
@@ -212,10 +214,11 @@ func ciliumEndpointMapper(endpoint *types.CiliumEndpoint) iter.Seq[store.Key] {
 
 func newCiliumEndpointSliceOptions(cfg cmk8s.CiliumEndpointSliceConfig) Options[*cilium_api_v2a1.CiliumEndpointSlice] {
 	return Options[*cilium_api_v2a1.CiliumEndpointSlice]{
-		Enabled:   cfg.EnableCiliumEndpointSlice,
-		Resource:  "CiliumEndpointSlice",
-		Prefix:    path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
-		StoreOpts: []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+		Enabled:    cfg.EnableCiliumEndpointSlice,
+		Resource:   "CiliumEndpointSlice",
+		Prefix:     path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
+		StoreOpts:  []store.WSSOpt{store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath)},
+		Namespaced: true,
 	}
 }
 

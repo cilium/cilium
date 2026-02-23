@@ -110,7 +110,7 @@ type RateLimitRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitRequestMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -374,7 +374,7 @@ type RateLimitResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitResponseMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -482,7 +482,7 @@ type RateLimitResponse_RateLimitMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitResponse_RateLimitMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -644,7 +644,7 @@ type RateLimitResponse_QuotaMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitResponse_QuotaMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -839,7 +839,7 @@ type RateLimitResponse_DescriptorStatusMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RateLimitResponse_DescriptorStatusMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

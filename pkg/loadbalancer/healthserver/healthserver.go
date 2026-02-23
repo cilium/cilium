@@ -50,6 +50,7 @@ type healthServerParams struct {
 	Config        lb.Config
 	TestConfig    *lb.TestConfig `optional:"true"`
 	ExtConfig     lb.ExternalConfig
+	Services      statedb.Table[*lb.Service]
 	Frontends     statedb.Table[*lb.Frontend]
 	Backends      statedb.Table[*lb.Backend]
 	Writer        *writer.Writer
@@ -169,7 +170,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 					s.params.Writer.DeleteBackendsOfService(wtxn, healthServiceName, source.Local)
 					s.params.Writer.DeleteServiceAndFrontends(wtxn, healthServiceName)
 					wtxn.Commit()
-				} else if extCfg.EnableHealthCheckLoadBalancerIP {
+				} else if s.params.Config.EnableHealthCheckLoadBalancerIP {
 					// Create a LoadBalancer service to expose the health server on the $LB_VIP.
 					// For NodePort we don't need anything as the HealthServer is already listening on
 					// all node addresses.
@@ -259,8 +260,8 @@ func (s *healthServer) addListener(svc *lb.Service, port uint16) {
 	srv := &httpHealthServer{
 		nodeName: s.nodeName,
 		name:     svc.Name,
-		svc:      svc,
 		db:       s.params.DB,
+		services: s.params.Services,
 		backends: s.params.Backends,
 	}
 	bindAddr := fmt.Sprintf(":%d", port)
@@ -312,19 +313,19 @@ type httpHealthServer struct {
 
 	nodeName string
 	name     lb.ServiceName
-	svc      *lb.Service
 	db       *statedb.DB
+	services statedb.Table[*lb.Service]
 	backends statedb.Table[*lb.Backend]
 }
 
 func (h *httpHealthServer) getLocalEndpointCount() int {
-	if h.svc.ProxyRedirect != nil {
+	txn := h.db.ReadTxn()
+	svc, _, found := h.services.Get(txn, lb.ServiceByName(h.name))
+	if found && svc.ProxyRedirect != nil {
 		// Traffic is redirected to a proxy and thus we have no information on
 		// the actual backends. Return a synthetic single backend in this case.
 		return 1
 	}
-
-	txn := h.db.ReadTxn()
 
 	// Gather the backends for the service.
 	activeCount := 0

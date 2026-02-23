@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 
@@ -20,6 +21,12 @@ import (
 var (
 	// globalStatus is the global status of all controllers
 	globalStatus = NewManager()
+
+	// errControllerNotFound indicates that the named controller was not found.
+	errControllerNotFound = errors.New("unable to find controller")
+
+	// errControllerMapEmpty indicates that the controller map has not been initialized.
+	errControllerMapEmpty = errors.New("empty controller map")
 )
 
 type controllerMap map[string]*managedController
@@ -173,12 +180,12 @@ func (m *Manager) removeAndReturnController(name string) (*managedController, er
 	defer m.mutex.Unlock()
 
 	if m.controllers == nil {
-		return nil, fmt.Errorf("empty controller map")
+		return nil, errControllerMapEmpty
 	}
 
 	oldCtrl := m.lookupLocked(name)
 	if oldCtrl == nil {
-		return nil, fmt.Errorf("unable to find controller %s", name)
+		return nil, fmt.Errorf("%w %s", errControllerNotFound, name)
 	}
 
 	m.removeController(oldCtrl)
@@ -194,14 +201,19 @@ func (m *Manager) RemoveController(name string) error {
 }
 
 // RemoveControllerAndWait stops and removes a controller using
-// RemoveController() and then waits for it to run to completion.
+// RemoveController() and then waits for it to run to completion. If the
+// controller does not exist, this function is a no-op and returns nil.
 func (m *Manager) RemoveControllerAndWait(name string) error {
 	oldCtrl, err := m.removeAndReturnController(name)
-	if err == nil {
-		<-oldCtrl.terminated
+	if err != nil {
+		if errors.Is(err, errControllerNotFound) {
+			return nil
+		}
+		return err
 	}
 
-	return err
+	<-oldCtrl.terminated
+	return nil
 }
 
 func (m *Manager) removeAll() []*managedController {

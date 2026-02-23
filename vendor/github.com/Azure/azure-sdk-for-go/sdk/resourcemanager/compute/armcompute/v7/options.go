@@ -884,6 +884,68 @@ type GalleryInVMAccessControlProfilesClientListByGalleryOptions struct {
 	// placeholder for future optional parameters
 }
 
+// GalleryScriptVersionsClientBeginCreateOrUpdateOptions contains the optional parameters for the GalleryScriptVersionsClient.BeginCreateOrUpdate
+// method.
+type GalleryScriptVersionsClientBeginCreateOrUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptVersionsClientBeginDeleteOptions contains the optional parameters for the GalleryScriptVersionsClient.BeginDelete
+// method.
+type GalleryScriptVersionsClientBeginDeleteOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptVersionsClientBeginUpdateOptions contains the optional parameters for the GalleryScriptVersionsClient.BeginUpdate
+// method.
+type GalleryScriptVersionsClientBeginUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptVersionsClientGetOptions contains the optional parameters for the GalleryScriptVersionsClient.Get method.
+type GalleryScriptVersionsClientGetOptions struct {
+	// placeholder for future optional parameters
+}
+
+// GalleryScriptVersionsClientListByGalleryScriptOptions contains the optional parameters for the GalleryScriptVersionsClient.NewListByGalleryScriptPager
+// method.
+type GalleryScriptVersionsClientListByGalleryScriptOptions struct {
+	// placeholder for future optional parameters
+}
+
+// GalleryScriptsClientBeginCreateOrUpdateOptions contains the optional parameters for the GalleryScriptsClient.BeginCreateOrUpdate
+// method.
+type GalleryScriptsClientBeginCreateOrUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptsClientBeginDeleteOptions contains the optional parameters for the GalleryScriptsClient.BeginDelete method.
+type GalleryScriptsClientBeginDeleteOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptsClientBeginUpdateOptions contains the optional parameters for the GalleryScriptsClient.BeginUpdate method.
+type GalleryScriptsClientBeginUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// GalleryScriptsClientGetOptions contains the optional parameters for the GalleryScriptsClient.Get method.
+type GalleryScriptsClientGetOptions struct {
+	// placeholder for future optional parameters
+}
+
+// GalleryScriptsClientListByGalleryOptions contains the optional parameters for the GalleryScriptsClient.NewListByGalleryPager
+// method.
+type GalleryScriptsClientListByGalleryOptions struct {
+	// placeholder for future optional parameters
+}
+
 // GallerySharingProfileClientBeginUpdateOptions contains the optional parameters for the GallerySharingProfileClient.BeginUpdate
 // method.
 type GallerySharingProfileClientBeginUpdateOptions struct {
@@ -1773,6 +1835,13 @@ type VirtualMachineScaleSetsClientBeginRestartOptions struct {
 
 	// A list of virtual machine instance IDs from the VM scale set.
 	VMInstanceIDs *VirtualMachineScaleSetVMInstanceIDs
+}
+
+// VirtualMachineScaleSetsClientBeginScaleOutOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginScaleOut
+// method.
+type VirtualMachineScaleSetsClientBeginScaleOutOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
 }
 
 // VirtualMachineScaleSetsClientBeginSetOrchestrationServiceStateOptions contains the optional parameters for the VirtualMachineScaleSetsClient.BeginSetOrchestrationServiceState

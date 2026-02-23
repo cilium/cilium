@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -59,11 +60,15 @@ func (m *EndpointConfigurationStatus) validateError(formats strfmt.Registry) err
 	}
 
 	if err := m.Error.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("error")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("error")
 		}
+
 		return err
 	}
 
@@ -77,11 +82,15 @@ func (m *EndpointConfigurationStatus) validateImmutable(formats strfmt.Registry)
 
 	if m.Immutable != nil {
 		if err := m.Immutable.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("immutable")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("immutable")
 			}
+
 			return err
 		}
 	}
@@ -96,11 +105,15 @@ func (m *EndpointConfigurationStatus) validateRealized(formats strfmt.Registry) 
 
 	if m.Realized != nil {
 		if err := m.Realized.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("realized")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("realized")
 			}
+
 			return err
 		}
 	}
@@ -137,11 +150,15 @@ func (m *EndpointConfigurationStatus) contextValidateError(ctx context.Context, 
 	}
 
 	if err := m.Error.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("error")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("error")
 		}
+
 		return err
 	}
 
@@ -155,11 +172,15 @@ func (m *EndpointConfigurationStatus) contextValidateImmutable(ctx context.Conte
 	}
 
 	if err := m.Immutable.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("immutable")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("immutable")
 		}
+
 		return err
 	}
 
@@ -175,11 +196,15 @@ func (m *EndpointConfigurationStatus) contextValidateRealized(ctx context.Contex
 		}
 
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("realized")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("realized")
 			}
+
 			return err
 		}
 	}

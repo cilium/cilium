@@ -2,6 +2,9 @@
 
 hive/start
 
+# Add three namespaces
+k8s/add namespace-1.yaml namespace-2.yaml namespace-3.yaml
+
 # Add two CiliumEndpointSlices
 k8s/add endpointslice-1.yaml endpointslice-2.yaml
 
@@ -35,7 +38,58 @@ k8s/delete endpointslice-2.yaml
 kvstore/list -o json cilium/state/ip ips-1+3.actual
 * cmp ips-1+3.actual ips-1+3.expected
 
+# Annotate namespace-1 as non-global
+k8s/update namespace-1-annotated.yaml
+
+# Wait for synchronization. Only endpoints in namespace-2 should remain synced
+kvstore/list -o json cilium/state/ip ips-3.actual
+* cmp ips-3.actual ips-3.expected
+
+# Now, annotate namespace-1 as global again
+k8s/update namespace-1.yaml
+
+# Wait for synchronization. endpoint-1-v2 and endpoint-3 should be synced
+kvstore/list -o json cilium/state/ip ips-1+3.actual
+* cmp ips-1+3.actual ips-1+3.expected
+
+# Update CiliumEndpointSlice-3 to update namespace to non-global namespace-3
+cp endpointslice-3.yaml endpointslice-3-v2.yaml
+replace 'fred' 'baz' endpointslice-3-v2.yaml
+k8s/update endpointslice-3-v2.yaml
+
+# Wait for synchronization. Only endpoint-1-v2 should remain synced
+kvstore/list -o json cilium/state/ip ips-1.actual
+* cmp ips-1.actual ips-1.expected
+
 # ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qux
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fred
+
+-- namespace-1-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qux
+  annotations:
+    clustermesh.cilium.io/global: "false"
+
+-- namespace-3.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: baz
+  annotations:
+    clustermesh.cilium.io/global: "false"
 
 -- endpointslice-1.yaml --
 apiVersion: cilium.io/v2alpha1
@@ -447,6 +501,80 @@ namespace: fred
   "Metadata": "",
   "K8sNamespace": "fred",
   "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::d615
+{
+  "IP": "fd00:10:244:2::d615",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e4b3
+{
+  "IP": "fd00:10:244:2::e4b3",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009",
+  "K8sServiceAccount": "default"
+}
+-- ips-3.expected --
+# cilium/state/ip/v1/default/10.244.2.120
+{
+  "IP": "10.244.2.120",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::5e16
+{
+  "IP": "fd00:10:244:2::5e16",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199494,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "fred",
+  "K8sPodName": "foo-005",
+  "K8sServiceAccount": "default"
+}
+-- ips-1.expected --
+# cilium/state/ip/v1/default/10.244.2.15
+{
+  "IP": "10.244.2.15",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199477,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/10.244.2.91
+{
+  "IP": "10.244.2.91",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199481,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "qux",
+  "K8sPodName": "foo-009",
   "K8sServiceAccount": "default"
 }
 # cilium/state/ip/v1/default/fd00:10:244:2::d615

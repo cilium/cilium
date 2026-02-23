@@ -45,8 +45,7 @@ local-release: clean
 		for ARCH in $$ARCHS; do \
 			echo Building release binary for $$OS/$$ARCH...; \
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
-			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) \
-				-o release/$$OS/$$ARCH/$(TARGET)$$EXT $(CLI_MAIN_DIR); \
+			$(MAKE) GOOS=$$OS GOARCH=$$ARCH TARGET=release/$$OS/$$ARCH/$(TARGET)$$EXT; \
 			if [ $$OS = "windows" ]; \
 			then \
 				zip -j release/$(TARGET)-$$OS-$$ARCH.zip release/$$OS/$$ARCH/$(TARGET)$$EXT; \

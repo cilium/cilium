@@ -42,7 +42,7 @@ func (m *CNIChainingStatus) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var cNIChainingStatusTypeModePropEnum []interface{}
+var cNIChainingStatusTypeModePropEnum []any
 
 func init() {
 	var res []string

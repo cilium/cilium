@@ -69,7 +69,7 @@ func Test_withConnectionTimeout(t *testing.T) {
 
 func Test_httpCluster(t *testing.T) {
 	c := &cecTranslator{}
-	res, err := c.httpCluster("dummy-name", "dummy-name", false, "")
+	res, err := c.httpCluster("dummy-name", "dummy-name", false, "", nil)
 	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}
@@ -84,7 +84,7 @@ func Test_httpCluster(t *testing.T) {
 
 func Test_tcpCluster(t *testing.T) {
 	c := &cecTranslator{}
-	res, err := c.httpCluster("dummy-name", "dummy-name", false, "")
+	res, err := c.httpCluster("dummy-name", "dummy-name", false, "", nil)
 	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}

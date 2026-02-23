@@ -1,0 +1,168 @@
+#! --test-peering-ips=10.99.4.111,10.99.4.112 --enable-no-service-endpoints-routable=false
+
+# Tests that services with externalTrafficPolicy=Cluster and no endpoints are not advertised
+# when --enable-no-service-endpoints-routable option is set to false
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server test 65010 10.99.4.111 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.4.112 65001
+
+# Add a k8s service
+k8s/add service.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.4.112 ESTABLISHED
+
+# Validate that LB IP is NOT advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Add corresponding endpointSlice
+k8s/add endpoints.yaml
+
+# Validate that LB IP is advertised
+gobgp/routes -o routes.actual
+* cmp gobgp-routes.expected routes.actual
+
+# Delete the service
+k8s/delete service.yaml
+sleep 0.1s # give some time for the change to propagate to avoid false positive
+
+# Validate that LB IP is withdrawn
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-empty.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.4.112
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.4.111
+      localAddress: 10.99.4.112
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: services
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: services
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: bgp, operator: In, values: [ advertise ] }
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo1
+  namespace: test
+  labels:
+    bgp: advertise
+  annotations:
+    "lbipam.cilium.io/sharing-key": "1234"
+spec:
+  type: LoadBalancer
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpoints.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo1
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- gobgp-routes.expected --
+Prefix          NextHop       Attrs
+172.16.1.1/32   10.99.4.112   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.4.112}]
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs

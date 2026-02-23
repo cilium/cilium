@@ -98,7 +98,7 @@ func Test_updateCEPUID(t *testing.T) {
 		// but the endpoint snapshot is lost on reboot. The endpoint UID will
 		// remain empty, but the CEP object will have a UID and a wrong nodeIP.
 		// It is to counter this case that we check the pods hostIP against the
-		// nodeIP instaed of the CEP's node IP.
+		// nodeIP instead of the CEP's node IP.
 		"take ownership of cep due to empty CiliumEndpointUID ref": {
 			ep:            epWithUID("", podWithHostIP(testIP)),
 			nodeIP:        testIP,
@@ -114,23 +114,20 @@ func Test_updateCEPUID(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			assert := assert.New(t)
-			var err error
-			node.WithTestLocalNodeStore(func() {
-				node.UpdateLocalNodeInTest(func(n *node.LocalNode) {
-					n.SetNodeInternalIP(net.ParseIP(test.nodeIP))
-				})
-				err = updateCEPUID(logger, test.ep, test.cep)
-			})
+			ln := node.LocalNode{}
+			ln.SetNodeInternalIP(net.ParseIP(test.nodeIP))
+			eps := &EndpointSynchronizer{
+				localNodeStore: node.NewTestLocalNodeStore(ln),
+			}
+			err := eps.updateCEPUID(t.Context(), logger, test.ep, test.cep)
 			if test.err == nil {
-				assert.NoError(err)
+				assert.NoError(t, err)
 			} else {
-				assert.ErrorContains(err, test.err.Error())
+				assert.ErrorContains(t, err, test.err.Error())
 			}
 			if test.expectedEPUID != nil {
-				assert.Equal(*test.expectedEPUID, test.ep.GetCiliumEndpointUID())
+				assert.Equal(t, *test.expectedEPUID, test.ep.GetCiliumEndpointUID())
 			}
 		})
-
 	}
 }

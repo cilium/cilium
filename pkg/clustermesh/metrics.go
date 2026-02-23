@@ -26,20 +26,20 @@ func NewMetrics() Metrics {
 			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "remote_cluster_nodes",
 			Help:      "The total number of nodes in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		}, []string{metrics.LabelTargetCluster}),
 
 		TotalServices: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "remote_cluster_services",
 			Help:      "The total number of services in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		}, []string{metrics.LabelTargetCluster}),
 
 		TotalEndpoints: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: metrics.SubsystemClusterMesh,
 			Name:      "remote_cluster_endpoints",
 			Help:      "The total number of endpoints in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		}, []string{metrics.LabelTargetCluster}),
 	}
 }

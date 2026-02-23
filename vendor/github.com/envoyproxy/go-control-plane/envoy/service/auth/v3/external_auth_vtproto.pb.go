@@ -312,6 +312,13 @@ func (m *CheckResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if msg, ok := m.HttpResponse.(*CheckResponse_ErrorResponse); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+	}
 	if m.DynamicMetadata != nil {
 		size, err := (*structpb.Struct)(m.DynamicMetadata).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -404,6 +411,29 @@ func (m *CheckResponse_OkResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (in
 		i = protohelpers.EncodeVarint(dAtA, i, 0)
 		i--
 		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *CheckResponse_ErrorResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *CheckResponse_ErrorResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.ErrorResponse != nil {
+		size, err := m.ErrorResponse.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2a
+	} else {
+		i = protohelpers.EncodeVarint(dAtA, i, 0)
+		i--
+		dAtA[i] = 0x2a
 	}
 	return len(dAtA) - i, nil
 }
@@ -568,6 +598,20 @@ func (m *CheckResponse_OkResponse) SizeVT() (n int) {
 	_ = l
 	if m.OkResponse != nil {
 		l = m.OkResponse.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	} else {
+		n += 2
+	}
+	return n
+}
+func (m *CheckResponse_ErrorResponse) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ErrorResponse != nil {
+		l = m.ErrorResponse.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	} else {
 		n += 2

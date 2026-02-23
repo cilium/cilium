@@ -101,7 +101,7 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
 }
 
 static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
-					   const __u16 proto, int off)
+					   const __be16 proto, int off)
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
 			       &proto, sizeof(proto), 0);

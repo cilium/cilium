@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policy_fake "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/fake"
 	k8sYaml "sigs.k8s.io/yaml"
 
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
@@ -65,6 +66,7 @@ type (
 	SlimFakeClientset       = slim_fake.Clientset
 	CiliumFakeClientset     = cilium_fake.Clientset
 	APIExtFakeClientset     = apiext_fake.Clientset
+	PolicyFakeClientset     = policy_fake.Clientset
 )
 
 type FakeClientset struct {
@@ -74,6 +76,7 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
+	*PolicyFakeClientset
 	k8sclient.ClientsetGetters
 
 	ot *statedbObjectTracker
@@ -106,7 +109,12 @@ func (c *FakeClientset) Disable() {
 
 func (c *FakeClientset) Config() k8sclient.Config {
 	//exhaustruct:ignore
-	return k8sclient.Config{}
+	return k8sclient.Config{
+		ClientParams: k8sclient.ClientParams{},
+		SharedConfig: k8sclient.SharedConfig{
+			EnableK8s: c.IsEnabled(),
+		},
+	}
 }
 
 func (c *FakeClientset) RestConfig() *rest.Config {
@@ -151,18 +159,22 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		MCSAPIFakeClientset:     mcsapi_fake.NewSimpleClientset(),
+		PolicyFakeClientset:     policy_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
 	}
 	client.KubernetesFakeClientset.Resources = resources
 	client.SlimFakeClientset.Resources = resources
 	client.CiliumFakeClientset.Resources = resources
 	client.APIExtFakeClientset.Resources = resources
+	client.MCSAPIFakeClientset.Resources = resources
+	client.PolicyFakeClientset.Resources = resources
 	client.ot = ot
 
 	otx := ot.For("*", testutils.Scheme, testutils.Decoder())
 	prependReactors(client.SlimFakeClientset, otx)
 	prependReactors(client.CiliumFakeClientset, otx)
 	prependReactors(client.MCSAPIFakeClientset, otx)
+	prependReactors(client.PolicyFakeClientset, otx)
 	prependReactors(client.APIExtFakeClientset, otx)
 
 	// Use a separate object tracker domain for the "kubernetes" objects. This is needed
@@ -284,7 +296,14 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				case "add":
 					trackerErr = tc.tracker.Add(o)
 				case "update":
-					trackerErr = tc.tracker.Update(gvr, o, ns)
+					strict, _ := s.Flags.GetBool("strict")
+					if strict {
+						trackerErr = tc.tracker.Update(gvr, o, ns)
+					} else {
+						// Patch does not check for conflicts.
+						trackerErr = tc.tracker.Patch(gvr, o, ns)
+					}
+
 				case "delete":
 					trackerErr = tc.tracker.Delete(gvr, ns, name)
 				}
@@ -327,6 +346,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			script.CmdUsage{
 				Summary: "Update K8s object(s) in the object trackers",
 				Args:    "files...",
+				Flags: func(fs *pflag.FlagSet) {
+					fs.Bool("strict", false,
+						"Enable strict optimistic concurrency control")
+				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
 				if len(args) == 0 {

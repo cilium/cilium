@@ -23,11 +23,15 @@ var Cell = cell.Module(
 	),
 
 	cell.ProvidePrivate(
-		New,
+		newGC,
 
 		// Register the signal handler for CT and NAT fill-up signals.
 		newSignalHandler,
 		// Provide the reduced interface used by the GC logic.
 		func(mgr endpointmanager.EndpointManager) EndpointManager { return mgr },
 	),
+	cell.Config(config{
+		ConntrackGCInterval:    0,
+		ConntrackGCMaxInterval: 0,
+	}),
 )

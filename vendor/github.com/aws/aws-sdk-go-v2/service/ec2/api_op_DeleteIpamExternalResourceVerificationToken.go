@@ -11,11 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Delete a verification token. A verification token is an Amazon Web
-// Services-generated random value that you can use to prove ownership of an
-// external resource. For example, you can use a verification token to validate
-// that you control a public IP address range when you bring an IP address range to
-// Amazon Web Services (BYOIP).
+// Delete a verification token.
+//
+// A verification token is an Amazon Web Services-generated random value that you
+// can use to prove ownership of an external resource. For example, you can use a
+// verification token to validate that you control a public IP address range when
+// you bring an IP address range to Amazon Web Services (BYOIP).
 func (c *Client) DeleteIpamExternalResourceVerificationToken(ctx context.Context, params *DeleteIpamExternalResourceVerificationTokenInput, optFns ...func(*Options)) (*DeleteIpamExternalResourceVerificationTokenOutput, error) {
 	if params == nil {
 		params = &DeleteIpamExternalResourceVerificationTokenInput{}
@@ -152,40 +153,7 @@ func (c *Client) addOperationDeleteIpamExternalResourceVerificationTokenMiddlewa
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

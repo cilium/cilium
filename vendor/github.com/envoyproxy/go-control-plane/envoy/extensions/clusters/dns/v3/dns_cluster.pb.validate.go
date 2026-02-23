@@ -199,7 +199,7 @@ type DnsClusterMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsClusterMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -370,7 +370,7 @@ type DnsCluster_RefreshRateMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsCluster_RefreshRateMultiError) Error() string {
-	var msgs []string
+	msgs := make([]string, 0, len(m))
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

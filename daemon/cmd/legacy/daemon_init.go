@@ -8,3 +8,8 @@ package legacy
 // hook of any dependent cell. In detail, `newDaemon` has been called, but `startDaemon`
 // is likely going to run in parallel with the start hook of the dependent cell.
 type DaemonInitialization struct{}
+
+// DaemonConfigInitialization can be used to depend on the legacy DaemonConfig initialization and
+// validation where some properties are changed at runtime depending on other properties or the environment.
+// Note that this isn't the same as depending on the DaemonConfig itself (which doesn't await this initialization).
+type DaemonConfigInitialization struct{}

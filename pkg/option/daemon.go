@@ -17,11 +17,10 @@ var (
 	}
 
 	DaemonMutableOptionLibrary = OptionLibrary{
-		ConntrackAccounting:  &specConntrackAccounting,
-		PolicyAccounting:     &specPolicyAccounting,
 		Debug:                &specDebug,
 		DebugLB:              &specDebugLB,
 		DebugPolicy:          &specDebugPolicy,
+		DebugTagged:          &specDebugTagged,
 		DropNotify:           &specDropNotify,
 		TraceNotify:          &specTraceNotify,
 		PolicyVerdictNotify:  &specPolicyVerdictNotify,

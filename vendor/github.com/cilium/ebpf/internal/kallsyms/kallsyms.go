@@ -93,6 +93,19 @@ func assignAddresses(f io.Reader, symbols map[string]uint64) error {
 			return fmt.Errorf("symbol %s(0x%x): duplicate found at address 0x%x: %w", s.name, existing, s.addr, errAmbiguousKsym)
 		}
 		if requested {
+			// Reading a symbol with a zero address is a strong indication that
+			// kptr_restrict is set and the process doesn't have CAP_SYSLOG, or
+			// kptr_restrict is set to 2 (never show addresses).
+			//
+			// When running the kernel with KASLR disabled (like CI kernels running in
+			// microVMs), kallsyms will display many absolute symbols at address 0.
+			// This memory is unlikely to contain anything useful, and production
+			// machines are unlikely to run without KASLR.
+			//
+			// Return a helpful error instead of silently returning zero addresses.
+			if s.addr == 0 {
+				return fmt.Errorf("symbol %s: %w", s.name, internal.ErrRestrictedKernel)
+			}
 			symbols[string(s.name)] = s.addr
 		}
 	}

@@ -28,7 +28,6 @@ func NewGetLrpParams() GetLrpParams {
 //
 // swagger:parameters GetLrp
 type GetLrpParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

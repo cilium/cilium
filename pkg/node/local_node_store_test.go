@@ -31,6 +31,10 @@ func (ts testSynchronizer) SyncLocalNode(ctx context.Context, lns *LocalNodeStor
 	<-ctx.Done()
 }
 
+func (ts testSynchronizer) WaitForNodeInformation(context.Context, *LocalNodeStore) error {
+	return nil
+}
+
 func TestLocalNodeStore(t *testing.T) {
 	var waitObserve sync.WaitGroup
 	var observed []uint32

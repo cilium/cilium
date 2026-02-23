@@ -16,15 +16,18 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -42,8 +45,10 @@ var (
 )
 
 type testData struct {
-	sc   *SelectorCache
-	repo *Repository
+	sc              *SelectorCache
+	subjectSc       *SelectorCache
+	repo            *Repository
+	identityManager identitymanager.IDManager
 
 	idSet set.Set[identity.NumericIdentity]
 
@@ -54,6 +59,8 @@ type testData struct {
 	cachedSelectorC        CachedSelector
 	cachedSelectorHost     CachedSelector
 	wildcardCachedSelector CachedSelector
+	cachedSelectorCIDR     CachedSelector
+	cachedSelectorCIDR0    CachedSelector
 
 	cachedFooSelector CachedSelector
 	cachedBazSelector CachedSelector
@@ -66,23 +73,37 @@ type testData struct {
 	cachedSelectorWorldV6 CachedSelector
 }
 
-func newTestData(logger *slog.Logger) *testData {
-
+func newTestData(tb testing.TB, logger *slog.Logger) *testData {
+	idMgr := identitymanager.NewIDManager(logger)
 	td := &testData{
-		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		identityManager:   idMgr,
+		sc:                testNewSelectorCache(tb, logger, nil),
+		subjectSc:         testNewSelectorCache(tb, logger, nil),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
-	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
+	td.repo.subjectSelectorCache = td.subjectSc
+	td.testPolicyContext.sc = td.sc
 
-	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
 
-	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
-	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
-	td.cachedSelectorC = td.getCachedSelectorForTest(endpointSelectorC, idC.ID)
-	td.cachedSelectorHost = td.getCachedSelectorForTest(hostSelector, identity.ReservedIdentityHost)
+	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
+		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))
+		return css[0]
+	}(api.CIDR("10.1.1.1"))
+
+	td.cachedSelectorCIDR0 = func(cidr api.CIDR) CachedSelector {
+		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, types.ToSelector(cidr))
+		return css[0]
+	}(api.CIDR("0.0.0.0/0"))
+
+	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA)
+	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB)
+	td.cachedSelectorC = td.getCachedSelectorForTest(endpointSelectorC)
+	td.cachedSelectorHost = td.getCachedSelectorForTest(hostSelector)
 
 	td.cachedFooSelector = td.getCachedSelectorForTest(fooSelector)
 	td.cachedBazSelector = td.getCachedSelectorForTest(bazSelector)
@@ -90,26 +111,20 @@ func newTestData(logger *slog.Logger) *testData {
 	td.cachedSelectorBar1 = td.getCachedSelectorForTest(selBar1)
 	td.cachedSelectorBar2 = td.getCachedSelectorForTest(selBar2)
 
-	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0], identity.ReservedIdentityWorld)
-	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0], identity.ReservedIdentityWorldIPv4)
-	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0], identity.ReservedIdentityWorldIPv6)
+	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0])
+	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0])
+	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0])
+
+	td.repo.policyCache.insert(idA)
+	td.repo.policyCache.insert(idB)
+	td.repo.policyCache.insert(idC)
 
 	return td
 }
 
-func (td *testData) getCachedSelectorForTest(es api.EndpointSelector, selections ...identity.NumericIdentity) CachedSelector {
-	idSel := &identitySelector{
-		logger:           td.sc.logger,
-		key:              es.CachedString(),
-		users:            make(map[CachedSelectionUser]struct{}),
-		cachedSelections: make(map[identity.NumericIdentity]struct{}),
-	}
-
-	for _, sel := range selections {
-		idSel.cachedSelections[sel] = struct{}{}
-	}
-
-	return idSel
+func (td *testData) getCachedSelectorForTest(es api.EndpointSelector) CachedSelector {
+	cs, _ := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, es)
+	return cs
 }
 
 // withIDs loads the set of IDs in to the SelectorCache. Returns
@@ -118,6 +133,9 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	initial := identity.IdentityMap{}
 	for _, im := range initIDs {
 		maps.Copy(initial, im)
+	}
+	for id, lbls := range initial {
+		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls.Labels(), LabelArray: lbls})
 	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)
@@ -131,6 +149,10 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.subjectSc.UpdateIdentities(
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, nil, wg)
 	td.sc.UpdateIdentities(
 		identity.IdentityMap{
 			id.ID: id.LabelArray,
@@ -141,6 +163,11 @@ func (td *testData) addIdentity(id *identity.Identity) {
 
 func (td *testData) removeIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.subjectSc.UpdateIdentities(
+		nil,
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, wg)
 	td.sc.UpdateIdentities(
 		nil,
 		identity.IdentityMap{
@@ -151,47 +178,50 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 }
 
 func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
-	_, added := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, sel)
+	_, added := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, sel)
 	return added
 }
 
-func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMap, availableIDs ...identity.NumericIdentity) {
+func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMaps, availableIDs ...identity.NumericIdentity) {
 	t.Helper()
 
-	require.Equal(t, expected.Len(), actual.Len())
-	expected.ForEach(func(l4 *L4Filter) bool {
-		port := l4.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", l4.Port)
-		}
+	require.Len(t, actual, len(expected))
+	for i := range expected {
+		require.Equal(t, expected[i].Len(), actual[i].Len())
+		expected[i].ForEach(func(l4 *L4Filter) bool {
+			port := l4.PortName
+			if len(port) == 0 {
+				port = fmt.Sprintf("%d", l4.Port)
+			}
 
-		l4B := actual.ExactLookup(port, l4.EndPort, string(l4.Protocol))
-		require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
+			l4B := actual[i].ExactLookup(port, l4.EndPort, string(l4.Protocol))
+			require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
 
-		// If no available IDs are provided, we assume the same pointer for
-		// cached selector is used for both expected and actual L4PolicyMap,
-		// just make sure L4 filter is equal
-		if len(availableIDs) == 0 {
-			require.True(t, l4.Equals(l4B), "Expected: %s\nActual: %s", l4.String(), l4B.String())
-			return true
-		}
+			// If no available IDs are provided, we assume the same pointer for
+			// cached selector is used for both expected and actual L4PolicyMap,
+			// just make sure L4 filter is equal
+			if len(availableIDs) == 0 {
+				require.True(t, l4.Equals(l4B), "Expected: %s\nActual: %s", l4.String(), l4B.String())
+				return true
+			}
 
-		require.Equal(t, l4.Port, l4B.Port)
-		require.Equal(t, l4.EndPort, l4B.EndPort)
-		require.Equal(t, l4.PortName, l4B.PortName)
-		require.Equal(t, l4.Protocol, l4B.Protocol)
-		require.Equal(t, l4.Ingress, l4B.Ingress)
-		require.Equal(t, l4.wildcard, l4B.wildcard)
+			require.Equal(t, l4.Tier, l4B.Tier)
+			require.Equal(t, l4.Port, l4B.Port)
+			require.Equal(t, l4.EndPort, l4B.EndPort)
+			require.Equal(t, l4.PortName, l4B.PortName)
+			require.Equal(t, l4.Protocol, l4B.Protocol)
+			require.Equal(t, l4.Ingress, l4B.Ingress)
+			require.Equal(t, l4.wildcard, l4B.wildcard)
 
-		require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
+			require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
 
-		for k, v := range l4.PerSelectorPolicies {
-			found := false
-			for bK, bV := range l4B.PerSelectorPolicies {
-				if k.String() == bK.String() {
+			for k, v := range l4.PerSelectorPolicies {
+				bV, found := l4B.PerSelectorPolicies[k]
+				require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s (%v)", k.String(), l4B.PerSelectorPolicies)
+				if found {
 					require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
 
-					selActual := bK.(*identitySelector).cachedSelections
+					selActual := k.(*identitySelector).cachedSelections
 					selExpected := make(map[identity.NumericIdentity]struct{})
 					for id := range k.(*identitySelector).cachedSelections {
 						if slices.Contains(availableIDs, id) {
@@ -200,18 +230,22 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 					}
 
 					require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
-					found = true
 				}
 			}
 
-			require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s", k.String())
-		}
-
-		return true
-	})
+			// Verify rule origins
+			require.Len(t, l4B.RuleOrigin, len(l4.RuleOrigin), "Actual RuleOrigin length does not match expected")
+			for k, v := range l4.RuleOrigin {
+				bV, found := l4B.RuleOrigin[k]
+				require.True(t, found, "Failed to find expected rule origin: %s (%v)", k.String(), l4B.RuleOrigin)
+				require.Equal(t, v, bV)
+			}
+			return true
+		})
+	}
 }
 
-func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMap) {
+func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMaps) {
 	t.Helper()
 	logger := hivetest.Logger(t)
 
@@ -245,7 +279,16 @@ func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPoli
 // select identity A.
 //
 // The repository is cleared when called.
-func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
+func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMaps, rules ...*api.Rule) {
+	t.Helper()
+	entries := utils.RulesToPolicyEntries(rules)
+	for _, e := range entries {
+		e.Tier = 0
+	}
+	td.policyMapEqualsPolicyEntries(t, expectedIn, expectedOut, entries...)
+}
+
+func (td *testData) policyMapEqualsPolicyEntries(t *testing.T, expectedIn, expectedOut L4PolicyMaps, entries ...*types.PolicyEntry) {
 	t.Helper()
 	logger := hivetest.Logger(t)
 
@@ -254,13 +297,12 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	defer td.removeIdentity(idA)
 
 	// Add the rules to policy repository.
-	for _, r := range rules {
-		if r.EndpointSelector.LabelSelector == nil {
-			r.EndpointSelector = endpointSelectorA
+	for _, e := range entries {
+		if e.Subject == nil {
+			e.Subject = labelSelectorA
 		}
-		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(entries, "dummy-resource")
 
 	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()
@@ -299,7 +341,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.Error(t, err)
@@ -316,7 +358,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(rules, []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -324,13 +366,18 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
-	isDeny             bool
+	tier               types.Tier
+	priority           types.Priority
 	ns                 string
 	sc                 *SelectorCache
 	fromFile           bool
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
 	logger             *slog.Logger
+}
+
+func (p *testPolicyContextType) AllowLocalhost() bool {
+	return option.Config.AlwaysAllowLocalhost()
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -355,14 +402,15 @@ func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNet
 	return nil, true
 }
 
-func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
-	oldDeny := p.isDeny
-	p.isDeny = isDeny
-	return oldDeny
+// SetPriority sets the precedence level for the first rule being processed.
+func (p *testPolicyContextType) SetPriority(tier types.Tier, priority types.Priority) {
+	p.tier = tier
+	p.priority = priority
 }
 
-func (p *testPolicyContextType) IsDeny() bool {
-	return p.isDeny
+// Priority returns the precedence level for the current rule.
+func (p *testPolicyContextType) Priority() (types.Tier, types.Priority) {
+	return p.tier, p.priority
 }
 
 func (p *testPolicyContextType) DefaultDenyIngress() bool {
@@ -387,6 +435,193 @@ func (p *testPolicyContextType) SetOrigin(ruleOrigin) {
 
 func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
+}
+
+func TestL3Wildcarding(t *testing.T) {
+	td := newTestData(t, hivetest.Logger(t))
+
+	// A: Specify WildcardEndpointSelector explicitly.
+
+	// Case A1: all identities with port 80 are selected
+	ruleA1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	expected80 := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expected80, nil, &ruleA1)
+
+	// Case A2: All identities with wildcard TCP port are selected
+	ruleA2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	expected0 := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 0, Protocol: api.ProtoTCP, U8Proto: 6,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expected0, nil, &ruleA2)
+
+	// Case A3: All identities with wildcard port on any protocol are selected
+	ruleA3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+			},
+		},
+	}
+
+	expectedAny := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 0, Protocol: api.ProtoAny, U8Proto: 0,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expectedAny, nil, &ruleA3)
+
+	//
+	// B: an empty non-nil FromEndpoints never selects anything
+	//
+
+	// CaseB1: No identities are selected with port 80
+	ruleB1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB1)
+
+	// CaseB2: No identities are selected with wildcard port
+	ruleB2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB2)
+
+	// CaseB3: No identities are selected without L4
+	ruleB3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+			},
+		},
+	}
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB3)
+
+	//
+	// C: Nil FromEndpoints (No L3 specified): a wildcard selector is implicitly added when
+	//    ports are specified.
+
+	// CaseC1: All identities are selected with port 80
+	ruleC1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, expected80, nil, &ruleC1)
+
+	// CaseC2: All identiteis are selected with a wildcard port
+	ruleC2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, expected0, nil, &ruleC2)
+
+	// CaseC3: No identities are selected without L4
+	ruleC3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{},
+		},
+	}
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleC3)
 }
 
 // Tests in this file:
@@ -429,7 +664,8 @@ func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -497,8 +733,30 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 		},
 	}
 
-	expected = NewL4PolicyMap()
-	td.policyMapEquals(t, expected, nil, &rule2)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &rule2)
+
+	// Case1C: nil FromEndpoints with non-wildcard port selects all identities.
+	rule3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	td.policyMapEquals(t, expected, nil, &rule3)
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -506,7 +764,8 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 // at L7, but still redirected at the proxy.
 // Should resolve to one rule.
 func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -545,8 +804,9 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -598,8 +858,9 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -617,7 +878,8 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and
 // same API resource specified at L7 for HTTP.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	identicalHTTPRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -661,8 +923,9 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -677,7 +940,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 
 // Case 4: identical allow all at L3 with identical restrictions on Kafka.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	identicalKafkaRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -722,8 +985,9 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeKafka,
-				Priority: ListenerPriorityKafka,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeKafka,
+				ListenerPriority: ListenerPriorityKafka,
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
@@ -739,7 +1003,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 // Case 5: use conflicting protocols on the same port in different rules. This
 // is not supported, so return an error.
 func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	// Case 5A: Kafka first, HTTP second.
 	conflictingParsersRule := api.Rule{
@@ -901,7 +1165,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 // TLS policy without L7 rules does not inspect L7, uses L7ParserType "tls"
 func TestMergeTLSTCPPolicy(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	egressRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -947,14 +1212,15 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeTLS,
-				Priority: ListenerPriorityTLS,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeTLS,
+				ListenerPriority: ListenerPriorityTLS,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -963,7 +1229,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -980,7 +1246,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -1028,14 +1295,15 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -1044,7 +1312,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -1064,7 +1332,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 }
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -1128,14 +1397,15 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				TerminatingTLS: &TLSContext{
 					FromFile:         true,
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -1144,7 +1414,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -1165,7 +1435,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 }
 
 func TestMergeListenerPolicy(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	//
 	// no namespace (NodeFirewall policy): Can not refer to EnvoyConfig
@@ -1259,9 +1529,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "/shared-cec/test",
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1317,9 +1588,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "default/test-cec/test",
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "default/test-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1376,9 +1648,10 @@ func TestMergeListenerPolicy(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil, // no proxy redirect
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeCRD,
-				Priority: ListenerPriorityCRD,
-				Listener: "/shared-cec/test",
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeCRD,
+				ListenerPriority: ListenerPriorityCRD,
+				Listener:         "/shared-cec/test",
 			},
 		},
 		Ingress: false,
@@ -1395,7 +1668,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 // in another rule. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second).
 func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1491,7 +1765,8 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 // which restricts on L7. Should resolve to just allowing all on L3/L7 (first rule
 // shadows the second), but setting traffic to the HTTP proxy.
 func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 7A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
@@ -1535,8 +1810,9 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1593,8 +1869,9 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1615,7 +1892,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 // Should resolve to just allowing all on L3, but restricting on L7 for both
 // wildcard and the specified endpoint.
 func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
@@ -1663,15 +1941,17 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1733,15 +2013,17 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1761,7 +2043,8 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 // on the same selector restricts on different L7 protocol.
 // Should fail as cannot have conflicting parsers on same port.
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1845,7 +2128,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 // select an endpoint which restricts on different L7 protocol, but on different selectors,
 // which is now possible.
 func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1928,7 +2212,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 // Case 10: restrict same path / method on L7 in both rules,
 // but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	selectDifferentEndpointsRestrictL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -1972,15 +2257,17 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 		wildcard: nil,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
 			},
 			td.cachedSelectorA: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -1998,7 +2285,8 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	selectDifferentEndpointsAllowAllL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -2048,15 +2336,16 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 // the host should always be allowed. From Host should go to proxy allow all;
 // other L3 should restrict at L7 in a separate filter.
 func TestAllowingLocalhostShadowsL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// This test checks that when the AllowLocalhost=always option is
 	// enabled, we always wildcard the host at L7. That means we need to
 	// set the option in the config, and of course clean up afterwards so
 	// that this test doesn't affect subsequent tests.
 	// XXX: Does this affect other tests being run concurrently?
-	oldLocalhostOpt := option.Config.AllowLocalhost
-	option.Config.AllowLocalhost = option.AllowLocalhostAlways
-	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostAlways
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2086,8 +2375,9 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				Verdict:          types.Allow,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2102,7 +2392,8 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 }
 
 func TestEntitiesL3(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	allowWorldRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -2131,7 +2422,8 @@ func TestEntitiesL3(t *testing.T) {
 
 // Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
 func TestEgressEmptyToEndpoints(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -2148,14 +2440,14 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 		},
 	}
 
-	expected := NewL4PolicyMap()
+	expected := L4PolicyMaps{makeL4PolicyMap()}
 	td.policyMapEquals(t, nil, expected, &rule)
 }
 
 // Case 14: Test that DNS L7 rules in default-allow mode add a wildcard
 func TestDNSWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2188,6 +2480,7 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{{
 							MatchPattern: "example.com",
@@ -2196,8 +2489,8 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 							MatchPattern: "*",
 						}},
 					},
-					L7Parser: ParserTypeDNS,
-					Priority: ListenerPriorityDNS,
+					L7Parser:         ParserTypeDNS,
+					ListenerPriority: ListenerPriorityDNS,
 				},
 			},
 			Ingress:    false,
@@ -2213,7 +2506,7 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
 		},
 	})
 
@@ -2223,7 +2516,7 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 // Case 15: Test that HTTP L7 rules in default-allow mode add an empty rule
 func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2257,6 +2550,7 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{
 							Path:   "/api",
@@ -2265,8 +2559,8 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 							// Empty HTTP rule should be added
 						}},
 					},
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 				},
 			},
 			Ingress:    true,
@@ -2282,7 +2576,7 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyIngress}}),
 		},
 	})
 
@@ -2292,7 +2586,7 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 // Case 16: Test that Kafka L7 rules in default-allow mode add an empty topic rule
 func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2325,6 +2619,7 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{{
 							Topic: "important-topic",
@@ -2333,8 +2628,8 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 							Topic: "",
 						}},
 					},
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 				},
 			},
 			Ingress:    true,
@@ -2350,7 +2645,7 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    true,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyIngress}}),
 		},
 	})
 
@@ -2360,7 +2655,7 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 // Case 17: Test that DNS L7 rules with L3 filtering in default-allow mode add a wildcard
 func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2393,6 +2688,7 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 			U8Proto:  17,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorB: &PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{{
 							MatchPattern: "example.com",
@@ -2401,8 +2697,8 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 							MatchPattern: "*",
 						}},
 					},
-					L7Parser: ParserTypeDNS,
-					Priority: ListenerPriorityDNS,
+					L7Parser:         ParserTypeDNS,
+					ListenerPriority: ListenerPriorityDNS,
 				},
 			},
 			Ingress:    false,
@@ -2418,24 +2714,17 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 				td.wildcardCachedSelector: nil,
 			},
 			Ingress:    false,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
 		},
 	})
 
 	td.policyMapEquals(t, nil, expected, &rule)
 }
 
-// Case 18: Test that deny rules in default-allow mode don't add wildcards
+// Case 18: Test that default-deny rules in default-allow mode don't add wildcards
 func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
-
-	// Set policy as a deny rule
-	origIsDeny := td.testPolicyContext.isDeny
-	td.testPolicyContext.isDeny = true
-	defer func() {
-		td.testPolicyContext.isDeny = origIsDeny
-	}()
+	td := newTestData(t, logger)
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2467,6 +2756,7 @@ func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{
 							Path:   "/api",
@@ -2474,8 +2764,8 @@ func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 							// No wildcard rule should be added
 						}},
 					},
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 				},
 			},
 			Ingress:    true,
@@ -2589,7 +2879,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
-			td := newTestData(logger)
+			td := newTestData(t, logger)
 
 			ctx := &testPolicyContextType{
 				logger:            logger,
@@ -2610,9 +2900,14 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				Protocol: tc.proto,
 			}
 
-			toEndpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
+			entry := &types.PolicyEntry{
+				L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("foo"))),
+				L4:      []api.PortRule{*egressRule},
+				Ingress: false,
+				Verdict: types.Allow,
+			}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto, nil)
+			l4Filter, err := createL4Filter(ctx, entry, egressRule, portProto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

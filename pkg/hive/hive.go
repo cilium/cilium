@@ -9,19 +9,22 @@ import (
 	"reflect"
 	"runtime/pprof"
 	"slices"
-	"time"
 
 	upstream "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type (
@@ -30,16 +33,17 @@ type (
 	Shutdowner = upstream.Shutdowner
 )
 
-var (
-	ShutdownWithError = upstream.ShutdownWithError
-)
+var ShutdownWithError = upstream.ShutdownWithError
 
 // New wraps the hive.New to create a hive with defaults used by cilium-agent.
 func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
 
-		job.Cell,
+		cell.Group(
+			job.Cell,
+			metrics.Metric(newHiveJobsCiliumMetrics),
+		),
 
 		// Module health
 		cell.Group(
@@ -104,12 +108,31 @@ func New(cells ...cell.Cell) *Hive {
 			ModulePrivateProviders: modulePrivateProviders,
 			ModuleDecorators:       moduleDecorators,
 			DecodeHooks:            decodeHooks,
-			StartTimeout:           5 * time.Minute,
-			StopTimeout:            1 * time.Minute,
-			LogThreshold:           100 * time.Millisecond,
+			StartTimeout:           defaults.HiveStartTimeout,
+			StopTimeout:            defaults.HiveStopTimeout,
+			LogThreshold:           defaults.HiveLogThreshold,
 		},
 		cells...,
 	)
+}
+
+func RegisterFlags(vp *viper.Viper, flags *pflag.FlagSet) {
+	flags.Duration(option.HiveStartTimeout, defaults.HiveStartTimeout, "Maximum time to wait for startup hooks to complete before timing out")
+	option.BindEnv(vp, option.HiveStartTimeout)
+
+	flags.Duration(option.HiveStopTimeout, defaults.HiveStopTimeout, "Maximum time to wait for stop hooks to complete before timing out")
+	option.BindEnv(vp, option.HiveStopTimeout)
+
+	flags.Duration(option.HiveLogThreshold, defaults.HiveLogThreshold, "Time limit after which a slow hook is logged at Info level")
+	option.BindEnv(vp, option.HiveLogThreshold)
+}
+
+func GetOptions(cfg option.HiveConfig) []upstream.RunOptionFunc {
+	return []upstream.RunOptionFunc{
+		upstream.WithStartTimeout(cfg.StartTimeout),
+		upstream.WithStopTimeout(cfg.StopTimeout),
+		upstream.WithLogThreshold(cfg.LogThreshold),
+	}
 }
 
 var decodeHooks = cell.DecodeHooks{
@@ -120,7 +143,7 @@ var decodeHooks = cell.DecodeHooks{
 		if from.Kind() != reflect.String {
 			return data, nil
 		}
-		if to != reflect.TypeOf(netip.Prefix{}) {
+		if to != reflect.TypeFor[netip.Prefix]() {
 			return data, nil
 		}
 		return netip.ParsePrefix(data.(string))
@@ -132,8 +155,10 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 }
 
 // jobGroupProvider provides a (private) job group to modules, with scoped health reporting, logging and metrics.
-func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, mid cell.ModuleID) job.Group {
+func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, jobsMetrics *hiveJobsCiliumMetrics, mid cell.ModuleID) job.Group {
 	return reg.NewGroup(h, lc,
 		job.WithLogger(l),
-		job.WithPprofLabels(pprof.Labels("cell", string(mid))))
+		job.WithPprofLabels(pprof.Labels("cell", string(mid))),
+		job.WithMetrics(jobMetricsFor(jobsMetrics, mid)),
+	)
 }
