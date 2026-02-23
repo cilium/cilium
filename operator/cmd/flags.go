@@ -220,6 +220,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"Duration that LeaderElector clients should wait between retries of the actions")
 	option.BindEnv(vp, operatorOption.LeaderElectionRetryPeriod)
 
+	flags.Duration(operatorOption.LeaderElectionResourceLockTimeout, 0,
+		"Timeout for the HTTP requests to acquire/renew the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2)")
+	option.BindEnv(vp, operatorOption.LeaderElectionResourceLockTimeout)
+
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
