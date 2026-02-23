@@ -271,12 +271,14 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
-  - ciliumnetworkdrivernodeconfigs.cilium.io
-  - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
 {{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io
+{{- end }}
+{{- if .Values.networkDriver.enabled }}
+  - ciliumnetworkdrivernodeconfigs.cilium.io
+  - ciliumnetworkdriverclusterconfigs.cilium.io
 {{- end }}
 - apiGroups:
   - cilium.io
@@ -286,7 +288,6 @@ rules:
   - ciliumbgpclusterconfigs
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
-  - ciliumnetworkdriverclusterconfigs
   - ciliumresourceippools
   verbs:
   - get
@@ -452,4 +453,29 @@ rules:
   - ciliumendpointslices
   verbs:
   - deletecollection
+{{- if .Values.networkDriver.enabled }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdriverclusterconfigs
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdriverclusterconfigs/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdrivernodeconfigs
+  verbs:
+  - get
+  - create
+  - update
+  - delete
+{{- end }}
 {{- end }}
