@@ -65,8 +65,11 @@ func NewBGPCPResourceStore[T k8sRuntime.Object](params bgpCPResourceStoreParams[
 		signaler: params.Signaler,
 	}
 
+	var obj T
+	jobName := fmt.Sprintf("resource-store-events-%T", obj)
+
 	params.JobGroup.Add(
-		job.OneShot("bgpcp-resource-store-events",
+		job.OneShot(jobName,
 			func(ctx context.Context, health cell.Health) (err error) {
 				s.mu.Lock()
 				s.store, err = s.resource.Store(ctx)
