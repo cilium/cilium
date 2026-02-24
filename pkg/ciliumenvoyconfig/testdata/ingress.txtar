@@ -51,9 +51,9 @@ Address               Type      ServiceName                           PortName S
 10.96.252.74:9080/TCP ClusterIP default/details                       http     Done         10.244.1.197:9080/TCP
 
 -- backends.table --
-Address               Instances                  NodeName
-10.244.1.197:9080/TCP default/details (http)     kind-worker
-10.244.1.243:9080/TCP default/productpage (http) kind-worker
+Service              Address               PortNames  NodeName
+default/details      10.244.1.197:9080/TCP http       kind-worker
+default/productpage  10.244.1.243:9080/TCP http       kind-worker
 
 -- envoy.table --
 Name                                                    Listeners                                              Endpoints                                 Status   Error

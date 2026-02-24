@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/part"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
@@ -175,21 +174,16 @@ var baseFrontend = loadbalancer.Frontend{
 		ServiceName: testServiceName,
 		PortName:    "", // Ignored, backends already resolved.
 	},
-	Backends: func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {},
+	Backends: func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {},
 	Status:   reconciler.StatusPending(),
 }
-
-var emptyInstances = func() part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams] {
-	part.RegisterKeyType(loadbalancer.BackendInstanceKey.Key)
-	return part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams]{}
-}()
 
 var baseBackend = newTestBackend(backend1, loadbalancer.BackendStateActive)
 var nextBackendRevision = statedb.Revision(1)
 
-func concatBe(bes loadbalancer.BackendsSeq2, be loadbalancer.BackendParams, rev statedb.Revision) loadbalancer.BackendsSeq2 {
-	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
-		if !yield(be, rev) {
+func concatBe(bes loadbalancer.BackendsSeq2, be loadbalancer.Backend, rev statedb.Revision) loadbalancer.BackendsSeq2 {
+	return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		if !yield(&be, rev) {
 			return
 		}
 		bes(yield)
@@ -197,19 +191,17 @@ func concatBe(bes loadbalancer.BackendsSeq2, be loadbalancer.BackendParams, rev 
 }
 
 func newTestBackend(addr loadbalancer.L3n4Addr, state loadbalancer.BackendState) loadbalancer.Backend {
-	return loadbalancer.Backend{
-		Address: addr,
-		Instances: emptyInstances.Set(
-			loadbalancer.BackendInstanceKey{ServiceName: testServiceName, SourcePriority: 0},
-			loadbalancer.BackendParams{
-				Address:   addr,
-				NodeName:  "",
-				PortNames: nil,
-				Weight:    0,
-				State:     state,
-			},
-		),
+	be := loadbalancer.Backend{
+		ServiceName: testServiceName,
+		Address:     addr,
+		NodeName:    "",
+		PortNames:   nil,
+		Weight:      0,
+		State:       state,
+		Source:      source.Kubernetes,
 	}
+	be.SetSourcePriority(0)
+	return be
 }
 
 // newTestCase creates a testCase from a function that manipulates the base service and frontends.
@@ -219,7 +211,9 @@ func newTestCase(name string, mod func(*loadbalancer.Service, *loadbalancer.Fron
 	delete, bes := mod(&svc, &fe)
 	fe.Service = &svc
 	for _, be := range bes {
-		fe.Backends = concatBe(fe.Backends, *be.GetInstance(svc.Name), nextBackendRevision)
+		be.ServiceName = loadbalancer.ServiceName{}
+		be.SetSourcePriority(0)
+		fe.Backends = concatBe(fe.Backends, be, nextBackendRevision)
 		nextBackendRevision++
 	}
 	return testCase{

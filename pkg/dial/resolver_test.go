@@ -250,8 +250,8 @@ func TestServiceBackendResolver(t *testing.T) {
 		return lb.NewL3n4Addr(proto, cmtypes.MustParseAddrCluster(addr), port, lb.ScopeExternal)
 	}
 
-	be := func(proto lb.L4Type, addr string, port uint16, portname string, state lb.BackendState) lb.BackendParams {
-		return lb.BackendParams{
+	be := func(proto lb.L4Type, addr string, port uint16, portname string, state lb.BackendState) lb.Backend {
+		return lb.Backend{
 			Address:   toAddr(proto, addr, port),
 			PortNames: []string{portname},
 			State:     state,
@@ -284,7 +284,7 @@ func TestServiceBackendResolver(t *testing.T) {
 	), "Unexpected UpsertServiceAndFrontends error")
 
 	require.NoError(t, wr.UpsertBackends(txn, svc.Name, source.Kubernetes,
-		slices.Values([]lb.BackendParams{
+		slices.Values([]lb.Backend{
 			be(lb.TCP, "10.0.0.1", 9090, "alpha", lb.BackendStateActive),
 			be(lb.TCP, "10.0.0.2", 9090, "alpha", lb.BackendStateActive),
 			be(lb.TCP, "10.0.0.3", 9090, "alpha", lb.BackendStateActive),
@@ -345,7 +345,7 @@ func TestServiceBackendResolver(t *testing.T) {
 
 	// Remove the previously used backend
 	txn = wr.WriteTxn()
-	wr.ReleaseBackends(txn, svc.Name, slices.Values([]lb.L3n4Addr{toAddr(lb.TCP, host, 9090)}))
+	wr.DeleteBackendsByAddress(txn, svc.Name, slices.Values([]lb.L3n4Addr{toAddr(lb.TCP, host, 9090)}))
 	txn.Commit()
 
 	// Should switch to one of the remaining backends

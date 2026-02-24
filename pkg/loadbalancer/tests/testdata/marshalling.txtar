@@ -45,9 +45,9 @@ Address              Status   Backends
 [2001::1]:80/TCP     Done     [2002::2]:8080/TCP
 
 -- backends.table --
-Address              Instances
-10.244.1.1:8080/TCP  test/echo (http)
-[2002::2]:8080/TCP   test/echo (http)
+Service    Address
+test/echo  10.244.1.1:8080/TCP
+test/echo  [2002::2]:8080/TCP
 
 -- services-expected.json --
 {
@@ -88,6 +88,7 @@ Address              Instances
   },
   "Backends": [
     {
+      "ServiceName": "test/echo",
       "Address": "10.244.1.1:8080/TCP",
       "PortNames": [
         "http"
@@ -104,6 +105,7 @@ Address              Instances
   ],
   "HealthCheckBackends": [
     {
+      "ServiceName": "test/echo",
       "Address": "10.244.1.1:8080/TCP",
       "PortNames": [
         "http"
@@ -134,6 +136,7 @@ Address              Instances
   },
   "Backends": [
     {
+      "ServiceName": "test/echo",
       "Address": "[2002::2]:8080/TCP",
       "PortNames": [
         "http"
@@ -150,6 +153,7 @@ Address              Instances
   ],
   "HealthCheckBackends": [
     {
+      "ServiceName": "test/echo",
       "Address": "[2002::2]:8080/TCP",
       "PortNames": [
         "http"
@@ -169,54 +173,34 @@ Address              Instances
 }
 -- backends-expected.json --
 {
+  "ServiceName": "test/echo",
   "Address": "10.244.1.1:8080/TCP",
-  "Instances": [
-    {
-      "k": {
-        "ServiceName": "test/echo",
-        "SourcePriority": 4
-      },
-      "v": {
-        "Address": "10.244.1.1:8080/TCP",
-        "PortNames": [
-          "http"
-        ],
-        "Weight": 100,
-        "NodeName": "nodeport-worker",
-        "Zone": null,
-        "ClusterID": 0,
-        "Source": "k8s",
-        "State": 0,
-        "Unhealthy": false,
-        "UnhealthyUpdatedAt": null
-      }
-    }
-  ]
+  "PortNames": [
+    "http"
+  ],
+  "Weight": 100,
+  "NodeName": "nodeport-worker",
+  "Zone": null,
+  "ClusterID": 0,
+  "Source": "k8s",
+  "State": 0,
+  "Unhealthy": false,
+  "UnhealthyUpdatedAt": null
 }
 {
+  "ServiceName": "test/echo",
   "Address": "[2002::2]:8080/TCP",
-  "Instances": [
-    {
-      "k": {
-        "ServiceName": "test/echo",
-        "SourcePriority": 4
-      },
-      "v": {
-        "Address": "[2002::2]:8080/TCP",
-        "PortNames": [
-          "http"
-        ],
-        "Weight": 100,
-        "NodeName": "nodeport-worker",
-        "Zone": null,
-        "ClusterID": 0,
-        "Source": "k8s",
-        "State": 0,
-        "Unhealthy": false,
-        "UnhealthyUpdatedAt": null
-      }
-    }
-  ]
+  "PortNames": [
+    "http"
+  ],
+  "Weight": 100,
+  "NodeName": "nodeport-worker",
+  "Zone": null,
+  "ClusterID": 0,
+  "Source": "k8s",
+  "State": 0,
+  "Unhealthy": false,
+  "UnhealthyUpdatedAt": null
 }
 -- services-expected.yaml --
 name: test/echo
@@ -251,7 +235,8 @@ status:
     id: <redacted>
     kind: Done
 backends:
-    - address: 10.244.1.1:8080/TCP
+    - servicename: test/echo
+      address: 10.244.1.1:8080/TCP
       portnames:
         - http
       weight: 100
@@ -263,7 +248,8 @@ backends:
       unhealthy: false
       unhealthyupdatedat: null
 healthcheckbackends:
-    - address: 10.244.1.1:8080/TCP
+    - servicename: test/echo
+      address: 10.244.1.1:8080/TCP
       portnames:
         - http
       weight: 100
@@ -288,7 +274,8 @@ status:
     id: <redacted>
     kind: Done
 backends:
-    - address: '[2002::2]:8080/TCP'
+    - servicename: test/echo
+      address: '[2002::2]:8080/TCP'
       portnames:
         - http
       weight: 100
@@ -300,7 +287,8 @@ backends:
       unhealthy: false
       unhealthyupdatedat: null
 healthcheckbackends:
-    - address: '[2002::2]:8080/TCP'
+    - servicename: test/echo
+      address: '[2002::2]:8080/TCP'
       portnames:
         - http
       weight: 100
@@ -314,41 +302,31 @@ healthcheckbackends:
 id: 2
 redirectto: null
 -- backends-expected.yaml --
+servicename: test/echo
 address: 10.244.1.1:8080/TCP
-instances:
-    - k:
-        servicename: test/echo
-        sourcepriority: 4
-      v:
-        address: 10.244.1.1:8080/TCP
-        portnames:
-            - http
-        weight: 100
-        nodename: nodeport-worker
-        zone: null
-        clusterid: 0
-        source: k8s
-        state: 0
-        unhealthy: false
-        unhealthyupdatedat: null
+portnames:
+    - http
+weight: 100
+nodename: nodeport-worker
+zone: null
+clusterid: 0
+source: k8s
+state: 0
+unhealthy: false
+unhealthyupdatedat: null
 ---
+servicename: test/echo
 address: '[2002::2]:8080/TCP'
-instances:
-    - k:
-        servicename: test/echo
-        sourcepriority: 4
-      v:
-        address: '[2002::2]:8080/TCP'
-        portnames:
-            - http
-        weight: 100
-        nodename: nodeport-worker
-        zone: null
-        clusterid: 0
-        source: k8s
-        state: 0
-        unhealthy: false
-        unhealthyupdatedat: null
+portnames:
+    - http
+weight: 100
+nodename: nodeport-worker
+zone: null
+clusterid: 0
+source: k8s
+state: 0
+unhealthy: false
+unhealthyupdatedat: null
 -- service.yaml --
 apiVersion: v1
 kind: Service

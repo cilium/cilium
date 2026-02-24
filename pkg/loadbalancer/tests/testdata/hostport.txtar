@@ -106,14 +106,14 @@ Address           Type      Status  ServiceName                                 
 0.0.0.0:5555/UDP  HostPort  Done    default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8 10.244.1.114:80/UDP
 
 -- backends.table --
-Address             Instances 
-10.244.1.113:80/TCP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
-10.244.1.113:80/UDP default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8
+Service                                                                Address
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8     10.244.1.113:80/TCP
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8     10.244.1.113:80/UDP
 
 -- backends3.table --
-Address             Instances 
-10.244.1.114:80/TCP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
-10.244.1.114:80/UDP default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8
+Service                                                                Address
+default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8  10.244.1.114:80/TCP
+default/other-app:host-port:5555:22222222-2e9b-4c61-8454-ae81344876d8  10.244.1.114:80/UDP
 
 -- pod.yaml --
 apiVersion: v1

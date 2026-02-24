@@ -41,8 +41,8 @@ Address               Type        ServiceName   PortName   Backends           St
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP  Done
 
 -- backends.table --
-Address             Instances          Shadows
-10.244.1.1:80/TCP   test/echo (http)
+Service    Address
+test/echo  10.244.1.1:80/TCP
 
 -- service.yaml --
 apiVersion: v1

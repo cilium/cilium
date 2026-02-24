@@ -897,11 +897,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		if ops.needsUpdate(be.Address, be.Revision) {
 			ops.log.Debug("Update backend",
-				logfields.Backend, be.BackendParams,
+				logfields.Backend, be.Backend,
 				logfields.ID, beID,
 				logfields.Address, be.Address,
 			)
-			if err := ops.upsertBackend(beID, be.BackendParams); err != nil {
+			if err := ops.upsertBackend(beID, be.Backend); err != nil {
 				return fmt.Errorf("upsert backend: %w", err)
 			}
 
@@ -1205,7 +1205,7 @@ func (ops *BPFOps) cleanupSlots(svcKey maps.ServiceKey, oldCount, newCount int) 
 	return nil
 }
 
-func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *loadbalancer.BackendParams) (err error) {
+func (ops *BPFOps) upsertBackend(id loadbalancer.BackendID, be *loadbalancer.Backend) (err error) {
 	var lbbe maps.Backend
 	proto, err := u8proto.ParseProtocol(be.Address.Protocol())
 	if err != nil {
@@ -1280,7 +1280,7 @@ func (ops *BPFOps) upsertRevNat(id loadbalancer.ServiceID, svcKey maps.ServiceKe
 }
 
 type backendWithRevision struct {
-	*loadbalancer.BackendParams
+	*loadbalancer.Backend
 	Revision statedb.Revision
 }
 
@@ -1522,7 +1522,7 @@ func (ops *BPFOps) sortedBackends(fe *loadbalancer.Frontend) []backendWithRevisi
 			// yet. Use the restored health until health check is performed.
 			be.Unhealthy = true
 		}
-		bes = append(bes, backendWithRevision{&be, rev})
+		bes = append(bes, backendWithRevision{be, rev})
 	}
 	sort.Slice(bes, func(i, j int) bool {
 		a, b := bes[i], bes[j]

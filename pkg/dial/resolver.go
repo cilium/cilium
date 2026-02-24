@@ -293,12 +293,12 @@ func (sr *ServiceBackendResolver) resolve(addr loadbalancer.L3n4Addr) (got *load
 	bes := statedb.Collect(
 		statedb.Map(
 			statedb.Filter(
-				iter.Seq2[loadbalancer.BackendParams, statedb.Revision](fe.Backends),
-				func(bep loadbalancer.BackendParams) bool {
+				iter.Seq2[*loadbalancer.Backend, statedb.Revision](fe.Backends),
+				func(bep *loadbalancer.Backend) bool {
 					return bep.State == loadbalancer.BackendStateActive && !bep.Unhealthy
 				},
 			),
-			func(bep loadbalancer.BackendParams) loadbalancer.L3n4Addr {
+			func(bep *loadbalancer.Backend) loadbalancer.L3n4Addr {
 				return bep.Address
 			},
 		),

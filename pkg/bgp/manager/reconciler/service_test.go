@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/part"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -142,7 +141,7 @@ var (
 				Type:        svcType,
 			},
 			Service:  svc,
-			Backends: func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {},
+			Backends: func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {},
 		}
 	}
 	svcLBFrontend = func(svc *loadbalancer.Service, addr string) *loadbalancer.Frontend {
@@ -2668,7 +2667,7 @@ func runServiceTests(t *testing.T, config option.BGPConfig, steps []svcTestStep)
 				// set frontend's backends
 				for _, be := range tt.backends {
 					if fe.Address.IsIPv6() == be.Address.IsIPv6() && fe.Address.Port() == be.Address.Port() {
-						fe.Backends = concatBackend(fe.Backends, *be.GetInstance(fe.Service.Name), nextBackendRevision)
+						fe.Backends = concatBackend(fe.Backends, *be, nextBackendRevision)
 						nextBackendRevision++
 					}
 				}
@@ -2754,27 +2753,20 @@ func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixtur
 }
 
 func newTestBackend(svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr, node string, state loadbalancer.BackendState) *loadbalancer.Backend {
-	part.RegisterKeyType(loadbalancer.BackendInstanceKey.Key)
-	be := &loadbalancer.Backend{
-		Address:   addr,
-		Instances: part.Map[loadbalancer.BackendInstanceKey, loadbalancer.BackendParams]{},
+	return &loadbalancer.Backend{
+		ServiceName: svcName,
+		Address:     addr,
+		NodeName:    node,
+		PortNames:   nil,
+		Weight:      0,
+		State:       state,
+		Source:      source.Kubernetes,
 	}
-	be.Instances = be.Instances.Set(
-		loadbalancer.BackendInstanceKey{ServiceName: svcName, SourcePriority: 0},
-		loadbalancer.BackendParams{
-			Address:   addr,
-			NodeName:  node,
-			PortNames: nil,
-			Weight:    0,
-			State:     state,
-		},
-	)
-	return be
 }
 
-func concatBackend(bes loadbalancer.BackendsSeq2, be loadbalancer.BackendParams, rev statedb.Revision) loadbalancer.BackendsSeq2 {
-	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
-		if !yield(be, rev) {
+func concatBackend(bes loadbalancer.BackendsSeq2, be loadbalancer.Backend, rev statedb.Revision) loadbalancer.BackendsSeq2 {
+	return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		if !yield(&be, rev) {
 			return
 		}
 		bes(yield)

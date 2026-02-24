@@ -383,17 +383,17 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 
 	}
 
-	// Function to compare whether the new BackendParams produced in the loop below
+	// Function to compare whether the new Backend produced in the loop below
 	// is equal to the old one. We only compare subset of fields as some of the fields
 	// are managed by the load-balancing control-plane.
-	compareBackendParams := func(a, b *lb.BackendParams) bool {
+	compareBackendParams := func(a, b *lb.Backend) bool {
 		return a.Address == b.Address &&
 			a.State == b.State &&
 			slices.Equal(a.PortNames, b.PortNames)
 	}
 
-	// Construct the BackendParams from matching pods.
-	beps := make([]lb.BackendParams, 0, len(pods))
+	// Construct the Backend from matching pods.
+	beps := make([]lb.Backend, 0, len(pods))
 	lrpServiceName := lrp.RedirectServiceName()
 	for _, podInfo := range pods {
 		for _, addr := range podInfo.addrs {
@@ -406,7 +406,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 			if !portNumberMatches {
 				continue
 			}
-			beps = append(beps, lb.BackendParams{
+			beps = append(beps, lb.Backend{
 				Address: addr.L3n4Addr,
 				State:   lb.BackendStateActive,
 				PortNames: func() []string {
@@ -423,12 +423,11 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	// Validate whether an update is actually needed to avoid no-op changes to the tables.
 	newCount := len(beps)
 	orphanCount := 0
-	for be := range c.p.Writer.Backends().List(wtxn, lb.BackendByServiceName(lrpServiceName)) {
-		inst := be.GetInstance(lrpServiceName)
-		if inst == nil {
-			continue
-		}
-		if slices.ContainsFunc(beps, func(bep lb.BackendParams) bool {
+	bes, _ := lb.ListBackendsByServiceName(wtxn, c.p.Writer.Backends(), lrpServiceName)
+	preferred := lb.PreferredBackendsByAddress(bes)
+	for be := range preferred {
+		inst := be
+		if slices.ContainsFunc(beps, func(bep lb.Backend) bool {
 			return compareBackendParams(inst, &bep)
 		}) {
 			newCount--
