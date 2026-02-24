@@ -21,7 +21,7 @@ on the forward / backward compatibility offered by Kubernetes.
 | k8s Version            | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
 +------------------------+---------------------------+----------------------------------+
 |                        |                           | ``cilium.io/v2`` has a           |
-| 1.31, 1.32, 1.33, 1.34 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
+| 1.32, 1.33, 1.34, 1.35 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
 +------------------------+---------------------------+----------------------------------+
 
 As a general rule, Cilium aims to run e2e tests using the latest build from the
