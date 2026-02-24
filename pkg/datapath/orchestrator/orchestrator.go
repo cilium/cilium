@@ -204,9 +204,17 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	var (
 		request   reinitializeRequest
 		retryChan <-chan time.Time
+
+		localNodeConfig      datapath.LocalNodeConfiguration
+		localNodeConfigWatch <-chan struct{}
+
+		reconcileErr error
 	)
+
+	// Reconciliation Loop
 	for {
-		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
+		prevConfig := o.latestLocalNodeConfig.Load()
+		localNodeConfig, localNodeConfigWatch, reconcileErr = newLocalNodeConfig(
 			ctx,
 			option.Config,
 			localNode,
@@ -227,32 +235,43 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.IPsecConfig,
 			o.params.ConnectorConfig,
 		)
-		if err != nil {
-			health.Degraded("failed to get local node configuration", err)
-			o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, err)
-		} else {
+
+		if reconcileErr != nil {
+			o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, reconcileErr)
+			health.Degraded("Failed to get local node configuration", reconcileErr)
+		} else if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
 			// Reinitializing is expensive, only do so if the configuration has changed.
-			prevConfig := o.latestLocalNodeConfig.Load()
-			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
-					o.params.Log.Warn("Failed to initialize datapath, retrying later",
-						logfields.Error, err,
-						logfields.RetryDelay, reinitRetryDuration,
-					)
-					health.Degraded("Failed to reinitialize datapath", err)
-					retryChan = time.After(reinitRetryDuration)
-				} else {
-					retryChan = nil
-					health.OK("OK")
-				}
-			} else {
-				// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
-				if request.errChan != nil {
-					close(request.errChan)
-				}
+			reinitializeCtx := ctx
+			if request.ctx != nil {
+				reinitializeCtx = request.ctx
+			}
+
+			reconcileErr = o.reinitialize(reinitializeCtx, &localNodeConfig)
+			if reconcileErr != nil {
+				o.params.Log.Warn("Failed to initialize datapath, retrying later",
+					logfields.Error, reconcileErr,
+					logfields.RetryDelay, reinitRetryDuration,
+				)
+				health.Degraded("Failed to reinitialize datapath", reconcileErr)
 			}
 		}
 
+		if reconcileErr != nil {
+			retryChan = time.After(reinitRetryDuration)
+			if request.errChan != nil {
+				select {
+				case request.errChan <- reconcileErr:
+				default:
+				}
+			}
+		} else {
+			retryChan = nil
+			health.OK("OK")
+		}
+
+		if request.errChan != nil {
+			close(request.errChan)
+		}
 		request = reinitializeRequest{}
 
 		select {
@@ -311,11 +330,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *datapath.LocalNodeConfiguration) error {
-	if req.ctx != nil {
-		ctx = req.ctx
-	}
-
+func (o *orchestrator) reinitialize(ctx context.Context, localNodeConfig *datapath.LocalNodeConfiguration) error {
 	err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
@@ -328,13 +343,6 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		err = o.params.ConnectorConfig.Reinitialize()
 	}
 	if err != nil {
-		if req.errChan != nil {
-			select {
-			case req.errChan <- err:
-			default:
-			}
-			close(req.errChan)
-		}
 		return err
 	}
 
