@@ -1261,6 +1261,15 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				continue
 			}
 
+			// AllNodeValidateImplementation will eventually call
+			// nodeUpdate(), which is responsible for updating the
+			// IPSec policies and states for all the different EPs
+			// with ipsec.UpsertIPsecEndpoint(). We do this before
+			// advertising the new SPI to ensure our ingress XFRM
+			// states are ready before peers start sending traffic
+			// encrypted with the new key.
+			nodeHandler.AllNodeValidateImplementation()
+
 			// Update the IPSec key identity in the local node.
 			// This will set addrs.ipsecKeyIdentity in the node
 			// package, and eventually trigger an update to
@@ -1268,12 +1277,6 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 			a.localNode.Update(func(ln *node.LocalNode) {
 				ln.EncryptionKey = spi
 			})
-
-			// AllNodeValidateImplementation will eventually call
-			// nodeUpdate(), which is responsible for updating the
-			// IPSec policies and states for all the different EPs
-			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.AllNodeValidateImplementation()
 
 			// Push SPI update into BPF datapath now that XFRM state
 			// is configured.
