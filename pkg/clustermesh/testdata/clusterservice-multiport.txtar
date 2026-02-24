@@ -22,11 +22,11 @@ db/empty backends
 ###
 
 -- backends.table --
-Address              Instances
-20.0.0.2:80/TCP      test/echo (http-alt http-direct http-remapped)
-20.0.0.2:443/TCP     test/echo (https)
-20.0.0.3:80/TCP      test/echo (http-alt http-direct http-remapped)
-20.0.0.3:443/TCP     test/echo (https)
+Address              PortNames
+20.0.0.2:80/TCP      http-alt,http-direct,http-remapped
+20.0.0.2:443/TCP     https
+20.0.0.3:80/TCP      http-alt,http-direct,http-remapped
+20.0.0.3:443/TCP     https
 
 -- frontends-with-clusterservice.table --
 Address            Type       ServiceName   Status  Backends

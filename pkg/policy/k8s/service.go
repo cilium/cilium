@@ -103,10 +103,7 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 
 				backendsIter, watchBackends := backendChanges.Next(txn)
 				for ev := range backendsIter {
-					be := ev.Object
-					for inst := range be.Instances.All() {
-						changed.Insert(inst.ServiceName)
-					}
+					changed.Insert(ev.Object.ServiceName)
 				}
 
 				// For each changed service look it up along with the associated backends and
@@ -127,7 +124,9 @@ func serviceEventStream(db *statedb.DB, services statedb.Table[*loadbalancer.Ser
 						newEvent.name = svc.Name
 						newEvent.labels = svc.Labels
 						newEvent.selector = svc.Selector
-						for _, rev := range backends.List(txn, loadbalancer.BackendByServiceName(name)) {
+						bes, _ := loadbalancer.ListBackendsByServiceName(txn, backends, name)
+						preferred := loadbalancer.PreferredBackendsByAddress(bes)
+						for _, rev := range preferred {
 							newEvent.backendRevisions = append(newEvent.backendRevisions, rev)
 						}
 						if prevFound {
@@ -405,7 +404,9 @@ func newServiceEndpoints(svc *loadbalancer.Service, txn statedb.ReadTxn, backend
 		svc: svc,
 		backendPrefixes: sync.OnceValue(func() backendPrefixes {
 			prefixes := backendPrefixes{}
-			for be := range backends.List(txn, loadbalancer.BackendByServiceName(svc.Name)) {
+			bes, _ := loadbalancer.ListBackendsByServiceName(txn, backends, svc.Name)
+			preferred := loadbalancer.PreferredBackendsByAddress(bes)
+			for be := range preferred {
 				addr := be.Address.Addr()
 				prefixes = append(prefixes, api.CIDR(netip.PrefixFrom(addr, addr.BitLen()).String()))
 			}
