@@ -216,7 +216,7 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 						wtxn,
 						healthServiceName,
 						source.Local,
-						lb.BackendParams{
+						lb.Backend{
 							Address: lb.NewL3n4Addr(
 								lb.TCP,
 								cmtypes.AddrClusterFrom(beAddr, 0),
@@ -329,13 +329,14 @@ func (h *httpHealthServer) getLocalEndpointCount() int {
 
 	// Gather the backends for the service.
 	activeCount := 0
-	for be := range h.backends.List(txn, lb.BackendByServiceName(h.name)) {
-		inst := be.GetInstance(h.name)
-		if inst.NodeName != "" && inst.NodeName != h.nodeName {
+	bes, _ := lb.ListBackendsByServiceName(txn, h.backends, h.name)
+	preferred := lb.PreferredBackendsByAddress(bes)
+	for be := range preferred {
+		if be.NodeName != "" && be.NodeName != h.nodeName {
 			// Skip non-local backends.
 			continue
 		}
-		if inst.State == lb.BackendStateActive {
+		if be.State == lb.BackendStateActive {
 			activeCount++
 		}
 	}
