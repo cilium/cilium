@@ -1,0 +1,17 @@
+name: Fork Sync
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: tgymnich/fork-sync@v2.0
+        with:
+          owner: cilium
+          base: main
+          head: main
