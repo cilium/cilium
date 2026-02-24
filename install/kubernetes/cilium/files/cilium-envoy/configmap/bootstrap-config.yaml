@@ -304,3 +304,4 @@ admin:
   address:
     pipe:
       path: "/var/run/cilium/envoy/sockets/admin.sock"
+      mode: 0660
