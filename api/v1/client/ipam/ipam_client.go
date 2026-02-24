@@ -72,7 +72,7 @@ type ClientService interface {
 DeleteIpamIP releases an allocated IP address
 */
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
-	// NOTE: parameters are not validated before sending
+	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteIpamIPParams()
 	}
@@ -91,22 +91,17 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) 
 	for _, opt := range opts {
 		opt(op)
 	}
+
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
-
-	// only one success response has to be checked
 	success, ok := result.(*DeleteIpamIPOK)
 	if ok {
 		return success, nil
 	}
-
-	// unexpected success response.
-
-	// no default response is defined.
-	//
-	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for DeleteIpamIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -115,7 +110,7 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) 
 PostIpam allocates an IP address
 */
 func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
-	// NOTE: parameters are not validated before sending
+	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPostIpamParams()
 	}
@@ -134,22 +129,17 @@ func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIp
 	for _, opt := range opts {
 		opt(op)
 	}
+
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
-
-	// only one success response has to be checked
 	success, ok := result.(*PostIpamCreated)
 	if ok {
 		return success, nil
 	}
-
-	// unexpected success response.
-
-	// no default response is defined.
-	//
-	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PostIpam: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -158,7 +148,7 @@ func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIp
 PostIpamIP allocates an IP address
 */
 func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
-	// NOTE: parameters are not validated before sending
+	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPostIpamIPParams()
 	}
@@ -177,22 +167,17 @@ func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*Po
 	for _, opt := range opts {
 		opt(op)
 	}
+
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
-
-	// only one success response has to be checked
 	success, ok := result.(*PostIpamIPOK)
 	if ok {
 		return success, nil
 	}
-
-	// unexpected success response.
-
-	// no default response is defined.
-	//
-	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PostIpamIP: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }

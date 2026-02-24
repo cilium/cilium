@@ -38,12 +38,6 @@ func (n *header[T]) prefix() []byte {
 	return unsafe.Slice(n.prefixP, n.prefixLen)
 }
 
-func (n *header[T]) isPrefixOf(key []byte) bool {
-	// This is essentially same as bytes.HasPrefix(key, this.prefix()), but slight bit
-	// faster as we don't need to construct the slice header for length comparison.
-	return uint16(len(key)) >= n.prefixLen && unsafe.String(n.prefixP, n.prefixLen) == string(key[:n.prefixLen])
-}
-
 func (n *header[T]) setPrefix(p []byte) {
 	if len(p) > 0 {
 		n.prefixP = &p[0]
@@ -146,40 +140,6 @@ func (n *header[T]) node256() *node256[T] {
 	return (*node256[T])(unsafe.Pointer(n))
 }
 
-func (n *header[T]) txnID() uint64 {
-	switch n.kind() {
-	case nodeKindLeaf:
-		return 0
-	case nodeKind4:
-		return n.node4().txnID
-	case nodeKind16:
-		return n.node16().txnID
-	case nodeKind48:
-		return n.node48().txnID
-	case nodeKind256:
-		return n.node256().txnID
-	default:
-		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
-	}
-}
-
-func (n *header[T]) setTxnID(txnID uint64) {
-	switch n.kind() {
-	case nodeKindLeaf:
-		return
-	case nodeKind4:
-		n.node4().txnID = txnID
-	case nodeKind16:
-		n.node16().txnID = txnID
-	case nodeKind48:
-		n.node48().txnID = txnID
-	case nodeKind256:
-		n.node256().txnID = txnID
-	default:
-		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
-	}
-}
-
 // clone returns a shallow clone of the node.
 // We are working on the assumption here that only
 // value-types are mutated in the returned clone.
@@ -212,50 +172,46 @@ func (n *header[T]) clone(watch bool) *header[T] {
 	return nCopy
 }
 
-func (n *header[T]) promote(txnID uint64) *header[T] {
+func (n *header[T]) promote(watch bool) *header[T] {
 	switch n.kind() {
 	case nodeKindLeaf:
 		node4 := &node4[T]{}
 		node4.prefixLen = n.prefixLen
 		node4.prefixP = n.prefixP
 		node4.leaf = n.getLeaf()
-		node4.txnID = txnID
 		node4.setKind(nodeKind4)
-		if n.watch != nil {
+		if watch {
 			node4.watch = make(chan struct{})
 		}
 		return node4.self()
 	case nodeKind4:
 		node4 := n.node4()
 		node16 := &node16[T]{header: *n}
-		node16.txnID = txnID
 		node16.setKind(nodeKind16)
 		node16.leaf = n.getLeaf()
 		size := node4.size()
 		copy(node16.children[:], node4.children[:size])
 		copy(node16.keys[:], node4.keys[:size])
-		if n.watch != nil {
+		if watch {
 			node16.watch = make(chan struct{})
 		}
 		return node16.self()
 	case nodeKind16:
 		node16 := n.node16()
 		node48 := &node48[T]{header: *n}
-		node48.txnID = txnID
 		node48.setKind(nodeKind48)
 		node48.leaf = n.getLeaf()
 		copy(node48.children[:], node16.children[:node16.size()])
 		for i, k := range node16.keys[:node16.size()] {
 			node48.index[k] = int8(i)
 		}
-		if n.watch != nil {
+		if watch {
 			node48.watch = make(chan struct{})
 		}
 		return node48.self()
 	case nodeKind48:
 		node48 := n.node48()
 		node256 := &node256[T]{header: *n}
-		node256.txnID = txnID
 		node256.setKind(nodeKind256)
 		node256.leaf = n.getLeaf()
 
@@ -264,7 +220,7 @@ func (n *header[T]) promote(txnID uint64) *header[T] {
 		for _, child := range node48.children[:node48.size()] {
 			node256.children[child.prefix()[0]] = child
 		}
-		if n.watch != nil {
+		if watch {
 			node256.watch = make(chan struct{})
 		}
 		return node256.self()
@@ -275,19 +231,7 @@ func (n *header[T]) promote(txnID uint64) *header[T] {
 	}
 }
 
-func isClosedChan(ch <-chan struct{}) bool {
-	select {
-	case <-ch:
-		return true
-	default:
-		return false
-	}
-}
-
 func (n *header[T]) printTree(level int) {
-	if n == nil {
-		return
-	}
 	fmt.Print(strings.Repeat(" ", level))
 
 	var children []*header[T]
@@ -310,9 +254,9 @@ func (n *header[T]) printTree(level int) {
 		panic("unknown node kind")
 	}
 	if leaf := n.getLeaf(); leaf != nil {
-		fmt.Printf(" %x -> %v (L:%p W:%p %v)", leaf.fullKey(), leaf.value, leaf, leaf.watch, isClosedChan(leaf.watch))
+		fmt.Printf(" %x -> %v (L:%p W:%p)", leaf.fullKey(), leaf.value, leaf, leaf.watch)
 	}
-	fmt.Printf(" (N:%p, W:%p %v)\n", n, n.watch, isClosedChan(n.watch))
+	fmt.Printf(" (N:%p, W:%p)\n", n, n.watch)
 
 	for _, child := range children {
 		if child != nil {
@@ -345,30 +289,21 @@ func (n *header[T]) findIndex(key byte) (*header[T], int) {
 	case nodeKind4:
 		n4 := n.node4()
 		size := n4.size()
-		i := size
-		switch {
-		case n4.keys[0] >= key:
-			i = 0
-		case n4.keys[1] >= key:
-			i = 1
-		case n4.keys[2] >= key:
-			i = 2
-		case n4.keys[3] >= key:
-			i = 3
+		for i := 0; i < int(size); i++ {
+			if n4.keys[i] == key {
+				return n4.children[i], i
+			} else if n4.keys[i] > key {
+				return nil, i
+			}
 		}
-		if i < size && n4.keys[i] == key {
-			return n4.children[i], i
-		}
-		return nil, i
+		return nil, size
 	case nodeKind16:
 		n16 := n.node16()
 		size := n16.size()
 		for i := 0; i < int(size); i++ {
-			k := n16.keys[i]
-			if k >= key {
-				if k == key {
-					return n16.children[i], i
-				}
+			if n16.keys[i] == key {
+				return n16.children[i], i
+			} else if n16.keys[i] > key {
 				return nil, i
 			}
 		}
@@ -397,22 +332,24 @@ func (n *header[T]) find(key byte) *header[T] {
 		return nil
 	case nodeKind4:
 		n4 := n.node4()
-		keys := n4.keys
-		switch key {
-		case keys[0]:
-			return n4.children[0]
-		case keys[1]:
-			return n4.children[1]
-		case keys[2]:
-			return n4.children[2]
-		case keys[3]:
-			return n4.children[3]
+		size := n4.size()
+		for i := 0; i < int(size); i++ {
+			if n4.keys[i] == key {
+				return n4.children[i]
+			} else if n4.keys[i] > key {
+				return nil
+			}
 		}
 		return nil
 	case nodeKind16:
 		n16 := n.node16()
-		if idx := bytes.IndexByte(n16.keys[:n16.size()], key); idx >= 0 {
-			return n16.children[idx]
+		size := n16.size()
+		for i := 0; i < int(size); i++ {
+			if n16.keys[i] == key {
+				return n16.children[i]
+			} else if n16.keys[i] > key {
+				return nil
+			}
 		}
 		return nil
 	case nodeKind48:
@@ -520,6 +457,7 @@ func newLeaf[T any](o options, prefix, key []byte, value T) *leaf[T] {
 	leaf := &leaf[T]{keyLen: uint16(len(key)), keyP: keyP, value: value}
 	leaf.setPrefix(prefix)
 	leaf.setKind(nodeKindLeaf)
+
 	if !o.rootOnlyWatch() {
 		leaf.watch = make(chan struct{})
 	}
@@ -529,7 +467,6 @@ func newLeaf[T any](o options, prefix, key []byte, value T) *leaf[T] {
 
 type node4[T any] struct {
 	header[T]
-	txnID    uint64   // transaction ID that last mutated this node
 	leaf     *leaf[T] // non-nil if this node contains a value
 	children [4]*header[T]
 	keys     [4]byte
@@ -537,7 +474,6 @@ type node4[T any] struct {
 
 type node16[T any] struct {
 	header[T]
-	txnID    uint64   // transaction ID that last mutated this node
 	leaf     *leaf[T] // non-nil if this node contains a value
 	children [16]*header[T]
 	keys     [16]byte
@@ -545,7 +481,6 @@ type node16[T any] struct {
 
 type node48[T any] struct {
 	header[T]
-	txnID    uint64 // transaction ID that last mutated this node
 	children [48]*header[T]
 	leaf     *leaf[T] // non-nil if this node contains a value
 	index    [256]int8
@@ -553,19 +488,21 @@ type node48[T any] struct {
 
 type node256[T any] struct {
 	header[T]
-	txnID    uint64   // transaction ID that last mutated this node
 	leaf     *leaf[T] // non-nil if this node contains a value
 	children [256]*header[T]
 }
 
-func search[T any](root *header[T], rootWatch <-chan struct{}, key []byte) (value T, watch <-chan struct{}, ok bool) {
+func newNode4[T any]() *header[T] {
+	n := &node4[T]{header: header[T]{watch: make(chan struct{})}}
+	n.setKind(nodeKind4)
+	return n.self()
+}
+
+func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{}, ok bool) {
 	this := root
-	watch = rootWatch
-	if root == nil {
-		return
-	}
+	watch = root.watch
 	for {
-		if !this.isPrefixOf(key) {
+		if !bytes.HasPrefix(key, this.prefix()) {
 			return
 		}
 
@@ -575,9 +512,7 @@ func search[T any](root *header[T], rootWatch <-chan struct{}, key []byte) (valu
 		if len(key) == 0 {
 			if leaf := this.getLeaf(); leaf != nil {
 				value = leaf.value
-				if leaf.watch != nil {
-					watch = leaf.watch
-				}
+				watch = leaf.watch
 				ok = true
 			}
 			return
@@ -585,7 +520,7 @@ func search[T any](root *header[T], rootWatch <-chan struct{}, key []byte) (valu
 
 		// Prefix matched. Remember this as the closest watch channel as we traverse
 		// further.
-		if this.watch != nil && !this.isLeaf() {
+		if !this.isLeaf() && this.watch != nil {
 			watch = this.watch
 		}
 

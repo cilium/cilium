@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/mac"
 )
 
 // fakeSender mocks the GNeigh Sender, allowing for a feedback channel.
@@ -31,15 +30,14 @@ type fakeSender struct {
 type fakeGarp struct {
 	addr  netip.Addr
 	iface Interface
-	srcHW net.HardwareAddr
 }
 
-func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
-	fs.sent <- fakeGarp{addr: ip, iface: iface, srcHW: srcHW}
+func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr) error {
+	fs.sent <- fakeGarp{addr: ip, iface: iface}
 	return nil
 }
 
-func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr, srcHw net.HardwareAddr) error {
+func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr) error {
 	// Not used in this test
 	return nil
 }
@@ -61,43 +59,37 @@ func (fs *fakeSender) InterfaceByIndex(idx int) (Interface, error) {
 
 	return InterfaceFromNetInterface(
 		&net.Interface{
-			Index:        def.Index,
-			Name:         def.Name,
-			HardwareAddr: net.HardwareAddr(def.HardwareAddr),
+			Index: def.Index,
+			Name:  def.Name,
 		},
 	), nil
 }
 
 var fakeDevices = map[int]*tables.Device{
 	1: {
-		Index:        1,
-		Name:         "lo",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:00:00:00:00:00")),
-		Selected:     false,
+		Index:    1,
+		Name:     "lo",
+		Selected: false,
 	},
 	2: {
-		Index:        2,
-		Name:         "eth0",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:02")),
-		Selected:     true,
+		Index:    2,
+		Name:     "eth0",
+		Selected: true,
 	},
 	3: {
-		Index:        3,
-		Name:         "eth0.0",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:03")),
-		Selected:     false,
+		Index:    3,
+		Name:     "eth0.0",
+		Selected: false,
 	},
 	4: {
-		Index:        4,
-		Name:         "eth0.1",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:04")),
-		Selected:     true,
+		Index:    4,
+		Name:     "eth0.1",
+		Selected: true,
 	},
 	5: {
-		Index:        5,
-		Name:         "ens1",
-		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:05")),
-		Selected:     true,
+		Index:    5,
+		Name:     "ens1",
+		Selected: true,
 	},
 }
 
@@ -107,8 +99,6 @@ func fixture(t *testing.T, c *Config) (
 	statedb.RWTable[*tables.Device],
 	*processor,
 ) {
-	t.Helper()
-
 	// These allow us to inspect the state of the processor cell.
 	var (
 		garpSent = make(chan fakeGarp, 10)
@@ -151,6 +141,7 @@ func fixture(t *testing.T, c *Config) (
 	// Apply the config so that the GNeigh cell will initialise.s
 	hive.AddConfigOverride(h, func(cfg *Config) {
 		cfg.EnableL2PodAnnouncements = c.EnableL2PodAnnouncements
+		cfg.L2PodAnnouncementsInterface = c.L2PodAnnouncementsInterface
 		cfg.L2PodAnnouncementsInterfacePattern = c.L2PodAnnouncementsInterfacePattern
 	})
 
@@ -187,9 +178,59 @@ func collect(c chan fakeGarp) []fakeGarp {
 	}
 }
 
+func TestProcessorSingleInterface(t *testing.T) {
+	cfg := &Config{
+		EnableL2PodAnnouncements:           true,
+		L2PodAnnouncementsInterface:        "eth0",
+		L2PodAnnouncementsInterfacePattern: "",
+	}
+	garpSent, _, _, proc := fixture(t, cfg)
+
+	ep1 := &endpoint.Endpoint{ID: 1, IPv4: netip.MustParseAddr("1.2.3.4")}
+	ep2 := &endpoint.Endpoint{ID: 2, IPv4: netip.MustParseAddr("4.3.2.1")}
+
+	// On first event we expect a GARP to be sent.
+	proc.EndpointCreated(ep1)
+	garps := collect(garpSent)
+	require.Len(t, garps, 1)
+	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
+	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+
+	// On second event we expect no GARP to be sent.
+	proc.EndpointCreated(ep1)
+	require.Empty(t, collect(garpSent))
+
+	// First event for second endpoint should trigger a GARP.
+	proc.EndpointCreated(ep2)
+	garps = collect(garpSent)
+	require.Len(t, garps, 1)
+	require.Equal(t, garps[0].addr.String(), ep2.IPv4.String())
+	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+
+	// Second event for second endpoint should not trigger a GARP.
+	proc.EndpointCreated(ep2)
+	require.Empty(t, collect(garpSent))
+
+	// No GARP should be sent on deletion.
+	proc.EndpointDeleted(ep1, endpoint.DeleteConfig{})
+	require.Empty(t, collect(garpSent))
+
+	// When recreated after delete, a GARP should be sent.
+	proc.EndpointCreated(ep1)
+	garps = collect(garpSent)
+	require.Len(t, garps, 1)
+	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
+	require.Equal(t, garps[0].iface.iface.Name, cfg.L2PodAnnouncementsInterface)
+
+	// But GARP should still not be set for recreated ep2.
+	proc.EndpointCreated(ep2)
+	require.Empty(t, collect(garpSent))
+}
+
 func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
+		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: "^(eth0|ens1)$",
 	}
 	garpSent, _, _, proc := fixture(t, cfg)
@@ -200,8 +241,8 @@ func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 	garps := collect(garpSent)
 	require.Len(t, garps, 2)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	gotEth0 := garps[0].iface.Name() == "eth0" || garps[1].iface.Name() == "eth0"
-	gotEns1 := garps[0].iface.Name() == "ens1" || garps[1].iface.Name() == "ens1"
+	gotEth0 := garps[0].iface.iface.Name == "eth0" || garps[1].iface.iface.Name == "eth0"
+	gotEns1 := garps[0].iface.iface.Name == "ens1" || garps[1].iface.iface.Name == "ens1"
 	if !(gotEth0 && gotEns1) {
 		t.Fatalf("Expected GARP to be sent on both eth0 and ens1, got: %v", garps)
 	}
@@ -210,6 +251,7 @@ func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 func TestProcessorOnlySelected(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
+		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: ".*",
 	}
 	garpSent, _, _, proc := fixture(t, cfg)
@@ -219,7 +261,7 @@ func TestProcessorOnlySelected(t *testing.T) {
 	garps := collect(garpSent)
 	for _, d := range fakeDevices {
 		contains := slices.ContainsFunc(garps, func(g fakeGarp) bool {
-			return g.iface.Name() == d.Name
+			return g.iface.iface.Name == d.Name
 		})
 		if d.Selected && !contains {
 			t.Fatalf("Expected GARP to be sent on selected interface %s", d.Name)
@@ -233,6 +275,7 @@ func TestProcessorOnlySelected(t *testing.T) {
 func TestProcessorDynamicUpdates(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
+		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: ".*",
 	}
 	garpSent, db, devices, proc := fixture(t, cfg)

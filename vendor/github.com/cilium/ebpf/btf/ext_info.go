@@ -13,23 +13,12 @@ import (
 	"github.com/cilium/ebpf/internal"
 )
 
-// ExtInfos contains raw, per-section extended BTF metadata from the .BTF.ext
-// ELF section.
+// ExtInfos contains ELF section metadata.
 type ExtInfos struct {
-	Funcs     map[string]FuncOffsets
-	Lines     map[string]LineOffsets
-	CORERelos map[string]CORERelocationOffsets
-}
-
-// Section returns the FuncOffsets, LineOffsets and CORERelocationOffsets for
-// the given section name. Returns all nils if ExtInfos is nil, or individual
-// nils if there is no metadata of that type for the section.
-func (ei *ExtInfos) Section(name string) (FuncOffsets, LineOffsets, CORERelocationOffsets) {
-	if ei == nil {
-		return nil, nil, nil
-	}
-
-	return ei.Funcs[name], ei.Lines[name], ei.CORERelos[name]
+	// The slices are sorted by offset in ascending order.
+	funcInfos       map[string]FuncOffsets
+	lineInfos       map[string]LineOffsets
+	relocationInfos map[string]CORERelocationInfos
 }
 
 // loadExtInfosFromELF parses ext infos from the .BTF.ext section in an ELF.
@@ -102,7 +91,7 @@ func loadExtInfos(r io.ReaderAt, bo binary.ByteOrder, spec *Spec) (*ExtInfos, er
 		return nil, fmt.Errorf("parsing CO-RE relocation info: %w", err)
 	}
 
-	coreRelos := make(map[string]CORERelocationOffsets, len(btfCORERelos))
+	coreRelos := make(map[string]CORERelocationInfos, len(btfCORERelos))
 	for section, brs := range btfCORERelos {
 		coreRelos[section], err = newRelocationInfos(brs, spec, spec.strings)
 		if err != nil {
@@ -111,6 +100,46 @@ func loadExtInfos(r io.ReaderAt, bo binary.ByteOrder, spec *Spec) (*ExtInfos, er
 	}
 
 	return &ExtInfos{funcInfos, lineInfos, coreRelos}, nil
+}
+
+type (
+	funcInfoMeta       struct{}
+	coreRelocationMeta struct{}
+)
+
+// Assign per-section metadata from BTF to a section's instructions.
+func (ei *ExtInfos) Assign(insns asm.Instructions, section string) {
+	funcInfos := ei.funcInfos[section]
+	lineInfos := ei.lineInfos[section]
+	reloInfos := ei.relocationInfos[section]
+
+	AssignMetadataToInstructions(insns, funcInfos, lineInfos, reloInfos)
+}
+
+// Assign per-instruction metadata to the instructions in insns.
+func AssignMetadataToInstructions(
+	insns asm.Instructions,
+	funcInfos FuncOffsets,
+	lineInfos LineOffsets,
+	reloInfos CORERelocationInfos,
+) {
+	iter := insns.Iterate()
+	for iter.Next() {
+		if len(funcInfos) > 0 && funcInfos[0].Offset == iter.Offset {
+			*iter.Ins = WithFuncMetadata(*iter.Ins, funcInfos[0].Func)
+			funcInfos = funcInfos[1:]
+		}
+
+		if len(lineInfos) > 0 && lineInfos[0].Offset == iter.Offset {
+			*iter.Ins = iter.Ins.WithSource(lineInfos[0].Line)
+			lineInfos = lineInfos[1:]
+		}
+
+		if len(reloInfos.infos) > 0 && reloInfos.infos[0].offset == iter.Offset {
+			iter.Ins.Metadata.Set(coreRelocationMeta{}, reloInfos.infos[0].relo)
+			reloInfos.infos = reloInfos.infos[1:]
+		}
+	}
 }
 
 // MarshalExtInfos encodes function and line info embedded in insns into kernel
@@ -306,8 +335,8 @@ func parseExtInfoRecordSize(r io.Reader, bo binary.ByteOrder) (uint32, error) {
 	return recordSize, nil
 }
 
-// FuncOffsets is a slice of FuncOffsets sorted by offset.
-type FuncOffsets = []FuncOffset
+// FuncOffsets is a sorted slice of FuncOffset.
+type FuncOffsets []FuncOffset
 
 // The size of a FuncInfo in BTF wire format.
 var FuncInfoSize = uint32(binary.Size(bpfFuncInfo{}))
@@ -489,8 +518,8 @@ func (li *Line) String() string {
 	return li.line
 }
 
-// LineOffsets is a slice of LineOffsets sorted by offset.
-type LineOffsets = []LineOffset
+// LineOffsets contains a sorted list of line infos.
+type LineOffsets []LineOffset
 
 // LineOffset represents a line info and its raw instruction offset.
 type LineOffset struct {
@@ -684,32 +713,22 @@ func (cr *CORERelocation) String() string {
 	return fmt.Sprintf("CORERelocation(%s, %s[%s], local_id=%d)", cr.kind, cr.typ, cr.accessor, cr.id)
 }
 
-type coreRelocationMeta struct{}
-
-// CORERelocationMetadata returns the CORERelocation associated with ins.
 func CORERelocationMetadata(ins *asm.Instruction) *CORERelocation {
 	relo, _ := ins.Metadata.Get(coreRelocationMeta{}).(*CORERelocation)
 	return relo
 }
 
-// WithCORERelocationMetadata associates a CORERelocation with ins and returns
-// the modified Instruction.
-func WithCORERelocationMetadata(ins asm.Instruction, relo *CORERelocation) asm.Instruction {
-	ins.Metadata.Set(coreRelocationMeta{}, relo)
-	return ins
+// CORERelocationInfos contains a sorted list of co:re relocation infos.
+type CORERelocationInfos struct {
+	infos []coreRelocationInfo
 }
 
-// CORERelocationOffsets is a slice of CORERelocationOffsets sorted by offset.
-type CORERelocationOffsets = []CORERelocationOffset
-
-// CORERelocationOffset represents a CO-RE relocation and an offset at which it
-// should be applied.
-type CORERelocationOffset struct {
-	Relo   *CORERelocation
-	Offset asm.RawInstructionOffset
+type coreRelocationInfo struct {
+	relo   *CORERelocation
+	offset asm.RawInstructionOffset
 }
 
-func newRelocationInfo(relo bpfCORERelo, spec *Spec, strings *stringTable) (*CORERelocationOffset, error) {
+func newRelocationInfo(relo bpfCORERelo, spec *Spec, strings *stringTable) (*coreRelocationInfo, error) {
 	typ, err := spec.TypeByID(relo.TypeID)
 	if err != nil {
 		return nil, err
@@ -725,7 +744,7 @@ func newRelocationInfo(relo bpfCORERelo, spec *Spec, strings *stringTable) (*COR
 		return nil, fmt.Errorf("accessor %q: %s", accessorStr, err)
 	}
 
-	return &CORERelocationOffset{
+	return &coreRelocationInfo{
 		&CORERelocation{
 			typ,
 			accessor,
@@ -736,21 +755,20 @@ func newRelocationInfo(relo bpfCORERelo, spec *Spec, strings *stringTable) (*COR
 	}, nil
 }
 
-func newRelocationInfos(brs []bpfCORERelo, spec *Spec, strings *stringTable) (CORERelocationOffsets, error) {
-	rs := make(CORERelocationOffsets, 0, len(brs))
-
+func newRelocationInfos(brs []bpfCORERelo, spec *Spec, strings *stringTable) (CORERelocationInfos, error) {
+	rs := CORERelocationInfos{
+		infos: make([]coreRelocationInfo, 0, len(brs)),
+	}
 	for _, br := range brs {
 		relo, err := newRelocationInfo(br, spec, strings)
 		if err != nil {
-			return nil, fmt.Errorf("offset %d: %w", br.InsnOff, err)
+			return CORERelocationInfos{}, fmt.Errorf("offset %d: %w", br.InsnOff, err)
 		}
-		rs = append(rs, *relo)
+		rs.infos = append(rs.infos, *relo)
 	}
-
-	sort.Slice(rs, func(i, j int) bool {
-		return rs[i].Offset < rs[j].Offset
+	sort.Slice(rs.infos, func(i, j int) bool {
+		return rs.infos[i].offset < rs.infos[j].offset
 	})
-
 	return rs, nil
 }
 

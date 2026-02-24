@@ -148,11 +148,29 @@ Get the current agent configuration
 
     cilium-dbg config
 
+Policy management
+-----------------
+
+
+Importing a Cilium Network Policy
+
+.. code-block:: shell-session
+
+    cilium-dbg policy import my-policy.json
+
+
 Get list of all imported policy rules
 
 .. code-block:: shell-session
 
     cilium-dbg policy get
+
+Remove all policies
+
+.. code-block:: shell-session
+
+    cilium-dbg policy delete --all
+
 
 Monitoring
 ~~~~~~~~~~~
@@ -268,6 +286,12 @@ Or you can get the loadbalancer information using bpf list
 eBPF
 ----
 
+List node tunneling mapping information
+
+.. code-block:: shell-session
+
+    cilium-dbg bpf tunnel list
+
 Checking logs for verifier issue
 
 .. code-block:: shell-session
@@ -278,7 +302,7 @@ List connection tracking entries:
 
 .. code-block:: shell-session
 
-    sudo cilium-dbg bpf ct list
+    sudo cilium-dbg bpf ct list global
 
 Flush connection tracking entries:
 

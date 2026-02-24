@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package errgroup provides synchronization, error propagation, and Context
-// cancellation for groups of goroutines working on subtasks of a common task.
+// cancelation for groups of goroutines working on subtasks of a common task.
 //
 // [errgroup.Group] is related to [sync.WaitGroup] but adds handling of tasks
 // returning errors.
@@ -144,8 +144,8 @@ func (g *Group) SetLimit(n int) {
 		g.sem = nil
 		return
 	}
-	if active := len(g.sem); active != 0 {
-		panic(fmt.Errorf("errgroup: modify limit while %v goroutines in the group are still active", active))
+	if len(g.sem) != 0 {
+		panic(fmt.Errorf("errgroup: modify limit while %v goroutines in the group are still active", len(g.sem)))
 	}
 	g.sem = make(chan token, n)
 }

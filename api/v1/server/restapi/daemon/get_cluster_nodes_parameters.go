@@ -30,6 +30,7 @@ func NewGetClusterNodesParams() GetClusterNodesParams {
 //
 // swagger:parameters GetClusterNodes
 type GetClusterNodesParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

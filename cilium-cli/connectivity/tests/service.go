@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -109,19 +108,8 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
-				t.ForEachIPFamily(func(ipFam features.IPFamily) {
-					t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, svc, ipFam).Run(func(a *check.Action) {
-						a.ExecInPod(ctx, a.CurlCommand(svc))
-
-						a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-							DNSRequired: true,
-							AltDstPort:  svc.Port(),
-						}))
-					})
-				})
-			} else {
-				t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &pod, svc, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommand(svc))
 
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
@@ -129,7 +117,7 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 						AltDstPort:  svc.Port(),
 					}))
 				})
-			}
+			})
 
 			i++
 		}
@@ -405,48 +393,4 @@ func (s *podToL7Service) Run(ctx context.Context, t *check.Test) {
 			i++
 		}
 	}
-}
-
-// PodToItselfViaService sends an HTTP request from the client pod
-// to the ClusterIP services of that pod in the test context
-// to confirm hairpinning works.
-func PodToItselfViaService() check.Scenario {
-	return &podToItselfViaService{
-		ScenarioBase: check.NewScenarioBase(),
-	}
-}
-
-type podToItselfViaService struct {
-	check.ScenarioBase
-}
-
-func (s *podToItselfViaService) Name() string {
-	return "pod-to-itself-via-service"
-}
-
-func (s *podToItselfViaService) Run(ctx context.Context, t *check.Test) {
-	var i int
-	ct := t.Context()
-
-	for _, pod := range ct.L7LBClientPods() {
-		for _, svc := range ct.L7LBNonL7Service() {
-			t.ForEachIPFamily(func(ipFamily features.IPFamily) {
-				// Skip IPv6 for versions < 1.19.0
-				if ipFamily == features.IPFamilyV6 && !versioncheck.MustCompile(">=1.19.0")(ct.CiliumVersion) {
-					return
-				}
-
-				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFamily, i), &pod, svc, ipFamily).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, a.CurlCommand(svc))
-					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-						DNSRequired: true,
-						AltDstPort:  svc.Port(),
-					}))
-					a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
-				})
-			})
-			i++
-		}
-	}
-
 }

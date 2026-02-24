@@ -18,13 +18,11 @@ import (
 )
 
 type Sender interface {
-	// Send a Gratuitous ARP packet for a given IP, mapping it to a given source hardware
-	// address.
-	SendArp(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error
+	// Send a Gratuitous ARP packet for a given IP over an interface
+	SendArp(iface Interface, ip netip.Addr) error
 
-	// Send a Gratuitous ND packet for a given IP, mapping it to a given source hardware
-	// address.
-	SendNd(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error
+	// Send a Gratuitous ND packet for a given IP over an interface
+	SendNd(iface Interface, ip netip.Addr) error
 
 	// NewArpSender returns a new client bound to a given interface that can
 	// be used to send multiple Gratuitous ARP packets, for efficiency reasons.
@@ -41,18 +39,16 @@ type Sender interface {
 }
 
 type ArpSender interface {
-	// Send a Gratuitous ARP packet for a given IP, mapping it to a given source hardware
-	// address.
-	Send(ip netip.Addr, srcHW net.HardwareAddr) error
+	// Send a Gratuitous ARP packet for a given IP.
+	Send(ip netip.Addr) error
 
 	// Close the connection.
 	Close() error
 }
 
 type NdSender interface {
-	// Send a Gratuitous ND packet for a given IP, mapping it to a given source hardware
-	// address.
-	Send(ip netip.Addr, srcHW net.HardwareAddr) error
+	// Send a Gratuitous ND packet for a given IP.
+	Send(ip netip.Addr) error
 
 	// Close the connection.
 	Close() error
@@ -64,16 +60,6 @@ func newSender() Sender {
 
 type Interface struct {
 	iface *net.Interface
-}
-
-// Name returns the interface name.
-func (i Interface) Name() string {
-	return i.iface.Name
-}
-
-// HardwareAddr returns the interface hardware address.
-func (i Interface) HardwareAddr() net.HardwareAddr {
-	return i.iface.HardwareAddr
 }
 
 // InterfaceFromNetInterface constructs an Interface from the given *net.Interface.
@@ -103,18 +89,19 @@ func (s *sender) NewArpSender(iface Interface) (ArpSender, error) {
 	}
 
 	return &arpSender{
-		cl: cl,
+		cl:    cl,
+		srcHW: iface.iface.HardwareAddr,
 	}, nil
 }
 
-func (s *sender) SendArp(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
+func (s *sender) SendArp(iface Interface, ip netip.Addr) error {
 	cl, err := s.NewArpSender(iface)
 	if err != nil {
 		return err
 	}
 	defer cl.Close()
 
-	return cl.Send(ip, srcHW)
+	return cl.Send(ip)
 }
 
 // icmpDropAllFilter filters out all packets, as we are only interested in
@@ -135,34 +122,36 @@ func (s *sender) NewNdSender(iface Interface) (NdSender, error) {
 	}
 
 	return &ndSender{
-		cl: cl,
+		cl:    cl,
+		srcHW: iface.iface.HardwareAddr,
 	}, nil
 }
 
-func (s *sender) SendNd(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
+func (s *sender) SendNd(iface Interface, ip netip.Addr) error {
 	cl, err := s.NewNdSender(iface)
 	if err != nil {
 		return err
 	}
 	defer cl.Close()
 
-	return cl.Send(ip, srcHW)
+	return cl.Send(ip)
 }
 
 type arpSender struct {
-	cl *packet.Conn
+	cl    *packet.Conn
+	srcHW net.HardwareAddr
 }
 
 func (s *arpSender) Close() error {
 	return s.cl.Close()
 }
 
-func (s *arpSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
+func (s *arpSender) Send(ip netip.Addr) error {
 	if ip.Is6() {
 		return fmt.Errorf("failed to send gratuitous ARP packet. Address is v6 %s", ip)
 	}
 
-	arp, err := arp.NewPacket(arp.OperationRequest, srcHW, ip, ethernet.Broadcast, ip)
+	arp, err := arp.NewPacket(arp.OperationRequest, s.srcHW, ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return fmt.Errorf("failed to craft gratuitous ARP packet: %w", err)
 	}
@@ -193,14 +182,15 @@ func (s *arpSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
 }
 
 type ndSender struct {
-	cl *ndp.Conn
+	cl    *ndp.Conn
+	srcHW net.HardwareAddr
 }
 
 func (s *ndSender) Close() error {
 	return s.cl.Close()
 }
 
-func (s *ndSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
+func (s *ndSender) Send(ip netip.Addr) error {
 	if ip.Is4() {
 		return fmt.Errorf("failed to send gratuitous ND packet. Address is v4 %s", ip)
 	}
@@ -210,7 +200,7 @@ func (s *ndSender) Send(ip netip.Addr, srcHW net.HardwareAddr) error {
 		Options: []ndp.Option{
 			&ndp.LinkLayerAddress{
 				Direction: ndp.Source,
-				Addr:      srcHW,
+				Addr:      s.srcHW,
 			},
 		},
 	}

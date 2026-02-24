@@ -71,7 +71,7 @@ type GoogleRE2MultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GoogleRE2MultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

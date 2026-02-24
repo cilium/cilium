@@ -44,6 +44,8 @@ func newNodeMap(lifecycle cell.Lifecycle, conf Config, logger *slog.Logger) (bpf
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			nodeMap.migrateV1("cilium_node_map")
+
 			return nodeMap.init()
 		},
 		OnStop: func(context cell.HookContext) error {

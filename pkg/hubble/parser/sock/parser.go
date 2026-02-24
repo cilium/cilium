@@ -32,8 +32,6 @@ type Parser struct {
 	cgroupGetter   getters.PodMetadataGetter
 	epResolver     *common.EndpointResolver
 
-	traceSockNotifyDecoder options.TraceSockNotifyDecoderFunc
-
 	skipUnknownCGroupIDs bool
 }
 
@@ -49,10 +47,6 @@ func New(log *slog.Logger,
 ) (*Parser, error) {
 	args := &options.Options{
 		SkipUnknownCGroupIDs: true,
-		TraceSockNotifyDecoder: func(data []byte, decoded *flowpb.Flow) (*monitor.TraceSockNotify, error) {
-			sock := &monitor.TraceSockNotify{}
-			return sock, sock.Decode(data)
-		},
 	}
 
 	for _, opt := range opts {
@@ -60,16 +54,15 @@ func New(log *slog.Logger,
 	}
 
 	return &Parser{
-		log:                    log,
-		endpointGetter:         endpointGetter,
-		identityGetter:         identityGetter,
-		dnsGetter:              dnsGetter,
-		ipGetter:               ipGetter,
-		serviceGetter:          serviceGetter,
-		cgroupGetter:           cgroupGetter,
-		epResolver:             common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		traceSockNotifyDecoder: args.TraceSockNotifyDecoder,
-		skipUnknownCGroupIDs:   args.SkipUnknownCGroupIDs,
+		log:                  log,
+		endpointGetter:       endpointGetter,
+		identityGetter:       identityGetter,
+		dnsGetter:            dnsGetter,
+		ipGetter:             ipGetter,
+		serviceGetter:        serviceGetter,
+		cgroupGetter:         cgroupGetter,
+		epResolver:           common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		skipUnknownCGroupIDs: args.SkipUnknownCGroupIDs,
 	}, nil
 }
 
@@ -85,8 +78,8 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 		return errors.NewErrInvalidType(eventType)
 	}
 
-	sock, err := p.traceSockNotifyDecoder(data, decoded)
-	if err != nil {
+	sock := &monitor.TraceSockNotify{}
+	if err := sock.Decode(data); err != nil {
 		return fmt.Errorf("failed to parse sock trace event: %w", err)
 	}
 

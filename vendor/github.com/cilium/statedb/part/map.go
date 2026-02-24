@@ -20,9 +20,8 @@ import (
 // keys that are not []byte.
 type Map[K, V any] struct {
 	bytesFromKeyFunc func(K) []byte
+	tree             *Tree[mapKVPair[K, V]]
 	singleton        *mapKVPair[K, V]
-	tree             Tree[mapKVPair[K, V]]
-	hasTree          bool
 }
 
 type mapKVPair[K, V any] struct {
@@ -52,7 +51,7 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
 	}
-	m.tree = txn.Commit()
+	m.tree = txn.CommitOnly()
 	return m
 }
 
@@ -60,9 +59,8 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 // it is. The whole nil tree thing is to make sure that creating
 // an empty map does not allocate anything.
 func (m *Map[K, V]) ensureTree() {
-	if !m.hasTree {
-		m.tree = New[mapKVPair[K, V]](RootOnlyWatch)
-		m.hasTree = true
+	if m.tree == nil {
+		m.tree = New[mapKVPair[K, V]](RootOnlyWatch, NoCache)
 	}
 }
 
@@ -72,7 +70,7 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 		return m.singleton.Value, true
 	}
 
-	if !m.hasTree {
+	if m.tree == nil {
 		return
 	}
 	kv, _, found := m.tree.Get(m.keyToBytes(key))
@@ -83,19 +81,19 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 // Original map is unchanged.
 func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 	keyBytes := m.keyToBytes(key)
-	if !m.hasTree && m.singleton == nil || m.singleton != nil && bytes.Equal(keyBytes, m.keyToBytes(m.singleton.Key)) {
+	if m.tree == nil && m.singleton == nil || m.singleton != nil && bytes.Equal(keyBytes, m.keyToBytes(m.singleton.Key)) {
 		m.singleton = &mapKVPair[K, V]{key, value}
 		return m
 	}
 
 	m.ensureTree()
 	txn := m.tree.Txn()
-	txn.Insert(keyBytes, mapKVPair[K, V]{key, value})
+	txn.Insert(m.keyToBytes(key), mapKVPair[K, V]{key, value})
 	if m.singleton != nil {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
 	}
-	m.tree = txn.Commit()
+	m.tree = txn.CommitOnly()
 	return m
 }
 
@@ -115,29 +113,30 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 		}
 		return m
 	}
-	if m.hasTree {
+	if m.tree != nil {
 		txn := m.tree.Txn()
 		txn.Delete(m.keyToBytes(key))
 		switch txn.Len() {
 		case 0:
-			m.tree = Tree[mapKVPair[K, V]]{}
-			m.hasTree = false
+			m.tree = nil
 		case 1:
-			for _, v := range txn.Iterator().All {
-				m.singleton = &v
-				m.tree = Tree[mapKVPair[K, V]]{}
-				m.hasTree = false
-			}
+			_, kv, _ := txn.Iterator().Next()
+			m.singleton = &kv
+			m.tree = nil
 		default:
-			m.tree = txn.Commit()
+			m.tree = txn.CommitOnly()
 		}
 	}
 	return m
 }
 
-func toSeq2[K, V any](iter Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
+func toSeq2[K, V any](iter *Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
-		for _, kv := range iter.All {
+		if iter == nil {
+			return
+		}
+		iter = iter.Clone()
+		for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
 			if !yield(kv.Key, kv.Value) {
 				break
 			}
@@ -153,8 +152,8 @@ func (m Map[K, V]) LowerBound(from K) iter.Seq2[K, V] {
 			return m.singletonIter()
 		}
 	}
-	if !m.hasTree {
-		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
+	if m.tree == nil {
+		return toSeq2[K, V](nil)
 	}
 	return toSeq2(m.tree.LowerBound(m.keyToBytes(from)))
 }
@@ -175,8 +174,8 @@ func (m Map[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
 			return m.singletonIter()
 		}
 	}
-	if !m.hasTree {
-		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
+	if m.tree == nil {
+		return toSeq2[K, V](nil)
 	}
 	iter, _ := m.tree.Prefix(m.keyToBytes(prefix))
 	return toSeq2(iter)
@@ -189,8 +188,8 @@ func (m Map[K, V]) All() iter.Seq2[K, V] {
 	if m.singleton != nil {
 		return m.singletonIter()
 	}
-	if !m.hasTree {
-		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
+	if m.tree == nil {
+		return toSeq2[K, V](nil)
 	}
 	return toSeq2(m.tree.Iterator())
 }
@@ -202,7 +201,7 @@ func (m Map[K, V]) EqualKeys(other Map[K, V]) bool {
 		return false
 	case m.singleton != nil && other.singleton != nil:
 		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key))
-	case !m.hasTree && !other.hasTree:
+	case m.tree == nil && other.tree == nil:
 		return true
 	default:
 		iter1 := m.tree.Iterator()
@@ -232,7 +231,7 @@ func (m Map[K, V]) SlowEqual(other Map[K, V]) bool {
 	case m.singleton != nil && other.singleton != nil:
 		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key)) &&
 			reflect.DeepEqual(m.singleton.Value, other.singleton.Value)
-	case !m.hasTree && !other.hasTree:
+	case m.tree == nil && other.tree == nil:
 		return true
 	default:
 		iter1 := m.tree.Iterator()
@@ -257,14 +256,14 @@ func (m Map[K, V]) Len() int {
 	if m.singleton != nil {
 		return 1
 	}
-	if !m.hasTree {
+	if m.tree == nil {
 		return 0
 	}
 	return m.tree.size
 }
 
 func (m Map[K, V]) MarshalJSON() ([]byte, error) {
-	if !m.hasTree && m.singleton == nil {
+	if m.tree == nil && m.singleton == nil {
 		return []byte("[]"), nil
 	}
 
@@ -342,7 +341,7 @@ func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
 	if d, ok := t.(json.Delim); !ok || d != ']' {
 		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", m, t)
 	}
-	m.tree = txn.Commit()
+	m.tree = txn.CommitOnly()
 	return nil
 }
 
@@ -381,92 +380,6 @@ func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
 		}
 		txn.Insert(m.keyToBytes(kv.Key), mapKVPair[K, V]{kv.Key, kv.Value})
 	}
-	m.tree = txn.Commit()
+	m.tree = txn.CommitOnly()
 	return nil
-}
-
-func (m Map[K, V]) Txn() MapTxn[K, V] {
-	m.ensureTree()
-	txn := m.tree.Txn()
-	if m.singleton != nil {
-		txn.Insert(m.keyToBytes(m.singleton.Key), mapKVPair[K, V]{m.singleton.Key, m.singleton.Value})
-	}
-	bytesFromKey := m.bytesFromKeyFunc
-	if bytesFromKey == nil {
-		bytesFromKey = lookupKeyType[K]()
-	}
-	return MapTxn[K, V]{
-		bytesFromKeyFunc: bytesFromKey,
-		txn:              txn,
-	}
-}
-
-// MapTxn is a write transaction for efficiently doing multiple
-// modifications to a map.
-type MapTxn[K, V any] struct {
-	bytesFromKeyFunc func(K) []byte
-	txn              *Txn[mapKVPair[K, V]]
-}
-
-// Commit the transaction returning a new map.
-// The transaction can be used again for further modifications.
-func (txn MapTxn[K, V]) Commit() (m Map[K, V]) {
-	m.bytesFromKeyFunc = txn.bytesFromKeyFunc
-	switch txn.txn.Len() {
-	case 0:
-	case 1:
-		iter := txn.txn.Iterator()
-		_, kv, _ := iter.Next()
-		m.singleton = &kv
-	default:
-		m.tree = txn.txn.Commit()
-		m.hasTree = true
-	}
-	if m.singleton != nil {
-		m.hasTree = false
-	}
-	return
-}
-
-// Set a value.
-func (txn MapTxn[K, V]) Set(key K, value V) {
-	txn.txn.Insert(txn.bytesFromKeyFunc(key), mapKVPair[K, V]{key, value})
-}
-
-// Delete a value from the map.
-// Returns true if the key was found.
-func (txn MapTxn[K, V]) Delete(key K) bool {
-	_, hadOld := txn.txn.Delete(txn.bytesFromKeyFunc(key))
-	return hadOld
-}
-
-// Get a value from the map by its key.
-func (txn MapTxn[K, V]) Get(key K) (value V, found bool) {
-	kv, _, found := txn.txn.Get(txn.bytesFromKeyFunc(key))
-	return kv.Value, found
-}
-
-// Prefix iterates in order over all keys that start with
-// the given prefix.
-func (txn MapTxn[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
-	iter, _ := txn.txn.Prefix(txn.bytesFromKeyFunc(prefix))
-	return toSeq2(iter)
-}
-
-// LowerBound iterates over all keys in order with value equal
-// to or greater than [from].
-func (txn MapTxn[K, V]) LowerBound(from K) iter.Seq2[K, V] {
-	return toSeq2(txn.txn.LowerBound(txn.bytesFromKeyFunc(from)))
-}
-
-// All iterates every key-value in the map in order.
-// The order is in bytewise order of the byte slice
-// returned by bytesFromKey.
-func (txn MapTxn[K, V]) All() iter.Seq2[K, V] {
-	return toSeq2(txn.txn.Iterator())
-}
-
-// Len returns the number of elements in the map.
-func (txn MapTxn[K, V]) Len() int {
-	return txn.txn.Len()
 }

@@ -24,12 +24,8 @@ import (
 
 // CapabilitiesApplyConfiguration represents a declarative configuration of the Capabilities type for use
 // with apply.
-//
-// Adds and removes POSIX capabilities from running containers.
 type CapabilitiesApplyConfiguration struct {
-	// Added capabilities
-	Add []corev1.Capability `json:"add,omitempty"`
-	// Removed capabilities
+	Add  []corev1.Capability `json:"add,omitempty"`
 	Drop []corev1.Capability `json:"drop,omitempty"`
 }
 

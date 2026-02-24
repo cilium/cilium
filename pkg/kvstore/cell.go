@@ -15,11 +15,16 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // DisabledBackendName disables the kvstore client.
 const DisabledBackendName = ""
+
+// BootstrapStat is the type of the object that, if provided, gets updated with
+// the measurement of the bootstrap time of the kvstore client.
+type BootstrapStat *spanstat.SpanStat
 
 // Cell returns a cell which provides the global kvstore client.
 func Cell(defaultBackend string) cell.Cell {
@@ -41,8 +46,9 @@ func Cell(defaultBackend string) cell.Cell {
 			Lifecycle cell.Lifecycle
 			Config    Config
 			Opts      ExtraOptions `optional:"true"`
-		},
-		) (Client, hive.ScriptCmdsOut) {
+
+			Stats BootstrapStat `optional:"true"`
+		}) (Client, hive.ScriptCmdsOut) {
 			if in.Config.KVStore == DisabledBackendName {
 				return &clientImpl{enabled: false}, hive.ScriptCmdsOut{}
 			}
@@ -53,6 +59,7 @@ func Cell(defaultBackend string) cell.Cell {
 
 			cl := &clientImpl{
 				enabled: true, cfg: in.Config, opts: in.Opts,
+				stats:  cmp.Or((*spanstat.SpanStat)(in.Stats), &spanstat.SpanStat{}),
 				logger: in.Logger.With(logfields.BackendName, in.Config.KVStore),
 			}
 

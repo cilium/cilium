@@ -35,7 +35,7 @@ func (c *fakeThreadSafeMap) Delete(key string) {
 
 // FakeExpirationPolicy keeps the list for keys which never expires.
 type FakeExpirationPolicy struct {
-	NeverExpire     sets.Set[string]
+	NeverExpire     sets.String
 	RetrieveKeyFunc KeyFunc
 }
 

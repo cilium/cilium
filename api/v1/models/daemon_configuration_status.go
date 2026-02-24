@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -39,23 +38,17 @@ type DaemonConfigurationStatus struct {
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
-	// configured datapath mode
-	ConfiguredDatapathMode ConfiguredDatapathMode `json:"configuredDatapathMode,omitempty"`
-
 	// Config map which contains all the active daemon configurations
-	DaemonConfigurationMap map[string]any `json:"daemonConfigurationMap,omitempty"`
+	DaemonConfigurationMap map[string]interface{} `json:"daemonConfigurationMap,omitempty"`
 
 	// datapath mode
 	DatapathMode DatapathMode `json:"datapathMode,omitempty"`
 
-	// Headroom buffer margin on workload facing devices
-	DeviceHeadroom int64 `json:"deviceHeadroom,omitempty"`
-
 	// MTU on workload facing devices
 	DeviceMTU int64 `json:"deviceMTU,omitempty"`
 
-	// Tailroom buffer margin on workload facing devices
-	DeviceTailroom int64 `json:"deviceTailroom,omitempty"`
+	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
+	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`
 
 	// True if BBR is enabled only in the host network namespace
 	EnableBBRHostNamespaceOnly bool `json:"enableBBRHostNamespaceOnly,omitempty"`
@@ -95,9 +88,6 @@ type DaemonConfigurationStatus struct {
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 
-	// Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).
-	PacketizationLayerPMTUDMode string `json:"packetizationLayerPMTUDMode,omitempty"`
-
 	// Currently applied configuration
 	Realized *DaemonConfigurationSpec `json:"realized,omitempty"`
 
@@ -110,10 +100,6 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateConfiguredDatapathMode(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -154,38 +140,13 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 
 	if m.Addressing != nil {
 		if err := m.Addressing.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("addressing")
 			}
-
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (m *DaemonConfigurationStatus) validateConfiguredDatapathMode(formats strfmt.Registry) error {
-	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
-		return nil
-	}
-
-	if err := m.ConfiguredDatapathMode.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
-			return ve.ValidateName("configuredDatapathMode")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
-			return ce.ValidateName("configuredDatapathMode")
-		}
-
-		return err
 	}
 
 	return nil
@@ -197,15 +158,11 @@ func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry
 	}
 
 	if err := m.DatapathMode.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("datapathMode")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("datapathMode")
 		}
-
 		return err
 	}
 
@@ -219,15 +176,11 @@ func (m *DaemonConfigurationStatus) validateImmutable(formats strfmt.Registry) e
 
 	if m.Immutable != nil {
 		if err := m.Immutable.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("immutable")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("immutable")
 			}
-
 			return err
 		}
 	}
@@ -242,15 +195,11 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 
 	if m.KvstoreConfiguration != nil {
 		if err := m.KvstoreConfiguration.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstoreConfiguration")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("kvstoreConfiguration")
 			}
-
 			return err
 		}
 	}
@@ -265,15 +214,11 @@ func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.R
 
 	if m.MasqueradeProtocols != nil {
 		if err := m.MasqueradeProtocols.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("masqueradeProtocols")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("masqueradeProtocols")
 			}
-
 			return err
 		}
 	}
@@ -288,15 +233,11 @@ func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry)
 
 	if m.NodeMonitor != nil {
 		if err := m.NodeMonitor.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("nodeMonitor")
 			}
-
 			return err
 		}
 	}
@@ -311,15 +252,11 @@ func (m *DaemonConfigurationStatus) validateRealized(formats strfmt.Registry) er
 
 	if m.Realized != nil {
 		if err := m.Realized.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}
@@ -332,10 +269,6 @@ func (m *DaemonConfigurationStatus) ContextValidate(ctx context.Context, formats
 	var res []error
 
 	if err := m.contextValidateAddressing(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.contextValidateConfiguredDatapathMode(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -378,39 +311,13 @@ func (m *DaemonConfigurationStatus) contextValidateAddressing(ctx context.Contex
 		}
 
 		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("addressing")
 			}
-
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (m *DaemonConfigurationStatus) contextValidateConfiguredDatapathMode(ctx context.Context, formats strfmt.Registry) error {
-
-	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
-		return nil
-	}
-
-	if err := m.ConfiguredDatapathMode.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
-			return ve.ValidateName("configuredDatapathMode")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
-			return ce.ValidateName("configuredDatapathMode")
-		}
-
-		return err
 	}
 
 	return nil
@@ -423,15 +330,11 @@ func (m *DaemonConfigurationStatus) contextValidateDatapathMode(ctx context.Cont
 	}
 
 	if err := m.DatapathMode.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("datapathMode")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("datapathMode")
 		}
-
 		return err
 	}
 
@@ -445,15 +348,11 @@ func (m *DaemonConfigurationStatus) contextValidateImmutable(ctx context.Context
 	}
 
 	if err := m.Immutable.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("immutable")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("immutable")
 		}
-
 		return err
 	}
 
@@ -469,15 +368,11 @@ func (m *DaemonConfigurationStatus) contextValidateKvstoreConfiguration(ctx cont
 		}
 
 		if err := m.KvstoreConfiguration.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstoreConfiguration")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("kvstoreConfiguration")
 			}
-
 			return err
 		}
 	}
@@ -494,15 +389,11 @@ func (m *DaemonConfigurationStatus) contextValidateMasqueradeProtocols(ctx conte
 		}
 
 		if err := m.MasqueradeProtocols.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("masqueradeProtocols")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("masqueradeProtocols")
 			}
-
 			return err
 		}
 	}
@@ -519,15 +410,11 @@ func (m *DaemonConfigurationStatus) contextValidateNodeMonitor(ctx context.Conte
 		}
 
 		if err := m.NodeMonitor.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("nodeMonitor")
 			}
-
 			return err
 		}
 	}
@@ -544,15 +431,11 @@ func (m *DaemonConfigurationStatus) contextValidateRealized(ctx context.Context,
 		}
 
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}

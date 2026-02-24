@@ -241,11 +241,9 @@ of ports. In the end we will have 250 different policies selecting 10000 pods.
       egress:
         - toPorts:
           - ports:
-            - port: "[0-125]+80" # from 80 to 12580
+            - port: "[0-125]+80" // from 80 to 12580
               protocol: TCP
-
-.. code-block:: yaml
-
+    ---
     apiVersion: "cilium.io/v2"
     kind: CiliumNetworkPolicy
     metadata:
@@ -261,7 +259,7 @@ of ports. In the end we will have 250 different policies selecting 10000 pods.
       ingress:
       - toPorts:
         - ports:
-          - port: '[126-250]+80' # from 12680 to 25080
+          - port: '[126-250]+80' // from 12680 to 25080
             protocol: TCP
           rules:
             http:

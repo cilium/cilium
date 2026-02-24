@@ -8,8 +8,6 @@ import (
 	"math"
 	"path/filepath"
 	"runtime"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/cilium/ebpf/asm"
@@ -24,10 +22,6 @@ import (
 
 // ErrNotSupported is returned whenever the kernel doesn't support a feature.
 var ErrNotSupported = internal.ErrNotSupported
-
-// ErrProgIncompatible is returned when a loaded Program is incompatible with a
-// given spec.
-var ErrProgIncompatible = errors.New("program is incompatible")
 
 // errBadRelocation is returned when the verifier rejects a program due to a
 // bad CO-RE relocation.
@@ -176,32 +170,8 @@ func (ps *ProgramSpec) Copy() *ProgramSpec {
 // Tag calculates the kernel tag for a series of instructions.
 //
 // Use asm.Instructions.Tag if you need to calculate for non-native endianness.
-//
-// Deprecated: The value produced by this method no longer matches tags produced
-// by the kernel since Linux 6.18. Use [ProgramSpec.Compatible] instead.
 func (ps *ProgramSpec) Tag() (string, error) {
 	return ps.Instructions.Tag(internal.NativeEndian)
-}
-
-// Compatible returns nil if a loaded Program's kernel tag matches the one of
-// the ProgramSpec.
-//
-// Returns [ErrProgIncompatible] if the tags do not match.
-func (ps *ProgramSpec) Compatible(info *ProgramInfo) error {
-	if platform.IsWindows {
-		return fmt.Errorf("%w: Windows does not support tag readback from kernel", internal.ErrNotSupportedOnOS)
-	}
-
-	ok, err := ps.Instructions.HasTag(info.Tag, internal.NativeEndian)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return fmt.Errorf("%w: ProgramSpec and Program tags do not match", ErrProgIncompatible)
-	}
-
-	return nil
 }
 
 // targetsKernelModule returns true if the program supports being attached to a
@@ -411,51 +381,15 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 		attr.AttachBtfObjFd = uint32(spec.AttachTarget.FD())
 		defer runtime.KeepAlive(spec.AttachTarget)
 	} else if spec.AttachTo != "" {
-		var targetMember string
-		attachTo := spec.AttachTo
-
-		if spec.Type == StructOps {
-			attachTo, targetMember, _ = strings.Cut(attachTo, ":")
-			if targetMember == "" {
-				return nil, fmt.Errorf("struct_ops: AttachTo must be '<ops>:<member>' (got %s)", spec.AttachTo)
-			}
-		}
-
-		module, targetID, err := findProgramTargetInKernel(attachTo, spec.Type, spec.AttachType, c)
+		module, targetID, err := findProgramTargetInKernel(spec.AttachTo, spec.Type, spec.AttachType, c)
 		if err != nil && !errors.Is(err, errUnrecognizedAttachType) {
 			// We ignore errUnrecognizedAttachType since AttachTo may be non-empty
 			// for programs that don't attach anywhere.
 			return nil, fmt.Errorf("attach %s/%s: %w", spec.Type, spec.AttachType, err)
 		}
 
-		if spec.Type == StructOps {
-			var s *btf.Spec
-
-			target := btf.Type((*btf.Struct)(nil))
-			s, module, err = findTargetInKernel(attachTo, &target, c)
-			if err != nil {
-				return nil, fmt.Errorf("lookup struct_ops kern type %q: %w", attachTo, err)
-			}
-			kType := target.(*btf.Struct)
-
-			targetID, err = s.TypeID(kType)
-			if err != nil {
-				return nil, fmt.Errorf("type id for %s: %w", kType.TypeName(), err)
-			}
-
-			idx := slices.IndexFunc(kType.Members, func(m btf.Member) bool {
-				return m.Name == targetMember
-			})
-			if idx < 0 {
-				return nil, fmt.Errorf("member %q not found in %s", targetMember, kType.Name)
-			}
-
-			// ExpectedAttachType: index of the target member in the struct
-			attr.ExpectedAttachType = sys.AttachType(idx)
-		}
-
 		attr.AttachBtfId = targetID
-		if module != nil && attr.AttachBtfObjFd == 0 {
+		if module != nil {
 			attr.AttachBtfObjFd = uint32(module.FD())
 			defer module.Close()
 		}
@@ -773,11 +707,6 @@ type RunOptions struct {
 	// CPU to run Program on. Optional field.
 	// Note not all program types support this field.
 	CPU uint32
-	// BatchSize (default 64) affects the kernel's packet buffer allocation behaviour when running
-	// programs with BPF_F_TEST_XDP_LIVE_FRAMES and a non-zero [RunOptions.Repeat] value.
-	// For more details, see the kernel documentation on BPF_PROG_RUN:
-	// https://docs.kernel.org/bpf/bpf_prog_run.html#running-xdp-programs-in-live-frame-mode
-	BatchSize uint32
 	// Called whenever the syscall is interrupted, and should be set to testing.B.ResetTimer
 	// or similar. Typically used during benchmarking. Optional field.
 	//
@@ -926,9 +855,6 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 	var ctxOut []byte
 	if opts.ContextOut != nil {
 		ctxOut = make([]byte, binary.Size(opts.ContextOut))
-	} else if platform.IsWindows && len(ctxIn) > 0 {
-		// Windows rejects a non-zero ctxIn with a nil ctxOut.
-		ctxOut = make([]byte, len(ctxIn))
 	}
 
 	attr := sys.ProgRunAttr{
@@ -944,7 +870,6 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 		CtxOut:      sys.SlicePointer(ctxOut),
 		Flags:       opts.Flags,
 		Cpu:         opts.CPU,
-		BatchSize:   opts.BatchSize,
 	}
 
 	if p.Type() == Syscall && ctxIn != nil && ctxOut != nil {
@@ -1003,7 +928,7 @@ retry:
 		opts.DataOut = opts.DataOut[:int(attr.DataSizeOut)]
 	}
 
-	if opts.ContextOut != nil {
+	if len(ctxOut) != 0 {
 		b := bytes.NewReader(ctxOut)
 		if err := binary.Read(b, internal.NativeEndian, opts.ContextOut); err != nil {
 			return 0, 0, fmt.Errorf("failed to decode ContextOut: %v", err)
@@ -1114,10 +1039,6 @@ func findProgramTargetInKernel(name string, progType ProgramType, attachType Att
 	)
 
 	switch (match{progType, attachType}) {
-	case match{StructOps, AttachStructOps}:
-		typeName = name
-		featureName = "struct_ops " + name
-		target = (*btf.Struct)(nil)
 	case match{LSM, AttachLSMMac}:
 		typeName = "bpf_lsm_" + name
 		featureName = name + " LSM hook"

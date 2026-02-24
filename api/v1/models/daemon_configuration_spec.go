@@ -11,7 +11,6 @@ package models
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -57,15 +56,11 @@ func (m *DaemonConfigurationSpec) validateOptions(formats strfmt.Registry) error
 
 	if m.Options != nil {
 		if err := m.Options.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("options")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("options")
 			}
-
 			return err
 		}
 	}
@@ -73,7 +68,7 @@ func (m *DaemonConfigurationSpec) validateOptions(formats strfmt.Registry) error
 	return nil
 }
 
-var daemonConfigurationSpecTypePolicyEnforcementPropEnum []any
+var daemonConfigurationSpecTypePolicyEnforcementPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -139,15 +134,11 @@ func (m *DaemonConfigurationSpec) contextValidateOptions(ctx context.Context, fo
 	}
 
 	if err := m.Options.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("options")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("options")
 		}
-
 		return err
 	}
 

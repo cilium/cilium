@@ -391,8 +391,6 @@ func (m *RouteConfiguration) validate(all bool) error {
 
 	// no validation rules for IgnorePortInHostMatching
 
-	// no validation rules for VhostHeader
-
 	// no validation rules for IgnorePathParametersInPathMatching
 
 	{
@@ -484,7 +482,7 @@ type RouteConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteConfigurationMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -630,7 +628,7 @@ type VhdsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m VhdsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

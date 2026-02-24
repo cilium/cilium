@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func formattedMessage(comparisonMessage string, failurePath []any) string {
+func formattedMessage(comparisonMessage string, failurePath []interface{}) string {
 	var diffMessage string
 	if len(failurePath) == 0 {
 		diffMessage = ""
@@ -18,7 +18,7 @@ func formattedMessage(comparisonMessage string, failurePath []any) string {
 	return fmt.Sprintf("%s%s", comparisonMessage, diffMessage)
 }
 
-func formattedFailurePath(failurePath []any) string {
+func formattedFailurePath(failurePath []interface{}) string {
 	formattedPaths := []string{}
 	for i := len(failurePath) - 1; i >= 0; i-- {
 		switch p := failurePath[i].(type) {
@@ -34,33 +34,33 @@ func formattedFailurePath(failurePath []any) string {
 	return strings.Join(formattedPaths, "")
 }
 
-func deepEqual(a any, b any) (bool, []any) {
-	var errorPath []any
+func deepEqual(a interface{}, b interface{}) (bool, []interface{}) {
+	var errorPath []interface{}
 	if reflect.TypeOf(a) != reflect.TypeOf(b) {
 		return false, errorPath
 	}
 
 	switch a.(type) {
-	case []any:
-		if len(a.([]any)) != len(b.([]any)) {
+	case []interface{}:
+		if len(a.([]interface{})) != len(b.([]interface{})) {
 			return false, errorPath
 		}
 
-		for i, v := range a.([]any) {
-			elementEqual, keyPath := deepEqual(v, b.([]any)[i])
+		for i, v := range a.([]interface{}) {
+			elementEqual, keyPath := deepEqual(v, b.([]interface{})[i])
 			if !elementEqual {
 				return false, append(keyPath, i)
 			}
 		}
 		return true, errorPath
 
-	case map[any]any:
-		if len(a.(map[any]any)) != len(b.(map[any]any)) {
+	case map[interface{}]interface{}:
+		if len(a.(map[interface{}]interface{})) != len(b.(map[interface{}]interface{})) {
 			return false, errorPath
 		}
 
-		for k, v1 := range a.(map[any]any) {
-			v2, ok := b.(map[any]any)[k]
+		for k, v1 := range a.(map[interface{}]interface{}) {
+			v2, ok := b.(map[interface{}]interface{})[k]
 			if !ok {
 				return false, errorPath
 			}
@@ -71,13 +71,13 @@ func deepEqual(a any, b any) (bool, []any) {
 		}
 		return true, errorPath
 
-	case map[string]any:
-		if len(a.(map[string]any)) != len(b.(map[string]any)) {
+	case map[string]interface{}:
+		if len(a.(map[string]interface{})) != len(b.(map[string]interface{})) {
 			return false, errorPath
 		}
 
-		for k, v1 := range a.(map[string]any) {
-			v2, ok := b.(map[string]any)[k]
+		for k, v1 := range a.(map[string]interface{}) {
+			v2, ok := b.(map[string]interface{})[k]
 			if !ok {
 				return false, errorPath
 			}

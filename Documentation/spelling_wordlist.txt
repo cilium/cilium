@@ -5,7 +5,6 @@ Alibaba
 Aquantia
 Attestor
 Bertin
-blackhole
 Blanco
 Borkmann
 Brenden
@@ -33,7 +32,6 @@ Datadog
 Dataplane
 Deconfigure
 Dinan
-Disenroll
 Dockerfile
 Dockerfiles
 Donenfeld
@@ -59,8 +57,6 @@ Gunawardena
 Holzheu
 Huapeng
 Hypercalls
-ICMP
-ICMPv6
 IPcache
 IPsec
 IPv
@@ -102,7 +98,6 @@ NewProto
 Nic
 O'Reilly
 PaaS
-Packetization
 Palantir
 Pepelnjak
 Perfdash
@@ -126,7 +121,6 @@ Stormtroopers
 Suchakra
 Suricata
 Synchronizer
-Tailroom
 Talos
 Telco
 Terraform
@@ -154,13 +148,11 @@ Zhou
 aarch
 addr
 agentNotReadyTaintKey
-aggregationInterval
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
 allocator
 allocators
-allowRemoteNodeIdentities
 allowedConfigOverrides
 allowlist
 amd
@@ -174,7 +166,6 @@ ariane
 arithmetics
 artii
 asm
-assignees
 atlantic
 au
 auth
@@ -203,7 +194,7 @@ behaviour
 benchmarking
 besteffort
 bgp
-blackhole
+blackholing
 blockedConfigOverrides
 bnxt
 bookinfo
@@ -311,13 +302,11 @@ dereference
 deserialization
 detections
 dev
-disenroll
 disjunct
 distro
 distros
 dmesg
 dns
-dnsProxy
 dockerd
 dockerhub
 dpaa
@@ -334,7 +323,6 @@ effectful
 egressing
 elfutils
 ena
-enableDnsCompression
 enableSourceIPVerification
 enablement
 endPort
@@ -359,13 +347,11 @@ extTrafficPolicy
 extern
 externalIPs
 externalTrafficPolicy
-externallyCreated
 extraConfig
 facto
 failover
 fcfs
 fec
-fieldAggregate
 filesystem
 filesystems
 firewalling
@@ -380,7 +366,6 @@ fs
 func
 gRPC
 gVisor
-gapped
 gcc
 gcp
 geneve
@@ -410,10 +395,8 @@ healthz
 helloworld
 herokuapp
 hexData
-hostNetwork
 hostPath
 hostPort
-hostUsers
 hostname
 hostnames
 hostns
@@ -528,7 +511,6 @@ linux
 linuxconf
 listenAddress
 listers
-literalinclude
 liveblog
 liveness
 llc
@@ -566,8 +548,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mcsapi
 mediabot
+mcsapi
 memcache
 memcached
 memcd
@@ -584,7 +566,6 @@ modularizing
 mountPath
 mov
 mtk
-mtls
 mtu
 mul
 multicast
@@ -685,7 +666,6 @@ prometheus
 proto
 protobuf
 proxied
-proxyPort
 proxying
 proxylib
 qdisc
@@ -705,6 +685,7 @@ rebase
 rebased
 rebasing
 recompiles
+reconcilation
 reconciler
 reconcilers
 reconfigurations
@@ -772,7 +753,6 @@ statefulset
 statsd
 stdout
 stmmac
-strictMode
 structs
 subclasses
 subcommand
@@ -818,7 +798,6 @@ tiefighter
 tls
 toCIDR
 toCIDRSet
-toFQDN
 toFQDNs
 toGroups
 tofqdns
@@ -853,7 +832,6 @@ unlabel
 unmanaged
 unmarshalled
 unmigrated
-unpaginated
 unselect
 unsettable
 untriaged
@@ -909,4 +887,3 @@ xt
 xwing
 yaml
 zsh
-ztunnel

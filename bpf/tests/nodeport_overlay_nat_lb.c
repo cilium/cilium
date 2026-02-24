@@ -9,6 +9,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 
+#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
@@ -40,9 +41,6 @@ struct {
 	__uint(value_size, sizeof(struct mock_settings));
 	__uint(max_entries, 1);
 } settings_map __section_maps_btf;
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 #include "node_config.h"
 
@@ -99,8 +97,6 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend

@@ -9,14 +9,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
-
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
@@ -57,9 +53,6 @@ type AllocationResult struct {
 	// InterfaceNumber is a field for generically identifying an interface.
 	// This is only useful in ENI mode.
 	InterfaceNumber string
-
-	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.
-	SkipMasquerade bool
 }
 
 // Allocator is the interface for an IP allocator implementation
@@ -102,8 +95,8 @@ type IPAM struct {
 	nodeAddressing types.NodeAddressing
 	config         *option.DaemonConfig
 
-	ipv6Allocator Allocator
-	ipv4Allocator Allocator
+	IPv6Allocator Allocator
+	IPv4Allocator Allocator
 
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
@@ -131,13 +124,6 @@ type IPAM struct {
 	nodeDiscovery  Owner
 	sysctl         sysctl.Sysctl
 	ipMasqAgent    *ipmasq.IPMasqAgent
-
-	jg job.Group
-
-	db         *statedb.DB
-	podIPPools statedb.Table[podippool.LocalPodIPPool]
-
-	onlyMasqueradeDefaultPool bool
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
@@ -158,16 +144,6 @@ func (ipam *IPAM) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteCon
 }
 
 func (ipam *IPAM) EndpointRestored(ep *endpoint.Endpoint) {}
-
-// RestoreFinished marks the status of restoration as done
-func (ipam *IPAM) RestoreFinished() {
-	if ipam.config.EnableIPv6 {
-		ipam.ipv6Allocator.RestoreFinished()
-	}
-	if ipam.config.EnableIPv4 {
-		ipam.ipv4Allocator.RestoreFinished()
-	}
-}
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability

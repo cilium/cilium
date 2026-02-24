@@ -45,8 +45,9 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/internal"
+	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/internal/analysis/driverutil"
+	"golang.org/x/tools/internal/analysisinternal"
 )
 
 // Options specifies options that control the analysis driver.
@@ -59,7 +60,7 @@ type Options struct {
 	// TODO(adonovan): expose ReadFile so that an Overlay specified
 	// in the [packages.Config] can be communicated via
 	// Pass.ReadFile to each Analyzer.
-	readFile driverutil.ReadFileFunc
+	readFile analysisinternal.ReadFileFunc
 }
 
 // Graph holds the results of a round of analysis, including the graph
@@ -127,6 +128,7 @@ type Action struct {
 	pass         *analysis.Pass
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
+	inputs       map[*analysis.Analyzer]any
 }
 
 func (act *Action) String() string {
@@ -293,6 +295,7 @@ func (act *Action) execOnce() {
 			// in-memory outputs of prerequisite analyzers
 			// become inputs to this analysis pass.
 			inputs[dep.Analyzer] = dep.Result
+
 		} else if dep.Analyzer == act.Analyzer { // (always true)
 			// Same analysis, different package (vertical edge):
 			// serialized facts produced by prerequisite analysis
@@ -332,7 +335,7 @@ func (act *Action) execOnce() {
 		ResultOf: inputs,
 		Report: func(d analysis.Diagnostic) {
 			// Assert that SuggestedFixes are well formed.
-			if err := driverutil.ValidateFixes(act.Package.Fset, act.Analyzer, d.SuggestedFixes); err != nil {
+			if err := analysisinternal.ValidateFixes(act.Package.Fset, act.Analyzer, d.SuggestedFixes); err != nil {
 				panic(err)
 			}
 			act.Diagnostics = append(act.Diagnostics, d)
@@ -348,7 +351,7 @@ func (act *Action) execOnce() {
 	if act.opts.readFile != nil {
 		readFile = act.opts.readFile
 	}
-	pass.ReadFile = driverutil.CheckedReadFile(pass, readFile)
+	pass.ReadFile = analysisinternal.CheckedReadFile(pass, readFile)
 	act.pass = pass
 
 	act.Result, act.Err = func() (any, error) {
@@ -370,7 +373,7 @@ func (act *Action) execOnce() {
 
 		// resolve diagnostic URLs
 		for i := range act.Diagnostics {
-			url, err := driverutil.ResolveURL(act.Analyzer, act.Diagnostics[i])
+			url, err := analysisflags.ResolveURL(act.Analyzer, act.Diagnostics[i])
 			if err != nil {
 				return nil, err
 			}
@@ -489,7 +492,7 @@ func exportedFrom(obj types.Object, pkg *types.Package) bool {
 	switch obj := obj.(type) {
 	case *types.Func:
 		return obj.Exported() && obj.Pkg() == pkg ||
-			obj.Signature().Recv() != nil
+			obj.Type().(*types.Signature).Recv() != nil
 	case *types.Var:
 		if obj.IsField() {
 			return true

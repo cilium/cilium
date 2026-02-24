@@ -427,6 +427,13 @@ type isolatingRunSequence struct {
 
 func (i *isolatingRunSequence) Len() int { return len(i.indexes) }
 
+func maxLevel(a, b level) level {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // Rule X10, second bullet: Determine the start-of-sequence (sos) and end-of-sequence (eos) types,
 // either L or R, for each isolating run sequence.
 func (p *paragraph) isolatingRunSequence(indexes []int) *isolatingRunSequence {
@@ -467,8 +474,8 @@ func (p *paragraph) isolatingRunSequence(indexes []int) *isolatingRunSequence {
 		indexes: indexes,
 		types:   types,
 		level:   level,
-		sos:     typeForLevel(max(prevLevel, level)),
-		eos:     typeForLevel(max(succLevel, level)),
+		sos:     typeForLevel(maxLevel(prevLevel, level)),
+		eos:     typeForLevel(maxLevel(succLevel, level)),
 	}
 }
 

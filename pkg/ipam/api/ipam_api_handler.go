@@ -4,11 +4,9 @@
 package ipamapi
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -21,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -31,10 +28,8 @@ type IpamDeleteIpamIPHandler struct {
 }
 
 type IpamPostIpamHandler struct {
-	DaemonConfig   *option.DaemonConfig
-	Logger         *slog.Logger
-	IPAM           *ipam.IPAM
-	LocalNodeStore *node.LocalNodeStore
+	Logger *slog.Logger
+	IPAM   *ipam.IPAM
 }
 
 type IpamPostIpamIPHandler struct {
@@ -54,13 +49,8 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
 
-	nodeRouterAddressing, err := r.getNodeRouterAddressing(params.HTTPRequest.Context())
-	if err != nil {
-		return api.Error(http.StatusInternalServerError, err)
-	}
-
 	resp := &models.IPAMResponse{
-		HostAddressing: nodeRouterAddressing,
+		HostAddressing: node.GetNodeAddressing(r.Logger),
 		Address:        &models.AddressPair{},
 	}
 
@@ -74,7 +64,6 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 			Gateway:         ipv4Result.GatewayIP,
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
-			SkipMasquerade:  ipv4Result.SkipMasquerade,
 		}
 	}
 
@@ -88,38 +77,10 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 			Gateway:         ipv6Result.GatewayIP,
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
-			SkipMasquerade:  ipv6Result.SkipMasquerade,
 		}
 	}
 
 	return ipamapi.NewPostIpamCreated().WithPayload(resp)
-}
-
-func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*models.NodeAddressing, error) {
-	ln, err := r.LocalNodeStore.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get local node: %w", err)
-	}
-
-	nodeRouterAddressing := &models.NodeAddressing{}
-
-	if r.DaemonConfig.EnableIPv6 {
-		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
-			Enabled:    r.DaemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIP(true).String(),
-			AllocRange: ln.IPv6AllocCIDR.String(),
-		}
-	}
-
-	if r.DaemonConfig.EnableIPv4 {
-		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
-			Enabled:    r.DaemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIP(false).String(),
-			AllocRange: ln.IPv4AllocCIDR.String(),
-		}
-	}
-
-	return nodeRouterAddressing, nil
 }
 
 // Handle incoming requests address allocation requests for the daemon.

@@ -30,6 +30,7 @@ func NewDeleteIpamIPParams() DeleteIpamIPParams {
 //
 // swagger:parameters DeleteIpamIP
 type DeleteIpamIPParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -38,7 +39,6 @@ type DeleteIpamIPParams struct {
 	  In: path
 	*/
 	IP string
-
 	/*
 	  In: query
 	*/
@@ -53,6 +53,7 @@ func (o *DeleteIpamIPParams) BindRequest(r *http.Request, route *middleware.Matc
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	rIP, rhkIP, _ := route.Params.GetOK("ip")

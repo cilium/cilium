@@ -29,6 +29,7 @@ func NewGetEndpointIDParams() GetEndpointIDParams {
 //
 // swagger:parameters GetEndpointID
 type GetEndpointIDParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

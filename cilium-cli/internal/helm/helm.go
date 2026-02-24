@@ -21,17 +21,15 @@ import (
 
 	"github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"
-	"helm.sh/helm/v4/pkg/action"
-	"helm.sh/helm/v4/pkg/chart"
-	"helm.sh/helm/v4/pkg/chart/loader"
-	c2load "helm.sh/helm/v4/pkg/chart/v2/loader"
-	"helm.sh/helm/v4/pkg/cli"
-	"helm.sh/helm/v4/pkg/cli/values"
-	"helm.sh/helm/v4/pkg/getter"
-	"helm.sh/helm/v4/pkg/kube"
-	"helm.sh/helm/v4/pkg/registry"
-	"helm.sh/helm/v4/pkg/release"
-	"helm.sh/helm/v4/pkg/strvals"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -56,23 +54,23 @@ func mergeMaps(a, b map[string]any) map[string]any {
 	return out
 }
 
-func newChartFromEmbeddedFile(ciliumVersion semver.Version) (chart.Charter, error) {
+func newChartFromEmbeddedFile(ciliumVersion semver.Version) (*chart.Chart, error) {
 	helmTgz, err := helm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
 	if err != nil {
 		return nil, fmt.Errorf("cilium version not found: %w", err)
 	}
 
 	// Check chart dependencies to make sure all are present in /charts
-	return c2load.LoadArchive(bytes.NewReader(helmTgz))
+	return loader.LoadArchive(bytes.NewReader(helmTgz))
 }
 
-func newChartFromDirectory(directory string) (chart.Charter, error) {
+func newChartFromDirectory(directory string) (*chart.Chart, error) {
 	return loader.LoadDir(directory)
 }
 
 // newChartFromRemoteWithCache fetches the chart from remote repository, the chart file
 // is then stored in the local cache directory for future usage.
-func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string) (chart.Charter, error) {
+func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string) (*chart.Chart, error) {
 	cacheDir, err := ciliumCacheDir()
 	if err != nil {
 		return nil, err
@@ -87,7 +85,7 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 
 		// Download the chart from remote repository
 		actionConfig := new(action.Configuration)
-		pull := action.NewPull(action.WithConfig(actionConfig))
+		pull := action.NewPullWithOpts(action.WithConfig(actionConfig))
 		pull.Settings = settings
 		pull.Version = ciliumVersion.String()
 		pull.DestDir = cacheDir
@@ -120,7 +118,7 @@ func newChartFromRemoteWithCache(ciliumVersion semver.Version, repository string
 		return nil, err
 	}
 	defer f.Close()
-	return c2load.LoadArchive(f)
+	return loader.LoadArchive(f)
 }
 
 func ciliumCacheDir() (string, error) {
@@ -228,7 +226,7 @@ func GetDefaultVersionString() string {
 }
 
 // ResolveHelmChartVersion resolves Helm chart version based on --version, --chart-directory, and --repository flags.
-func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver.Version, chart.Charter, error) {
+func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string) (semver.Version, *chart.Chart, error) {
 	// If repository is empty, set it to the default Helm repository ("https://helm.cilium.io") for backward compatibility.
 	if repository == "" {
 		repository = defaults.HelmRepository
@@ -243,22 +241,10 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string)
 	if err != nil {
 		return semver.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %w", chartDirectoryFlag, err)
 	}
-	accessor, err := chart.NewAccessor(localChart)
-	if err != nil {
-		return semver.Version{}, nil, fmt.Errorf("failed to create chart accessor for chart directory %s: %w", chartDirectoryFlag, err)
-	}
-	metadata := accessor.MetadataAsMap()
-	versionStr, ok := metadata["Version"].(string)
-	if !ok {
-		versionStr, ok = metadata["version"].(string)
-		if !ok {
-			return semver.Version{}, nil, fmt.Errorf("chart metadata does not contain version nor Version field")
-		}
-	}
-	return versioncheck.MustVersion(versionStr), localChart, nil
+	return versioncheck.MustVersion(localChart.Metadata.Version), localChart, nil
 }
 
-func resolveChartVersion(versionFlag string, repository string) (semver.Version, chart.Charter, error) {
+func resolveChartVersion(versionFlag string, repository string) (semver.Version, *chart.Chart, error) {
 	version, err := semver.ParseTolerant(versionFlag)
 	if err != nil {
 		return semver.Version{}, nil, err
@@ -290,7 +276,7 @@ type UpgradeParameters struct {
 	// Name of the Helm release to upgrade.
 	Name string
 	// Chart is the Helm chart to use for the release
-	Chart chart.Charter
+	Chart *chart.Chart
 	// Helm values to pass during upgrade.
 	Values map[string]any
 	// --reset-values flag from Helm upgrade. See https://helm.sh/docs/helm/helm_upgrade/ for details.
@@ -322,17 +308,13 @@ func Upgrade(
 	ctx context.Context,
 	actionConfig *action.Configuration,
 	params UpgradeParameters,
-) (release.Releaser, error) {
+) (*release.Release, error) {
 	if params.Chart == nil {
 		currentRelease, err := actionConfig.Releases.Last(params.Name)
 		if err != nil {
 			return nil, err
 		}
-		accessor, err := release.NewAccessor(currentRelease)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create release accessor: %w", err)
-		}
-		params.Chart = accessor.Chart()
+		params.Chart = currentRelease.Chart
 	}
 
 	helmClient := action.NewUpgrade(actionConfig)
@@ -340,20 +322,9 @@ func Upgrade(
 	helmClient.ResetThenReuseValues = params.ResetThenReuseValues
 	helmClient.ResetValues = params.ResetValues
 	helmClient.ReuseValues = params.ReuseValues
-	if params.Wait {
-		helmClient.WaitStrategy = kube.StatusWatcherStrategy
-	} else {
-		// Helm v4 always requires a WaitStrategy. HookOnlyStrategy waits only
-		// for hooks to complete without waiting for chart resources to be ready,
-		// which preserves the old Wait:false behavior.
-		helmClient.WaitStrategy = kube.HookOnlyStrategy
-	}
+	helmClient.Wait = params.Wait
 	helmClient.Timeout = params.WaitDuration
-	if params.IsDryRun() {
-		helmClient.DryRunStrategy = action.DryRunClient
-	} else {
-		helmClient.DryRunStrategy = action.DryRunNone
-	}
+	helmClient.DryRun = params.IsDryRun()
 	helmClient.MaxHistory = params.MaxHistory
 
 	return helmClient.RunWithContext(ctx, params.Name, params.Chart, params.Values)

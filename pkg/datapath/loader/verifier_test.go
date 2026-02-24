@@ -32,8 +32,7 @@ import (
 
 var (
 	flagCiliumBasePath = flag.String("cilium-base-path", "", "Cilium checkout base path")
-	flagKernelName     = flag.String("kernel-name", "netnext", "Name of the kernel under test")
-	flagKernelVersion  = flag.String("kernel-version", kernelVersionNetNext.String(), "Kernel version to assume for verifier tests for the purposes of selecting build permutations.")
+	flagKernelVersion  = flag.String("kernel-version", kernelVersionNetNext.String(), "Kernel version to assume for verifier tests")
 	flagResultDir      = flag.String("result-dir", "", "Directory to write verifier complexity results and verifier logs to (temp directory if empty)")
 	flagFullLog        = flag.Bool("full-log", false, "Write full verifier log to file (default: false)")
 )
@@ -71,10 +70,6 @@ func TestPrivilegedVerifier(t *testing.T) {
 			t.Fatalf("Failed to set permissions on temporary directory %s: %v", resultDir, err)
 		}
 		flagResultDir = &resultDir
-	} else {
-		if err := os.Mkdir(*flagResultDir, 0755); err != nil && !os.IsExist(err) && !os.IsPermission(err) {
-			t.Fatalf("Failed to create directory %s with permissions: %v", *flagResultDir, err)
-		}
 	}
 
 	if err := rlimit.RemoveMemlock(); err != nil {
@@ -322,7 +317,6 @@ func loadAndRecordComplexity(
 			lastOff := lastLineIndex + 1
 
 			r := verifierComplexityRecord{
-				Kernel:     *flagKernelName,
 				Collection: collection,
 				Build:      strconv.Itoa(build),
 				Load:       strconv.Itoa(load),
@@ -352,7 +346,6 @@ func loadAndRecordComplexity(
 }
 
 type verifierComplexityRecord struct {
-	Kernel     string `json:"kernel"`
 	Collection string `json:"collection"`
 	Build      string `json:"build"`
 	Load       string `json:"load"`

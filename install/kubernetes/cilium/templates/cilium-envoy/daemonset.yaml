@@ -22,7 +22,10 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium-envoy
-  {{- include "envoy.updateStrategy" . | nindent 2 }}
+  {{- with .Values.envoy.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
   template:
     metadata:
       annotations:
@@ -66,7 +69,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- include "envoy.initContainers" . | nindent 6 }}
       containers:
       - name: cilium-envoy
         image: {{ include "cilium.image" .Values.envoy.image | quote }}
@@ -92,7 +94,6 @@ spec:
         {{- if .Values.envoy.log.path }}
         - '--log-path {{ .Values.envoy.log.path }}'
         {{- end }}
-        {{- include "envoy.args.extra" . | nindent 8 }}
         {{- with .Values.envoy.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -156,7 +157,6 @@ spec:
         - name: KUBERNETES_SERVICE_PORT
           value: {{ include "k8sServicePort" . }}
         {{- end }}
-        {{- include "envoy.env.extra" . | nindent 8 }}
         {{- with .Values.envoy.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -164,7 +164,19 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- include "envoy.ports" . }}
+        {{- if .Values.envoy.prometheus.enabled }}
+        ports:
+        - name: envoy-metrics
+          containerPort: {{ .Values.envoy.prometheus.port }}
+          hostPort: {{ .Values.envoy.prometheus.port }}
+          protocol: TCP
+        {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port }}
+        - name: envoy-admin
+          containerPort: {{ .Values.envoy.debug.admin.port }}
+          hostPort: {{ .Values.envoy.debug.admin.port }}
+          protocol: TCP
+        {{- end }}
+        {{- end }}
         securityContext:
           {{- if .Values.envoy.securityContext.privileged }}
           privileged: true
@@ -197,7 +209,6 @@ spec:
           mountPath: /sys/fs/bpf
           mountPropagation: HostToContainer
         {{- end }}
-        {{- include "envoy.volumeMounts.extra" . | nindent 8 }}
         {{- range .Values.envoy.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -218,13 +229,13 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.envoy.automount }}
       terminationGracePeriodSeconds: {{ .Values.envoy.terminationGracePeriodSeconds }}
       hostNetwork: true
-      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
-      hostUsers: true
-      {{- end }}
       {{- if .Values.envoy.dnsPolicy }}
       dnsPolicy: {{ .Values.envoy.dnsPolicy }}
       {{- end }}
-      {{- include "envoy.affinity" . | nindent 6  }}
+      {{- with .Values.envoy.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.envoy.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -258,7 +269,6 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
       {{- end }}
-      {{- include "envoy.hostPathMounts.extra" . | nindent 4 }}
       {{- range .Values.envoy.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:

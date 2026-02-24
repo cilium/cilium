@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
-
 package logger
 
 import (
@@ -12,14 +9,14 @@ var _ Logger = StandardLogger{}
 
 type StandardLogger struct{}
 
-func (StandardLogger) Printf(format string, args ...any) {
+func (StandardLogger) Printf(format string, args ...interface{}) {
 	if len(format) == 0 || format[len(format)-1] != '\n' {
 		format += "\n"
 	}
 	fmt.Fprintf(os.Stderr, format, args...)
 }
 
-func (StandardLogger) Debugf(format string, args ...any) {
+func (StandardLogger) Debugf(format string, args ...interface{}) {
 	if len(format) == 0 || format[len(format)-1] != '\n' {
 		format += "\n"
 	}

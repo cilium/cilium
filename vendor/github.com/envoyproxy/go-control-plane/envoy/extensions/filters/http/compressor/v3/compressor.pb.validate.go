@@ -233,7 +233,7 @@ type CompressorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -362,7 +362,7 @@ type ResponseDirectionOverridesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ResponseDirectionOverridesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -479,35 +479,6 @@ func (m *CompressorOverrides) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetCompressorLibrary()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, CompressorOverridesValidationError{
-					field:  "CompressorLibrary",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, CompressorOverridesValidationError{
-					field:  "CompressorLibrary",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetCompressorLibrary()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CompressorOverridesValidationError{
-				field:  "CompressorLibrary",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	if len(errors) > 0 {
 		return CompressorOverridesMultiError(errors)
 	}
@@ -522,7 +493,7 @@ type CompressorOverridesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorOverridesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -706,7 +677,7 @@ type CompressorPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CompressorPerRouteMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -868,7 +839,7 @@ type Compressor_CommonDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_CommonDirectionConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1002,7 +973,7 @@ type Compressor_RequestDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_RequestDirectionConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1156,8 +1127,6 @@ func (m *Compressor_ResponseDirectionConfig) validate(all bool) error {
 
 	}
 
-	// no validation rules for StatusHeaderEnabled
-
 	if len(errors) > 0 {
 		return Compressor_ResponseDirectionConfigMultiError(errors)
 	}
@@ -1173,7 +1142,7 @@ type Compressor_ResponseDirectionConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Compressor_ResponseDirectionConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

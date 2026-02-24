@@ -61,10 +61,12 @@ func (mgr *wsmCommon) ready(ctx context.Context, prefix string) {
 		mgr.log.Debug("Starting function for kvstore prefix", logfields.Prefix, prefix)
 		delete(mgr.functions, prefix)
 
-		mgr.wg.Go(func() {
+		mgr.wg.Add(1)
+		go func() {
+			defer mgr.wg.Done()
 			fn(ctx)
 			mgr.log.Debug("Function terminated for kvstore prefix", logfields.Prefix, prefix)
-		})
+		}()
 	} else {
 		mgr.log.Debug("Received sync event for unregistered prefix", logfields.Prefix, prefix)
 	}
@@ -138,7 +140,5 @@ func (mgr *wsmImmediate) Run(ctx context.Context) {
 	for prefix := range mgr.functions {
 		mgr.ready(ctx, prefix)
 	}
-
-	<-ctx.Done()
 	mgr.wait()
 }

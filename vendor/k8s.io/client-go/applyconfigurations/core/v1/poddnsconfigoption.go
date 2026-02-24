@@ -20,13 +20,8 @@ package v1
 
 // PodDNSConfigOptionApplyConfiguration represents a declarative configuration of the PodDNSConfigOption type for use
 // with apply.
-//
-// PodDNSConfigOption defines DNS resolver options of a pod.
 type PodDNSConfigOptionApplyConfiguration struct {
-	// Name is this DNS resolver option's name.
-	// Required.
-	Name *string `json:"name,omitempty"`
-	// Value is this DNS resolver option's value.
+	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
 }
 

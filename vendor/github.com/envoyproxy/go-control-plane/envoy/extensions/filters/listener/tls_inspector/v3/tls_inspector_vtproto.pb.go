@@ -49,26 +49,6 @@ func (m *TlsInspector) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.MaxClientHelloSize != nil {
-		size, err := (*wrapperspb.UInt32Value)(m.MaxClientHelloSize).MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.CloseConnectionOnClientHelloParsingErrors {
-		i--
-		if m.CloseConnectionOnClientHelloParsingErrors {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x20
-	}
 	if m.EnableJa4Fingerprinting != nil {
 		size, err := (*wrapperspb.BoolValue)(m.EnableJa4Fingerprinting).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -118,13 +98,6 @@ func (m *TlsInspector) SizeVT() (n int) {
 	}
 	if m.EnableJa4Fingerprinting != nil {
 		l = (*wrapperspb.BoolValue)(m.EnableJa4Fingerprinting).SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	if m.CloseConnectionOnClientHelloParsingErrors {
-		n += 2
-	}
-	if m.MaxClientHelloSize != nil {
-		l = (*wrapperspb.UInt32Value)(m.MaxClientHelloSize).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

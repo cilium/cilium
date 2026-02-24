@@ -42,7 +42,16 @@ var gatewayFixtures = []client.Object{
 						},
 					},
 				},
-
+				{
+					Name:     "http-all",
+					Port:     8081,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.http-all.io"),
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromAll),
+						},
+					},
+				},
 				{
 					Name:     "http-selector",
 					Port:     8082,
@@ -68,7 +77,16 @@ var gatewayFixtures = []client.Object{
 						},
 					},
 				},
-
+				{
+					Name:     "https-all",
+					Port:     8444,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.https-all.io"),
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromAll),
+						},
+					},
+				},
 				{
 					Name:     "https-selector",
 					Port:     8445,
@@ -81,37 +99,6 @@ var gatewayFixtures = []client.Object{
 									"allowed": "true",
 								},
 							},
-						},
-					},
-				},
-			},
-		},
-	},
-	&gatewayv1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dummy-all-gateway",
-			Namespace: "default",
-		},
-		Spec: gatewayv1.GatewaySpec{
-			GatewayClassName: "cilium",
-			Listeners: []gatewayv1.Listener{
-				{
-					Name:     "http-all",
-					Port:     8081,
-					Hostname: ptr.To[gatewayv1.Hostname]("*.http-all.io"),
-					AllowedRoutes: &gatewayv1.AllowedRoutes{
-						Namespaces: &gatewayv1.RouteNamespaces{
-							From: ptr.To(gatewayv1.NamespacesFromAll),
-						},
-					},
-				},
-				{
-					Name:     "https-all",
-					Port:     8444,
-					Hostname: ptr.To[gatewayv1.Hostname]("*.https-all.io"),
-					AllowedRoutes: &gatewayv1.AllowedRoutes{
-						Namespaces: &gatewayv1.RouteNamespaces{
-							From: ptr.To(gatewayv1.NamespacesFromAll),
 						},
 					},
 				},
@@ -276,7 +263,7 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 					},
 				},
 				parentRef: gatewayv1.ParentReference{
-					Name:        "dummy-all-gateway",
+					Name:        "dummy-gateway",
 					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
 					SectionName: ptr.To[gatewayv1.SectionName]("http-all"),
 				},
@@ -381,44 +368,6 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 		},
 
 		{
-			name: "listener with selector label match not allowed and the section name omitted (allowed)",
-			args: args{
-				input: &HTTPRouteInput{
-					Client: c,
-					HTTPRoute: &gatewayv1.HTTPRoute{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "allowed-1",
-						},
-						Spec: gatewayv1.HTTPRouteSpec{},
-					},
-				},
-				parentRef: gatewayv1.ParentReference{
-					Name:      "dummy-gateway",
-					Namespace: ptr.To[gatewayv1.Namespace]("default"),
-				},
-			},
-			want: true,
-		},
-		{
-			name: "listener with selector label match not allowed and the section name omitted (disallowed)",
-			args: args{
-				input: &HTTPRouteInput{
-					Client: c,
-					HTTPRoute: &gatewayv1.HTTPRoute{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "disallowed-2",
-						},
-						Spec: gatewayv1.HTTPRouteSpec{},
-					},
-				},
-				parentRef: gatewayv1.ParentReference{
-					Name:      "dummy-gateway",
-					Namespace: ptr.To[gatewayv1.Namespace]("default"),
-				},
-			},
-			want: false,
-		},
-		{
 			name: "https listener with all namespaces (allowed)",
 			args: args{
 				input: &HTTPRouteInput{
@@ -435,7 +384,7 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 					},
 				},
 				parentRef: gatewayv1.ParentReference{
-					Name:        "dummy-all-gateway",
+					Name:        "dummy-gateway",
 					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
 					SectionName: ptr.To[gatewayv1.SectionName]("https-all"),
 				},

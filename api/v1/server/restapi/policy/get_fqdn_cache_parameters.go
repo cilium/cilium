@@ -30,6 +30,7 @@ func NewGetFqdnCacheParams() GetFqdnCacheParams {
 //
 // swagger:parameters GetFqdnCache
 type GetFqdnCacheParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -37,12 +38,10 @@ type GetFqdnCacheParams struct {
 	  In: query
 	*/
 	Cidr *string
-
 	/*A toFQDNs compatible matchPattern expression
 	  In: query
 	*/
 	Matchpattern *string
-
 	/*Source from which FQDN entries come from
 	  In: query
 	*/
@@ -57,6 +56,7 @@ func (o *GetFqdnCacheParams) BindRequest(r *http.Request, route *middleware.Matc
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qCidr, qhkCidr, _ := qs.GetOK("cidr")

@@ -46,10 +46,16 @@ func TestMaxEntries(t *testing.T) {
 			option.Config.CTMapEntriesGlobalAny = tt.any
 
 			for mapType := mapType(0); mapType < mapTypeMax; mapType++ {
-				if mapType.isTCP() {
-					assert.Equal(t, tt.etcp, mapType.maxEntries())
-				} else {
-					assert.Equal(t, tt.eany, mapType.maxEntries())
+				if mapType.isLocal() {
+					assert.Equal(t, mapNumEntriesLocal, mapType.maxEntries())
+				}
+
+				if mapType.isGlobal() {
+					if mapType.isTCP() {
+						assert.Equal(t, tt.etcp, mapType.maxEntries())
+					} else {
+						assert.Equal(t, tt.eany, mapType.maxEntries())
+					}
 				}
 			}
 

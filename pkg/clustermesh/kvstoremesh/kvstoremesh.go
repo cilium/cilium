@@ -13,16 +13,21 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
+	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh/reflector"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 )
 
 type Config struct {
@@ -59,9 +64,10 @@ type KVStoreMesh struct {
 
 	storeFactory store.Factory
 
-	reflectorFactories []reflector.Factory
-
 	logger *slog.Logger
+
+	// clock allows to override the clock for testing purposes
+	clock clock.Clock
 
 	started chan struct{}
 }
@@ -80,8 +86,6 @@ type params struct {
 	// RemoteClientFactory is the factory to create clients targeting remote clusters
 	RemoteClientFactory common.RemoteClientFactoryFn
 
-	ReflectorFactories []reflector.Factory `group:"kvstoremesh-reflectors"`
-
 	Metrics      common.Metrics
 	StoreFactory store.Factory
 
@@ -90,12 +94,12 @@ type params struct {
 
 func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{
-		config:             params.Config,
-		client:             params.Client,
-		storeFactory:       params.StoreFactory,
-		reflectorFactories: params.ReflectorFactories,
-		logger:             params.Logger,
-		started:            make(chan struct{}),
+		config:       params.Config,
+		client:       params.Client,
+		storeFactory: params.StoreFactory,
+		logger:       params.Logger,
+		clock:        clock.RealClock{},
+		started:      make(chan struct{}),
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Logger:              params.Logger,
@@ -147,29 +151,44 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 	synced := newSynced()
 	defer synced.resources.Stop()
 
+	identityCacheSuffix := "id"
+
 	rc := &remoteCluster{
 		name:         name,
 		localBackend: km.client,
-		reflectors:   make(map[reflector.Name]reflector.Reflector),
 
 		cancel: cancel,
 
-		status:       status,
-		storeFactory: km.storeFactory,
-		synced:       synced,
-		readyTimeout: km.config.PerClusterReadyTimeout,
-		logger:       km.logger.With(logfields.ClusterName, name),
+		nodes:          newReflector(km.client, name, nodeStore.NodeStorePrefix, "", km.storeFactory, synced.resources),
+		services:       newReflector(km.client, name, serviceStore.ServiceStorePrefix, "", km.storeFactory, synced.resources),
+		serviceExports: newReflector(km.client, name, mcsapitypes.ServiceExportStorePrefix, "", km.storeFactory, synced.resources),
+		identities:     newReflector(km.client, name, identityCache.IdentitiesPath, identityCacheSuffix, km.storeFactory, synced.resources),
+		ipcache:        newReflector(km.client, name, ipcache.IPIdentitiesPath, "", km.storeFactory, synced.resources),
+		status:         status,
+		storeFactory:   km.storeFactory,
+		synced:         synced,
+		readyTimeout:   km.config.PerClusterReadyTimeout,
+		logger:         km.logger.With(logfields.ClusterName, name),
+		clock:          km.clock,
 
 		disableDrainOnDisconnection: km.config.DisableDrainOnDisconnection,
 	}
 
-	for _, factory := range km.reflectorFactories {
-		reflector := factory(km.client, km.storeFactory, name, synced.resources.Add())
-		rc.reflectors[reflector.Name()] = reflector
-		rc.wg.Go(func() { reflector.Run(ctx) })
+	run := func(fn func(context.Context)) {
+		rc.wg.Add(1)
+		go func() {
+			fn(ctx)
+			rc.wg.Done()
+		}()
 	}
 
-	rc.wg.Go(func() { rc.waitForConnection(ctx) })
+	run(rc.nodes.syncer.Run)
+	run(rc.services.syncer.Run)
+	run(rc.serviceExports.syncer.Run)
+	run(rc.identities.syncer.Run)
+	run(rc.ipcache.syncer.Run)
+
+	run(rc.waitForConnection)
 
 	return rc
 }

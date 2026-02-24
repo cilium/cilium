@@ -792,7 +792,7 @@ func marshalString(to []byte, s []byte) []byte {
 	return to[len(s):]
 }
 
-var bigIntType = reflect.TypeFor[*big.Int]()
+var bigIntType = reflect.TypeOf((*big.Int)(nil))
 
 // Decode a packet into its corresponding message.
 func decode(packet []byte) (interface{}, error) {

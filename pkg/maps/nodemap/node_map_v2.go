@@ -6,7 +6,9 @@ package nodemap
 import (
 	"fmt"
 	"log/slog"
-	"net/netip"
+	"net"
+	"os"
+	"path/filepath"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -29,11 +31,11 @@ const (
 type MapV2 interface {
 	// Update inserts or updates the node map object associated with the provided
 	// IP, node id, and SPI.
-	Update(ip netip.Addr, nodeID uint16, SPI uint8) error
+	Update(ip net.IP, nodeID uint16, SPI uint8) error
 
 	// Delete deletes the node map object associated with the provided
 	// IP.
-	Delete(ip netip.Addr) error
+	Delete(ip net.IP) error
 
 	// IterateWithCallback iterates through all the keys/values of a node map,
 	// passing each key/value pair to the cb callback.
@@ -78,26 +80,21 @@ type NodeKey struct {
 func (k *NodeKey) String() string {
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		return netip.AddrFrom4([4]byte(k.IP[:4])).String()
+		return net.IP(k.IP[:net.IPv4len]).String()
 	case bpf.EndpointKeyIPv6:
 		return k.IP.String()
 	}
 	return "<unknown>"
 }
 
-func newNodeKey(ip netip.Addr) NodeKey {
+func newNodeKey(ip net.IP) NodeKey {
 	result := NodeKey{}
-	if !ip.IsValid() {
-		return result
-	}
-	if ip.Is4() {
-		ip4 := ip.As4()
+	if ip4 := ip.To4(); ip4 != nil {
 		result.Family = bpf.EndpointKeyIPv4
-		copy(result.IP[:], ip4[:])
+		copy(result.IP[:], ip4)
 	} else {
-		ip6 := ip.As16()
 		result.Family = bpf.EndpointKeyIPv6
-		copy(result.IP[:], ip6[:])
+		copy(result.IP[:], ip)
 	}
 	return result
 }
@@ -108,7 +105,7 @@ type NodeValueV2 struct {
 	Pad    uint8
 }
 
-func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8) error {
+func (m *nodeMapV2) Update(ip net.IP, nodeID uint16, SPI uint8) error {
 	key := newNodeKey(ip)
 	val := NodeValueV2{NodeID: nodeID, SPI: SPI}
 	if err := m.bpfMap.Update(key, val, 0); err != nil {
@@ -122,7 +119,7 @@ func (m *nodeMapV2) Size() uint32 {
 	return m.conf.NodeMapMax
 }
 
-func (m *nodeMapV2) Delete(ip netip.Addr) error {
+func (m *nodeMapV2) Delete(ip net.IP) error {
 	key := newNodeKey(ip)
 	if err := m.bpfMap.Delete(key); err != nil {
 		return fmt.Errorf("failed to delete node map: %w", err)
@@ -170,6 +167,11 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 	}
 
 	return &nodeMapV2{bpfMap: bpfMap}, nil
+}
+
+// Clean up the v1 map. TODO remove this in v1.19.
+func (m *nodeMapV2) migrateV1(NodeMapName string) {
+	os.Remove(filepath.Join(bpf.TCGlobalsPath(), NodeMapName))
 }
 
 func (m *nodeMapV2) init() error {

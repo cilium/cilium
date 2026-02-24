@@ -67,7 +67,7 @@ func (m *MapEvent) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var mapEventTypeActionPropEnum []any
+var mapEventTypeActionPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -109,7 +109,7 @@ func (m *MapEvent) validateAction(formats strfmt.Registry) error {
 	return nil
 }
 
-var mapEventTypeDesiredActionPropEnum []any
+var mapEventTypeDesiredActionPropEnum []interface{}
 
 func init() {
 	var res []string

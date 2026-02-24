@@ -36,9 +36,6 @@ type SchemaOrBool struct {
 }
 
 func (sb *SchemaOrBool) Schema() common.Schema {
-	if sb.SchemaOrBool.Schema == nil {
-		return nil
-	}
 	return &Schema{Schema: sb.SchemaOrBool.Schema}
 }
 

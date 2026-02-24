@@ -101,8 +101,7 @@ type ResourceSliceSpec struct {
 	// objects with a certain driver name.
 	//
 	// Must be a DNS subdomain and should end with a DNS domain owned by the
-	// vendor of the driver. It should use only lower case characters.
-	// This field is immutable.
+	// vendor of the driver. This field is immutable.
 	//
 	// +required
 	Driver string `json:"driver" protobuf:"bytes,1,name=driver"`
@@ -149,15 +148,11 @@ type ResourceSliceSpec struct {
 
 	// Devices lists some or all of the devices in this pool.
 	//
-	// Must not have more than 128 entries. If any device uses taints or consumes counters the limit is 64.
-	//
-	// Only one of Devices and SharedCounters can be set in a ResourceSlice.
+	// Must not have more than 128 entries.
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +zeroOrOneOf=ResourceSliceType
-	Devices []Device `json:"devices,omitempty" protobuf:"bytes,6,name=devices"`
+	Devices []Device `json:"devices" protobuf:"bytes,6,name=devices"`
 
 	// PerDeviceNodeSelection defines whether the access from nodes to
 	// resources in the pool is set on the ResourceSlice level or on each
@@ -174,27 +169,19 @@ type ResourceSliceSpec struct {
 	// SharedCounters defines a list of counter sets, each of which
 	// has a name and a list of counters available.
 	//
-	// The names of the counter sets must be unique in the ResourcePool.
+	// The names of the SharedCounters must be unique in the ResourceSlice.
 	//
-	// Only one of Devices and SharedCounters can be set in a ResourceSlice.
-	//
-	// The maximum number of counter sets is 8.
+	// The maximum number of counters in all sets is 32.
 	//
 	// +optional
-	// +k8s:optional
 	// +listType=atomic
-	// +k8s:listType=atomic
-	// +k8s:unique=map
-	// +k8s:listMapKey=name
 	// +featureGate=DRAPartitionableDevices
-	// +zeroOrOneOf=ResourceSliceType
-	// +k8s:maxItems=8
 	SharedCounters []CounterSet `json:"sharedCounters,omitempty" protobuf:"bytes,8,name=sharedCounters"`
 }
 
 // CounterSet defines a named set of counters
 // that are available to be used by devices defined in the
-// ResourcePool.
+// ResourceSlice.
 //
 // The counters are not allocatable by themselves, but
 // can be referenced by devices. When a device is allocated,
@@ -205,14 +192,12 @@ type CounterSet struct {
 	// It must be a DNS label.
 	//
 	// +required
-	// +k8s:required
-	// +k8s:format=k8s-short-name
 	Name string `json:"name" protobuf:"bytes,1,name=name"`
 
 	// Counters defines the set of counters for this CounterSet
 	// The name of each counter must be unique in that set and must be a DNS label.
 	//
-	// The maximum number of counters is 32.
+	// The maximum number of counters in all sets is 32.
 	//
 	// +required
 	Counters map[string]Counter `json:"counters,omitempty" protobuf:"bytes,2,name=counters"`
@@ -261,27 +246,13 @@ type ResourcePool struct {
 
 const ResourceSliceMaxSharedCapacity = 128
 const ResourceSliceMaxDevices = 128
-const ResourceSliceMaxDevicesWithTaintsOrConsumesCounters = 64
 const PoolNameMaxLength = validation.DNS1123SubdomainMaxLength // Same as for a single node name.
 const BindingConditionsMaxSize = 4
 const BindingFailureConditionsMaxSize = 4
 
-// Defines the maximum number of counter sets (through the
-// SharedCounters field) that can be defined in a ResourceSlice.
-const ResourceSliceMaxCounterSets = 8
-
-// Defines the maximum number of counters that can be defined
-// in a counter set.
-const ResourceSliceMaxCountersPerCounterSet = 32
-
-// Defines the maximum number of device counter consumptions
-// (through the ConsumesCounters field) that can be defined per
-// device.
-const ResourceSliceMaxDeviceCounterConsumptionsPerDevice = 2
-
-// Defines the maximum number of counters that can be defined
-// per device counter consumption.
-const ResourceSliceMaxCountersPerDeviceCounterConsumption = 32
+// Defines the max number of shared counters that can be specified
+// in a ResourceSlice. The number is summed up across all sets.
+const ResourceSliceMaxSharedCounters = 32
 
 // Device represents one individual hardware instance that can be selected based
 // on its attributes. Besides the name, exactly one field must be set.
@@ -314,17 +285,14 @@ type Device struct {
 	//
 	// There can only be a single entry per counterSet.
 	//
-	// The maximum number of device counter consumptions per
-	// device is 2.
+	// The total number of device counter consumption entries
+	// must be <= 32. In addition, the total number in the
+	// entire ResourceSlice must be <= 1024 (for example,
+	// 64 devices with 16 counters each).
 	//
 	// +optional
-	// +k8s:optional
 	// +listType=atomic
-	// +k8s:listType=atomic
-	// +k8s:unique=map
-	// +k8s:listMapKey=counterSet
 	// +featureGate=DRAPartitionableDevices
-	// +k8s:maxItems=2
 	ConsumesCounters []DeviceCounterConsumption `json:"consumesCounters,omitempty" protobuf:"bytes,4,rep,name=consumesCounters"`
 
 	// NodeName identifies the node where the device is available.
@@ -361,9 +329,7 @@ type Device struct {
 
 	// If specified, these are the driver-defined taints.
 	//
-	// The maximum number of taints is 16. If taints are set for
-	// any device in a ResourceSlice, then the maximum number of
-	// allowed devices per ResourceSlice is 64 instead of 128.
+	// The maximum number of taints is 4.
 	//
 	// This is an alpha field and requires enabling the DRADeviceTaints
 	// feature gate.
@@ -400,8 +366,6 @@ type Device struct {
 	// +optional
 	// +listType=atomic
 	// +featureGate=DRADeviceBindingConditions,DRAResourceClaimDeviceStatus
-	// +k8s:optional
-	// +k8s:maxItems=4
 	BindingConditions []string `json:"bindingConditions,omitempty" protobuf:"bytes,10,rep,name=bindingConditions"`
 
 	// BindingFailureConditions defines the conditions for binding failure.
@@ -418,8 +382,6 @@ type Device struct {
 	// +optional
 	// +listType=atomic
 	// +featureGate=DRADeviceBindingConditions,DRAResourceClaimDeviceStatus
-	// +k8s:optional
-	// +k8s:maxItems=4
 	BindingFailureConditions []string `json:"bindingFailureConditions,omitempty" protobuf:"bytes,11,rep,name=bindingFailureConditions"`
 
 	// AllowMultipleAllocations marks whether the device is allowed to be allocated to multiple DeviceRequests.
@@ -439,13 +401,14 @@ type DeviceCounterConsumption struct {
 	// counters defined will be consumed.
 	//
 	// +required
-	// +k8s:required
-	// +k8s:format=k8s-short-name
 	CounterSet string `json:"counterSet" protobuf:"bytes,1,opt,name=counterSet"`
 
 	// Counters defines the counters that will be consumed by the device.
 	//
-	// The maximum number of counters is 32.
+	// The maximum number counters in a device is 32.
+	// In addition, the maximum number of all counters
+	// in all devices is 1024 (for example, 64 devices with
+	// 16 counters each).
 	//
 	// +required
 	Counters map[string]Counter `json:"counters,omitempty" protobuf:"bytes,2,opt,name=counters"`
@@ -568,6 +531,14 @@ type CapacityRequestPolicyRange struct {
 // Limit for the sum of the number of entries in both attributes and capacity.
 const ResourceSliceMaxAttributesAndCapacitiesPerDevice = 32
 
+// Limit for the total number of counters in each device.
+const ResourceSliceMaxCountersPerDevice = 32
+
+// Limit for the total number of counters defined in devices in
+// a ResourceSlice. We want to allow up to 64 devices to specify
+// up to 16 counters, so the limit for the ResourceSlice will be 1024.
+const ResourceSliceMaxDeviceCountersPerSlice = 1024 // 64 * 16
+
 // QualifiedName is the name of a device attribute or capacity.
 //
 // Attributes and capacities are defined either by the owner of the specific
@@ -587,9 +558,6 @@ const ResourceSliceMaxAttributesAndCapacitiesPerDevice = 32
 type QualifiedName string
 
 // FullyQualifiedName is a QualifiedName where the domain is set.
-// Format validation cannot be added to this type because one of its usages,
-// DistinctAttribute, is validated conditionally. This conditional validation
-// cannot be expressed declaratively.
 type FullyQualifiedName string
 
 // DeviceMaxDomainLength is the maximum length of the domain prefix in a fully-qualified name.
@@ -607,38 +575,34 @@ type DeviceAttribute struct {
 	// IntValue is a number.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:unionMember
+	// +oneOf=ValueType
 	IntValue *int64 `json:"int,omitempty" protobuf:"varint,2,opt,name=int"`
 
 	// BoolValue is a true/false value.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:unionMember
+	// +oneOf=ValueType
 	BoolValue *bool `json:"bool,omitempty" protobuf:"varint,3,opt,name=bool"`
 
 	// StringValue is a string. Must not be longer than 64 characters.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:unionMember
+	// +oneOf=ValueType
 	StringValue *string `json:"string,omitempty" protobuf:"bytes,4,opt,name=string"`
 
 	// VersionValue is a semantic version according to semver.org spec 2.0.0.
 	// Must not be longer than 64 characters.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:unionMember
+	// +oneOf=ValueType
 	VersionValue *string `json:"version,omitempty" protobuf:"bytes,5,opt,name=version"`
 }
 
 // DeviceAttributeMaxValueLength is the maximum length of a string or version attribute value.
 const DeviceAttributeMaxValueLength = 64
 
-// DeviceTaintsMaxLength is the maximum number of taints per Device.
-const DeviceTaintsMaxLength = 16
+// DeviceTaintsMaxLength is the maximum number of taints per device.
+const DeviceTaintsMaxLength = 4
 
 // The device this taint is attached to has the "effect" on
 // any claim which does not tolerate the taint and, through the claim,
@@ -660,27 +624,16 @@ type DeviceTaint struct {
 
 	// The effect of the taint on claims that do not tolerate the taint
 	// and through such claims on the pods using them.
-	//
-	// Valid effects are None, NoSchedule and NoExecute. PreferNoSchedule as used for
-	// nodes is not valid here. More effects may get added in the future.
-	// Consumers must treat unknown effects like None.
+	// Valid effects are NoSchedule and NoExecute. PreferNoSchedule as used for
+	// nodes is not valid here.
 	//
 	// +required
-	// +k8s:required
 	Effect DeviceTaintEffect `json:"effect" protobuf:"bytes,3,name=effect,casttype=DeviceTaintEffect"`
 
 	// ^^^^
 	//
 	// Implementing PreferNoSchedule would depend on a scoring solution for DRA.
 	// It might get added as part of that.
-	//
-	// A possible future new effect is NoExecuteWithPodDisruptionBudget:
-	// honor the pod disruption budget instead of simply deleting pods.
-	// This is currently undecided, it could also be a separate field.
-	//
-	// Validation must be prepared to allow unknown enums in stored objects,
-	// which will enable adding new enums within a single release without
-	// ratcheting.
 
 	// TimeAdded represents the time at which the taint was added.
 	// Added automatically during create or update if not set.
@@ -696,13 +649,9 @@ type DeviceTaint struct {
 }
 
 // +enum
-// +k8s:enum
 type DeviceTaintEffect string
 
 const (
-	// No effect, the taint is purely informational.
-	DeviceTaintEffectNone DeviceTaintEffect = "None"
-
 	// Do not allow new pods to schedule which use a tainted device unless they tolerate the taint,
 	// but allow all pods submitted to Kubelet without going through the scheduler
 	// to start, and allow all already-running pods to continue running.
@@ -729,7 +678,6 @@ type ResourceSliceList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.33
-// +k8s:supportsSubresource=/status
 
 // ResourceClaim describes a request for access to resources in the cluster,
 // for use by workloads. For example, if a workload needs an accelerator device
@@ -747,7 +695,6 @@ type ResourceClaim struct {
 
 	// Spec describes what is being requested and how to configure it.
 	// The spec is immutable.
-	// +k8s:immutable
 	Spec ResourceClaimSpec `json:"spec" protobuf:"bytes,2,name=spec"`
 
 	// Status describes whether the claim is ready to use and what has been allocated.
@@ -775,11 +722,6 @@ type DeviceClaim struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=map
-	// +k8s:listMapKey=name
-	// +k8s:maxItems=32
 	Requests []DeviceRequest `json:"requests" protobuf:"bytes,1,name=requests"`
 
 	// These constraints must be satisfied by the set of devices that get
@@ -787,8 +729,6 @@ type DeviceClaim struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Constraints []DeviceConstraint `json:"constraints,omitempty" protobuf:"bytes,2,opt,name=constraints"`
 
 	// This field holds configuration for multiple potential drivers which
@@ -797,8 +737,6 @@ type DeviceClaim struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Config []DeviceClaimConfiguration `json:"config,omitempty" protobuf:"bytes,3,opt,name=config"`
 
 	// Potential future extension, ignored by older schedulers. This is
@@ -849,7 +787,6 @@ type DeviceRequest struct {
 	//
 	// +optional
 	// +oneOf=deviceRequestType
-	// +k8s:optional
 	Exactly *ExactDeviceRequest `json:"exactly,omitempty" protobuf:"bytes,2,name=exactly"`
 
 	// FirstAvailable contains subrequests, of which exactly one will be
@@ -870,11 +807,6 @@ type DeviceRequest struct {
 	// +oneOf=deviceRequestType
 	// +listType=atomic
 	// +featureGate=DRAPrioritizedList
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=map
-	// +k8s:listMapKey=name
-	// +k8s:maxItems=8
 	FirstAvailable []DeviceSubRequest `json:"firstAvailable,omitempty" protobuf:"bytes,3,name=firstAvailable"`
 }
 
@@ -902,8 +834,6 @@ type ExactDeviceRequest struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Selectors []DeviceSelector `json:"selectors,omitempty" protobuf:"bytes,2,name=selectors"`
 
 	// AllocationMode and its related fields define how devices are allocated
@@ -926,7 +856,6 @@ type ExactDeviceRequest struct {
 	// requests with unknown modes.
 	//
 	// +optional
-	// +k8s:optional
 	AllocationMode DeviceAllocationMode `json:"allocationMode,omitempty" protobuf:"bytes,3,opt,name=allocationMode"`
 
 	// Count is used only when the count mode is "ExactCount". Must be greater than zero.
@@ -1022,8 +951,6 @@ type DeviceSubRequest struct {
 	// to reference.
 	//
 	// +required
-	// +k8s:required
-	// +k8s:format=k8s-long-name
 	DeviceClassName string `json:"deviceClassName" protobuf:"bytes,2,name=deviceClassName"`
 
 	// Selectors define criteria which must be satisfied by a specific
@@ -1033,8 +960,6 @@ type DeviceSubRequest struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Selectors []DeviceSelector `json:"selectors,omitempty" protobuf:"bytes,3,name=selectors"`
 
 	// AllocationMode and its related fields define how devices are allocated
@@ -1141,8 +1066,6 @@ const (
 	DeviceTolerationsMaxLength         = 16
 )
 
-// +enum
-// +k8s:enum
 type DeviceAllocationMode string
 
 // Valid [DeviceRequest.CountMode] values.
@@ -1261,10 +1184,6 @@ type DeviceConstraint struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=set
-	// +k8s:maxItems=32
 	Requests []string `json:"requests,omitempty" protobuf:"bytes,1,opt,name=requests"`
 
 	// MatchAttribute requires that all devices in question have this
@@ -1282,8 +1201,6 @@ type DeviceConstraint struct {
 	//
 	// +optional
 	// +oneOf=ConstraintType
-	// +k8s:optional
-	// +k8s:format=k8s-resource-fully-qualified-name
 	MatchAttribute *FullyQualifiedName `json:"matchAttribute,omitempty" protobuf:"bytes,2,opt,name=matchAttribute"`
 
 	// Potential future extension, not part of the current design:
@@ -1324,10 +1241,6 @@ type DeviceClaimConfiguration struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=set
-	// +k8s:maxItems=32
 	Requests []string `json:"requests,omitempty" protobuf:"bytes,1,opt,name=requests"`
 
 	DeviceConfiguration `json:",inline" protobuf:"bytes,2,name=deviceConfiguration"`
@@ -1341,7 +1254,6 @@ type DeviceConfiguration struct {
 	//
 	// +optional
 	// +oneOf=ConfigurationType
-	// +k8s:optional
 	Opaque *OpaqueDeviceConfiguration `json:"opaque,omitempty" protobuf:"bytes,1,opt,name=opaque"`
 }
 
@@ -1355,11 +1267,9 @@ type OpaqueDeviceConfiguration struct {
 	// to decide whether it needs to validate them.
 	//
 	// Must be a DNS subdomain and should end with a DNS domain owned by the
-	// vendor of the driver. It should use only lower case characters.
+	// vendor of the driver.
 	//
 	// +required
-	// +k8s:required
-	// +k8s:format=k8s-long-name-caseless
 	Driver string `json:"driver" protobuf:"bytes,1,name=driver"`
 
 	// Parameters can contain arbitrary data. It is the responsibility of
@@ -1385,8 +1295,6 @@ type DeviceToleration struct {
 	// Must be a label name.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:format=k8s-label-key
 	Key string `json:"key,omitempty" protobuf:"bytes,1,opt,name=key"`
 
 	// Operator represents a key's relationship to the value.
@@ -1425,7 +1333,6 @@ type DeviceToleration struct {
 // A toleration operator is the set of operators that can be used in a toleration.
 //
 // +enum
-// +k8s:enum
 type DeviceTolerationOperator string
 
 const (
@@ -1439,8 +1346,6 @@ type ResourceClaimStatus struct {
 	// Allocation is set once the claim has been allocated successfully.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:update=NoModify
 	Allocation *AllocationResult `json:"allocation,omitempty" protobuf:"bytes,1,opt,name=allocation"`
 
 	// ReservedFor indicates which entities are currently allowed to use
@@ -1468,10 +1373,6 @@ type ResourceClaimStatus struct {
 	// +listMapKey=uid
 	// +patchStrategy=merge
 	// +patchMergeKey=uid
-	// +k8s:optional
-	// +k8s:listType=map
-	// +k8s:listMapKey=uid
-	// +k8s:maxItems=256
 	ReservedFor []ResourceClaimConsumerReference `json:"reservedFor,omitempty" protobuf:"bytes,2,opt,name=reservedFor" patchStrategy:"merge" patchMergeKey:"uid"`
 
 	// DeallocationRequested is tombstoned since Kubernetes 1.32 where
@@ -1484,18 +1385,12 @@ type ResourceClaimStatus struct {
 	// information. Entries are owned by their respective drivers.
 	//
 	// +optional
-	// +k8s:optional
 	// +listType=map
 	// +listMapKey=driver
 	// +listMapKey=device
 	// +listMapKey=pool
 	// +listMapKey=shareID
 	// +featureGate=DRAResourceClaimDeviceStatus
-	// +k8s:listType=map
-	// +k8s:listMapKey=driver
-	// +k8s:listMapKey=device
-	// +k8s:listMapKey=pool
-	// +k8s:listMapKey=shareID
 	Devices []AllocatedDeviceStatus `json:"devices,omitempty" protobuf:"bytes,4,opt,name=devices"`
 }
 
@@ -1558,8 +1453,6 @@ type DeviceAllocationResult struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Results []DeviceRequestAllocationResult `json:"results,omitempty" protobuf:"bytes,1,opt,name=results"`
 
 	// This field is a combination of all the claim and class configuration parameters.
@@ -1572,8 +1465,6 @@ type DeviceAllocationResult struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=64
 	Config []DeviceAllocationConfiguration `json:"config,omitempty" protobuf:"bytes,2,opt,name=config"`
 }
 
@@ -1599,11 +1490,9 @@ type DeviceRequestAllocationResult struct {
 	// needed on a node.
 	//
 	// Must be a DNS subdomain and should end with a DNS domain owned by the
-	// vendor of the driver. It should use only lower case characters.
+	// vendor of the driver.
 	//
 	// +required
-	// +k8s:format=k8s-long-name-caseless
-	// +k8s:required
 	Driver string `json:"driver" protobuf:"bytes,2,name=driver"`
 
 	// This name together with the driver name and the device name field
@@ -1613,8 +1502,6 @@ type DeviceRequestAllocationResult struct {
 	// DNS sub-domains separated by slashes.
 	//
 	// +required
-	// +k8s:required
-	// +k8s:format=k8s-resource-pool-name
 	Pool string `json:"pool" protobuf:"bytes,3,name=pool"`
 
 	// Device references one device instance via its name in the driver's
@@ -1657,8 +1544,6 @@ type DeviceRequestAllocationResult struct {
 	// +optional
 	// +listType=atomic
 	// +featureGate=DRADeviceBindingConditions,DRAResourceClaimDeviceStatus
-	// +k8s:optional
-	// +k8s:maxItems=4
 	BindingConditions []string `json:"bindingConditions,omitempty" protobuf:"bytes,7,rep,name=bindingConditions"`
 
 	// BindingFailureConditions contains a copy of the BindingFailureConditions
@@ -1670,8 +1555,6 @@ type DeviceRequestAllocationResult struct {
 	// +optional
 	// +listType=atomic
 	// +featureGate=DRADeviceBindingConditions,DRAResourceClaimDeviceStatus
-	// +k8s:optional
-	// +k8s:maxItems=4
 	BindingFailureConditions []string `json:"bindingFailureConditions,omitempty" protobuf:"bytes,8,rep,name=bindingFailureConditions"`
 
 	// ShareID uniquely identifies an individual allocation share of the device,
@@ -1681,8 +1564,6 @@ type DeviceRequestAllocationResult struct {
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	// +k8s:optional
-	// +k8s:format=k8s-uuid
 	ShareID *types.UID `json:"shareID,omitempty" protobuf:"bytes,9,opt,name=shareID"`
 
 	// ConsumedCapacity tracks the amount of capacity consumed per device as part of the claim request.
@@ -1706,7 +1587,6 @@ type DeviceAllocationConfiguration struct {
 	// or from a claim.
 	//
 	// +required
-	// +k8s:required
 	Source AllocationConfigSource `json:"source" protobuf:"bytes,1,name=source"`
 
 	// Requests lists the names of requests where the configuration applies.
@@ -1718,23 +1598,17 @@ type DeviceAllocationConfiguration struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=set
-	// +k8s:maxItems=32
 	Requests []string `json:"requests,omitempty" protobuf:"bytes,2,opt,name=requests"`
 
 	DeviceConfiguration `json:",inline" protobuf:"bytes,3,name=deviceConfiguration"`
 }
 
-// +enum
-// +k8s:enum
 type AllocationConfigSource string
 
 // Valid [DeviceAllocationConfiguration.Source] values.
 const (
-	AllocationConfigSourceClass AllocationConfigSource = "FromClass"
-	AllocationConfigSourceClaim AllocationConfigSource = "FromClaim"
+	AllocationConfigSourceClass = "FromClass"
+	AllocationConfigSourceClaim = "FromClaim"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -1767,8 +1641,6 @@ type DeviceClass struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object metadata
 	// +optional
-	// +k8s:subfield(name)=+k8s:optional
-	// +k8s:subfield(name)=+k8s:format=k8s-long-name
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Spec defines what can be allocated and how to configure it.
@@ -1789,8 +1661,6 @@ type DeviceClassSpec struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Selectors []DeviceSelector `json:"selectors,omitempty" protobuf:"bytes,1,opt,name=selectors"`
 
 	// Config defines configuration parameters that apply to each device that is claimed via this class.
@@ -1801,8 +1671,6 @@ type DeviceClassSpec struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:maxItems=32
 	Config []DeviceClassConfiguration `json:"config,omitempty" protobuf:"bytes,2,opt,name=config"`
 
 	// SuitableNodes is tombstoned since Kubernetes 1.32 where
@@ -1822,8 +1690,6 @@ type DeviceClassSpec struct {
 	// This is an alpha field.
 	// +optional
 	// +featureGate=DRAExtendedResource
-	// +k8s:optional
-	// +k8s:format=k8s-extended-resource-name
 	ExtendedResourceName *string `json:"extendedResourceName,omitempty" protobuf:"bytes,4,opt,name=extendedResourceName"`
 }
 
@@ -1925,7 +1791,7 @@ type AllocatedDeviceStatus struct {
 	// needed on a node.
 	//
 	// Must be a DNS subdomain and should end with a DNS domain owned by the
-	// vendor of the driver. It should use only lower case characters.
+	// vendor of the driver.
 	//
 	// +required
 	Driver string `json:"driver" protobuf:"bytes,1,rep,name=driver"`
@@ -1949,8 +1815,6 @@ type AllocatedDeviceStatus struct {
 	//
 	// +optional
 	// +featureGate=DRAConsumableCapacity
-	// +k8s:optional
-	// +k8s:format=k8s-uuid
 	ShareID *string `json:"shareID,omitempty" protobuf:"bytes,7,opt,name=shareID"`
 
 	// Conditions contains the latest observation of the device's state.
@@ -1974,7 +1838,6 @@ type AllocatedDeviceStatus struct {
 	// NetworkData contains network-related information specific to the device.
 	//
 	// +optional
-	// +k8s:optional
 	NetworkData *NetworkDeviceData `json:"networkData,omitempty" protobuf:"bytes,6,opt,name=networkData"`
 }
 
@@ -1989,8 +1852,6 @@ type NetworkDeviceData struct {
 	// Must not be longer than 256 characters.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:maxLength=256
 	InterfaceName string `json:"interfaceName,omitempty" protobuf:"bytes,1,opt,name=interfaceName"`
 
 	// IPs lists the network addresses assigned to the device's network interface.
@@ -2001,10 +1862,6 @@ type NetworkDeviceData struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +k8s:optional
-	// +k8s:listType=atomic
-	// +k8s:unique=set
-	// +k8s:maxItems=16
 	IPs []string `json:"ips,omitempty" protobuf:"bytes,2,opt,name=ips"`
 
 	// HardwareAddress represents the hardware address (e.g. MAC Address) of the device's network interface.
@@ -2012,7 +1869,5 @@ type NetworkDeviceData struct {
 	// Must not be longer than 128 characters.
 	//
 	// +optional
-	// +k8s:optional
-	// +k8s:maxLength=128
 	HardwareAddress string `json:"hardwareAddress,omitempty" protobuf:"bytes,3,opt,name=hardwareAddress"`
 }

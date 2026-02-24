@@ -15,10 +15,6 @@ func NewDummyIdentityNotifier() *DummyIdentityNotifier {
 	}
 }
 
-func (d DummyIdentityNotifier) RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64) {
-	return
-}
+func (d DummyIdentityNotifier) RegisterFQDNSelector(selector api.FQDNSelector) {}
 
-func (d DummyIdentityNotifier) UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64) {
-	return
-}
+func (d DummyIdentityNotifier) UnregisterFQDNSelector(selector api.FQDNSelector) {}

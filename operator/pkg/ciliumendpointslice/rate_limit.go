@@ -98,6 +98,12 @@ func (rlc *rateLimitConfig) updateRateLimitWithNodes(nodes int, force bool) bool
 			Limit: rlc.dynamicRateLimit[index].Limit,
 			Burst: rlc.dynamicRateLimit[index].Burst,
 		}
+		if rlc.current.Limit > CESWriteQPSLimitMax {
+			rlc.current.Limit = CESWriteQPSLimitMax
+		}
+		if rlc.current.Burst > CESWriteQPSBurstMax {
+			rlc.current.Burst = CESWriteQPSBurstMax
+		}
 		return true
 	}
 	return false

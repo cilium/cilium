@@ -136,7 +136,7 @@ func (p *parser) indexOfElementInScope(s scope, matchTags ...a.Atom) int {
 					return -1
 				}
 			default:
-				panic(fmt.Sprintf("html: internal error: indexOfElementInScope unknown scope: %d", s))
+				panic("unreachable")
 			}
 		}
 		switch s {
@@ -179,7 +179,7 @@ func (p *parser) clearStackToContext(s scope) {
 				return
 			}
 		default:
-			panic(fmt.Sprintf("html: internal error: clearStackToContext unknown scope: %d", s))
+			panic("unreachable")
 		}
 	}
 }
@@ -231,14 +231,7 @@ func (p *parser) addChild(n *Node) {
 	}
 
 	if n.Type == ElementNode {
-		p.insertOpenElement(n)
-	}
-}
-
-func (p *parser) insertOpenElement(n *Node) {
-	p.oe = append(p.oe, n)
-	if len(p.oe) > 512 {
-		panic("html: open stack of elements exceeds 512 nodes")
+		p.oe = append(p.oe, n)
 	}
 }
 
@@ -817,7 +810,7 @@ func afterHeadIM(p *parser) bool {
 			p.im = inFramesetIM
 			return true
 		case a.Base, a.Basefont, a.Bgsound, a.Link, a.Meta, a.Noframes, a.Script, a.Style, a.Template, a.Title:
-			p.insertOpenElement(p.head)
+			p.oe = append(p.oe, p.head)
 			defer p.oe.remove(p.head)
 			return inHeadIM(p)
 		case a.Head:
@@ -1685,7 +1678,7 @@ func inTableBodyIM(p *parser) bool {
 	return inTableIM(p)
 }
 
-// Section 13.2.6.4.14.
+// Section 12.2.6.4.14.
 func inRowIM(p *parser) bool {
 	switch p.tok.Type {
 	case StartTagToken:
@@ -1697,9 +1690,7 @@ func inRowIM(p *parser) bool {
 			p.im = inCellIM
 			return true
 		case a.Caption, a.Col, a.Colgroup, a.Tbody, a.Tfoot, a.Thead, a.Tr:
-			if p.elementInScope(tableScope, a.Tr) {
-				p.clearStackToContext(tableRowScope)
-				p.oe.pop()
+			if p.popUntil(tableScope, a.Tr) {
 				p.im = inTableBodyIM
 				return false
 			}
@@ -1709,28 +1700,22 @@ func inRowIM(p *parser) bool {
 	case EndTagToken:
 		switch p.tok.DataAtom {
 		case a.Tr:
-			if p.elementInScope(tableScope, a.Tr) {
-				p.clearStackToContext(tableRowScope)
-				p.oe.pop()
+			if p.popUntil(tableScope, a.Tr) {
 				p.im = inTableBodyIM
 				return true
 			}
 			// Ignore the token.
 			return true
 		case a.Table:
-			if p.elementInScope(tableScope, a.Tr) {
-				p.clearStackToContext(tableRowScope)
-				p.oe.pop()
+			if p.popUntil(tableScope, a.Tr) {
 				p.im = inTableBodyIM
 				return false
 			}
 			// Ignore the token.
 			return true
 		case a.Tbody, a.Tfoot, a.Thead:
-			if p.elementInScope(tableScope, p.tok.DataAtom) && p.elementInScope(tableScope, a.Tr) {
-				p.clearStackToContext(tableRowScope)
-				p.oe.pop()
-				p.im = inTableBodyIM
+			if p.elementInScope(tableScope, p.tok.DataAtom) {
+				p.parseImpliedToken(EndTagToken, a.Tr, a.Tr.String())
 				return false
 			}
 			// Ignore the token.
@@ -2237,20 +2222,16 @@ func parseForeignContent(p *parser) bool {
 			p.acknowledgeSelfClosingTag()
 		}
 	case EndTagToken:
-		if strings.EqualFold(p.oe[len(p.oe)-1].Data, p.tok.Data) {
-			p.oe = p.oe[:len(p.oe)-1]
-			return true
-		}
 		for i := len(p.oe) - 1; i >= 0; i-- {
+			if p.oe[i].Namespace == "" {
+				return p.im(p)
+			}
 			if strings.EqualFold(p.oe[i].Data, p.tok.Data) {
 				p.oe = p.oe[:i]
-				return true
-			}
-			if i > 0 && p.oe[i-1].Namespace == "" {
 				break
 			}
 		}
-		return p.im(p)
+		return true
 	default:
 		// Ignore the token.
 	}
@@ -2331,13 +2312,9 @@ func (p *parser) parseCurrentToken() {
 	}
 }
 
-func (p *parser) parse() (err error) {
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			err = fmt.Errorf("%s", panicErr)
-		}
-	}()
+func (p *parser) parse() error {
 	// Iterate until EOF. Any other error will cause an early return.
+	var err error
 	for err != io.EOF {
 		// CDATA sections are allowed only in foreign content.
 		n := p.oe.top()
@@ -2365,8 +2342,6 @@ func (p *parser) parse() (err error) {
 // differ from the nesting implied by a naive processing of start and end
 // <tag>s. Conversely, explicit <tag>s in r's data can be silently dropped,
 // with no corresponding node in the resulting tree.
-//
-// Parse will reject HTML that is nested deeper than 512 elements.
 //
 // The input is assumed to be UTF-8 encoded.
 func Parse(r io.Reader) (*Node, error) {

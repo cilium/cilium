@@ -31,40 +31,16 @@ import (
 
 // StorageClassApplyConfiguration represents a declarative configuration of the StorageClass type for use
 // with apply.
-//
-// StorageClass describes the parameters for a class of storage for
-// which PersistentVolumes can be dynamically provisioned.
-//
-// StorageClasses are non-namespaced; the name of the storage class
-// according to etcd is in ObjectMeta.Name.
 type StorageClassApplyConfiguration struct {
-	metav1.TypeMetaApplyConfiguration `json:",inline"`
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// provisioner indicates the type of the provisioner.
-	Provisioner *string `json:"provisioner,omitempty"`
-	// parameters holds the parameters for the provisioner that should
-	// create volumes of this storage class.
-	Parameters map[string]string `json:"parameters,omitempty"`
-	// reclaimPolicy controls the reclaimPolicy for dynamically provisioned PersistentVolumes of this storage class.
-	// Defaults to Delete.
-	ReclaimPolicy *corev1.PersistentVolumeReclaimPolicy `json:"reclaimPolicy,omitempty"`
-	// mountOptions controls the mountOptions for dynamically provisioned PersistentVolumes of this storage class.
-	// e.g. ["ro", "soft"]. Not validated -
-	// mount of the PVs will simply fail if one is invalid.
-	MountOptions []string `json:"mountOptions,omitempty"`
-	// allowVolumeExpansion shows whether the storage class allow volume expand.
-	AllowVolumeExpansion *bool `json:"allowVolumeExpansion,omitempty"`
-	// volumeBindingMode indicates how PersistentVolumeClaims should be
-	// provisioned and bound.  When unset, VolumeBindingImmediate is used.
-	// This field is only honored by servers that enable the VolumeScheduling feature.
-	VolumeBindingMode *storagev1.VolumeBindingMode `json:"volumeBindingMode,omitempty"`
-	// allowedTopologies restrict the node topologies where volumes can be dynamically provisioned.
-	// Each volume plugin defines its own supported topology specifications.
-	// An empty TopologySelectorTerm list means there is no topology restriction.
-	// This field is only honored by servers that enable the VolumeScheduling feature.
-	AllowedTopologies []applyconfigurationscorev1.TopologySelectorTermApplyConfiguration `json:"allowedTopologies,omitempty"`
+	Provisioner                          *string                                                            `json:"provisioner,omitempty"`
+	Parameters                           map[string]string                                                  `json:"parameters,omitempty"`
+	ReclaimPolicy                        *corev1.PersistentVolumeReclaimPolicy                              `json:"reclaimPolicy,omitempty"`
+	MountOptions                         []string                                                           `json:"mountOptions,omitempty"`
+	AllowVolumeExpansion                 *bool                                                              `json:"allowVolumeExpansion,omitempty"`
+	VolumeBindingMode                    *storagev1.VolumeBindingMode                                       `json:"volumeBindingMode,omitempty"`
+	AllowedTopologies                    []applyconfigurationscorev1.TopologySelectorTermApplyConfiguration `json:"allowedTopologies,omitempty"`
 }
 
 // StorageClass constructs a declarative configuration of the StorageClass type for use with
@@ -77,14 +53,29 @@ func StorageClass(name string) *StorageClassApplyConfiguration {
 	return b
 }
 
-// ExtractStorageClassFrom extracts the applied configuration owned by fieldManager from
-// storageClass for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractStorageClass extracts the applied configuration owned by fieldManager from
+// storageClass. If no managedFields are found in storageClass for fieldManager, a
+// StorageClassApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // storageClass must be a unmodified StorageClass API object that was retrieved from the Kubernetes API.
-// ExtractStorageClassFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractStorageClass provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractStorageClassFrom(storageClass *storagev1.StorageClass, fieldManager string, subresource string) (*StorageClassApplyConfiguration, error) {
+// Experimental!
+func ExtractStorageClass(storageClass *storagev1.StorageClass, fieldManager string) (*StorageClassApplyConfiguration, error) {
+	return extractStorageClass(storageClass, fieldManager, "")
+}
+
+// ExtractStorageClassStatus is the same as ExtractStorageClass except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractStorageClassStatus(storageClass *storagev1.StorageClass, fieldManager string) (*StorageClassApplyConfiguration, error) {
+	return extractStorageClass(storageClass, fieldManager, "status")
+}
+
+func extractStorageClass(storageClass *storagev1.StorageClass, fieldManager string, subresource string) (*StorageClassApplyConfiguration, error) {
 	b := &StorageClassApplyConfiguration{}
 	err := managedfields.ExtractInto(storageClass, internal.Parser().Type("io.k8s.api.storage.v1.StorageClass"), fieldManager, b, subresource)
 	if err != nil {
@@ -96,21 +87,6 @@ func ExtractStorageClassFrom(storageClass *storagev1.StorageClass, fieldManager 
 	b.WithAPIVersion("storage.k8s.io/v1")
 	return b, nil
 }
-
-// ExtractStorageClass extracts the applied configuration owned by fieldManager from
-// storageClass. If no managedFields are found in storageClass for fieldManager, a
-// StorageClassApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// storageClass must be a unmodified StorageClass API object that was retrieved from the Kubernetes API.
-// ExtractStorageClass provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractStorageClass(storageClass *storagev1.StorageClass, fieldManager string) (*StorageClassApplyConfiguration, error) {
-	return ExtractStorageClassFrom(storageClass, fieldManager, "")
-}
-
 func (b StorageClassApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

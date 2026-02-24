@@ -11,7 +11,6 @@ package models
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -78,15 +77,11 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 
 		if m.BackendAddresses[i] != nil {
 			if err := m.BackendAddresses[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -103,15 +98,11 @@ func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
 
 	if m.Flags != nil {
 		if err := m.Flags.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("flags")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("flags")
 			}
-
 			return err
 		}
 	}
@@ -127,15 +118,11 @@ func (m *ServiceSpec) validateFrontendAddress(formats strfmt.Registry) error {
 
 	if m.FrontendAddress != nil {
 		if err := m.FrontendAddress.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("frontend-address")
 			}
-
 			return err
 		}
 	}
@@ -176,15 +163,11 @@ func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, forma
 			}
 
 			if err := m.BackendAddresses[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -203,15 +186,11 @@ func (m *ServiceSpec) contextValidateFlags(ctx context.Context, formats strfmt.R
 		}
 
 		if err := m.Flags.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("flags")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("flags")
 			}
-
 			return err
 		}
 	}
@@ -224,15 +203,11 @@ func (m *ServiceSpec) contextValidateFrontendAddress(ctx context.Context, format
 	if m.FrontendAddress != nil {
 
 		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("frontend-address")
 			}
-
 			return err
 		}
 	}
@@ -326,7 +301,7 @@ func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var serviceSpecFlagsTypeExtTrafficPolicyPropEnum []any
+var serviceSpecFlagsTypeExtTrafficPolicyPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -368,7 +343,7 @@ func (m *ServiceSpecFlags) validateExtTrafficPolicy(formats strfmt.Registry) err
 	return nil
 }
 
-var serviceSpecFlagsTypeIntTrafficPolicyPropEnum []any
+var serviceSpecFlagsTypeIntTrafficPolicyPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -410,7 +385,7 @@ func (m *ServiceSpecFlags) validateIntTrafficPolicy(formats strfmt.Registry) err
 	return nil
 }
 
-var serviceSpecFlagsTypeNatPolicyPropEnum []any
+var serviceSpecFlagsTypeNatPolicyPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -455,7 +430,7 @@ func (m *ServiceSpecFlags) validateNatPolicy(formats strfmt.Registry) error {
 	return nil
 }
 
-var serviceSpecFlagsTypeTrafficPolicyPropEnum []any
+var serviceSpecFlagsTypeTrafficPolicyPropEnum []interface{}
 
 func init() {
 	var res []string
@@ -497,7 +472,7 @@ func (m *ServiceSpecFlags) validateTrafficPolicy(formats strfmt.Registry) error 
 	return nil
 }
 
-var serviceSpecFlagsTypeTypePropEnum []any
+var serviceSpecFlagsTypeTypePropEnum []interface{}
 
 func init() {
 	var res []string

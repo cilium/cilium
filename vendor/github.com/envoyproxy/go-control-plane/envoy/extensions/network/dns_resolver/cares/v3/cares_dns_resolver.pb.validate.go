@@ -186,53 +186,6 @@ func (m *CaresDnsResolverConfig) validate(all bool) error {
 
 	// no validation rules for RotateNameservers
 
-	if wrapper := m.GetEdns0MaxPayloadSize(); wrapper != nil {
-
-		if val := wrapper.GetValue(); val < 512 || val > 4096 {
-			err := CaresDnsResolverConfigValidationError{
-				field:  "Edns0MaxPayloadSize",
-				reason: "value must be inside range [512, 4096]",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
-	}
-
-	if d := m.GetMaxUdpChannelDuration(); d != nil {
-		dur, err := d.AsDuration(), d.CheckValid()
-		if err != nil {
-			err = CaresDnsResolverConfigValidationError{
-				field:  "MaxUdpChannelDuration",
-				reason: "value is not a valid duration",
-				cause:  err,
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		} else {
-
-			gte := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-			if dur < gte {
-				err := CaresDnsResolverConfigValidationError{
-					field:  "MaxUdpChannelDuration",
-					reason: "value must be greater than or equal to 0s",
-				}
-				if !all {
-					return err
-				}
-				errors = append(errors, err)
-			}
-
-		}
-	}
-
-	// no validation rules for ReinitChannelOnTimeout
-
 	if len(errors) > 0 {
 		return CaresDnsResolverConfigMultiError(errors)
 	}
@@ -247,7 +200,7 @@ type CaresDnsResolverConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CaresDnsResolverConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

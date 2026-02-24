@@ -386,6 +386,10 @@ type fakeClient struct {
 	execs    map[execRequest]execResult
 }
 
+func (c *fakeClient) ListCiliumBGPPeeringPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
 	panic("implement me")
 }
@@ -510,10 +514,6 @@ func (c *fakeClient) GetCronJob(_ context.Context, _, _ string, _ metav1.GetOpti
 
 func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.Deployment, error) {
 	return nil, nil
-}
-
-func (c *fakeClient) ListDeployment(_ context.Context, _ string, _ metav1.ListOptions) (*appsv1.DeploymentList, error) {
-	return &appsv1.DeploymentList{}, nil
 }
 
 func (c *fakeClient) GetLogs(_ context.Context, _, _, _ string, _ corev1.PodLogOptions, _ io.Writer) error {

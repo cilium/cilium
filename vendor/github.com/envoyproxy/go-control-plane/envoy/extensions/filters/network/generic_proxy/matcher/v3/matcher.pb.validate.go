@@ -72,7 +72,7 @@ type ServiceMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ServiceMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -174,7 +174,7 @@ type HostMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HostMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -274,7 +274,7 @@ type PathMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PathMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -374,7 +374,7 @@ type MethodMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MethodMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -485,7 +485,7 @@ type PropertyMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PropertyMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -587,7 +587,7 @@ type RequestMatchInputMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RequestMatchInputMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -740,7 +740,7 @@ type KeyValueMatchEntryMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m KeyValueMatchEntryMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -963,7 +963,7 @@ type RequestMatcherMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RequestMatcherMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

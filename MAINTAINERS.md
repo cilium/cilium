@@ -11,17 +11,17 @@ to learn how to level up through the project.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [André Martins] (Isovalent)
- * [Arthur Outhenin-Chalandre] (Ledger)
  * [Bill Mulligan] (Isovalent)
+ * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
- * [David Bimmler] (Isovalent)
  * [Deepesh Pathak] (Isovalent)
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
  * [Fabio Falzoi] (Isovalent)
+ * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
@@ -32,14 +32,14 @@ to learn how to level up through the project.
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
  * [Liz Rice] (Isovalent)
+ * [Lorenz Bauer] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
- * [Mahé Tardy] (Isovalent)
  * [Marcel Zięba] (Isovalent)
- * [Marco Hofstetter] (Isovalent)
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
  * [Michi Mutsuzaki] (Isovalent)
+ * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
  * [Nick Young] (Isovalent)
  * [Nicolas Busseneau] (Isovalent)
@@ -49,6 +49,7 @@ to learn how to level up through the project.
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
+ * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
@@ -59,22 +60,17 @@ to learn how to level up through the project.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
- * [Beatriz Martínez]
- * [Bruno M. Custódio]
- * [Dan Wendlandt]
- * [Eloy Coto]
- * [Gilberto Bertin]
+ * [Beatriz Martínez] (Isovalent)
+ * [Dan Wendlandt] (Isovalent)
+ * [Eloy Coto] (Red Hat)
  * [Ian Vernon]
- * [Ilya Dmitrichenko]
- * [Lorenz Bauer]
- * [Michal Rostecki]
- * [Natália Réka Ivánkó]
+ * [Ilya Dmitrichenko] (Docker)
+ * [Michal Rostecki] (Anza)
  * [Ray Bejjani]
- * [Thomas Graf]
  * [Tom Payne]
- * [Weilong Cui]
- * [Yongkun Gui]
- * [Zang Li]
+ * [Weilong Cui] (Google)
+ * [Yongkun Gui] (Google)
+ * [Zang Li] (Google)
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
@@ -82,7 +78,6 @@ project.
 [Aditi Ghag]: https://github.com/aditighag
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
-[Arthur Outhenin-Chalandre]: https://github.com/MrFreezeex
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio
@@ -91,7 +86,6 @@ project.
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
-[David Bimmler]: https://github.com/bimmlerd
 [Deepesh Pathak]: https://github.com/fristonio
 [Dorde Lapcevic]: https://github.com/dlapcevic
 [Dylan Reimerink]: https://github.com/dylandreimerink
@@ -113,9 +107,7 @@ project.
 [Lorenz Bauer]: https://github.com/lmb
 [Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
-[Mahé Tardy]: https://github.com/mtardy
 [Marcel Zięba]: https://github.com/marseel
-[Marco Hofstetter]: https://github.com/mhofstetter
 [Marco Iorio]: https://github.com/giorio94
 [Martynas Pumputis]: https://github.com/brb
 [Michal Rostecki]: https://github.com/vadorovsky

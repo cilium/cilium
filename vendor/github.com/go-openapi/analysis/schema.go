@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
-
 package analysis
 
 import (
@@ -11,7 +8,7 @@ import (
 // SchemaOpts configures the schema analyzer
 type SchemaOpts struct {
 	Schema   *spec.Schema
-	Root     any
+	Root     interface{}
 	BasePath string
 	_        struct{}
 }
@@ -55,7 +52,7 @@ func Schema(opts SchemaOpts) (*AnalyzedSchema, error) {
 // AnalyzedSchema indicates what the schema represents
 type AnalyzedSchema struct {
 	schema   *spec.Schema
-	root     any
+	root     interface{}
 	basePath string
 
 	hasProps           bool

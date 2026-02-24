@@ -54,267 +54,139 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		JSONProducer: runtime.JSONProducer(),
 
 		EndpointDeleteEndpointHandler: endpoint.DeleteEndpointHandlerFunc(func(params endpoint.DeleteEndpointParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.DeleteEndpoint has not yet been implemented")
 		}),
-
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
 		}),
-
 		PolicyDeleteFqdnCacheHandler: policy.DeleteFqdnCacheHandlerFunc(func(params policy.DeleteFqdnCacheParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.DeleteFqdnCache has not yet been implemented")
 		}),
-
 		IpamDeleteIpamIPHandler: ipam.DeleteIpamIPHandlerFunc(func(params ipam.DeleteIpamIPParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation ipam.DeleteIpamIP has not yet been implemented")
 		}),
-
+		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
+			return middleware.NotImplemented("operation policy.DeletePolicy has not yet been implemented")
+		}),
 		PrefilterDeletePrefilterHandler: prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
 		}),
-
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
 		}),
-
 		BgpGetBgpRoutePoliciesHandler: bgp.GetBgpRoutePoliciesHandlerFunc(func(params bgp.GetBgpRoutePoliciesParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation bgp.GetBgpRoutePolicies has not yet been implemented")
 		}),
-
 		BgpGetBgpRoutesHandler: bgp.GetBgpRoutesHandlerFunc(func(params bgp.GetBgpRoutesParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation bgp.GetBgpRoutes has not yet been implemented")
 		}),
-
 		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
 		}),
-
 		DaemonGetClusterNodesHandler: daemon.GetClusterNodesHandlerFunc(func(params daemon.GetClusterNodesParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetClusterNodes has not yet been implemented")
 		}),
-
 		DaemonGetConfigHandler: daemon.GetConfigHandlerFunc(func(params daemon.GetConfigParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetConfig has not yet been implemented")
 		}),
-
 		DaemonGetDebuginfoHandler: daemon.GetDebuginfoHandlerFunc(func(params daemon.GetDebuginfoParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetDebuginfo has not yet been implemented")
 		}),
-
 		EndpointGetEndpointHandler: endpoint.GetEndpointHandlerFunc(func(params endpoint.GetEndpointParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpoint has not yet been implemented")
 		}),
-
 		EndpointGetEndpointIDHandler: endpoint.GetEndpointIDHandlerFunc(func(params endpoint.GetEndpointIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpointID has not yet been implemented")
 		}),
-
 		EndpointGetEndpointIDConfigHandler: endpoint.GetEndpointIDConfigHandlerFunc(func(params endpoint.GetEndpointIDConfigParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpointIDConfig has not yet been implemented")
 		}),
-
 		EndpointGetEndpointIDHealthzHandler: endpoint.GetEndpointIDHealthzHandlerFunc(func(params endpoint.GetEndpointIDHealthzParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpointIDHealthz has not yet been implemented")
 		}),
-
 		EndpointGetEndpointIDLabelsHandler: endpoint.GetEndpointIDLabelsHandlerFunc(func(params endpoint.GetEndpointIDLabelsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpointIDLabels has not yet been implemented")
 		}),
-
 		EndpointGetEndpointIDLogHandler: endpoint.GetEndpointIDLogHandlerFunc(func(params endpoint.GetEndpointIDLogParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.GetEndpointIDLog has not yet been implemented")
 		}),
-
 		PolicyGetFqdnCacheHandler: policy.GetFqdnCacheHandlerFunc(func(params policy.GetFqdnCacheParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetFqdnCache has not yet been implemented")
 		}),
-
 		PolicyGetFqdnCacheIDHandler: policy.GetFqdnCacheIDHandlerFunc(func(params policy.GetFqdnCacheIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetFqdnCacheID has not yet been implemented")
 		}),
-
 		PolicyGetFqdnNamesHandler: policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetFqdnNames has not yet been implemented")
 		}),
-
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetHealthz has not yet been implemented")
 		}),
-
 		PolicyGetIPHandler: policy.GetIPHandlerFunc(func(params policy.GetIPParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetIP has not yet been implemented")
 		}),
-
 		PolicyGetIdentityHandler: policy.GetIdentityHandlerFunc(func(params policy.GetIdentityParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetIdentity has not yet been implemented")
 		}),
-
 		PolicyGetIdentityEndpointsHandler: policy.GetIdentityEndpointsHandlerFunc(func(params policy.GetIdentityEndpointsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetIdentityEndpoints has not yet been implemented")
 		}),
-
 		PolicyGetIdentityIDHandler: policy.GetIdentityIDHandlerFunc(func(params policy.GetIdentityIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetIdentityID has not yet been implemented")
 		}),
-
 		ServiceGetLrpHandler: service.GetLrpHandlerFunc(func(params service.GetLrpParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation service.GetLrp has not yet been implemented")
 		}),
-
 		DaemonGetMapHandler: daemon.GetMapHandlerFunc(func(params daemon.GetMapParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetMap has not yet been implemented")
 		}),
-
 		DaemonGetMapNameHandler: daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetMapName has not yet been implemented")
 		}),
-
 		DaemonGetMapNameEventsHandler: daemon.GetMapNameEventsHandlerFunc(func(params daemon.GetMapNameEventsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetMapNameEvents has not yet been implemented")
 		}),
-
 		DaemonGetNodeIdsHandler: daemon.GetNodeIdsHandlerFunc(func(params daemon.GetNodeIdsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.GetNodeIds has not yet been implemented")
 		}),
-
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetPolicy has not yet been implemented")
 		}),
-
 		PolicyGetPolicySelectorsHandler: policy.GetPolicySelectorsHandlerFunc(func(params policy.GetPolicySelectorsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation policy.GetPolicySelectors has not yet been implemented")
 		}),
-
-		PolicyGetPolicySubjectSelectorsHandler: policy.GetPolicySubjectSelectorsHandlerFunc(func(params policy.GetPolicySubjectSelectorsParams) middleware.Responder {
-			_ = params
-
-			return middleware.NotImplemented("operation policy.GetPolicySubjectSelectors has not yet been implemented")
-		}),
-
 		PrefilterGetPrefilterHandler: prefilter.GetPrefilterHandlerFunc(func(params prefilter.GetPrefilterParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation prefilter.GetPrefilter has not yet been implemented")
 		}),
-
 		ServiceGetServiceHandler: service.GetServiceHandlerFunc(func(params service.GetServiceParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation service.GetService has not yet been implemented")
 		}),
-
 		DaemonPatchConfigHandler: daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation daemon.PatchConfig has not yet been implemented")
 		}),
-
 		EndpointPatchEndpointIDHandler: endpoint.PatchEndpointIDHandlerFunc(func(params endpoint.PatchEndpointIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.PatchEndpointID has not yet been implemented")
 		}),
-
 		EndpointPatchEndpointIDConfigHandler: endpoint.PatchEndpointIDConfigHandlerFunc(func(params endpoint.PatchEndpointIDConfigParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.PatchEndpointIDConfig has not yet been implemented")
 		}),
-
 		EndpointPatchEndpointIDLabelsHandler: endpoint.PatchEndpointIDLabelsHandlerFunc(func(params endpoint.PatchEndpointIDLabelsParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.PatchEndpointIDLabels has not yet been implemented")
 		}),
-
 		PrefilterPatchPrefilterHandler: prefilter.PatchPrefilterHandlerFunc(func(params prefilter.PatchPrefilterParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation prefilter.PatchPrefilter has not yet been implemented")
 		}),
-
 		IpamPostIpamHandler: ipam.PostIpamHandlerFunc(func(params ipam.PostIpamParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation ipam.PostIpam has not yet been implemented")
 		}),
-
 		IpamPostIpamIPHandler: ipam.PostIpamIPHandlerFunc(func(params ipam.PostIpamIPParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation ipam.PostIpamIP has not yet been implemented")
 		}),
-
 		EndpointPutEndpointIDHandler: endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation endpoint.PutEndpointID has not yet been implemented")
+		}),
+		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
+			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
 		}),
 	}
 }
@@ -360,6 +232,8 @@ type CiliumAPIAPI struct {
 	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
 	// IpamDeleteIpamIPHandler sets the operation handler for the delete ipam IP operation
 	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
+	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
+	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
 	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
@@ -418,8 +292,6 @@ type CiliumAPIAPI struct {
 	PolicyGetPolicyHandler policy.GetPolicyHandler
 	// PolicyGetPolicySelectorsHandler sets the operation handler for the get policy selectors operation
 	PolicyGetPolicySelectorsHandler policy.GetPolicySelectorsHandler
-	// PolicyGetPolicySubjectSelectorsHandler sets the operation handler for the get policy subject selectors operation
-	PolicyGetPolicySubjectSelectorsHandler policy.GetPolicySubjectSelectorsHandler
 	// PrefilterGetPrefilterHandler sets the operation handler for the get prefilter operation
 	PrefilterGetPrefilterHandler prefilter.GetPrefilterHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
@@ -440,6 +312,8 @@ type CiliumAPIAPI struct {
 	IpamPostIpamIPHandler ipam.PostIpamIPHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
+	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
+	PolicyPutPolicyHandler policy.PutPolicyHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -457,7 +331,7 @@ type CiliumAPIAPI struct {
 	CommandLineOptionsGroups []swag.CommandLineOptionsGroup
 
 	// User defined logger function.
-	Logger func(string, ...any)
+	Logger func(string, ...interface{})
 }
 
 // UseRedoc for documentation at /docs
@@ -528,6 +402,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.IpamDeleteIpamIPHandler == nil {
 		unregistered = append(unregistered, "ipam.DeleteIpamIPHandler")
+	}
+	if o.PolicyDeletePolicyHandler == nil {
+		unregistered = append(unregistered, "policy.DeletePolicyHandler")
 	}
 	if o.PrefilterDeletePrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.DeletePrefilterHandler")
@@ -616,9 +493,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.PolicyGetPolicySelectorsHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicySelectorsHandler")
 	}
-	if o.PolicyGetPolicySubjectSelectorsHandler == nil {
-		unregistered = append(unregistered, "policy.GetPolicySubjectSelectorsHandler")
-	}
 	if o.PrefilterGetPrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.GetPrefilterHandler")
 	}
@@ -649,6 +523,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.EndpointPutEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDHandler")
 	}
+	if o.PolicyPutPolicyHandler == nil {
+		unregistered = append(unregistered, "policy.PutPolicyHandler")
+	}
 
 	if len(unregistered) > 0 {
 		return fmt.Errorf("missing registration: %s", strings.Join(unregistered, ", "))
@@ -673,12 +550,12 @@ func (o *CiliumAPIAPI) Authorizer() runtime.Authorizer {
 }
 
 // ConsumersFor gets the consumers for the specified media types.
-//
 // MIME type parameters are ignored here.
 func (o *CiliumAPIAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Consumer {
 	result := make(map[string]runtime.Consumer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		if mt == "application/json" {
+		switch mt {
+		case "application/json":
 			result["application/json"] = o.JSONConsumer
 		}
 
@@ -686,17 +563,16 @@ func (o *CiliumAPIAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Cons
 			result[mt] = c
 		}
 	}
-
 	return result
 }
 
 // ProducersFor gets the producers for the specified media types.
-//
 // MIME type parameters are ignored here.
 func (o *CiliumAPIAPI) ProducersFor(mediaTypes []string) map[string]runtime.Producer {
 	result := make(map[string]runtime.Producer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		if mt == "application/json" {
+		switch mt {
+		case "application/json":
 			result["application/json"] = o.JSONProducer
 		}
 
@@ -704,7 +580,6 @@ func (o *CiliumAPIAPI) ProducersFor(mediaTypes []string) map[string]runtime.Prod
 			result[mt] = p
 		}
 	}
-
 	return result
 }
 
@@ -755,6 +630,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/ipam/{ip}"] = ipam.NewDeleteIpamIP(o.context, o.IpamDeleteIpamIPHandler)
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/policy"] = policy.NewDeletePolicy(o.context, o.PolicyDeletePolicyHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
@@ -874,10 +753,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/policy/subject-selectors"] = policy.NewGetPolicySubjectSelectors(o.context, o.PolicyGetPolicySubjectSelectorsHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
 	o.handlers["GET"]["/prefilter"] = prefilter.NewGetPrefilter(o.context, o.PrefilterGetPrefilterHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
@@ -915,6 +790,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/endpoint/{id}"] = endpoint.NewPutEndpointID(o.context, o.EndpointPutEndpointIDHandler)
+	if o.handlers["PUT"] == nil {
+		o.handlers["PUT"] = make(map[string]http.Handler)
+	}
+	o.handlers["PUT"]["/policy"] = policy.NewPutPolicy(o.context, o.PolicyPutPolicyHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

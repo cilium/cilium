@@ -24,14 +24,8 @@ import (
 
 // ContainerResizePolicyApplyConfiguration represents a declarative configuration of the ContainerResizePolicy type for use
 // with apply.
-//
-// ContainerResizePolicy represents resource resize policy for the container.
 type ContainerResizePolicyApplyConfiguration struct {
-	// Name of the resource to which this resource resize policy applies.
-	// Supported values: cpu, memory.
-	ResourceName *corev1.ResourceName `json:"resourceName,omitempty"`
-	// Restart policy to apply when specified resource is resized.
-	// If not specified, it defaults to NotRequired.
+	ResourceName  *corev1.ResourceName                `json:"resourceName,omitempty"`
 	RestartPolicy *corev1.ResourceResizeRestartPolicy `json:"restartPolicy,omitempty"`
 }
 

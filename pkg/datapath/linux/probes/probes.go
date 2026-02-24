@@ -25,9 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -194,7 +191,7 @@ var HaveBPFJIT = sync.OnceValue(func() error {
 	if err != nil {
 		return fmt.Errorf("get prog info: %w", err)
 	}
-	if _, err := info.JitedSize(); err != nil && !errors.Is(err, ebpf.ErrRestrictedKernel) {
+	if _, err := info.JitedSize(); err != nil {
 		return fmt.Errorf("get JITed prog size: %w", err)
 	}
 
@@ -414,9 +411,7 @@ func HaveDeadCodeElim() error {
 		return fmt.Errorf("get prog info: %w", err)
 	}
 	infoInst, err := info.Instructions()
-	if errors.Is(err, ebpf.ErrRestrictedKernel) {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return fmt.Errorf("get instructions: %w", err)
 	}
 
@@ -461,42 +456,6 @@ var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
 	defer objs.Close()
 
 	ret, err := objs.ProbeFibLookupSkipNeigh.Run(&ebpf.RunOptions{
-		// Newer kernels require that data is at least 14 bytes:
-		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
-		Data:   make([]byte, 14),
-		Repeat: 1,
-	})
-	if err != nil {
-		return fmt.Errorf("running probe: %w", err)
-	}
-
-	if ret != 0 {
-		return ErrNotSupported
-	}
-
-	return nil
-})
-
-// HaveFibLookupTbid tests whether or not the kernel supports the
-// BPF_FIB_LOOKUP_TBID flag for bpf_fib_lookup.
-// https://lore.kernel.org/bpf/20230505-bpf-add-tbid-fib-lookup-v1-0-fd99f7162e76@gmail.com/T/#u
-var HaveFibLookupTbid = sync.OnceValue(func() error {
-	var objs bpfgen.ProbesObjects
-
-	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("loading collection: %w", err)
-	}
-
-	defer objs.Close()
-
-	ret, err := objs.ProbeFibLookupTbid.Run(&ebpf.RunOptions{
 		// Newer kernels require that data is at least 14 bytes:
 		// https://github.com/torvalds/linux/commit/6b3d638ca897e099fa99bd6d02189d3176f80a47
 		Data:   make([]byte, 14),
@@ -639,90 +598,3 @@ func HaveBatchAPI() error {
 	}
 	return nil
 }
-
-// Probes whether the kernel supports BIG TCP IPv4.
-var HaveBIGTCPIPv4 = sync.OnceValue(func() error {
-	link, err := safenetlink.LinkByName("lo")
-	if err != nil {
-		return err
-	}
-	// Kernel commit 9eefedd58ae1 ("net: add gso_ipv4_max_size and gro_ipv4_max_size per device").
-	// Patch 09/10 of the series "net: support ipv4 big tcp".
-	if link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0 {
-		return nil
-	} else {
-		return ErrNotSupported
-	}
-})
-
-// Probes whether the kernel supports BIG TCP IPv6.
-var HaveBIGTCPIPv6 = sync.OnceValue(func() error {
-	link, err := safenetlink.LinkByName("lo")
-	if err != nil {
-		return err
-	}
-	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
-	// Patch 01/13 of the series "tcp: BIG TCP implementation".
-	if link.Attrs().TSOMaxSize > 0 {
-		return nil
-	} else {
-		return ErrNotSupported
-	}
-})
-
-// Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
-var HaveBIGTCPTunnel = sync.OnceValue(func() error {
-	ns, err := netns.New()
-	if err != nil {
-		return fmt.Errorf("create netns: %w", err)
-	}
-	defer ns.Close()
-
-	var h *netlink.Handle
-	if err := ns.Do(func() (err error) {
-		h, err = netlink.NewHandle()
-		return err
-	}); err != nil {
-		return fmt.Errorf("create netlink handle: %w", err)
-	}
-	defer h.Close()
-
-	const probeNetdev = "probe"
-
-	dev := &netlink.Geneve{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: probeNetdev,
-		},
-		Dport: defaults.TunnelPortGeneve,
-	}
-
-	if err := h.LinkAdd(dev); err != nil {
-		return fmt.Errorf("failed to create a probe GENEVE device: %w", err)
-	}
-
-	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return h.LinkByName(probeNetdev)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to fetch the probe GENEVE device: %w", err)
-	}
-
-	// (Pending) Kernel commit XXXXXXXXXXXX ("geneve: Enable BIG TCP packets").
-	//
-	// VXLAN tunnels are less suitable as a probe, because they may call
-	// netif_inherit_tso_max() and inherit tso_max_size from the physical
-	// device, which is likely to be bigger than 64k, even before the kernel
-	// support for BIG TCP for VXLAN has been added. Setting gso_max_size
-	// to a bigger value on such kernels doesn't make it work, but leads to
-	// packet drops instead.
-	//
-	// GENEVE, on the other hand, doesn't do netif_inherit_tso_max(), so we
-	// can reliably check its tso_max_size (65536 meaning pre BIG TCP
-	// support; 524280 meaning post BIG TCP support).
-	if link.Attrs().TSOMaxSize > types.GROGSOLegacyMaxSize {
-		return nil
-	} else {
-		return ErrNotSupported
-	}
-})

@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -17,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -178,6 +176,17 @@ func NamespaceResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.Metr
 	return resource.New[*slim_corev1.Namespace](lc, lw, mp, resource.WithMetric("Namespace")), nil
 }
 
+func LBIPPoolsResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped(params.ClientSet.CiliumV2().CiliumLoadBalancerIPPools()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2.CiliumLoadBalancerIPPool](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumLoadBalancerIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+}
+
 func CiliumIdentityResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
@@ -203,17 +212,6 @@ func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.
 		opts...,
 	)
 	return resource.New[*slim_networkingv1.NetworkPolicy](lc, lw, mp, resource.WithMetric("NetworkPolicy")), nil
-}
-
-func ClusterNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*policyv1alpha2.ClusterNetworkPolicy], error) {
-	if !cs.IsEnabled() {
-		return nil, nil
-	}
-	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped[*policyv1alpha2.ClusterNetworkPolicyList](cs.PolicyV1alpha2().ClusterNetworkPolicies()),
-		opts...,
-	)
-	return resource.New[*policyv1alpha2.ClusterNetworkPolicy](lc, lw, mp, resource.WithMetric("ClusterNetworkPolicy")), nil
 }
 
 func CiliumNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
@@ -258,6 +256,18 @@ func CiliumPodIPPoolResource(params CiliumResourceParams, opts ...func(*metav1.L
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumPodIPPool"), resource.WithCRDSync(params.CRDSyncPromise)), nil
+}
+
+func CiliumBGPPeeringPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy], error) {
+	if !params.ClientSet.IsEnabled() {
+		return nil, nil
+	}
+
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumBGPPeeringPolicyList](params.ClientSet.CiliumV2alpha1().CiliumBGPPeeringPolicies()),
+		opts...,
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumBGPPeeringPolicy](params.Lifecycle, lw, params.MetricsProvider, resource.WithMetric("CiliumBGPPeeringPolicies"), resource.WithCRDSync(params.CRDSyncPromise)), nil
 }
 
 func CiliumBGPNodeConfigResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumBGPNodeConfig], error) {
@@ -382,7 +392,9 @@ func transformEndpoint(logger *slog.Logger, obj any) (any, error) {
 // CiliumSlimEndpointResource uses the "localNode" IndexFunc to build the resource indexer.
 // The IndexFunc accesses the local node info to get its IP, so it depends on the local node store
 // to initialize it before the first access.
-func CiliumSlimEndpointResource(params CiliumResourceParams, localNodeStore *node.LocalNodeStore, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
+// To reflect this, the node.LocalNodeStore dependency is explicitly requested in the function
+// signature.
+func CiliumSlimEndpointResource(params CiliumResourceParams, _ *node.LocalNodeStore, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -392,7 +404,7 @@ func CiliumSlimEndpointResource(params CiliumResourceParams, localNodeStore *nod
 	)
 	indexers := cache.Indexers{
 		"localNode": func(obj any) ([]string, error) {
-			return ciliumEndpointLocalPodIndexFunc(params.Logger, localNodeStore, obj)
+			return ciliumEndpointLocalPodIndexFunc(params.Logger, obj)
 		},
 	}
 	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw, params.MetricsProvider,
@@ -407,7 +419,7 @@ func CiliumSlimEndpointResource(params CiliumResourceParams, localNodeStore *nod
 
 // ciliumEndpointLocalPodIndexFunc is an IndexFunc that indexes only local
 // CiliumEndpoints, by their local Node IP.
-func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, localNodeStore *node.LocalNodeStore, obj any) ([]string, error) {
+func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, error) {
 	cep, ok := obj.(*types.CiliumEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object type: %T", obj)
@@ -420,11 +432,7 @@ func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, localNodeStore *node.L
 		)
 		return nil, nil
 	}
-	ln, err := localNodeStore.Get(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get local node: %w", err)
-	}
-	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln) {
+	if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 		indices = append(indices, cep.Networking.NodeIP)
 	}
 	return indices, nil
@@ -433,7 +441,9 @@ func ciliumEndpointLocalPodIndexFunc(logger *slog.Logger, localNodeStore *node.L
 // CiliumEndpointSliceResource uses the "localNode" IndexFunc to build the resource indexer.
 // The IndexFunc accesses the local node info to get its IP, so it depends on the local node store
 // to initialize it before the first access.
-func CiliumEndpointSliceResource(params CiliumResourceParams, localNodeStore *node.LocalNodeStore, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
+// To reflect this, the node.LocalNodeStore dependency is explicitly requested in the function
+// signature.
+func CiliumEndpointSliceResource(params CiliumResourceParams, _ *node.LocalNodeStore, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -443,7 +453,7 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, localNodeStore *no
 	)
 	indexers := cache.Indexers{
 		"localNode": func(obj any) ([]string, error) {
-			return ciliumEndpointSliceLocalPodIndexFunc(localNodeStore, obj)
+			return ciliumEndpointSliceLocalPodIndexFunc(params.Logger, obj)
 		},
 	}
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw, params.MetricsProvider,
@@ -455,19 +465,14 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, localNodeStore *no
 
 // ciliumEndpointSliceLocalPodIndexFunc is an IndexFunc that indexes CiliumEndpointSlices
 // by their corresponding Pod, which are running locally on this Node.
-func ciliumEndpointSliceLocalPodIndexFunc(localNodeStore *node.LocalNodeStore, obj any) ([]string, error) {
+func ciliumEndpointSliceLocalPodIndexFunc(logger *slog.Logger, obj any) ([]string, error) {
 	ces, ok := obj.(*cilium_api_v2alpha1.CiliumEndpointSlice)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object type: %T", obj)
 	}
-
-	ln, err := localNodeStore.Get(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get local node: %w", err)
-	}
 	indices := []string{}
 	for _, ep := range ces.Endpoints {
-		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(ln) {
+		if ep.Networking.NodeIP == node.GetCiliumEndpointNodeIP(logger) {
 			indices = append(indices, ep.Networking.NodeIP)
 			break
 		}

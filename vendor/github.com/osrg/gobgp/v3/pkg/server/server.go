@@ -1099,7 +1099,7 @@ func (s *BgpServer) getPossibleBest(peer *peer, family bgp.RouteFamily) []*table
 	return peer.localRib.GetBestPathList(peer.TableID(), peer.AS(), []bgp.RouteFamily{family})
 }
 
-func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily, addEOR bool) ([]*table.Path, []*table.Path) {
+func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily) ([]*table.Path, []*table.Path) {
 	pathList := []*table.Path{}
 	filtered := []*table.Path{}
 
@@ -1130,7 +1130,7 @@ func (s *BgpServer) getBestFromLocal(peer *peer, rfList []bgp.RouteFamily, addEO
 			}
 		}
 	}
-	if addEOR && peer.isGracefulRestartEnabled() {
+	if peer.isGracefulRestartEnabled() {
 		for _, family := range rfList {
 			pathList = append(pathList, table.NewEOR(family))
 		}
@@ -1251,7 +1251,7 @@ func (s *BgpServer) handleRouteRefresh(peer *peer, e *fsmMsg) []*table.Path {
 		return nil
 	}
 	rfList := []bgp.RouteFamily{rf}
-	accepted, _ := s.getBestFromLocal(peer, rfList, true)
+	accepted, _ := s.getBestFromLocal(peer, rfList)
 	return accepted
 }
 
@@ -1324,7 +1324,7 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 				if path.IsWithdraw {
 					// Note: The paths to be withdrawn are filtered because the
 					// given RT on RTM NLRI is already removed from adj-RIB-in.
-					_, candidates = s.getBestFromLocal(peer, fs, true)
+					_, candidates = s.getBestFromLocal(peer, fs)
 				} else {
 					// https://github.com/osrg/gobgp/issues/1777
 					// Ignore duplicate Membership announcements
@@ -1728,7 +1728,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 				notPeerRestarting := !peer.fsm.pConf.GracefulRestart.State.PeerRestarting
 				peer.fsm.lock.RUnlock()
 				if y && notPeerRestarting && c.RouteTargetMembership.Config.DeferralTime > 0 {
-					pathList, _ = s.getBestFromLocal(peer, []bgp.RouteFamily{bgp.RF_RTC_UC}, true)
+					pathList, _ = s.getBestFromLocal(peer, []bgp.RouteFamily{bgp.RF_RTC_UC})
 					t := c.RouteTargetMembership.Config.DeferralTime
 					for _, f := range peer.negotiatedRFList() {
 						if f != bgp.RF_RTC_UC {
@@ -1736,7 +1736,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 						}
 					}
 				} else {
-					pathList, _ = s.getBestFromLocal(peer, peer.negotiatedRFList(), true)
+					pathList, _ = s.getBestFromLocal(peer, peer.negotiatedRFList())
 				}
 
 				if len(pathList) > 0 {
@@ -1768,7 +1768,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 						if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 							continue
 						}
-						paths, _ := s.getBestFromLocal(p, p.configuredRFlist(), true)
+						paths, _ := s.getBestFromLocal(p, p.configuredRFlist())
 						if len(paths) > 0 {
 							sendfsmOutgoingMsg(p, paths, nil, false)
 						}
@@ -1910,7 +1910,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 							if !p.isGracefulRestartEnabled() && !peerLocalRestarting {
 								continue
 							}
-							paths, _ := s.getBestFromLocal(p, p.negotiatedRFList(), true)
+							paths, _ := s.getBestFromLocal(p, p.negotiatedRFList())
 							if len(paths) > 0 {
 								sendfsmOutgoingMsg(p, paths, nil, false)
 							}
@@ -1960,7 +1960,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 							families = append(families, f)
 						}
 					}
-					if paths, _ := s.getBestFromLocal(peer, families, true); len(paths) > 0 {
+					if paths, _ := s.getBestFromLocal(peer, families); len(paths) > 0 {
 						sendfsmOutgoingMsg(peer, paths, nil, false)
 					}
 				}
@@ -2670,7 +2670,7 @@ func (s *BgpServer) softResetOut(addr string, family bgp.RouteFamily, deferral b
 			}
 		}
 
-		pathList, _ := s.getBestFromLocal(peer, families, true)
+		pathList, _ := s.getBestFromLocal(peer, families)
 		if len(pathList) > 0 {
 			if deferral {
 				pathList = func() []*table.Path {
@@ -2836,7 +2836,7 @@ func (s *BgpServer) getAdjRib(addr string, family bgp.RouteFamily, in bool, enab
 					pathList = append(pathList, path)
 				}
 			} else {
-				pathList, _ = s.getBestFromLocal(peer, peer.configuredRFlist(), true)
+				pathList, _ = s.getBestFromLocal(peer, peer.configuredRFlist())
 			}
 			toUpdate = make([]*table.Path, 0, len(pathList))
 			for _, path := range pathList {
@@ -2914,7 +2914,7 @@ func (s *BgpServer) ListPath(ctx context.Context, r *api.ListPathRequest, fn fun
 						case api.TableType_LOCAL, api.TableType_GLOBAL:
 							p.Best = true
 						}
-					} else if s.bgpConfig.Global.UseMultiplePaths.Config.Enabled && path.Compare(knownPathList[i-1]) == 0 {
+					} else if s.bgpConfig.Global.UseMultiplePaths.Config.Enabled && path.Equal(knownPathList[i-1]) {
 						p.Best = true
 					}
 				}
@@ -2984,7 +2984,7 @@ func (s *BgpServer) getAdjRibInfo(addr string, family bgp.RouteFamily, in bool) 
 			adjRib = peer.adjRibIn
 		} else {
 			adjRib = table.NewAdjRib(s.logger, peer.configuredRFlist())
-			accepted, _ := s.getBestFromLocal(peer, peer.configuredRFlist(), false)
+			accepted, _ := s.getBestFromLocal(peer, peer.configuredRFlist())
 			adjRib.UpdateAdjRibOut(accepted)
 		}
 		info, err = adjRib.TableInfo(family)
@@ -3173,19 +3173,12 @@ func (s *BgpServer) ListPeer(ctx context.Context, r *api.ListPeerRequest, fn fun
 					c := afisafi.Config
 					if c.Family != nil && c.Family.Afi == api.Family_Afi(afi) && c.Family.Safi == api.Family_Safi(safi) {
 						flist := []bgp.RouteFamily{family}
-						peer.fsm.lock.RLock()
-						sesstionState := peer.fsm.state
-						peer.fsm.lock.RUnlock()
-						received := uint64(0)
-						accepted := uint64(0)
+						received := uint64(peer.adjRibIn.Count(flist))
+						accepted := uint64(peer.adjRibIn.Accepted(flist))
 						advertised := uint64(0)
-						if sesstionState == bgp.BGP_FSM_ESTABLISHED {
-							received = uint64(peer.adjRibIn.Count(flist))
-							accepted = uint64(peer.adjRibIn.Accepted(flist))
-							if getAdvertised {
-								pathList, _ := s.getBestFromLocal(peer, flist, false)
-								advertised = uint64(len(pathList))
-							}
+						if getAdvertised {
+							pathList, _ := s.getBestFromLocal(peer, flist)
+							advertised = uint64(len(pathList))
 						}
 						p.AfiSafis[i].State = &api.AfiSafiState{
 							Family:     c.Family,

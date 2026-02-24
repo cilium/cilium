@@ -396,35 +396,6 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetMaxDownstreamConnectionDurationJitterPercentage()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, TcpProxyValidationError{
-					field:  "MaxDownstreamConnectionDurationJitterPercentage",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, TcpProxyValidationError{
-					field:  "MaxDownstreamConnectionDurationJitterPercentage",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetMaxDownstreamConnectionDurationJitterPercentage()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxyValidationError{
-				field:  "MaxDownstreamConnectionDurationJitterPercentage",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	if d := m.GetAccessLogFlushInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
@@ -520,32 +491,6 @@ func (m *TcpProxy) validate(all bool) error {
 
 	}
 
-	if _, ok := UpstreamConnectMode_name[int32(m.GetUpstreamConnectMode())]; !ok {
-		err := TcpProxyValidationError{
-			field:  "UpstreamConnectMode",
-			reason: "value must be one of the defined enum values",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if wrapper := m.GetMaxEarlyDataBytes(); wrapper != nil {
-
-		if wrapper.GetValue() > 1048576 {
-			err := TcpProxyValidationError{
-				field:  "MaxEarlyDataBytes",
-				reason: "value must be less than or equal to 1048576",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
-	}
-
 	oneofClusterSpecifierPresent := false
 	switch v := m.ClusterSpecifier.(type) {
 	case *TcpProxy_Cluster:
@@ -630,7 +575,7 @@ type TcpProxyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxyMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -775,7 +720,7 @@ type TcpProxy_WeightedClusterMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_WeightedClusterMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -927,39 +872,6 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 
 	// no validation rules for PropagateResponseTrailers
 
-	if all {
-		switch v := interface{}(m.GetRequestIdExtension()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, TcpProxy_TunnelingConfigValidationError{
-					field:  "RequestIdExtension",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, TcpProxy_TunnelingConfigValidationError{
-					field:  "RequestIdExtension",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetRequestIdExtension()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return TcpProxy_TunnelingConfigValidationError{
-				field:  "RequestIdExtension",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for RequestIdHeader
-
-	// no validation rules for RequestIdMetadataKey
-
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)
 	}
@@ -974,7 +886,7 @@ type TcpProxy_TunnelingConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_TunnelingConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1136,7 +1048,7 @@ type TcpProxy_OnDemandMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_OnDemandMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1270,7 +1182,7 @@ type TcpProxy_TcpAccessLogOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_TcpAccessLogOptionsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1427,7 +1339,7 @@ type TcpProxy_WeightedCluster_ClusterWeightMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m TcpProxy_WeightedCluster_ClusterWeightMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

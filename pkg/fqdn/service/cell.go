@@ -121,7 +121,7 @@ type FQDNConfig struct {
 
 var DefaultConfig = FQDNConfig{
 	EnableStandaloneDNSProxy:                 false,
-	StandaloneDNSProxyServerPort:             10095,
+	StandaloneDNSProxyServerPort:             40045,
 	ToFQDNsEnableDNSCompression:              true,
 	DNSMaxIPsPerRestoredRule:                 1000,
 	DNSProxyConcurrencyProcessingGracePeriod: 0,

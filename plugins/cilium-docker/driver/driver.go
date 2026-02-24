@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -21,13 +22,15 @@ import (
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/afero"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -77,7 +80,7 @@ func newLibnetworkRoute(route route.Route) api.StaticRoute {
 func NewDriver(logger *slog.Logger, ciliumSockPath, dockerHostPath string) (Driver, error) {
 
 	if ciliumSockPath == "" {
-		ciliumSockPath = client.DefaultSockPathProtocol()
+		ciliumSockPath = client.DefaultSockPath()
 	}
 
 	scopedLog := logger.With(
@@ -416,39 +419,41 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	removeLinkOnErr := func(linkPair *connector.LinkPair) {
-		if err != nil && linkPair != nil {
-			if err := linkPair.Delete(); err != nil {
+	removeLinkOnErr := func(link netlink.Link) {
+		if err != nil && link != nil && !reflect.ValueOf(link).IsNil() {
+			if err := netlink.LinkDel(link); err != nil {
 				driver.logger.Warn(
 					"failed to clean up",
 					logfields.Error, err,
 					logfields.DatapathMode, driver.conf.DatapathMode,
+					logfields.Device, link.Attrs().Name,
 				)
 			}
 		}
 	}
 
-	ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	linkConfig := datapath.LinkConfig{
-		EndpointID:     create.EndpointID,
-		GROIPv6MaxSize: int(driver.conf.GROMaxSize),
-		GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
-		GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
-		GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
-		DeviceMTU:      int(driver.conf.DeviceMTU),
+	switch driver.conf.DatapathMode {
+	case datapathOption.DatapathModeVeth:
+		linkConfig := connector.LinkConfig{
+			GROIPv6MaxSize: int(driver.conf.GROMaxSize),
+			GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
+			GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
+			GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
+			DeviceMTU:      int(driver.conf.DeviceMTU),
+		}
+		var veth *netlink.Veth
+		var peer netlink.Link
+		veth, peer, _, err = connector.SetupVeth(driver.logger, create.EndpointID, linkConfig, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+		endpoint.Mac = peer.Attrs().HardwareAddr.String()
+		endpoint.HostMac = veth.Attrs().HardwareAddr.String()
+		endpoint.InterfaceIndex = int64(veth.Attrs().Index)
+		endpoint.InterfaceName = veth.Name
+		defer removeLinkOnErr(veth)
 	}
-	linkMode := datapath.GetConnectorModeByName(string(driver.conf.DatapathMode))
-	linkPair, err := connector.NewLinkPair(driver.logger, linkMode, linkConfig, ctl)
 	if err != nil {
-		sendError(driver.logger, w, fmt.Sprintf("Error setting up linkpair in %s mode: %s", driver.conf.DatapathMode, err), http.StatusBadRequest)
+		sendError(driver.logger, w, fmt.Sprintf("Error while setting up %s mode: %s", driver.conf.DatapathMode, err), http.StatusBadRequest)
+		return
 	}
-
-	hostLinkAttrs := linkPair.GetHostLink().Attrs()
-	endpoint.Mac = linkPair.GetPeerLink().Attrs().HardwareAddr.String()
-	endpoint.HostMac = hostLinkAttrs.HardwareAddr.String()
-	endpoint.InterfaceIndex = int64(hostLinkAttrs.Index)
-	endpoint.InterfaceName = hostLinkAttrs.Name
-	defer removeLinkOnErr(linkPair)
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
@@ -481,6 +486,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	var del api.DeleteEndpointRequest
+	var ifName string
 	if err := json.NewDecoder(r.Body).Decode(&del); err != nil {
 		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
@@ -490,10 +496,12 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		logfields.Response, del,
 	)
 
-	linkConfig := datapath.LinkConfig{
-		EndpointID: del.EndpointID,
+	switch driver.conf.DatapathMode {
+	case datapathOption.DatapathModeVeth:
+		ifName = connector.Endpoint2IfName(del.EndpointID)
 	}
-	if err := connector.DeleteLinkPair(linkConfig); err != nil {
+
+	if err := link.DeleteByName(ifName); err != nil {
 		driver.logger.Warn("Error while deleting link", logfields.Error, err)
 	}
 

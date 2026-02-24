@@ -136,19 +136,18 @@ var OpcodeToString = map[int]string{
 
 // RcodeToString maps Rcodes to strings.
 var RcodeToString = map[int]string{
-	RcodeSuccess:                    "NOERROR",
-	RcodeFormatError:                "FORMERR",
-	RcodeServerFailure:              "SERVFAIL",
-	RcodeNameError:                  "NXDOMAIN",
-	RcodeNotImplemented:             "NOTIMP",
-	RcodeRefused:                    "REFUSED",
-	RcodeYXDomain:                   "YXDOMAIN", // See RFC 2136
-	RcodeYXRrset:                    "YXRRSET",
-	RcodeNXRrset:                    "NXRRSET",
-	RcodeNotAuth:                    "NOTAUTH",
-	RcodeNotZone:                    "NOTZONE",
-	RcodeStatefulTypeNotImplemented: "DSOTYPENI",
-	RcodeBadSig:                     "BADSIG", // Also known as RcodeBadVers, see RFC 6891
+	RcodeSuccess:        "NOERROR",
+	RcodeFormatError:    "FORMERR",
+	RcodeServerFailure:  "SERVFAIL",
+	RcodeNameError:      "NXDOMAIN",
+	RcodeNotImplemented: "NOTIMP",
+	RcodeRefused:        "REFUSED",
+	RcodeYXDomain:       "YXDOMAIN", // See RFC 2136
+	RcodeYXRrset:        "YXRRSET",
+	RcodeNXRrset:        "NXRRSET",
+	RcodeNotAuth:        "NOTAUTH",
+	RcodeNotZone:        "NOTZONE",
+	RcodeBadSig:         "BADSIG", // Also known as RcodeBadVers, see RFC 6891
 	//	RcodeBadVers:        "BADVERS",
 	RcodeBadKey:    "BADKEY",
 	RcodeBadTime:   "BADTIME",
@@ -872,9 +871,10 @@ func (dns *Msg) unpack(dh Header, msg []byte, off int) (err error) {
 	// TODO(miek) make this an error?
 	// use PackOpt to let people tell how detailed the error reporting should be?
 	// if off != len(msg) {
-	//	// println("dns: extra bytes in dns packet", off, "<", len(msg))
+	// 	// println("dns: extra bytes in dns packet", off, "<", len(msg))
 	// }
 	return err
+
 }
 
 // Unpack unpacks a binary message to a Msg structure.
@@ -1123,28 +1123,23 @@ func unpackQuestion(msg []byte, off int) (Question, int, error) {
 	)
 	q.Name, off, err = UnpackDomainName(msg, off)
 	if err != nil {
-		return q, off, fmt.Errorf("bad question name: %w", err)
+		return q, off, err
 	}
 	if off == len(msg) {
 		return q, off, nil
 	}
 	q.Qtype, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return q, off, fmt.Errorf("bad question qtype: %w", err)
+		return q, off, err
 	}
 	if off == len(msg) {
 		return q, off, nil
 	}
 	q.Qclass, off, err = unpackUint16(msg, off)
-	if err != nil {
-		return q, off, fmt.Errorf("bad question qclass: %w", err)
-	}
-
 	if off == len(msg) {
 		return q, off, nil
 	}
-
-	return q, off, nil
+	return q, off, err
 }
 
 func (dh *Header) pack(msg []byte, off int, compression compressionMap, compress bool) (int, error) {
@@ -1182,27 +1177,27 @@ func unpackMsgHdr(msg []byte, off int) (Header, int, error) {
 	)
 	dh.Id, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header id: %w", err)
+		return dh, off, err
 	}
 	dh.Bits, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header bits: %w", err)
+		return dh, off, err
 	}
 	dh.Qdcount, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header question count: %w", err)
+		return dh, off, err
 	}
 	dh.Ancount, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header answer count: %w", err)
+		return dh, off, err
 	}
 	dh.Nscount, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header ns count: %w", err)
+		return dh, off, err
 	}
 	dh.Arcount, off, err = unpackUint16(msg, off)
 	if err != nil {
-		return dh, off, fmt.Errorf("bad header extra count: %w", err)
+		return dh, off, err
 	}
 	return dh, off, nil
 }

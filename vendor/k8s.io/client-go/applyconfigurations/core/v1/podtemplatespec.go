@@ -26,15 +26,9 @@ import (
 
 // PodTemplateSpecApplyConfiguration represents a declarative configuration of the PodTemplateSpec type for use
 // with apply.
-//
-// PodTemplateSpec describes the data a pod should have when created from a template
 type PodTemplateSpecApplyConfiguration struct {
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// Specification of the desired behavior of the pod.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec *PodSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                                 *PodSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // PodTemplateSpecApplyConfiguration constructs a declarative configuration of the PodTemplateSpec type for use with

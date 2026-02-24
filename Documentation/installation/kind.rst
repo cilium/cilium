@@ -39,10 +39,12 @@ Install Cilium
 
 Then, install Cilium release via Helm:
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: image.pullPolicy=IfNotPresent
-         ipam.mode=kubernetes
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set image.pullPolicy=IfNotPresent \\
+      --set ipam.mode=kubernetes
 
 .. note::
 

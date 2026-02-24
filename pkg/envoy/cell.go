@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"runtime/pprof"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -57,7 +58,6 @@ type xdsServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
-	JobGroup           job.Group
 	Logger             *slog.Logger
 	IPCache            *ipcache.IPCache
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
@@ -115,9 +115,9 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
-			params.JobGroup.Add(job.OneShot("xds-server", func(ctx context.Context, _ cell.Health) error {
-				return xdsServer.start(ctx)
-			}, job.WithShutdown()))
+			if err := xdsServer.start(); err != nil {
+				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
+			}
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
@@ -128,23 +128,20 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
-			XDSServer:                      xdsServer,
-			logger:                         params.Logger,
-			runDir:                         option.Config.RunDir,
-			envoyLogPath:                   params.EnvoyProxyConfig.EnvoyLog,
-			envoyDefaultLogLevel:           params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
-			envoyBaseID:                    params.EnvoyProxyConfig.EnvoyBaseID,
-			keepCapNetBindService:          params.EnvoyProxyConfig.EnvoyKeepCapNetbindservice,
-			metricsListenerPort:            params.EnvoyProxyConfig.ProxyPrometheusPort,
-			adminListenerPort:              params.EnvoyProxyConfig.ProxyAdminPort,
-			connectTimeout:                 int64(params.EnvoyProxyConfig.ProxyConnectTimeout),
-			maxActiveDownstreamConnections: params.EnvoyProxyConfig.ProxyMaxActiveDownstreamConnections,
-			maxRequestsPerConnection:       uint32(params.EnvoyProxyConfig.ProxyMaxRequestsPerConnection),
-			maxConnectionDuration:          time.Duration(params.EnvoyProxyConfig.ProxyMaxConnectionDurationSeconds) * time.Second,
-			idleTimeout:                    time.Duration(params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds) * time.Second,
-			maxConcurrentRetries:           params.EnvoyProxyConfig.ProxyMaxConcurrentRetries,
-			maxConnections:                 params.EnvoyProxyConfig.ProxyClusterMaxConnections,
-			maxRequests:                    params.EnvoyProxyConfig.ProxyClusterMaxRequests,
+			XDSServer:                xdsServer,
+			logger:                   params.Logger,
+			runDir:                   option.Config.RunDir,
+			envoyLogPath:             params.EnvoyProxyConfig.EnvoyLog,
+			envoyDefaultLogLevel:     params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
+			envoyBaseID:              params.EnvoyProxyConfig.EnvoyBaseID,
+			keepCapNetBindService:    params.EnvoyProxyConfig.EnvoyKeepCapNetbindservice,
+			metricsListenerPort:      params.EnvoyProxyConfig.ProxyPrometheusPort,
+			adminListenerPort:        params.EnvoyProxyConfig.ProxyAdminPort,
+			connectTimeout:           int64(params.EnvoyProxyConfig.ProxyConnectTimeout),
+			maxRequestsPerConnection: uint32(params.EnvoyProxyConfig.ProxyMaxRequestsPerConnection),
+			maxConnectionDuration:    time.Duration(params.EnvoyProxyConfig.ProxyMaxConnectionDurationSeconds) * time.Second,
+			idleTimeout:              time.Duration(params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds) * time.Second,
+			maxConcurrentRetries:     params.EnvoyProxyConfig.ProxyMaxConcurrentRetries,
 		}, nil
 	}
 
@@ -159,7 +156,6 @@ type accessLogServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
-	JobGroup           job.Group
 	Logger             *slog.Logger
 	AccessLogger       accesslog.ProxyAccessLogger
 	LocalEndpointStore *LocalEndpointStore
@@ -183,9 +179,9 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
-			params.JobGroup.Add(job.OneShot("accesslog-server", func(ctx context.Context, _ cell.Health) error {
-				return accessLogServer.start(ctx)
-			}, job.WithShutdown()))
+			if err := accessLogServer.start(); err != nil {
+				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
+			}
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
@@ -200,8 +196,10 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 type versionCheckParams struct {
 	cell.In
 
+	Lifecycle        cell.Lifecycle
 	Logger           *slog.Logger
-	JobGroup         job.Group
+	JobRegistry      job.Registry
+	Health           cell.Health
 	EnvoyProxyConfig config.ProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
@@ -217,11 +215,18 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		adminClient:   params.EnvoyAdminClient,
 	}
 
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Health,
+		params.Lifecycle,
+		job.WithLogger(params.Logger),
+		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
+	)
+
 	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
 	var previousError error
-	params.JobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
+	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
 		if err := checker.checkEnvoyVersion(); err != nil {
 			// We only log it as an error if it happens at least twice,
 			// as it is expected that during upgrade of Cilium, the Envoy version might differ
@@ -268,9 +273,10 @@ func newArtifactCopier(lifecycle cell.Lifecycle, logger *slog.Logger) *ArtifactC
 type syncerParams struct {
 	cell.In
 
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
+	Logger      *slog.Logger
+	Lifecycle   cell.Lifecycle
+	JobRegistry job.Registry
+	Health      cell.Health
 
 	K8sClientset client.Clientset
 
@@ -307,6 +313,13 @@ func registerSecretSyncer(params syncerParams) error {
 		return nil
 	}
 
+	jobGroup := params.JobRegistry.NewGroup(
+		params.Health,
+		params.Lifecycle,
+		job.WithLogger(params.Logger),
+		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
+	)
+
 	secretSyncerLogger := params.Logger.With(logfields.Controller, "secretSyncer")
 
 	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
@@ -316,7 +329,7 @@ func registerSecretSyncer(params syncerParams) error {
 	)
 
 	for ns := range namespaces {
-		params.JobGroup.Add(job.Observer(
+		jobGroup.Add(job.Observer(
 			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
 			newK8sSecretResource(params.Lifecycle, params.K8sClientset, params.MetricsProvider, ns),

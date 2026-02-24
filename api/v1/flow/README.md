@@ -6,7 +6,6 @@
 - [flow/flow.proto](#flow_flow-proto)
     - [AgentEvent](#flow-AgentEvent)
     - [AgentEventUnknown](#flow-AgentEventUnknown)
-    - [Aggregate](#flow-Aggregate)
     - [CiliumEventType](#flow-CiliumEventType)
     - [DNS](#flow-DNS)
     - [DebugEvent](#flow-DebugEvent)
@@ -24,7 +23,6 @@
     - [HTTPHeader](#flow-HTTPHeader)
     - [ICMPv4](#flow-ICMPv4)
     - [ICMPv6](#flow-ICMPv6)
-    - [IGMP](#flow-IGMP)
     - [IP](#flow-IP)
     - [IPCacheNotification](#flow-IPCacheNotification)
     - [IPTraceID](#flow-IPTraceID)
@@ -47,7 +45,6 @@
     - [TraceParent](#flow-TraceParent)
     - [Tunnel](#flow-Tunnel)
     - [UDP](#flow-UDP)
-    - [VRRP](#flow-VRRP)
     - [Workload](#flow-Workload)
   
     - [AgentEventType](#flow-AgentEventType)
@@ -60,7 +57,6 @@
     - [IPVersion](#flow-IPVersion)
     - [L7FlowType](#flow-L7FlowType)
     - [LostEventSource](#flow-LostEventSource)
-    - [SCTPChunkType](#flow-SCTPChunkType)
     - [SocketTranslationPoint](#flow-SocketTranslationPoint)
     - [TraceObservationPoint](#flow-TraceObservationPoint)
     - [TraceReason](#flow-TraceReason)
@@ -112,23 +108,6 @@
 | ----- | ---- | ----- | ----------- |
 | type | [string](#string) |  |  |
 | notification | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="flow-Aggregate"></a>
-
-### Aggregate
-Aggregate contains flow aggregation counters
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| ingress_flow_count | [uint32](#uint32) |  | ingress_flow_count is the count of flows in the ingress direction |
-| egress_flow_count | [uint32](#uint32) |  | egress_flow_count is the count of flows in the egress direction |
-| unknown_direction_flow_count | [uint32](#uint32) |  | unknown_direction_flow_count is the count of flows with unknown traffic direction |
 
 
 
@@ -369,7 +348,6 @@ EventTypeFilter is a filter describing a particular event type.
 | egress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the egress of the flow. |
 | ingress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the ingress of the flow. |
 | policy_log | [string](#string) | repeated | The set of Log values for policies that matched this flow. If no matched policies have an explicit log value configured, this list is empty. Duplicate values are elided; each entry is unique. |
-| aggregate | [Aggregate](#flow-Aggregate) |  | Aggregate contains flow aggregation counters when flow aggregation is enabled. This field is only populated for aggregated flows. |
 
 
 
@@ -424,7 +402,6 @@ multiple fields are set, then all fields must match for the filter to match.
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
 | ip_trace_id | [uint64](#uint64) | repeated | ip_trace_id filters flows by IPTraceID |
-| encrypted | [bool](#bool) | repeated | encrypted filters flows based on encryption status (WireGuard/IPsec). When set to true, only encrypted flows are returned. When set to false, only unencrypted flows are returned. |
 | experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |
 
 
@@ -509,22 +486,6 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogReco
 | ----- | ---- | ----- | ----------- |
 | type | [uint32](#uint32) |  |  |
 | code | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="flow-IGMP"></a>
-
-### IGMP
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| type | [uint32](#uint32) |  |  |
-| group_address | [string](#string) |  |  |
 
 
 
@@ -620,8 +581,6 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRec
 | ICMPv4 | [ICMPv4](#flow-ICMPv4) |  | ICMP is technically not L4, but mutually exclusive with the above |
 | ICMPv6 | [ICMPv6](#flow-ICMPv6) |  |  |
 | SCTP | [SCTP](#flow-SCTP) |  |  |
-| VRRP | [VRRP](#flow-VRRP) |  |  |
-| IGMP | [IGMP](#flow-IGMP) |  |  |
 
 
 
@@ -729,7 +688,6 @@ that happened before the events were captured by Hubble.
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
-| chunk_type | [SCTPChunkType](#flow-SCTPChunkType) |  |  |
 
 
 
@@ -904,7 +862,6 @@ TraceParent identifies the incoming request in a tracing system.
 | protocol | [Tunnel.Protocol](#flow-Tunnel-Protocol) |  |  |
 | IP | [IP](#flow-IP) |  |  |
 | l4 | [Layer4](#flow-Layer4) |  |  |
-| vni | [uint32](#uint32) |  |  |
 
 
 
@@ -921,23 +878,6 @@ TraceParent identifies the incoming request in a tracing system.
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
-
-
-
-
-
-
-<a name="flow-VRRP"></a>
-
-### VRRP
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| type | [uint32](#uint32) |  |  |
-| vrid | [uint32](#uint32) |  |  |
-| priority | [uint32](#uint32) |  |  |
 
 
 
@@ -1181,7 +1121,6 @@ here.
 | DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in cilium_call_policy, but the program is not available. |
 | DROP_NO_EGRESS_IP | 204 | An Egress Gateway node matched a packet against an Egress Gateway policy that didn&#39;t select a valid Egress IP. |
 | DROP_PUNT_PROXY | 205 | Punt packet to a user space proxy. |
-| DROP_NO_DEVICE | 206 | A BPF program failed to look up information for a network device. |
 
 
 
@@ -1250,23 +1189,6 @@ This enum corresponds to Cilium&#39;s L7 accesslog [FlowType](https://github.com
 | PERF_EVENT_RING_BUFFER | 1 | PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF perf event ring buffer, indicating that userspace agent did not keep up with the events produced by the datapath. |
 | OBSERVER_EVENTS_QUEUE | 2 | OBSERVER_EVENTS_QUEUE indicates that events were dropped because the Hubble events queue was full, indicating that the Hubble observer did not keep up. |
 | HUBBLE_RING_BUFFER | 3 | HUBBLE_RING_BUFFER indicates that the event was dropped because it could not be read from Hubble&#39;s ring buffer in time before being overwritten. |
-
-
-
-<a name="flow-SCTPChunkType"></a>
-
-### SCTPChunkType
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| UNSUPPORTED | 0 |  |
-| INIT | 1 |  |
-| INIT_ACK | 2 |  |
-| SHUTDOWN | 3 |  |
-| SHUTDOWN_ACK | 4 |  |
-| SHUTDOWN_COMPLETE | 5 |  |
-| ABORT | 6 |  |
 
 
 

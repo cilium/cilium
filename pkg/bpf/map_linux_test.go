@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -110,10 +110,9 @@ var (
 	maxEntries = 16
 )
 
-func mapsEqual(t *testing.T, expected, actual *Map) {
-	t.Helper()
-	require.Equal(t, expected.name, actual.name, "map names should match")
-	require.Equal(t, expected.spec, actual.spec, "map specs should match")
+func mapsEqual(a, b *Map) bool {
+	return a.name == b.name &&
+		reflect.DeepEqual(a.spec, b.spec)
 }
 
 func TestPrivilegedOpen(t *testing.T) {
@@ -153,7 +152,7 @@ func TestPrivilegedOpenMap(t *testing.T) {
 
 	openedMap, err = OpenMap(MapPath(logger, "cilium_test"), &TestKey{}, &TestValue{})
 	require.NoError(t, err)
-	mapsEqual(t, testMap, openedMap)
+	require.True(t, mapsEqual(openedMap, testMap))
 }
 
 func TestPrivilegedOpenOrCreate(t *testing.T) {
@@ -204,7 +203,7 @@ func TestPrivilegedRecreateMap(t *testing.T) {
 	require.Error(t, err)
 
 	// Check OpenMap warning section
-	mapsEqual(t, testMap, parallelMap)
+	require.True(t, mapsEqual(parallelMap, testMap))
 
 	key1 := &TestKey{Key: 101}
 	value1 := &TestValue{Value: 201}
@@ -254,8 +253,8 @@ func TestPrivilegedBasicManipulation(t *testing.T) {
 
 	dumpEvents := func() []*Event {
 		es := []*Event{}
-		existingMap.DumpAndSubscribe(t.Context(), func(e Event) {
-			es = append(es, &e)
+		existingMap.DumpAndSubscribe(func(e *Event) {
+			es = append(es, e)
 		}, false)
 		return es
 	}
@@ -435,21 +434,31 @@ func TestPrivilegedSubscribe(t *testing.T) {
 		WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
-	var collect atomic.Int32
-	existingMap.DumpAndSubscribe(t.Context(), func(e Event) {
-		collect.Add(1)
-	}, true)
+	subHandle, err := existingMap.DumpAndSubscribe(nil, true)
+	require.NoError(t, err)
+
+	collect := 0
+	done := make(chan struct{})
+	go func(collect *int) {
+		defer subHandle.Close()
+		for range subHandle.C() {
+			*collect++
+		}
+		close(done)
+	}(&collect)
 
 	key1 := &TestKey{Key: 103}
 	value1 := &TestValue{Value: 203}
-	err := existingMap.Update(key1, value1)
+	err = existingMap.Update(key1, value1)
 	require.NoError(t, err)
 	err = existingMap.Update(key1, value1)
 	require.NoError(t, err)
 	err = existingMap.Delete(key1)
 	require.NoError(t, err)
 
-	require.Equal(t, 3, int(collect.Load()))
+	subHandle.Close()
+	<-done
+	require.Equal(t, 3, collect)
 
 	// cleanup
 	err = existingMap.DeleteAll()
@@ -605,7 +614,7 @@ func TestPrivilegedDumpReliablyWithCallbackOverlapping(t *testing.T) {
 	defer m.Close()
 
 	// Prepopulate the map.
-	for i := range uint32(maxEntries) {
+	for i := uint32(0); i < maxEntries; i++ {
 		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 200})
 		require.NoError(t, err)
 	}
@@ -802,6 +811,41 @@ func TestPrivilegedGetModel(t *testing.T) {
 
 	model := testMap.GetModel()
 	require.NotNil(t, model)
+}
+
+func TestPrivilegedCheckAndUpgrade(t *testing.T) {
+	setup(t)
+
+	// CheckAndUpgrade removes map file if upgrade is needed
+	// so we setup and use another map.
+	upgradeMap := NewMap("cilium_test_upgrade",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		maxEntries,
+		unix.BPF_F_NO_PREALLOC).WithCache()
+	err := upgradeMap.OpenOrCreate()
+	require.NoError(t, err)
+	defer func() {
+		_ = upgradeMap.Unpin()
+		upgradeMap.Close()
+	}()
+
+	// Exactly the same MapInfo so it won't be upgraded.
+	upgrade := upgradeMap.CheckAndUpgrade(upgradeMap)
+	require.False(t, upgrade)
+
+	// preallocMap unsets unix.BPF_F_NO_PREALLOC so upgrade is needed.
+	EnableMapPreAllocation()
+	preallocMap := NewMap("cilium_test_upgrade",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		maxEntries,
+		0).WithCache()
+	upgrade = upgradeMap.CheckAndUpgrade(preallocMap)
+	require.True(t, upgrade)
+	DisableMapPreAllocation()
 }
 
 func TestPrivilegedUnpin(t *testing.T) {

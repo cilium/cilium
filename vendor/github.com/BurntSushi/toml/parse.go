@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ type parser struct {
 	context    Key      // Full key for the current hash in scope.
 	currentKey string   // Base key name for everything except hashes.
 	pos        Position // Current position in the TOML file.
+	tomlNext   bool
 
 	ordered []Key // List of keys in the order that they appear in the TOML data.
 
@@ -30,6 +32,8 @@ type keyInfo struct {
 }
 
 func parse(data string) (p *parser, err error) {
+	_, tomlNext := os.LookupEnv("BURNTSUSHI_TOML_110")
+
 	defer func() {
 		if r := recover(); r != nil {
 			if pErr, ok := r.(ParseError); ok {
@@ -69,9 +73,10 @@ func parse(data string) (p *parser, err error) {
 	p = &parser{
 		keyInfo:   make(map[string]keyInfo),
 		mapping:   make(map[string]any),
-		lx:        lex(data),
+		lx:        lex(data, tomlNext),
 		ordered:   make([]Key, 0),
 		implicits: make(map[string]struct{}),
+		tomlNext:  tomlNext,
 	}
 	for {
 		item := p.next()
@@ -345,14 +350,17 @@ func (p *parser) valueFloat(it item) (any, tomlType) {
 var dtTypes = []struct {
 	fmt  string
 	zone *time.Location
+	next bool
 }{
-	{time.RFC3339Nano, time.Local},
-	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime},
-	{"2006-01-02", internal.LocalDate},
-	{"15:04:05.999999999", internal.LocalTime},
-	{"2006-01-02T15:04Z07:00", time.Local},
-	{"2006-01-02T15:04", internal.LocalDatetime},
-	{"15:04", internal.LocalTime},
+	{time.RFC3339Nano, time.Local, false},
+	{"2006-01-02T15:04:05.999999999", internal.LocalDatetime, false},
+	{"2006-01-02", internal.LocalDate, false},
+	{"15:04:05.999999999", internal.LocalTime, false},
+
+	// tomlNext
+	{"2006-01-02T15:04Z07:00", time.Local, true},
+	{"2006-01-02T15:04", internal.LocalDatetime, true},
+	{"15:04", internal.LocalTime, true},
 }
 
 func (p *parser) valueDatetime(it item) (any, tomlType) {
@@ -363,6 +371,9 @@ func (p *parser) valueDatetime(it item) (any, tomlType) {
 		err error
 	)
 	for _, dt := range dtTypes {
+		if dt.next && !p.tomlNext {
+			continue
+		}
 		t, err = time.ParseInLocation(dt.fmt, it.val, dt.zone)
 		if err == nil {
 			if missingLeadingZero(it.val, dt.fmt) {
@@ -633,11 +644,6 @@ func (p *parser) setValue(key string, value any) {
 		// Note that since it has already been defined (as a hash), we don't
 		// want to overwrite it. So our business is done.
 		if p.isArray(keyContext) {
-			if !p.isImplicit(keyContext) {
-				if _, ok := hash[key]; ok {
-					p.panicf("Key '%s' has already been defined.", keyContext)
-				}
-			}
 			p.removeImplicit(keyContext)
 			hash[key] = value
 			return
@@ -796,8 +802,10 @@ func (p *parser) replaceEscapes(it item, str string) string {
 			b.WriteByte(0x0d)
 			skip = 1
 		case 'e':
-			b.WriteByte(0x1b)
-			skip = 1
+			if p.tomlNext {
+				b.WriteByte(0x1b)
+				skip = 1
+			}
 		case '"':
 			b.WriteByte(0x22)
 			skip = 1
@@ -807,9 +815,11 @@ func (p *parser) replaceEscapes(it item, str string) string {
 		// The lexer guarantees the correct number of characters are present;
 		// don't need to check here.
 		case 'x':
-			escaped := p.asciiEscapeToUnicode(it, str[i+2:i+4])
-			b.WriteRune(escaped)
-			skip = 3
+			if p.tomlNext {
+				escaped := p.asciiEscapeToUnicode(it, str[i+2:i+4])
+				b.WriteRune(escaped)
+				skip = 3
+			}
 		case 'u':
 			escaped := p.asciiEscapeToUnicode(it, str[i+2:i+6])
 			b.WriteRune(escaped)

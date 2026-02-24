@@ -138,7 +138,7 @@ spec:
     spec:
       containers:
       - name: infra-backend-v1
-        # Originally from https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
+        # From https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
         image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
         env:
         - name: POD_NAME
@@ -300,7 +300,7 @@ spec:
       volumes:
       - name: secret-volume
         secret:
-          secretName: tls-checks-certificate
+          secretName: tls-passthrough-checks-certificate
           items:
           - key: tls.crt
             path: crt
@@ -704,8 +704,7 @@ spec:
       - args:
         - -conf
         - /root/Corefile
-        image: registry.k8s.io/coredns/coredns:v1.12.2
-        imagePullPolicy: IfNotPresent
+        image: coredns/coredns
         name: coredns
         securityContext:
           allowPrivilegeEscalation: false

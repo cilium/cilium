@@ -1,0 +1,65 @@
+[
+{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd1":""}
+    },
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.app1":""}}
+        ]
+    }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd2":""}
+    },
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{"reserved:host":""}},
+            {"matchLabels":{"id.app1":""}},
+            {"matchLabels":{"id.app3":""}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "8000", "protocol": "tcp"},
+                {"port": "80",   "protocol": "tcp"},
+                {"port": "8080", "protocol": "tcp"},
+                {"port": "8080", "protocol": "udp"}]
+        }]
+   }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app3":""}
+    },
+    "egress": [
+        {
+            "toEndpoints": [
+                {"matchLabels":{"id.httpd2":""}}
+            ],
+            "toPorts": [{
+                "ports": [
+                    {"port": "8000", "protocol": "tcp"},
+                    {"port": "80",   "protocol": "tcp"},
+                    {"port": "8080", "protocol": "tcp"},
+                    {"port": "8080", "protocol": "udp"}]
+            }]
+        }
+    ]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app2":""}
+    },
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{"id.httpd3":""}}
+        ]
+    }]
+}
+]
+
+
+
+

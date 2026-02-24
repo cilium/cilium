@@ -9,11 +9,11 @@ import (
 )
 
 type ContainElementsMatcher struct {
-	Elements        []any
-	missingElements []any
+	Elements        []interface{}
+	missingElements []interface{}
 }
 
-func (matcher *ContainElementsMatcher) Match(actual any) (success bool, err error) {
+func (matcher *ContainElementsMatcher) Match(actual interface{}) (success bool, err error) {
 	if !isArrayOrSlice(actual) && !isMap(actual) && !miter.IsIter(actual) {
 		return false, fmt.Errorf("ContainElements matcher expects an array/slice/map/iter.Seq/iter.Seq2.  Got:\n%s", format.Object(actual, 1))
 	}
@@ -35,11 +35,11 @@ func (matcher *ContainElementsMatcher) Match(actual any) (success bool, err erro
 	return false, nil
 }
 
-func (matcher *ContainElementsMatcher) FailureMessage(actual any) (message string) {
+func (matcher *ContainElementsMatcher) FailureMessage(actual interface{}) (message string) {
 	message = format.Message(actual, "to contain elements", presentable(matcher.Elements))
 	return appendMissingElements(message, matcher.missingElements)
 }
 
-func (matcher *ContainElementsMatcher) NegatedFailureMessage(actual any) (message string) {
+func (matcher *ContainElementsMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to contain elements", presentable(matcher.Elements))
 }

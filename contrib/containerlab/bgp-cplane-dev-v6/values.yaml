@@ -1,0 +1,18 @@
+routingMode: native
+
+ipv4:
+  enabled: false
+
+ipv6:
+  enabled: true
+
+bgpControlPlane:
+  enabled: true
+
+ipv6NativeRoutingCIDR: fd00::/16
+
+ipam:
+  mode: kubernetes
+
+k8s:
+  requireIPv6PodCIDR: true

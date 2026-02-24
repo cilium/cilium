@@ -9,10 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 )
 
-var (
-	isDeny bool
-	cookie uint32
-)
+var isDeny bool
 
 // bpfPolicyAddCmd represents the bpf_policy_add command
 var bpfPolicyAddCmd = &cobra.Command{
@@ -21,12 +18,11 @@ var bpfPolicyAddCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf policy add")
-		updatePolicyKey(parsePolicyUpdateArgs(log, cmd, args, isDeny, cookie), true)
+		updatePolicyKey(parsePolicyUpdateArgs(log, cmd, args, isDeny), true)
 	},
 }
 
 func init() {
 	bpfPolicyAddCmd.Flags().BoolVar(&isDeny, "deny", false, "Sets deny mode")
-	bpfPolicyAddCmd.Flags().Uint32Var(&cookie, "cookie", 0, "Sets policy log cookie")
 	BPFPolicyCmd.AddCommand(bpfPolicyAddCmd)
 }

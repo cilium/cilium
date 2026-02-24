@@ -6,10 +6,7 @@
 
 package socket
 
-import (
-	"encoding/binary"
-	"unsafe"
-)
+import "unsafe"
 
 func (h *msghdr) pack(vs []iovec, bs [][]byte, oob []byte, sa []byte) {
 	for i := range vs {
@@ -34,5 +31,5 @@ func (h *msghdr) controllen() int {
 }
 
 func (h *msghdr) flags() int {
-	return int(binary.NativeEndian.Uint32(h.Pad_cgo_2[:]))
+	return int(NativeEndian.Uint32(h.Pad_cgo_2[:]))
 }

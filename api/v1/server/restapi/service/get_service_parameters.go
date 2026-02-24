@@ -28,6 +28,7 @@ func NewGetServiceParams() GetServiceParams {
 //
 // swagger:parameters GetService
 type GetServiceParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

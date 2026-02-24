@@ -71,7 +71,9 @@ func desiredRouteRefresher(
 							continue
 						}
 
-						desiredRoutes.Insert(txn, desiredRoute.SetStatus(reconciler.StatusRefreshing()))
+						desiredRoutes.Modify(txn, desiredRoute, func(old, new *DesiredRoute) *DesiredRoute {
+							return new.SetStatus(reconciler.StatusRefreshing())
+						})
 					}
 				}
 
@@ -85,7 +87,9 @@ func desiredRouteRefresher(
 					// that were using this device.
 					for dr := range desiredRoutes.All(txn) {
 						if dr.Device != nil && int(dr.Device.Index) == deviceChange.Object.Index {
-							desiredRoutes.Insert(txn, dr.SetStatus(reconciler.StatusRefreshing()))
+							desiredRoutes.Modify(txn, dr, func(old, new *DesiredRoute) *DesiredRoute {
+								return new.SetStatus(reconciler.StatusRefreshing())
+							})
 						}
 					}
 				}

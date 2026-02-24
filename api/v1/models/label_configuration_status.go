@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -67,15 +66,11 @@ func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) erro
 	}
 
 	if err := m.Derived.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("derived")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("derived")
 		}
-
 		return err
 	}
 
@@ -88,15 +83,11 @@ func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) err
 	}
 
 	if err := m.Disabled.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("disabled")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("disabled")
 		}
-
 		return err
 	}
 
@@ -110,15 +101,11 @@ func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) err
 
 	if m.Realized != nil {
 		if err := m.Realized.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}
@@ -132,15 +119,11 @@ func (m *LabelConfigurationStatus) validateSecurityRelevant(formats strfmt.Regis
 	}
 
 	if err := m.SecurityRelevant.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("security-relevant")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("security-relevant")
 		}
-
 		return err
 	}
 
@@ -176,15 +159,11 @@ func (m *LabelConfigurationStatus) ContextValidate(ctx context.Context, formats 
 func (m *LabelConfigurationStatus) contextValidateDerived(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Derived.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("derived")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("derived")
 		}
-
 		return err
 	}
 
@@ -194,15 +173,11 @@ func (m *LabelConfigurationStatus) contextValidateDerived(ctx context.Context, f
 func (m *LabelConfigurationStatus) contextValidateDisabled(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Disabled.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("disabled")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("disabled")
 		}
-
 		return err
 	}
 
@@ -218,15 +193,11 @@ func (m *LabelConfigurationStatus) contextValidateRealized(ctx context.Context, 
 		}
 
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}
@@ -237,15 +208,11 @@ func (m *LabelConfigurationStatus) contextValidateRealized(ctx context.Context, 
 func (m *LabelConfigurationStatus) contextValidateSecurityRelevant(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.SecurityRelevant.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("security-relevant")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("security-relevant")
 		}
-
 		return err
 	}
 

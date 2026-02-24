@@ -5,10 +5,10 @@ package monitor
 
 import (
 	"bufio"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	dropNotifyLengthFromVersion = map[uint8]uint{
+	dropNotifyLengthFromVersion = map[uint16]uint{
 		DropNotifyVersion0: dropNotifyV1Len, // retain backwards compatibility for testing.
 		DropNotifyVersion1: dropNotifyV1Len,
 		DropNotifyVersion2: dropNotifyV2Len,
@@ -49,39 +49,25 @@ var (
 	}
 )
 
-const DropNotifyExtensionDisabled = 0
-
-var (
-	// Downstream projects should register introduced extensions length so that
-	// the upstream parsing code still works even if the DP events contain
-	// additional fields.
-	dropNotifyExtensionLengthFromVersion = map[uint8]uint{
-		// The DropNotifyExtension is intended for downstream extensions and
-		// should not be used in the upstream project.
-		DropNotifyExtensionDisabled: 0,
-	}
-)
-
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
-	Type       uint8                    `align:"type"`
-	SubType    uint8                    `align:"subtype"`
-	Source     uint16                   `align:"source"`
-	Hash       uint32                   `align:"hash"`
-	OrigLen    uint32                   `align:"len_orig"`
-	CapLen     uint16                   `align:"len_cap"`
-	Version    uint8                    `align:"version"`
-	ExtVersion uint8                    `align:"ext_version"`
-	SrcLabel   identity.NumericIdentity `align:"src_label"`
-	DstLabel   identity.NumericIdentity `align:"dst_label"`
-	DstID      uint32                   `align:"dst_id"`
-	Line       uint16                   `align:"line"`
-	File       uint8                    `align:"file"`
-	ExtError   int8                     `align:"ext_error"`
-	Ifindex    uint32                   `align:"ifindex"`
-	Flags      uint8                    `align:"flags"`
-	_          [3]uint8                 `align:"pad2"`
-	IPTraceID  uint64                   `align:"ip_trace_id"`
+	Type      uint8
+	SubType   uint8
+	Source    uint16
+	Hash      uint32
+	OrigLen   uint32
+	CapLen    uint16
+	Version   uint16
+	SrcLabel  identity.NumericIdentity
+	DstLabel  identity.NumericIdentity
+	DstID     uint32
+	Line      uint16
+	File      uint8
+	ExtError  int8
+	Ifindex   uint32
+	Flags     uint8
+	_         [3]uint8
+	IPTraceID uint64
 	// data
 }
 
@@ -124,7 +110,7 @@ func (n *DropNotify) Decode(data []byte) error {
 		return fmt.Errorf("unexpected DropNotify data length, expected at least %d but got %d", dropNotifyV1Len, l)
 	}
 
-	version := data[14]
+	version := byteorder.Native.Uint16(data[14:16])
 
 	// Check against max version.
 	if version > DropNotifyVersion3 {
@@ -143,25 +129,24 @@ func (n *DropNotify) Decode(data []byte) error {
 		if l := len(data); l < dropNotifyV3Len {
 			return fmt.Errorf("unexpected DropNotify data length (version %d), expected at least %d but got %d", version, dropNotifyV3Len, l)
 		}
-		n.IPTraceID = binary.NativeEndian.Uint64(data[40:48])
+		n.IPTraceID = byteorder.Native.Uint64(data[40:48])
 	}
 
 	// Decode logic for version >= v0/v1.
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = binary.NativeEndian.Uint16(data[2:4])
-	n.Hash = binary.NativeEndian.Uint32(data[4:8])
-	n.OrigLen = binary.NativeEndian.Uint32(data[8:12])
-	n.CapLen = binary.NativeEndian.Uint16(data[12:14])
+	n.Source = byteorder.Native.Uint16(data[2:4])
+	n.Hash = byteorder.Native.Uint32(data[4:8])
+	n.OrigLen = byteorder.Native.Uint32(data[8:12])
+	n.CapLen = byteorder.Native.Uint16(data[12:14])
 	n.Version = version
-	n.ExtVersion = data[15]
-	n.SrcLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[16:20]))
-	n.DstLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[20:24]))
-	n.DstID = binary.NativeEndian.Uint32(data[24:28])
-	n.Line = binary.NativeEndian.Uint16(data[28:30])
+	n.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
+	n.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
+	n.DstID = byteorder.Native.Uint32(data[24:28])
+	n.Line = byteorder.Native.Uint16(data[28:30])
 	n.File = data[30]
 	n.ExtError = int8(data[31])
-	n.Ifindex = binary.NativeEndian.Uint32(data[32:36])
+	n.Ifindex = byteorder.Native.Uint32(data[32:36])
 
 	return nil
 }
@@ -191,7 +176,7 @@ func (n *DropNotify) IsVXLAN() bool {
 //
 // Returns zero for invalid or unknown DropNotify messages.
 func (n *DropNotify) DataOffset() uint {
-	return dropNotifyLengthFromVersion[n.Version] + dropNotifyExtensionLengthFromVersion[n.ExtVersion]
+	return dropNotifyLengthFromVersion[n.Version]
 }
 
 // DumpInfo prints a summary of the drop messages.

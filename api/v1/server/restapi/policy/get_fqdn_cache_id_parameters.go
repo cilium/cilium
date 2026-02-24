@@ -30,6 +30,7 @@ func NewGetFqdnCacheIDParams() GetFqdnCacheIDParams {
 //
 // swagger:parameters GetFqdnCacheID
 type GetFqdnCacheIDParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -37,7 +38,6 @@ type GetFqdnCacheIDParams struct {
 	  In: query
 	*/
 	Cidr *string
-
 	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
@@ -57,12 +57,10 @@ type GetFqdnCacheIDParams struct {
 	  In: path
 	*/
 	ID string
-
 	/*A toFQDNs compatible matchPattern expression
 	  In: query
 	*/
 	Matchpattern *string
-
 	/*Source from which FQDN entries come from
 	  In: query
 	*/
@@ -77,6 +75,7 @@ func (o *GetFqdnCacheIDParams) BindRequest(r *http.Request, route *middleware.Ma
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qCidr, qhkCidr, _ := qs.GetOK("cidr")

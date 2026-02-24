@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"slices"
 	"strings"
 	"sync"
 )
@@ -528,7 +527,7 @@ func (t *handshakeTransport) sendKexInit() error {
 			switch s := k.(type) {
 			case MultiAlgorithmSigner:
 				for _, algo := range algorithmsForKeyFormat(keyFormat) {
-					if slices.Contains(s.Algorithms(), underlyingAlgo(algo)) {
+					if contains(s.Algorithms(), underlyingAlgo(algo)) {
 						msg.ServerHostKeyAlgos = append(msg.ServerHostKeyAlgos, algo)
 					}
 				}
@@ -680,7 +679,7 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 		return err
 	}
 
-	if t.sessionID == nil && ((isClient && slices.Contains(serverInit.KexAlgos, kexStrictServer)) || (!isClient && slices.Contains(clientInit.KexAlgos, kexStrictClient))) {
+	if t.sessionID == nil && ((isClient && contains(serverInit.KexAlgos, kexStrictServer)) || (!isClient && contains(clientInit.KexAlgos, kexStrictClient))) {
 		t.strictMode = true
 		if err := t.conn.setStrictMode(); err != nil {
 			return err
@@ -737,7 +736,7 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 	// On the server side, after the first SSH_MSG_NEWKEYS, send a SSH_MSG_EXT_INFO
 	// message with the server-sig-algs extension if the client supports it. See
 	// RFC 8308, Sections 2.4 and 3.1, and [PROTOCOL], Section 1.9.
-	if !isClient && firstKeyExchange && slices.Contains(clientInit.KexAlgos, "ext-info-c") {
+	if !isClient && firstKeyExchange && contains(clientInit.KexAlgos, "ext-info-c") {
 		supportedPubKeyAuthAlgosList := strings.Join(t.publicKeyAuthAlgorithms, ",")
 		extInfo := &extInfoMsg{
 			NumExtensions: 2,
@@ -791,7 +790,7 @@ func (a algorithmSignerWrapper) SignWithAlgorithm(rand io.Reader, data []byte, a
 func pickHostKey(hostKeys []Signer, algo string) AlgorithmSigner {
 	for _, k := range hostKeys {
 		if s, ok := k.(MultiAlgorithmSigner); ok {
-			if !slices.Contains(s.Algorithms(), underlyingAlgo(algo)) {
+			if !contains(s.Algorithms(), underlyingAlgo(algo)) {
 				continue
 			}
 		}

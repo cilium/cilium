@@ -30,6 +30,7 @@ func NewDeleteFqdnCacheParams() DeleteFqdnCacheParams {
 //
 // swagger:parameters DeleteFqdnCache
 type DeleteFqdnCacheParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -47,6 +48,7 @@ func (o *DeleteFqdnCacheParams) BindRequest(r *http.Request, route *middleware.M
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qMatchpattern, qhkMatchpattern, _ := qs.GetOK("matchpattern")

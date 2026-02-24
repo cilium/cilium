@@ -16,7 +16,7 @@ type neighborConfig struct {
 }
 
 func (c neighborConfig) Flags(fs *pflag.FlagSet) {
-	fs.Bool("enable-l2-neigh-discovery", false, "Enables L2 neighbor discovery, even when XDP acceleration is disabled")
+	fs.Bool("enable-l2-neigh-discovery", false, "Enables L2 neighbor discovery used by kube-proxy-replacement and IPsec")
 }
 
 type CommonConfig struct {

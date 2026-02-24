@@ -4,74 +4,48 @@
 package neighborsmap
 
 import (
-	"fmt"
+	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
-	// map4Name is the BPF map name.
-	map4Name = "cilium_nodeport_neigh4"
-	// map6Name is the BPF map name.
-	map6Name = "cilium_nodeport_neigh6"
+	// Map4Name is the BPF map name.
+	Map4Name = "cilium_nodeport_neigh4"
+	// Map6Name is the BPF map name.
+	Map6Name = "cilium_nodeport_neigh6"
 )
 
-// Map is a marker interface for the neighbors map.
-// It doesn't provide any functionality to the Cilium Agent because
-// the bpf map is only created by the Cilium Agent for the datapath.
-// It's still provided to be picked up as dependency by the Loader
-// and initialized at startup.
-type Map any
+var (
+	neigh4Map *bpf.Map
+	neigh6Map *bpf.Map
+	once      sync.Once
+)
 
-type neighborsMap struct {
-	bpfMapV4 *bpf.Map
-	bpfMapV6 *bpf.Map
-}
-
-func newMap(maxMapEntries int, ipv4Enabled bool, ipv6Enabled bool) *neighborsMap {
-	m := &neighborsMap{}
-
-	if ipv4Enabled {
-		m.bpfMapV4 = bpf.NewMap(map4Name,
+func neighMapsGet() (*bpf.Map, *bpf.Map) {
+	once.Do(func() {
+		neigh4Map = bpf.NewMap(Map4Name,
 			ebpf.LRUHash,
 			&Key4{},
 			&Value{},
-			maxMapEntries,
+			option.Config.NeighMapEntriesGlobal,
 			0,
 		)
-	}
-
-	if ipv6Enabled {
-		m.bpfMapV6 = bpf.NewMap(map6Name,
+		neigh6Map = bpf.NewMap(Map6Name,
 			ebpf.LRUHash,
 			&Key6{},
 			&Value{},
-			maxMapEntries,
+			option.Config.NeighMapEntriesGlobal,
 			0,
 		)
-	}
-
-	return m
-}
-
-func (m *neighborsMap) init() error {
-	if m.bpfMapV4 != nil {
-		if err := m.bpfMapV4.Create(); err != nil {
-			return fmt.Errorf("failed to create neighbors v4 bpf map: %w", err)
-		}
-	}
-
-	if m.bpfMapV6 != nil {
-		if err := m.bpfMapV6.Create(); err != nil {
-			return fmt.Errorf("failed to create neighbors v6 bpf map: %w", err)
-		}
-	}
-
-	return nil
+	})
+	return neigh4Map, neigh6Map
 }
 
 // Key4 is the IPv4 for the IP-to-MAC address mappings.
@@ -97,16 +71,52 @@ type Value struct {
 const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
 // String converts the key into a human readable string format.
-func (k *Key4) String() string { return k.Ipv4.String() }
-
+func (k *Key4) String() string  { return k.Ipv4.String() }
 func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 // String converts the key into a human readable string format.
-func (k *Key6) String() string { return k.Ipv6.String() }
-
+func (k *Key6) String() string  { return k.Ipv6.String() }
 func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 // String converts the value into a human readable string format.
-func (v *Value) String() string { return v.Macaddr.String() }
+func (v *Value) String() string    { return v.Macaddr.String() }
+func (k *Value) New() bpf.MapValue { return &Value{} }
 
-func (v *Value) New() bpf.MapValue { return &Value{} }
+// InitMaps creates the nodeport neighbors maps in the kernel.
+func InitMaps(ipv4, ipv6 bool) error {
+	neigh4Map, neigh6Map := neighMapsGet()
+	if ipv4 {
+		if err := neigh4Map.Create(); err != nil {
+			return err
+		}
+	}
+	if ipv6 {
+		if err := neigh6Map.Create(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// NeighRetire retires a cached neigh entry from the LRU cache
+func NeighRetire(ip net.IP) {
+	var neighMap *bpf.Map
+	if len(ip) == net.IPv4len {
+		neighMap, _ = neighMapsGet()
+	} else {
+		_, neighMap = neighMapsGet()
+	}
+	if err := neighMap.Open(); err != nil {
+		return
+	}
+	defer neighMap.Close()
+	if len(ip) == net.IPv4len {
+		key := &Key4{}
+		copy(key.Ipv4[:], ip.To4())
+		neighMap.Delete(key)
+	} else {
+		key := &Key6{}
+		copy(key.Ipv6[:], ip.To16())
+		neighMap.Delete(key)
+	}
+}

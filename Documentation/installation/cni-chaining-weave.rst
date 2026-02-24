@@ -62,13 +62,15 @@ Deploy Cilium with the portmap plugin enabled
 
 Deploy Cilium release via Helm:
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: cni.chainingMode=generic-veth
-         cni.customConf=true
-         cni.configMap=cni-configuration
-         routingMode=native
-         enableIPv4Masquerade=false
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+      --namespace=kube-system \\
+      --set cni.chainingMode=generic-veth \\
+      --set cni.customConf=true \\
+      --set cni.configMap=cni-configuration \\
+      --set routingMode=native \\
+      --set enableIPv4Masquerade=false
 
 .. note::
 

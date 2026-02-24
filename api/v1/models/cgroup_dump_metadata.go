@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -53,15 +52,11 @@ func (m *CgroupDumpMetadata) validatePodMetadatas(formats strfmt.Registry) error
 
 		if m.PodMetadatas[i] != nil {
 			if err := m.PodMetadatas[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("pod-metadatas" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("pod-metadatas" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -96,15 +91,11 @@ func (m *CgroupDumpMetadata) contextValidatePodMetadatas(ctx context.Context, fo
 			}
 
 			if err := m.PodMetadatas[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("pod-metadatas" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("pod-metadatas" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

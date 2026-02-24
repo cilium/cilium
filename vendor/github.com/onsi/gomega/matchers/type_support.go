@@ -20,16 +20,16 @@ import (
 )
 
 type omegaMatcher interface {
-	Match(actual any) (success bool, err error)
-	FailureMessage(actual any) (message string)
-	NegatedFailureMessage(actual any) (message string)
+	Match(actual interface{}) (success bool, err error)
+	FailureMessage(actual interface{}) (message string)
+	NegatedFailureMessage(actual interface{}) (message string)
 }
 
-func isBool(a any) bool {
+func isBool(a interface{}) bool {
 	return reflect.TypeOf(a).Kind() == reflect.Bool
 }
 
-func isNumber(a any) bool {
+func isNumber(a interface{}) bool {
 	if a == nil {
 		return false
 	}
@@ -37,22 +37,22 @@ func isNumber(a any) bool {
 	return reflect.Int <= kind && kind <= reflect.Float64
 }
 
-func isInteger(a any) bool {
+func isInteger(a interface{}) bool {
 	kind := reflect.TypeOf(a).Kind()
 	return reflect.Int <= kind && kind <= reflect.Int64
 }
 
-func isUnsignedInteger(a any) bool {
+func isUnsignedInteger(a interface{}) bool {
 	kind := reflect.TypeOf(a).Kind()
 	return reflect.Uint <= kind && kind <= reflect.Uint64
 }
 
-func isFloat(a any) bool {
+func isFloat(a interface{}) bool {
 	kind := reflect.TypeOf(a).Kind()
 	return reflect.Float32 <= kind && kind <= reflect.Float64
 }
 
-func toInteger(a any) int64 {
+func toInteger(a interface{}) int64 {
 	if isInteger(a) {
 		return reflect.ValueOf(a).Int()
 	} else if isUnsignedInteger(a) {
@@ -63,7 +63,7 @@ func toInteger(a any) int64 {
 	panic(fmt.Sprintf("Expected a number!  Got <%T> %#v", a, a))
 }
 
-func toUnsignedInteger(a any) uint64 {
+func toUnsignedInteger(a interface{}) uint64 {
 	if isInteger(a) {
 		return uint64(reflect.ValueOf(a).Int())
 	} else if isUnsignedInteger(a) {
@@ -74,7 +74,7 @@ func toUnsignedInteger(a any) uint64 {
 	panic(fmt.Sprintf("Expected a number!  Got <%T> %#v", a, a))
 }
 
-func toFloat(a any) float64 {
+func toFloat(a interface{}) float64 {
 	if isInteger(a) {
 		return float64(reflect.ValueOf(a).Int())
 	} else if isUnsignedInteger(a) {
@@ -85,26 +85,26 @@ func toFloat(a any) float64 {
 	panic(fmt.Sprintf("Expected a number!  Got <%T> %#v", a, a))
 }
 
-func isError(a any) bool {
+func isError(a interface{}) bool {
 	_, ok := a.(error)
 	return ok
 }
 
-func isChan(a any) bool {
+func isChan(a interface{}) bool {
 	if isNil(a) {
 		return false
 	}
 	return reflect.TypeOf(a).Kind() == reflect.Chan
 }
 
-func isMap(a any) bool {
+func isMap(a interface{}) bool {
 	if a == nil {
 		return false
 	}
 	return reflect.TypeOf(a).Kind() == reflect.Map
 }
 
-func isArrayOrSlice(a any) bool {
+func isArrayOrSlice(a interface{}) bool {
 	if a == nil {
 		return false
 	}
@@ -116,14 +116,14 @@ func isArrayOrSlice(a any) bool {
 	}
 }
 
-func isString(a any) bool {
+func isString(a interface{}) bool {
 	if a == nil {
 		return false
 	}
 	return reflect.TypeOf(a).Kind() == reflect.String
 }
 
-func toString(a any) (string, bool) {
+func toString(a interface{}) (string, bool) {
 	aString, isString := a.(string)
 	if isString {
 		return aString, true
@@ -147,7 +147,7 @@ func toString(a any) (string, bool) {
 	return "", false
 }
 
-func lengthOf(a any) (int, bool) {
+func lengthOf(a interface{}) (int, bool) {
 	if a == nil {
 		return 0, false
 	}
@@ -169,7 +169,7 @@ func lengthOf(a any) (int, bool) {
 		return 0, false
 	}
 }
-func capOf(a any) (int, bool) {
+func capOf(a interface{}) (int, bool) {
 	if a == nil {
 		return 0, false
 	}
@@ -181,7 +181,7 @@ func capOf(a any) (int, bool) {
 	}
 }
 
-func isNil(a any) bool {
+func isNil(a interface{}) bool {
 	if a == nil {
 		return true
 	}

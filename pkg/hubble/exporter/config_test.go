@@ -278,36 +278,6 @@ func TestCompareFlowLogConfigs(t *testing.T) {
 			}},
 			expectEqual: true,
 		},
-		{
-			name:          "should equal for same field aggregate",
-			currentConfig: &FlowLogConfig{FieldAggregate: []string{"source.identity", "destination.pod_name"}},
-			newConfig:     &FlowLogConfig{FieldAggregate: []string{"source.identity", "destination.pod_name"}},
-			expectEqual:   true,
-		},
-		{
-			name:          "should equal for same field aggregate in different order",
-			currentConfig: &FlowLogConfig{FieldAggregate: []string{"source.identity", "destination.pod_name"}},
-			newConfig:     &FlowLogConfig{FieldAggregate: []string{"destination.pod_name", "source.identity"}},
-			expectEqual:   true,
-		},
-		{
-			name:          "should not equal for different field aggregate",
-			currentConfig: &FlowLogConfig{FieldAggregate: []string{"source.identity", "destination.pod_name"}},
-			newConfig:     &FlowLogConfig{FieldAggregate: []string{"source.namespace", "destination.pod_name"}},
-			expectEqual:   false,
-		},
-		{
-			name:          "should equal for same aggregation interval",
-			currentConfig: &FlowLogConfig{AggregationInterval: Duration(30 * time.Second)},
-			newConfig:     &FlowLogConfig{AggregationInterval: Duration(30 * time.Second)},
-			expectEqual:   true,
-		},
-		{
-			name:          "should not equal for different aggregation interval",
-			currentConfig: &FlowLogConfig{AggregationInterval: Duration(30 * time.Second)},
-			newConfig:     &FlowLogConfig{AggregationInterval: Duration(60 * time.Second)},
-			expectEqual:   false,
-		},
 	}
 
 	for _, tc := range cases {
@@ -336,21 +306,17 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 
 	expectedConfigs := []FlowLogConfig{
 		{
-			Name:                "test001",
-			FilePath:            "/var/log/network/flow-log/pa/test001.log",
-			FieldMask:           FieldMask{},
-			FieldAggregate:      FieldAggregate{},
-			AggregationInterval: Duration(0 * time.Second),
-			IncludeFilters:      FlowFilters{},
-			ExcludeFilters:      FlowFilters{},
-			End:                 &expectedDate,
+			Name:           "test001",
+			FilePath:       "/var/log/network/flow-log/pa/test001.log",
+			FieldMask:      FieldMask{},
+			IncludeFilters: FlowFilters{},
+			ExcludeFilters: FlowFilters{},
+			End:            &expectedDate,
 		},
 		{
-			Name:                "test002",
-			FilePath:            "/var/log/network/flow-log/pa/test002.log",
-			FieldMask:           FieldMask{"source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"},
-			FieldAggregate:      FieldAggregate{},
-			AggregationInterval: Duration(0 * time.Second),
+			Name:      "test002",
+			FilePath:  "/var/log/network/flow-log/pa/test002.log",
+			FieldMask: FieldMask{"source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"},
 			IncludeFilters: FlowFilters{
 				{
 					SourcePod:   []string{"default/"},
@@ -370,12 +336,10 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 			End:            &expectedDate,
 		},
 		{
-			Name:                "test003",
-			FilePath:            "/var/log/network/flow-log/pa/test003.log",
-			FieldMask:           FieldMask{},
-			FieldAggregate:      FieldAggregate{"source", "destination", "verdict"},
-			AggregationInterval: Duration(30 * time.Second),
-			IncludeFilters:      FlowFilters{},
+			Name:           "test003",
+			FilePath:       "/var/log/network/flow-log/pa/test003.log",
+			FieldMask:      FieldMask{"source", "destination", "verdict"},
+			IncludeFilters: FlowFilters{},
 			ExcludeFilters: FlowFilters{
 				{
 					DestinationPod: []string{"ingress/"},

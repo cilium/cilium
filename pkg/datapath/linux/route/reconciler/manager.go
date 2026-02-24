@@ -23,14 +23,7 @@ type DesiredRouteManager struct {
 	owners map[string]*RouteOwner
 }
 
-func newDesiredRouteManager(
-	db *statedb.DB,
-	tbl statedb.RWTable[*DesiredRoute],
-	// Add reconciler as a dependency to ensure it's constructed and started
-	// before the manager is used by other components (e.g., loader, proxy).
-	// This guarantees the reconciler's jobs are registered with the job group.
-	_ reconciler.Reconciler[*DesiredRoute],
-) *DesiredRouteManager {
+func newDesiredRouteManager(db *statedb.DB, tbl statedb.RWTable[*DesiredRoute]) *DesiredRouteManager {
 	return &DesiredRouteManager{
 		db:     db,
 		tbl:    tbl,
@@ -162,7 +155,7 @@ func (m *DesiredRouteManager) UpsertRoute(route DesiredRoute) error {
 
 func (m *DesiredRouteManager) UpsertRouteWait(route DesiredRoute) error {
 	if err := m.UpsertRoute(route); err != nil {
-		return err
+		return nil
 	}
 
 	return m.waitForReconciliation(route.GetFullKey())
@@ -208,10 +201,7 @@ func (m *DesiredRouteManager) waitForReconciliation(routeKey DesiredRouteKey) er
 
 		select {
 		case <-t.C:
-			if err != nil {
-				return fmt.Errorf("timeout waiting for parameter %s reconciliation: %w", routeKey, err)
-			}
-			return fmt.Errorf("timeout waiting for parameter %s reconciliation", routeKey)
+			return fmt.Errorf("timeout waiting for parameter %s reconciliation: %w", routeKey, err)
 		case <-watch:
 			if obj.status.Kind == reconciler.StatusKindDone {
 				return nil

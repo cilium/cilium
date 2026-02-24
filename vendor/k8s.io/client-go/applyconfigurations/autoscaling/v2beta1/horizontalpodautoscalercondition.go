@@ -26,22 +26,12 @@ import (
 
 // HorizontalPodAutoscalerConditionApplyConfiguration represents a declarative configuration of the HorizontalPodAutoscalerCondition type for use
 // with apply.
-//
-// HorizontalPodAutoscalerCondition describes the state of
-// a HorizontalPodAutoscaler at a certain point.
 type HorizontalPodAutoscalerConditionApplyConfiguration struct {
-	// type describes the current condition
-	Type *autoscalingv2beta1.HorizontalPodAutoscalerConditionType `json:"type,omitempty"`
-	// status is the status of the condition (True, False, Unknown)
-	Status *v1.ConditionStatus `json:"status,omitempty"`
-	// lastTransitionTime is the last time the condition transitioned from
-	// one status to another
-	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
-	// reason is the reason for the condition's last transition.
-	Reason *string `json:"reason,omitempty"`
-	// message is a human-readable explanation containing details about
-	// the transition
-	Message *string `json:"message,omitempty"`
+	Type               *autoscalingv2beta1.HorizontalPodAutoscalerConditionType `json:"type,omitempty"`
+	Status             *v1.ConditionStatus                                      `json:"status,omitempty"`
+	LastTransitionTime *metav1.Time                                             `json:"lastTransitionTime,omitempty"`
+	Reason             *string                                                  `json:"reason,omitempty"`
+	Message            *string                                                  `json:"message,omitempty"`
 }
 
 // HorizontalPodAutoscalerConditionApplyConfiguration constructs a declarative configuration of the HorizontalPodAutoscalerCondition type for use with

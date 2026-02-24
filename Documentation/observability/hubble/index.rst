@@ -36,6 +36,5 @@ of data flows as a service map.
    setup
    hubble-cli
    hubble-ui
-   ip-packet-tracing
    configuration/export
    configuration/tls

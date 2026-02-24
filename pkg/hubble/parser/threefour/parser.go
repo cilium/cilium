@@ -37,18 +37,15 @@ type Parser struct {
 	serviceGetter  getters.ServiceGetter
 	linkGetter     getters.LinkGetter
 
-	dropNotifyDecoder          options.DropNotifyDecoderFunc
-	traceNotifyDecoder         options.TraceNotifyDecoderFunc
-	policyVerdictNotifyDecoder options.PolicyVerdictNotifyDecoderFunc
-	debugCaptureDecoder        options.DebugCaptureDecoderFunc
-	packetDecoder              options.L34PacketDecoder
-
 	epResolver          *common.EndpointResolver
 	correlateL3L4Policy bool
+
+	// TODO: consider using a pool of these
+	packet *packet
 }
 
-// re-usable packetDecoder to avoid reallocating gopacket datastructures
-type packetDecoder struct {
+// re-usable packet to avoid reallocating gopacket datastructures
+type packet struct {
 	lock.Mutex
 
 	decLayerL2Dev *gopacket.DecodingLayerParser
@@ -70,8 +67,6 @@ type packetDecoder struct {
 	layers.TCP
 	layers.UDP
 	layers.SCTP
-	layers.VRRPv2
-	layers.IGMPv1or2
 
 	overlay struct {
 		Layers []gopacket.LayerType
@@ -85,8 +80,6 @@ type packetDecoder struct {
 		layers.TCP
 		layers.UDP
 		layers.SCTP
-		layers.VRRPv2
-		layers.IGMPv1or2
 	}
 }
 
@@ -101,13 +94,12 @@ func New(
 	linkGetter getters.LinkGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
-	packet := &packetDecoder{}
+	packet := &packet{}
 	decoders := []gopacket.DecodingLayer{
 		&packet.Ethernet,
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
 		&packet.TCP, &packet.UDP, &packet.SCTP,
-		&packet.VRRPv2, &packet.IGMPv1or2,
 	}
 	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
@@ -119,7 +111,6 @@ func New(
 		&packet.overlay.IPv4, &packet.overlay.IPv6,
 		&packet.overlay.ICMPv4, &packet.overlay.ICMPv6,
 		&packet.overlay.TCP, &packet.overlay.UDP, &packet.overlay.SCTP,
-		&packet.overlay.VRRPv2, &packet.overlay.IGMPv1or2,
 	}
 	packet.decLayerOverlay.VXLAN = gopacket.NewDecodingLayerParser(layers.LayerTypeVXLAN, overlayDecoders...)
 	packet.decLayerOverlay.Geneve = gopacket.NewDecodingLayerParser(layers.LayerTypeGeneve, overlayDecoders...)
@@ -134,23 +125,6 @@ func New(
 
 	args := &options.Options{
 		EnableNetworkPolicyCorrelation: true,
-		DropNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.DropNotify, error) {
-			dn := &monitor.DropNotify{}
-			return dn, dn.Decode(data)
-		},
-		DebugCaptureDecoder: func(data []byte, decoded *pb.Flow) (*monitor.DebugCapture, error) {
-			dbg := &monitor.DebugCapture{}
-			return dbg, dbg.Decode(data)
-		},
-		TraceNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.TraceNotify, error) {
-			tn := &monitor.TraceNotify{}
-			return tn, tn.Decode(data)
-		},
-		PolicyVerdictNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.PolicyVerdictNotify, error) {
-			pvn := &monitor.PolicyVerdictNotify{}
-			return pvn, pvn.Decode(data)
-		},
-		L34PacketDecoder: packet,
 	}
 
 	for _, opt := range opts {
@@ -158,20 +132,16 @@ func New(
 	}
 
 	return &Parser{
-		log:                        log,
-		dnsGetter:                  dnsGetter,
-		endpointGetter:             endpointGetter,
-		identityGetter:             identityGetter,
-		ipGetter:                   ipGetter,
-		serviceGetter:              serviceGetter,
-		linkGetter:                 linkGetter,
-		dropNotifyDecoder:          args.DropNotifyDecoder,
-		debugCaptureDecoder:        args.DebugCaptureDecoder,
-		traceNotifyDecoder:         args.TraceNotifyDecoder,
-		policyVerdictNotifyDecoder: args.PolicyVerdictNotifyDecoder,
-		epResolver:                 common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		packetDecoder:              args.L34PacketDecoder,
-		correlateL3L4Policy:        args.EnableNetworkPolicyCorrelation,
+		log:                 log,
+		dnsGetter:           dnsGetter,
+		endpointGetter:      endpointGetter,
+		identityGetter:      identityGetter,
+		ipGetter:            ipGetter,
+		serviceGetter:       serviceGetter,
+		linkGetter:          linkGetter,
+		epResolver:          common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		packet:              packet,
+		correlateL3L4Policy: args.EnableNetworkPolicyCorrelation,
 	}, nil
 }
 
@@ -183,7 +153,6 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	eventType := data[0]
 
-	var err error
 	var packetOffset int
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
@@ -194,15 +163,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
-		dn, err = p.dropNotifyDecoder(data, decoded)
-		if err != nil {
+		dn = &monitor.DropNotify{}
+		if err := dn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse drop: %w", err)
 		}
 		eventSubType = dn.SubType
 		packetOffset = (int)(dn.DataOffset())
 	case monitorAPI.MessageTypeTrace:
-		tn, err = p.traceNotifyDecoder(data, decoded)
-		if err != nil {
+		tn = &monitor.TraceNotify{}
+		if err := tn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse trace: %w", err)
 		}
 		eventSubType = tn.ObsPoint
@@ -217,20 +186,20 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
-		pvn, err = p.policyVerdictNotifyDecoder(data, decoded)
-		if err != nil {
+		pvn = &monitor.PolicyVerdictNotify{}
+		if err := pvn.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse policy verdict: %w", err)
 		}
 		eventSubType = pvn.SubType
-		packetOffset = int(pvn.DataOffset())
+		packetOffset = monitor.PolicyVerdictNotifyLen
 		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
-		dbg, err = p.debugCaptureDecoder(data, decoded)
-		if err != nil {
+		dbg = &monitor.DebugCapture{}
+		if err := dbg.Decode(data); err != nil {
 			return fmt.Errorf("failed to parse debug capture: %w", err)
 		}
 		eventSubType = dbg.SubType
-		packetOffset = int(dbg.DataOffset())
+		packetOffset = monitor.DebugCaptureLen
 	default:
 		return errors.NewErrInvalidType(eventType)
 	}
@@ -239,16 +208,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return fmt.Errorf("not enough bytes to decode %d", data)
 	}
 
-	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device() || pvn != nil && pvn.IsTrafficL3Device()
-	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6() || pvn != nil && pvn.IsTrafficIPv6()
+	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device()
+	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6()
 	isVXLAN := tn != nil && tn.IsVXLAN() || dn != nil && dn.IsVXLAN()
 	isGeneve := tn != nil && tn.IsGeneve() || dn != nil && dn.IsGeneve()
-	srcIP, dstIP, srcPort, dstPort, err := p.packetDecoder.DecodePacket(data[packetOffset:], decoded, isL3Device, isIPv6, isVXLAN, isGeneve)
+	ether, ip, l4, tunnel, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet, isL3Device, isIPv6, isVXLAN, isGeneve)
 	if err != nil {
 		return err
 	}
 
-	ip := decoded.GetIP()
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
 			// Ignore invalid IP - getters will handle invalid value.
@@ -288,6 +256,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.DropReason = decodeDropReason(dn, pvn)
 	decoded.DropReasonDesc = pb.DropReason(decoded.DropReason)
 	decoded.File = decodeFileInfo(dn)
+	decoded.Ethernet = ether
+	decoded.IP = ip
+	decoded.L4 = l4
+	decoded.Tunnel = tunnel
 	decoded.Source = srcEndpoint
 	decoded.Destination = dstEndpoint
 	decoded.Type = pb.FlowType_L3_L4
@@ -306,6 +278,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.DebugCapturePoint = decodeDebugCapturePoint(dbg)
 	decoded.Interface = p.decodeNetworkInterface(tn, dbg)
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
+	decoded.Summary = summary
 
 	if p.correlateL3L4Policy && p.endpointGetter != nil {
 		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
@@ -322,76 +295,75 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	return nil
 }
 
-func (d *packetDecoder) DecodePacket(payload []byte, decoded *pb.Flow, isL3Device, isIPv6, isVXLAN, isGeneve bool) (
+func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6, isVXLAN, isGeneve bool) (
+	ethernet *pb.Ethernet,
+	ip *pb.IP,
+	l4 *pb.Layer4,
+	tunnel *pb.Tunnel,
 	sourceIP, destinationIP netip.Addr,
 	sourcePort, destinationPort uint16,
+	summary string,
 	err error,
 ) {
-	d.Lock()
-	defer d.Unlock()
+	packet.Lock()
+	defer packet.Unlock()
 
 	// Since v1.1.18, DecodeLayers returns a non-nil error for an empty packet, see
 	// https://github.com/google/gopacket/issues/846
 	// TODO: reconsider this check if the issue is fixed upstream
 	if len(payload) == 0 {
 		// Truncate layers to avoid accidental re-use.
-		d.Layers = d.Layers[:0]
-		d.overlay.Layers = d.overlay.Layers[:0]
+		packet.Layers = packet.Layers[:0]
+		packet.overlay.Layers = packet.overlay.Layers[:0]
 		return
 	}
 
 	switch {
 	case !isL3Device:
-		err = d.decLayerL2Dev.DecodeLayers(payload, &d.Layers)
+		err = packet.decLayerL2Dev.DecodeLayers(payload, &packet.Layers)
 	case isIPv6:
-		err = d.decLayerL3Dev.IPv6.DecodeLayers(payload, &d.Layers)
+		err = packet.decLayerL3Dev.IPv6.DecodeLayers(payload, &packet.Layers)
 	default:
-		err = d.decLayerL3Dev.IPv4.DecodeLayers(payload, &d.Layers)
+		err = packet.decLayerL3Dev.IPv4.DecodeLayers(payload, &packet.Layers)
 	}
 
 	if err != nil {
 		return
 	}
 
-	for _, typ := range d.Layers {
-		decoded.Summary = typ.String()
+	for _, typ := range packet.Layers {
+		summary = typ.String()
 		switch typ {
 		case layers.LayerTypeEthernet:
-			decoded.Ethernet = decodeEthernet(&d.Ethernet)
+			ethernet = decodeEthernet(&packet.Ethernet)
 		case layers.LayerTypeIPv4:
-			decoded.IP, sourceIP, destinationIP = decodeIPv4(&d.IPv4)
+			ip, sourceIP, destinationIP = decodeIPv4(&packet.IPv4)
 		case layers.LayerTypeIPv6:
-			decoded.IP, sourceIP, destinationIP = decodeIPv6(&d.IPv6)
+			ip, sourceIP, destinationIP = decodeIPv6(&packet.IPv6)
 		case layers.LayerTypeTCP:
-			decoded.L4, sourcePort, destinationPort = decodeTCP(&d.TCP)
-			decoded.Summary = "TCP Flags: " + getTCPFlags(d.TCP)
+			l4, sourcePort, destinationPort = decodeTCP(&packet.TCP)
+			summary = "TCP Flags: " + getTCPFlags(packet.TCP)
 		case layers.LayerTypeUDP:
-			decoded.L4, sourcePort, destinationPort = decodeUDP(&d.UDP)
+			l4, sourcePort, destinationPort = decodeUDP(&packet.UDP)
 		case layers.LayerTypeSCTP:
-			decoded.L4, sourcePort, destinationPort = decodeSCTP(&d.SCTP)
+			l4, sourcePort, destinationPort = decodeSCTP(&packet.SCTP)
 		case layers.LayerTypeICMPv4:
-			decoded.L4 = decodeICMPv4(&d.ICMPv4)
-			decoded.Summary = "ICMPv4 " + d.ICMPv4.TypeCode.String()
+			l4 = decodeICMPv4(&packet.ICMPv4)
+			summary = "ICMPv4 " + packet.ICMPv4.TypeCode.String()
 		case layers.LayerTypeICMPv6:
-			decoded.L4 = decodeICMPv6(&d.ICMPv6)
-			decoded.Summary = "ICMPv6 " + d.ICMPv6.TypeCode.String()
-		case layers.LayerTypeVRRP:
-			decoded.L4 = decodeVRRP(&d.VRRPv2)
-			decoded.Summary = "VRRP " + d.VRRPv2.Type.String()
-		case layers.LayerTypeIGMP:
-			decoded.L4 = decodeIGMP(&d.IGMPv1or2)
-			decoded.Summary = "IGMP " + d.IGMPv1or2.Type.String()
+			l4 = decodeICMPv6(&packet.ICMPv6)
+			summary = "ICMPv6 " + packet.ICMPv6.TypeCode.String()
 		}
 	}
 
 	switch {
 	case isVXLAN:
-		err = d.decLayerOverlay.VXLAN.DecodeLayers(d.UDP.Payload, &d.overlay.Layers)
+		err = packet.decLayerOverlay.VXLAN.DecodeLayers(packet.UDP.Payload, &packet.overlay.Layers)
 	case isGeneve:
-		err = d.decLayerOverlay.Geneve.DecodeLayers(d.UDP.Payload, &d.overlay.Layers)
+		err = packet.decLayerOverlay.Geneve.DecodeLayers(packet.UDP.Payload, &packet.overlay.Layers)
 	default:
 		// Truncate layers to avoid accidental re-use.
-		d.overlay.Layers = d.overlay.Layers[:0]
+		packet.overlay.Layers = packet.overlay.Layers[:0]
 		return
 	}
 
@@ -401,60 +373,54 @@ func (d *packetDecoder) DecodePacket(payload []byte, decoded *pb.Flow, isL3Devic
 	}
 
 	// Return in case we have not decoded any overlay layer.
-	if len(d.overlay.Layers) == 0 {
+	if len(packet.overlay.Layers) == 0 {
 		return
 	}
 
 	// Expect VXLAN/Geneve overlay as first overlay layer, if not we bail out.
-	switch d.overlay.Layers[0] {
+	switch packet.overlay.Layers[0] {
 	case layers.LayerTypeVXLAN:
-		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_VXLAN, IP: decoded.IP, L4: decoded.L4, Vni: d.overlay.VXLAN.VNI}
+		tunnel = &pb.Tunnel{Protocol: pb.Tunnel_VXLAN, IP: ip, L4: l4}
 	case layers.LayerTypeGeneve:
-		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_GENEVE, IP: decoded.IP, L4: decoded.L4, Vni: d.overlay.Geneve.VNI}
+		tunnel = &pb.Tunnel{Protocol: pb.Tunnel_GENEVE, IP: ip, L4: l4}
 	default:
 		return
 	}
 
 	// Reset return values. This ensures the resulting flow does not misrepresent
 	// what is happening (e.g. same IP addresses for overlay and underlay).
-	decoded.Ethernet, decoded.IP, decoded.L4 = nil, nil, nil
+	ethernet, ip, l4 = nil, nil, nil
 	sourceIP, destinationIP = netip.Addr{}, netip.Addr{}
 	sourcePort, destinationPort = 0, 0
-	decoded.Summary = ""
+	summary = ""
 
 	// Parse the rest of the overlay layers as we would do for a non-encapsulated packet.
 	// It is possible we're not parsing any layer here. This is because the overlay
 	// decoders failed (e.g., not enough data). We would still return empty values
 	// for the inner packet (ethernet, ip, l4, basically the re-init variables)
 	// while returning the non-empty `tunnel` field.
-	for _, typ := range d.overlay.Layers[1:] {
-		decoded.Summary = typ.String()
+	for _, typ := range packet.overlay.Layers[1:] {
+		summary = typ.String()
 		switch typ {
 		case layers.LayerTypeEthernet:
-			decoded.Ethernet = decodeEthernet(&d.overlay.Ethernet)
+			ethernet = decodeEthernet(&packet.overlay.Ethernet)
 		case layers.LayerTypeIPv4:
-			decoded.IP, sourceIP, destinationIP = decodeIPv4(&d.overlay.IPv4)
+			ip, sourceIP, destinationIP = decodeIPv4(&packet.overlay.IPv4)
 		case layers.LayerTypeIPv6:
-			decoded.IP, sourceIP, destinationIP = decodeIPv6(&d.overlay.IPv6)
+			ip, sourceIP, destinationIP = decodeIPv6(&packet.overlay.IPv6)
 		case layers.LayerTypeTCP:
-			decoded.L4, sourcePort, destinationPort = decodeTCP(&d.overlay.TCP)
-			decoded.Summary = "TCP Flags: " + getTCPFlags(d.overlay.TCP)
+			l4, sourcePort, destinationPort = decodeTCP(&packet.overlay.TCP)
+			summary = "TCP Flags: " + getTCPFlags(packet.overlay.TCP)
 		case layers.LayerTypeUDP:
-			decoded.L4, sourcePort, destinationPort = decodeUDP(&d.overlay.UDP)
+			l4, sourcePort, destinationPort = decodeUDP(&packet.overlay.UDP)
 		case layers.LayerTypeSCTP:
-			decoded.L4, sourcePort, destinationPort = decodeSCTP(&d.overlay.SCTP)
+			l4, sourcePort, destinationPort = decodeSCTP(&packet.overlay.SCTP)
 		case layers.LayerTypeICMPv4:
-			decoded.L4 = decodeICMPv4(&d.overlay.ICMPv4)
-			decoded.Summary = "ICMPv4 " + d.overlay.ICMPv4.TypeCode.String()
+			l4 = decodeICMPv4(&packet.overlay.ICMPv4)
+			summary = "ICMPv4 " + packet.overlay.ICMPv4.TypeCode.String()
 		case layers.LayerTypeICMPv6:
-			decoded.L4 = decodeICMPv6(&d.overlay.ICMPv6)
-			decoded.Summary = "ICMPv6 " + d.overlay.ICMPv6.TypeCode.String()
-		case layers.LayerTypeVRRP:
-			decoded.L4 = decodeVRRP(&d.overlay.VRRPv2)
-			decoded.Summary = "VRRP " + d.overlay.VRRPv2.Type.String()
-		case layers.LayerTypeIGMP:
-			decoded.L4 = decodeIGMP(&d.overlay.IGMPv1or2)
-			decoded.Summary = "IGMP " + d.overlay.IGMPv1or2.Type.String()
+			l4 = decodeICMPv6(&packet.overlay.ICMPv6)
+			summary = "ICMPv6 " + packet.overlay.ICMPv6.TypeCode.String()
 		}
 	}
 
@@ -565,35 +531,9 @@ func decodeSCTP(sctp *layers.SCTP) (l4 *pb.Layer4, src, dst uint16) {
 			SCTP: &pb.SCTP{
 				SourcePort:      uint32(sctp.SrcPort),
 				DestinationPort: uint32(sctp.DstPort),
-				ChunkType:       decodeSCTPChunkType(sctp.Payload),
 			},
 		},
 	}, uint16(sctp.SrcPort), uint16(sctp.DstPort)
-}
-
-func decodeSCTPChunkType(payload []byte) pb.SCTPChunkType {
-
-	var chunktype pb.SCTPChunkType
-
-	if len(payload) != 0 {
-		switch layers.SCTPChunkType(payload[0]) {
-		case layers.SCTPChunkTypeInit:
-			chunktype = pb.SCTPChunkType_INIT
-		case layers.SCTPChunkTypeInitAck:
-			chunktype = pb.SCTPChunkType_INIT_ACK
-		case layers.SCTPChunkTypeShutdown:
-			chunktype = pb.SCTPChunkType_SHUTDOWN
-		case layers.SCTPChunkTypeShutdownAck:
-			chunktype = pb.SCTPChunkType_SHUTDOWN_ACK
-		case layers.SCTPChunkTypeShutdownComplete:
-			chunktype = pb.SCTPChunkType_SHUTDOWN_COMPLETE
-		case layers.SCTPChunkTypeAbort:
-			chunktype = pb.SCTPChunkType_ABORT
-		default:
-			chunktype = pb.SCTPChunkType_UNSUPPORTED
-		}
-	}
-	return chunktype
 }
 
 func decodeUDP(udp *layers.UDP) (l4 *pb.Layer4, src, dst uint16) {
@@ -621,25 +561,6 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 		Protocol: &pb.Layer4_ICMPv6{ICMPv6: &pb.ICMPv6{
 			Type: uint32(icmp.TypeCode.Type()),
 			Code: uint32(icmp.TypeCode.Code()),
-		}},
-	}
-}
-
-func decodeVRRP(vrrp *layers.VRRPv2) *pb.Layer4 {
-	return &pb.Layer4{
-		Protocol: &pb.Layer4_VRRP{VRRP: &pb.VRRP{
-			Type:     uint32(vrrp.Type),
-			Vrid:     uint32(vrrp.VirtualRtrID),
-			Priority: uint32(vrrp.Priority),
-		}},
-	}
-}
-
-func decodeIGMP(igmp *layers.IGMPv1or2) *pb.Layer4 {
-	return &pb.Layer4{
-		Protocol: &pb.Layer4_IGMP{IGMP: &pb.IGMP{
-			Type:         uint32(igmp.Type),
-			GroupAddress: igmp.GroupAddress.String(),
 		}},
 	}
 }
@@ -760,6 +681,13 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			isReply := tn.TraceReasonIsReply()
 
 			switch {
+			// Although technically the corresponding packet is ingressing the
+			// stack (TraceReasonEncryptOverlay traces are TraceToStack), it is
+			// ultimately originating from the local node and destinated to a
+			// remote node, so egress make more sense to expose at a high
+			// level.
+			case tn.TraceReason() == monitor.TraceReasonEncryptOverlay:
+				return pb.TrafficDirection_EGRESS
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
 			case isSourceEP != isReply:

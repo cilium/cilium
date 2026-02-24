@@ -25,19 +25,12 @@ import (
 
 // NamespaceConditionApplyConfiguration represents a declarative configuration of the NamespaceCondition type for use
 // with apply.
-//
-// NamespaceCondition contains details about state of namespace.
 type NamespaceConditionApplyConfiguration struct {
-	// Type of namespace controller condition.
-	Type *corev1.NamespaceConditionType `json:"type,omitempty"`
-	// Status of the condition, one of True, False, Unknown.
-	Status *corev1.ConditionStatus `json:"status,omitempty"`
-	// Last time the condition transitioned from one status to another.
-	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
-	// Unique, one-word, CamelCase reason for the condition's last transition.
-	Reason *string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition.
-	Message *string `json:"message,omitempty"`
+	Type               *corev1.NamespaceConditionType `json:"type,omitempty"`
+	Status             *corev1.ConditionStatus        `json:"status,omitempty"`
+	LastTransitionTime *metav1.Time                   `json:"lastTransitionTime,omitempty"`
+	Reason             *string                        `json:"reason,omitempty"`
+	Message            *string                        `json:"message,omitempty"`
 }
 
 // NamespaceConditionApplyConfiguration constructs a declarative configuration of the NamespaceCondition type for use with

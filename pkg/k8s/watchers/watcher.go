@@ -53,6 +53,7 @@ type endpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
 	GetHostEndpoint() *endpoint.Endpoint
 	GetEndpointsByPodName(string) []*endpoint.Endpoint
+	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
 }
 
@@ -101,14 +102,13 @@ type K8sWatcher struct {
 	k8sEventReporter          *K8sEventReporter
 	k8sPodWatcher             *K8sPodWatcher
 	k8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
+	k8sEndpointsWatcher       *K8sEndpointsWatcher
 	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
 	k8sResourceSynced *synced.Resources
-
-	k8sCacheStatus synced.CacheStatus
 
 	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
 	// and may be disabled while the agent runs.
@@ -126,10 +126,10 @@ func newWatcher(
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
+	k8sEndpointsWatcher *K8sEndpointsWatcher,
 	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
-	k8sCacheStatus synced.CacheStatus,
 	k8sAPIGroups *synced.APIGroups,
 	cfg WatcherConfiguration,
 	kcfg interface{ IsEnabled() bool },
@@ -141,9 +141,9 @@ func newWatcher(
 		k8sEventReporter:          k8sEventReporter,
 		k8sPodWatcher:             k8sPodWatcher,
 		k8sCiliumNodeWatcher:      k8sCiliumNodeWatcher,
+		k8sEndpointsWatcher:       k8sEndpointsWatcher,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		k8sResourceSynced:         k8sResourceSynced,
-		k8sCacheStatus:            k8sCacheStatus,
 		k8sAPIGroups:              k8sAPIGroups,
 		cfg:                       cfg,
 		kcfg:                      kcfg,
@@ -194,6 +194,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(cilium_v2.CCECName):          {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
 	synced.CRDResourceName(cilium_v2.CECName):           {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
+	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""}, // Handled in BGP control plane
@@ -235,12 +236,7 @@ func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) 
 // The cachesSynced channel is closed when all caches are synchronized.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
-func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) {
-	if !k.clientset.IsEnabled() {
-		close(k.k8sCacheStatus)
-		return
-	}
-
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
 	resources, cachesOnly := k.resourceGroupsFn(k.logger, k.cfg)
 
 	k.logger.Info("Enabling k8s event listener")
@@ -253,7 +249,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) {
 		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(ctx, option.Config.K8sSyncTimeout, allResources...); err != nil {
 			logging.Fatal(k.logger, "Timed out waiting for pre-existing resources to be received; exiting", logfields.Error, err)
 		}
-		close(k.k8sCacheStatus)
+		close(cachesSynced)
 	}()
 }
 
@@ -261,8 +257,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) {
 type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
-	// K8sClusterNetworkPolicyEnabled returns true if cilium agent needs to support K8s ClusterNetworkPolicy
-	K8sClusterNetworkPolicyEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -281,6 +275,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
+		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
+			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
 			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
@@ -294,6 +290,10 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			)
 		}
 	}
+}
+
+func (k *K8sWatcher) StopWatcher() {
+	k.k8sEndpointsWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed
@@ -311,9 +311,4 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 // GetCachedPod returns a pod from the local store.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	return k.k8sPodWatcher.GetCachedPod(namespace, name)
-}
-
-// GetK8sCiliumEndpointsWatcher returns CEP watcher
-func (k *K8sWatcher) GetK8sCiliumEndpointsWatcher() *K8sCiliumEndpointsWatcher {
-	return k.k8sCiliumEndpointsWatcher
 }

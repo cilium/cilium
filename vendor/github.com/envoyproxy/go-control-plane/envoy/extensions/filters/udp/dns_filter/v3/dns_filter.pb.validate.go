@@ -127,40 +127,6 @@ func (m *DnsFilterConfig) validate(all bool) error {
 		}
 	}
 
-	for idx, item := range m.GetAccessLog() {
-		_, _ = idx, item
-
-		if all {
-			switch v := interface{}(item).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, DnsFilterConfigValidationError{
-						field:  fmt.Sprintf("AccessLog[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, DnsFilterConfigValidationError{
-						field:  fmt.Sprintf("AccessLog[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return DnsFilterConfigValidationError{
-					field:  fmt.Sprintf("AccessLog[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	}
-
 	if len(errors) > 0 {
 		return DnsFilterConfigMultiError(errors)
 	}
@@ -175,7 +141,7 @@ type DnsFilterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsFilterConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -377,7 +343,7 @@ type DnsFilterConfig_ServerContextConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsFilterConfig_ServerContextConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -615,7 +581,7 @@ type DnsFilterConfig_ClientContextConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DnsFilterConfig_ClientContextConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

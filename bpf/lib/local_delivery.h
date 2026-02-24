@@ -4,13 +4,9 @@
 #pragma once
 
 #include "common.h"
-#include "identity.h"
 #include "dbg.h"
-#include "eps.h"
 #include "l3.h"
 #include "token_bucket.h"
-
-DECLARE_CONFIG(bool, enable_netkit, "Use netkit devices for pods")
 
 /* Global map to jump into policy enforcement of sending endpoint */
 struct {
@@ -55,7 +51,10 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 	return DROP_EP_NOT_READY;
 }
 
-static __always_inline bool should_fast_redirect(struct __ctx_buff *ctx, bool from_host)
+static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
+				       int ifindex __maybe_unused,
+				       bool needs_backlog __maybe_unused,
+				       bool from_tunnel)
 {
 	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
@@ -73,18 +72,10 @@ static __always_inline bool should_fast_redirect(struct __ctx_buff *ctx, bool fr
 	 * Pod, the ingress_ifindex is > 0 and in both device types we
 	 * do want a redirect peer into the target Pod's netns.
 	 */
-	return is_defined(ENABLE_HOST_ROUTING) &&
-	       !from_host &&
-	       ctx_get_ingress_ifindex(ctx) > 0;
-}
-
-static __always_inline int redirect_ep(struct __ctx_buff *ctx,
-				       int ifindex,
-				       bool use_fast_redirect,
-				       bool from_tunnel)
-{
-	if (!use_fast_redirect)
+	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
+	    ctx_get_ingress_ifindex(ctx) == 0) {
 		return (int)ctx_redirect(ctx, ifindex, 0);
+	}
 
 	/* When coming from overlay, we need to set packet type
 	 * to HOST as otherwise we might get dropped in IP layer.
@@ -115,12 +106,13 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 }
 
 static __always_inline int
-local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
-	       const struct endpoint_info *ep, __u8 direction, bool from_host,
-	       bool from_tunnel, __u32 cluster_id)
+local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
+	       __u32 magic __maybe_unused,
+	       const struct endpoint_info *ep __maybe_unused,
+	       __u8 direction __maybe_unused,
+	       bool from_host __maybe_unused,
+	       bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
-	bool use_fast_redirect;
-
 #ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
@@ -146,37 +138,34 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
  * this case the skb is delivered directly to pod's namespace and the ingress
  * policy (the cil_to_container BPF program) is bypassed.
  */
-	use_fast_redirect = should_fast_redirect(ctx, from_host);
-	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_fast_redirect &&
-	    /* We need to enforce policies at the source in case of netkit
-	     * devices because we can't redirect to proxy from bpf_lxc. That
-	     * needs a fix upstream.
-	     */
-	    (!CONFIG(enable_netkit) || ctx_get_ingress_ifindex(ctx) > 0)) {
-		set_identity_mark(ctx, seclabel, magic);
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+    !defined(ENABLE_HOST_ROUTING)
+	set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)
-		/* In tunneling mode, we execute this code to send the packet from
-		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
-		 * redirect() because that would bypass conntrack and the reverse DNAT.
-		 * Thus, we send packets to the stack, but since they have the wrong
-		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
-		 * will drop them.
-		 */
-		if (from_tunnel) {
-			ctx_change_type(ctx, PACKET_HOST);
-			return CTX_ACT_OK;
-		}
+	/* In tunneling mode, we execute this code to send the packet from
+	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+	 * redirect() because that would bypass conntrack and the reverse DNAT.
+	 * Thus, we send packets to the stack, but since they have the wrong
+	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+	 * will drop them.
+	 */
+	if (from_tunnel) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
 # endif /* !ENABLE_NODEPORT */
 
-		return redirect_ep(ctx, ep->ifindex, use_fast_redirect, from_tunnel);
-	}
+	return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
+#else
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	local_delivery_fill_meta(ctx, seclabel, true, from_host, from_tunnel, cluster_id);
 	return tail_call_policy(ctx, ep->lxc_id);
+#endif
 }
 
+#ifdef ENABLE_IPV6
 /* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
  * Depending on the configuration, it may also enforce ingress policies for the
@@ -201,6 +190,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 			      from_tunnel, 0);
 }
+#endif /* ENABLE_IPV6 */
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
@@ -226,42 +216,4 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	return local_delivery(ctx, seclabel, magic, ep, direction, from_host,
 			      from_tunnel, cluster_id);
-}
-
-/* Performs IPv6 L2/L3 handling and delivers the packet to the cilium_host@ingress
- * interface on the same node via a redirect call.
- * If needed by the configuration, host policies will be enforced once delivered,
- * specifically in the cil_to_host program (cilium_host@ingress).
- */
-static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx, int l3_off)
-{
-	union macaddr router_mac = CONFIG(interface_mac);
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	int ret;
-
-	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
-}
-
-/* Performs IPv4 L2/L3 handling and delivers the packet to the cilium_host@ingress
- * interface on the same node via a redirect call.
- * If needed by the configuration, host policies will be enforced once delivered,
- * specifically in the cil_to_host program (cilium_host@ingress).
- */
-static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, int l3_off, struct iphdr *ip4)
-{
-	union macaddr router_mac = CONFIG(interface_mac);
-	union macaddr host_mac = CILIUM_HOST_MAC;
-	int ret;
-
-	ret = ipv4_l3(ctx, l3_off, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
 }

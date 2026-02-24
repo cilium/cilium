@@ -129,12 +129,8 @@ func (c *colorer) sequences() []string {
 			// should never happen
 			continue
 		}
-		if split[0] != "" {
-			unique[split[0]] = struct{}{}
-		}
-		if split[1] != "" {
-			unique[split[1]] = struct{}{}
-		}
+		unique[split[0]] = struct{}{}
+		unique[split[1]] = struct{}{}
 	}
 	return slices.Collect(maps.Keys(unique))
 }

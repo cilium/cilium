@@ -9,26 +9,13 @@ package config
 // not instantiate directly! Always use [NewBPFLXC] to ensure the default values
 // configured in the ELF are honored.
 type BPFLXC struct {
-	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
-	// Respond to ARP requests from local containers to resolve the default
-	// gateway.
-	EnableARPResponder bool `config:"enable_arp_responder"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
-	// Apply Network Policy for ICMP packets.
-	EnableICMPRule bool `config:"enable_icmp_rule"`
-	// Enable support for Local Redirect Policy.
-	EnableLRP bool `config:"enable_lrp"`
-	// Use netkit devices for pods.
-	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
-	// Maintain packet and byte counters for every policy entry.
-	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// The endpoint's security ID.
@@ -39,16 +26,10 @@ type BPFLXC struct {
 	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
-	// Ephemeral port range minimun.
-	EphemeralMin uint16 `config:"ephemeral_min"`
-	// FIB routing table ID for egress lookups.
-	FIBTableID uint32 `config:"fib_table_id"`
-	// The host endpoint ID.
-	HostEPID uint16 `config:"host_ep_id"`
-	// Enable hybrid mode routing based on subnet IDs.
-	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
+	// The host endpoint's security ID.
+	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfIndex uint32 `config:"interface_ifindex"`
+	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
@@ -57,24 +38,19 @@ type BPFLXC struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
+	// Pull security context from IP cache.
+	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
-	// Port number used for the overlay network.
-	TunnelPort uint16 `config:"tunnel_port"`
-	// The identifier of the tunnel protocol used for the overlay network.
-	TunnelProtocol uint8 `config:"tunnel_protocol"`
-	// VXLAN tunnel endpoint network mask.
-	VTEPMask uint32 `config:"vtep_mask"`
 
 	Node
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{false, 0x5dc, false, false, false, false, false, false, false,
-		false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFLXC{0x5dc, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, false, 0x0, node}
 }

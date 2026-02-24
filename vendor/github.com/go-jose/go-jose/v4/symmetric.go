@@ -21,7 +21,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
-	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -329,7 +328,7 @@ func (ctx *symmetricKeyCipher) encryptKey(cek []byte, alg KeyAlgorithm) (recipie
 
 		// derive key
 		keyLen, h := getPbkdf2Params(alg)
-		key, err := pbkdf2.Key(h, string(ctx.key), salt, ctx.p2c, keyLen)
+		key, err := pbkdf2Key(h, string(ctx.key), salt, ctx.p2c, keyLen)
 		if err != nil {
 			return recipientInfo{}, nil
 		}
@@ -434,7 +433,7 @@ func (ctx *symmetricKeyCipher) decryptKey(headers rawHeader, recipient *recipien
 
 		// derive key
 		keyLen, h := getPbkdf2Params(alg)
-		key, err := pbkdf2.Key(h, string(ctx.key), salt, p2c, keyLen)
+		key, err := pbkdf2Key(h, string(ctx.key), salt, p2c, keyLen)
 		if err != nil {
 			return nil, err
 		}

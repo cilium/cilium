@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -65,15 +64,11 @@ func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
 	}
 
 	if err := m.Bpf.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("bpf")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("bpf")
 		}
-
 		return err
 	}
 
@@ -86,15 +81,11 @@ func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
 	}
 
 	if err := m.OverallHealth.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("overallHealth")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("overallHealth")
 		}
-
 		return err
 	}
 
@@ -107,15 +98,11 @@ func (m *EndpointHealth) validatePolicy(formats strfmt.Registry) error {
 	}
 
 	if err := m.Policy.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("policy")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("policy")
 		}
-
 		return err
 	}
 
@@ -151,15 +138,11 @@ func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.
 	}
 
 	if err := m.Bpf.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("bpf")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("bpf")
 		}
-
 		return err
 	}
 
@@ -173,15 +156,11 @@ func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, forma
 	}
 
 	if err := m.OverallHealth.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("overallHealth")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("overallHealth")
 		}
-
 		return err
 	}
 
@@ -195,15 +174,11 @@ func (m *EndpointHealth) contextValidatePolicy(ctx context.Context, formats strf
 	}
 
 	if err := m.Policy.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("policy")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("policy")
 		}
-
 		return err
 	}
 

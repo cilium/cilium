@@ -4,7 +4,6 @@
 #pragma once
 
 #include "lib/common.h"
-#include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/tailcall.h"
 
@@ -14,7 +13,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SRV6_VRF_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_vrf_v6 __section_maps_btf;
 
 struct {
@@ -23,7 +22,7 @@ struct {
 	__type(value, union v6addr);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v6 __section_maps_btf;
 
 struct {
@@ -32,7 +31,7 @@ struct {
     __type(value, __u32);      /* VRF ID */
     __uint(pinning, LIBBPF_PIN_BY_NAME);
     __uint(max_entries, SRV6_SID_MAP_SIZE);
-    __uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_sid __section_maps_btf;
 
 struct srv6_srh {
@@ -49,7 +48,7 @@ struct {
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SRV6_VRF_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_vrf_v4 __section_maps_btf;
 
 struct {
@@ -58,7 +57,7 @@ struct {
 	__type(value, union v6addr);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v4 __section_maps_btf;
 
 #ifdef ENABLE_SRV6
@@ -72,7 +71,7 @@ struct {
 	      - 4))
 #  define SRV6_VRF_PREFIX4_LEN(PREFIX) (SRV6_VRF_STATIC_PREFIX4 + (PREFIX))
 #  define SRV6_VRF_IPV4_PREFIX SRV6_VRF_PREFIX4_LEN(32)
-static __always_inline const __u32*
+static __always_inline __u32*
 srv6_lookup_vrf4(__be32 sip, __be32 dip)
 {
 	struct srv6_vrf_key4 key = {
@@ -91,7 +90,7 @@ srv6_lookup_vrf4(__be32 sip, __be32 dip)
 	      - 4))
 #  define SRV6_POLICY_PREFIX4_LEN(PREFIX) (SRV6_POLICY_STATIC_PREFIX4 + (PREFIX))
 #  define SRV6_POLICY_IPV4_PREFIX SRV6_POLICY_PREFIX4_LEN(32)
-static __always_inline const union v6addr *
+static __always_inline union v6addr *
 srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 {
 	struct srv6_policy_key4 key = {
@@ -111,7 +110,7 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 	      - 16))
 #  define SRV6_VRF_PREFIX6_LEN(PREFIX) (SRV6_VRF_STATIC_PREFIX6 + (PREFIX))
 #  define SRV6_VRF_IPV6_PREFIX SRV6_VRF_PREFIX6_LEN(128)
-static __always_inline const __u32*
+static __always_inline __u32*
 srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 {
 	struct srv6_vrf_key6 key = {
@@ -131,7 +130,7 @@ srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 # define SRV6_POLICY_PREFIX6_LEN(PREFIX) (SRV6_POLICY_STATIC_PREFIX6 + (PREFIX))
 # define SRV6_POLICY_IPV6_PREFIX SRV6_POLICY_PREFIX6_LEN(128)
 
-static __always_inline const union v6addr *
+static __always_inline union v6addr *
 srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 {
 	struct srv6_policy_key6 key = {
@@ -145,7 +144,7 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 static __always_inline __u32
 srv6_lookup_sid(const struct in6_addr *sid)
 {
-	const __u32 *vrf_id;
+	__u32 *vrf_id;
 
 	vrf_id = map_lookup_elem(&cilium_srv6_sid, sid);
 	if (vrf_id)
@@ -398,7 +397,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 }
 
 static __always_inline void
-srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
+srv6_load_meta_sid(struct __ctx_buff *ctx, const struct in6_addr *sid)
 {
 	ctx_load_meta_ipv6(ctx, (union v6addr *)sid, CB_SRV6_SID_1);
 }

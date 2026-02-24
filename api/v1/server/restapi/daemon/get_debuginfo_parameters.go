@@ -28,6 +28,7 @@ func NewGetDebuginfoParams() GetDebuginfoParams {
 //
 // swagger:parameters GetDebuginfo
 type GetDebuginfoParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

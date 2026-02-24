@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -16,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -28,7 +28,6 @@ func TestSetPortRulesForID(t *testing.T) {
 	udpProtoPort8053 := restore.MakeV2PortProto(8053, u8proto.UDP)
 
 	rules[new(MockCachedSelector)] = &policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{
 			DNS: []api.PortRuleDNS{
 				{MatchName: "cilium.io."},
@@ -43,7 +42,6 @@ func TestSetPortRulesForID(t *testing.T) {
 
 	selector2 := new(MockCachedSelector)
 	rules[selector2] = &policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{
 			DNS: []api.PortRuleDNS{
 				{MatchName: "cilium2.io."},
@@ -67,7 +65,6 @@ func TestSetPortRulesForID(t *testing.T) {
 	require.Empty(t, cache)
 
 	rules[selector2] = &policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{
 			DNS: []api.PortRuleDNS{
 				{MatchName: "cilium2.io."},
@@ -117,7 +114,6 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 
 func TestGeneratePattern(t *testing.T) {
 	l7 := &policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
 			{MatchName: "example.name."},
 			{MatchName: "example.com."},
@@ -144,7 +140,6 @@ func TestGeneratePattern(t *testing.T) {
 
 	pattern = GeneratePattern(
 		&policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
 				{MatchPattern: "domo.io."},
 				{MatchPattern: "*"},
@@ -160,7 +155,6 @@ func TestGeneratePattern(t *testing.T) {
 	}
 
 	pattern = GeneratePattern(&policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{},
 	})
 
@@ -173,7 +167,6 @@ func TestGeneratePattern(t *testing.T) {
 	}
 
 	pattern = GeneratePattern(&policy.PerSelectorPolicy{
-		Verdict: types.Allow,
 		L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{}},
 	})
 	regex, err = re.CompileRegex(pattern)
@@ -190,7 +183,6 @@ func TestGeneratePatternTrailingDot(t *testing.T) {
 	dnsPattern := "*.example.name"
 	generatePattern := func(name, pattern string) string {
 		l7 := &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{
 				{MatchName: name},
 				{MatchPattern: pattern},
@@ -207,19 +199,15 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	return nil
 }
 
-func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
-	return nil
-}
-
-func (m MockCachedSelector) GetMetadataLabels() labels.LabelArrayList {
+func (m MockCachedSelector) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (m MockCachedSelector) Selects(identity.NumericIdentity) bool {
+func (m MockCachedSelector) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
 	return false
 }
 

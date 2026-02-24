@@ -2,7 +2,7 @@
 
 ## cilium-operator-aws shell
 
-Connect to the shell
+Connect to the Cilium shell
 
 ```
 cilium-operator-aws shell [command] [args]... [flags]

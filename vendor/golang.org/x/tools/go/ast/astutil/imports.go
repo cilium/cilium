@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -150,7 +149,7 @@ func AddNamedImport(fset *token.FileSet, f *ast.File, name, path string) (added 
 	if newImport.Name != nil {
 		newImport.Name.NamePos = pos
 	}
-	updateBasicLitPos(newImport.Path, pos)
+	newImport.Path.ValuePos = pos
 	newImport.EndPos = pos
 
 	// Clean up parens. impDecl contains at least one spec.
@@ -185,7 +184,7 @@ func AddNamedImport(fset *token.FileSet, f *ast.File, name, path string) (added 
 		first.Lparen = first.Pos()
 		// Move the imports of the other import declaration to the first one.
 		for _, spec := range gen.Specs {
-			updateBasicLitPos(spec.(*ast.ImportSpec).Path, first.Pos())
+			spec.(*ast.ImportSpec).Path.ValuePos = first.Pos()
 			first.Specs = append(first.Specs, spec)
 		}
 		f.Decls = slices.Delete(f.Decls, i, i+1)
@@ -210,46 +209,48 @@ func DeleteImport(fset *token.FileSet, f *ast.File, path string) (deleted bool) 
 // DeleteNamedImport deletes the import with the given name and path from the file f, if present.
 // If there are duplicate import declarations, all matching ones are deleted.
 func DeleteNamedImport(fset *token.FileSet, f *ast.File, name, path string) (deleted bool) {
-	var (
-		delspecs    = make(map[*ast.ImportSpec]bool)
-		delcomments = make(map[*ast.CommentGroup]bool)
-	)
+	var delspecs []*ast.ImportSpec
+	var delcomments []*ast.CommentGroup
 
 	// Find the import nodes that import path, if any.
 	for i := 0; i < len(f.Decls); i++ {
-		gen, ok := f.Decls[i].(*ast.GenDecl)
+		decl := f.Decls[i]
+		gen, ok := decl.(*ast.GenDecl)
 		if !ok || gen.Tok != token.IMPORT {
 			continue
 		}
 		for j := 0; j < len(gen.Specs); j++ {
-			impspec := gen.Specs[j].(*ast.ImportSpec)
+			spec := gen.Specs[j]
+			impspec := spec.(*ast.ImportSpec)
 			if importName(impspec) != name || importPath(impspec) != path {
 				continue
 			}
 
 			// We found an import spec that imports path.
 			// Delete it.
-			delspecs[impspec] = true
+			delspecs = append(delspecs, impspec)
 			deleted = true
-			gen.Specs = slices.Delete(gen.Specs, j, j+1)
+			copy(gen.Specs[j:], gen.Specs[j+1:])
+			gen.Specs = gen.Specs[:len(gen.Specs)-1]
 
 			// If this was the last import spec in this decl,
 			// delete the decl, too.
 			if len(gen.Specs) == 0 {
-				f.Decls = slices.Delete(f.Decls, i, i+1)
+				copy(f.Decls[i:], f.Decls[i+1:])
+				f.Decls = f.Decls[:len(f.Decls)-1]
 				i--
 				break
 			} else if len(gen.Specs) == 1 {
 				if impspec.Doc != nil {
-					delcomments[impspec.Doc] = true
+					delcomments = append(delcomments, impspec.Doc)
 				}
 				if impspec.Comment != nil {
-					delcomments[impspec.Comment] = true
+					delcomments = append(delcomments, impspec.Comment)
 				}
 				for _, cg := range f.Comments {
 					// Found comment on the same line as the import spec.
 					if cg.End() < impspec.Pos() && fset.Position(cg.End()).Line == fset.Position(impspec.Pos()).Line {
-						delcomments[cg] = true
+						delcomments = append(delcomments, cg)
 						break
 					}
 				}
@@ -293,21 +294,38 @@ func DeleteNamedImport(fset *token.FileSet, f *ast.File, name, path string) (del
 	}
 
 	// Delete imports from f.Imports.
-	before := len(f.Imports)
-	f.Imports = slices.DeleteFunc(f.Imports, func(imp *ast.ImportSpec) bool {
-		_, ok := delspecs[imp]
-		return ok
-	})
-	if len(f.Imports)+len(delspecs) != before {
-		// This can happen when the AST is invalid (i.e. imports differ between f.Decls and f.Imports).
-		panic(fmt.Sprintf("deleted specs from Decls but not Imports: %v", delspecs))
+	for i := 0; i < len(f.Imports); i++ {
+		imp := f.Imports[i]
+		for j, del := range delspecs {
+			if imp == del {
+				copy(f.Imports[i:], f.Imports[i+1:])
+				f.Imports = f.Imports[:len(f.Imports)-1]
+				copy(delspecs[j:], delspecs[j+1:])
+				delspecs = delspecs[:len(delspecs)-1]
+				i--
+				break
+			}
+		}
 	}
 
 	// Delete comments from f.Comments.
-	f.Comments = slices.DeleteFunc(f.Comments, func(cg *ast.CommentGroup) bool {
-		_, ok := delcomments[cg]
-		return ok
-	})
+	for i := 0; i < len(f.Comments); i++ {
+		cg := f.Comments[i]
+		for j, del := range delcomments {
+			if cg == del {
+				copy(f.Comments[i:], f.Comments[i+1:])
+				f.Comments = f.Comments[:len(f.Comments)-1]
+				copy(delcomments[j:], delcomments[j+1:])
+				delcomments = delcomments[:len(delcomments)-1]
+				i--
+				break
+			}
+		}
+	}
+
+	if len(delspecs) > 0 {
+		panic(fmt.Sprintf("deleted specs from Decls but not Imports: %v", delspecs))
+	}
 
 	return
 }
@@ -470,18 +488,4 @@ func Imports(fset *token.FileSet, f *ast.File) [][]*ast.ImportSpec {
 	}
 
 	return groups
-}
-
-// updateBasicLitPos updates lit.Pos,
-// ensuring that lit.End (if set) is displaced by the same amount.
-// (See https://go.dev/issue/76395.)
-func updateBasicLitPos(lit *ast.BasicLit, pos token.Pos) {
-	len := lit.End() - lit.Pos()
-	lit.ValuePos = pos
-	// TODO(adonovan): after go1.26, simplify to:
-	//   lit.ValueEnd = pos + len
-	v := reflect.ValueOf(lit).Elem().FieldByName("ValueEnd")
-	if v.IsValid() && v.Int() != 0 {
-		v.SetInt(int64(pos + len))
-	}
 }

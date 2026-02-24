@@ -4,10 +4,10 @@
 package monitor
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -31,7 +31,7 @@ const (
 const TraceSockNotifyFlagIPv6 uint8 = 0x1
 
 const (
-	TraceSockNotifyLen = 40
+	TraceSockNotifyLen = 38
 )
 
 // TraceSockNotify is message format for socket trace notifications sent from datapath.
@@ -40,15 +40,14 @@ const (
 type TraceSockNotify struct {
 	api.DefaultSrcDstGetter
 
-	Type       uint8      `align:"type"`
-	XlatePoint uint8      `align:"xlate_point"`
-	L4Proto    uint8      `align:"l4_proto"`
-	Flags      uint8      `align:"ipv6"`
-	DstPort    uint16     `align:"dst_port"`
-	_          uint16     `align:"pad2"`
-	SockCookie uint64     `align:"sock_cookie"`
-	CgroupId   uint64     `align:"cgroup_id"`
-	DstIP      types.IPv6 `align:"dst_ip"`
+	Type       uint8
+	XlatePoint uint8
+	DstIP      types.IPv6
+	DstPort    uint16
+	SockCookie uint64
+	CgroupId   uint64
+	L4Proto    uint8
+	Flags      uint8
 }
 
 // Dump prints the message according to the verbosity level specified
@@ -69,12 +68,12 @@ func (t *TraceSockNotify) Decode(data []byte) error {
 
 	t.Type = data[0]
 	t.XlatePoint = data[1]
-	t.L4Proto = data[2]
-	t.Flags = data[3]
-	t.DstPort = binary.NativeEndian.Uint16(data[4:6])
-	t.SockCookie = binary.NativeEndian.Uint64(data[8:16])
-	t.CgroupId = binary.NativeEndian.Uint64(data[16:24])
-	copy(t.DstIP[:], data[24:40])
+	copy(t.DstIP[:], data[2:18])
+	t.DstPort = byteorder.Native.Uint16(data[18:20])
+	t.SockCookie = byteorder.Native.Uint64(data[20:28])
+	t.CgroupId = byteorder.Native.Uint64(data[28:36])
+	t.L4Proto = data[36]
+	t.Flags = data[37]
 
 	return nil
 }

@@ -252,7 +252,7 @@ func Test_client(t *testing.T) {
 	// Wait until heartbeat has been seen to check that heartbeats are
 	// running.
 	err := testutils.WaitUntil(
-		func() bool { return getRequest("/readyz") != nil },
+		func() bool { return getRequest("/healthz") != nil },
 		time.Second)
 	require.NoError(t, err)
 
@@ -621,7 +621,7 @@ func Test_clientMultipleAPIServersFailedHeartbeat(t *testing.T) {
 			       "major": "1",
 			       "minor": "99"
 			}`))
-			case "/readyz":
+			case "/healthz":
 				healthServer.Store("health", "http://"+r.Host)
 			default:
 				w.Write([]byte("{}"))

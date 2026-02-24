@@ -9,7 +9,6 @@ import (
 	"iter"
 	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -17,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -25,7 +23,6 @@ import (
 // FrontendParams defines the static parameters of a frontend.
 // This is separate from [Frontend] to clearly separate which fields
 // can be manipulated and which are internally managed by [Writer].
-// +deepequal-gen=true
 type FrontendParams struct {
 	// Frontend address and port
 	Address L3n4Addr
@@ -42,7 +39,7 @@ type FrontendParams struct {
 
 	// ServicePort is the associated "ClusterIP" port of this frontend.
 	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
-	// LoadBalancer. This is used to match frontends with the [Ports] of
+	//  This is used to match frontends with the [Ports] of
 	// [Service.ProxyRedirect].
 	ServicePort uint16
 }
@@ -78,12 +75,6 @@ type Frontend struct {
 	// this pointer to the service will update as well and the
 	// frontend is marked for reconciliation.
 	Service *Service `json:"-" yaml:"-"`
-}
-
-// IsFrontendUpdated returns true if the frontend needs to be updated given
-// the new parameters and service.
-func IsFrontendUpdated(fe *Frontend, newParams FrontendParams, newService *Service) bool {
-	return !newParams.DeepEqual(&fe.FrontendParams) || fe.Service != newService
 }
 
 // BackendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
@@ -190,22 +181,6 @@ func (fe *Frontend) ToModel() *models.Service {
 		spec.BackendAddresses = append(spec.BackendAddresses, backendModel(be))
 	}
 
-	if svc.ProxyRedirect != nil {
-		state, _ := BackendStateActive.String()
-		localhost := "127.0.0.1"
-		if fe.Address.AddrCluster().Is6() {
-			localhost = "::1"
-		}
-
-		spec.BackendAddresses = append(spec.BackendAddresses, &models.BackendAddress{
-			IP:        &localhost,
-			Protocol:  fe.Address.Protocol(),
-			Port:      svc.ProxyRedirect.ProxyPort,
-			State:     state,
-			Preferred: true,
-		})
-	}
-
 	return &models.Service{
 		Spec: spec,
 		Status: &models.ServiceStatus{
@@ -263,26 +238,6 @@ var (
 
 	FrontendByServiceName = frontendServiceIndex.Query
 )
-
-// LookupFrontendByTuple looks up a frontend with an address without constructing a L3n4Addr.
-// This is used in hubble code when doing lots of lookups with low hit rates and we want to avoid
-// constructing a unique L3n4Addr. On Go v1.24 this avoids a memory leak with [L3n4Addr] if they're
-// constructed faster than they're cleaned up. On Go v1.25 the issue no longer exists.
-// See also https://github.com/cilium/cilium/issues/41623
-//
-// Prefer [FrontendByAddress] over this.
-func LookupFrontendByTuple(txn statedb.ReadTxn, fes statedb.Table[*Frontend], addrCluster cmtypes.AddrCluster, proto L4Type, port uint16, scope uint8) (fe *Frontend, found bool) {
-	rep := l3n4AddrRep{
-		addrCluster: addrCluster,
-		L4Addr:      L4Addr{Protocol: proto, Port: port},
-		scope:       scope,
-	}
-	// Construct a temporary L3n4Addr without going via unique.Make.
-	h := &struct{ rep *l3n4AddrRep }{&rep}
-	l3n4Addr := (*L3n4Addr)(unsafe.Pointer(h))
-	fe, _, found = fes.Get(txn, FrontendByAddress(*l3n4Addr))
-	return
-}
 
 const (
 	FrontendTableName = "frontends"

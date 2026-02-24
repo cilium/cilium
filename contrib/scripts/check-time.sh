@@ -98,7 +98,7 @@ update() {
   printf "%s\n" "${files[@]}" \
   | xargs dirname \
   | sort -u \
-  | xargs go tool "${GOIMPORTS[@]}"
+  | xargs go run "${GOIMPORTS[@]}"
 }
 
 main() {

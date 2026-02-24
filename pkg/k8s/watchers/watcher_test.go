@@ -21,10 +21,6 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
-func (f *fakeK8sWatcherConfiguration) K8sClusterNetworkPolicyEnabled() bool {
-	return true
-}
-
 type fakeKVStoreConfig struct{}
 
 func (f *fakeKVStoreConfig) IsEnabled() bool {
@@ -34,7 +30,6 @@ func (f *fakeKVStoreConfig) IsEnabled() bool {
 func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	logger := hivetest.Logger(t)
 	fakeClientSet, _ := k8sClient.NewFakeClientset(logger)
-	k8sCachesSynced := make(chan struct{})
 	w := newWatcher(
 		logger,
 		func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups []string, waitForCachesOnly []string) {
@@ -47,8 +42,8 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&synced.Resources{CacheStatus: make(synced.CacheStatus)},
-		k8sCachesSynced,
 		nil,
 		&fakeK8sWatcherConfiguration{},
 		&fakeKVStoreConfig{},
@@ -59,12 +54,13 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
-	w.InitK8sSubsystem(ctx)
+	cachesSynced := make(chan struct{})
+	w.InitK8sSubsystem(ctx, cachesSynced)
 	// Expect channel to be closed.
 	select {
 	case <-ctx.Done():
 		t.Fail()
-	case _, ok := <-k8sCachesSynced:
+	case _, ok := <-cachesSynced:
 		require.False(t, ok)
 	}
 }

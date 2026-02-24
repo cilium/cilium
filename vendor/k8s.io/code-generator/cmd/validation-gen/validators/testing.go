@@ -56,7 +56,7 @@ func (frtv fixedResultTagValidator) TagName() string {
 	return validateFalseTagName
 }
 
-var fixedResultTagValidScopes = sets.New(ScopeType, ScopeField, ScopeListVal, ScopeMapKey, ScopeMapVal)
+var fixedResultTagValidScopes = sets.New(ScopeAny)
 
 func (fixedResultTagValidator) ValidScopes() sets.Set[Scope] {
 	return fixedResultTagValidScopes
@@ -73,9 +73,7 @@ func (frtv fixedResultTagValidator) GetValidations(context Context, tag codetags
 	if err != nil {
 		return result, fmt.Errorf("can't decode tag payload: %w", err)
 	}
-	fn := Function(frtv.TagName(), args.flags, fixedResultValidator, frtv.result, args.msg).WithTypeArgs(args.typeArgs...)
-	fn.Cohort = args.cohort
-	result.AddFunction(fn)
+	result.AddFunction(Function(frtv.TagName(), args.flags, fixedResultValidator, frtv.result, args.msg).WithTypeArgs(args.typeArgs...))
 
 	return result, nil
 }
@@ -88,7 +86,6 @@ type fixedResultArgs struct {
 	flags    FunctionFlags
 	msg      string
 	typeArgs []types.Name
-	cohort   string
 }
 
 func (fixedResultTagValidator) toFixedResultArgs(in codetags.Tag) (fixedResultArgs, error) {
@@ -114,8 +111,6 @@ func (fixedResultTagValidator) toFixedResultArgs(in codetags.Tag) (fixedResultAr
 				}
 				result.typeArgs = []types.Name{{Package: "", Name: tn}}
 			}
-		case "cohort":
-			result.cohort = a.Value
 		}
 	}
 	if in.ValueType == codetags.ValueTypeString {
@@ -126,9 +121,8 @@ func (fixedResultTagValidator) toFixedResultArgs(in codetags.Tag) (fixedResultAr
 
 func (frtv fixedResultTagValidator) Docs() TagDoc {
 	doc := TagDoc{
-		Tag:            frtv.TagName(),
-		StabilityLevel: Alpha,
-		Scopes:         frtv.ValidScopes().UnsortedList(),
+		Tag:    frtv.TagName(),
+		Scopes: frtv.ValidScopes().UnsortedList(),
 	}
 	doc.PayloadsType = codetags.ValueTypeString
 	if frtv.error {
@@ -154,11 +148,6 @@ func (frtv fixedResultTagValidator) Docs() TagDoc {
 			Name:        "typeArg",
 			Description: "<string>",
 			Docs:        "The type arg in generated code (must be the value-type, not pointer).",
-			Type:        codetags.ArgTypeString,
-		}, {
-			Name:        "cohort",
-			Description: "<string>",
-			Docs:        "An optional cohort name to group multiple validations.",
 			Type:        codetags.ArgTypeString,
 		}}
 		if frtv.result {

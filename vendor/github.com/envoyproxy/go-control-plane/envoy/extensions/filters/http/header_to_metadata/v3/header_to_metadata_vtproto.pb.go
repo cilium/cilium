@@ -212,13 +212,6 @@ func (m *Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if len(m.StatPrefix) > 0 {
-		i -= len(m.StatPrefix)
-		copy(dAtA[i:], m.StatPrefix)
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.StatPrefix)))
-		i--
-		dAtA[i] = 0x1a
-	}
 	if len(m.ResponseRules) > 0 {
 		for iNdEx := len(m.ResponseRules) - 1; iNdEx >= 0; iNdEx-- {
 			size, err := m.ResponseRules[iNdEx].MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -330,10 +323,6 @@ func (m *Config) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
-	}
-	l = len(m.StatPrefix)
-	if l > 0 {
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

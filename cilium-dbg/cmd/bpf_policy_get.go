@@ -155,7 +155,6 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		bytesTitle            = "BYTES"
 		packetsTitle          = "PACKETS"
 		prefixTitle           = "PREFIX"
-		cookieTitle           = "COOKIE"
 	)
 
 	labelsID := map[identity.NumericIdentity]*identity.Identity{}
@@ -173,11 +172,11 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle, cookieTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle, cookieTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, authTypeTitle, bytesTitle, packetsTitle, prefixTitle)
 	}
 	for _, stat := range statsMap {
 		prefixLen := stat.Key.GetPrefixLen()
@@ -204,10 +203,9 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		if stat.Bytes != policymap.StatNotAvailable {
 			bytes = strconv.FormatUint(stat.Bytes, 10)
 		}
-		cookie := stat.Cookie
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen, cookie)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
@@ -215,16 +213,16 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 					lbl = "ANY"
 				}
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\n",
-						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen, cookie)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 					first = false
 				} else {
 					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\n",
-				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen, cookie)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.AuthRequirement.AuthType(), bytes, packets, prefixLen)
 		}
 	}
 }

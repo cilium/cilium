@@ -33,15 +33,6 @@ var stylized = map[string]string{
 	"ip":      "IP",
 	"netns":   "NetNS",
 	"ipcache": "IPCache",
-	"lrp":     "LRP",
-	"icmp":    "ICMP",
-	"wg":      "WG",
-	"vtep":    "VTEP",
-	"ep":      "EP",
-	"fib":     "FIB",
-	"ifindex": "IfIndex",
-	"arp":     "ARP",
-	"lb":      "LB",
 }
 
 // varsToStruct generates a Go struct from the configuration variables in the
@@ -62,7 +53,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	for n, v := range spec.Variables {
 		// Only consider variables in a specific config section to avoid interfering
 		// with unrelated objects.
-		if v.SectionName != config.Section {
+		if v.MapName() != config.Section {
 			continue
 		}
 
@@ -70,12 +61,12 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 		// avoid collisions with other variables with common names.
 		n = strings.TrimPrefix(n, config.ConstantPrefix)
 
-		if v.Type == nil {
+		if v.Type() == nil {
 			return "", fmt.Errorf("variable %s has no type information, was the ELF built without BTF?", n)
 		}
 
 		// Skip variables that don't have the requested kind.
-		tags := v.Type.Tags
+		tags := v.Type().Tags
 		if !slices.Contains(tags, kind) {
 			continue
 		}
@@ -88,7 +79,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			return "", fmt.Errorf("variable %s has no doc comment", n)
 		}
 
-		typ, err := btfVarGoType(v.Type)
+		typ, err := btfVarGoType(v.Type())
 		if err != nil {
 			return "", fmt.Errorf("variable %s: getting Go type: %w", n, err)
 		}
@@ -157,7 +148,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 
 // varGoValue returns the Go value of a variable as an any.
 func varGoValue(v *ebpf.VariableSpec) (any, error) {
-	switch t := btf.UnderlyingType(v.Type.Type).(type) {
+	switch t := btf.UnderlyingType(v.Type().Type).(type) {
 	case *btf.Int:
 		switch t.Encoding {
 		case btf.Signed:

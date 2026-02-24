@@ -10,7 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 )
 
 // TestRulesDeepEqual tests that individual rules (via Rule.DeepEqual()) and
@@ -74,8 +76,10 @@ func TestRuleMarshalling(t *testing.T) {
 			},
 			sanitized: EndpointSelector{
 				LabelSelector:             &slim_metav1.LabelSelector{},
+				requirements:              &k8sLbls.Requirements{},
 				cachedLabelSelectorString: "&LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}",
 				Generated:                 false,
+				sanitized:                 true,
 			},
 			sanitizedJSON: `{}`,
 		},
@@ -88,10 +92,14 @@ func TestRuleMarshalling(t *testing.T) {
 			},
 			sanitized: EndpointSelector{
 				LabelSelector: &slim_metav1.LabelSelector{
-					MatchLabels: map[string]string{"any:app": "frontend"},
+					MatchLabels: map[string]string{"any.app": "frontend"},
 				},
-				cachedLabelSelectorString: "&LabelSelector{MatchLabels:map[string]string{any:app: frontend,},MatchExpressions:[]LabelSelectorRequirement{},}",
+				requirements: &k8sLbls.Requirements{
+					selectorRequirementsConverter(t, "any.app", selection.Equals, []string{"frontend"}),
+				},
+				cachedLabelSelectorString: "&LabelSelector{MatchLabels:map[string]string{any.app: frontend,},MatchExpressions:[]LabelSelectorRequirement{},}",
 				Generated:                 false,
+				sanitized:                 true,
 			},
 			sanitizedJSON: `{"matchLabels":{"any:app":"frontend"}}`,
 		},
@@ -108,7 +116,8 @@ func TestRuleMarshalling(t *testing.T) {
 			FromEndpoints: []EndpointSelector{testSelectors["empty"].expected},
 		}}},
 		sanitized: []IngressRule{{IngressCommonRule: IngressCommonRule{
-			FromEndpoints: []EndpointSelector{testSelectors["empty"].sanitized},
+			FromEndpoints:       []EndpointSelector{testSelectors["empty"].sanitized},
+			aggregatedSelectors: []EndpointSelector{},
 		}}},
 		sanitizedJSON: `[{"fromEndpoints":[{}]}]`,
 	}

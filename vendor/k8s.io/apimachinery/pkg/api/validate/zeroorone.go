@@ -31,14 +31,9 @@ import (
 //
 // For example:
 //
-//	var ZeroOrOneOfMembershipForABC = validate.NewUnionMembership(
-//		validate.NewUnionMember("a"),
-//		validate.NewUnionMember("b"),
-//		validate.NewUnionMember("c"),
-//	)
+//	var ZeroOrOneOfMembershipForABC = validate.NewUnionMembership([2]string{"a", "A"}, [2]string{"b", "B"}, [2]string{"c", "C"})
 //	func ValidateABC(ctx context.Context, op operation.Operation, fldPath *field.Path, in *ABC) (errs field.ErrorList) {
-//		errs = append(errs, validate.ZeroOrOneOfUnion(ctx, op, fldPath, in, oldIn,
-//			ZeroOrOneOfMembershipForABC,
+//		errs = append(errs, ZeroOrOneOfUnion(ctx, op, fldPath, in, oldIn, UnionMembershipForABC,
 //			func(in *ABC) bool { return in.A != nil },
 //			func(in *ABC) bool { return in.B != ""},
 //			func(in *ABC) bool { return in.C != 0 },

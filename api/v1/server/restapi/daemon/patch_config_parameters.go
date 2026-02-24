@@ -9,7 +9,6 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -34,6 +33,7 @@ func NewPatchConfigParams() PatchConfigParams {
 //
 // swagger:parameters PatchConfig
 type PatchConfigParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -54,12 +54,10 @@ func (o *PatchConfigParams) BindRequest(r *http.Request, route *middleware.Match
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		defer r.Body.Close()
 		var body models.DaemonConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if stderrors.Is(err, io.EOF) {
+			if err == io.EOF {
 				res = append(res, errors.Required("configuration", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("configuration", "body", "", err))

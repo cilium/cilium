@@ -24,9 +24,6 @@
 
 #include "lib/ipcache.h"
 
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
-
 enum {
 	NODEPORT_LOOKUP = 0,
 	HOSTPORT_LOOKUP = 1,
@@ -44,9 +41,11 @@ enum {
 
 #define DONT_CARE(x) x
 
-#define NODEPORT_EXISTS CONFIG(nodeport_port_min) + 1
-#define HOSTPORT_EXISTS CONFIG(nodeport_port_min) - 1
-#define HOSTPORT_EXISTS_LOCALHOST CONFIG(nodeport_port_min) - 2
+enum {
+	NODEPORT_EXISTS = NODEPORT_PORT_MIN + 1,
+	HOSTPORT_EXISTS = NODEPORT_PORT_MIN - 1,
+	HOSTPORT_EXISTS_LOCALHOST = NODEPORT_PORT_MIN - 2,
+};
 
 #define SVC_KEY_VALUE(ADDR, PORT, FLAGS, FLAGS2) {	\
 	.key = {					\
@@ -102,8 +101,8 @@ static inline void __setup_v4(void)
 CHECK("xdp", "sock4_wildcard_lookup_test")
 int test_v4_check(__maybe_unused struct xdp_md *ctx)
 {
-	const struct remote_endpoint_info *info;
-	const struct lb4_service *ret;
+	struct remote_endpoint_info *info;
+	struct lb4_service *ret;
 	struct lb4_key key = {
 		.address = 0,		/* will set for individual tests */
 		.dport = 0,		/* will set for individual tests */
@@ -128,7 +127,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 
 		/* fail: dport is inside the nodeport range, but we want a hostport */
-		key.dport = bpf_htons((CONFIG(nodeport_port_min) + CONFIG(nodeport_port_max)) / 2);
+		key.dport = bpf_htons((NODEPORT_PORT_MIN + NODEPORT_PORT_MAX) / 2);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, DONT_CARE(0));
 		assert(!ret);
 	});
@@ -310,8 +309,8 @@ static inline void __setup_v6_hostport(const union v6addr *HOST_IP6)
 CHECK("xdp", "sock6_wildcard_lookup_test")
 int test_v6_check(__maybe_unused struct xdp_md *ctx)
 {
-	const struct remote_endpoint_info *info;
-	const struct lb6_service *ret;
+	struct remote_endpoint_info *info;
+	struct lb6_service *ret;
 	struct lb6_key key = {
 		.address = {},		/* will set for individual tests */
 		.dport = 0,		/* will set for individual tests */
@@ -346,7 +345,7 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 
 		/* fail: dport is inside the nodeport range, but we want a hostport */
-		key.dport = bpf_htons((CONFIG(nodeport_port_min) + CONFIG(nodeport_port_max)) / 2);
+		key.dport = bpf_htons((NODEPORT_PORT_MIN + NODEPORT_PORT_MAX) / 2);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, DONT_CARE(0));
 		assert(!ret);
 	});

@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"slices"
 	"strings"
 
 	"golang.org/x/crypto/ssh/internal/bcrypt_pbkdf"
@@ -90,11 +89,6 @@ func parsePubKey(in []byte, algo string) (pubKey PublicKey, rest []byte, err err
 		}
 		return cert, nil, nil
 	}
-	if keyFormat := keyFormatForAlgorithm(algo); keyFormat != "" {
-		return nil, nil, fmt.Errorf("ssh: signature algorithm %q isn't a key format; key is malformed and should be re-encoded with type %q",
-			algo, keyFormat)
-	}
-
 	return nil, nil, fmt.Errorf("ssh: unknown key algorithm: %v", algo)
 }
 
@@ -197,10 +191,9 @@ func ParseKnownHosts(in []byte) (marker string, hosts []string, pubKey PublicKey
 	return "", nil, nil, "", nil, io.EOF
 }
 
-// ParseAuthorizedKey parses a public key from an authorized_keys file used in
-// OpenSSH according to the sshd(8) manual page. Invalid lines are ignored.
+// ParseAuthorizedKey parses a public key from an authorized_keys
+// file used in OpenSSH according to the sshd(8) manual page.
 func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []string, rest []byte, err error) {
-	var lastErr error
 	for len(in) > 0 {
 		end := bytes.IndexByte(in, '\n')
 		if end != -1 {
@@ -229,8 +222,6 @@ func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []str
 
 		if out, comment, err = parseAuthorizedKey(in[i:]); err == nil {
 			return out, comment, options, rest, nil
-		} else {
-			lastErr = err
 		}
 
 		// No key type recognised. Maybe there's an options field at
@@ -273,16 +264,10 @@ func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []str
 		if out, comment, err = parseAuthorizedKey(in[i:]); err == nil {
 			options = candidateOptions
 			return out, comment, options, rest, nil
-		} else {
-			lastErr = err
 		}
 
 		in = rest
 		continue
-	}
-
-	if lastErr != nil {
-		return nil, "", nil, nil, fmt.Errorf("ssh: no key found; last parsing error for ignored line: %w", lastErr)
 	}
 
 	return nil, "", nil, nil, errors.New("ssh: no key found")
@@ -410,11 +395,11 @@ func NewSignerWithAlgorithms(signer AlgorithmSigner, algorithms []string) (Multi
 	}
 
 	for _, algo := range algorithms {
-		if !slices.Contains(supportedAlgos, algo) {
+		if !contains(supportedAlgos, algo) {
 			return nil, fmt.Errorf("ssh: algorithm %q is not supported for key type %q",
 				algo, signer.PublicKey().Type())
 		}
-		if !slices.Contains(signerAlgos, algo) {
+		if !contains(signerAlgos, algo) {
 			return nil, fmt.Errorf("ssh: algorithm %q is restricted for the provided signer", algo)
 		}
 	}
@@ -501,13 +486,10 @@ func (r *rsaPublicKey) Marshal() []byte {
 
 func (r *rsaPublicKey) Verify(data []byte, sig *Signature) error {
 	supportedAlgos := algorithmsForKeyFormat(r.Type())
-	if !slices.Contains(supportedAlgos, sig.Format) {
+	if !contains(supportedAlgos, sig.Format) {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, r.Type())
 	}
-	hash, err := hashFunc(sig.Format)
-	if err != nil {
-		return err
-	}
+	hash := hashFuncs[sig.Format]
 	h := hash.New()
 	h.Write(data)
 	digest := h.Sum(nil)
@@ -624,11 +606,7 @@ func (k *dsaPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-	hash, err := hashFunc(sig.Format)
-	if err != nil {
-		return err
-	}
-	h := hash.New()
+	h := hashFuncs[sig.Format].New()
 	h.Write(data)
 	digest := h.Sum(nil)
 
@@ -673,11 +651,7 @@ func (k *dsaPrivateKey) SignWithAlgorithm(rand io.Reader, data []byte, algorithm
 		return nil, fmt.Errorf("ssh: unsupported signature algorithm %s", algorithm)
 	}
 
-	hash, err := hashFunc(k.PublicKey().Type())
-	if err != nil {
-		return nil, err
-	}
-	h := hash.New()
+	h := hashFuncs[k.PublicKey().Type()].New()
 	h.Write(data)
 	digest := h.Sum(nil)
 	r, s, err := dsa.Sign(rand, k.PrivateKey, digest)
@@ -827,11 +801,8 @@ func (k *ecdsaPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-	hash, err := hashFunc(sig.Format)
-	if err != nil {
-		return err
-	}
-	h := hash.New()
+
+	h := hashFuncs[sig.Format].New()
 	h.Write(data)
 	digest := h.Sum(nil)
 
@@ -934,11 +905,8 @@ func (k *skECDSAPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-	hash, err := hashFunc(sig.Format)
-	if err != nil {
-		return err
-	}
-	h := hash.New()
+
+	h := hashFuncs[sig.Format].New()
 	h.Write([]byte(k.application))
 	appDigest := h.Sum(nil)
 
@@ -1041,11 +1009,7 @@ func (k *skEd25519PublicKey) Verify(data []byte, sig *Signature) error {
 		return fmt.Errorf("invalid size %d for Ed25519 public key", l)
 	}
 
-	hash, err := hashFunc(sig.Format)
-	if err != nil {
-		return err
-	}
-	h := hash.New()
+	h := hashFuncs[sig.Format].New()
 	h.Write([]byte(k.application))
 	appDigest := h.Sum(nil)
 
@@ -1148,14 +1112,11 @@ func (s *wrappedSigner) SignWithAlgorithm(rand io.Reader, data []byte, algorithm
 		algorithm = s.pubKey.Type()
 	}
 
-	if !slices.Contains(s.Algorithms(), algorithm) {
+	if !contains(s.Algorithms(), algorithm) {
 		return nil, fmt.Errorf("ssh: unsupported signature algorithm %q for key format %q", algorithm, s.pubKey.Type())
 	}
 
-	hashFunc, err := hashFunc(algorithm)
-	if err != nil {
-		return nil, err
-	}
+	hashFunc := hashFuncs[algorithm]
 	var digest []byte
 	if hashFunc != 0 {
 		h := hashFunc.New()
@@ -1490,7 +1451,6 @@ type openSSHEncryptedPrivateKey struct {
 	NumKeys      uint32
 	PubKey       []byte
 	PrivKeyBlock []byte
-	Rest         []byte `ssh:"rest"`
 }
 
 type openSSHPrivateKey struct {

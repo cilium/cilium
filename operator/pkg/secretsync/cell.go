@@ -6,23 +6,10 @@ package secretsync
 import (
 	"fmt"
 	"log/slog"
-	"time"
-
-	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	ctrlRuntime "sigs.k8s.io/controller-runtime"
 )
-
-// This is the base resync duration for synchronized Secrets.
-// Jitter will be added on a per-Secret basis, so that the resyncs
-// don't line up.
-const resyncInterval = time.Hour
-
-// jitterAmount represents what fraction of the resyncInterval
-// resyncs will be jittered by. Default is 20 percent.
-const jitterAmount = 0.2
 
 // Cell manages K8s Secret synchronization from application namespaces
 // into dedicated Cilium secrets namespace.
@@ -51,9 +38,8 @@ type secretSyncParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	CtrlRuntimeManager     ctrlRuntime.Manager
-	Registrations          []*SecretSyncRegistration    `group:"secretSyncRegistrations"`
-	ConfigMapRegistrations []*ConfigMapSyncRegistration `group:"configMapSyncRegistrations"`
+	CtrlRuntimeManager ctrlRuntime.Manager
+	Registrations      []*SecretSyncRegistration `group:"secretSyncRegistrations"`
 }
 
 // SecretSyncRegistrationOut can be used by other subsystems
@@ -62,8 +48,7 @@ type secretSyncParams struct {
 type SecretSyncRegistrationOut struct {
 	cell.Out
 
-	SecretSyncRegistration    *SecretSyncRegistration    `group:"secretSyncRegistrations"`
-	ConfigMapSyncRegistration *ConfigMapSyncRegistration `group:"configMapSyncRegistrations"`
+	SecretSyncRegistration *SecretSyncRegistration `group:"secretSyncRegistrations"`
 }
 
 func initSecretSyncReconciliation(params secretSyncParams) error {
@@ -72,26 +57,15 @@ func initSecretSyncReconciliation(params secretSyncParams) error {
 		return nil
 	}
 
-	params.Logger.Debug("Synchronized Secrets and Configmaps will resync", logfields.SyncInterval, resyncInterval)
+	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations)
 
-	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations, resyncInterval, jitterAmount)
-
-	if reconciler.hasRegistrations() {
-		if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-			return fmt.Errorf("failed to setup secret sync reconciler: %w", err)
-		}
-	} else {
+	if !reconciler.hasRegistrations() {
 		params.Logger.Debug("Skipping secret sync initialization as no registrations are available")
-	}
-
-	cfgMapReconciler := NewConfigMapSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.ConfigMapRegistrations, resyncInterval, jitterAmount)
-	if !cfgMapReconciler.hasRegistrations() {
-		params.Logger.Debug("Skipping configmap sync initialization as no registrations are available")
 		return nil
 	}
 
-	if err := cfgMapReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-		return fmt.Errorf("failed to setup configmap sync reconciler: %w", err)
+	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("failed to setup secret sync reconciler: %w", err)
 	}
 
 	return nil

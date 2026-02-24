@@ -29,6 +29,7 @@ func NewGetMapNameParams() GetMapNameParams {
 //
 // swagger:parameters GetMapName
 type GetMapNameParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

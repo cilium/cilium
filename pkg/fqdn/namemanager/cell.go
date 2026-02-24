@@ -45,7 +45,6 @@ var Cell = cell.Module(
 	}),
 	cell.ProvidePrivate(adaptors),
 	cell.Provide(newForCell),
-	cell.Provide(registerEndpointRestorationNotifier),
 
 	cell.ProvidePrivate(New), // for the API handlers, exposes *manager.
 	cell.Provide(handlers),
@@ -114,12 +113,6 @@ func newForCell(m *manager) NameManager {
 	return m
 }
 
-func registerEndpointRestorationNotifier(m *manager) endpointstate.RestorationNotifierOut {
-	return endpointstate.RestorationNotifierOut{
-		Restorer: m,
-	}
-}
-
 // The NameManager maintains DNS mappings which need to be tracked, due to
 // FQDNSelectors. It is the main structure which relates the FQDN subsystem to
 // the policy subsystem for plumbing the relation between a DNS name and the
@@ -131,21 +124,26 @@ type NameManager interface {
 	// associated with that selector.
 	// This function also evaluates if any DNS names in the cache are matched by
 	// this new selector and updates the labels for those DNS names accordingly.
-	RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
+	RegisterFQDNSelector(selector api.FQDNSelector)
 
 	// UnregisterFQDNSelector removes this FQDNSelector from the set of
 	// IPs which are being tracked by the identityNotifier. The result
 	// of this is that an IP may be evicted from IPCache if it is no longer
 	// selected by any other FQDN selector.
-	UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
+	UnregisterFQDNSelector(selector api.FQDNSelector)
 	// UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 	// have changed for a name they will be reflected in updatedDNSIPs.
-	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) <-chan error
+	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords) <-chan error
 
 	// LockName is used to serialize  parallel end-to-end updates to the same name.
 	LockName(name string)
 	// UnlockName releases a lock previously acquired by LockName()
 	UnlockName(name string)
+
+	// RestoreCache loads cache state from the restored system:
+	// - adds any pre-cached DNS entries
+	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
+	RestoreCache(eps map[uint16]*endpoint.Endpoint)
 }
 
 // Provides the API handlers for Cilium API.

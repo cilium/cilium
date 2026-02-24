@@ -4,14 +4,13 @@
 package metricsmap
 
 import (
-	"fmt"
 	"log/slog"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -22,24 +21,8 @@ import (
 var Cell = cell.Module(
 	"metricsmap",
 	"eBPF Metrics Map",
-	cell.Invoke(registerCollector),
-	cell.Provide(newMetricsMap),
+	cell.Invoke(RegisterCollector),
 )
-
-func newMetricsMap(lifecycle cell.Lifecycle, logger *slog.Logger) bpf.MapOut[MetricsMap] {
-	metricsMap := newMap(logger)
-
-	lifecycle.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error {
-			return metricsMap.init()
-		},
-		OnStop: func(context cell.HookContext) error {
-			return metricsMap.close()
-		},
-	})
-
-	return bpf.NewMapOut(MetricsMap(metricsMap))
-}
 
 // IterateCallback represents the signature of the callback function expected by
 // the IterateWithCallback method, which in turn is used to iterate all the
@@ -50,57 +33,21 @@ type IterateCallback func(*Key, *Values)
 // mock maps for unit tests.
 type MetricsMap interface {
 	IterateWithCallback(IterateCallback) error
-	Delete(*Key) error
 }
 
 type metricsMap struct {
-	bpfMap *ebpf.Map
+	*ebpf.Map
 }
 
-func newMap(logger *slog.Logger) *metricsMap {
-	return &metricsMap{
-		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       mapName,
-			Type:       ebpf.PerCPUHash,
-			KeySize:    uint32(unsafe.Sizeof(Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(Value{})),
-			MaxEntries: MaxEntries,
-			Pinning:    ebpf.PinByName,
-		}),
-	}
-}
-
-// LoadMetricsMap loads the pre-initialized metrics map for access.
-// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
-// It needs to initialized beforehand via the Cilium Agent.
-func LoadMetricsMap(logger *slog.Logger) (MetricsMap, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(logger, mapName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load bpf map: %w", err)
-	}
-
-	return &metricsMap{bpfMap: bpfMap}, nil
-}
-
-func (m *metricsMap) init() error {
-	if err := m.bpfMap.OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to init bpf map: %w", err)
-	}
-
-	return nil
-}
-
-func (m *metricsMap) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
-}
+var (
+	initMetricsMapOnce sync.Once
+	// Metrics is the bpf metrics map
+	Metrics metricsMap
+)
 
 const (
 	// MapName for metrics map.
-	mapName = "cilium_metrics"
+	MapName = "cilium_metrics"
 	// MaxEntries is the maximum number of keys that can be present in the
 	// Metrics Map.
 	//
@@ -110,14 +57,11 @@ const (
 	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
-	// in bpf/lib/metrics.h
+	// in bpf/lib/common.h
 	dirUnknown = 0
 	dirIngress = 1
 	dirEgress  = 2
 	dirService = 3
-
-	forwardedFragmentedPacket = 9
-	forwardedMTUErrorMessage  = 15
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint),
@@ -131,7 +75,7 @@ var direction = map[uint8]string{
 	dirService: "SERVICE",
 }
 
-// Key must be in sync with struct metrics_key in <bpf/lib/metrics.h>
+// Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
 	Reason uint8 `align:"reason"`
 	Dir    uint8 `align:"dir"`
@@ -142,7 +86,7 @@ type Key struct {
 	Reserved [3]uint8 `align:"reserved"`
 }
 
-// Value must be in sync with struct metrics_value in <bpf/lib/metrics.h>
+// Value must be in sync with struct metrics_value in <bpf/lib/common.h>
 type Value struct {
 	Count uint64 `align:"count"`
 	Bytes uint64 `align:"bytes"`
@@ -154,16 +98,11 @@ type Values []Value
 // IterateWithCallback iterates through all the keys/values of a metrics map,
 // passing each key/value pair to the cb callback
 func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
-	return m.bpfMap.IterateWithCallback(&Key{}, &Values{}, func(k, v any) {
+	return m.Map.IterateWithCallback(&Key{}, &Values{}, func(k, v any) {
 		key := k.(*Key)
 		values := v.(*Values)
 		cb(key, values)
 	})
-}
-
-// Delete removes the provided key from the map
-func (m metricsMap) Delete(key *Key) error {
-	return m.bpfMap.Delete(key)
 }
 
 // MetricDirection gets the direction in human readable string format
@@ -194,16 +133,6 @@ func (k *Key) IsDrop() bool {
 	return k.Reason == monitorAPI.DropInvalid || k.Reason >= monitorAPI.DropMin
 }
 
-// IsFragNeeded checks if the reason is realted to a mtu error message (frag-needed or pkt-too-big).
-func (k *Key) IsFragNeeded() bool {
-	return k.Reason == forwardedMTUErrorMessage
-}
-
-// IsFragmentedCount checks if the reason is forwarded packets with fragmentation.
-func (k *Key) IsFragmentedCount() bool {
-	return k.Reason == forwardedFragmentedPacket
-}
-
 // Count returns the sum of all the per-CPU count values
 func (vs Values) Count() uint64 {
 	c := uint64(0)
@@ -226,8 +155,7 @@ func (vs Values) Bytes() uint64 {
 
 // metricsMapCollector implements Prometheus Collector interface
 type metricsmapCollector struct {
-	logger     *slog.Logger
-	metricsMap MetricsMap
+	logger *slog.Logger
 
 	mutex lock.Mutex
 
@@ -235,15 +163,11 @@ type metricsmapCollector struct {
 	droppedByteDesc  *prometheus.Desc
 	forwardCountDesc *prometheus.Desc
 	forwardByteDesc  *prometheus.Desc
-
-	fragmentedCountDesc *prometheus.Desc
-	fragNeededCountDesc *prometheus.Desc
 }
 
-func newMetricsMapCollector(logger *slog.Logger, metricsMap MetricsMap) prometheus.Collector {
+func newMetricsMapCollector(logger *slog.Logger) prometheus.Collector {
 	return &metricsmapCollector{
-		logger:     logger,
-		metricsMap: metricsMap,
+		logger: logger,
 		droppedByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "drop_bytes_total"),
 			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
@@ -262,16 +186,6 @@ func newMetricsMapCollector(logger *slog.Logger, metricsMap MetricsMap) promethe
 		forwardByteDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, "", "forward_bytes_total"),
 			"Total forwarded bytes, tagged by ingress/egress direction",
-			[]string{metrics.LabelDirection}, nil,
-		),
-		fragNeededCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "mtu_error_message_total"),
-			"Total number of icmp fragmentation-needed or icmpv6 packet-too-big messages processed",
-			[]string{metrics.LabelDirection}, nil,
-		),
-		fragmentedCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, "", "fragmented_count_total"),
-			"Total number of fragmented packets processed by datapath",
 			[]string{metrics.LabelDirection}, nil,
 		),
 	}
@@ -344,13 +258,7 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 	drop := make(promMetrics[dropLabels])
 	fwd := make(promMetrics[forwardLabels])
 
-	// Aside from general fwd/drop metrics, we expose a couple special case metrics that
-	// are useful for those operating cilium. Specifically, exposing number of fragmented
-	// packets and icmp frag-needed/pkt-too-big messages processed by the datapath.
-	fragNeededCount := make(promMetrics[forwardLabels])
-	fragmentedPacketsCount := make(promMetrics[forwardLabels])
-
-	err := mc.metricsMap.IterateWithCallback(func(key *Key, values *Values) {
+	err := Metrics.IterateWithCallback(func(key *Key, values *Values) {
 		if key.IsDrop() {
 			labelSet := dropLabels{
 				direction: key.Direction(),
@@ -365,13 +273,6 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 			direction: key.Direction(),
 		}
 		fwd.sum(labelSet, values)
-
-		if key.IsFragNeeded() {
-			fragNeededCount.sum(labelSet, values)
-		}
-		if key.IsFragmentedCount() {
-			fragmentedPacketsCount.sum(labelSet, values)
-		}
 	})
 	if err != nil {
 		mc.logger.Warn("Failed to read metrics from BPF map", logfields.Error, err)
@@ -388,14 +289,6 @@ func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
 		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
 		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
 	}
-
-	for labels, value := range fragmentedPacketsCount {
-		mc.updateCounterMetric(mc.fragmentedCountDesc, ch, value.count, labels.direction)
-	}
-
-	for labels, value := range fragNeededCount {
-		mc.updateCounterMetric(mc.fragNeededCountDesc, ch, value.count, labels.direction)
-	}
 }
 
 func (mc *metricsmapCollector) updateCounterMetric(desc *prometheus.Desc, metricsChan chan<- prometheus.Metric, value float64, labelValues ...string) {
@@ -411,12 +304,24 @@ func (mc *metricsmapCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- mc.forwardCountDesc
 	ch <- mc.droppedCountDesc
 	ch <- mc.droppedByteDesc
-	ch <- mc.fragNeededCountDesc
-	ch <- mc.fragmentedCountDesc
 }
 
-func registerCollector(logger *slog.Logger, metricsMap MetricsMap) {
-	if err := metrics.Register(newMetricsMapCollector(logger, metricsMap)); err != nil {
+func InitMap(logger *slog.Logger) {
+	initMetricsMapOnce.Do(func() {
+		Metrics = metricsMap{ebpf.NewMap(logger, &ebpf.MapSpec{
+			Name:       MapName,
+			Type:       ebpf.PerCPUHash,
+			KeySize:    uint32(unsafe.Sizeof(Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(Value{})),
+			MaxEntries: MaxEntries,
+			Pinning:    ebpf.PinByName,
+		})}
+	})
+}
+
+func RegisterCollector(logger *slog.Logger) {
+	InitMap(logger)
+	if err := metrics.Register(newMetricsMapCollector(logger)); err != nil {
 		logger.Error(
 			"Failed to register metrics map collector to Prometheus registry. "+
 				"cilium_datapath_drop/forward metrics will not be collected",

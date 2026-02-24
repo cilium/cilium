@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -142,7 +141,7 @@ func (e *enqueueRequestsFromMapFunc[object, request]) mapAndEnqueue(
 		if !ok {
 			if lowPriority {
 				q.(priorityqueue.PriorityQueue[request]).AddWithOpts(priorityqueue.AddOpts{
-					Priority: ptr.To(LowPriority),
+					Priority: LowPriority,
 				}, req)
 			} else {
 				q.Add(req)

@@ -158,7 +158,7 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 		&VRFKey4{},
 		&VRFValue{},
 		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	m6 := bpf.NewMap(
@@ -167,7 +167,7 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 		&VRFKey6{},
 		&VRFValue{},
 		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	lc.Append(cell.Hook{

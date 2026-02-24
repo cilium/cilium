@@ -50,7 +50,7 @@ Address NodePort Primary DeviceName
 
 -- services.table --
 Name         Source   PortNames  TrafficPolicy   Flags
-test/echo    k8s      http=80    Cluster         
+test/echo    k8s      http=80    Cluster         LoadBalancerClass=test
 
 -- frontends.table --
 Address               Type         ServiceName   PortName   Status  Backends
@@ -122,6 +122,7 @@ spec:
   selector:
     name: echo
   sessionAffinity: None
+  loadBalancerClass: "test"
   type: LoadBalancer
 status:
   loadBalancer:

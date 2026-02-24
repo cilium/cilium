@@ -20,13 +20,8 @@ package v1
 
 // WeightedPodAffinityTermApplyConfiguration represents a declarative configuration of the WeightedPodAffinityTerm type for use
 // with apply.
-//
-// The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
 type WeightedPodAffinityTermApplyConfiguration struct {
-	// weight associated with matching the corresponding podAffinityTerm,
-	// in the range 1-100.
-	Weight *int32 `json:"weight,omitempty"`
-	// Required. A pod affinity term, associated with the corresponding weight.
+	Weight          *int32                             `json:"weight,omitempty"`
 	PodAffinityTerm *PodAffinityTermApplyConfiguration `json:"podAffinityTerm,omitempty"`
 }
 

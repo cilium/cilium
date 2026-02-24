@@ -5,7 +5,6 @@ package statedb
 
 import (
 	"bytes"
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -79,7 +78,6 @@ func DBCmd(db *DB) script.Cmd {
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
 			txn := db.ReadTxn()
 			tbls := db.GetTables(txn)
-			slices.SortFunc(tbls, func(a, b TableMeta) int { return cmp.Compare(a.Name(), b.Name()) })
 			w := newTabWriter(s.LogWriter())
 			fmt.Fprintf(w, "Name\tObject count\tZombie objects\tIndexes\tInitializers\tGo type\tLast WriteTxn\n")
 			for _, tbl := range tbls {
@@ -353,7 +351,7 @@ func CompareCmd(db *DB) script.Cmd {
 			if err != nil {
 				return nil, fmt.Errorf("ReadFile(%s): %w", args[1], err)
 			}
-			lines := strings.Split(s.ExpandEnv(string(data), false), "\n")
+			lines := strings.Split(string(data), "\n")
 			lines = slices.DeleteFunc(lines, func(line string) bool {
 				return strings.TrimSpace(line) == ""
 			})
@@ -366,7 +364,6 @@ func CompareCmd(db *DB) script.Cmd {
 			if err != nil {
 				return nil, err
 			}
-			padByTabs := strings.ContainsRune(lines[0], '\t')
 			lines = lines[1:]
 			origLines := lines
 			timeoutChan := time.After(timeout)
@@ -378,12 +375,12 @@ func CompareCmd(db *DB) script.Cmd {
 				equal := true
 				var diff bytes.Buffer
 				w := newTabWriter(&diff)
-				fmt.Fprintf(w, "  %s\n", joinByPositions(columnNames, columnPositions, false))
+				fmt.Fprintf(w, "  %s\n", joinByPositions(columnNames, columnPositions))
 
 				objs, watch := tbl.AllWatch(db.ReadTxn())
 				for obj := range objs {
 					rowRaw := takeColumns(obj.(TableWritable).TableRow(), columnIndexes)
-					row := joinByPositions(rowRaw, columnPositions, padByTabs)
+					row := joinByPositions(rowRaw, columnPositions)
 					if grepRe != nil && !grepRe.Match([]byte(row)) {
 						continue
 					}
@@ -394,7 +391,7 @@ func CompareCmd(db *DB) script.Cmd {
 						continue
 					}
 					line := lines[0]
-					splitLine := splitByPositions(line, columnPositions, padByTabs)
+					splitLine := splitByPositions(line, columnPositions)
 
 					if slices.Equal(rowRaw, splitLine) {
 						fmt.Fprintf(w, "  %s\n", row)
@@ -937,29 +934,19 @@ func splitHeaderLine(line string) (names []string, pos []int) {
 // The whitespace on the right of the start position (e.g. "1  \t") is trimmed.
 // This of course requires that the table is properly formatted in a way that the
 // header columns are indented to fit the data exactly.
-func splitByPositions(line string, positions []int, splitByTabs bool) []string {
+func splitByPositions(line string, positions []int) []string {
 	out := make([]string, 0, len(positions))
 	start := 0
-	for i, pos := range positions[1:] {
+	for _, pos := range positions[1:] {
 		if start >= len(line) {
 			out = append(out, "")
 			start = len(line)
 			continue
 		}
-		if splitByTabs {
-			s := strings.Split(line[start:min(pos, len(line))], "\t")[i]
-			out = append(out, s)
-			start += len(s) + i
-		} else {
-			out = append(out, strings.TrimRight(line[start:min(pos, len(line))], " \t"))
-			start = pos
-		}
+		out = append(out, strings.TrimRight(line[start:min(pos, len(line))], " \t"))
+		start = pos
 	}
-	if splitByTabs {
-		out = append(out, strings.Split(line[min(start, len(line)):], "\t")...)
-	} else {
-		out = append(out, strings.TrimRight(line[min(start, len(line)):], " \t"))
-	}
+	out = append(out, strings.TrimRight(line[min(start, len(line)):], " \t"))
 	return out
 }
 
@@ -968,17 +955,12 @@ func splitByPositions(line string, positions []int, splitByTabs bool) []string {
 // e.g. [1,a,b] and positions [0,5,9] expands to "1    a   b".
 // NOTE: This does not deal well with mixing tabs and spaces. The test input
 // data should preferably just use spaces.
-func joinByPositions(row []string, positions []int, padByTabs bool) string {
+func joinByPositions(row []string, positions []int) string {
 	var w strings.Builder
 	prev := 0
 	for i, pos := range positions {
-		pad := pos - prev
-		if pad > 0 && padByTabs {
-			w.WriteByte('\t')
-		} else {
-			for ; pad > 0; pad-- {
-				w.WriteByte(' ')
-			}
+		for pad := pos - prev; pad > 0; pad-- {
+			w.WriteByte(' ')
 		}
 		w.WriteString(row[i])
 		prev = pos + len(row[i])

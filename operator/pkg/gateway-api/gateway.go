@@ -11,6 +11,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -81,8 +82,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Add field indexes for HTTPRoutes
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(r.Client, r.logger),
-		indexers.GatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
+		backendServiceHTTPRouteIndex: indexers.GenerateIndexerHTTPRouteByBackendService(r.Client, r.logger),
+		gatewayHTTPRouteIndex:        indexers.IndexHTTPRouteByGateway,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -91,21 +92,21 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Only index HTTPRoute by ServiceImport if ServiceImport is enabled
 	if serviceImportEnabled {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, indexers.BackendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
-			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendServiceImportHTTPRouteIndex, err)
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.HTTPRoute{}, backendServiceImportHTTPRouteIndex, indexers.IndexHTTPRouteByBackendServiceImport); err != nil {
+			return fmt.Errorf("failed to setup field indexer %q: %w", backendServiceImportHTTPRouteIndex, err)
 		}
 	}
 
 	// Index Gateways by implementation (ie `cilium`)
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, indexers.ImplementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(r.Client, controllerName)); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ImplementationGatewayIndex, err)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.Gateway{}, implementationGatewayIndex, indexers.GenerateIndexerGatewayByImplementation(r.Client, controllerName)); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", implementationGatewayIndex, err)
 	}
 
 	// Add indexes for TLSRoutes
 	if tlsRouteEnabled {
 		for indexName, indexerFunc := range map[string]client.IndexerFunc{
-			indexers.BackendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
-			indexers.GatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
+			backendServiceTLSRouteIndex: indexers.GenerateIndexerTLSRoutebyBackendService(r.Client, r.logger),
+			gatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
 		} {
 			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, indexName, indexerFunc); err != nil {
 				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
@@ -115,17 +116,12 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Add field indexes for GRPCRoutes
 	for indexName, indexerFunc := range map[string]client.IndexerFunc{
-		indexers.BackendServiceGRPCRouteIndex: indexers.GenerateIndexerGRPCRoutebyBackendService(r.Client, r.logger),
-		indexers.GatewayGRPCRouteIndex:        indexers.IndexGRPCRouteByGateway,
+		backendServiceGRPCRouteIndex: indexers.GenerateIndexerGRPCRoutebyBackendService(r.Client, r.logger),
+		gatewayGRPCRouteIndex:        indexers.IndexGRPCRouteByGateway,
 	} {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{}, indexName, indexerFunc); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 		}
-	}
-
-	// IndexBackendTLSPolicies by referenced ConfigMaps
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicyConfigMapIndex, indexers.IndexBTLSPolicyByConfigMap); err != nil {
-		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
 	}
 
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, controllerName, r.logger)
@@ -153,12 +149,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			r.enqueueRequestForAllowedNamespace()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
-		// Watch for changes to BackendTLSPolicy
-		Watches(&gatewayv1.BackendTLSPolicy{}, r.enqueueRequestForBackendTLSPolicy()).
-		Watches(&corev1.ConfigMap{}, r.enqueueRequestForBackendTLSPolicyConfigMap()).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
-		Owns(&corev1.Service{})
+		Owns(&corev1.Service{}).
+		Owns(&discoveryv1.EndpointSlice{})
 
 	if tlsRouteEnabled {
 		// Watch TLSRoute linked to Gateway
@@ -265,7 +259,7 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceHTTPRouteIndex, client.ObjectKeyFromObject(o).String()),
+			FieldSelector: fields.OneTermEqualSelector(backendServiceHTTPRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
@@ -275,7 +269,7 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 		tlsrList := &gatewayv1alpha2.TLSRouteList{}
 
 		if err := r.Client.List(ctx, tlsrList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
+			FieldSelector: fields.OneTermEqualSelector(backendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
 			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
@@ -283,16 +277,16 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 
 		grpcRouteList := &gatewayv1.GRPCRouteList{}
 		if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceGRPCRouteIndex, client.ObjectKeyFromObject(o).String()),
+			FieldSelector: fields.OneTermEqualSelector(backendServiceGRPCRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
-		// Fetch all the Cilium-relevant Gateways using the indexers.ImplementationGatewayIndex.
+		// Fetch all the Cilium-relevant Gateways using the implementationGatewayIndex.
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, "cilium"),
+			FieldSelector: fields.OneTermEqualSelector(implementationGatewayIndex, "cilium"),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
 			return []reconcile.Request{}
@@ -330,172 +324,6 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 	})
 }
 
-// enqueueRequestForBackendTLSPolicy returns an event handler that, when passed a BackendTLSPolicy, returns reconcile.Requests
-// for all Cilium-relevant Gateways where that BackendTLSPolicy references a Service that is used as a backend for a
-// Route that is attached to that Gateway.
-func (r *gatewayReconciler) enqueueRequestForBackendTLSPolicy() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy")
-
-		reconcileRequests := make(map[reconcile.Request]struct{})
-		btlsp, ok := o.(*gatewayv1.BackendTLSPolicy)
-		if !ok {
-			return nil
-		}
-
-		// Build a set of all Cilium Gateway full names.
-		// This makes sure we only add a reconcile.Request once for each Gateway.
-		allCiliumGatewaysSet, err := r.getAllCiliumGatewaysSet(ctx)
-		if err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
-			return []reconcile.Request{}
-		}
-
-		ns := o.GetNamespace()
-		r.updateReconcileRequestsForBackendTLSPolicy(ctx, scopedLog, allCiliumGatewaysSet, reconcileRequests, btlsp, ns)
-
-		recs := slices.Collect(maps.Keys(reconcileRequests))
-		if len(recs) > 0 {
-			scopedLog.Debug("BackendTLSPolicy relevant to Gateways",
-				logfields.Resource, client.ObjectKeyFromObject(o).String(),
-				logfields.Gateway, recs)
-		}
-		return slices.Collect(maps.Keys(reconcileRequests))
-	})
-}
-
-func (r *gatewayReconciler) enqueueRequestForBackendTLSPolicyConfigMap() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-configmap")
-
-		cfgMap, ok := o.(*corev1.ConfigMap)
-		if !ok {
-			return []reconcile.Request{}
-		}
-
-		cfgMapName := types.NamespacedName{
-			Name:      cfgMap.GetName(),
-			Namespace: cfgMap.GetNamespace(),
-		}
-
-		// Fetch all BackendTLSPolicies that reference this ConfigMap
-		btlspList := &gatewayv1.BackendTLSPolicyList{}
-
-		if err := r.Client.List(ctx, btlspList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendTLSPolicyConfigMapIndex, cfgMapName.String()),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get related BackendTLSPolicies for ConfigMap", logfields.Error, err)
-			return []reconcile.Request{}
-		}
-		// If there are no relevant BackendTLSPolicies, then we can skip this ConfigMap.
-		if len(btlspList.Items) == 0 {
-			return []reconcile.Request{}
-		}
-
-		// Build a set of all Cilium Gateway full names.
-		// This makes sure we only add a reconcile.Request once for each Gateway.
-		allCiliumGatewaysSet, err := r.getAllCiliumGatewaysSet(ctx)
-		if err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
-			return []reconcile.Request{}
-		}
-
-		reconcileRequests := make(map[reconcile.Request]struct{})
-
-		for _, btlsp := range btlspList.Items {
-
-			if len(btlsp.Spec.Validation.CACertificateRefs) == 0 {
-				// There are no ConfigMaps specified in this BackendTLSPolicy,
-				// so this enqueue function doesn't care about it.
-				continue
-			}
-
-			configMapReferenced := false
-
-			for _, caRef := range btlsp.Spec.Validation.CACertificateRefs {
-				if caRef.Group == "" && caRef.Kind == "ConfigMap" && string(caRef.Name) == cfgMap.GetName() {
-					configMapReferenced = true
-				}
-			}
-
-			if !configMapReferenced {
-				// Enqueue only cares about ConfigMaps that are referenced by a BackendTLSPolicy
-				// If there are no references to this ConfigMap, this BackendTLSPolicy is not relevant.
-				continue
-			}
-
-			// This BackendTLSPolicy references the ConfigMap being enqueued, check to see if it's in the
-			// ownership chain any Cilium-relevant Gateways.
-			r.updateReconcileRequestsForBackendTLSPolicy(ctx, scopedLog, allCiliumGatewaysSet, reconcileRequests, &btlsp, cfgMap.GetNamespace())
-
-		}
-		recs := slices.Collect(maps.Keys(reconcileRequests))
-		if len(recs) > 0 {
-			scopedLog.Debug("ConfigMap in BackendTLSPolicy relevant to Gateways",
-				logfields.Resource, client.ObjectKeyFromObject(o).String(),
-				logfields.Gateway, recs)
-		}
-		return recs
-	})
-}
-
-func (r *gatewayReconciler) updateReconcileRequestsForBackendTLSPolicy(ctx context.Context,
-	scopedLog *slog.Logger,
-	allGatewaysSet map[string]struct{},
-	rrSet map[reconcile.Request]struct{},
-	btlsp *gatewayv1.BackendTLSPolicy,
-	ns string,
-) {
-	serviceRefs := []string{}
-	// First, we collect Service references from the TargetRefs
-	for _, target := range btlsp.Spec.TargetRefs {
-		if helpers.IsServiceTargetRef(target) {
-			serviceRefs = append(serviceRefs, ns+"/"+string(target.Name))
-		}
-	}
-	httpRoutes := []gatewayv1.HTTPRoute{}
-
-	for _, svcName := range serviceRefs {
-		// Then, fetch all HTTPRoutes that reference this service, using the backendServiceIndex
-		hrList := &gatewayv1.HTTPRouteList{}
-
-		if err := r.Client.List(ctx, hrList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceHTTPRouteIndex, svcName),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
-			return
-		}
-
-		httpRoutes = append(httpRoutes, hrList.Items...)
-	}
-	for _, hr := range httpRoutes {
-		updateReconcileRequestsForParentRefs(hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, rrSet)
-	}
-}
-
-func (r *gatewayReconciler) getAllCiliumGatewaysSet(ctx context.Context) (map[string]struct{}, error) {
-	// Fetch all the Cilium-relevant Gateways using the indexers.ImplementationGatewayIndex.
-	gwList := &gatewayv1.GatewayList{}
-	if err := r.Client.List(ctx, gwList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, "cilium"),
-	}); err != nil {
-		return nil, err
-	}
-	// Build a set of all Cilium Gateway full names.
-	// This makes sure we only add a reconcile.Request once for each Gateway.
-	allCiliumGatewaysSet := make(map[string]struct{})
-
-	for _, gw := range gwList.Items {
-		gwFullName := types.NamespacedName{
-			Name:      gw.GetName(),
-			Namespace: gw.GetNamespace(),
-		}
-		allCiliumGatewaysSet[gwFullName.String()] = struct{}{}
-	}
-
-	return allCiliumGatewaysSet, nil
-}
-
 // updateReconcileRequestsForParentRefs mutates the passed reconcile.Request set to add all
 func updateReconcileRequestsForParentRefs(parentRefs []gatewayv1.ParentReference, ns string, allGatewaysSet map[string]struct{}, rrSet map[reconcile.Request]struct{}) {
 	for _, parent := range parentRefs {
@@ -530,16 +358,16 @@ func (r *gatewayReconciler) enqueueRequestForBackendServiceImport() handler.Even
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceImportHTTPRouteIndex, client.ObjectKeyFromObject(o).String()),
+			FieldSelector: fields.OneTermEqualSelector(backendServiceImportHTTPRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
-		// Fetch all the Cilium-relevant Gateways using the indexers.ImplementationGatewayIndex.
+		// Fetch all the Cilium-relevant Gateways using the implementationGatewayIndex.
 		gwList := &gatewayv1.GatewayList{}
 		if err := r.Client.List(ctx, gwList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, "cilium"),
+			FieldSelector: fields.OneTermEqualSelector(implementationGatewayIndex, "cilium"),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Failed to get Cilium Gateways", logfields.Error, err)
 			return []reconcile.Request{}

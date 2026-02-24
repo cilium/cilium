@@ -6,14 +6,9 @@
 #include "pktgen.h"
 
 #define ETH_HLEN 0
-#define ENABLE_HOST_ROUTING 1
-#define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
-
-#define TEST_IP_NODE_LOCAL	v4_node_one
-#define TEST_IP_NODE_REMOTE	v4_node_two
-#define TEST_IPV6_NODE_LOCAL	v6_node_one
-#define TEST_IPV6_NODE_REMOTE	v6_node_two
+#define ENABLE_HOST_ROUTING
+#define ENABLE_IPV4
+#define ENABLE_IPV6
 
 #define TEST_IP_LOCAL		v4_pod_one
 #define TEST_IP_REMOTE		v4_pod_two
@@ -23,9 +18,14 @@
 
 static volatile const __u8 *ep_mac = mac_one;
 static volatile const __u8 *node_mac = mac_two;
-static volatile const __u8 *node_host_mac = mac_host;
 
-#if defined(IS_BPF_WIREGUARD) || defined(IS_BPF_HOST)
+#if defined(IS_BPF_WIREGUARD)
+# undef IS_BPF_WIREGUARD
+# include "bpf_wireguard.c"
+# include "lib/endpoint.h"
+#elif defined(IS_BPF_HOST)
+# undef IS_BPF_HOST
+
 /* We wanted to tail call handle_policy from bpf_lxc, but at present it's
  * impossible to #include both bpf_host.c and bpf_lxc.c at the same time.
  * Therefore, we created a stud, mock_hanle_policy, to simply check if the
@@ -55,24 +55,11 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 {
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
-# else
-# error "this file supports inclusion only from files with IS_BPF_HOST or IS_BPF_WIREGUARD defined"
-#endif
 
-#if defined(IS_BPF_WIREGUARD)
-# undef IS_BPF_WIREGUARD
-# include "bpf_wireguard.c"
-# include "lib/endpoint.h"
-
-const union macaddr router_mac = { .addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
-
-ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
-#endif
-
-#if defined(IS_BPF_HOST)
-# undef IS_BPF_HOST
 # include "bpf_host.c"
 # include "lib/endpoint.h"
+#else
+# error "this file supports inclusion only from files with IS_BPF_HOST or IS_BPF_WIREGUARD defined"
 #endif
 
 struct {
@@ -85,8 +72,7 @@ struct {
 #if defined(IS_BPF_WIREGUARD)
 		[0] = &cil_from_wireguard,
 		[1] = &cil_to_wireguard,
-#endif
-#if defined(IS_BPF_HOST)
+#else
 		[0] = &cil_from_netdev,
 		[1] = &cil_to_netdev,
 #endif
@@ -94,7 +80,7 @@ struct {
 };
 
 static __always_inline int
-l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx, bool is_ingress, bool is_ipv4, bool is_host)
+l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx, bool is_ingress, bool is_ipv4)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -113,54 +99,28 @@ l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx, bool is_ingress, bool is_i
 
 	if (is_ingress)
 		if (is_ipv4)
-			if (is_host)
-				l4 = pktgen__push_ipv4_tcp_packet(&builder,
-								  (__u8 *)node_mac, (__u8 *)ep_mac,
-								  TEST_IP_NODE_REMOTE, TEST_IP_NODE_LOCAL,
-								  tcp_src_one, tcp_svc_one);
-			else
-				l4 = pktgen__push_ipv4_tcp_packet(&builder,
-								  (__u8 *)node_mac, (__u8 *)ep_mac,
-								  TEST_IP_REMOTE, TEST_IP_LOCAL,
-								  tcp_src_one, tcp_svc_one);
+			l4 = pktgen__push_ipv4_tcp_packet(&builder,
+							  (__u8 *)node_mac, (__u8 *)ep_mac,
+							  TEST_IP_REMOTE, TEST_IP_LOCAL,
+							  tcp_src_one, tcp_svc_one);
 		else
-			if (is_host)
-				l4 = pktgen__push_ipv6_tcp_packet(&builder,
-								  (__u8 *)node_mac, (__u8 *)ep_mac,
-								  (__u8 *)TEST_IPV6_NODE_REMOTE,
-								  (__u8 *)TEST_IPV6_NODE_LOCAL,
-								  tcp_src_one, tcp_svc_one);
-			else
-				l4 = pktgen__push_ipv6_tcp_packet(&builder,
-								  (__u8 *)node_mac, (__u8 *)ep_mac,
-								  (__u8 *)TEST_IPV6_REMOTE,
-								  (__u8 *)TEST_IPV6_LOCAL,
-								  tcp_src_one, tcp_svc_one);
+			l4 = pktgen__push_ipv6_tcp_packet(&builder,
+							  (__u8 *)node_mac, (__u8 *)ep_mac,
+							  (__u8 *)TEST_IPV6_REMOTE,
+							  (__u8 *)TEST_IPV6_LOCAL,
+							  tcp_src_one, tcp_svc_one);
 	else
 		if (is_ipv4)
-			if (is_host)
-				l4 = pktgen__push_ipv4_tcp_packet(&builder,
-								  (__u8 *)ep_mac, (__u8 *)node_mac,
-								  TEST_IP_NODE_LOCAL, TEST_IP_NODE_REMOTE,
-								  tcp_svc_one, tcp_src_one);
-			else
-				l4 = pktgen__push_ipv4_tcp_packet(&builder,
-								  (__u8 *)ep_mac, (__u8 *)node_mac,
-								  TEST_IP_LOCAL, TEST_IP_REMOTE,
-								  tcp_svc_one, tcp_src_one);
+			l4 = pktgen__push_ipv4_tcp_packet(&builder,
+							  (__u8 *)ep_mac, (__u8 *)node_mac,
+							  TEST_IP_LOCAL, TEST_IP_REMOTE,
+							  tcp_svc_one, tcp_src_one);
 		else
-			if (is_host)
-				l4 = pktgen__push_ipv6_tcp_packet(&builder,
-								  (__u8 *)ep_mac, (__u8 *)node_mac,
-								  (__u8 *)TEST_IPV6_NODE_LOCAL,
-								  (__u8 *)TEST_IPV6_NODE_REMOTE,
-								  tcp_svc_one, tcp_src_one);
-			else
-				l4 = pktgen__push_ipv6_tcp_packet(&builder,
-								  (__u8 *)ep_mac, (__u8 *)node_mac,
-								  (__u8 *)TEST_IPV6_LOCAL,
-								  (__u8 *)TEST_IPV6_REMOTE,
-								  tcp_svc_one, tcp_src_one);
+			l4 = pktgen__push_ipv6_tcp_packet(&builder,
+							  (__u8 *)ep_mac, (__u8 *)node_mac,
+							  (__u8 *)TEST_IPV6_LOCAL,
+							  (__u8 *)TEST_IPV6_REMOTE,
+							  tcp_svc_one, tcp_src_one);
 
 	if (!l4)
 		return TEST_ERROR;
@@ -176,7 +136,7 @@ l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx, bool is_ingress, bool is_i
 }
 
 static __always_inline int
-l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ipv4, bool is_host)
+l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ipv4)
 {
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
@@ -184,8 +144,7 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
-#endif
-#if defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD)
 		.reason = is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
 #endif
 		.dir = is_ingress ? METRIC_INGRESS : METRIC_EGRESS,
@@ -194,22 +153,11 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 	map_delete_elem(&cilium_metrics, &key);
 
 	if (is_ipv4)
-		if (is_host)
-			endpoint_v4_add_entry(TEST_IP_NODE_LOCAL, 0, 0,
-					      ENDPOINT_MASK_HOST_DELIVERY, 0, 0,
-					      (__u8 *)ep_mac, (__u8 *)node_mac);
-		else
-			endpoint_v4_add_entry(TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0, 0,
-					      (__u8 *)ep_mac, (__u8 *)node_mac);
+		endpoint_v4_add_entry(TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
+				      0, (__u8 *)ep_mac, (__u8 *)node_mac);
 	else
-		if (is_host)
-			endpoint_v6_add_entry((union v6addr *)TEST_IPV6_NODE_LOCAL, 0, 0,
-					      ENDPOINT_MASK_HOST_DELIVERY, 0,
-					      (__u8 *)ep_mac, (__u8 *)node_mac);
-		else
-			endpoint_v6_add_entry((union v6addr *)TEST_IPV6_LOCAL, 0, TEST_LXC_ID_LOCAL,
-					      0, 0, (__u8 *)ep_mac, (__u8 *)node_mac);
-
+		endpoint_v6_add_entry((union v6addr *)TEST_IPV6_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
+				      (__u8 *)ep_mac, (__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play
@@ -226,7 +174,7 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 }
 
 static __always_inline int
-ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx, bool is_ipv4, bool is_host)
+ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx, bool is_ipv4)
 {
 	void *data;
 	void *data_end;
@@ -234,14 +182,12 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	struct ethhdr *l2;
 	struct tcphdr *l4;
 	__u8 *payload;
-	int l2_size = sizeof(struct ethhdr);
 
 	struct metrics_value *entry = NULL;
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = REASON_PLAINTEXT,
-#endif
-#if defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD)
 		.reason = REASON_DECRYPTING,
 #endif
 		.dir = METRIC_INGRESS,
@@ -257,18 +203,11 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 
 	status_code = data;
 
-	/* If the packet does not match a local endpoint but matches local host,
-	 * then we return to stack w/o adding L2 header only if IS_BPF_HOST.
-	 */
 #if defined(IS_BPF_HOST)
-	if (is_host) {
-		assert(*status_code == TC_ACT_OK);
-		l2_size = 0;
-		goto l3_check;
-	}
-#endif
-
 	assert(*status_code == TC_ACT_REDIRECT);
+#elif defined(IS_BPF_WIREGUARD)
+	assert(*status_code == TC_ACT_SHOT);
+#endif
 
 	l2 = data + sizeof(__u32);
 
@@ -281,73 +220,43 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	if (!is_ipv4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
 		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
 
-#if defined(IS_BPF_WIREGUARD)
-	if (is_host) {
-		if (memcmp(l2->h_source, (__u8 *)router_mac.addr, ETH_ALEN) != 0)
-			test_fatal("src mac hasn't been set to cilium_net mac");
-		if (memcmp(l2->h_dest, (__u8 *)node_host_mac, ETH_ALEN) != 0)
-			test_fatal("dest mac hasn't been set to cilium_host mac");
-		goto l3_check;
-	}
-#endif
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to router's mac");
 
 	if (memcmp(l2->h_dest, (__u8 *)ep_mac, ETH_ALEN) != 0)
 		test_fatal("dest mac hasn't been set to ep's mac");
 
-l3_check:
 	if (is_ipv4) {
 		struct iphdr *l3;
 
-		l3 = data + sizeof(__u32) + l2_size;
+		l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 
 		if ((void *)l3 + sizeof(struct iphdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (is_host) {
-			if (l3->saddr != TEST_IP_NODE_REMOTE)
-				test_fatal("src IP was changed");
-			if (l3->daddr != TEST_IP_NODE_LOCAL)
-				test_fatal("dest IP was changed");
-#if defined(IS_BPF_HOST)
-			if (l3->check != bpf_htons(0x52ba))
-				test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
-#endif
-#if defined(IS_BPF_WIREGUARD)
-			/* TTL changed due to routing to cilium_host. */
-			if (l3->check != bpf_htons(0x53ba))
-				test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
-#endif
-		} else {
-			if (l3->saddr != TEST_IP_REMOTE)
-				test_fatal("src IP was changed");
-			if (l3->daddr != TEST_IP_LOCAL)
-				test_fatal("dest IP was changed");
-			if (l3->check != bpf_htons(0xfa68))
-				test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
-		}
+		if (l3->saddr != TEST_IP_REMOTE)
+			test_fatal("src IP was changed");
+
+		if (l3->daddr != TEST_IP_LOCAL)
+			test_fatal("dest IP was changed");
+
+		if (l3->check != bpf_htons(0xfa68))
+			test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
 		struct ipv6hdr *l3;
 
-		l3 = data + sizeof(__u32) + l2_size;
+		l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 
 		if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (is_host) {
-			if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_NODE_REMOTE, 16) != 0)
-				test_fatal("src IP was changed");
-			if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_NODE_LOCAL, 16) != 0)
-				test_fatal("dest IP was changed");
-		} else {
-			if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_REMOTE, 16) != 0)
-				test_fatal("src IP was changed");
-			if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_LOCAL, 16) != 0)
-				test_fatal("dest IP was changed");
-		}
+		if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_REMOTE, 16) != 0)
+			test_fatal("src IP was changed");
+
+		if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_LOCAL, 16) != 0)
+			test_fatal("dest IP was changed");
 
 		l4 = (void *)l3 + sizeof(struct ipv6hdr);
 	}
@@ -361,30 +270,15 @@ l3_check:
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
-	if (is_ipv4)
-		if (is_host) {
-			if (l4->check != bpf_htons(0x118e))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x118e));
-		} else {
-			if (l4->check != bpf_htons(0xb83c))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0xb83c));
-		}
-	else
-		if (is_host) {
-			if (l4->check != bpf_htons(0x3f82))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x3f82));
-		} else {
-			if (l4->check != bpf_htons(0x3f84))
-				test_fatal("L4 checksum is invalid: %x != %x",
-					   l4->check, bpf_htons(0x843f));
-		}
+	if (is_ipv4 && l4->check != bpf_htons(0x589c))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
+
+	if (!is_ipv4 && l4->check != bpf_htons(0xdfe3))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -401,7 +295,7 @@ l3_check:
 }
 
 static __always_inline int
-egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx, bool is_ipv4, bool is_host)
+egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx, bool is_ipv4)
 {
 	void *data;
 	void *data_end;
@@ -413,8 +307,7 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = REASON_FORWARDED,
-#endif
-#if defined(IS_BPF_WIREGUARD)
+#elif defined(IS_BPF_WIREGUARD)
 		.reason = REASON_ENCRYPTING,
 #endif
 		.dir = METRIC_EGRESS,
@@ -440,17 +333,11 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 		if ((void *)l3 + sizeof(struct iphdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (is_host) {
-			if (l3->saddr != TEST_IP_NODE_LOCAL)
-				test_fatal("src IP was not snatted");
-			if (l3->daddr != TEST_IP_NODE_REMOTE)
-				test_fatal("dest IP was changed");
-		} else {
-			if (l3->saddr != TEST_IP_LOCAL)
-				test_fatal("src IP was not snatted");
-			if (l3->daddr != TEST_IP_REMOTE)
-				test_fatal("dest IP was changed");
-		}
+		if (l3->saddr != TEST_IP_LOCAL)
+			test_fatal("src IP was not snatted");
+
+		if (l3->daddr != TEST_IP_REMOTE)
+			test_fatal("dest IP was changed");
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
@@ -461,17 +348,11 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 		if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
 			test_fatal("l3 out of bounds");
 
-		if (is_host) {
-			if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_NODE_LOCAL, 16) != 0)
-				test_fatal("src IP was changed");
-			if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_NODE_REMOTE, 16) != 0)
-				test_fatal("dest IP was changed");
-		} else {
-			if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_LOCAL, 16) != 0)
-				test_fatal("src IP was changed");
-			if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_REMOTE, 16) != 0)
-				test_fatal("dest IP was changed");
-		}
+		if (memcmp((__u8 *)&l3->saddr, (__u8 *)TEST_IPV6_LOCAL, 16) != 0)
+			test_fatal("src IP was changed");
+
+		if (memcmp((__u8 *)&l3->daddr, (__u8 *)TEST_IPV6_REMOTE, 16) != 0)
+			test_fatal("dest IP was changed");
 
 		l4 = (void *)l3 + sizeof(struct ipv6hdr);
 	}
@@ -503,146 +384,74 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 	test_finish();
 }
 
-PKTGEN("tc", "ingress_ipv4_l3_to_l2_fast_redirect_pod")
-int ingress_ipv4_l3_to_l2_fast_redirect_pod_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ingress_ipv4_l3_to_l2_fast_redirect")
+int ingress_ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_pktgen(ctx, true, true, false);
+	return l3_to_l2_fast_redirect_pktgen(ctx, true, true);
 }
 
-SETUP("tc", "ingress_ipv4_l3_to_l2_fast_redirect_pod")
-int ingress_ipv4_l3_to_l2_fast_redirect_pod_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ingress_ipv4_l3_to_l2_fast_redirect")
+int ingress_ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_setup(ctx, true, true, false);
+	return l3_to_l2_fast_redirect_setup(ctx, true, true);
 }
 
-CHECK("tc", "ingress_ipv4_l3_to_l2_fast_redirect_pod")
-int ingress_ipv4_l3_to_l2_fast_redirect_pod_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ingress_ipv4_l3_to_l2_fast_redirect")
+int ingress_ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return ingress_l3_to_l2_fast_redirect_check(ctx, true, false);
+	return ingress_l3_to_l2_fast_redirect_check(ctx, true);
 }
 
-PKTGEN("tc", "ingress_ipv6_l3_to_l2_fast_redirect_pod")
+PKTGEN("tc", "ingress_ipv6_l3_to_l2_fast_redirect")
 int ingress_ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_pktgen(ctx, true, false, false);
+	return l3_to_l2_fast_redirect_pktgen(ctx, true, false);
 }
 
-SETUP("tc", "ingress_ipv6_l3_to_l2_fast_redirect_pod")
-int ingress_ipv6_l3_to_l2_fast_redirect_pod_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ingress_ipv6_l3_to_l2_fast_redirect")
+int ingress_ipv6_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_setup(ctx, true, false, false);
+	return l3_to_l2_fast_redirect_setup(ctx, true, false);
 }
 
-CHECK("tc", "ingress_ipv6_l3_to_l2_fast_redirect_pod")
-int ingress_ipv6_l3_to_l2_fast_redirect_pod_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ingress_ipv6_l3_to_l2_fast_redirect")
+int ingress_ipv6_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return ingress_l3_to_l2_fast_redirect_check(ctx, false, false);
+	return ingress_l3_to_l2_fast_redirect_check(ctx, false);
 }
 
-PKTGEN("tc", "egress_ipv4_l3_to_l2_fast_redirect_pod")
-int egress_ipv4_l3_to_l2_fast_redirect_pod_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "egress_ipv4_l3_to_l2_fast_redirect")
+int egress_ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_pktgen(ctx, false, true, false);
+	return l3_to_l2_fast_redirect_pktgen(ctx, false, true);
 }
 
-SETUP("tc", "egress_ipv4_l3_to_l2_fast_redirect_pod")
-int egress_ipv4_l3_to_l2_fast_redirect_pod_setup(struct __ctx_buff *ctx)
+SETUP("tc", "egress_ipv4_l3_to_l2_fast_redirect")
+int egress_ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_setup(ctx, false, true, false);
+	return l3_to_l2_fast_redirect_setup(ctx, false, true);
 }
 
-CHECK("tc", "egress_ipv4_l3_to_l2_fast_redirect_pod")
-int egress_ipv4_l3_to_l2_fast_redirect_pod_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "egress_ipv4_l3_to_l2_fast_redirect")
+int egress_ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return egress_l3_to_l2_fast_redirect_check(ctx, true, false);
+	return egress_l3_to_l2_fast_redirect_check(ctx, true);
 }
 
-PKTGEN("tc", "egress_ipv6_l3_to_l2_fast_redirect_pod")
-int egress_ipv6_l3_to_l2_fast_redirect_pod_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "egress_ipv6_l3_to_l2_fast_redirect")
+int egress_ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_pktgen(ctx, false, false, false);
+	return l3_to_l2_fast_redirect_pktgen(ctx, false, false);
 }
 
-SETUP("tc", "egress_ipv6_l3_to_l2_fast_redirect_pod")
-int egress_ipv6_l3_to_l2_fast_redirect_pod_setup(struct __ctx_buff *ctx)
+SETUP("tc", "egress_ipv6_l3_to_l2_fast_redirect")
+int egress_ipv6_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 {
-	return l3_to_l2_fast_redirect_setup(ctx, false, false, false);
+	return l3_to_l2_fast_redirect_setup(ctx, false, false);
 }
 
-CHECK("tc", "egress_ipv6_l3_to_l2_fast_redirect_pod")
-int egress_ipv6_l3_to_l2_fast_redirect_pod_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "egress_ipv6_l3_to_l2_fast_redirect")
+int egress_ipv6_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	return egress_l3_to_l2_fast_redirect_check(ctx, false, false);
-}
-
-PKTGEN("tc", "ingress_ipv4_l3_to_l2_fast_redirect_host")
-int ingress_ipv4_l3_to_l2_fast_redirect_host_pktgen(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_pktgen(ctx, true, true, true);
-}
-
-SETUP("tc", "ingress_ipv4_l3_to_l2_fast_redirect_host")
-int ingress_ipv4_l3_to_l2_fast_redirect_host_setup(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_setup(ctx, true, true, true);
-}
-
-CHECK("tc", "ingress_ipv4_l3_to_l2_fast_redirect_host")
-int ingress_ipv4_l3_to_l2_fast_redirect_host_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	return ingress_l3_to_l2_fast_redirect_check(ctx, true, true);
-}
-
-PKTGEN("tc", "ingress_ipv6_l3_to_l2_fast_redirect_host")
-int ingress_ipv6_l3_to_l2_fast_redirect_host_pktgen(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_pktgen(ctx, true, false, true);
-}
-
-SETUP("tc", "ingress_ipv6_l3_to_l2_fast_redirect_host")
-int ingress_ipv6_l3_to_l2_fast_redirect_host_setup(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_setup(ctx, true, false, true);
-}
-
-CHECK("tc", "ingress_ipv6_l3_to_l2_fast_redirect_host")
-int ingress_ipv6_l3_to_l2_fast_redirect_host_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	return ingress_l3_to_l2_fast_redirect_check(ctx, false, true);
-}
-
-PKTGEN("tc", "egress_ipv4_l3_to_l2_fast_redirect_host")
-int egress_ipv4_l3_to_l2_fast_redirect_host_pktgen(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_pktgen(ctx, false, true, true);
-}
-
-SETUP("tc", "egress_ipv4_l3_to_l2_fast_redirect_host")
-int egress_ipv4_l3_to_l2_fast_redirect_host_setup(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_setup(ctx, false, true, true);
-}
-
-CHECK("tc", "egress_ipv4_l3_to_l2_fast_redirect_host")
-int egress_ipv4_l3_to_l2_fast_redirect_host_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	return egress_l3_to_l2_fast_redirect_check(ctx, true, true);
-}
-
-PKTGEN("tc", "egress_ipv6_l3_to_l2_fast_redirect_host")
-int egress_ipv6_l3_to_l2_fast_redirect_host_pktgen(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_pktgen(ctx, false, false, true);
-}
-
-SETUP("tc", "egress_ipv6_l3_to_l2_fast_redirect_host")
-int egress_ipv6_l3_to_l2_fast_redirect_host_setup(struct __ctx_buff *ctx)
-{
-	return l3_to_l2_fast_redirect_setup(ctx, false, false, true);
-}
-
-CHECK("tc", "egress_ipv6_l3_to_l2_fast_redirect_host")
-int egress_ipv6_l3_to_l2_fast_redirect_host_check(__maybe_unused const struct __ctx_buff *ctx)
-{
-	return egress_l3_to_l2_fast_redirect_check(ctx, false, true);
+	return egress_l3_to_l2_fast_redirect_check(ctx, false);
 }

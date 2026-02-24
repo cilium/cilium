@@ -17,7 +17,6 @@ linters:
     - errchkjson
     - errorlint
     - exhaustive
-    - forbidigo
     - ginkgolinter
     - goconst
     - gocritic
@@ -40,12 +39,6 @@ linters:
     - unused
     - whitespace
   settings:
-    forbidigo:
-        forbid:
-          - pattern: context.Background
-            msg: Use ginkgos SpecContext or go testings t.Context instead
-          - pattern: context.TODO
-            msg: Use ginkgos SpecContext or go testings t.Context instead
     govet:
       disable:
         - fieldalignment
@@ -101,9 +94,6 @@ linters:
       - zz_generated.*\.go$
       - .*conversion.*\.go$
     rules:
-      - linters:
-          - forbidigo
-        path-except: _test\.go
       - linters:
           - gosec
         text: 'G108: Profiling endpoint is automatically exposed on /debug/pprof'

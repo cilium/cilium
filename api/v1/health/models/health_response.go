@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/go-openapi/errors"
@@ -57,15 +56,11 @@ func (m *HealthResponse) validateCilium(formats strfmt.Registry) error {
 	}
 
 	if err := m.Cilium.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("cilium")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("cilium")
 		}
-
 		return err
 	}
 
@@ -79,15 +74,11 @@ func (m *HealthResponse) validateSystemLoad(formats strfmt.Registry) error {
 
 	if m.SystemLoad != nil {
 		if err := m.SystemLoad.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("system-load")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("system-load")
 			}
-
 			return err
 		}
 	}
@@ -120,15 +111,11 @@ func (m *HealthResponse) contextValidateCilium(ctx context.Context, formats strf
 	}
 
 	if err := m.Cilium.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("cilium")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("cilium")
 		}
-
 		return err
 	}
 
@@ -144,15 +131,11 @@ func (m *HealthResponse) contextValidateSystemLoad(ctx context.Context, formats 
 		}
 
 		if err := m.SystemLoad.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("system-load")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("system-load")
 			}
-
 			return err
 		}
 	}

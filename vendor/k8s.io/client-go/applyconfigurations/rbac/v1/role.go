@@ -29,14 +29,10 @@ import (
 
 // RoleApplyConfiguration represents a declarative configuration of the Role type for use
 // with apply.
-//
-// Role is a namespaced, logical grouping of PolicyRules that can be referenced as a unit by a RoleBinding.
 type RoleApplyConfiguration struct {
-	metav1.TypeMetaApplyConfiguration `json:",inline"`
-	// Standard object's metadata.
+	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// Rules holds all the PolicyRules for this Role
-	Rules []PolicyRuleApplyConfiguration `json:"rules,omitempty"`
+	Rules                                []PolicyRuleApplyConfiguration `json:"rules,omitempty"`
 }
 
 // Role constructs a declarative configuration of the Role type for use with
@@ -50,14 +46,29 @@ func Role(name, namespace string) *RoleApplyConfiguration {
 	return b
 }
 
-// ExtractRoleFrom extracts the applied configuration owned by fieldManager from
-// role for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractRole extracts the applied configuration owned by fieldManager from
+// role. If no managedFields are found in role for fieldManager, a
+// RoleApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // role must be a unmodified Role API object that was retrieved from the Kubernetes API.
-// ExtractRoleFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractRole provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractRoleFrom(role *rbacv1.Role, fieldManager string, subresource string) (*RoleApplyConfiguration, error) {
+// Experimental!
+func ExtractRole(role *rbacv1.Role, fieldManager string) (*RoleApplyConfiguration, error) {
+	return extractRole(role, fieldManager, "")
+}
+
+// ExtractRoleStatus is the same as ExtractRole except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractRoleStatus(role *rbacv1.Role, fieldManager string) (*RoleApplyConfiguration, error) {
+	return extractRole(role, fieldManager, "status")
+}
+
+func extractRole(role *rbacv1.Role, fieldManager string, subresource string) (*RoleApplyConfiguration, error) {
 	b := &RoleApplyConfiguration{}
 	err := managedfields.ExtractInto(role, internal.Parser().Type("io.k8s.api.rbac.v1.Role"), fieldManager, b, subresource)
 	if err != nil {
@@ -70,21 +81,6 @@ func ExtractRoleFrom(role *rbacv1.Role, fieldManager string, subresource string)
 	b.WithAPIVersion("rbac.authorization.k8s.io/v1")
 	return b, nil
 }
-
-// ExtractRole extracts the applied configuration owned by fieldManager from
-// role. If no managedFields are found in role for fieldManager, a
-// RoleApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// role must be a unmodified Role API object that was retrieved from the Kubernetes API.
-// ExtractRole provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractRole(role *rbacv1.Role, fieldManager string) (*RoleApplyConfiguration, error) {
-	return ExtractRoleFrom(role, fieldManager, "")
-}
-
 func (b RoleApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

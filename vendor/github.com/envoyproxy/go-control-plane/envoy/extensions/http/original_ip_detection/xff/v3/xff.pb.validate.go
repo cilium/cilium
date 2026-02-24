@@ -131,7 +131,7 @@ type XffConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m XffConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -265,7 +265,7 @@ type XffTrustedCidrsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m XffTrustedCidrsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -100,7 +100,7 @@ func (s *PollingSignalErrorImpl) TryAgainDuration() time.Duration {
 	return s.duration
 }
 
-func AsPollingSignalError(actual any) (*PollingSignalErrorImpl, bool) {
+func AsPollingSignalError(actual interface{}) (*PollingSignalErrorImpl, bool) {
 	if actual == nil {
 		return nil, false
 	}

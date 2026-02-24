@@ -14,7 +14,6 @@ import (
 	"sort"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -79,6 +78,7 @@ type UpsertParams struct {
 
 // Upsert updates / inserts the provided IP->Identity mapping into the kvstore.
 func (s *IPIdentitySynchronizer) Upsert(ctx context.Context, params *UpsertParams) error {
+
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(params.NPM))
 	for name, value := range params.NPM {
@@ -142,7 +142,6 @@ func (s *IPIdentitySynchronizer) IsEnabled() bool {
 // LocalIPIdentityWatcher is an IPIdentityWatcher specialized to watch the
 // entries corresponding to the local cluster.
 type LocalIPIdentityWatcher struct {
-	logger  *slog.Logger
 	watcher *IPIdentityWatcher
 	syncer  *IPIdentitySynchronizer
 	client  kvstore.Client
@@ -152,17 +151,14 @@ func NewLocalIPIdentityWatcher(in struct {
 	cell.In
 
 	Logger      *slog.Logger
-	JobGroup    job.Group
 	ClusterInfo cmtypes.ClusterInfo
 	Client      kvstore.Client
 	Factory     storepkg.Factory
 
 	IPCache *IPCache
 	Syncer  *IPIdentitySynchronizer
-},
-) *LocalIPIdentityWatcher {
-	watcher := &LocalIPIdentityWatcher{
-		logger: in.Logger,
+}) *LocalIPIdentityWatcher {
+	return &LocalIPIdentityWatcher{
 		watcher: NewIPIdentityWatcher(
 			in.Logger, in.ClusterInfo.Name, in.IPCache,
 			in.Factory, source.KVStore,
@@ -170,22 +166,11 @@ func NewLocalIPIdentityWatcher(in struct {
 		syncer: in.Syncer,
 		client: in.Client,
 	}
-
-	if watcher.IsEnabled() {
-		// Start watcher for endpoint IP --> identity mappings in key-value store.
-		// this needs to be done *after* that the ipcache map has been recreated
-		// by the IPCache lifecycle hook.
-		in.JobGroup.Add(job.OneShot("watch", watcher.Watch))
-	}
-
-	return watcher
 }
 
 // Watch starts the watcher and blocks waiting for events, until the context is closed.
-func (liw *LocalIPIdentityWatcher) Watch(ctx context.Context, _ cell.Health) error {
-	liw.logger.Info("Starting IP identity watcher")
+func (liw *LocalIPIdentityWatcher) Watch(ctx context.Context) {
 	liw.watcher.Watch(ctx, liw.client, WithSelfDeletionProtection(liw.syncer))
-	return nil
 }
 
 // WaitForSync blocks until either the initial list of entries had been retrieved
@@ -252,7 +237,6 @@ func NewIPIdentityWatcher(
 }
 
 type ipIdentityValidator func(*identity.IPIdentityPair) error
-
 type IWOpt func(*iwOpts)
 
 type iwOpts struct {

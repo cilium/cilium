@@ -24,16 +24,8 @@ import (
 
 // VolumeResourceRequirementsApplyConfiguration represents a declarative configuration of the VolumeResourceRequirements type for use
 // with apply.
-//
-// VolumeResourceRequirements describes the storage resource requirements for a volume.
 type VolumeResourceRequirementsApplyConfiguration struct {
-	// Limits describes the maximum amount of compute resources allowed.
-	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	Limits *corev1.ResourceList `json:"limits,omitempty"`
-	// Requests describes the minimum amount of compute resources required.
-	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
-	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
-	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Limits   *corev1.ResourceList `json:"limits,omitempty"`
 	Requests *corev1.ResourceList `json:"requests,omitempty"`
 }
 

@@ -1,0 +1,36 @@
+[
+  {
+    "endpointSelector": {
+      "matchLabels": {"reserved:init": ""}
+    },
+    "ingress": [{
+      "fromEntities": ["host"]
+    }],
+    "egress": [{
+      "toEntities": ["host"]
+    },{
+      "toPorts": [{
+        "ports": [
+          {"port": "53",   "protocol": "udp"}
+        ]
+      }]
+    }]
+  },
+  {
+    "endpointSelector": {
+      "matchLabels": {"container:somelabel": ""}
+    },
+    "ingress": [{
+      "fromEntities": ["host"]
+    }],
+    "egress": [{
+      "toEntities": ["host"]
+    },{
+      "toPorts": [{
+        "ports": [
+          {"port": "53",   "protocol": "udp"}
+        ]
+      }]
+    }]
+  }
+]

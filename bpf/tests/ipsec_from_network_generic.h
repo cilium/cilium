@@ -5,7 +5,7 @@
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define ENABLE_IPSEC 1
+#define ENABLE_IPSEC
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 4
 #define DEST_IFINDEX 5
@@ -147,7 +147,7 @@ int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	payload = (void *)l4 + sizeof(struct ip_esp_hdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -256,7 +256,7 @@ int ipv6_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 
 	payload = (void *)l4 + sizeof(struct ip_esp_hdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -361,12 +361,12 @@ int ipv4_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
-	if (l4->check != bpf_htons(0xb83c))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0xb83c));
+	if (l4->check != bpf_htons(0x589c))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");
@@ -468,12 +468,12 @@ int ipv6_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
-	if (l4->check != bpf_htons(0x3f84))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3f84));
+	if (l4->check != bpf_htons(0xdfe3))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
-		test_fatal("payload out of bounds");
+		test_fatal("paylaod out of bounds\n");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed");

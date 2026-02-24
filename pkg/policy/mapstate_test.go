@@ -4,229 +4,19 @@
 package policy
 
 import (
-	"fmt"
-	"iter"
-	"net/netip"
-	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-func TestPassMetasCollect(t *testing.T) {
-	type testcase struct {
-		p    passMeta
-		m, e passMetas
-	}
-
-	tests := []testcase{{
-		// zero passMeta is not valid, nothing added
-		p: passMeta{},
-		m: passMetas{},
-		e: passMetas{},
-	}, {
-		// priority 0, next tier priority 1000
-		p: passMeta{precedence: 4294967040, tierMaxPrecedence: 4294967295, tierMinPrecedence: 4294711140},
-		m: passMetas{},
-		e: passMetas{{precedence: 4294967040, tierMaxPrecedence: 4294967295, tierMinPrecedence: 4294711140}},
-	}, {
-		// precedence > nextTierPrecedence == valid, added
-		p: passMeta{21, 29, 20},
-		m: passMetas{},
-		e: passMetas{{21, 29, 20}},
-	}, {
-		// same precedence, same next tier, no change
-		p: passMeta{21, 29, 20},
-		m: passMetas{{21, 29, 20}},
-		e: passMetas{{21, 29, 20}},
-	}, {
-		// lower precedence, same next tier, no change
-		p: passMeta{21, 29, 20},
-		m: passMetas{{25, 29, 20}},
-		e: passMetas{{25, 29, 20}},
-	}, {
-		// same tier, higher precedence => updated
-		p: passMeta{22, 29, 20},
-		m: passMetas{{21, 29, 20}},
-		e: passMetas{{22, 29, 20}},
-	}, {
-		// new higher tier (different nextTierPrecedence) => added
-		p: passMeta{31, 39, 30},
-		m: passMetas{{21, 29, 20}},
-		e: passMetas{{21, 29, 20}, {31, 39, 30}},
-	}, {
-		// new lower tier (different nextTierPrecedence) => added
-		p: passMeta{21, 29, 20},
-		m: passMetas{{31, 39, 30}},
-		e: passMetas{{21, 29, 20}, {31, 39, 30}},
-	}, {
-		// new lower tier (different nextTierPrecedence) => added
-		p: passMeta{6, 9, 5},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{6, 9, 5}, {11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-	}, {
-		// existing tier, higher precedence => updated
-		p: passMeta{12, 14, 10},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{12, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-	}, {
-		// new middle tier (different nextTierPrecedence) => added
-		p: passMeta{16, 19, 15},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{11, 14, 10}, {16, 19, 15}, {21, 24, 20}, {31, 34, 30}},
-	}, {
-		// existing tier, higher precedence => updated
-		p: passMeta{22, 24, 20},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{11, 14, 10}, {22, 24, 20}, {31, 34, 30}},
-	}, {
-		// new middle tier (different nextTierPrecedence) => added
-		p: passMeta{26, 29, 25},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{11, 14, 10}, {21, 24, 20}, {26, 29, 25}, {31, 34, 30}},
-	}, {
-		// existing tier, higher precedence => updated
-		p: passMeta{32, 34, 30},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{11, 14, 10}, {21, 24, 20}, {32, 34, 30}},
-	}, {
-		// new higher tier (different nextTierPrecedence) => added
-		p: passMeta{36, 39, 35},
-		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
-		e: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}, {36, 39, 35}},
-	}}
-
-	for i, tt := range tests {
-		t.Log(strconv.Itoa(i))
-		m := tt.m
-		m.Collect(tt.p)
-		require.Equal(t, tt.e, m)
-	}
-}
-
-func TestPassMetasMerge(t *testing.T) {
-	type testcase struct {
-		a, b, e passMetas
-	}
-
-	tests := []testcase{{
-		a: passMetas{},
-		b: passMetas{},
-		e: passMetas{},
-	}, {
-		a: passMetas{{21, 24, 20}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{31, 34, 30}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}, {41, 44, 40}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{31, 34, 30}},
-		b: passMetas{{21, 24, 20}, {41, 44, 40}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{41, 44, 40}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{51, 54, 50}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}, {51, 54, 50}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{10, 14, 10}},
-		e: passMetas{{10, 14, 10}, {21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}},
-		b: passMetas{{22, 24, 20}},
-		e: passMetas{{22, 24, 20}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{31, 34, 30}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}},
-	}, {
-		a: passMetas{{21, 24, 20}, {41, 44, 40}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{31, 34, 30}},
-		b: passMetas{{21, 24, 20}, {41, 44, 40}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{21, 24, 20}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{31, 34, 30}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{41, 44, 40}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{51, 54, 50}},
-		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}, {51, 54, 50}},
-	}, {
-		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-		b: passMetas{{10, 14, 10}},
-		e: passMetas{{10, 14, 10}, {21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
-	}}
-
-	for i, tt := range tests {
-		t.Log(strconv.Itoa(i))
-		m := tt.a.Merge(tt.b)
-		require.Equal(t, tt.e, m)
-	}
-}
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
@@ -247,24 +37,6 @@ func (e mapStateEntry) withDerivedAuth(authType AuthType) mapStateEntry {
 
 func (e mapStateEntry) WithProxyPort(proxyPort uint16) mapStateEntry {
 	e.MapStateEntry = e.MapStateEntry.WithProxyPort(proxyPort)
-	return e
-}
-
-func (e mapStateEntry) withLevel(priority types.Priority) mapStateEntry {
-	e.MapStateEntry = e.MapStateEntry.WithPriority(priority)
-	return e
-}
-
-func (e mapStateEntry) withPassPriority(priority, tierPriority, nextTierPriority types.Priority) mapStateEntry {
-	if e.passes == nil {
-		pass := make(passMetas, 0, 1)
-		e.passes = &pass
-	}
-	*e.passes = append(*e.passes, passMeta{
-		precedence:        priority.ToPassPrecedence(),
-		tierMaxPrecedence: tierPriority.ToTierMaxPrecedence(),
-		tierMinPrecedence: nextTierPriority.ToPassPrecedence() + 0x100,
-	})
 	return e
 }
 
@@ -323,6 +95,9 @@ func (e mapStateEntry) withProxyPortPriority(proxyPort uint16, priority Listener
 }
 
 func TestMapState_insertWithChanges(t *testing.T) {
+	allowEntry := NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+	denyEntry := NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
+
 	type args struct {
 		key   Key
 		entry MapStateEntry
@@ -337,14 +112,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-1 - no KV added, map should remain the same",
 			ms: testMapState(t, mapStateMap{
-				IngressKey(): allowEntry(),
+				IngressKey(): allowEntry,
 			}),
 			args: args{
 				key:   IngressKey(),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				IngressKey(): allowEntry(),
+				IngressKey(): allowEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -353,15 +128,15 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-2a - L3 allow KV should not overwrite deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1):     allowEntry(),
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressL3OnlyKey(1):     allowEntry,
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -372,15 +147,15 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-2b - L3 port-range allow KV should not overwrite deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(1, 3, 80, 0):  denyEntry(),
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(1, 3, 80, 0):  denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
@@ -391,14 +166,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-3a - L3-L4 allow KV should not overwrite deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -407,14 +182,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-3b - L3-L4 port-range allow KV should not overwrite deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): denyEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry, // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): denyEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry, // port range 64-127 (64/10)
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -423,34 +198,34 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-4a - L3-L4 deny KV should overwrite allow entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
 			},
 		},
 		{
 			name: "test-4b - L3-L4 port-range deny KV should overwrite allow entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): denyEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry, // port range 64-127 (64/10)
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
@@ -459,25 +234,25 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
 			},
 		},
 		{
 			name: "test-5a - L3 deny KV should overwrite all L3-L4 allow and L3 allow entries for the same L3",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(1):     allowEntry(),
-				ingressKey(2, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(2):     allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(1):     allowEntry,
+				ingressKey(2, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(2):     allowEntry,
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1):     denyEntry(),
-				ingressKey(2, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(2):     allowEntry(),
+				ingressL3OnlyKey(1):     denyEntry,
+				ingressKey(2, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(2):     allowEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -486,26 +261,26 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressL3OnlyKey(1):     allowEntry(),
-				ingressKey(1, 3, 80, 0): allowEntry(),
+				ingressL3OnlyKey(1):     allowEntry,
+				ingressKey(1, 3, 80, 0): allowEntry,
 			},
 		},
 		{
 			name: "test-5b - L3 port-range deny KV should overwrite all L3-L4 allow and L3 allow entries for the same L3",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0):  allowEntry(),
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(2, 3, 80, 0):  allowEntry(),
-				ingressKey(2, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 80, 0):  allowEntry,
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(2, 3, 80, 0):  allowEntry,
+				ingressKey(2, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): denyEntry(), // port range 64-127 (64/10)
-				ingressKey(2, 3, 80, 0):  allowEntry(),
-				ingressKey(2, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry, // port range 64-127 (64/10)
+				ingressKey(2, 3, 80, 0):  allowEntry,
+				ingressKey(2, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
@@ -514,28 +289,28 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(1, 3, 80, 0):  allowEntry(),
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(1, 3, 80, 0):  allowEntry,
 			},
 		},
 		{
 			name: "test-6a - L3 egress deny KV should not overwrite any existing ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(1):     allowEntry(),
-				ingressKey(2, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(2):     allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(1):     allowEntry,
+				ingressKey(2, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(2):     allowEntry,
 			}),
 			args: args{
 				key:   egressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(1):     allowEntry(),
-				egressL3OnlyKey(1):      denyEntry(),
-				ingressKey(2, 3, 80, 0): allowEntry(),
-				ingressL3OnlyKey(2):     allowEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(1):     allowEntry,
+				egressL3OnlyKey(1):      denyEntry,
+				ingressKey(2, 3, 80, 0): allowEntry,
+				ingressL3OnlyKey(2):     allowEntry,
 			}),
 			wantAdds: Keys{
 				egressL3OnlyKey(1): struct{}{},
@@ -546,21 +321,21 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-6b - L3 egress port-range deny KV should not overwrite any existing ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0):  allowEntry(),
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(2, 3, 80, 0):  allowEntry(),
-				ingressKey(2, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 80, 0):  allowEntry,
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(2, 3, 80, 0):  allowEntry,
+				ingressKey(2, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   egressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0):  allowEntry(),
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				egressKey(1, 3, 64, 10):  denyEntry(),  // port range 64-127 (64/10)
-				ingressKey(2, 3, 80, 0):  allowEntry(),
-				ingressKey(2, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 80, 0):  allowEntry,
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				egressKey(1, 3, 64, 10):  denyEntry,  // port range 64-127 (64/10)
+				ingressKey(2, 3, 80, 0):  allowEntry,
+				ingressKey(2, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			wantAdds: Keys{
 				egressKey(1, 3, 64, 10): struct{}{},
@@ -571,14 +346,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-7a - L3 ingress deny KV should not be overwritten by a L3-L4 ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -587,14 +362,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-7b - L3 ingress deny KV should not be overwritten by a L3-L4 port-range ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -603,14 +378,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-8a - L3 ingress deny KV should not be overwritten by a L3-L4-L7 ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: AllowEntry.WithProxyPort(8080),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -619,14 +394,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-8b - L3 ingress deny KV should not be overwritten by a L3-L4-L7 port-range ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry.WithProxyPort(8080),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -635,14 +410,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-9a - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -651,20 +426,20 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-9b - L3 ingress deny KV should overwrite a L3-L4-L7 port-range ingress allow",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -673,21 +448,21 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
 			},
 		},
 		{
 			name: "test-10a - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow and a L3-L4 deny",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -697,22 +472,22 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				ingressKey(1, 3, 80, 0): denyEntry(),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): denyEntry,
 			},
 		},
 		{
 			name: "test-10b - L3 ingress deny KV should overwrite a L3-L4-L7 port-range ingress allow and a L3-L4 port-range deny",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				ingressKey(1, 3, 64, 10): denyEntry(),                          // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry,                          // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(1),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressL3OnlyKey(1): denyEntry(),
+				ingressL3OnlyKey(1): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressL3OnlyKey(1): struct{}{},
@@ -722,23 +497,23 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 64, 10): struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				ingressKey(1, 3, 64, 10): denyEntry(),                          // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): denyEntry,                          // port range 64-127 (64/10)
 			},
 		},
 		{
 			name: "test-11a - L3 ingress allow should not be allowed if there is a L3 'all' deny",
 			ms: testMapState(t, mapStateMap{
-				egressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				IngressKey():           denyEntry(),
+				egressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				IngressKey():           denyEntry,
 			}),
 			args: args{
 				key:   ingressL3OnlyKey(100),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				egressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				IngressKey():           denyEntry(),
+				egressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				IngressKey():           denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -747,16 +522,16 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-11b - L3 ingress allow should not be allowed if there is a L3 'all' deny",
 			ms: testMapState(t, mapStateMap{
-				egressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				IngressKey():            denyEntry(),
+				egressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				IngressKey():            denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(100, 0, 0, 0),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				egressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				IngressKey():            denyEntry(),
+				egressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				IngressKey():            denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -765,17 +540,17 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-12a - inserting a L3 'all' deny should delete all entries for that direction",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				ingressKey(1, 3, 5, 0):  allowEntry().withHTTPProxyPort(8080),
-				egressKey(100, 3, 5, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				ingressKey(1, 3, 5, 0):  allowEntry.withHTTPProxyPort(8080),
+				egressKey(100, 3, 5, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   IngressKey(),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				IngressKey():            denyEntry(),
-				egressKey(100, 3, 5, 0): allowEntry().withHTTPProxyPort(8080),
+				IngressKey():            denyEntry,
+				egressKey(100, 3, 5, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			wantAdds: Keys{
 				IngressKey(): struct{}{},
@@ -785,24 +560,24 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 5, 0):  struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
-				ingressKey(1, 3, 5, 0):  allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
+				ingressKey(1, 3, 5, 0):  allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-12b - inserting a L3 'all' deny should delete all entries for that direction (including port ranges)",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				ingressKey(1, 3, 4, 14):  allowEntry().withHTTPProxyPort(8080),
-				egressKey(100, 3, 4, 14): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 4, 14):  allowEntry.withHTTPProxyPort(8080),
+				egressKey(100, 3, 4, 14): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   IngressKey(),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				IngressKey():             denyEntry(),
-				egressKey(100, 3, 4, 14): allowEntry().withHTTPProxyPort(8080),
+				IngressKey():             denyEntry,
+				egressKey(100, 3, 4, 14): allowEntry.withHTTPProxyPort(8080),
 			}),
 			wantAdds: Keys{
 				IngressKey(): struct{}{},
@@ -812,101 +587,101 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				ingressKey(1, 3, 4, 14):  struct{}{},
 			},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080), // port range 64-127 (64/10)
-				ingressKey(1, 3, 4, 14):  allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080), // port range 64-127 (64/10)
+				ingressKey(1, 3, 4, 14):  allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-13a - L3-L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to lower priority",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: AllowEntry.WithProxyPort(9090).WithListenerPriority(1),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withProxyPortPriority(9090, 1),
+				ingressKey(1, 3, 80, 0): allowEntry.withProxyPortPriority(9090, 1),
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 80, 0): struct{}{},
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-13b - L3-L4-L7 port-range ingress allow should overwrite a L3-L4-L7 port-range ingress allow due to lower priority",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10),
 				entry: AllowEntry.WithProxyPort(9090).WithListenerPriority(1),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withProxyPortPriority(9090, 1),
+				ingressKey(1, 3, 64, 10): allowEntry.withProxyPortPriority(9090, 1),
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-14a - L3-L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to higher priority on the same port",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 0),
 				entry: AllowEntry.WithProxyPort(8080).WithListenerPriority(1),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withProxyPortPriority(8080, 1),
+				ingressKey(1, 3, 80, 0): allowEntry.withProxyPortPriority(8080, 1),
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 80, 0): struct{}{}, // precedence changed
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-14b - L3-L4-L7 port-range ingress allow should overwrite a L3-L4-L7 port-range ingress allow due to higher priority on the same port",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10),
 				entry: AllowEntry.WithProxyPort(8080).WithListenerPriority(1),
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withProxyPortPriority(8080, 1),
+				ingressKey(1, 3, 64, 10): allowEntry.withProxyPortPriority(8080, 1),
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{}, // precedence changed
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			},
 		},
 		{
 			name: "test-14c - L3-L4 ingress allow should not overwrite a L3-L4-L7 port-range ingress allow on overlapping port",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 80, 16),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry.withHTTPProxyPort(8080),
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -915,15 +690,15 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-15a - L3 port-range allow KV should not overwrite a wildcard deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(0, 3, 80, 0): denyEntry(),
+				ingressKey(0, 3, 80, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(0, 3, 80, 0):  denyEntry(),
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(0, 3, 80, 0):  denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
@@ -934,15 +709,15 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			args: args{
 				key:   ingressKey(0, 3, 80, 0),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
-				ingressKey(0, 3, 80, 0):  denyEntry(),
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
+				ingressKey(0, 3, 80, 0):  denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(0, 3, 80, 16): struct{}{},
@@ -953,15 +728,15 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-16a - No added entry for L3 port-range allow + wildcard allow entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(0, 3, 80, 0): allowEntry().withHTTPProxyPort(8080),
+				ingressKey(0, 3, 80, 0): allowEntry.withHTTPProxyPort(8080),
 			}),
 			args: args{
 				key:   ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(0, 3, 80, 0):  allowEntry().withHTTPProxyPort(8080),
-				ingressKey(1, 3, 64, 10): allowEntry(), // port range 64-127 (64/10)
+				ingressKey(0, 3, 80, 0):  allowEntry.withHTTPProxyPort(8080),
+				ingressKey(1, 3, 64, 10): allowEntry, // port range 64-127 (64/10)
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
@@ -977,7 +752,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 2, 0, 0): allowEntry(),
+				ingressKey(1, 2, 0, 0): allowEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 2, 0, 0): struct{}{},
@@ -988,14 +763,14 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-18 - Wildcard port entry should not overwrite deny entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 2, 0, 0): denyEntry(),
+				ingressKey(1, 2, 0, 0): denyEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 2, 0, 0),
 				entry: AllowEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 2, 0, 0): denyEntry(),
+				ingressKey(1, 2, 0, 0): denyEntry,
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -1004,21 +779,21 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		{
 			name: "test-18 - Deny entry overwrites allow wildcard port entry",
 			ms: testMapState(t, mapStateMap{
-				ingressKey(1, 2, 0, 0): allowEntry(),
+				ingressKey(1, 2, 0, 0): allowEntry,
 			}),
 			args: args{
 				key:   ingressKey(1, 2, 0, 0),
 				entry: DenyEntry,
 			},
 			want: testMapState(t, mapStateMap{
-				ingressKey(1, 2, 0, 0): denyEntry(),
+				ingressKey(1, 2, 0, 0): denyEntry,
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 2, 0, 0): struct{}{},
 			},
 			wantDeletes: Keys{},
 			wantOld: mapStateMap{
-				ingressKey(1, 2, 0, 0): allowEntry(),
+				ingressKey(1, 2, 0, 0): allowEntry,
 			},
 		},
 	}
@@ -1036,8 +811,8 @@ func TestMapState_insertWithChanges(t *testing.T) {
 			return true
 		})
 
-		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
-		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), tt.args.key, entry, denyRules, changes)
+		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
+		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
 		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -1083,27 +858,23 @@ func TcpEgressKey(id identity.NumericIdentity) Key {
 }
 
 func allowEntry() mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithPriority(1000)).withLabels(labels.LabelArrayList{nil})
-}
-
-func passEntry(priority, tierPriority, nextTierPriority types.Priority) mapStateEntry {
-	return PassEntry(priority, tierPriority, nextTierPriority, NilRuleOrigin).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryHTTP(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityHTTP)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityHTTP)).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryDNS(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityDNS)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityDNS)).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryCRD(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityCRD)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityCRD)).withLabels(labels.LabelArrayList{nil})
 }
 
 func denyEntry() mapStateEntry {
-	return NewMapStateEntry(DenyEntry.WithPriority(1000)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 }
 
 func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
@@ -1113,7 +884,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
 
 	type args struct {
 		cs       *testCachedSelector
@@ -1397,7 +1168,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}
 
 	epPolicy := &EndpointPolicy{
-		SelectorPolicy: &selectorPolicy{
+		selectorPolicy: &selectorPolicy{
 			SelectorCache: selectorCache,
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
@@ -1429,15 +1200,14 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			verdict := types.Allow
-			if x.deny {
-				verdict = types.Deny
-			}
-			value := newMapStateEntry(1000, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement)
+			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
-		_, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
+		handle, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
+		if handle != nil {
+			handle.Close()
+		}
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -1453,7 +1223,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
 
 	type args struct {
 		cs       *testCachedSelector
@@ -1466,7 +1236,6 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		redirect ListenerPriority
 		deny     bool
 		authReq  AuthRequirement
-		level    types.Priority
 	}
 	tests := []struct {
 		continued bool // Start from the end state of the previous test
@@ -1593,68 +1362,6 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		}),
 		adds: Keys{
 			HttpEgressKey(44): {},
-		},
-		deletes: Keys{},
-	}, {
-		continued: true,
-		name:      "test-4c - Later order deny all does not prevent allow",
-		args: []args{
-			{level: 2, cs: nil, adds: []int{0}, deletes: []int{}, ingress: false, deny: true},
-		},
-		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(1002),
-			HttpEgressKey(44): proxyEntryHTTP(1),
-		}),
-		adds: Keys{
-			AnyEgressKey(): {},
-		},
-		deletes: Keys{},
-	}, {
-		continued: true,
-		name:      "test-4d - Later order deny does not override allow",
-		args: []args{
-			{level: 1, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 6, ingress: false, deny: true},
-		},
-		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(1002),
-			TcpEgressKey(44):  denyEntry().withLevel(1001),
-			HttpEgressKey(44): proxyEntryHTTP(1),
-		}),
-		adds: Keys{
-			TcpEgressKey(44): {},
-		},
-		deletes: Keys{},
-	}, {
-		continued: true,
-		name:      "test-4e - deleting 0-order allow leaves the deny in place",
-		args: []args{
-			{level: 0, cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
-			{level: 1, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, deny: true},
-		},
-		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(1002),
-			TcpEgressKey(44):  denyEntry().withLevel(1001),
-			HttpEgressKey(43): denyEntry().withLevel(1001),
-		}),
-		adds: Keys{
-			HttpEgressKey(43): {},
-		},
-		deletes: Keys{
-			HttpEgressKey(44): {},
-		},
-	}, {
-		continued: true,
-		name:      "test-4f - earlier order allow overrides later order deny",
-		args: []args{
-			{level: 0, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
-		},
-		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(1002),
-			TcpEgressKey(44):  denyEntry().withLevel(1001),
-			HttpEgressKey(43): proxyEntryHTTP(1),
-		}),
-		adds: Keys{
-			HttpEgressKey(43): {},
 		},
 		deletes: Keys{},
 	}, {
@@ -1948,7 +1655,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	}
 
 	epPolicy := &EndpointPolicy{
-		SelectorPolicy: &selectorPolicy{
+		selectorPolicy: &selectorPolicy{
 			SelectorCache: selectorCache,
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
@@ -1977,62 +1684,14 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			verdict := types.Allow
-			if x.deny {
-				verdict = types.Deny
-			}
-			value := newMapStateEntry(1000+x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
+			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
+			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
-		_, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules|redirectRules)
-		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
-		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
-		require.Equal(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
-	}
-
-	// repeat tests without the auth feature set when not actually used so that both code paths get tested
-	authFeatureUsed := false
-	for _, tt := range tests {
-		t.Log(tt.name + " (without auth feature)")
-		policyMaps := MapChanges{logger: hivetest.Logger(t)}
-		if !tt.continued {
-			authFeatureUsed = false
-			policyMapState = emptyMapState(hivetest.Logger(t))
+		policyMaps.SyncMapChanges(versioned.LatestTx)
+		handle, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules)
+		if handle != nil {
+			handle.Close()
 		}
-		epPolicy.policyMapState = policyMapState
-
-		for _, x := range tt.args {
-			dir := trafficdirection.Egress
-			if x.ingress {
-				dir = trafficdirection.Ingress
-			}
-			adds := x.cs.addSelections(x.adds...)
-			deletes := x.cs.deleteSelections(x.deletes...)
-			key := KeyForDirection(dir).WithPortProtoPrefix(x.proto, x.port, x.prefix)
-			var proxyPort uint16
-			var priority ListenerPriority
-			if x.redirect != 0 {
-				proxyPort = 1
-				priority = x.redirect
-			}
-			if x.authReq != NoAuthRequirement {
-				authFeatureUsed = true
-			}
-			verdict := types.Allow
-			if x.deny {
-				verdict = types.Deny
-			}
-			value := newMapStateEntry(1000+x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
-			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
-		}
-		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
-		features := denyRules | redirectRules
-		if authFeatureUsed {
-			features |= authRules
-		}
-		_, changes := policyMaps.consumeMapChanges(epPolicy, features)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -2080,11 +1739,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	tests := []struct {
 		name             string
 		withAllowAll     withAllowAll
-		allowAllLevel    types.Priority
 		aIdentities      identity.NumericIdentitySlice
-		aLevel           types.Priority
 		bIdentities      identity.NumericIdentitySlice
-		bLevel           types.Priority
 		aIsDeny, bIsDeny bool
 		aPort            uint16
 		aProto           u8proto.U8proto
@@ -2093,214 +1749,124 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcome          action
 	}{
 		// deny-allow insertions
-		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertAllowAll | insertA},
-		{"deny-allow: a superset a|b L3-only; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertA},
-		{"deny-allow: a superset a|b L3-only; later order keys not inserted", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertA},
-		{"deny-allow: a superset a|b L3-only; later order allowAll", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertA},
-		{"deny-allow: a superset a|b L3-only; without allow-all, later order allow", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertA},
-		{"deny-allow: a superset a|b L3-only; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertBoth},
+		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertA},
+		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertA},
 
-		{"deny-allow: b superset a|b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a|b L3-only; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a|b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertB},
-		{"deny-allow: b superset a|b L3-only; later order less specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertAllowAll | insertB},
-		{"deny-allow: b superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 0, insertBoth},
-		{"deny-allow: b superset a|b L3-only; without allow-all, later order allow", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertBoth},
-		{"deny-allow: b superset a|b L3-only; without allow-all, later order more specific deny NOT inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 0, insertB},
+		{"deny-allow: b superset a|b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L3-only, b L4; subset allow inserted as deny", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3-only, b L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3-only, b L4; later order keys not inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 0, 0, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L4; earlier order allow inserted as allow", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3-only, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L4; without allow-all, later order subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L4; without allow-all, earlier order allow inserted as allow", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertBoth},
+		{"deny-allow: a superset a L3-only, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L3-only, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertA},
 
-		{"deny-allow: b superset a L3-only, b L4", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L4; later order wider keys inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertBoth},
-		{"deny-allow: b superset a L3-only, b L4; later order more specific deny inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3-only, b L4; without allow-all, added deny TCP due to intersecting deny", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 0, 6, insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L4; without allow-all, added deny TCP due to intersecting deny", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L4; without allow-all, later order more specific deny inserted without denying TCP", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 0, 6, insertBoth},
+		{"deny-allow: b superset a L3-only, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth | worldIPl3only},
+		{"deny-allow: b superset a L3-only, b L4; without allow-all, added deny TCP due to intersecting deny", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertBoth | worldIPl3only},
 
-		{"deny-allow: a superset a L3-only, b L3L4; subset allow inserted as deny", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3-only, b L3L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3-only, b L3L4; later order keys not inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 0, 80, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L3L4; earlier order allow inserted as allow", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 80, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, later order subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertA},
-		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, earlier order allow inserted as allow", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth},
+		{"deny-allow: a superset a L3-only, b L3L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertA},
 
-		{"deny-allow: b superset a L3-only, b L3L4; IP allow not inserted", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L3L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L3L4; later order wider keys inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth},
-		{"deny-allow: b superset a L3-only, b L3L4; later order allow-all, more specific deny inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, IP allow not inserted", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 0, 80, 6, insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, IP allow not inserted", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth | worldIPl3only},
-		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, later order more specific deny inserted without denying TCP/80", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 0, 80, 6, insertBoth},
+		{"deny-allow: b superset a L3-only, b L3L4; IP allow not inserted", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | worldIPl3only},
+		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, IP allow not inserted", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertBoth | worldIPl3only},
 
-		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L4, b L3-only; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L4, b L3-only; later order wider keys inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L4, b L3-only; later order allow-all, world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L4, b L3-only; without allow-all, later order allow the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L4, b L3-only; without allow-all, later order world/TCP deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth | insertAL3NotInB},
+		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
 
-		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L3-only; later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L4, b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertB},
-		{"deny-allow: b superset a L4, b L3-only; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertAllowAll | insertB},
-		{"deny-allow: b superset a L4, b L3-only; without allow-all, more specific deny added", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L4, b L3-only; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L4, b L3-only; without allow-all, later order more specific deny not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 0, insertB},
+		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L4, b L3-only; without allow-all, more specific deny added", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L4, b L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L4, b L4; later order keys not inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 6, 0, 6, insertA},
-		{"deny-allow: a superset a L4, b L4; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 6, insertA},
-		{"deny-allow: a superset a L4, b L4; without allow-all, later order subset allow inserted as deny", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertA},
-		{"deny-allow: a superset a L4, b L4; without allow-all, earlier order allow inserted as allow", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertBoth},
+		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertA},
 
-		{"deny-allow: b superset a L4, b L4", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L4; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertB},
-		{"deny-allow: b superset a L4, b L4; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertAllowAll | insertB},
-		{"deny-allow: b superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 0, 6, insertBoth},
-		{"deny-allow: b superset a L4, b L4; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertBoth},
-		{"deny-allow: b superset a L4, b L4; without allow-all, later order more specific deny NOT inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 0, 6, insertB},
+		{"deny-allow: b superset a L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L4, b L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertBoth},
 
-		{"deny-allow: a superset a L4, b L3L4; subset allow not inserted", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L4, b L3L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L4, b L3L4; later order keys not inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 0, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L4, b L3L4; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L4, b L3L4; without allow-all, subset allow not inserted", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L4, b L3L4; without allow-all, later order allows the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L4, b L3L4; without allow-all, earlier order allow inserted as allow", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth},
+		{"deny-allow: a superset a L4, b L3L4; subset allow not inserted", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L4, b L3L4; without allow-all, subset allow not inserted", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertA},
 
-		{"deny-allow: b superset a L4, b L3L4", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | worldIPProtoOnly},
-		{"deny-allow: b superset a L4, b L3L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | worldIPProtoOnly},
-		{"deny-allow: b superset a L4, b L3L4; later order wider keys inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth},
-		{"deny-allow: b superset a L4, b L3L4; later order more specific deny inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 0, 6, 80, 6, insertBoth | worldIPProtoOnly},
-		{"deny-allow: b superset a L4, b L3L4; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth | worldIPProtoOnly},
-		{"deny-allow: b superset a L4, b L3L4; without allow-all, later order more specific deny inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 0, 6, 80, 6, insertBoth},
+		{"deny-allow: b superset a L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | worldIPProtoOnly},
+		{"deny-allow: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertBoth | worldIPProtoOnly},
 
-		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3L4, b L3-only; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3L4, b L3-only; later order wider keys inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3L4, b L3-only; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3L4, b L3-only; without allow-all, later order allows the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3L4, b L3-only; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertBoth | insertAL3NotInB},
+		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth},
 
-		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertB},
-		{"deny-allow: b superset a L3L4, b L3-only; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertAllowAll | insertB},
-		{"deny-allow: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only; without allow-all, later order more specific deny NOT inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 0, insertB},
+		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3L4, b L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3L4, b L4; later order wider keys inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L3L4, b L4; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L3L4, b L4; without allow-all, later order allows the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L3L4, b L4; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertBoth | insertAL3NotInB},
+		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
 
-		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L4; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertB},
-		{"deny-allow: b superset a L3L4, b L4; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertAllowAll | insertB},
-		{"deny-allow: b superset a L3L4, b L4; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: b superset a L3L4, b L4; without allow-all, later order allows the same", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: b superset a L3L4, b L4; without allow-all, later order more specific deny NOT inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 0, 6, insertB},
+		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3L4, b L3L4; later order allows the same", WithAllowAll, 2, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertAllowAll | insertA},
-		{"deny-allow: a superset a L3L4, b L3L4; later order keys not inserted", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 1, true, false, 80, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L3L4, b L3L4; later order world deny inserted", WithAllowAll, 3, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: a superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L3L4, b L3L4; without allow-all, later order allows the same", WithoutAllowAll, 0, reservedWorldSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertA},
-		{"deny-allow: a superset a L3L4, b L3L4; without allow-all, later order world deny inserted", WithoutAllowAll, 0, reservedWorldSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertBoth},
+		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertA},
+		{"deny-allow: a superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertA},
 
-		{"deny-allow: b superset a L3L4, b L3L4", WithAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3L4; later order allows the same", WithAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3L4; later order keys not inserted", WithoutAllowAll, 0, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertB},
-		{"deny-allow: b superset a L3L4, b L3L4; later order more specific deny NOT inserted", WithAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertAllowAll | insertB},
-		{"deny-allow: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldIPSelections, 0, worldSubnetSelections, 0, true, false, 80, 6, 80, 6, insertBoth},
-		{"deny-allow: b superset a L3L4, b L3L4; without allow-all, later order allows the same", WithoutAllowAll, 2, worldIPSelections, 0, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertBoth},
-		{"deny-allow: b superset a L3L4, b L3L4; without allow-all, later order more specific deny NOT inserted", WithoutAllowAll, 3, worldIPSelections, 2, worldSubnetSelections, 1, true, false, 80, 6, 80, 6, insertB},
+		{"deny-allow: b superset a L3L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertBoth},
 
 		// deny-deny insertions: Note: There is no redundancy between different non-zero security IDs on the
 		// datapath, even if one would be a CIDR subset of another. Situation would be different if we could
 		// completely remove (or not add in the first place) the redundant ID from the ipcache so that
 		// datapath could never assign that ID to a packet for policy enforcement.
 		// These test case are left here for such future improvement.
-		{"deny-deny: a superset a|b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 0, insertBoth},
+		{"deny-deny: a superset a|b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 0, insertBoth},
 
-		{"deny-deny: b superset a|b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 0, insertBoth},
+		{"deny-deny: b superset a|b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 0, insertBoth},
 
-		{"deny-deny: a superset a L3-only, b L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 6, insertAllowAll | insertA},
-		{"deny-deny: a superset a L3-only, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 0, 6, insertA},
+		{"deny-deny: a superset a L3-only, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 6, insertAllowAll | insertA},
+		{"deny-deny: a superset a L3-only, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 6, insertA},
 
-		{"deny-deny: b superset a L3-only, b L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth | insertBL3NotInA},
-		{"deny-deny: b superset a L3-only, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 0, 6, insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L3-only, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L3-only, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 6, insertBoth | insertBL3NotInA},
 
-		{"deny-deny: a superset a L3-only, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 80, 6, insertAllowAll | insertA},
-		{"deny-deny: a superset a L3-only, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 0, 80, 6, insertA},
+		{"deny-deny: a superset a L3-only, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 80, 6, insertAllowAll | insertA},
+		{"deny-deny: a superset a L3-only, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 80, 6, insertA},
 
-		{"deny-deny: b superset a L3-only, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth | insertBL3NotInA},
-		{"deny-deny: b superset a L3-only, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 0, 80, 6, insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L3-only, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L3-only, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 80, 6, insertBoth | insertBL3NotInA},
 
-		{"deny-deny: a superset a L4, b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-deny: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 0, insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L4, b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 0, insertBoth | insertAL3NotInB},
 
-		{"deny-deny: b superset a L4, b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 0, insertAllowAll | insertB},
-		{"deny-deny: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 0, insertB},
+		{"deny-deny: b superset a L4, b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 0, insertAllowAll | insertB},
+		{"deny-deny: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 0, insertB},
 
-		{"deny-deny: a superset a L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 0, 6, insertBoth},
+		{"deny-deny: a superset a L4, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L4, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 6, insertBoth},
 
-		{"deny-deny: b superset a L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 0, 6, insertBoth},
+		{"deny-deny: b superset a L4, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L4, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 6, insertBoth},
 
-		{"deny-deny: a superset a L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 80, 6, insertAllowAll | insertA},
-		{"deny-deny: a superset a L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 0, 6, 80, 6, insertA},
+		{"deny-deny: a superset a L4, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 80, 6, insertAllowAll | insertA},
+		{"deny-deny: a superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 80, 6, insertA},
 
-		{"deny-deny: b superset a L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth | insertBL3NotInA},
-		{"deny-deny: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 0, 6, 80, 6, insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L4, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth | insertBL3NotInA},
+		{"deny-deny: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 80, 6, insertBoth | insertBL3NotInA},
 
-		{"deny-deny: a superset a L3L4, b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-deny: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 0, 0, insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L3L4, b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 0, insertBoth | insertAL3NotInB},
 
-		{"deny-deny: b superset a L3L4, b L3-only", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 0, 0, insertAllowAll | insertB},
-		{"deny-deny: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 0, 0, insertB},
+		{"deny-deny: b superset a L3L4, b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 0, insertAllowAll | insertB},
+		{"deny-deny: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 0, insertB},
 
-		{"deny-deny: a superset a L3L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth | insertAL3NotInB},
-		{"deny-deny: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 0, 6, insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L3L4, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth | insertAL3NotInB},
+		{"deny-deny: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 6, insertBoth | insertAL3NotInB},
 
-		{"deny-deny: b superset a L3L4, b L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 0, 6, insertAllowAll | insertB},
-		{"deny-deny: b superset a L3L4, b L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 0, 6, insertB},
+		{"deny-deny: b superset a L3L4, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 6, insertAllowAll | insertB},
+		{"deny-deny: b superset a L3L4, b L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 6, insertB},
 
-		{"deny-deny: a superset a L3L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, worldIPSelections, 0, true, true, 80, 6, 80, 6, insertBoth},
+		{"deny-deny: a superset a L3L4, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 80, 6, insertBoth},
 
-		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, 0, worldSubnetSelections, 0, reservedWorldSelections, 0, true, true, 80, 6, 80, 6, insertBoth},
+		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 80, 6, insertBoth},
 
 		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}
 	for _, tt := range tests {
 		anyIngressKey := IngressKey()
-		allowEntry := allowEntry().withLevel(tt.allowAllLevel)
+		allowEntry := allowEntry()
 		var aKeys []Key
 		for _, idA := range tt.aIdentities {
 			if tt.outcome&worldIPl3only > 0 && idA == worldIPIdentity &&
@@ -2321,7 +1887,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aLevel, tt.aIsDeny, 0, 0, types.NoAuthRequirement))
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
@@ -2342,13 +1908,13 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bLevel, tt.bIsDeny, 0, 0, types.NoAuthRequirement))
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
 		expectedKeys := emptyMapState(hivetest.Logger(t))
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 		}
 		// insert allow expectations before deny expectations to manage overlap
-		if tt.aLevel <= tt.bLevel && tt.outcome&insertB > 0 {
+		if tt.outcome&insertB > 0 {
 		BLoop1:
 			for _, bKey := range bKeys {
 				if tt.outcome&insertBL3NotInA > 0 {
@@ -2374,44 +1940,34 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				expectedKeys.insert(aKey, aEntry)
 			}
 		}
-		if tt.aLevel > tt.bLevel && tt.outcome&insertB > 0 {
-		BLoop:
-			for _, bKey := range bKeys {
-				if tt.outcome&insertBL3NotInA > 0 {
-					for _, aKey := range aKeys {
-						if bKey.Identity == aKey.Identity {
-							continue BLoop
-						}
-					}
-				}
-				expectedKeys.insert(bKey, bEntry)
-			}
-		}
 		if tt.outcome&insertDenyWorld > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2)
-			expectedKeys.insert(worldIngressKey, denyEntry())
+			denyEntry := NewMapStateEntry(DenyEntry)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldTCP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(0)
-			expectedKeys.insert(worldIngressKey, denyEntry())
+			denyEntry := NewMapStateEntry(DenyEntry)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldHTTP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(80)
-			expectedKeys.insert(worldIngressKey, denyEntry())
+			denyEntry := NewMapStateEntry(DenyEntry)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		outcomeKeys := emptyMapState(hivetest.Logger(t))
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
 		}
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 
@@ -2422,14 +1978,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (in reverse) (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
@@ -2440,44 +1996,40 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	for _, tt := range tests {
 		anyIngressKey := IngressKey()
 		anyEgressKey := EgressKey()
-		allowEntry := allowEntry().withLevel(tt.allowAllLevel)
+		allowEntry := allowEntry()
 		var aKeys []Key
 		for _, idA := range tt.aIdentities {
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aLevel, tt.aIsDeny, 0, 0, types.NoAuthRequirement))
+		aEntry := NewMapStateEntry(types.NewMapStateEntry(tt.aIsDeny, 0, 0, types.NoAuthRequirement))
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			bKeys = append(bKeys, EgressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bLevel, tt.bIsDeny, 0, 0, types.NoAuthRequirement))
+		bEntry := NewMapStateEntry(types.NewMapStateEntry(tt.bIsDeny, 0, 0, types.NoAuthRequirement))
 		expectedKeys := emptyMapState(hivetest.Logger(t))
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)
 			expectedKeys.insert(anyEgressKey, allowEntry)
 		}
-		if tt.withAllowAll == WithoutAllowAll || (!tt.aIsDeny && tt.aLevel < tt.allowAllLevel) || tt.aLevel <= tt.allowAllLevel {
-			for _, aKey := range aKeys {
-				expectedKeys.insert(aKey, aEntry)
-			}
+		for _, aKey := range aKeys {
+			expectedKeys.insert(aKey, aEntry)
 		}
-		if tt.withAllowAll == WithoutAllowAll || (!tt.bIsDeny && tt.bLevel < tt.allowAllLevel) || tt.bLevel <= tt.allowAllLevel {
-			for _, bKey := range bKeys {
-				expectedKeys.insert(bKey, bEntry)
-			}
+		for _, bKey := range bKeys {
+			expectedKeys.insert(bKey, bEntry)
 		}
 		outcomeKeys := emptyMapState(hivetest.Logger(t))
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyEgressKey, allowEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
 		}
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2486,14 +2038,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys = emptyMapState(hivetest.Logger(t))
 
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2523,7 +2075,7 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 // TestDenyPreferredInsertLogic is now less valuable since we do not have the mapstate
 // validator any more, but may still catch bugs.
 func TestDenyPreferredInsertLogic(t *testing.T) {
-	td := newTestData(t, hivetest.Logger(t))
+	td := newTestData(hivetest.Logger(t))
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 
@@ -2533,861 +2085,4 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	n := epPolicy.policyMapState.Len()
 	p.detach(true, 0)
 	assert.Positive(t, n)
-}
-
-// equalsMapState determines if this mapState is deeply equal to the argument mapStateMap
-func (msA *mapState) equalsMapState(msB mapStateMap) bool {
-	if msA.Len() != len(msB) {
-		return false
-	}
-	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
-		vB, ok := msB[kA]
-		return ok && vB.Equal(vA)
-	})
-}
-
-func (obtained *mapState) diffMapState(expected mapStateMap) (res string) {
-	res += "Missing (-), Unexpected (+):\n"
-	for kE, vE := range expected {
-		if vO, ok := obtained.get(kE); ok {
-			if !vO.Equal(vE) {
-				res += "- " + kE.String() + ": " + vE.String() + "\n"
-				res += "+ " + kE.String() + ": " + vO.String() + "\n"
-			}
-		} else {
-			res += "- " + kE.String() + ": " + vE.String() + "\n"
-		}
-	}
-	obtained.forEach(func(kE Key, vE mapStateEntry) bool {
-		if _, ok := expected[kE]; !ok {
-			res += "+ " + kE.String() + ": " + vE.String() + "\n"
-		}
-		return true
-	})
-	return res
-}
-
-type keyEntry struct {
-	key   Key
-	entry mapStateEntry
-}
-
-func TestMapState_orderedMapStateValidation(t *testing.T) {
-	// identities used in tests
-	identityFoo := identity.NumericIdentity(100)
-	labelsFoo := labels.ParseSelectLabelArray("foo", "blue")
-	identityWorld := identity.ReservedIdentityWorld
-	labelsWorld := labels.LabelWorld.LabelArray()
-	identitySubnet := localIdentity(192020)
-	labelsSubnet := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.2.0/24")))).LabelArray()
-	identitySubnetIP := localIdentity(192023)
-	labelsSubnetIP := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.2.3/32")))).LabelArray()
-	identityWorldIP := localIdentity(192042)
-	labelsWorldIP := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("192.0.4.2/32")))).LabelArray()
-	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
-	identity1100 := localIdentity(1100)
-	labels1100 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.0.0/16")))).LabelArray()
-
-	type probe struct {
-		key   Key
-		found bool
-		entry MapStateEntry
-	}
-	type TierEntries struct {
-		basePriority types.Priority
-		entries      []keyEntry
-	}
-	tests := []struct {
-		name       string               // test name
-		identities identity.IdentityMap // Identities used in the test
-		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
-		want       mapStateMap          // expected MapState, optional
-		probes     []probe              // probes to test the policy, optional
-	}{{
-		name: "allow one.one.one.one, deny everything else on port 80 TAKE 2",
-		// 1. allow 1.1.1.1:80
-		// 2. deny *:80-81
-		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow port 80 on 1.1.1.1 for TCP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-				// deny TCP ports 80-81 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 15), entry: denyEntry()},
-				// allow all identities selected by 1.1.1.1/32 on any proto/port
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1000),
-			// deny entries for line 1
-			egressKey(0, 6, 80, 15): denyEntry().withLevel(1001),
-			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "allow one.one.one.one, deny everything else on port 80 TAKE 3a",
-		// 1. allow 1.1.1.1:80
-		// 2. deny *:80
-		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 2000,
-			entries: []keyEntry{
-				// deny TCP port 80 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 16), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow port 80 on 1.1.1.1 for TCP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
-			},
-		}, {
-			basePriority: 3000,
-			entries: []keyEntry{
-				// allow all identities selected by 1.1.1.1/32 on any proto/port
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
-			// deny entries for line 1
-			egressKey(0, 6, 80, 16): denyEntry().withLevel(2000),
-			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3000),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "allow one.one.one.one, deny everything else on port 80 TAKE 3",
-		// 1. allow 1.1.1.1:80-81
-		// 2. deny *:80
-		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow port 80 on 1.1.1.1 for TCP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
-				// deny TCP port 80 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 16), entry: denyEntry()},
-				// allow all identities selected by 1.1.1.1/32 on any proto/port
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
-			// deny entries for line 1
-			egressKey(0, 6, 80, 16): denyEntry().withLevel(1001),
-			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "allow one.one.one.one, deny everything else on port 80 TAKE 4",
-		// 1. allow 1.1.1.1:80
-		// 2. deny *:80
-		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow ports 80-81 on 1.1.1.1 for TCP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
-				// deny TCP ports 80-143 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 10), entry: denyEntry()},
-				// allow all identities selected by 1.1.1.1/32 on any proto/port
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
-			// deny entries for line 1
-			egressKey(0, 6, 80, 10): denyEntry().withLevel(1001),
-			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 8080, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "allow one.one.one.one:80-81, deny everything else on ports 80-81, then allow on 1.1.1.1:*",
-		// 1. allow 1.1.1.1:80
-		// 2. deny *:80
-		// 3. allow 1.1.1.1:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow ports 80-81 on 1.1.1.1 for TCP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
-			},
-		}, {
-			basePriority: 2000,
-			entries: []keyEntry{
-				// deny TCP ports 80-143 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 15), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 3000,
-			entries: []keyEntry{
-				// allow all identities selected by 1.1.1.1/32 on any proto/port
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
-			// deny entries for line 1
-			egressKey(0, 6, 80, 15): denyEntry().withLevel(2000),
-			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3000),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 8080, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "allow one.one.one.one, deny everything else on port 80",
-		// 1. allow 1.1.1.1:80
-		// 2. deny *:80
-		// 3. allow 1.1.0.0/16:*
-		identities: identity.IdentityMap{
-			identity1111:  labels1111,
-			identity1100:  labels1100,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// allow port 80 on 1.1.1.1 for TCP and UDP
-				// - this would get overridden by the deny if the policy was not
-				//   ordered
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-				{key: egressKey(identity1111, 17, 80, 0), entry: allowEntry()},
-				// deny TCP and UDP port 80 on all destinations
-				// - wildcard L3
-				{key: egressKey(0, 6, 80, 0), entry: denyEntry()},
-				{key: egressKey(0, 17, 80, 0), entry: denyEntry()},
-				// allow all identities selected by 1.1.0.0/16 on any proto/port
-				// - identities for 1.1.1.1/32 and 1.1.0.0/16 are selected
-				{key: egressKey(identity1100, 0, 0, 0), entry: allowEntry()},
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			// allow entries for lines 0-2
-			egressKey(identity1111, 6, 80, 0):  allowEntry().withLevel(1000),
-			egressKey(identity1111, 17, 80, 0): allowEntry().withLevel(1001),
-			// deny entries for lines 3-5
-			egressKey(0, 6, 80, 0):  denyEntry().withLevel(1002),
-			egressKey(0, 17, 80, 0): denyEntry().withLevel(1003),
-			// allow entries due to lines 6-7
-			egressKey(identity1100, 0, 0, 0): allowEntry().withLevel(1004),
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1005),
-		},
-		probes: []probe{
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1100, 17, 8080, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1100, 17, 80, 16), found: true, entry: DenyEntry},
-		},
-	}, {
-		name: "ordered test-1a: earlier order allow takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				// port 80 with prefix length 15 covers ports 80-81
-				{key: ingressKey(identityFoo, 6, 80, 15), entry: allowEntry()},
-				{key: ingressKey(0, 6, 80, 0), entry: denyEntry()},
-			},
-		}},
-		want: mapStateMap{
-			ingressKey(identityFoo, 6, 80, 15): allowEntry().withLevel(1000),
-			ingressKey(0, 6, 80, 16):           denyEntry().withLevel(1001),
-		},
-		probes: []probe{
-			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 79, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 81, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 82, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 17, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 6, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 6, 79, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityFoo, 6, 81, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityFoo, 6, 82, 16), found: false, entry: DenyEntry},
-		},
-	}, {
-		name: "ordered test-1b: earlier order allow takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				{key: ingressL3OnlyKey(identityFoo), entry: allowEntry()},
-			},
-		}, {
-			basePriority: 2000,
-			entries: []keyEntry{
-				{key: ingressKey(0, 6, 80, 0), entry: denyEntry()},
-			},
-		}},
-		want: mapStateMap{
-			ingressL3OnlyKey(identityFoo): allowEntry().withLevel(1000),
-			ingressKey(0, 6, 80, 0):       denyEntry().withLevel(2000),
-		},
-		probes: []probe{
-			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 17, 8080, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityFoo, 6, 8080, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityFoo, 6, 80, 16), found: true, entry: AllowEntry},
-		},
-	}, {
-		name: "ordered test-2a: earlier order deny takes precedence",
-		identities: identity.IdentityMap{
-			identityFoo:   labelsFoo,
-			identityWorld: labelsWorld,
-		},
-		tiers: []TierEntries{{
-			basePriority: 1000,
-			entries: []keyEntry{
-				{key: ingressL3OnlyKey(identityFoo), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 2000,
-			entries: []keyEntry{
-				{key: ingressKey(0, 6, 0, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			ingressL3OnlyKey(identityFoo): denyEntry().withLevel(1000),
-			ingressKey(0, 6, 0, 0):        allowEntry().withLevel(2000),
-		},
-		probes: []probe{
-			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
-			{key: ingressKey(identityWorld, 6, 8080, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityWorld, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: ingressKey(identityFoo, 17, 8080, 16), found: true, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 6, 8080, 16), found: true, entry: DenyEntry},
-			{key: ingressKey(identityFoo, 6, 80, 16), found: true, entry: DenyEntry},
-			// unmapped IDs are dropped by default even without an explicit deny rule
-			{key: egressKey(77, 6, 53, 16), found: false, entry: DenyEntry},
-			{key: egressKey(77, 6, 443, 16), found: false, entry: DenyEntry},
-			{key: egressKey(77, 6, 80, 16), found: false, entry: DenyEntry},
-			{key: egressKey(77, 17, 53, 16), found: false, entry: DenyEntry},
-			{key: egressKey(77, 17, 443, 16), found: false, entry: DenyEntry},
-			{key: egressKey(77, 17, 80, 16), found: false, entry: DenyEntry},
-		},
-	}, {
-		name: "ordered test-3a: CIDR deny with an earlier order allow hole",
-		identities: identity.IdentityMap{
-			identityFoo:      labelsFoo,
-			identityWorld:    labelsWorld,
-			identityWorldIP:  labelsWorldIP,
-			identitySubnet:   labelsSubnet,
-			identitySubnetIP: labelsSubnetIP,
-		},
-		tiers: []TierEntries{{
-			basePriority: 42000,
-			entries: []keyEntry{
-				// Allow egress to a UDP DNS server IP in a subnet
-				{key: egressKey(identitySubnetIP, 17, 53, 16), entry: allowEntry()},
-				// Deny all identities matching the world label
-				// later order deny on SubnetIP does not override earlier order allows above
-				{key: egressL3OnlyKey(identitySubnetIP), entry: denyEntry()},
-				{key: egressL3OnlyKey(identitySubnet), entry: denyEntry()},
-				{key: egressL3OnlyKey(identityWorldIP), entry: denyEntry()},
-				{key: egressL3OnlyKey(identityWorld), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 65000,
-			entries: []keyEntry{
-				{key: egressL3OnlyKey(0), entry: denyEntry()},
-				// Later order allow-all has no effect after earlier order deny all
-				{key: egressL3OnlyKey(0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(identitySubnetIP, 17, 53, 16): allowEntry().withLevel(42000),
-			egressL3OnlyKey(identitySubnetIP):       denyEntry().withLevel(42001),
-			egressL3OnlyKey(identitySubnet):         denyEntry().withLevel(42002),
-			egressL3OnlyKey(identityWorldIP):        denyEntry().withLevel(42003),
-			egressL3OnlyKey(identityWorld):          denyEntry().withLevel(42004),
-			egressL3OnlyKey(0):                      denyEntry().withLevel(65000),
-		},
-		probes: []probe{
-			{key: egressKey(identitySubnetIP, 6, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnetIP, 17, 53, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identitySubnetIP, 132, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 6, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 6, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 17, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 17, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identitySubnet, 17, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 6, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 6, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 17, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 17, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorld, 17, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 6, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 6, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 17, 53, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 17, 443, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identityWorldIP, 17, 80, 16), found: true, entry: DenyEntry},
-		},
-	}, {
-		name: "deny 1.1.1.1",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP allow 1.1.1.1, overruled by the deny
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0): denyEntry().withLevel(0),
-		},
-		probes: []probe{},
-	}, {
-		name: "Allow 1.1.1.1",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				// Allow verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
-				// deny 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP allow 1.1.1.1, shadowed by the allow above
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(0),
-		},
-		probes: []probe{},
-	}, {
-		name: "PASS 1.1.1.1 over deny all",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				// HTTP PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 0, 1000)},
-				// deny 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP allow 1.1.1.1
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0):  passEntry(0, 0, 1000),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
-		},
-		probes: []probe{},
-	}}
-
-	for _, tt := range tests {
-		t.Log(tt.name)
-		features := orderedRules | denyRules
-
-		// create tierEntries and permutations for each tier
-		var tierEntries [][]keyEntry
-		var tierPermutations [][][]int
-		var tierLimits []int
-		for _, tier := range tt.tiers {
-			entries := slices.Clone(tier.entries)
-			idx := make([]int, 0, len(entries))
-			for i := range entries {
-				if entries[i].entry.passes != nil {
-					features |= passRules
-				}
-				entries[i].entry.MapStateEntry = entries[i].entry.MapStateEntry.WithPriority(tier.basePriority + types.Priority(i))
-				idx = append(idx, i)
-			}
-			tierEntries = append(tierEntries, entries)
-			perms := permutations(idx)
-			tierPermutations = append(tierPermutations, perms)
-			tierLimits = append(tierLimits, len(perms))
-		}
-
-		// iterate through all the combinations of permutations for each tier
-		combinations := func(limits []int) iter.Seq[[]int] {
-			return func(yield func([]int) bool) {
-				combo := make([]int, len(limits))
-				for {
-					if !yield(combo) {
-						return
-					}
-					//return
-					// get next combo
-					for i, limit := range limits {
-						if combo[i] >= limit-1 {
-							if i == len(combo)-1 {
-								return // done
-							}
-							continue
-						}
-						combo[i]++
-					}
-				}
-			}
-		}
-		for tierPermutation := range combinations(tierLimits) {
-			name := fmt.Sprintf("%s combination %v (limits %v)", tt.name, tierPermutation, tierLimits)
-			t.Run(name, func(t *testing.T) {
-				//t.Parallel()
-				t.Log(name)
-				changes := ChangeState{
-					Adds:    make(Keys),
-					Deletes: make(Keys),
-					old:     make(mapStateMap),
-				}
-
-				// create mapState
-				ms := emptyMapState(hivetest.Logger(t))
-
-				// insert entries tier-by-tier, using the given permutation on each tier
-				for tier, perm := range tierPermutation {
-					for _, i := range tierPermutations[tier][perm] {
-						tierMaxPrecedence := tt.tiers[tier].basePriority.ToTierMaxPrecedence()
-						ms.insertWithChanges(tierMaxPrecedence, tierEntries[tier][i].key, tierEntries[tier][i].entry, features, changes)
-					}
-				}
-
-				// validate mapState
-				ms.validatePortProto(t)
-				require.Truef(t, ms.equalsMapState(tt.want), "%s: MapState mismatch on permutation %v:\n%s", tt.name, tierPermutation, ms.diffMapState(tt.want))
-
-				// run probes
-				for _, probe := range tt.probes {
-					v, found := ms.lookup(probe.key)
-					require.Equal(t, probe.found, found)
-					// Ignore and labels for precedence for probe test
-					v.Precedence = 0
-					probe.entry.Precedence = 0
-					require.Equalf(t, probe.entry, v.MapStateEntry, "%s: Verdict mismatch for key %s:\n- %s\n+ %s\n\nMapState:\n%s", tt.name, probe.key, probe.entry, v.MapStateEntry, ms)
-				}
-			})
-		}
-	}
-}
-
-func TestMapState_passValidation(t *testing.T) {
-	// identities used in tests
-	identity1111 := localIdentity(1111)
-	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
-
-	identityCache := identity.IdentityMap{
-		identity1111: labels1111,
-	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
-
-	type probe struct {
-		key   Key
-		found bool
-		entry MapStateEntry
-	}
-	type TierEntries struct {
-		basePriority types.Priority
-		entries      []keyEntry
-	}
-	tests := []struct {
-		name       string               // test name
-		identities identity.IdentityMap // Identities used in the test
-		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
-		want       mapStateMap          // expected MapState, optional
-		probes     []probe              // probes to test the policy, optional
-	}{{
-		name: "PASS 1.1.1.1 over deny all",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				// PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 0, 1000)},
-				// wildcard deny
-				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP allow 1.1.1.1
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0):  passEntry(0, 0, 1000),
-			egressKey(0, 0, 0, 0):             denyEntry().withLevel(100),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
-		},
-		probes: []probe{},
-	}, {
-		name: "wildcard PASS over deny 1.1.1.1",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				// wildcard PASS
-				{key: egressKey(0, 0, 0, 0), entry: passEntry(0, 0, 1000)},
-				// deny 1.1.1.1 (should be shadowed by the pass entry above)
-				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP allow 1.1.1.1
-				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(0, 0, 0, 0):             passEntry(0, 0, 1000),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
-		},
-		probes: []probe{},
-	}, {
-		name: "PASS 1.1.1.1 over deny all, with wildcard and probes",
-		identities: identity.IdentityMap{
-			identity1111: labels1111,
-		},
-		tiers: []TierEntries{{
-			basePriority: 0,
-			entries: []keyEntry{
-				// wildcard deny all TCP port 81
-				{key: egressKey(0, 6, 81, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 1000,
-			entries: []keyEntry{
-				// HTTP PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(1000, 1000, 2000)},
-				// wildcard deny
-				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
-			},
-		}, {
-			basePriority: 2000,
-			entries: []keyEntry{
-				// HTTP deny 1.1.1.1 on TCP port 90
-				{key: egressKey(identity1111, 6, 90, 0), entry: denyEntry()},
-				// HTTP allow 1.1.1.1 on TCP port 80-95
-				{key: egressKey(identity1111, 6, 80, 12), entry: allowEntry()},
-			},
-		}},
-		want: mapStateMap{
-			egressKey(0, 6, 81, 0):             denyEntry().withLevel(0),
-			egressKey(identity1111, 0, 0, 0):   passEntry(1000, 1000, 2000),
-			egressKey(0, 0, 0, 0):              denyEntry().withLevel(1100),
-			egressKey(identity1111, 6, 90, 0):  denyEntry().withLevel(1001),
-			egressKey(identity1111, 6, 80, 12): allowEntry().withLevel(1002),
-		},
-		probes: []probe{
-			{key: egressKey(2, 6, 80, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 79, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 89, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 90, 16), found: true, entry: DenyEntry},
-			{key: egressKey(identity1111, 6, 91, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 95, 16), found: true, entry: AllowEntry},
-			{key: egressKey(identity1111, 6, 96, 16), found: true, entry: DenyEntry},
-		},
-	}}
-
-	for _, tt := range tests {
-		t.Log(tt.name)
-
-		t.Run(tt.name, func(t *testing.T) {
-			epPolicy := &EndpointPolicy{
-				SelectorPolicy: &selectorPolicy{
-					SelectorCache: selectorCache,
-					L4Policy:      L4Policy{},
-				},
-				PolicyOwner:      DummyOwner{logger: hivetest.Logger(t)},
-				policyMapState:   emptyMapState(hivetest.Logger(t)),
-				policyMapChanges: MapChanges{logger: hivetest.Logger(t)},
-			}
-
-			features := orderedRules | denyRules | redirectRules
-
-			for tier := range tt.tiers {
-				nPassEntries := types.Priority(0)
-				basePriority := tt.tiers[tier].basePriority
-				for i, kv := range tt.tiers[tier].entries {
-					key := kv.key
-					entry := kv.entry
-					if entry.IsValid() {
-						// In this test we leave a gap of 100 priorities after each
-						// PASS verdict
-						entry = entry.withLevel(basePriority + types.Priority(i) + nPassEntries*99)
-					}
-					if entry.IsPassEntry() {
-						features |= passRules
-						nPassEntries++
-					}
-
-					adds := identity.NumericIdentitySlice{key.Identity}
-					keys := []Key{key}
-					epPolicy.policyMapChanges.AccumulateMapChanges(types.Tier(tier), basePriority, adds, nil, keys, entry)
-				}
-			}
-			epPolicy.policyMapChanges.SyncMapChanges(types.MockSelectorSnapshot())
-			_, changes := epPolicy.policyMapChanges.consumeMapChanges(epPolicy, features)
-
-			// validate mapState
-			epPolicy.policyMapState.validatePortProto(t)
-			if len(tt.want) != 0 {
-				wantKeys := make(Keys)
-				for k := range epPolicy.policyMapState.entries {
-					wantKeys[k] = struct{}{}
-				}
-				require.Equal(t, wantKeys, changes.Adds, tt.name+" (adds)")
-				require.Equal(t, Keys{}, changes.Deletes, tt.name+" (deletes)")
-
-				require.Truef(t, epPolicy.policyMapState.equalsMapState(tt.want), "%s: MapState mismatch:\n%s", tt.name, epPolicy.policyMapState.diffMapState(tt.want))
-			}
-			// run probes
-			for i, probe := range tt.probes {
-				v, found := epPolicy.policyMapState.lookup(probe.key)
-				msg := "found"
-				if probe.found {
-					msg = "not found"
-				}
-				require.Equal(t, probe.found, found, "probe %d key %s: %v", i, msg, probe.key)
-				// Ignore and labels for precedence for probe test
-				v.Precedence = 0
-				probe.entry.Precedence = 0
-				require.Equalf(t, probe.entry, v.MapStateEntry, "%s: Verdict mismatch for key %s:\n- %s\n+ %s\n\nMapState:\n%s", tt.name, probe.key, probe.entry, v.MapStateEntry, epPolicy.policyMapState)
-			}
-		})
-	}
-}
-
-func permutations(arr []int) [][]int {
-	var helper func([]int, int)
-	res := [][]int{}
-
-	helper = func(arr []int, n int) {
-		if n == 1 {
-			res = append(res, slices.Clone(arr))
-		} else {
-			for i := 0; i < n; i++ {
-				helper(arr, n-1)
-				if n%2 == 1 {
-					tmp := arr[i]
-					arr[i] = arr[n-1]
-					arr[n-1] = tmp
-				} else {
-					tmp := arr[0]
-					arr[0] = arr[n-1]
-					arr[n-1] = tmp
-				}
-			}
-		}
-	}
-	helper(arr, len(arr))
-	return res
 }

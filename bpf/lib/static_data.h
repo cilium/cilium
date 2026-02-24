@@ -13,19 +13,6 @@
  * CONFIG() macro.
  */
 #define DECLARE_CONFIG(type, name, description) \
-	DECLARE_CONFIG_KIND("object", type, name, description)
-
-/* Declare a global node-level configuration variable that is emitted to a
- * separate Go config struct embedded into all individual object configs. Access
- * the variable using the CONFIG() macro.
- */
-#define NODE_CONFIG(type, name, description) \
-	/* Tag this variable as being a node-level variable. dpgen will emit
-	 * these to a node-specific Go struct that can be embedded into
-	 * object-level configuration structs. */ \
-	DECLARE_CONFIG_KIND("node", type, name, description)
-
-#define DECLARE_CONFIG_KIND(kind, type, name, description) \
 	/* Emit the variable to the .rodata.config section. The compiler will emit a
 	 * BTF Datasec referring to all variables in this section, making them
 	 * convenient to iterate through for generating config scaffolding in Go.
@@ -36,7 +23,7 @@
 	 * selects only these variables. Node configs use a different kind and
 	 * are emitted to another struct.
 	 */ \
-	__attribute__((btf_decl_tag("kind:" kind))) \
+	__attribute__((btf_decl_tag("kind:object"))) \
 	/* Assign the config variable a BTF decl tag containing its description. This
 	 * allows including doc comments in code generated from BTF.
 	 */ \
@@ -45,6 +32,19 @@
 	 * prevent the compiler from eliding all accesses, which would also
 	 * omit it from the ELF.
 	 */ \
+	volatile const type __config_##name;
+
+/* Declare a global node-level configuration variable that is emitted to a
+ * separate Go config struct embedded into all individual object configs. Access
+ * the variable using the CONFIG() macro.
+ */
+#define NODE_CONFIG(type, name, description) \
+	__section(__CONFIG_SECTION) \
+	/* Tag this variable as being a node-level variable. dpgen will emit
+	 * these to a node-specific Go struct that can be embedded into
+	 * object-level configuration structs. */ \
+	__attribute__((btf_decl_tag("kind:node"))) \
+	__attribute__((btf_decl_tag(description))) \
 	volatile const type __config_##name;
 
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
@@ -62,22 +62,4 @@
  * accesses must be done through this macro to ensure the loader's dead code
  * elimination can recognize them.
  */
-#define CONFIG(name)	\
-(*({			\
-	void *out;	\
-	/* Reconstruct the rodata pointer on each access to prevent the compiler
-	 * from reusing the pointer across multiple accesses in short
-	 * succession. This makes branches based on config variables more likely
-	 * to be predictable using backtracking, since load/deref/branch will be
-	 * close to each other and the pointer won't be reused across basic
-	 * blocks.
-	 *
-	 * Specifying the global var ptr as an asm input gives enough
-	 * information to the compiler to allow it to reuse the pointer across
-	 * blocks, so opt for a direct symbol reference instead. We need the
-	 * pointer reconstructed in bytecode on every access.
-	 * */ \
-	asm volatile("%0 = " __stringify(__config_##name) " ll"	\
-			: "=r"(out));	\
-	(typeof(__config_##name) *)out;	\
-}))
+#define CONFIG(name) __config_##name

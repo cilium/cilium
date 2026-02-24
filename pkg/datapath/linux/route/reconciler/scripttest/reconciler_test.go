@@ -34,6 +34,8 @@ import (
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
+	defer testutils.GoleakVerifyNone(t)
+
 	// When certain kernel modules are loaded, the kernel will by default try
 	// to create fallback devices in newly created network namespaces.
 	// Setting net.core.fb_tunnels_only_for_init=2 will prevent the kernel from
@@ -168,13 +170,9 @@ func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, d
 				Src           netip.Addr
 				Device        string
 				DeviceIfIndex int `yaml:"deviceIfIndex"`
-				MultiPath     []struct {
-					Device  string
-					Nexthop netip.Addr
-				} `yaml:"multiPath"`
-				MTU   uint32
-				Scope reconciler.Scope
-				Type  reconciler.Type
+				MTU           uint32
+				Scope         reconciler.Scope
+				Type          reconciler.Type
 			}
 
 			var route desiredRoute
@@ -202,22 +200,6 @@ func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, d
 				}
 			}
 
-			paths := make([]*reconciler.NexthopInfo, 0, len(route.MultiPath))
-			for _, p := range route.MultiPath {
-				var dev *tables.Device
-				if p.Device != "" {
-					var found bool
-					dev, _, found = devTbl.Get(db.ReadTxn(), tables.DeviceNameIndex.Query(p.Device))
-					if !found {
-						return nil, fmt.Errorf("device %q not found", p.Device)
-					}
-				}
-				paths = append(paths, &reconciler.NexthopInfo{
-					Device:  dev,
-					Nexthop: p.Nexthop,
-				})
-			}
-
 			if err := drm.UpsertRoute(reconciler.DesiredRoute{
 				Owner:         owner,
 				Table:         route.Table,
@@ -226,7 +208,6 @@ func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, d
 				AdminDistance: route.AdminDistance,
 				Nexthop:       route.Nexthop,
 				Device:        dev,
-				MultiPath:     paths,
 				Src:           route.Src,
 				MTU:           route.MTU,
 				Scope:         route.Scope,

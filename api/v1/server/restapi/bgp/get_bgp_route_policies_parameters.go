@@ -31,6 +31,7 @@ func NewGetBgpRoutePoliciesParams() GetBgpRoutePoliciesParams {
 //
 // swagger:parameters GetBgpRoutePolicies
 type GetBgpRoutePoliciesParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -50,6 +51,7 @@ func (o *GetBgpRoutePoliciesParams) BindRequest(r *http.Request, route *middlewa
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qRouterAsn, qhkRouterAsn, _ := qs.GetOK("router_asn")

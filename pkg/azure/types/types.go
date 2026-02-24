@@ -6,8 +6,6 @@ package types
 import (
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -25,10 +23,6 @@ const (
 
 	// StateSucceeded is the address state for a successfully provisioned address
 	StateSucceeded = "succeeded"
-
-	// Resource type names for Azure resources
-	resourceTypeVirtualMachines         = "virtualMachines"
-	resourceTypeVirtualMachineScaleSets = "virtualMachineScaleSets"
 )
 
 // AzureSpec is the Azure specification of a node running via the Azure IPAM
@@ -148,39 +142,28 @@ func (a *AzureInterface) InterfaceID() string {
 	return a.ID
 }
 
-// extractIDs extracts resource group name, VMSS name, and VM ID from the network interface Azure resource ID
 func (a *AzureInterface) extractIDs() {
-	resourceID, err := arm.ParseResourceID(a.ID)
-	if err != nil {
-		// If parsing fails, leave fields empty
-		return
-	}
-
-	// Extract resource group name directly from the parsed ID
-	a.resourceGroup = resourceID.ResourceGroupName
-
-	// For VMSS instances, walk up the parent chain to extract VMSS name and VM ID
-	// Resource ID structure for VMSS VM interfaces:
-	// /subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
-	current := resourceID
-	for current != nil {
-		resourceType := current.ResourceType
-		if len(resourceType.Types) == 0 {
-			current = current.Parent
-			continue
+	switch {
+	// Interface from a VMSS instance:
+	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
+	case strings.Contains(a.ID, "virtualMachineScaleSets"):
+		segs := strings.Split(a.ID, "/")
+		if len(segs) >= 5 {
+			a.resourceGroup = segs[4]
 		}
-
-		lastType := resourceType.Types[len(resourceType.Types)-1]
-
-		if strings.EqualFold(lastType, resourceTypeVirtualMachines) {
-			a.vmID = current.Name
+		if len(segs) >= 9 {
+			a.vmssName = segs[8]
 		}
-
-		if strings.EqualFold(lastType, resourceTypeVirtualMachineScaleSets) {
-			a.vmssName = current.Name
+		if len(segs) >= 11 {
+			a.vmID = segs[10]
 		}
-
-		current = current.Parent
+	// Interface from a standalone instance:
+	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Network/networkInterfaces/iii
+	case strings.Contains(a.ID, "/Microsoft.Network/"):
+		segs := strings.Split(a.ID, "/")
+		if len(segs) >= 5 {
+			a.resourceGroup = segs[4]
+		}
 	}
 }
 

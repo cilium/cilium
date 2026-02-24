@@ -18,7 +18,6 @@ limitations under the License.
 // +k8s:protobuf-gen=package
 // +k8s:openapi-gen=true
 // +k8s:prerelease-lifecycle-gen=true
-// +k8s:openapi-model-package=io.k8s.api.apidiscovery.v2beta1
 
 // +groupName=apidiscovery.k8s.io
 

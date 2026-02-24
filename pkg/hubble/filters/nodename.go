@@ -26,7 +26,7 @@ func filterByNodeNames(nodeNames []string) (FilterFunc, error) {
 			return false
 		}
 		// ensure that the node name always includes a cluster name
-		if !strings.Contains(nodeName, "/") {
+		if strings.IndexByte(nodeName, '/') == -1 {
 			nodeName = ciliumDefaults.ClusterName + "/" + nodeName
 		}
 		return nodeNameRegexp.MatchString(nodeName)

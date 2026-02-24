@@ -23,6 +23,8 @@ import (
 
 	wordwrap "github.com/mitchellh/go-wordwrap"
 	"github.com/moby/term"
+
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 type wordWrapWriter struct {
@@ -68,7 +70,7 @@ func NewWordWrapWriter(w io.Writer, limit uint) io.Writer {
 	}
 }
 
-func getTerminalLimitWidth(terminalSize *TerminalSize) uint {
+func getTerminalLimitWidth(terminalSize *remotecommand.TerminalSize) uint {
 	var limit uint
 	switch {
 	case terminalSize.Width >= 120:

@@ -83,7 +83,7 @@ type ClusterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -234,7 +234,7 @@ type AggregateClusterResourceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m AggregateClusterResourceMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -30,11 +30,9 @@ func (c rootDirCheck) Run() (checkResult, string) {
 
 	// Search upward through through parent directories to find the .git directory.
 	for {
-		gitRootPath := path.Join(dir, ".git")
-		info, err := os.Stat(gitRootPath)
-
+		info, err := os.Stat(path.Join(dir, ".git"))
 		switch {
-		case err == nil && isGitRoot(gitRootPath, info):
+		case err == nil && info.Mode().IsDir():
 			if dir != os.ExpandEnv(c.rootDir) {
 				foundDir := dir
 				if strings.HasPrefix(dir, goPath()+"/") {
@@ -60,14 +58,4 @@ func (c rootDirCheck) Run() (checkResult, string) {
 
 func (c rootDirCheck) Hint() string {
 	return fmt.Sprintf("run git clone https://github.com/cilium/cilium.git %s && cd %s", c.rootDir, c.rootDir)
-}
-
-func isGitRoot(path string, info os.FileInfo) bool {
-	if info.IsDir() {
-		return true
-	}
-
-	// Is this a git worktree?
-	data, err := os.ReadFile(path)
-	return err == nil && strings.HasPrefix(string(data), "gitdir:")
 }

@@ -157,7 +157,7 @@ type StructMatcherMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StructMatcherMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -297,7 +297,7 @@ type StructMatcher_PathSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m StructMatcher_PathSegmentMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

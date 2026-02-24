@@ -144,9 +144,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 					return paramsOut{
 						WireguardConfig: Config{
 							UserConfig: UserConfig{
-								EnableConfig: EnableConfig{
-									EnableWireguard: wireguardEnabled,
-								},
+								EnableWireguard:              wireguardEnabled,
 								WireguardTrackAllIPsFallback: false,
 								WireguardPersistentKeepalive: 0,
 								NodeEncryptionOptOutLabels:   "",

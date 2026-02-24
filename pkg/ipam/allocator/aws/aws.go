@@ -23,24 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-aws"}
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
-	AWSReleaseExcessIPs          bool
-	ExcessIPReleaseDelay         int
-	AWSEnablePrefixDelegation    bool
-	ENITags                      map[string]string
-	ENIGarbageCollectionTags     map[string]string
-	ENIGarbageCollectionInterval time.Duration
-	AWSUsePrimaryAddress         bool
-	EC2APIEndpoint               string
-	AWSMaxResultsPerCall         int32
-	ParallelAllocWorkers         int64
-
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 	client     *ec2shim.Client
@@ -49,8 +37,8 @@ type AllocatorAWS struct {
 
 func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags map[string]string) {
 	// Use user-provided tags if available
-	if len(a.ENIGarbageCollectionTags) != 0 {
-		return a.ENIGarbageCollectionTags
+	if len(operatorOption.Config.ENIGarbageCollectionTags) != 0 {
+		return operatorOption.Config.ENIGarbageCollectionTags
 	}
 
 	eniTags = map[string]string{
@@ -102,15 +90,15 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
 
-	eniCreationTags := a.ENITags
-	if a.ENIGarbageCollectionInterval > 0 {
+	eniCreationTags := operatorOption.Config.ENITags
+	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
 		a.eniGCTags = a.initENIGarbageCollectionTags(ctx, cfg)
 		// Make sure GC tags are also used for ENI creation
 		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
 	optionsFunc := func(options *ec2.Options) {}
-	if ec2APIEndpoint := a.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
+	if ec2APIEndpoint := operatorOption.Config.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
 		a.logger.Debug(
 			"Using custom API endpoint for service",
 			logfields.Endpoint, ec2APIEndpoint,
@@ -123,7 +111,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 
 	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
-		a.AWSUsePrimaryAddress, a.AWSMaxResultsPerCall)
+		operatorOption.Config.AWSUsePrimaryAddress)
 
 	return nil
 }
@@ -141,17 +129,17 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
-	imds, err := metadata.NewClient(ctx)
+	imds, err := metadata.NewClient()
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize metadata client: %w", err)
 	}
-	instances, err := eni.NewInstancesManager(ctx, a.rootLogger, a.client, imds)
+	instances, err := eni.NewInstancesManager(a.rootLogger, a.client, imds)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
-		a.ParallelAllocWorkers, a.AWSReleaseExcessIPs, a.ExcessIPReleaseDelay,
-		a.AWSEnablePrefixDelegation)
+		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
+		operatorOption.Config.AWSEnablePrefixDelegation)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}
@@ -160,9 +148,9 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, err
 	}
 
-	if a.ENIGarbageCollectionInterval > 0 {
+	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
 		eni.StartENIGarbageCollector(ctx, a.rootLogger, a.client, eni.GarbageCollectionParams{
-			RunInterval:    a.ENIGarbageCollectionInterval,
+			RunInterval:    operatorOption.Config.ENIGarbageCollectionInterval,
 			MaxPerInterval: defaults.ENIGarbageCollectionMaxPerInterval,
 			ENITags:        a.eniGCTags,
 		})

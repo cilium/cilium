@@ -1,0 +1,23 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: bgp-cplane-dev-dual
+networking:
+  ipFamily: dual
+  disableDefaultCNI: true
+  podSubnet: "10.1.0.0/16,fd00:10:1::/63"
+  serviceSubnet: "10.2.0.0/16,fd00:10:2::/108"
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-ip: "10.0.1.2,fd00:10:0:1::2"
+- role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-ip: "10.0.2.2,fd00:10:0:2::2"

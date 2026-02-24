@@ -17,7 +17,6 @@ packages=(
   ipset
   kmod
   ca-certificates
-  libatomic1
 )
 
 export DEBIAN_FRONTEND=noninteractive

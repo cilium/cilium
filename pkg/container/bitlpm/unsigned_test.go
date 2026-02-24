@@ -6,12 +6,11 @@ package bitlpm
 import (
 	"fmt"
 	"math/bits"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 type uint16Range struct {
@@ -178,7 +177,9 @@ func TestUnsignedUpsert(t *testing.T) {
 				sort.Slice(got, func(i, j int) bool {
 					return got[i].start < got[j].start
 				})
-				require.Equal(t, tt.ranges[:i+1], got, "When updating an unsigned trie with the key-prefix %d/%d", pr.start, pr.prefix())
+				if !reflect.DeepEqual(got, tt.ranges[:i+1]) {
+					t.Fatalf("When updating an unsigned trie with the key-prefix %d/%d: got %+v, but expected %+v", pr.start, pr.prefix(), got, tt.ranges[:i+1])
+				}
 			}
 		})
 	}
@@ -503,7 +504,9 @@ func TestUnsignedAncestors(t *testing.T) {
 				gotRes = append(gotRes, v)
 				return true
 			})
-			require.Equal(t, expectedRes, gotRes, "Ancestors range %s", entry)
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("Ancestors range %s, expected to get %v, but got: %v", entry, expectedRes, gotRes)
+			}
 		})
 	}
 }
@@ -535,7 +538,9 @@ func TestUnsignedDescendants(t *testing.T) {
 				gotRes = append(gotRes, v)
 				return true
 			})
-			require.Equal(t, expectedRes, gotRes, "Descendants range %s", entry)
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("Descendants range %s, expected to get %v, but got: %v", entry, expectedRes, gotRes)
+			}
 			// It should still work even if the entry is not present
 			tu.Delete(i, rng)
 			expectedRes = expectedRes[1:]
@@ -544,7 +549,9 @@ func TestUnsignedDescendants(t *testing.T) {
 				gotRes = append(gotRes, v)
 				return true
 			})
-			require.Equal(t, expectedRes, gotRes, "Descendants range %s", entry)
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("Descendants range %s, expected to get %v, but got: %v", entry, expectedRes, gotRes)
+			}
 		})
 	}
 }
@@ -615,7 +622,9 @@ func TestUnsignedDelete(t *testing.T) {
 				sort.Slice(got, func(i, j int) bool {
 					return got[i].start < got[j].start
 				})
-				require.Equal(t, tt.ranges[i+1:], got, "When deleting an entry from an unsigned trie with the key-prefix %d/%d", pr.start, pr.prefix())
+				if !reflect.DeepEqual(got, tt.ranges[i+1:]) {
+					t.Fatalf("When deleting an entry from an unsigned trie with the key-prefix %d/%d: got %+v, but expected %+v", pr.start, pr.prefix(), got, tt.ranges[i+1:])
+				}
 			}
 		})
 		// Delete in reverse order.
@@ -640,7 +649,9 @@ func TestUnsignedDelete(t *testing.T) {
 				sort.Slice(got, func(i, j int) bool {
 					return got[i].start < got[j].start
 				})
-				require.Equal(t, tt.ranges[:i], got, "When deleting an entry from an unsigned trie with the key-prefix %d/%d", pr.start, pr.prefix())
+				if !reflect.DeepEqual(got, tt.ranges[:i]) {
+					t.Fatalf("When deleting an entry from an unsigned trie with the key-prefix %d/%d: got %+v, but expected %+v", pr.start, pr.prefix(), got, tt.ranges[:i])
+				}
 			}
 		})
 	}

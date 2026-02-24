@@ -96,6 +96,8 @@ func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&networkingv1.Ingress{}, r.forCiliumManagedIngress()).
 		// (LoadBalancer) Service resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&corev1.Service{}).
+		// Endpoints resource with OwnerReference to the Ingress with dedicated loadbalancing mode
+		Owns(&corev1.Endpoints{}).
 		// CiliumEnvoyConfig resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// Watching shared loadbalancer Service and reconcile all shared Cilium Ingresses.

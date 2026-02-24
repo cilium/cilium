@@ -26,9 +26,9 @@ func (f *tracing) Info() (*Info, error) {
 		return nil, fmt.Errorf("tracing link info: %s", err)
 	}
 	extra := &TracingInfo{
-		TargetObjectId: info.TargetObjId,
-		TargetBtfId:    info.TargetBtfId,
-		AttachType:     info.AttachType,
+		TargetObjId: info.TargetObjId,
+		TargetBtfId: info.TargetBtfId,
+		AttachType:  info.AttachType,
 	}
 
 	return &Info{

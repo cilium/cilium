@@ -43,9 +43,6 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.server.priorityClassName "system-node-critical") }}
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
-      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
-      hostUsers: true
-      {{- end }}
       {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -84,8 +81,6 @@ spec:
         ports:
         - name: grpc
           containerPort: 8081
-        - name: http
-          containerPort: 8080
         volumeMounts:
         - name: spire-config
           mountPath: /run/spire/config
@@ -101,7 +96,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /live
-            port: http
+            port: 8080
           failureThreshold: 2
           initialDelaySeconds: 15
           periodSeconds: 60
@@ -109,7 +104,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /ready
-            port: http
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
         {{- with .Values.authentication.mutual.spire.install.server.securityContext }}

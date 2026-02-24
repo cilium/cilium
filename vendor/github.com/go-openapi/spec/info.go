@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package spec
 
@@ -13,10 +24,10 @@ import (
 )
 
 // Extensions vendor specific extensions
-type Extensions map[string]any
+type Extensions map[string]interface{}
 
 // Add adds a value to these extensions
-func (e Extensions) Add(key string, value any) {
+func (e Extensions) Add(key string, value interface{}) {
 	realKey := strings.ToLower(key)
 	e[realKey] = value
 }
@@ -60,7 +71,7 @@ func (e Extensions) GetBool(key string) (bool, bool) {
 // GetStringSlice gets a string value from the extensions
 func (e Extensions) GetStringSlice(key string) ([]string, bool) {
 	if v, ok := e[strings.ToLower(key)]; ok {
-		arr, isSlice := v.([]any)
+		arr, isSlice := v.([]interface{})
 		if !isSlice {
 			return nil, false
 		}
@@ -83,19 +94,19 @@ type VendorExtensible struct {
 }
 
 // AddExtension adds an extension to this extensible object
-func (v *VendorExtensible) AddExtension(key string, value any) {
+func (v *VendorExtensible) AddExtension(key string, value interface{}) {
 	if value == nil {
 		return
 	}
 	if v.Extensions == nil {
-		v.Extensions = make(map[string]any)
+		v.Extensions = make(map[string]interface{})
 	}
 	v.Extensions.Add(key, value)
 }
 
 // MarshalJSON marshals the extensions to json
 func (v VendorExtensible) MarshalJSON() ([]byte, error) {
-	toser := make(map[string]any)
+	toser := make(map[string]interface{})
 	for k, v := range v.Extensions {
 		lk := strings.ToLower(k)
 		if strings.HasPrefix(lk, "x-") {
@@ -107,7 +118,7 @@ func (v VendorExtensible) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON for this extensible object
 func (v *VendorExtensible) UnmarshalJSON(data []byte) error {
-	var d map[string]any
+	var d map[string]interface{}
 	if err := json.Unmarshal(data, &d); err != nil {
 		return err
 	}
@@ -115,7 +126,7 @@ func (v *VendorExtensible) UnmarshalJSON(data []byte) error {
 		lk := strings.ToLower(k)
 		if strings.HasPrefix(lk, "x-") {
 			if v.Extensions == nil {
-				v.Extensions = map[string]any{}
+				v.Extensions = map[string]interface{}{}
 			}
 			v.Extensions[k] = vv
 		}
@@ -143,7 +154,7 @@ type Info struct {
 }
 
 // JSONLookup look up a value by the json property name
-func (i Info) JSONLookup(token string) (any, error) {
+func (i Info) JSONLookup(token string) (interface{}, error) {
 	if ex, ok := i.Extensions[token]; ok {
 		return &ex, nil
 	}

@@ -10,7 +10,6 @@ package daemon
 
 import (
 	"encoding/json"
-	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -26,7 +25,7 @@ type GetCgroupDumpMetadataReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *GetCgroupDumpMetadataReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
+func (o *GetCgroupDumpMetadataReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
 	case 200:
 		result := NewGetCgroupDumpMetadataOK()
@@ -108,7 +107,7 @@ func (o *GetCgroupDumpMetadataOK) readResponse(response runtime.ClientResponse, 
 	o.Payload = new(models.CgroupDumpMetadata)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 
@@ -176,7 +175,7 @@ func (o *GetCgroupDumpMetadataFailure) GetPayload() models.Error {
 func (o *GetCgroupDumpMetadataFailure) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
 		return err
 	}
 

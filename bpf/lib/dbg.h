@@ -147,41 +147,28 @@ enum {
 #define EVENT_SOURCE 0
 #endif
 
+#ifdef DEBUG
+#include "events.h"
+#endif
+
 #include "notify.h"
-
-#ifndef DBG_EXTENSION
-#define DBG_EXTENSION
-#define dbg_extension_hook(ctx, msg) do {} while (0)
-#endif
-
-#ifndef DBG_CAPTURE_EXTENSION
-#define DBG_CAPTURE_EXTENSION
-#define dbg_capture_extension_hook(ctx, msg) do {} while (0)
-#endif
 
 struct debug_msg {
 	NOTIFY_COMMON_HDR
 	__u32		arg1;
 	__u32		arg2;
 	__u32		arg3;
-	DBG_EXTENSION
 };
 
 struct debug_capture_msg {
 	NOTIFY_CAPTURE_HDR
 	__u32		arg1;
 	__u32		arg2;
-	DBG_CAPTURE_EXTENSION
 };
 
-#if defined(DEBUG) || defined(DEBUG_TAGGED)
-#include "events.h"
+#ifdef DEBUG
 #include "common.h"
 #include "utils.h"
-
-#ifdef DEBUG_TAGGED
-#include "trace_helpers.h"
-#endif
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -212,11 +199,7 @@ static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 		.arg1	= arg1,
 		.arg2	= arg2,
 	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
-		return;
-#endif
-	dbg_extension_hook(ctx, msg);
+
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -230,11 +213,7 @@ static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 		.arg2	= arg2,
 		.arg3	= arg3,
 	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
-		return;
-#endif
-	dbg_extension_hook(ctx, msg);
+
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -251,11 +230,7 @@ static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 typ
 		.arg1	= arg1,
 		.arg2	= arg2,
 	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
-		return;
-#endif
-	dbg_capture_extension_hook(ctx, msg);
+
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));

@@ -48,7 +48,7 @@ type EndpointParser interface {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) (map[uint16]*Endpoint, int) {
+func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -69,7 +69,6 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 	}
 
 	possibleEPs := map[uint16]*Endpoint{}
-	failed := 0
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
 
@@ -81,14 +80,12 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 		state, err := findEndpointState(scopedLogger, epDir)
 		if err != nil {
 			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
-			failed++
 			continue
 		}
 
 		ep, err := parser.ParseEndpoint(state)
 		if err != nil {
 			scopedLogger.Warn("Unable to parse the C header file", logfields.Error, err)
-			failed++
 			continue
 		}
 		if _, ok := possibleEPs[ep.ID]; ok {
@@ -107,8 +104,7 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 			node.SetEndpointID(ep.GetID())
 		}
 	}
-
-	return possibleEPs, failed
+	return possibleEPs
 }
 
 // findEndpointState finds the JSON representation of an endpoint's state in
@@ -292,17 +288,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	case <-allocatedIdentity:
 	}
 
-	releaseNewlyAllocatedIdentity := func() {
-		_, err := e.allocator.Release(context.Background(), id, false)
-		if err != nil {
-			e.getLogger().Warn(
-				"Unable to release newly allocated identity again",
-				logfields.Error, err,
-				logfields.IdentityNew, id.ID,
-			)
-		}
-	}
-
 	// Wait for initial identities and ipcache from the
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
@@ -335,7 +320,6 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// is deleted.
 		select {
 		case <-e.aliveCtx.Done():
-			releaseNewlyAllocatedIdentity()
 			return ErrNotAlive
 		case <-gotInitialGlobalIdentities:
 		}
@@ -343,12 +327,10 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 
 	// Wait for registered initializers to complete before allowing endpoint regeneration.
 	if err := regenerator.WaitForFence(e.aliveCtx); err != nil {
-		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
 	if err := e.lockAlive(); err != nil {
-		releaseNewlyAllocatedIdentity()
 		e.getLogger().Warn("Endpoint to restore has been deleted")
 		return err
 	}
@@ -404,22 +386,8 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
-	// the identity even if has not changed. This will also upsert the identity
-	// so that other parts of the system can correctly keep track of the identity.
-	identityToRelease := e.SetIdentity(id)
-
-	// If a separate goroutine has already set the identity we need to clear a reference
-	// to avoid leaking a ref.
-	if identityToRelease != nil {
-		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
-		if err != nil {
-			e.getLogger().Warn(
-				"Unable to release old endpoint identity",
-				logfields.Error, err,
-				logfields.IdentityOld, identityToRelease.ID,
-			)
-		}
-	}
+	// the identity even if has not changed.
+	e.SetIdentity(id, true)
 	e.unlock()
 
 	return nil
@@ -433,7 +401,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),
 		ContainerID:              e.GetContainerID(),
-		ContainerNetnsPath:       e.containerNetnsPath,
 		DockerNetworkID:          e.dockerNetworkID,
 		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
@@ -451,6 +418,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		SecurityIdentity:         e.SecurityIdentity,
 		Options:                  e.Options,
 		DNSRules:                 e.DNSRules,
+		DNSRulesV2:               e.DNSRulesV2,
 		DNSHistory:               e.DNSHistory,
 		DNSZombies:               e.DNSZombies,
 		K8sPodName:               e.K8sPodName,
@@ -460,7 +428,6 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		CiliumEndpointUID:        e.ciliumEndpointUID,
 		Properties:               e.properties,
 		NetnsCookie:              e.NetNsCookie,
-		FIBTableID:               e.fibTableID,
 	}
 }
 
@@ -483,9 +450,6 @@ type serializableEndpoint struct {
 	// containerID is the container ID that docker has assigned to the endpoint
 	// Note: The JSON tag was kept for backward compatibility.
 	ContainerID string `json:"dockerID,omitempty"`
-
-	// ContainerNetnsPath is the path to the container's network namespace
-	ContainerNetnsPath string
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
@@ -544,14 +508,12 @@ type serializableEndpoint struct {
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
-	// DNSRulesUnused is the legacy V1 collection of DNS rules for this endpoint.
-	// Keep the original JSON key for backwards compatibility.
-	DNSRulesUnused restore.DNSRules `json:"DNSRules,omitempty"`
+	// DNSRules is the collection of current DNS rules for this endpoint.
+	DNSRules restore.DNSRules
 
-	// DNSRules is the collection of current DNS rules for this endpoint,
+	// DNSRulesV2 is the collection of current DNS rules for this endpoint,
 	// that conform to using V2 of the PortProto key.
-	// Keep the original JSON key for backwards compatibility.
-	DNSRules restore.DNSRules `json:"DNSRulesV2,omitempty"`
+	DNSRulesV2 restore.DNSRules
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -587,9 +549,6 @@ type serializableEndpoint struct {
 
 	// NetnsCookie is the network namespace cookie of the Endpoint.
 	NetnsCookie uint64
-
-	// FIBTableID is the FIB routing table ID for egress lookups.
-	FIBTableID uint32
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -601,7 +560,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 		Labels:     labels.NewOpLabels(),
 		Options:    option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies: fqdn.NewDNSZombieMappings(ep.Logger(subsystem), option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies: fqdn.NewDNSZombieMappings(ep.getLogger(), option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 	}
 	if err := json.Unmarshal(raw, restoredEp); err != nil {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %w", err)
@@ -622,7 +581,6 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.initialEnvoyPolicyComputed = make(chan struct{})
 	ep.containerName.Store(&r.ContainerName)
 	ep.containerID.Store(&r.ContainerID)
-	ep.containerNetnsPath = r.ContainerNetnsPath
 	ep.dockerNetworkID = r.DockerNetworkID
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
@@ -639,6 +597,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
 	ep.DNSRules = r.DNSRules
+	ep.DNSRulesV2 = r.DNSRulesV2
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies
 	ep.K8sPodName = r.K8sPodName
@@ -653,5 +612,4 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 		ep.properties = map[string]any{}
 	}
 	ep.NetNsCookie = r.NetnsCookie
-	ep.fibTableID = r.FIBTableID
 }

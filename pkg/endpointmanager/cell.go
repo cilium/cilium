@@ -5,30 +5,23 @@ package endpointmanager
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/netip"
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
-	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 // Cell provides the EndpointManager which maintains the collection of locally
@@ -75,13 +68,6 @@ type EndpointsLookup interface {
 
 	// GetEndpointsByContainerID looks up endpoints by container ID
 	GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint
-
-	// GetEndpointsByServiceAccount looks up endpoints by their given namespace,
-	// service account pair.
-	GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint
-
-	// GetEndpointsByNamespace looks up endpoints by namespace.
-	GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint
 
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
@@ -149,6 +135,11 @@ type EndpointManager interface {
 	// Returns immediately.
 	TriggerRegenerateAllEndpoints()
 
+	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
+	// this function is called to be at a given policy revision.
+	// New endpoints appearing while waiting are ignored.
+	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
+
 	// OverrideEndpointOpts applies the given options to all endpoints.
 	OverrideEndpointOpts(om option.OptionMap)
 
@@ -180,7 +171,6 @@ type endpointManagerParams struct {
 
 	Logger *slog.Logger
 
-	JobGroup        job.Group
 	Lifecycle       cell.Lifecycle
 	Config          EndpointManagerConfig
 	Clientset       client.Clientset
@@ -189,8 +179,6 @@ type endpointManagerParams struct {
 	EPSynchronizer  EndpointResourceSynchronizer
 	LocalNodeStore  *node.LocalNodeStore
 	MonitorAgent    monitoragent.Agent
-
-	EPRestorerPromise promise.Promise[endpointstate.Restorer]
 }
 
 type endpointManagerOut struct {
@@ -208,48 +196,21 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	p.Config.Validate(p.Logger)
 
 	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config)
-
-	p.Lifecycle.Append(cell.Hook{
-		OnStop: func(cell.HookContext) error {
-			// Stop all endpoints (its goroutines) on exit.
-			mgr.stopEndpoints()
-			return nil
-		},
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	p.JobGroup.Add(job.OneShot("init-periodic-endpoint-controllers", func(jobCtx context.Context, health cell.Health) error {
-		p.Logger.Debug("Waiting for endpoint restoration before registering periodic endpoint controllers (GC/regeneration)")
-		epRestorer, err := p.EPRestorerPromise.Await(jobCtx)
-		if err != nil {
-			return fmt.Errorf("failed to wait for endpoint restorer: %w", err)
-		}
-
-		if err := epRestorer.WaitForEndpointRestore(jobCtx); err != nil {
-			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
-		}
-
-		if p.Config.EndpointGCInterval > 0 {
-			p.Logger.Debug("Registering periodic endpoint GC controller")
-			mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
-		}
-
-		if p.Config.EndpointRegenInterval > 0 {
-			p.Logger.Debug("Registering periodic endpoint regeneration controller")
-			mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
-		}
-
-		return nil
-	}, job.WithShutdown()))
-
-	p.Lifecycle.Append(cell.Hook{
-		OnStop: func(cell.HookContext) error {
-			cancel()
-			mgr.controllers.RemoveAllAndWait()
-			return nil
-		},
-	})
+	if p.Config.EndpointGCInterval > 0 {
+		ctx, cancel := context.WithCancel(context.Background())
+		p.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
+				return nil
+			},
+			OnStop: func(cell.HookContext) error {
+				cancel()
+				mgr.controllers.RemoveAllAndWait()
+				return nil
+			},
+		})
+	}
 
 	mgr.InitMetrics(p.MetricsRegistry)
 
@@ -264,17 +225,9 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 type endpointSynchronizerParams struct {
 	cell.In
 
-	Clientset           client.Clientset
-	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
-	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
-	LocalNodeStore      *node.LocalNodeStore
+	Clientset client.Clientset
 }
 
 func newEndpointSynchronizer(p endpointSynchronizerParams) EndpointResourceSynchronizer {
-	return &EndpointSynchronizer{
-		Clientset:           p.Clientset,
-		CiliumEndpoint:      p.CiliumEndpoint,
-		CiliumEndpointSlice: p.CiliumEndpointSlice,
-		localNodeStore:      p.LocalNodeStore,
-	}
+	return &EndpointSynchronizer{Clientset: p.Clientset}
 }

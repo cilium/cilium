@@ -5,7 +5,6 @@ package types
 
 import (
 	"fmt"
-	"maps"
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -55,12 +54,12 @@ type AllocationIP struct {
 // AllocationMap is a map of allocated IPs indexed by IP
 type AllocationMap map[string]AllocationIP
 
-// IPAMCIDR is a CIDR used for IPAM
+// IPAMPodCIDR is a pod CIDR
 //
 // +kubebuilder:validation:Format=cidr
-type IPAMCIDR string
+type IPAMPodCIDR string
 
-func (c *IPAMCIDR) ToPrefix() (*netip.Prefix, error) {
+func (c *IPAMPodCIDR) ToPrefix() (*netip.Prefix, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil ipam cidr")
 	}
@@ -84,7 +83,7 @@ type IPAMPoolAllocation struct {
 	// CIDRs contains a list of pod CIDRs currently allocated from this pool
 	//
 	// +optional
-	CIDRs []IPAMCIDR `json:"cidrs,omitempty"`
+	CIDRs []IPAMPodCIDR `json:"cidrs,omitempty"`
 }
 
 type IPAMPoolRequest struct {
@@ -306,8 +305,7 @@ func (t Tags) Match(required Tags) bool {
 
 // Subnet is a representation of a subnet
 // +k8s:deepcopy-gen=false
-// +deepequal-gen=true
-// +deepequal-gen:private-method=true
+// +deepequal-gen=false
 type Subnet struct {
 	// ID is the subnet ID
 	ID string
@@ -316,11 +314,9 @@ type Subnet struct {
 	Name string
 
 	// CIDR is the IPv4 CIDR associated with the subnet
-	// +deepequal-gen=false
 	CIDR netip.Prefix
 
 	// IPv6CIDR is the IPv6 CIDR associated with the subnet
-	// +deepequal-gen=false
 	IPv6CIDR netip.Prefix
 
 	// AvailabilityZone is the availability zone of the subnet
@@ -341,20 +337,47 @@ type Subnet struct {
 	Tags Tags
 }
 
-// DeepEqual compares two Subnet structs for equality.
+// DeepEqual is a deepequal function, deeply comparing the
+// receiver with other. in must be non-nil.
 func (in *Subnet) DeepEqual(other *Subnet) bool {
 	if other == nil {
 		return false
 	}
-	// Manually compare netip.Prefix fields
+
+	if in.ID != other.ID {
+		return false
+	}
+	if in.Name != other.Name {
+		return false
+	}
 	if in.CIDR != other.CIDR {
 		return false
 	}
+
 	if in.IPv6CIDR != other.IPv6CIDR {
 		return false
 	}
-	// Call generated private method for other fields
-	return in.deepEqual(other)
+
+	if in.AvailabilityZone != other.AvailabilityZone {
+		return false
+	}
+	if in.VirtualNetworkID != other.VirtualNetworkID {
+		return false
+	}
+	if in.AvailableAddresses != other.AvailableAddresses {
+		return false
+	}
+	if in.AvailableIPv6Addresses != other.AvailableIPv6Addresses {
+		return false
+	}
+	if ((in.Tags != nil) && (other.Tags != nil)) || ((in.Tags == nil) != (other.Tags == nil)) {
+		in, other := &in.Tags, &other.Tags
+		if !in.DeepEqual(other) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
@@ -363,7 +386,9 @@ func (in *Subnet) DeepCopyInto(out *Subnet) {
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make(Tags, len(*in))
-		maps.Copy((*out), *in)
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 }
 

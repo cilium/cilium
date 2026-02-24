@@ -320,7 +320,7 @@ type OutlierDetectionEventMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OutlierDetectionEventMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -455,7 +455,7 @@ type OutlierEjectSuccessRateMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OutlierEjectSuccessRateMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -557,7 +557,7 @@ type OutlierEjectConsecutiveMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OutlierEjectConsecutiveMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -670,7 +670,7 @@ type OutlierEjectFailurePercentageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m OutlierEjectFailurePercentageMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

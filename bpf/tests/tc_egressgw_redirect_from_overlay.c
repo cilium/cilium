@@ -10,8 +10,8 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY
-#define ENABLE_MASQUERADE_IPV4		1
-#define ENABLE_MASQUERADE_IPV6		1
+#define ENABLE_MASQUERADE_IPV4
+#define ENABLE_MASQUERADE_IPV6
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
@@ -212,7 +212,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip, 0);
+				     &egress_ip);
 
 	return overlay_receive_packet(ctx);
 }
@@ -251,9 +251,9 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &egress_ip, 0);
+				     &egress_ip);
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
-				     &egress_ip, 0);
+				     &egress_ip);
 
 	return overlay_receive_packet(ctx);
 }
@@ -293,7 +293,7 @@ int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr egress_ip = EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_NO_GATEWAY,
-				     &egress_ip, 0);
+				     &egress_ip);
 
 	return overlay_receive_packet(ctx);
 }
@@ -332,7 +332,7 @@ int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 	union v6addr no_egress_ip = EGRESS_GATEWAY_NO_EGRESS_IP_V6;
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, GATEWAY_NODE_IP,
-				     &no_egress_ip, 0);
+				     &no_egress_ip);
 
 	return overlay_receive_packet(ctx);
 }

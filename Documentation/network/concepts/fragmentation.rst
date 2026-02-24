@@ -6,8 +6,8 @@
 
 .. _concepts_fragmentation:
 
-Fragment Handling
-=================
+IPv4 Fragment Handling
+======================
 
 By default, Cilium configures the eBPF datapath to perform IP fragment tracking
 to allow protocols that do not support segmentation (such as UDP) to
@@ -16,24 +16,22 @@ configured using the following options:
 
 - ``--enable-ipv4-fragment-tracking``: Enable or disable IPv4 fragment
   tracking. Enabled by default.
-- ``--enable-ipv6-fragment-tracking``: Enable or disable IPv6 fragment
-  tracking. Enabled by default.
 - ``--bpf-fragments-map-max``: Control the maximum number of active concurrent
   connections using IP fragmentation. For the defaults, see `bpf_map_limitations`.
 
-To check whether fragmentation occurred, check the value of the following metrics:
+To check whether fragmentation occurred, check the value of ``cilium_bpf_map_pressure{map_name="cilium_ipv4_frag_datagrams"}`` metric. If it's non-zero, it means that fragmentation occurred.
 
-- ``cilium_bpf_map_pressure{map_name="cilium_ipv4_frag_datagrams"}``
-- ``cilium_bpf_map_pressure{map_name="cilium_ipv6_frag_datagrams"}``
+.. note::
 
-If they're non-zero, it means that fragmented packets were processed.
+    When running Cilium with kube-proxy, fragmented NodePort traffic may break due
+    to a kernel bug where route MTU is not respected for forwarded packets. Cilium
+    fragments tracking requires the first logical fragment to arrive first. Due to the
+    kernel bug, additional fragmentation on the outer encapsulation layer may happen
+    that causes packet reordering and results in a failure in tracking the fragments.
 
-As well, it's possible check how many MTU error messages (i.e. ICMP ``fragmentation_needed`` or ICMPv6 ``packet_too_big``)
-have been processed by Cilium's datapath by checking the following metrics:
-
-- ``mtu_error_message_total``
-
-These packets are the basis for path MTU discovery and indicate that packets
-along a network path are exceeding max MTU size of the network.
+    The kernel bug has been `fixed <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=02a1b175b0e92d9e0fa5df3957ade8d733ceb6a0>`_
+    and backported to all maintained kernel versions. If you observe connectivity problems,
+    ensure that the kernel package on your nodes has been upgraded recently before
+    reporting an issue.
 
 .. include:: ../../beta.rst

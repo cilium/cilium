@@ -16,8 +16,6 @@ metadata:
     {{- end }}
 spec:
   schedule: {{ .Values.clustermesh.apiserver.tls.auto.schedule | quote }}
-  successfulJobsHistoryLimit: {{ .Values.certgen.cronJob.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ .Values.certgen.cronJob.failedJobsHistoryLimit }}
   concurrencyPolicy: Forbid
   jobTemplate:
 {{- include "clustermesh-apiserver-generate-certs.job.spec" . | nindent 4 }}

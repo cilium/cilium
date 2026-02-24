@@ -141,7 +141,7 @@ type SkyWalkingConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SkyWalkingConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -290,7 +290,7 @@ type ClientConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClientConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

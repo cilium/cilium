@@ -27,19 +27,7 @@ func TestWriteInformationalComments(t *testing.T) {
 	s := setupEndpointSuite(t)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		WgConfig:         fakeTypes.WireguardConfig{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-	}
-	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -59,19 +47,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	s := setupEndpointSuite(b)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	p := EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     s.orchestrator,
-		PolicyRepo:       s.repo,
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		WgConfig:         fakeTypes.WireguardConfig{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-	}
-	e, err := NewEndpointFromChangeModel(b.Context(), p, nil, nil, model, nil)
+	e, err := NewEndpointFromChangeModel(b.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, &fakeTypes.IPsecConfig{}, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))

@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
-	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -24,7 +22,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cell providing clustermesh capabilities in the operator",
 	cell.Config(ClusterMeshConfig{}),
-	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
+	cell.Config(MCSAPIConfig{}),
 	cell.Provide(
 		common.DefaultRemoteClientFactory,
 		newClusterMesh,
@@ -44,10 +42,10 @@ type clusterMeshParams struct {
 	common.Config
 	wait.TimeoutConfig
 	Cfg       ClusterMeshConfig
-	CfgMCSAPI mcsapitypes.MCSAPIConfig
+	CfgMCSAPI MCSAPIConfig
 	Logger    *slog.Logger
 
-	// ClusterInfo is the id/name of the local cluster.
+	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo
 
 	// RemoteClientFactory is the factory to create new backend instances.
@@ -58,10 +56,7 @@ type clusterMeshParams struct {
 	StoreFactory  store.Factory
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver dial.Resolver
-
-	// ObserverFactories is the list of factories to instantiate additional observers.
-	ObserverFactories []observer.Factory `group:"clustermesh-observers"`
+	ServiceResolver *dial.ServiceResolver
 }
 
 // ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.
@@ -76,5 +71,20 @@ func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 		"clustermesh-enable-endpoint-sync",
 		cfg.ClusterMeshEnableEndpointSync,
 		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
+	)
+}
+
+// MCSAPIConfig contains the configuration for MCS-API
+type MCSAPIConfig struct {
+	// ClusterMeshEnableMCSAPI enables the MCS API support
+	ClusterMeshEnableMCSAPI bool `mapstructure:"clustermesh-enable-mcs-api"`
+}
+
+// Flags adds the flags used by ClientConfig.
+func (cfg MCSAPIConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(
+		"clustermesh-enable-mcs-api",
+		cfg.ClusterMeshEnableMCSAPI,
+		"Whether or not the MCS API support is enabled.",
 	)
 }

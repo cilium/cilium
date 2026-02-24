@@ -111,7 +111,9 @@ func (ifr *Ifreq) SetUint32(v uint32) {
 // clear zeroes the ifreq's union field to prevent trailing garbage data from
 // being sent to the kernel if an ifreq is reused.
 func (ifr *Ifreq) clear() {
-	clear(ifr.raw.Ifru[:])
+	for i := range ifr.raw.Ifru {
+		ifr.raw.Ifru[i] = 0
+	}
 }
 
 // TODO(mdlayher): export as IfreqData? For now we can provide helpers such as

@@ -1,3 +1,6 @@
+//go:build go1.18
+// +build go1.18
+
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
@@ -214,7 +217,6 @@ func appendNext(parent *ResourceID, parts []string, id string) (*ResourceID, err
 func splitStringAndOmitEmpty(v, sep string) []string {
 	r := make([]string, 0)
 	for _, s := range strings.Split(v, sep) {
-		s = strings.TrimSpace(s)
 		if len(s) == 0 {
 			continue
 		}

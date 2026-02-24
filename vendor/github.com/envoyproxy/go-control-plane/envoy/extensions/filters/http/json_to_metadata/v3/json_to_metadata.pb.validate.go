@@ -130,7 +130,7 @@ type JsonToMetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JsonToMetadataMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -302,7 +302,7 @@ type JsonToMetadata_KeyValuePairMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JsonToMetadata_KeyValuePairMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -433,7 +433,7 @@ type JsonToMetadata_SelectorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JsonToMetadata_SelectorMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -667,7 +667,7 @@ type JsonToMetadata_RuleMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JsonToMetadata_RuleMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -861,7 +861,7 @@ type JsonToMetadata_MatchRulesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m JsonToMetadata_MatchRulesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

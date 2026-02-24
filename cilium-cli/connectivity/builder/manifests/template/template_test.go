@@ -4,7 +4,6 @@ package template
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"strings"
 	"testing"
@@ -13,8 +12,6 @@ import (
 )
 
 func TestRender(t *testing.T) {
-	randGen = rand.New(rand.NewPCG(0, 0))
-
 	type args struct {
 		data any
 	}
@@ -52,16 +49,6 @@ func TestRender(t *testing.T) {
 					ExternalTarget string
 				}{
 					ExternalTarget: "one.one.one.one.",
-				},
-			},
-		},
-		{
-			name: "random replace dns label",
-			args: args{
-				data: struct {
-					ExternalTarget string
-				}{
-					ExternalTarget: "foo-bar.example.test.cilium.io.",
 				},
 			},
 		},

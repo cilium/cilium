@@ -29,15 +29,10 @@ import (
 
 // LeaseApplyConfiguration represents a declarative configuration of the Lease type for use
 // with apply.
-//
-// Lease defines a lease concept.
 type LeaseApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration `json:",inline"`
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// spec contains the specification of the Lease.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec *LeaseSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *LeaseSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // Lease constructs a declarative configuration of the Lease type for use with
@@ -51,14 +46,29 @@ func Lease(name, namespace string) *LeaseApplyConfiguration {
 	return b
 }
 
-// ExtractLeaseFrom extracts the applied configuration owned by fieldManager from
-// lease for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractLease extracts the applied configuration owned by fieldManager from
+// lease. If no managedFields are found in lease for fieldManager, a
+// LeaseApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // lease must be a unmodified Lease API object that was retrieved from the Kubernetes API.
-// ExtractLeaseFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractLease provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractLeaseFrom(lease *coordinationv1beta1.Lease, fieldManager string, subresource string) (*LeaseApplyConfiguration, error) {
+// Experimental!
+func ExtractLease(lease *coordinationv1beta1.Lease, fieldManager string) (*LeaseApplyConfiguration, error) {
+	return extractLease(lease, fieldManager, "")
+}
+
+// ExtractLeaseStatus is the same as ExtractLease except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractLeaseStatus(lease *coordinationv1beta1.Lease, fieldManager string) (*LeaseApplyConfiguration, error) {
+	return extractLease(lease, fieldManager, "status")
+}
+
+func extractLease(lease *coordinationv1beta1.Lease, fieldManager string, subresource string) (*LeaseApplyConfiguration, error) {
 	b := &LeaseApplyConfiguration{}
 	err := managedfields.ExtractInto(lease, internal.Parser().Type("io.k8s.api.coordination.v1beta1.Lease"), fieldManager, b, subresource)
 	if err != nil {
@@ -71,21 +81,6 @@ func ExtractLeaseFrom(lease *coordinationv1beta1.Lease, fieldManager string, sub
 	b.WithAPIVersion("coordination.k8s.io/v1beta1")
 	return b, nil
 }
-
-// ExtractLease extracts the applied configuration owned by fieldManager from
-// lease. If no managedFields are found in lease for fieldManager, a
-// LeaseApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// lease must be a unmodified Lease API object that was retrieved from the Kubernetes API.
-// ExtractLease provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractLease(lease *coordinationv1beta1.Lease, fieldManager string) (*LeaseApplyConfiguration, error) {
-	return ExtractLeaseFrom(lease, fieldManager, "")
-}
-
 func (b LeaseApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

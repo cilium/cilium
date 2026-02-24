@@ -36,9 +36,38 @@ ctx_load_meta_ipv6(const struct xdp_md *ctx __maybe_unused,
 }
 
 static __always_inline __maybe_unused int
+get_identity(struct xdp_md *ctx __maybe_unused)
+{
+	return 0;
+}
+
+static __always_inline __maybe_unused void
+set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
+		  __u32 magic __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused void
+set_identity_meta(struct xdp_md *ctx __maybe_unused,
+		__u32 identity __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused void
+ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
+{
+}
+
+static __always_inline __maybe_unused __u32
+ctx_get_cluster_id_mark(struct __sk_buff *ctx __maybe_unused)
+{
+	return 0;
+}
+
+static __always_inline __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
-	return CTX_ACT_TX;
+	return XDP_TX;
 }
 
 static __always_inline __maybe_unused int
@@ -171,7 +200,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 	memset(data, 0, sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
 
-	switch (CONFIG(tunnel_protocol)) {
+	switch (TUNNEL_PROTOCOL) {
 	case TUNNEL_PROTOCOL_GENEVE:
 		{
 			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
@@ -199,10 +228,12 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
 		}
 		break;
+	default:
+		__throw_build_bug();
 	}
 
 	udp->source = src_port;
-	udp->dest = bpf_htons(CONFIG(tunnel_port));
+	udp->dest = bpf_htons(TUNNEL_PORT);
 	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
 	udp->check = 0; /* we use BPF_F_ZERO_CSUM_TX */
 

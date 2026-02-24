@@ -24,21 +24,11 @@ import (
 
 // ComponentConditionApplyConfiguration represents a declarative configuration of the ComponentCondition type for use
 // with apply.
-//
-// Information about the condition of a component.
 type ComponentConditionApplyConfiguration struct {
-	// Type of condition for a component.
-	// Valid value: "Healthy"
-	Type *corev1.ComponentConditionType `json:"type,omitempty"`
-	// Status of the condition for a component.
-	// Valid values for "Healthy": "True", "False", or "Unknown".
-	Status *corev1.ConditionStatus `json:"status,omitempty"`
-	// Message about the condition for a component.
-	// For example, information about a health check.
-	Message *string `json:"message,omitempty"`
-	// Condition error code for a component.
-	// For example, a health check error code.
-	Error *string `json:"error,omitempty"`
+	Type    *corev1.ComponentConditionType `json:"type,omitempty"`
+	Status  *corev1.ConditionStatus        `json:"status,omitempty"`
+	Message *string                        `json:"message,omitempty"`
+	Error   *string                        `json:"error,omitempty"`
 }
 
 // ComponentConditionApplyConfiguration constructs a declarative configuration of the ComponentCondition type for use with

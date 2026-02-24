@@ -577,8 +577,7 @@ func TestHTTPRuleRegexes(t *testing.T) {
 
 // Test the validation of CIDR rule prefix definitions
 func TestCIDRsanitize(t *testing.T) {
-	sel := EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}}
-	expectedSel := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, sel.LabelSelector)
+	sel := &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}
 
 	cidr := CIDRRule{}
 	err := cidr.sanitize()
@@ -613,7 +612,6 @@ func TestCIDRsanitize(t *testing.T) {
 	cidr = CIDRRule{Cidr: "", CIDRGroupSelector: sel}
 	err = cidr.sanitize()
 	require.NoError(t, err)
-	require.Equal(t, expectedSel, cidr.CIDRGroupSelector)
 
 	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "foo", CIDRGroupSelector: sel}
 	err = cidr.sanitize()
@@ -943,6 +941,34 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	err = invalidEpSelectorIngressDeny.Sanitize()
 	require.Error(t, err)
 
+	invalidEpSelectorIngressFromReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngressFromReq.Sanitize()
+	require.Error(t, err)
+
+	invalidEpSelectorIngressDenyFromReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		IngressDeny: []IngressDenyRule{
+			{
+				IngressCommonRule: IngressCommonRule{
+					FromRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorIngressDenyFromReq.Sanitize()
+	require.Error(t, err)
+
 	invalidEpSelectorEgress := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
@@ -969,6 +995,34 @@ func TestInvalidEndpointSelectors(t *testing.T) {
 	}
 
 	err = invalidEpSelectorEgressDeny.Sanitize()
+	require.Error(t, err)
+
+	invalidEpSelectorEgressToReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgressToReq.Sanitize()
+	require.Error(t, err)
+
+	invalidEpSelectorEgressDenyToReq := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		EgressDeny: []EgressDenyRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToRequires: []EndpointSelector{invalidSel},
+				},
+			},
+		},
+	}
+
+	err = invalidEpSelectorEgressDenyToReq.Sanitize()
 	require.Error(t, err)
 }
 

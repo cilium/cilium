@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: ciliumloadbalancerippools.cilium.io
 spec:
   group: cilium.io
@@ -39,7 +39,7 @@ spec:
       openAPIV3Schema:
         description: |-
           CiliumLoadBalancerIPPool is a Kubernetes third-party resource which
-          is used to defined pools of IPs which the operator can use to allocate
+          is used to defined pools of IPs which the operator can use to to allocate
           and advertise IPs for Services of type LoadBalancer.
         properties:
           apiVersion:
@@ -247,7 +247,7 @@ spec:
       openAPIV3Schema:
         description: |-
           CiliumLoadBalancerIPPool is a Kubernetes third-party resource which
-          is used to defined pools of IPs which the operator can use to allocate
+          is used to defined pools of IPs which the operator can use to to allocate
           and advertise IPs for Services of type LoadBalancer.
         properties:
           apiVersion:

@@ -47,7 +47,7 @@ func (m *HostFirewall) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var hostFirewallTypeModePropEnum []any
+var hostFirewallTypeModePropEnum []interface{}
 
 func init() {
 	var res []string

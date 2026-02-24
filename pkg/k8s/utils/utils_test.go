@@ -5,10 +5,10 @@ package utils
 
 import (
 	"context"
+	"reflect"
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +107,9 @@ func TestServiceAndEndpoints(t *testing.T) {
 			sort.Strings(got)
 			sort.Strings(tt.want)
 
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("Expected %v, retrieved: %v", tt.want, got)
+			}
 		})
 	}
 }
@@ -185,7 +187,9 @@ func TestEndpointSlices(t *testing.T) {
 			sort.Strings(got)
 			sort.Strings(tt.want)
 
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("Expected %v, retrieved: %v", tt.want, got)
+			}
 		})
 	}
 }
@@ -287,8 +291,9 @@ func TestValidIPs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ValidIPs(tt.args)
-			assert.Equal(t, tt.want, got)
+			if got := ValidIPs(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ValidIPs() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -319,8 +324,9 @@ func TestIsPodRunning(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsPodRunning(tt.args)
-			assert.Equal(t, tt.want, got)
+			if got := IsPodRunning(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TestIsPodRunning() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -407,8 +413,9 @@ func TestGetLatestPodReadiness(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetLatestPodReadiness(tt.args)
-			assert.Equal(t, tt.want, got)
+			if got := GetLatestPodReadiness(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLatestPodReadiness() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -529,8 +536,9 @@ func TestStripPodLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := StripPodSpecialLabels(tt.labels)
-			assert.Equal(t, tt.want, got)
+			if got := StripPodSpecialLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StripPodSpecialLabels() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -583,8 +591,9 @@ func Test_filterPodLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := RemoveCiliumLabels(tt.labels)
-			assert.Equal(t, tt.want, got)
+			if got := RemoveCiliumLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("filterPodLabels() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

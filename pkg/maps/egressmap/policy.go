@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -251,12 +252,14 @@ func (k *EgressPolicyKey4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) boo
 
 // GetSourceIP returns the egress policy key's source IP.
 func (k *EgressPolicyKey4) GetSourceIP() netip.Addr {
-	return k.SourceIP.Addr()
+	addr, _ := netipx.FromStdIP(k.SourceIP.IP())
+	return addr
 }
 
 // GetDestCIDR returns the egress policy key's destination CIDR.
 func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
-	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.PrefixLen-PolicyStaticPrefixBits4))
+	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
+	return netip.PrefixFrom(addr, int(k.PrefixLen-PolicyStaticPrefixBits4))
 }
 
 // New returns an egress policy value
@@ -343,12 +346,11 @@ func NewEgressPolicyKey6(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPol
 
 // NewEgressPolicyVal6 returns a new EgressPolicyVal6 object representing for
 // the given egress IP and gateway IPs
-func NewEgressPolicyVal6(egressIP, gatewayIP netip.Addr, egressIfindex uint32) EgressPolicyVal6 {
+func NewEgressPolicyVal6(egressIP, gatewayIP netip.Addr) EgressPolicyVal6 {
 	val := EgressPolicyVal6{}
 
 	val.EgressIP.FromAddr(egressIP)
 	val.GatewayIP.FromAddr(gatewayIP)
-	val.EgressIfindex = egressIfindex
 
 	return val
 }
@@ -370,12 +372,14 @@ func (k *EgressPolicyKey6) Match(sourceIP netip.Addr, destCIDR netip.Prefix) boo
 
 // GetSourceIP returns the egress policy key's source IP.
 func (k *EgressPolicyKey6) GetSourceIP() netip.Addr {
-	return k.SourceIP.Addr()
+	addr, _ := netipx.FromStdIP(k.SourceIP.IP())
+	return addr
 }
 
 // GetDestCIDR returns the egress policy key's destination CIDR.
 func (k *EgressPolicyKey6) GetDestCIDR() netip.Prefix {
-	return netip.PrefixFrom(k.DestCIDR.Addr(), int(k.PrefixLen-PolicyStaticPrefixBits6))
+	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
+	return netip.PrefixFrom(addr, int(k.PrefixLen-PolicyStaticPrefixBits6))
 }
 
 // New returns an egress policy value
@@ -383,10 +387,9 @@ func (v *EgressPolicyVal6) New() bpf.MapValue { return &EgressPolicyVal6{} }
 
 // Match returns true if the egressIP and gatewayIP parameters match the egress
 // policy value.
-func (v *EgressPolicyVal6) Match(egressIP, gatewayIP netip.Addr, egressIfindex uint32) bool {
+func (v *EgressPolicyVal6) Match(egressIP, gatewayIP netip.Addr) bool {
 	return v.GetEgressAddr() == egressIP &&
-		v.GetGatewayAddr() == gatewayIP &&
-		v.EgressIfindex == egressIfindex
+		v.GetGatewayAddr() == gatewayIP
 }
 
 // GetEgressIP returns the egress policy value's egress IP.
@@ -401,7 +404,7 @@ func (v *EgressPolicyVal6) GetGatewayAddr() netip.Addr {
 
 // String returns the string representation of an egress policy value.
 func (v *EgressPolicyVal6) String() string {
-	return fmt.Sprintf("%s %s %d", v.GetGatewayAddr(), v.GetEgressAddr(), v.EgressIfindex)
+	return fmt.Sprintf("%s %s", v.GetGatewayAddr(), v.GetEgressAddr())
 }
 
 // Lookup returns the egress policy object associated with the provided (source
@@ -418,9 +421,9 @@ func (m *PolicyMap6) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*Egress
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *PolicyMap6) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr, egressIfindex uint32) error {
+func (m *PolicyMap6) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
 	key := NewEgressPolicyKey6(sourceIP, destCIDR)
-	val := NewEgressPolicyVal6(egressIP, gatewayIP, egressIfindex)
+	val := NewEgressPolicyVal6(egressIP, gatewayIP)
 
 	return m.m.Update(&key, &val)
 }

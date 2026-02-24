@@ -293,12 +293,11 @@ func etcdDbgCerts(cfgfile string, cfg *client.Config, iw *indentedWriter) {
 			opts := x509.VerifyOptions{
 				Roots:         cfg.TLS.RootCAs,
 				Intermediates: intermediates,
-				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			}
 
 			_, err = leaf.Verify(opts)
 			if err != nil {
-				iiw.Println("⚠️ Cannot verify certificate with the configured root CAs: %s", err)
+				iiw.Println("⚠️ Cannot verify certificate with the configured root CAs")
 			}
 		}
 	}

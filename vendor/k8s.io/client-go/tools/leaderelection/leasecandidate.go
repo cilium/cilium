@@ -120,12 +120,8 @@ func NewCandidate(clientset kubernetes.Interface,
 func (c *LeaseCandidate) Run(ctx context.Context) {
 	defer c.queue.ShutDown()
 
-	logger := klog.FromContext(ctx)
-	logger = klog.LoggerWithName(logger, "leasecandidate")
-	ctx = klog.NewContext(ctx, logger)
-
 	c.informerFactory.Start(ctx.Done())
-	if !cache.WaitForNamedCacheSyncWithContext(ctx, c.hasSynced) {
+	if !cache.WaitForNamedCacheSync("leasecandidateclient", ctx.Done(), c.hasSynced) {
 		return
 	}
 
@@ -152,7 +148,7 @@ func (c *LeaseCandidate) processNextWorkItem(ctx context.Context) bool {
 		return true
 	}
 
-	utilruntime.HandleErrorWithContext(ctx, err, "Ensuring lease failed")
+	utilruntime.HandleError(err)
 	c.queue.AddRateLimited(key)
 
 	return true
@@ -165,21 +161,20 @@ func (c *LeaseCandidate) enqueueLease() {
 // ensureLease creates the lease if it does not exist and renew it if it exists. Returns the lease and
 // a bool (true if this call created the lease), or any error that occurs.
 func (c *LeaseCandidate) ensureLease(ctx context.Context) error {
-	logger := klog.FromContext(ctx)
 	lease, err := c.leaseClient.Get(ctx, c.name, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		logger.V(2).Info("Creating lease candidate")
+		klog.V(2).Infof("Creating lease candidate")
 		// lease does not exist, create it.
 		leaseToCreate := c.newLeaseCandidate()
 		if _, err := c.leaseClient.Create(ctx, leaseToCreate, metav1.CreateOptions{}); err != nil {
 			return err
 		}
-		logger.V(2).Info("Created lease candidate")
+		klog.V(2).Infof("Created lease candidate")
 		return nil
 	} else if err != nil {
 		return err
 	}
-	logger.V(2).Info("Lease candidate exists. Renewing.")
+	klog.V(2).Infof("lease candidate exists. Renewing.")
 	clone := lease.DeepCopy()
 	clone.Spec.RenewTime = &metav1.MicroTime{Time: c.clock.Now()}
 	_, err = c.leaseClient.Update(ctx, clone, metav1.UpdateOptions{})

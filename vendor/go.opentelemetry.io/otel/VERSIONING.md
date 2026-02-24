@@ -83,7 +83,7 @@ is designed so the following goals can be achieved.
       in either the module path or the import path.
   * In addition to public APIs, telemetry produced by stable instrumentation
     will remain stable and backwards compatible. This is to avoid breaking
-    alerts and dashboards.
+    alerts and dashboard.
   * Modules will be used to encapsulate instrumentation, detectors, exporters,
     propagators, and any other independent sets of related components.
     * Experimental modules still under active development will be versioned at

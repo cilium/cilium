@@ -28,8 +28,6 @@ type Interface interface {
 	CertificateSigningRequests() CertificateSigningRequestInformer
 	// ClusterTrustBundles returns a ClusterTrustBundleInformer.
 	ClusterTrustBundles() ClusterTrustBundleInformer
-	// PodCertificateRequests returns a PodCertificateRequestInformer.
-	PodCertificateRequests() PodCertificateRequestInformer
 }
 
 type version struct {
@@ -51,9 +49,4 @@ func (v *version) CertificateSigningRequests() CertificateSigningRequestInformer
 // ClusterTrustBundles returns a ClusterTrustBundleInformer.
 func (v *version) ClusterTrustBundles() ClusterTrustBundleInformer {
 	return &clusterTrustBundleInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// PodCertificateRequests returns a PodCertificateRequestInformer.
-func (v *version) PodCertificateRequests() PodCertificateRequestInformer {
-	return &podCertificateRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

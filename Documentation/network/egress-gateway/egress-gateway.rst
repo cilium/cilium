@@ -87,12 +87,14 @@ The egress gateway feature and all the requirements can be enabled as follow:
 .. tabs::
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: egressGateway.enabled=true
-                 bpf.masquerade=true
-                 kubeProxyReplacement=true
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set egressGateway.enabled=true \\
+               --set bpf.masquerade=true \\
+               --set kubeProxyReplacement=true
 
     .. group-tab:: ConfigMap
 
@@ -156,7 +158,7 @@ It can also be done using ``matchExpressions``:
 
 Moreover, multiple ``podSelector`` can be specified:
 
-.. code-block:: text
+.. code-block:: yaml
 
     selectors:
     - podSelector:

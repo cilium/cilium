@@ -8,6 +8,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -23,8 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"helm.sh/helm/v4/pkg/chart"
-	v1release "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,7 +43,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -51,6 +50,7 @@ const (
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
 
+	configNameTunnelLegacy         = "tunnel"
 	configNameTunnelProtocol       = "tunnel-protocol"
 	configNameRoutingMode          = "routing-mode"
 	configNameMaxConnectedClusters = "max-connected-clusters"
@@ -126,10 +126,6 @@ type Parameters struct {
 	// Useful for referencing Cilium installations installed directly through Helm
 	// or overriding the Cilium CLI for install/upgrade/enable.
 	HelmReleaseName string
-
-	// AllowMismatchingCA allows connecting clusters with different CA certificates
-	// by adding the remote CA to the CA bundle
-	AllowMismatchingCA bool
 }
 
 type notConnectedError struct{ error }
@@ -189,6 +185,8 @@ type accessInformation struct {
 	ClusterID            string             `json:"cluster_id,omitempty"`
 	ClusterName          string             `json:"cluster_name,omitempty"`
 	CA                   []byte             `json:"ca,omitempty"`
+	ClientCert           []byte             `json:"client_cert,omitempty"`
+	ClientKey            []byte             `json:"client_key,omitempty"`
 	Tunnel               string             `json:"tunnel,omitempty"`
 	MaxConnectedClusters int                `json:"max_connected_clusters,omitempty"`
 }
@@ -307,10 +305,19 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("unable to get client secret to access clustermesh service: %w", err)
 	}
 
+	clientKey, ok := meshSecret.Data[corev1.TLSPrivateKeyKey]
+	if !ok {
+		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSPrivateKeyKey)
+	}
+
+	clientCert, ok := meshSecret.Data[corev1.TLSCertKey]
+	if !ok {
+		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSCertKey)
+	}
+
 	caCert, err := k.getCACert(ctx, client)
 	// We failed to retrieve the CA from its own secret, let's fallback to the ca.crt certificate inside the mesh secret.
 	if err != nil {
-		var ok bool
 		caCert, ok = meshSecret.Data[defaults.CASecretCertName]
 		if !ok {
 			return nil, fmt.Errorf("unable to retrieve the CA certificate: %w", err)
@@ -319,16 +326,23 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 
 	tunnelProtocol := ""
 	if cm.Data[configNameRoutingMode] == "tunnel" {
+		// Cilium v1.14 and newer
 		tunnelProtocol = "vxlan" // default for tunnel mode
 		if proto, ok := cm.Data[configNameTunnelProtocol]; ok {
 			tunnelProtocol = proto
 		}
+	} else if proto, ok := cm.Data[configNameTunnelLegacy]; ok {
+		// Cilium v1.13 and older (some v1.14 configurations might use it too)
+		// Can be removed once we drop support for v1.14
+		tunnelProtocol = proto
 	}
 
 	ai := &accessInformation{
 		ClusterID:            clusterID,
 		ClusterName:          clusterName,
 		CA:                   caCert,
+		ClientKey:            clientKey,
+		ClientCert:           clientCert,
 		ServiceType:          svc.Spec.Type,
 		ServiceIPs:           []string{},
 		Tunnel:               tunnelProtocol,
@@ -990,9 +1004,6 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 	helmVals := map[string]any{
 		"clustermesh": map[string]any{
 			"useAPIServer": true,
-			"config": map[string]any{
-				"enabled": true,
-			},
 		},
 	}
 
@@ -1110,42 +1121,8 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	return err
 }
 
-// releaseInfo wraps the chart metadata accessor and the release config (user-specified values).
-// This is necessary because chart.Accessor.Values() returns the chart's built-in default values,
-// not the user's values from the release. The release config (equivalent to release.Config in
-// Helm v3) contains the actual user-specified overrides.
-type releaseInfo struct {
-	chart  chart.Accessor
-	config map[string]any
-}
-
-// Values returns the release config (user-specified values), equivalent to release.Config in Helm v3.
-func (r *releaseInfo) Values() map[string]any {
-	return r.config
-}
-
-// MetadataAsMap returns the chart metadata as a map (e.g., to get the chart version).
-func (r *releaseInfo) MetadataAsMap() map[string]any {
-	return r.chart.MetadataAsMap()
-}
-
-func getRelease(kc *k8s.Client, params Parameters) (*releaseInfo, error) {
-	lastRel, err := kc.HelmActionConfig.Releases.Last(params.HelmReleaseName)
-	if err != nil {
-		return nil, err
-	}
-	v1rel, ok := lastRel.(*v1release.Release)
-	if !ok {
-		return nil, fmt.Errorf("unsupported release type: %T", lastRel)
-	}
-	chartAccessor, err := chart.NewAccessor(v1rel.Chart)
-	if err != nil {
-		return nil, err
-	}
-	return &releaseInfo{
-		chart:  chartAccessor,
-		config: v1rel.Config,
-	}, nil
+func getRelease(kc *k8s.Client, params Parameters) (*release.Release, error) {
+	return kc.HelmActionConfig.Releases.Last(params.HelmReleaseName)
 }
 
 // validateCAMatch determines if the certificate authority certificate being
@@ -1185,7 +1162,6 @@ type ClusterState struct {
 	localOldClusters          map[string]any            // current enabled clusters values
 	localDisabledClusters     map[string]any            // current disabled clusters values
 	localNewClusters          map[string]any            // new clusters values
-	clustersCA                map[string]string         // map of cluster name to CA certificate
 	remoteClustersMesh        map[string]map[string]any // Clusters values for all remote cluster in mesh mode
 	remoteClustersBD          map[string]map[string]any // Clusters values for all remote cluster bidirectional mode
 	remoteClients             map[string]*k8s.Client    // Map of remoteClients to apply remoteClustersMesh or remoteClustersBD
@@ -1197,12 +1173,11 @@ type ClusterState struct {
 	remoteClusterNamesAi      []string                  // names of remote clusters for remove sections
 }
 
-func processLocalClient(localRelease *releaseInfo) (*ClusterState, error) {
+func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
 	state := &ClusterState{
 		localOldClusters:          make(map[string]any),
 		localDisabledClusters:     make(map[string]any),
 		localNewClusters:          make(map[string]any),
-		clustersCA:                make(map[string]string),
 		remoteClustersMesh:        make(map[string]map[string]any),
 		remoteClustersBD:          make(map[string]map[string]any),
 		remoteClients:             make(map[string]*k8s.Client),
@@ -1212,7 +1187,7 @@ func processLocalClient(localRelease *releaseInfo) (*ClusterState, error) {
 	}
 	var err error
 
-	state.localOldClusters, state.localDisabledClusters, err = getClustersFromValues(localRelease.Values())
+	state.localOldClusters, state.localDisabledClusters, err = getClustersFromValues(localRelease.Config)
 	if err != nil {
 		return state, err
 	}
@@ -1236,24 +1211,12 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	match, err := k.validateCAMatch(aiLocal, aiRemote)
 	if err != nil {
 		return err
-	}
-
-	if !match {
-		if !k.params.AllowMismatchingCA {
-			return fmt.Errorf("Cilium CA certificates do not match between clusters %s and %s. Use --allow-mismatching-ca to allow this by adding remote CAs to the CA bundle", aiLocal.ClusterName, aiRemote.ClusterName)
-		}
-		k.Log("⚠️ Cilium CA certificates do not match between clusters %s and %s. Remote cluster CA will be trusted in the CA bundle", aiLocal.ClusterName, aiRemote.ClusterName)
-
-		if _, ok := state.clustersCA[aiLocal.ClusterName]; !ok {
-			state.clustersCA[aiLocal.ClusterName] = string(aiLocal.CA)
-		}
-		if _, ok := state.clustersCA[aiRemote.ClusterName]; !ok {
-			state.clustersCA[aiRemote.ClusterName] = string(aiRemote.CA)
-		}
+	} else if !match {
+		k.Log("⚠️ Cilium CA certificates do not match between clusters. Multicluster features will be limited!")
 	}
 
 	// Expand those clusters to include the clustermesh configuration
-	newClusterName, newCluster := getCluster(aiRemote)
+	newClusterName, newCluster := getCluster(aiRemote, !match)
 	if _, ok := state.localNewClusters[newClusterName]; ok {
 		return fmt.Errorf("Multiple remote clusters have the same name '%s'", newClusterName)
 	}
@@ -1266,14 +1229,14 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 		return err
 	}
 
-	remoteOldClusters, remoteDisabledClusters, err := getClustersFromValues(remoteRelease.Values())
+	remoteOldClusters, remoteDisabledClusters, err := getClustersFromValues(remoteRelease.Config)
 	if err != nil {
 		return err
 	}
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 	state.remoteOldDisabledClusters[aiRemote.ClusterName] = remoteDisabledClusters
 
-	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal)
+	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
 	remoteClusters, err := mergeClusters(remoteOldClusters, map[string]any{state.remoteNewClusterName: state.remoteNewCluster}, "")
 	if err != nil {
 		return err
@@ -1321,7 +1284,7 @@ func (k *K8sClusterMesh) connectLocalWithHelm(ctx context.Context, localClient *
 
 	k.Log("ℹ️ Configuring Cilium in cluster %s to connect to cluster %s",
 		localClient.ClusterName(), strings.Join(state.remoteClusterNames, ","))
-	return k.helmUpgradeClusters(ctx, localClient, localClusters, state.localDisabledClusters, state.clustersCA)
+	return k.helmUpgradeClusters(ctx, localClient, localClusters, state.localDisabledClusters)
 }
 
 func convertClustersToListClusterMesh(clusters map[string]any) []any {
@@ -1338,12 +1301,11 @@ func convertClustersToListClusterMesh(clusters map[string]any) []any {
 // setClustersInValues sets the clusters in the release values. We cannot use
 // unstructured.SetNestedField here since clusters map has typed field that
 // unstructued does not support
-func setClustersInValues(release *releaseInfo, client *k8s.Client, clusters any) error {
-	values := release.Values()
-	if _, ok := values["clustermesh"]; !ok {
-		values["clustermesh"] = map[string]any{}
+func setClustersInValues(release *release.Release, client *k8s.Client, clusters any) error {
+	if _, ok := release.Config["clustermesh"]; !ok {
+		release.Config["clustermesh"] = map[string]any{}
 	}
-	clustermeshValues, ok := values["clustermesh"].(map[string]any)
+	clustermeshValues, ok := release.Config["clustermesh"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("existing values are invalid for cluster %s", client.ClusterName())
 	}
@@ -1361,55 +1323,8 @@ func setClustersInValues(release *releaseInfo, client *k8s.Client, clusters any)
 	return nil
 }
 
-func updateCABundleInValues(clusterName string, release *releaseInfo, clustersCA map[string]string) error {
-	values := release.Values()
-	content, _, err := unstructured.NestedString(values, "tls", "caBundle", "content")
-	if err != nil {
-		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s: %w", clusterName, err)
-	}
-	caBundleEnabled, _, err := unstructured.NestedBool(values, "tls", "caBundle", "enabled")
-	if err != nil {
-		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s: %w", clusterName, err)
-	}
-
-	if content == "" && caBundleEnabled {
-		return fmt.Errorf(
-			"existing tls.caBundle values are invalid for cluster %s: caBundle is enabled but no content was provided",
-			clusterName,
-		)
-	}
-
-	newContent := strings.TrimSpace(content)
-	for _, clusterCA := range clustersCA {
-		if strings.Contains(newContent, clusterCA) {
-			continue
-		}
-		newContent += "\n" + clusterCA
-	}
-	newContent = strings.TrimSpace(newContent)
-	if strings.TrimSpace(content) == newContent && caBundleEnabled {
-		return nil
-	}
-
-	if err := unstructured.SetNestedField(values, newContent, "tls", "caBundle", "content"); err != nil {
-		return fmt.Errorf("failed to set tls.caBundle.content for cluster %s: %w", clusterName, err)
-	}
-	if err := unstructured.SetNestedField(values, true, "tls", "caBundle", "enabled"); err != nil {
-		return fmt.Errorf("failed to set tls.caBundle.enabled for cluster %s: %w", clusterName, err)
-	}
-
-	// Add an annotation to force the restart of the clustermesh-apiserver pods
-	// when the CA bundle is updated so that they pick up the new CA bundle for
-	// server-side TLS verification
-	if err := unstructured.SetNestedField(values, time.Now().Format(time.RFC3339), "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt"); err != nil {
-		return fmt.Errorf("failed to set clustermesh.apiserver.podAnnotations for cluster %s: %w", clusterName, err)
-	}
-
-	return nil
-}
-
-func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any, clustersCA map[string]string) error {
-	rel, err := getRelease(client, k.params)
+func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any) error {
+	release, err := getRelease(client, k.params)
 	if err != nil {
 		return err
 	}
@@ -1417,10 +1332,9 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	var clustersRaw any
 	clustersRaw = clusters
 
-	versionStr := rel.MetadataAsMap()["Version"].(string)
-	version, err := versioncheck.Version(versionStr)
+	version, err := versioncheck.Version(release.Chart.Metadata.Version)
 	if err != nil {
-		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", versionStr, client.ClusterName(), err)
+		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", release.Chart.Metadata.Version, client.ClusterName(), err)
 	}
 
 	// Reintroduce disabled clusters so that we don't change too much the existing clusters values
@@ -1433,23 +1347,15 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if versioncheck.MustCompile("<1.20.0")(version) {
 		clustersRaw = convertClustersToListClusterMesh(clusters)
 	}
-	err = setClustersInValues(rel, client, clustersRaw)
+	err = setClustersInValues(release, client, clustersRaw)
 	if err != nil {
 		return err
-	}
-
-	// Update CA bundle if CA are provided / any mismatching CA was detected
-	if len(clustersCA) > 0 {
-		err = updateCABundleInValues(client.ClusterName(), rel, clustersCA)
-		if err != nil {
-			return err
-		}
 	}
 
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   k.params.Namespace,
 		Name:        k.params.HelmReleaseName,
-		Values:      rel.Values(),
+		Values:      release.Config,
 		ResetValues: false,
 		ReuseValues: false,
 	}
@@ -1457,7 +1363,6 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -1570,18 +1475,18 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 
 		sem <- struct{}{}
 
-		go func(cn []string, rc *k8s.Client, helmVals, disabledClusters map[string]any, clustersCA map[string]string) {
+		go func(cn []string, rc *k8s.Client, helmVals, disabledClusters map[string]any) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			if err := k.connectSingleRemoteWithHelm(ctx, rc, cn, helmVals, disabledClusters, clustersCA); err != nil {
+			if err := k.connectSingleRemoteWithHelm(ctx, rc, cn, helmVals, disabledClusters); err != nil {
 				mu.Lock()
 				if firstErr == nil {
 					firstErr = err
 				}
 				mu.Unlock()
 			}
-		}(cn, remoteClient, clusters[aiClusterName], state.remoteOldDisabledClusters[aiClusterName], state.clustersCA)
+		}(cn, remoteClient, clusters[aiClusterName], state.remoteOldDisabledClusters[aiClusterName])
 	}
 
 	wg.Wait()
@@ -1589,11 +1494,11 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 	return firstErr
 }
 
-func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, clusters, disabledClusters map[string]any, clustersCA map[string]string) error {
+func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, clusters, disabledClusters map[string]any) error {
 	clusterNamesExceptRemote := removeStringFromSlice(remoteClient.ClusterName(), clusterNames)
 	k.Log("ℹ️ Configuring Cilium in cluster %s to connect to cluster %s",
 		remoteClient.ClusterName(), strings.Join(clusterNamesExceptRemote, ","))
-	err := k.helmUpgradeClusters(ctx, remoteClient, clusters, disabledClusters, clustersCA)
+	err := k.helmUpgradeClusters(ctx, remoteClient, clusters, disabledClusters)
 	if err != nil {
 		return err
 	}
@@ -1633,7 +1538,7 @@ func (k *K8sClusterMesh) retrieveRemoteClusters(ctx context.Context, remoteClien
 			return nil, nil, err
 		}
 		// Modify the clustermesh config to remove the intended cluster if any
-		remoteClusters, remoteDisabledClusters, err := removeFromClustermeshConfig(remoteRelease.Values(), remoteClusterNames)
+		remoteClusters, remoteDisabledClusters, err := removeFromClustermeshConfig(remoteRelease.Config, remoteClusterNames)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1670,7 +1575,7 @@ func (k *K8sClusterMesh) disconnectRemoteWithHelm(ctx context.Context, clusterNa
 		cn := k.valueOfFromClusterName(clusterName, remoteClient.ClusterName(), state.remoteClusterNames)
 		k.Log("ℹ️ Configuring Cilium in cluster %s to disconnect from cluster %s",
 			remoteClient.ClusterName(), cn)
-		err := k.helmUpgradeClusters(ctx, remoteClient, remoteClustersDelete[remoteClient], remoteDisabledClustersDelete[remoteClient], nil)
+		err := k.helmUpgradeClusters(ctx, remoteClient, remoteClustersDelete[remoteClient], remoteDisabledClustersDelete[remoteClient])
 		if err != nil {
 			return err
 		}
@@ -1707,7 +1612,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 
 	// Modify the clustermesh config to remove the intended cluster if any
 	var localClusters map[string]any
-	localClusters, clusterState.localDisabledClusters, err = removeFromClustermeshConfig(localRelease.Values(), clusterState.remoteClusterNamesAi)
+	localClusters, clusterState.localDisabledClusters, err = removeFromClustermeshConfig(localRelease.Config, clusterState.remoteClusterNamesAi)
 	if err != nil {
 		return err
 	}
@@ -1719,7 +1624,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 
 	k.Log("ℹ️ Configuring Cilium in cluster %s to disconnect from cluster %s",
 		localClient.ClusterName(), strings.Join(clusterState.remoteClusterNames, ","))
-	err = k.helmUpgradeClusters(ctx, localClient, localClusters, clusterState.localDisabledClusters, nil)
+	err = k.helmUpgradeClusters(ctx, localClient, localClusters, clusterState.localDisabledClusters)
 	if err != nil {
 		return err
 	}
@@ -1806,11 +1711,24 @@ func getClustersFromValues(values map[string]any) (map[string]any, map[string]an
 	return separateEnabledClusters(clusters)
 }
 
-func getCluster(ai *accessInformation) (string, map[string]any) {
+func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
 	remoteCluster := map[string]any{
 		"ips":  ai.ServiceIPs,
 		"port": ai.ServicePort,
 	}
+
+	// Only add TLS configuration if requested (probably because CA
+	// certs do not match among clusters). Note that this is a DEGRADED
+	// mode of operation in which client certificates will not be
+	// renewed automatically and cross-cluster Hubble does not operate.
+	if configTLS {
+		remoteCluster["tls"] = map[string]any{
+			"cert":   base64.StdEncoding.EncodeToString(ai.ClientCert),
+			"key":    base64.StdEncoding.EncodeToString(ai.ClientKey),
+			"caCert": base64.StdEncoding.EncodeToString(ai.CA),
+		}
+	}
+
 	return ai.ClusterName, remoteCluster
 }
 
@@ -1868,7 +1786,7 @@ func PolicyDefaultLocalClusterInspect(ctx context.Context, k8sClient *k8s.Client
 			return nil, fmt.Errorf("Error parsing network policies: %w", err)
 		}
 
-		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *types.PolicyEntry) bool { return a.DeepEqual(b) })
+		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
 	}
 
 	cnps, err := k8sClient.ListCiliumNetworkPolicies(ctx, namespace, metav1.ListOptions{})

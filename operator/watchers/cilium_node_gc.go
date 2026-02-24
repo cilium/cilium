@@ -5,7 +5,6 @@ package watchers
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -22,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -70,36 +68,23 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 // RunCiliumNodeGC performs garbage collector for cilium node resource
 func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodes resource.Resource[*cilium_v2.CiliumNode], interval time.Duration, logger *slog.Logger,
 	mp workqueue.MetricsProvider) {
-	var candidateStore *ciliumNodeGCCandidate
-	var ciliumNodeStore resource.Store[*cilium_v2.CiliumNode]
-	var err error
-	var shouldGC func(ctx context.Context, nodeName string, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-		nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, scopedLog *slog.Logger) (bool, error)
+	nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
 
-	if !option.Config.EnableCiliumNodeCRD {
-		logger.InfoContext(ctx, "Running one-off GC of CiliumNode CRD when disabled")
-		interval = 0
-		shouldGC = shouldGCNodeCRDDisabled
-	} else {
-		nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
-
-		// wait for k8s nodes synced is done
-		select {
-		case <-slimNodeStoreSynced:
-		case <-ctx.Done():
-			return
-		}
-
-		logger.InfoContext(ctx, "Starting to garbage collect stale CiliumNode custom resources")
-		candidateStore = newCiliumNodeGCCandidate()
-		shouldGC = shouldGCNode
+	// wait for k8s nodes synced is done
+	select {
+	case <-slimNodeStoreSynced:
+	case <-ctx.Done():
+		return
 	}
 
-	ciliumNodeStore, err = ciliumNodes.Store(ctx)
+	ciliumNodeStore, err := ciliumNodes.Store(ctx)
 	if err != nil {
 		return
 	}
 
+	logger.InfoContext(ctx, "Starting to garbage collect stale CiliumNode custom resources")
+
+	candidateStore := newCiliumNodeGCCandidate()
 	// create the controller to perform mark and sweep operation for cilium nodes
 	ctrlMgr.UpdateController("cilium-node-gc",
 		controller.ControllerParams{
@@ -107,7 +92,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
 				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,
-					nodeGetter{}, interval, candidateStore, logger, shouldGC)
+					nodeGetter{}, interval, candidateStore, logger)
 			},
 			RunInterval: interval,
 		},
@@ -121,89 +106,59 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 	}()
 }
 
-// Runs the garbage collection for CiliumNode resources, for both CiliumNode CRD enabled and disabled modes.
 func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, logger *slog.Logger,
-	shouldGCNodePred func(ctx context.Context, nodeName string, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-		nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, scopedLog *slog.Logger) (bool, error)) error {
-	var retErr error
+	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, logger *slog.Logger) error {
 	iter := ciliumNodeStore.IterKeys()
 	for iter.Next() {
 		key := iter.Key()
 		nodeName := key.Name
+
 		scopedLog := logger.With(logfields.NodeName, nodeName)
+		_, err := nodeGetter.GetK8sSlimNode(nodeName)
+		if err == nil {
+			scopedLog.DebugContext(ctx, "CiliumNode is valid, no garbage collection required")
+			continue
+		}
 
-		shouldGC, err := shouldGCNodePred(ctx, nodeName, ciliumNodeStore, nodeGetter, interval, candidateStore, scopedLog)
+		if !k8serrors.IsNotFound(err) {
+			scopedLog.ErrorContext(ctx, "Unable to fetch k8s node from store", logfields.Error, err)
+			return err
+		}
+
+		cn, _, err := ciliumNodeStore.GetByKey(key)
 		if err != nil {
-			retErr = errors.Join(retErr, err)
-			continue
+			scopedLog.ErrorContext(ctx, "Unable to fetch CiliumNode from store", logfields.Error, err)
+			return err
 		}
-		if !shouldGC {
+
+		// if there is owner references, let k8s handle garbage collection
+		if len(cn.GetOwnerReferences()) > 0 {
 			continue
 		}
 
-		scopedLog.InfoContext(ctx, "Perform GC for invalid CiliumNode")
-		err = client.Delete(ctx, nodeName, metav1.DeleteOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			scopedLog.ErrorContext(ctx, "Failed to delete invalid CiliumNode", logfields.Error, err)
-			retErr = errors.Join(retErr, err)
+		// The user explicitly requested to not GC this CiliumNode object.
+		if value, ok := cn.GetAnnotations()[skipGCAnnotationKey]; ok && strings.ToLower(value) == "true" {
 			continue
 		}
-		scopedLog.InfoContext(ctx, "CiliumNode is garbage collected successfully")
-		if candidateStore != nil {
+
+		lastMarkedTime, exists := candidateStore.Get(nodeName)
+		if !exists {
+			scopedLog.InfoContext(ctx, "Add CiliumNode to garbage collector candidates")
+			candidateStore.Add(nodeName)
+			continue
+		}
+
+		// only remove the node if last marked time is more than running interval
+		if lastMarkedTime.Before(time.Now().Add(-interval)) {
+			scopedLog.InfoContext(ctx, "Perform GC for invalid CiliumNode")
+			err = client.Delete(ctx, nodeName, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				scopedLog.ErrorContext(ctx, "Failed to delete invalid CiliumNode", logfields.Error, err)
+				return err
+			}
+			scopedLog.InfoContext(ctx, "CiliumNode is garbage collected successfully")
 			candidateStore.Delete(nodeName)
 		}
 	}
-	return retErr
-}
-
-// Returns whether the CiliumNode with the given name should be garbage collected. Predicate function for default CiliumNode GC.
-func shouldGCNode(ctx context.Context, nodeName string, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, scopedLog *slog.Logger) (bool, error) {
-	_, err := nodeGetter.GetK8sSlimNode(nodeName)
-	if err == nil {
-		scopedLog.DebugContext(ctx, "CiliumNode is valid, no garbage collection required")
-		return false, nil
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		scopedLog.ErrorContext(ctx, "Unable to fetch k8s node from store", logfields.Error, err)
-		return false, err
-	}
-
-	cn, _, err := ciliumNodeStore.GetByKey(resource.Key{Name: nodeName})
-	if err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to fetch CiliumNode from store", logfields.Error, err)
-		return false, err
-	}
-
-	// if there is owner references, let k8s handle garbage collection
-	if len(cn.GetOwnerReferences()) > 0 {
-		return false, nil
-	}
-
-	// The user explicitly requested to not GC this CiliumNode object.
-	if value, ok := cn.GetAnnotations()[skipGCAnnotationKey]; ok && strings.ToLower(value) == "true" {
-		return false, nil
-	}
-
-	lastMarkedTime, exists := candidateStore.Get(nodeName)
-	if !exists {
-		scopedLog.InfoContext(ctx, "Add CiliumNode to garbage collector candidates")
-		candidateStore.Add(nodeName)
-		return false, nil
-	}
-
-	// only remove the node if last marked time is more than running interval
-	if lastMarkedTime.Before(time.Now().Add(-interval)) {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-// Returns whether the CiliumNode with the given name should be garbage collected. Predicate function for one-off GC when CiliumNode CRD is disabled.
-func shouldGCNodeCRDDisabled(ctx context.Context, nodeName string, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-	nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, scopedLog *slog.Logger) (bool, error) {
-	return true, nil
+	return nil
 }

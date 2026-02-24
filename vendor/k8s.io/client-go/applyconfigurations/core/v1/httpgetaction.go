@@ -25,22 +25,11 @@ import (
 
 // HTTPGetActionApplyConfiguration represents a declarative configuration of the HTTPGetAction type for use
 // with apply.
-//
-// HTTPGetAction describes an action based on HTTP Get requests.
 type HTTPGetActionApplyConfiguration struct {
-	// Path to access on the HTTP server.
-	Path *string `json:"path,omitempty"`
-	// Name or number of the port to access on the container.
-	// Number must be in the range 1 to 65535.
-	// Name must be an IANA_SVC_NAME.
-	Port *intstr.IntOrString `json:"port,omitempty"`
-	// Host name to connect to, defaults to the pod IP. You probably want to set
-	// "Host" in httpHeaders instead.
-	Host *string `json:"host,omitempty"`
-	// Scheme to use for connecting to the host.
-	// Defaults to HTTP.
-	Scheme *corev1.URIScheme `json:"scheme,omitempty"`
-	// Custom headers to set in the request. HTTP allows repeated headers.
+	Path        *string                        `json:"path,omitempty"`
+	Port        *intstr.IntOrString            `json:"port,omitempty"`
+	Host        *string                        `json:"host,omitempty"`
+	Scheme      *corev1.URIScheme              `json:"scheme,omitempty"`
 	HTTPHeaders []HTTPHeaderApplyConfiguration `json:"httpHeaders,omitempty"`
 }
 

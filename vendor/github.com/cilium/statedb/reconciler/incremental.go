@@ -13,14 +13,16 @@ import (
 	"github.com/cilium/statedb"
 )
 
-// incremental is the shared context for incremental reconciliation and retries.
-type incremental[Obj comparable] struct {
+// incrementalRound is the shared context for incremental reconciliation and retries.
+type incrementalRound[Obj comparable] struct {
 	metrics        Metrics
 	moduleID       cell.FullModuleID
 	config         *config[Obj]
 	retries        *retries
 	primaryIndexer statedb.Indexer[Obj]
 	db             *statedb.DB
+	ctx            context.Context
+	txn            statedb.ReadTxn
 	table          statedb.RWTable[Obj]
 
 	// numReconciled counts the number of objects that have been reconciled in this
@@ -45,46 +47,48 @@ type opResult struct {
 	id       uint64 // the "pending" identifier
 }
 
-func (incr *incremental[Obj]) run(ctx context.Context, txn statedb.ReadTxn, changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) (errs []error, lastRev statedb.Revision, retryLowWatermark statedb.Revision) {
-	// Reconcile new and changed objects using either Operations
-	// or BatchOperations.
-	if incr.config.BatchOperations != nil {
-		lastRev = incr.batch(ctx, txn, changes)
-	} else {
-		lastRev = incr.single(ctx, txn, changes)
+func (r *reconciler[Obj]) incremental(ctx context.Context, txn statedb.ReadTxn, changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) []error {
+	round := incrementalRound[Obj]{
+		moduleID:       r.ModuleID,
+		metrics:        r.config.Metrics,
+		config:         &r.config,
+		retries:        r.retries,
+		primaryIndexer: r.primaryIndexer,
+		db:             r.DB,
+		ctx:            ctx,
+		txn:            txn,
+		table:          r.config.Table,
+		results:        make(map[Obj]opResult),
 	}
 
-	// Commit status updates for new and changed objects.
-	newErrors := incr.commitStatus()
-	clear(incr.results)
+	// Reconcile new and changed objects using either Operations
+	// or BatchOperations.
+	if r.config.BatchOperations != nil {
+		round.batch(changes)
+	} else {
+		round.single(changes)
+	}
 
 	// Process objects that need to be retried that were not cleared.
-	retryLowWatermark = incr.processRetries(ctx, txn)
+	round.processRetries()
 
-	// Finally commit the status updates from retries.
-	newErrors += incr.commitStatus()
+	// Finally commit the status updates.
+	newErrors := round.commitStatus()
 
 	// Since all failures are retried, we can return the errors from the retry
 	// queue which includes both errors occurred in this round and the old
 	// errors.
-	errs = incr.retries.errors()
-	incr.metrics.ReconciliationErrors(incr.moduleID, newErrors, len(errs))
-
-	// Prepare for next round.
-	incr.numReconciled = 0
-	clear(incr.results)
-
-	return errs, lastRev, retryLowWatermark
+	errs := round.retries.errors()
+	round.metrics.ReconciliationErrors(r.ModuleID, newErrors, len(errs))
+	return errs
 }
 
-func (incr *incremental[Obj]) single(ctx context.Context, txn statedb.ReadTxn, changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) (lastRev statedb.Revision) {
+func (round *incrementalRound[Obj]) single(changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) {
 	// Iterate in revision order through new and changed objects.
 	for change, rev := range changes {
-		lastRev = rev
-
 		obj := change.Object
 
-		status := incr.config.GetObjectStatus(obj)
+		status := round.config.GetObjectStatus(obj)
 		if !change.Deleted && !status.IsPendingOrRefreshing() {
 			// Only process objects that are pending reconciliation, e.g.
 			// changed from outside.
@@ -93,29 +97,25 @@ func (incr *incremental[Obj]) single(ctx context.Context, txn statedb.ReadTxn, c
 		}
 
 		// Clear retries as the object has changed.
-		incr.retries.Clear(obj)
+		round.retries.Clear(obj)
 
-		incr.processSingle(ctx, txn, obj, rev, change.Deleted)
-		incr.numReconciled++
-		if incr.numReconciled >= incr.config.IncrementalRoundSize {
+		round.processSingle(obj, rev, change.Deleted)
+		round.numReconciled++
+		if round.numReconciled >= round.config.IncrementalRoundSize {
 			break
 		}
 	}
-
-	return
 }
 
-func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) (lastRev statedb.Revision) {
-	ops := incr.config.BatchOperations
+func (round *incrementalRound[Obj]) batch(changes iter.Seq2[statedb.Change[Obj], statedb.Revision]) {
+	ops := round.config.BatchOperations
 	updateBatch := []BatchEntry[Obj]{}
 	deleteBatch := []BatchEntry[Obj]{}
 
 	for change, rev := range changes {
-		lastRev = rev
-
 		obj := change.Object
 
-		status := incr.config.GetObjectStatus(obj)
+		status := round.config.GetObjectStatus(obj)
 		if !change.Deleted && !status.IsPendingOrRefreshing() {
 			// Only process objects that are pending reconciliation, e.g.
 			// changed from outside.
@@ -124,11 +124,11 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 		}
 
 		// Clear an existing retry as the object has changed.
-		incr.retries.Clear(obj)
+		round.retries.Clear(obj)
 
 		// Clone the object so we or the operations can mutate it.
 		orig := obj
-		obj = incr.config.CloneObject(obj)
+		obj = round.config.CloneObject(obj)
 
 		if change.Deleted {
 			deleteBatch = append(deleteBatch, BatchEntry[Obj]{Object: obj, Revision: rev, original: orig})
@@ -136,8 +136,8 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 			updateBatch = append(updateBatch, BatchEntry[Obj]{Object: obj, Revision: rev, original: orig})
 		}
 
-		incr.numReconciled++
-		if incr.numReconciled >= incr.config.IncrementalRoundSize {
+		round.numReconciled++
+		if round.numReconciled >= round.config.IncrementalRoundSize {
 			break
 		}
 	}
@@ -145,16 +145,16 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 	// Process the delete batch first to make room.
 	if len(deleteBatch) > 0 {
 		start := time.Now()
-		ops.DeleteBatch(ctx, txn, deleteBatch)
-		incr.metrics.ReconciliationDuration(
-			incr.moduleID,
+		ops.DeleteBatch(round.ctx, round.txn, deleteBatch)
+		round.metrics.ReconciliationDuration(
+			round.moduleID,
 			OpDelete,
 			time.Since(start),
 		)
 		for _, entry := range deleteBatch {
 			if entry.Result != nil {
 				// Delete failed, queue a retry for it.
-				incr.retries.Add(entry.original, entry.Revision, entry.Revision, true, entry.Result)
+				round.retries.Add(entry.original, entry.Revision, true, entry.Result)
 			}
 		}
 	}
@@ -162,40 +162,37 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 	// And then the update batch.
 	if len(updateBatch) > 0 {
 		start := time.Now()
-		ops.UpdateBatch(ctx, txn, updateBatch)
-		incr.metrics.ReconciliationDuration(
-			incr.moduleID,
+		ops.UpdateBatch(round.ctx, round.txn, updateBatch)
+		round.metrics.ReconciliationDuration(
+			round.moduleID,
 			OpUpdate,
 			time.Since(start),
 		)
 
 		for _, entry := range updateBatch {
-			status := incr.config.GetObjectStatus(entry.Object)
+			status := round.config.GetObjectStatus(entry.Object)
 			if entry.Result == nil {
-				incr.retries.Clear(entry.Object)
+				round.retries.Clear(entry.Object)
 			}
-			incr.results[entry.Object] = opResult{rev: entry.Revision, id: status.ID, err: entry.Result, original: entry.original}
+			round.results[entry.Object] = opResult{rev: entry.Revision, id: status.ID, err: entry.Result, original: entry.original}
 		}
 	}
-
-	return
 }
 
-func (incr *incremental[Obj]) processRetries(ctx context.Context, txn statedb.ReadTxn) statedb.Revision {
+func (round *incrementalRound[Obj]) processRetries() {
 	now := time.Now()
-	for incr.numReconciled < incr.config.IncrementalRoundSize {
-		item, ok := incr.retries.Top()
+	for round.numReconciled < round.config.IncrementalRoundSize {
+		item, ok := round.retries.Top()
 		if !ok || item.retryAt.After(now) {
 			break
 		}
-		incr.retries.Pop()
-		incr.processSingle(ctx, txn, item.object.(Obj), item.rev, item.delete)
-		incr.numReconciled++
+		round.retries.Pop()
+		round.processSingle(item.object.(Obj), item.rev, item.delete)
+		round.numReconciled++
 	}
-	return incr.retries.LowWatermark()
 }
 
-func (incr *incremental[Obj]) processSingle(ctx context.Context, txn statedb.ReadTxn, obj Obj, rev statedb.Revision, delete bool) {
+func (round *incrementalRound[Obj]) processSingle(obj Obj, rev statedb.Revision, delete bool) {
 	start := time.Now()
 
 	var (
@@ -204,38 +201,38 @@ func (incr *incremental[Obj]) processSingle(ctx context.Context, txn statedb.Rea
 	)
 	if delete {
 		op = OpDelete
-		err = incr.config.Operations.Delete(ctx, txn, rev, obj)
+		err = round.config.Operations.Delete(round.ctx, round.txn, rev, obj)
 		if err != nil {
 			// Deletion failed. Retry again later.
-			incr.retries.Add(obj, rev, rev, true, err)
+			round.retries.Add(obj, rev, true, err)
 		}
 	} else {
 		// Clone the object so it can be mutated by Update()
 		orig := obj
-		obj = incr.config.CloneObject(obj)
+		obj = round.config.CloneObject(obj)
 		op = OpUpdate
-		err = incr.config.Operations.Update(ctx, txn, rev, obj)
-		status := incr.config.GetObjectStatus(obj)
-		incr.results[obj] = opResult{original: orig, id: status.ID, rev: rev, err: err}
+		err = round.config.Operations.Update(round.ctx, round.txn, rev, obj)
+		status := round.config.GetObjectStatus(obj)
+		round.results[obj] = opResult{original: orig, id: status.ID, rev: rev, err: err}
 	}
-	incr.metrics.ReconciliationDuration(incr.moduleID, op, time.Since(start))
+	round.metrics.ReconciliationDuration(round.moduleID, op, time.Since(start))
 
 	if err == nil {
-		incr.retries.Clear(obj)
+		round.retries.Clear(obj)
 	}
 }
 
-func (incr *incremental[Obj]) commitStatus() (numErrors int) {
-	if len(incr.results) == 0 {
+func (round *incrementalRound[Obj]) commitStatus() (numErrors int) {
+	if len(round.results) == 0 {
 		// Nothing to commit.
 		return
 	}
 
-	wtxn := incr.db.WriteTxn(incr.table)
+	wtxn := round.db.WriteTxn(round.table)
 	defer wtxn.Commit()
 
 	// Commit status for updated objects.
-	for obj, result := range incr.results {
+	for obj, result := range round.results {
 		// Update the object if it is unchanged. It may happen that the object has
 		// been updated in the meanwhile, in which case we skip updating the status
 		// and reprocess the object on the next round.
@@ -248,7 +245,7 @@ func (incr *incremental[Obj]) commitStatus() (numErrors int) {
 			numErrors++
 		}
 
-		current, exists, err := incr.table.CompareAndSwap(wtxn, result.rev, incr.config.SetObjectStatus(obj, status))
+		current, exists, err := round.table.CompareAndSwap(wtxn, result.rev, round.config.SetObjectStatus(obj, status))
 		if errors.Is(err, statedb.ErrRevisionNotEqual) && exists {
 			// The object had changed. Check if the pending status still carries the same
 			// identifier and if so update the object. This is an optimization for supporting
@@ -258,19 +255,19 @@ func (incr *incremental[Obj]) commitStatus() (numErrors int) {
 			// The limitation of this approach is that we cannot support the reconciler
 			// modifying the object during reconciliation as the following will forget
 			// the changes.
-			currentStatus := incr.config.GetObjectStatus(current)
+			currentStatus := round.config.GetObjectStatus(current)
 			if currentStatus.Kind == StatusKindPending && currentStatus.ID == result.id {
-				current = incr.config.CloneObject(current)
-				current = incr.config.SetObjectStatus(current, status)
-				incr.table.Insert(wtxn, current)
+				current = round.config.CloneObject(current)
+				current = round.config.SetObjectStatus(current, status)
+				round.table.Insert(wtxn, current)
 			}
 		}
 
 		if result.err != nil && err == nil {
 			// Reconciliation of the object had failed and the status was updated
 			// successfully (object had not changed). Queue the retry for the object.
-			newRevision := incr.table.Revision(wtxn)
-			incr.retries.Add(result.original.(Obj), newRevision, result.rev, false, result.err)
+			newRevision := round.table.Revision(wtxn)
+			round.retries.Add(result.original.(Obj), newRevision, false, result.err)
 		}
 	}
 	return

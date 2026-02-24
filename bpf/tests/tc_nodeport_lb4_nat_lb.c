@@ -38,7 +38,8 @@
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
-static volatile const __u8 *lb_mac = mac_host;
+/* this matches the default node_config.h: */
+static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *remote_backend_mac = mac_five;
@@ -157,9 +158,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
-
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as ENABLE_HOST_ROUTING is set)
@@ -262,8 +260,8 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
-	if (l4->check != bpf_htons(0x3771))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
+	if (l4->check != bpf_htons(0xd7d0))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -355,8 +353,8 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x6149))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6149));
+	if (l4->check != bpf_htons(0x01a9))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -450,8 +448,8 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
-	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+	if (l4->check != bpf_htons(0xcccf))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -545,8 +543,8 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
 
-	if (l4->check != bpf_htons(0x2c70))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x2c70));
+	if (l4->check != bpf_htons(0xcccf))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -648,7 +646,7 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been NATed to backend port");
 
 	if (l4->check != bpf_htons(0x699a))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x699a));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -822,8 +820,8 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port hasn't been RevNATed to client port");
 
-	if (l4->check != bpf_htons(0x6148))
-		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x6148));
+	if (l4->check != bpf_htons(0x1a8))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }

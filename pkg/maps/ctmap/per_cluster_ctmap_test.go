@@ -27,6 +27,7 @@ func setup(tb testing.TB) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
+
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -46,6 +47,7 @@ func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapLookup(b *testing.B) {
+
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -130,7 +132,7 @@ func TestPrivilegedPerClusterCTMaps(t *testing.T) {
 
 	// Basic get all
 	ims := maps.GetAllClusterCTMaps()
-	require.Len(t, ims, 4, "Retrieved an unexpected number of maps")
+	require.Len(t, ims, 8, "Retrieved an unexpected number of maps")
 
 	// Basic delete
 	require.NoError(t, maps.DeleteClusterCTMaps(1), "Failed to delete maps")
@@ -172,20 +174,20 @@ func TestPrivilegedPerClusterCTMapsCleanup(t *testing.T) {
 		{
 			name:    "IPv4",
 			ipv4:    true,
-			present: []mapType{mapTypeIPv6TCPGlobal},
-			absent:  []mapType{mapTypeIPv4TCPGlobal},
+			present: []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			absent:  []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
 		},
 		{
 			name:    "IPv6",
 			ipv6:    true,
-			present: []mapType{mapTypeIPv4TCPGlobal},
-			absent:  []mapType{mapTypeIPv6TCPGlobal},
+			present: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
+			absent:  []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
 		},
 		{
 			name:   "dual",
 			ipv4:   true,
 			ipv6:   true,
-			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal},
+			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
 		},
 	}
 

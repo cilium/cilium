@@ -32,8 +32,7 @@ type params struct {
 
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 
-	Registry         *metrics.Registry
-	TLSConfigPromise metrics.TLSConfigPromise
+	Registry *metrics.Registry
 }
 
 // Note: metrics are always initialized so we have access to sampler ring buffer data
@@ -80,5 +79,5 @@ func initializeMetrics(p params) {
 	p.Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
 
-	p.Registry.AddServerRuntimeHooks("operator-prometheus-server", p.TLSConfigPromise)
+	p.Registry.AddServerRuntimeHooks()
 }

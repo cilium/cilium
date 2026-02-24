@@ -7,7 +7,6 @@
 package socket // import "golang.org/x/net/internal/socket"
 
 import (
-	"encoding/binary"
 	"errors"
 	"net"
 	"runtime"
@@ -59,7 +58,7 @@ func (o *Option) GetInt(c *Conn) (int, error) {
 	if o.Len == 1 {
 		return int(b[0]), nil
 	}
-	return int(binary.NativeEndian.Uint32(b[:4])), nil
+	return int(NativeEndian.Uint32(b[:4])), nil
 }
 
 // Set writes the option and value to the kernel.
@@ -85,7 +84,7 @@ func (o *Option) SetInt(c *Conn, v int) error {
 		b = []byte{byte(v)}
 	} else {
 		var bb [4]byte
-		binary.NativeEndian.PutUint32(bb[:o.Len], uint32(v))
+		NativeEndian.PutUint32(bb[:o.Len], uint32(v))
 		b = bb[:4]
 	}
 	return o.set(c, b)

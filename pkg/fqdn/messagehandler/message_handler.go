@@ -27,16 +27,13 @@ import (
 )
 
 const (
-	upstreamTime      = "upstreamTime"
-	processingTime    = "processingTime"
-	semaphoreTime     = "semaphoreTime"
-	policyCheckTime   = "policyCheckTime"
-	policyGenTime     = "policyGenerationTime"
-	qnameLockTime     = "qnameLockTime"
-	updateEpCacheTime = "updateEpCacheTime"
-	updateNmCacheTime = "updateNmCacheTime"
-	dataplaneTime     = "dataplaneTime"
-	totalTime         = "totalTime"
+	upstreamTime    = "upstreamTime"
+	processingTime  = "processingTime"
+	semaphoreTime   = "semaphoreTime"
+	policyCheckTime = "policyCheckTime"
+	policyGenTime   = "policyGenerationTime"
+	dataplaneTime   = "dataplaneTime"
+	totalTime       = "totalTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -143,12 +140,6 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 			stat.SemaphoreAcquireTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
 			stat.PolicyGenerationTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, qnameLockTime).Observe(
-			stat.QnameLockTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, updateEpCacheTime).Observe(
-			stat.UpdateEpCacheTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, updateNmCacheTime).Observe(
-			stat.UpdateNmCacheTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
@@ -232,7 +223,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
-	record, err := h.proxyAccessLogger.NewLogRecord(context.Background(), flowType, false,
+	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -249,10 +240,6 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 			AnswerTypes:       recordTypes,
 		}),
 	)
-	if err != nil {
-		return fmt.Errorf("failed create log record: %w", err)
-	}
-
 	h.proxyAccessLogger.Log(record)
 
 	return nil
@@ -297,9 +284,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	// We do not do a `defer unlock()` here, as we should release the lock before
 	// doing final bookkeeping.
 	mutexAcquireStart := time.Now()
-	stat.QnameLockTime.Start()
 	h.nameManager.LockName(qname)
-	stat.QnameLockTime.End(true)
 
 	if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
 		h.logger.Warn(fmt.Sprintf("Name lock acquisition time took longer than expected. Potentially too many parallel DNS requests being processed, consider adjusting --%s and/or --%s", option.DNSProxyLockCount, option.DNSProxyLockTimeout),
@@ -318,14 +303,10 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	// consistent if a regeneration happens between the two steps. If an update
 	// doesn't happen in the case, we play it safe and don't purge the zombie
 	// in case of races.
-	stat.UpdateEpCacheTime.Start()
-	if res := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); res.Updated {
-		if res.Upserted {
-			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
-		}
+	if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+		ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 		ep.SyncEndpointHeaderFile()
 	}
-	stat.UpdateEpCacheTime.End(true)
 
 	h.logger.Debug("Updating DNS name in cache from response to query",
 		logfields.DNSName, qname,
@@ -336,12 +317,10 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	defer updateCancel()
 	updateStart := time.Now()
 
-	stat.UpdateNmCacheTime.Start()
 	dpUpdates := h.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
 		IPs: responseIPs,
 		TTL: int(TTL),
-	}, ep.DNSHistory)
-	stat.UpdateNmCacheTime.End(true)
+	})
 
 	stat.PolicyGenerationTime.End(true)
 	stat.DataplaneTime.Start()

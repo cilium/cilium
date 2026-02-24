@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"sync"
-	"sync/atomic"
 
 	"github.com/blang/semver/v4"
 	"github.com/prometheus/client_golang/prometheus"
@@ -66,8 +65,8 @@ with the kubeCollector itself as an argument.
 */
 type lazyMetric struct {
 	fqName              string
-	isDeprecated        atomic.Bool
-	isHidden            atomic.Bool
+	isDeprecated        bool
+	isHidden            bool
 	isCreated           bool
 	createLock          sync.RWMutex
 	markDeprecationOnce sync.Once
@@ -100,39 +99,41 @@ func (r *lazyMetric) lazyInit(self kubeCollector, fqName string) {
 // Disclaimer:  disabling a metric via a CLI flag has higher precedence than
 // deprecation and will override show-hidden-metrics for the explicitly
 // disabled metric.
-func (r *lazyMetric) preprocessMetric(currentVersion semver.Version) {
+func (r *lazyMetric) preprocessMetric(version semver.Version) {
 	disabledMetricsLock.RLock()
 	defer disabledMetricsLock.RUnlock()
 	// disabling metrics is higher in precedence than showing hidden metrics
 	if _, ok := disabledMetrics[r.fqName]; ok {
-		r.isHidden.Store(true)
+		r.isHidden = true
 		return
 	}
-	deprecatedVersion := r.self.DeprecatedVersion()
-	if deprecatedVersion == nil {
+	selfVersion := r.self.DeprecatedVersion()
+	if selfVersion == nil {
 		return
 	}
 	r.markDeprecationOnce.Do(func() {
-		r.isDeprecated.Store(isDeprecated(currentVersion, *deprecatedVersion))
+		if selfVersion.LTE(version) {
+			r.isDeprecated = true
+		}
 
-		if shouldHide(r.stabilityLevel, &currentVersion, deprecatedVersion) {
-			if shouldShowHidden() {
-				klog.Warningf("Hidden metrics (%s) have been manually overridden, showing this very deprecated metric.", r.fqName)
-				return
-			}
+		if ShouldShowHidden() {
+			klog.Warningf("Hidden metrics (%s) have been manually overridden, showing this very deprecated metric.", r.fqName)
+			return
+		}
+		if shouldHide(&version, selfVersion) {
 			// TODO(RainbowMango): Remove this log temporarily. https://github.com/kubernetes/kubernetes/issues/85369
 			// klog.Warningf("This metric has been deprecated for more than one release, hiding.")
-			r.isHidden.Store(true)
+			r.isHidden = true
 		}
 	})
 }
 
 func (r *lazyMetric) IsHidden() bool {
-	return r.isHidden.Load()
+	return r.isHidden
 }
 
 func (r *lazyMetric) IsDeprecated() bool {
-	return r.isDeprecated.Load()
+	return r.isDeprecated
 }
 
 // Create forces the initialization of metric which has been deferred until
@@ -175,8 +176,8 @@ func (r *lazyMetric) ClearState() {
 	r.createLock.Lock()
 	defer r.createLock.Unlock()
 
-	r.isDeprecated.Store(false)
-	r.isHidden.Store(false)
+	r.isDeprecated = false
+	r.isHidden = false
 	r.isCreated = false
 	r.markDeprecationOnce = sync.Once{}
 	r.createOnce = sync.Once{}
@@ -207,6 +208,11 @@ func (c *selfCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c *selfCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- c.metric
+}
+
+// metricWithExemplar is an interface that knows how to attach an exemplar to certain supported metric types.
+type metricWithExemplar interface {
+	withExemplar(v float64)
 }
 
 // no-op vecs for convenience

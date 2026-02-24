@@ -43,9 +43,11 @@ can find binaries from the `CNI project releases page <https://github.com/contai
 
 Deploy Cilium release via Helm:
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: cni.chainingMode=portmap
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+      --namespace=kube-system \\
+      --set cni.chainingMode=portmap
 
 .. note::
 

@@ -32,6 +32,7 @@ func NewGetEndpointParams() GetEndpointParams {
 //
 // swagger:parameters GetEndpoint
 type GetEndpointParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -52,9 +53,7 @@ func (o *GetEndpointParams) BindRequest(r *http.Request, route *middleware.Match
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		defer r.Body.Close()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("labels", "body", "", err))

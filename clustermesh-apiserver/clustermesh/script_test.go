@@ -24,7 +24,7 @@ import (
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -34,12 +34,20 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
+	// Catch any leaked goroutines. Ignoring goroutines possibly left by other tests.
+	t.Cleanup(func() {
+		testutils.GoleakVerifyNone(t,
+			testutils.GoleakIgnoreCurrent(),
+		)
+	})
+
 	version.Force(k8sTestutils.DefaultVersion)
 
 	var opts []hivetest.LogOption
@@ -50,11 +58,11 @@ func TestScript(t *testing.T) {
 	log := hivetest.Logger(t, opts...)
 
 	setup := func(t testing.TB, args []string) *script.Engine {
-		storeFactory := store.NewFactory(log, store.MetricsProvider())
+		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 
 		h := hive.New(
 			cell.Config(cmtypes.DefaultClusterInfo),
-			cell.Config(mcsapitypes.DefaultMCSAPIConfig),
+			cell.Config(operator.MCSAPIConfig{}),
 			cell.Invoke(cmtypes.ClusterInfo.Validate),
 
 			k8sClient.FakeClientCell(),

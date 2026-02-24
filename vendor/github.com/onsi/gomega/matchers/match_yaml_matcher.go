@@ -5,22 +5,22 @@ import (
 	"strings"
 
 	"github.com/onsi/gomega/format"
-	"go.yaml.in/yaml/v3"
+	"gopkg.in/yaml.v3"
 )
 
 type MatchYAMLMatcher struct {
-	YAMLToMatch      any
-	firstFailurePath []any
+	YAMLToMatch      interface{}
+	firstFailurePath []interface{}
 }
 
-func (matcher *MatchYAMLMatcher) Match(actual any) (success bool, err error) {
+func (matcher *MatchYAMLMatcher) Match(actual interface{}) (success bool, err error) {
 	actualString, expectedString, err := matcher.toStrings(actual)
 	if err != nil {
 		return false, err
 	}
 
-	var aval any
-	var eval any
+	var aval interface{}
+	var eval interface{}
 
 	if err := yaml.Unmarshal([]byte(actualString), &aval); err != nil {
 		return false, fmt.Errorf("Actual '%s' should be valid YAML, but it is not.\nUnderlying error:%s", actualString, err)
@@ -34,23 +34,23 @@ func (matcher *MatchYAMLMatcher) Match(actual any) (success bool, err error) {
 	return equal, nil
 }
 
-func (matcher *MatchYAMLMatcher) FailureMessage(actual any) (message string) {
+func (matcher *MatchYAMLMatcher) FailureMessage(actual interface{}) (message string) {
 	actualString, expectedString, _ := matcher.toNormalisedStrings(actual)
 	return formattedMessage(format.Message(actualString, "to match YAML of", expectedString), matcher.firstFailurePath)
 }
 
-func (matcher *MatchYAMLMatcher) NegatedFailureMessage(actual any) (message string) {
+func (matcher *MatchYAMLMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	actualString, expectedString, _ := matcher.toNormalisedStrings(actual)
 	return formattedMessage(format.Message(actualString, "not to match YAML of", expectedString), matcher.firstFailurePath)
 }
 
-func (matcher *MatchYAMLMatcher) toNormalisedStrings(actual any) (actualFormatted, expectedFormatted string, err error) {
+func (matcher *MatchYAMLMatcher) toNormalisedStrings(actual interface{}) (actualFormatted, expectedFormatted string, err error) {
 	actualString, expectedString, err := matcher.toStrings(actual)
 	return normalise(actualString), normalise(expectedString), err
 }
 
 func normalise(input string) string {
-	var val any
+	var val interface{}
 	err := yaml.Unmarshal([]byte(input), &val)
 	if err != nil {
 		panic(err) // unreachable since Match already calls Unmarshal
@@ -62,7 +62,7 @@ func normalise(input string) string {
 	return strings.TrimSpace(string(output))
 }
 
-func (matcher *MatchYAMLMatcher) toStrings(actual any) (actualFormatted, expectedFormatted string, err error) {
+func (matcher *MatchYAMLMatcher) toStrings(actual interface{}) (actualFormatted, expectedFormatted string, err error) {
 	actualString, ok := toString(actual)
 	if !ok {
 		return "", "", fmt.Errorf("MatchYAMLMatcher matcher requires a string, stringer, or []byte.  Got actual:\n%s", format.Object(actual, 1))

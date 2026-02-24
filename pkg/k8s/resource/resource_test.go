@@ -112,10 +112,9 @@ func TestResource_WithFakeClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	curr, err := fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Create(
+	fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Create(
 		ctx,
 		node.DeepCopy(), metav1.CreateOptions{})
-	require.NoError(t, err, "Nodes.Create")
 
 	hive := hive.New(
 		cell.Provide(func() k8sClient.Clientset { return cs }),
@@ -159,12 +158,11 @@ func TestResource_WithFakeClient(t *testing.T) {
 
 	// Update the node and check the update event
 	node.Status.Phase = "update1"
-	node.ObjectMeta.ResourceVersion = curr.ResourceVersion
+	node.ObjectMeta.ResourceVersion = "1"
 
-	curr, err = fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
+	fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
 		ctx,
 		node.DeepCopy(), metav1.UpdateOptions{})
-	require.NoError(t, err, "Nodes.Update")
 
 	ev, ok = <-events
 	require.True(t, ok, "events channel closed unexpectedly")
@@ -195,12 +193,10 @@ func TestResource_WithFakeClient(t *testing.T) {
 		for i := 2; i <= 10; i++ {
 			node.Status.Phase = corev1.NodePhase(fmt.Sprintf("update%d", i))
 			node.ObjectMeta.Generation = int64(i)
-			node.ObjectMeta.ResourceVersion = curr.ResourceVersion
 
-			curr, err = fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
+			fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Update(
 				ctx,
 				node.DeepCopy(), metav1.UpdateOptions{})
-			require.NoError(t, err, "Nodes.Update")
 			ev2, ok := <-events2
 			require.True(t, ok, "events channel closed unexpectedly")
 			require.Equal(t, resource.Upsert, ev2.Kind)
@@ -258,8 +254,7 @@ func TestResource_WithFakeClient(t *testing.T) {
 }
 
 type createsAndDeletesListerWatcher struct {
-	events   chan watch.Event
-	stopOnce sync.Once
+	events chan watch.Event
 }
 
 func (lw *createsAndDeletesListerWatcher) ResultChan() <-chan watch.Event {
@@ -267,9 +262,7 @@ func (lw *createsAndDeletesListerWatcher) ResultChan() <-chan watch.Event {
 }
 
 func (lw *createsAndDeletesListerWatcher) Stop() {
-	lw.stopOnce.Do(func() {
-		close(lw.events)
-	})
+	close(lw.events)
 }
 
 func (*createsAndDeletesListerWatcher) List(options metav1.ListOptions) (k8sRuntime.Object, error) {
@@ -277,24 +270,6 @@ func (*createsAndDeletesListerWatcher) List(options metav1.ListOptions) (k8sRunt
 }
 
 func (lw *createsAndDeletesListerWatcher) Watch(options metav1.ListOptions) (watch.Interface, error) {
-	// Support WatchList semantics: if SendInitialEvents is true, send a bookmark
-	// event to signal the end of the initial events stream.
-	if options.SendInitialEvents != nil && *options.SendInitialEvents {
-		// Send bookmark asynchronously so we return the watch interface first
-		go func() {
-			lw.events <- watch.Event{
-				Type: watch.Bookmark,
-				Object: &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						ResourceVersion: "0",
-						Annotations: map[string]string{
-							metav1.InitialEventsAnnotationKey: "true",
-						},
-					},
-				},
-			}
-		}()
-	}
 	return lw, nil
 }
 

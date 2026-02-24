@@ -358,18 +358,18 @@ func (o *IntOptions) getFmtOpt(name string) string {
 }
 
 func (o *IntOptions) GetFmtList() string {
-	var txt strings.Builder
+	txt := ""
 
 	o.optsMU.RLock()
 	for _, k := range slices.Sorted(maps.Keys(o.opts)) {
 		def := o.getFmtOpt(k)
 		if def != "" {
-			txt.WriteString(def + "\n")
+			txt += def + "\n"
 		}
 	}
 	o.optsMU.RUnlock()
 
-	return txt.String()
+	return txt
 }
 
 func (o *IntOptions) Dump() {

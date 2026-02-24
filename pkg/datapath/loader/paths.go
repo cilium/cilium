@@ -10,7 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // bpffsDevicesDir returns the path to the 'devices' directory on bpffs, usually
@@ -73,14 +72,4 @@ func bpffsEndpointDir(base string, ep datapath.Endpoint) string {
 // during tests.
 func bpffsEndpointLinksDir(base string, ep datapath.Endpoint) string {
 	return filepath.Join(bpffsEndpointDir(base, ep), "links")
-}
-
-// bpfStateDeviceDir returns the path to the per-device directory in the Cilium
-// state directory, usually /var/run/cilium/bpf/<device>. It does not ensure the
-// directory exists.
-func bpfStateDeviceDir(device string) string {
-	if device == "" {
-		return ""
-	}
-	return filepath.Join(option.Config.StateDir, "bpf", device)
 }

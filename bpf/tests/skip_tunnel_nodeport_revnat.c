@@ -74,6 +74,7 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/lb.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+#include "lib/policy.h"
 #include "lib/clear.h"
 
 /*
@@ -83,9 +84,6 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/conntrack.h"
 #include "lib/nat.h"
 #include "lib/nodeport.h"
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)
@@ -137,6 +135,8 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
 	clear_map(get_cluster_snat_map_v6(0));
+
+	policy_add_egress_allow_all_entry();
 
 	if (v4) {
 		/*

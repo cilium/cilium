@@ -24,14 +24,9 @@ import (
 
 // ServiceStatusApplyConfiguration represents a declarative configuration of the ServiceStatus type for use
 // with apply.
-//
-// ServiceStatus represents the current status of a service.
 type ServiceStatusApplyConfiguration struct {
-	// LoadBalancer contains the current status of the load-balancer,
-	// if one is present.
 	LoadBalancer *LoadBalancerStatusApplyConfiguration `json:"loadBalancer,omitempty"`
-	// Current service state
-	Conditions []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
+	Conditions   []metav1.ConditionApplyConfiguration  `json:"conditions,omitempty"`
 }
 
 // ServiceStatusApplyConfiguration constructs a declarative configuration of the ServiceStatus type for use with

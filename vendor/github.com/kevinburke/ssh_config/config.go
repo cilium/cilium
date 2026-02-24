@@ -24,6 +24,9 @@
 //
 //	// Write the cfg back to disk:
 //	fmt.Println(cfg.String())
+//
+// BUG: the Match directive is currently unsupported; parsing a config with
+// a Match directive will trigger an error.
 package ssh_config
 
 import (
@@ -40,7 +43,7 @@ import (
 	"sync"
 )
 
-const version = "1.6.0"
+const version = "1.4.0"
 
 var _ = version
 
@@ -385,6 +388,9 @@ func (c *Config) Get(alias, key string) (string, error) {
 			case *KV:
 				// "keys are case insensitive" per the spec
 				lkey := strings.ToLower(t.Key)
+				if lkey == "match" {
+					panic("can't handle Match directives")
+				}
 				if lkey == lowerKey {
 					return t.Value, nil
 				}
@@ -417,6 +423,9 @@ func (c *Config) GetAll(alias, key string) ([]string, error) {
 			case *KV:
 				// "keys are case insensitive" per the spec
 				lkey := strings.ToLower(t.Key)
+				if lkey == "match" {
+					panic("can't handle Match directives")
+				}
 				if lkey == lowerKey {
 					all = append(all, t.Value)
 				}
@@ -461,9 +470,6 @@ type Pattern struct {
 
 // String prints the string representation of the pattern.
 func (p Pattern) String() string {
-	if p.not {
-		return "!" + p.str
-	}
 	return p.str
 }
 
@@ -522,7 +528,7 @@ func NewPattern(s string) (*Pattern, error) {
 	return &Pattern{str: s, regex: r, not: negated}, nil
 }
 
-// Host describes a Host or Match directive and the keywords that follow it.
+// Host describes a Host directive and the keywords that follow it.
 type Host struct {
 	// A list of host patterns that should match this host.
 	Patterns []*Pattern
@@ -537,11 +543,6 @@ type Host struct {
 	leadingSpace int // TODO: handle spaces vs tabs here.
 	// The file starts with an implicit "Host *" declaration.
 	implicit bool
-	// isMatch is true if this block was created by a Match directive.
-	isMatch bool
-	// matchKeyword stores the original text after "Match" (e.g. "Host" or
-	// "all") so we can round-trip correctly.
-	matchKeyword string
 }
 
 // Matches returns true if the Host matches for the given alias. For
@@ -573,43 +574,20 @@ func (h *Host) String() string {
 	//lint:ignore S1002 I prefer to write it this way
 	if h.implicit == false {
 		buf.WriteString(strings.Repeat(" ", int(h.leadingSpace)))
-		if h.isMatch {
-			buf.WriteString("Match")
-			if h.hasEquals {
-				buf.WriteString(" = ")
-			} else {
-				buf.WriteString(" ")
-			}
-			buf.WriteString(h.matchKeyword)
-			if !strings.EqualFold(h.matchKeyword, "all") {
-				buf.WriteString(" ")
-				for i, pat := range h.Patterns {
-					buf.WriteString(pat.String())
-					if i < len(h.Patterns)-1 {
-						buf.WriteString(" ")
-					}
-				}
-			}
+		buf.WriteString("Host")
+		if h.hasEquals {
+			buf.WriteString(" = ")
 		} else {
-			buf.WriteString("Host")
-			if h.hasEquals {
-				buf.WriteString(" = ")
-			} else {
+			buf.WriteString(" ")
+		}
+		for i, pat := range h.Patterns {
+			buf.WriteString(pat.String())
+			if i < len(h.Patterns)-1 {
 				buf.WriteString(" ")
-			}
-			for i, pat := range h.Patterns {
-				buf.WriteString(pat.String())
-				if i < len(h.Patterns)-1 {
-					buf.WriteString(" ")
-				}
 			}
 		}
+		buf.WriteString(h.spaceBeforeComment)
 		if h.EOLComment != "" {
-			if h.spaceBeforeComment != "" {
-				buf.WriteString(h.spaceBeforeComment)
-			} else {
-				buf.WriteByte(' ')
-			}
 			buf.WriteByte('#')
 			buf.WriteString(h.EOLComment)
 		}
@@ -639,9 +617,6 @@ type KV struct {
 	hasEquals       bool
 	leadingSpace    int // Space before the key. TODO handle spaces vs tabs.
 	position        Position
-	// rawValue preserves the original value text (including surrounding double
-	// quotes, if any) so that String() can roundtrip the config file faithfully.
-	rawValue string
 }
 
 // Pos returns k's Position.
@@ -658,20 +633,9 @@ func (k *KV) String() string {
 	if k.hasEquals {
 		equals = " = "
 	}
-	val := k.Value
-	if k.rawValue != "" {
-		val = k.rawValue
-	}
-	line := strings.Repeat(" ", int(k.leadingSpace)) + k.Key + equals + val
+	line := strings.Repeat(" ", int(k.leadingSpace)) + k.Key + equals + k.Value + k.spaceAfterValue
 	if k.Comment != "" {
-		if k.spaceAfterValue != "" {
-			line += k.spaceAfterValue
-		} else {
-			line += " "
-		}
 		line += "#" + k.Comment
-	} else {
-		line += k.spaceAfterValue
 	}
 	return line
 }
@@ -768,8 +732,6 @@ func NewInclude(directives []string, hasEquals bool, pos Position, comment strin
 			path = directives[i]
 		} else if system {
 			path = filepath.Join("/etc/ssh", directives[i])
-		} else if strings.HasPrefix(directives[i], "~/") {
-			path = filepath.Join(homedir(), directives[i][2:])
 		} else {
 			path = filepath.Join(homedir(), ".ssh", directives[i])
 		}
@@ -867,7 +829,7 @@ func init() {
 func newConfig() *Config {
 	return &Config{
 		Hosts: []*Host{
-			{
+			&Host{
 				implicit: true,
 				Patterns: []*Pattern{matchAll},
 				Nodes:    make([]Node, 0),

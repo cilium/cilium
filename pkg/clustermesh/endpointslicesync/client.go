@@ -139,14 +139,12 @@ type meshEndpointSliceWatcher struct {
 	lock.Mutex
 	backend watch.Interface
 	result  chan watch.Event
-	done    chan struct{}
 }
 
 func NewMeshEndpointSliceWatcher(backend watch.Interface) *meshEndpointSliceWatcher {
 	sw := &meshEndpointSliceWatcher{
 		backend: backend,
 		result:  make(chan watch.Event),
-		done:    make(chan struct{}),
 	}
 
 	go sw.receive()
@@ -158,14 +156,7 @@ func (sw *meshEndpointSliceWatcher) ResultChan() <-chan watch.Event {
 }
 
 func (sw *meshEndpointSliceWatcher) Stop() {
-	sw.Lock()
-	defer sw.Unlock()
-	select {
-	case <-sw.done:
-	default:
-		close(sw.done)
-		sw.backend.Stop()
-	}
+	sw.backend.Stop()
 }
 
 func (sw *meshEndpointSliceWatcher) receive() {
@@ -178,10 +169,6 @@ func (sw *meshEndpointSliceWatcher) receive() {
 				addEndpointSliceMeshHacks(endpointSlice)
 			}
 		}
-		select {
-		case <-sw.done:
-			return
-		case sw.result <- event:
-		}
+		sw.result <- event
 	}
 }

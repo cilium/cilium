@@ -13,12 +13,18 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 func TestPolicyLog(t *testing.T) {
+	setupEndpointSuite(t)
 	logger := hivetest.Logger(t)
 	logPath := filepath.Join(option.Config.StateDir, "endpoint-policy.log")
 	f, err := os.Create(logPath)
@@ -27,9 +33,7 @@ func TestPolicyLog(t *testing.T) {
 	do := &DummyOwner{repo: policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())}
 
 	model := newTestEndpointModel(12345, StateReady)
-	p := createTestEndpointParams(t)
-	p.PolicyRepo = do.repo
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, f)
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, do.repo, testipcache.NewMockIPCache(), nil, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, f)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))

@@ -20,7 +20,6 @@ declare -A ALL_TESTS
 # find_fuzzers populates 'ALL_TESTS' and 'TEST_COUNT' from oss-fuzz-build.sh.
 find_fuzzers() {
     local test_count
-    test_count=0
 
     packages="$(grep compile_native_go_fuzzer "$FUZZ_BUILD" \
                 | awk '{ print $2 }' \
@@ -49,7 +48,7 @@ run_tests() {
 }
 
 main() {
-    if [ "$FUZZ_TIME" -le 0 ]; then
+    if [ "$TIMEOUT" -le 0 ]; then
         >&2 echo "Timeout $FUZZ_TIME must be >= 0."
         exit 1
     fi

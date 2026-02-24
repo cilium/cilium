@@ -65,9 +65,6 @@ func init() {
 	PreflightCmd.AddCommand(validateCNPCmd())
 
 	RootCmd.AddCommand(PreflightCmd)
-
-	PreflightCmd.AddCommand(validateConfigmapCmd())
-
 }
 
 // preflightPoller collects IP data in toCIDRSet rules that are siblings to
@@ -116,7 +113,7 @@ func preflightPoller() {
 // different combination of names, the IPs set per name will reflects IPs that
 // actuall belong to other names also seen in the toFQDNs section of that rule.
 func getDNSMappings() (DNSData map[string][]netip.Addr, err error) {
-	policy, err := client.PolicyGet()
+	policy, err := client.PolicyGet(nil)
 	if err != nil {
 		return nil, err
 	}

@@ -37,13 +37,12 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
-	zconfig "github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
 // Cell provides the Cilium status collector that is responsible for
@@ -99,12 +98,10 @@ type statusParams struct {
 	MaglevConfig     maglev.Config
 	MonitorAgent     monitoragent.Agent
 	NodeLocalStore   *node.LocalNodeStore
-	NodeManager      nodemanager.NodeManager
+	NodeDiscovery    *nodediscovery.NodeDiscovery
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent
-	ZtunnelConfig    zconfig.Config
-	ConnectorConfig  datapath.ConnectorConfig
 }
 
 // Config is the collector configuration

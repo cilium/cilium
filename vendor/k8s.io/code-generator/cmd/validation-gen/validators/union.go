@@ -17,13 +17,13 @@ limitations under the License.
 package validators
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/code-generator/cmd/validation-gen/util"
 	"k8s.io/gengo/v2/codetags"
 	"k8s.io/gengo/v2/parser/tags"
@@ -33,9 +33,7 @@ import (
 var discriminatedUnionValidator = types.Name{Package: libValidationPkg, Name: "DiscriminatedUnion"}
 var unionValidator = types.Name{Package: libValidationPkg, Name: "Union"}
 
-var newDiscriminatedUnionMember = types.Name{Package: libValidationPkg, Name: "NewDiscriminatedUnionMember"}
 var newDiscriminatedUnionMembership = types.Name{Package: libValidationPkg, Name: "NewDiscriminatedUnionMembership"}
-var newUnionMember = types.Name{Package: libValidationPkg, Name: "NewUnionMember"}
 var newUnionMembership = types.Name{Package: libValidationPkg, Name: "NewUnionMembership"}
 var unionVariablePrefix = "unionMembershipFor"
 
@@ -82,6 +80,14 @@ func (utfv unionTypeOrFieldValidator) GetValidations(context Context) (Validatio
 		unionMemberTagName, unionValidator, discriminatedUnionValidator)
 }
 
+func toSliceAny[T any](t []T) []any {
+	result := make([]any, len(t))
+	for i, v := range t {
+		result[i] = v
+	}
+	return result
+}
+
 const (
 	unionDiscriminatorTagName = "k8s:unionDiscriminator"
 	unionMemberTagName        = "k8s:unionMember"
@@ -116,10 +122,9 @@ func (udtv unionDiscriminatorTagValidator) GetValidations(context Context, tag c
 
 func (udtv unionDiscriminatorTagValidator) Docs() TagDoc {
 	return TagDoc{
-		Tag:            udtv.TagName(),
-		StabilityLevel: Beta,
-		Scopes:         udtv.ValidScopes().UnsortedList(),
-		Description:    "Indicates that this field is the discriminator for a union.",
+		Tag:         udtv.TagName(),
+		Scopes:      udtv.ValidScopes().UnsortedList(),
+		Description: "Indicates that this field is the discriminator for a union.",
 		Args: []TagArgDoc{{
 			Name:        "union",
 			Description: "<string>",
@@ -155,10 +160,9 @@ func (umtv unionMemberTagValidator) GetValidations(context Context, tag codetags
 
 func (umtv unionMemberTagValidator) Docs() TagDoc {
 	return TagDoc{
-		Tag:            umtv.TagName(),
-		StabilityLevel: Beta,
-		Scopes:         umtv.ValidScopes().UnsortedList(),
-		Description:    "Indicates that this field is a member of a union.",
+		Tag:         umtv.TagName(),
+		Scopes:      umtv.ValidScopes().UnsortedList(),
+		Description: "Indicates that this field is a member of a union.",
 		Args: []TagArgDoc{{
 			Name:        "union",
 			Description: "<string>",
@@ -174,36 +178,28 @@ func (umtv unionMemberTagValidator) Docs() TagDoc {
 	}
 }
 
-// union defines how a union validation will be generated. Unions can be
-// composed of either a set of struct fields (with an optional disctriminator),
-// or a set of list items (stored as selection criteria).
+// union defines how a union validation will be generated, based
+// on +k8s:unionMember and +k8s:unionDiscriminator tags found in a go struct.
 type union struct {
-	// members provides field information about all the members of the union.
-	// Each item provides a fieldName and discriminatorValue pair, where the
-	// name identifies the field or selector (for use in errors) and the
-	// discriminatorValue indicates the value which should be used in a
-	// discriminated union to name this member.
-	members []unionMember
-
-	// fieldMembers describes all the members of a struct-field union.  This is
-	// mutually exclusive with itemMembers.
+	// fields provides field information about all the members of the union.
+	// Each item provides a fieldName and memberName pair, where [0] identifies
+	// the field name and [1] identifies the union member Name. fields is index
+	// aligned with fieldMembers.
+	// If member name is not set, it defaults to the go struct field name.
+	fields [][2]string
+	// fieldMembers describes all the members of the union.
 	fieldMembers []*types.Member
 
-	// discriminator is the name of the discriminator field.
+	// discriminator is the name of the discriminator field
 	discriminator *string
 	// discriminatorMember describes the discriminator field.
 	discriminatorMember *types.Member
 
-	// itemMembers stores selection criteria for all the members of a list-item
-	// union. This is mutually exclusive with fieldMembers. The map key is the
-	// "field name" (eg: `field[{"name": "succeeded"}]`), and the value is a
-	// list of selection criteria.
-	itemMembers map[string][]ListSelectorTerm
-}
-
-type unionMember struct {
-	fieldName          string
-	discriminatorValue string
+	// itemMatchers stores matcher criteria for list item unions.
+	// key is the virtual field path (eg: "<path>/Pipeline.Tasks[{"name": "succeeded"}]"),
+	// value is the parsed matcher map (eg: {"name": "succeeded"}).
+	// Represents union members that are list items matching specific criteria
+	itemMatchers map[string]map[string]any
 }
 
 // unions represents all the unions for a go struct.
@@ -212,8 +208,9 @@ type unions map[string]*union
 // newUnion initializes a new union instance
 func newUnion() *union {
 	return &union{
-		// slice fields can be nil
-		itemMembers: make(map[string][]ListSelectorTerm),
+		fields:       make([][2]string, 0),
+		fieldMembers: make([]*types.Member, 0),
+		itemMatchers: make(map[string]map[string]any),
 	}
 }
 
@@ -241,13 +238,13 @@ func processUnionValidations(context Context, unions unions, varPrefix string,
 	slices.Sort(keys)
 	for _, unionName := range keys {
 		u := unions[unionName]
-		if len(u.fieldMembers) > 0 || u.discriminator != nil || len(u.itemMembers) > 0 {
-			if len(u.fieldMembers) > 0 && len(u.itemMembers) > 0 {
-				return Validations{}, fmt.Errorf("cannot have both field members and item members")
+		if len(u.fieldMembers) > 0 || u.discriminator != nil || len(u.itemMatchers) > 0 {
+			if len(u.fieldMembers) > 0 && len(u.itemMatchers) > 0 {
+				return Validations{}, fmt.Errorf("cannot have both field members and item matchers")
 			}
 			nativeType := util.NonPointer(util.NativeType(context.Type))
-			if nativeType.Kind == types.Struct && len(u.itemMembers) > 0 {
-				return Validations{}, fmt.Errorf("struct type cannot have item members")
+			if nativeType.Kind == types.Struct && len(u.itemMatchers) > 0 {
+				return Validations{}, fmt.Errorf("struct type cannot have item matchers")
 			}
 			if nativeType.Kind == types.Slice && len(u.fieldMembers) > 0 {
 				return Validations{}, fmt.Errorf("slice type cannot have field members")
@@ -269,19 +266,19 @@ func processUnionValidations(context Context, unions unions, varPrefix string,
 			}
 
 			// Handle list item unions for lists
-			if nativeType.Kind == types.Slice && len(u.itemMembers) > 0 {
+			if nativeType.Kind == types.Slice && len(u.itemMatchers) > 0 {
 				elemType := util.NonPointer(nativeType.Elem)
 
-				// Sort keys for stable output
-				keys := make([]string, 0, len(u.itemMembers))
-				for key := range u.itemMembers {
-					keys = append(keys, key)
+				// Sort matcher paths for stable output
+				matcherPaths := make([]string, 0, len(u.itemMatchers))
+				for path := range u.itemMatchers {
+					matcherPaths = append(matcherPaths, path)
 				}
-				slices.Sort(keys)
+				slices.Sort(matcherPaths)
 
-				for _, fullPath := range keys {
-					selector := u.itemMembers[fullPath]
-					extractor, err := createItemExtractor(context.Type, elemType, selector)
+				for _, fullPath := range matcherPaths {
+					matcher := u.itemMatchers[fullPath]
+					extractor, err := createItemExtractor(context.Type, elemType, matcher)
 					if err != nil {
 						return Validations{}, err
 					}
@@ -292,7 +289,7 @@ func processUnionValidations(context Context, unions unions, varPrefix string,
 			if u.discriminator != nil {
 				supportVar := Variable(supportVarName,
 					Function(tagName, DefaultFlags, newDiscriminatedUnionMembership,
-						append([]any{*u.discriminator}, getMemberArgs(u, context, true)...)...))
+						append([]any{*u.discriminator}, toSliceAny(getDisplayFields(u, context))...)...))
 				result.Variables = append(result.Variables, supportVar)
 
 				discriminatorExtractor := FunctionLiteral{
@@ -305,7 +302,7 @@ func processUnionValidations(context Context, unions unions, varPrefix string,
 				fn := Function(tagName, DefaultFlags, discriminatedValidator, extraArgs...)
 				result.Functions = append(result.Functions, fn)
 			} else {
-				supportVar := Variable(supportVarName, Function(tagName, DefaultFlags, newUnionMembership, getMemberArgs(u, context, false)...))
+				supportVar := Variable(supportVarName, Function(tagName, DefaultFlags, newUnionMembership, toSliceAny(getDisplayFields(u, context))...))
 				result.Variables = append(result.Variables, supportVar)
 
 				extraArgs := append([]any{supportVarName}, extractorArgs...)
@@ -336,15 +333,14 @@ func createMemberExtractor(ptrType *types.Type, member *types.Member) FunctionLi
 	return extractor
 }
 
-// createItemExtractor creates an extractor function for list item union
-// members. It generates code that loops through the list to check if an item
-// matching the criteria exists.
-func createItemExtractor(listType *types.Type, elemType *types.Type, selector []ListSelectorTerm) (FunctionLiteral, error) {
+// createItemExtractor creates an extractor function for list item union members.
+// It generates code that loops through the list to check if an item matching the criteria exists.
+func createItemExtractor(listType *types.Type, elemType *types.Type, matcher map[string]any) (FunctionLiteral, error) {
 	var criteria []keyValuePair
-	for _, term := range selector {
+	for key, value := range matcher {
 		criteria = append(criteria, keyValuePair{
-			key:   term.Field,
-			value: fmt.Sprint(term.Value),
+			key:   key,
+			value: fmt.Sprint(value),
 		})
 	}
 
@@ -361,21 +357,17 @@ func createItemExtractor(listType *types.Type, elemType *types.Type, selector []
 	extractor := FunctionLiteral{
 		Parameters: []ParamResult{{Name: "list", Type: listType}},
 		Results:    []ParamResult{{Type: types.Bool}},
-		Body: fmt.Sprintf(
-			`for i := range list {
-				if %s {
-					return true
-				}
-			 }
-			 return false`, condition),
+		Body: fmt.Sprintf(`for i := range list {
+	if %s {
+		return true
+	}
+}
+return false`, condition),
 	}
 
 	return extractor, nil
 }
 
-// processDiscriminatorValidations processes union discriminator tags. It is a
-// free function, rather than a method so that it can be called from other
-// union-like tags.
 func processDiscriminatorValidations(shared map[string]unions, context Context, tag codetags.Tag) error {
 	// This tag can apply to value and pointer fields, as well as typedefs
 	// (which should never be pointers). We need to check the concrete type.
@@ -398,119 +390,88 @@ func processDiscriminatorValidations(shared map[string]unions, context Context, 
 	return nil
 }
 
-// processMemberValidations processes union member tags for fields and list
-// items.  It is a free function, rather than a method so that it can be called
-// from other union-like tags.
 func processMemberValidations(shared map[string]unions, context Context, tag codetags.Tag) error {
-	switch context.Scope {
-	case ScopeField:
-		return processFieldMemberValidations(shared, context, tag)
-	case ScopeListVal:
-		return processListMemberValidations(shared, context, tag)
-	}
-	return fmt.Errorf("can only be used on fields and list items: %v", context.Scope)
-}
+	var fieldName string
+	var unionArg codetags.Arg
 
-// processFieldMemberValidations processes union member tags for struct fields.
-// It is a free function, rather than a method so that it can be called from
-// other union-like tags.
-func processFieldMemberValidations(shared map[string]unions, context Context, tag codetags.Tag) error {
-	nt := util.NativeType(context.Member.Type)
-	switch nt.Kind {
-	case types.Pointer, types.Map, types.Slice, types.Builtin:
-		// OK
-	default:
-		// In particular non-pointer structs are not supported.
-		return fmt.Errorf("can only be used on nilable and primitive types (%s)", nt.Kind)
-	}
-	if context.Member == nil {
-		return fmt.Errorf("struct-field union member has no member info in context")
-	}
+	unionArg, _ = tag.NamedArg("union") // optional
 
-	jsonTag, ok := tags.LookupJSON(*context.Member)
-	if !ok {
-		return fmt.Errorf("field %q is a union member but has no JSON struct field tag", context.Member)
-	}
-	fieldName := jsonTag.Name
-	if len(fieldName) == 0 {
-		return fmt.Errorf("field %q is a union member but has no JSON name", context.Member)
-	}
+	if context.Scope == ScopeListVal {
+		if context.Path == nil {
+			return fmt.Errorf("no path for list val union member")
+		}
+		fieldName = context.Path.String() // eg: "<path>/Pipeline.Tasks[{"name": "succeeded"}]"
+	} else {
+		nt := util.NativeType(context.Member.Type)
+		switch nt.Kind {
+		case types.Pointer, types.Map, types.Slice, types.Builtin:
+			// OK
+		default:
+			// In particular non-pointer structs are not supported.
+			return fmt.Errorf("can only be used on nilable and primitive types (%s)", nt.Kind)
+		}
 
-	if shared[context.ParentPath.String()] == nil {
-		shared[context.ParentPath.String()] = unions{}
-	}
-
-	// See if the tag specified a member name.
-	memberName := context.Member.Name                        // default
-	if memberNameArg, ok := tag.NamedArg("memberName"); ok { // optional
-		memberName = memberNameArg.Value
-	}
-
-	unionArg, _ := tag.NamedArg("union") // optional
-	u := shared[context.ParentPath.String()].getOrCreate(unionArg.Value)
-	u.members = append(u.members, unionMember{fieldName, memberName})
-
-	u.fieldMembers = append(u.fieldMembers, context.Member)
-
-	return nil
-}
-
-// processListMemberValidations processes union member tags for list items.  It
-// is a free function, rather than a method so that it can be called from other
-// union-like tags.
-func processListMemberValidations(shared map[string]unions, context Context, tag codetags.Tag) error {
-	if context.ListSelector == nil {
-		return fmt.Errorf("list-item union member has no list selector in context")
-	}
-
-	// It's not really a "field", but close enough. We don't really NEED the
-	// field name, since it is present in the error message, but it is more
-	// human-friendly. eg: `field[{"name": "succeeded"}]`
-	fieldName := lastPathElement(context.Path)
-
-	if shared[context.ParentPath.String()] == nil {
-		shared[context.ParentPath.String()] = unions{}
-	}
-
-	// See if the tag specified a member name.
-	memberName := ""
-	if memberNameArg, ok := tag.NamedArg("memberName"); ok { // optional
-		memberName = memberNameArg.Value
-	}
-
-	unionArg, _ := tag.NamedArg("union") // optional
-	u := shared[context.ParentPath.String()].getOrCreate(unionArg.Value)
-	u.members = append(u.members, unionMember{fieldName, memberName})
-
-	if _, found := u.itemMembers[fieldName]; found {
-		return fmt.Errorf("list-item union member %q already exists", fieldName)
-	}
-	u.itemMembers[fieldName] = context.ListSelector
-
-	return nil
-}
-
-func lastPathElement(path *field.Path) string {
-	parts := strings.Split(path.String(), ".")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return ""
-}
-
-// getMemberArgs gets a list of arguments which construct union members.
-func getMemberArgs(u *union, context Context, discrim bool) []any {
-	members := make([]any, 0, len(u.members))
-	for _, f := range u.members {
-		fieldName := f.fieldName
-		memberName := f.discriminatorValue
-		if discrim {
-			members = append(members, Function("unused", 0, newDiscriminatedUnionMember, fieldName, memberName))
-		} else {
-			members = append(members, Function("unused", 0, newUnionMember, fieldName))
+		jsonTag, ok := tags.LookupJSON(*context.Member)
+		if !ok {
+			return fmt.Errorf("field %q is a union member but has no JSON struct field tag", context.Member)
+		}
+		fieldName = jsonTag.Name
+		if len(fieldName) == 0 {
+			return fmt.Errorf("field %q is a union member but has no JSON name", context.Member)
 		}
 	}
-	return members
+
+	if shared[context.ParentPath.String()] == nil {
+		shared[context.ParentPath.String()] = unions{}
+	}
+
+	var memberName string
+	if memberNameArg, ok := tag.NamedArg("memberName"); ok { // optional
+		memberName = memberNameArg.Value
+	} else if context.Scope != ScopeListVal {
+		memberName = context.Member.Name // default
+	}
+
+	u := shared[context.ParentPath.String()].getOrCreate(unionArg.Value)
+	u.fields = append(u.fields, [2]string{fieldName, memberName})
+
+	if context.Scope == ScopeListVal {
+		matcher, err := extractMatcherFromPath(fieldName)
+		if err != nil {
+			return fmt.Errorf("failed to extract matcher from path %s: %w", fieldName, err)
+		}
+		u.itemMatchers[fieldName] = matcher
+	} else {
+		u.fieldMembers = append(u.fieldMembers, context.Member)
+	}
+
+	return nil
+}
+
+// getDisplayFields formats union field names for user-friendly error messages.
+// For list item unions, it converts paths like "<path>/Pipeline.Tasks[{\"name\": \"succeeded\"}]"
+// to readable formats like "Tasks[{\"name\": \"succeeded\"}]".
+func getDisplayFields(u *union, context Context) [][2]string {
+	displayFields := make([][2]string, len(u.fields))
+	listFieldName := context.Path.String()
+	pathParts := strings.Split(listFieldName, ".")
+	if len(pathParts) > 0 {
+		listFieldName = pathParts[len(pathParts)-1]
+	}
+	for i, f := range u.fields {
+		fieldName := f[0]
+		memberName := f[1]
+		if _, isItem := u.itemMatchers[fieldName]; isItem {
+			// Extract the JSON part from the input
+			bracketIndex := strings.Index(fieldName, "[")
+			if bracketIndex != -1 {
+				jsonPart := fieldName[bracketIndex:]
+				fieldName = listFieldName + jsonPart
+			}
+		}
+		displayFields[i] = [2]string{fieldName, memberName}
+	}
+	return displayFields
 }
 
 // sanitizeName converts a string into a valid Go identifier
@@ -518,4 +479,19 @@ func sanitizeName(name string) string {
 	name = strings.ReplaceAll(name, ".", "_")
 	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
 	return re.ReplaceAllString(name, "_")
+}
+
+// extractMatcherFromPath extracts the matcher criteria from a path like "Pipeline.Tasks[{"name": "succeeded"}]"
+func extractMatcherFromPath(path string) (map[string]any, error) {
+	re := regexp.MustCompile(`\[({.*?})\]`)
+	matches := re.FindStringSubmatch(path)
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("no matcher criteria found in path")
+	}
+
+	var matcher map[string]any
+	if err := json.Unmarshal([]byte(matches[1]), &matcher); err != nil {
+		return nil, fmt.Errorf("failed to parse matcher JSON: %w", err)
+	}
+	return matcher, nil
 }

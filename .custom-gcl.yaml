@@ -1,8 +1,0 @@
-# renovate: datasource=docker depName=golangci/golangci-lint
-version: v2.10.1
-name: golangci-lint-kubeapi
-destination: ./tools/golangci-lint-kubeapi
-plugins:
-- module: 'sigs.k8s.io/kube-api-linter'
-  # renovate: datasource=go depName=sigs.k8s.io/kube-api-linter
-  version: 'v0.0.0-20260206102632-39e3d06a2850'

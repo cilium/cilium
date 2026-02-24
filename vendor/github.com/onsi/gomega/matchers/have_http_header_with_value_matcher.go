@@ -11,10 +11,10 @@ import (
 
 type HaveHTTPHeaderWithValueMatcher struct {
 	Header string
-	Value  any
+	Value  interface{}
 }
 
-func (matcher *HaveHTTPHeaderWithValueMatcher) Match(actual any) (success bool, err error) {
+func (matcher *HaveHTTPHeaderWithValueMatcher) Match(actual interface{}) (success bool, err error) {
 	headerValue, err := matcher.extractHeader(actual)
 	if err != nil {
 		return false, err
@@ -28,7 +28,7 @@ func (matcher *HaveHTTPHeaderWithValueMatcher) Match(actual any) (success bool, 
 	return headerMatcher.Match(headerValue)
 }
 
-func (matcher *HaveHTTPHeaderWithValueMatcher) FailureMessage(actual any) string {
+func (matcher *HaveHTTPHeaderWithValueMatcher) FailureMessage(actual interface{}) string {
 	headerValue, err := matcher.extractHeader(actual)
 	if err != nil {
 		panic(err) // protected by Match()
@@ -43,7 +43,7 @@ func (matcher *HaveHTTPHeaderWithValueMatcher) FailureMessage(actual any) string
 	return fmt.Sprintf("HTTP header %q:\n%s", matcher.Header, diff)
 }
 
-func (matcher *HaveHTTPHeaderWithValueMatcher) NegatedFailureMessage(actual any) (message string) {
+func (matcher *HaveHTTPHeaderWithValueMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	headerValue, err := matcher.extractHeader(actual)
 	if err != nil {
 		panic(err) // protected by Match()
@@ -69,7 +69,7 @@ func (matcher *HaveHTTPHeaderWithValueMatcher) getSubMatcher() (types.GomegaMatc
 	}
 }
 
-func (matcher *HaveHTTPHeaderWithValueMatcher) extractHeader(actual any) (string, error) {
+func (matcher *HaveHTTPHeaderWithValueMatcher) extractHeader(actual interface{}) (string, error) {
 	switch r := actual.(type) {
 	case *http.Response:
 		return r.Header.Get(matcher.Header), nil

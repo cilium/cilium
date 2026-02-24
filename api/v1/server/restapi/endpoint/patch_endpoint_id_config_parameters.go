@@ -9,7 +9,6 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -35,6 +34,7 @@ func NewPatchEndpointIDConfigParams() PatchEndpointIDConfigParams {
 //
 // swagger:parameters PatchEndpointIDConfig
 type PatchEndpointIDConfigParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -43,7 +43,6 @@ type PatchEndpointIDConfigParams struct {
 	  In: body
 	*/
 	EndpointConfiguration *models.EndpointConfigurationSpec
-
 	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
@@ -75,12 +74,10 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		defer r.Body.Close()
 		var body models.EndpointConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if stderrors.Is(err, io.EOF) {
+			if err == io.EOF {
 				res = append(res, errors.Required("endpointConfiguration", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("endpointConfiguration", "body", "", err))

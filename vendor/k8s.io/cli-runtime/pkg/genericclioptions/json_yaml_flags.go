@@ -33,7 +33,7 @@ func (f *JSONYamlPrintFlags) AllowedFormats() []string {
 	}
 	formats := []string{"json", "yaml"}
 	// We can't use the cmdutil pkg directly because of import cycle.
-	if strings.ToLower(os.Getenv("KUBECTL_KYAML")) != "false" {
+	if strings.ToLower(os.Getenv("KUBECTL_KYAML")) == "true" {
 		formats = append(formats, "kyaml")
 	}
 	return formats

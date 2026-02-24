@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"slices"
 	"sort"
@@ -18,18 +19,26 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -56,15 +65,14 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy EndpointProxy, model *models.EndpointChangeRequest, policyDebugLog io.Writer) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, model *models.EndpointChangeRequest, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) (*Endpoint, error) {
 	if model == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(p, dnsRulesAPI, proxy, uint16(model.ID), model.InterfaceName, policyDebugLog)
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, uint16(model.ID), model.InterfaceName, wgCfg, ipsecCfg, policyDebugLog)
 	ep.ifIndex = int(model.InterfaceIndex)
 	ep.containerIfName = model.ContainerInterfaceName
-	ep.containerNetnsPath = model.ContainerNetnsPath
 	ep.parentIfIndex = int(model.ParentInterfaceIndex)
 	if model.ContainerName != "" {
 		ep.containerName.Store(&model.ContainerName)
@@ -440,7 +448,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var realizedL4Policy *policy.L4Policy
 	if e.realizedPolicy != nil {
-		realizedL4Policy = &e.realizedPolicy.SelectorPolicy.L4Policy
+		realizedL4Policy = &e.realizedPolicy.L4Policy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -458,7 +466,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var desiredL4Policy *policy.L4Policy
 	if e.desiredPolicy != nil {
-		desiredL4Policy = &e.desiredPolicy.SelectorPolicy.L4Policy
+		desiredL4Policy = &e.desiredPolicy.L4Policy
 	}
 
 	desiredMdl := &models.EndpointPolicy{
@@ -489,11 +497,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
-	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled && e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledBoth
-	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled:
+	case e.realizedPolicy.IngressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledIngress
-	case e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
 
@@ -638,20 +646,4 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 // GetStatusModel returns the model of the status of this endpoint.
 func (e *Endpoint) GetStatusModel() []*models.EndpointStatusChange {
 	return e.status.GetModel()
-}
-
-// GetRealizedL4PolicyRuleOriginModel returns the realized L4 policy of the endpoint.
-func (e *Endpoint) GetRealizedL4PolicyRuleOriginModel() (policy *models.L4Policy, policyRevision uint64, err error) {
-	if e == nil {
-		return
-	}
-	err = e.lockAlive()
-	if err != nil {
-		return
-	}
-	defer e.unlock()
-	if e.realizedPolicy == nil {
-		return
-	}
-	return e.realizedPolicy.SelectorPolicy.L4Policy.GetRuleOriginModel(), e.policyRevision, nil
 }

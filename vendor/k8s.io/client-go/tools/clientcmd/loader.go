@@ -331,10 +331,7 @@ func (rules *ClientConfigLoadingRules) GetLoadingPrecedence() []string {
 		return []string{rules.ExplicitPath}
 	}
 
-	// Create a copy in case something tries to sort the returned slice.
-	precedence := make([]string, len(rules.Precedence))
-	copy(precedence, rules.Precedence)
-	return precedence
+	return rules.Precedence
 }
 
 // GetStartingConfig implements ConfigAccess

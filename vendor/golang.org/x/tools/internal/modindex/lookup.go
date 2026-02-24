@@ -8,8 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"golang.org/x/mod/module"
 )
 
 type Candidate struct {
@@ -106,15 +104,11 @@ func (ix *Index) Lookup(pkgName, name string, prefix bool) []Candidate {
 			if len(flds) < 2 {
 				continue // should never happen
 			}
-			impPath, err := module.UnescapePath(e.ImportPath)
-			if err != nil {
-				continue
-			}
 			px := Candidate{
 				PkgName:    pkgName,
 				Name:       flds[0],
 				Dir:        string(e.Dir),
-				ImportPath: impPath,
+				ImportPath: e.ImportPath,
 				Type:       asLexType(flds[1][0]),
 				Deprecated: len(flds[1]) > 1 && flds[1][1] == 'D',
 			}

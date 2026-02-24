@@ -2,17 +2,15 @@ include ../../../Makefile.defs
 
 CLANG := clang
 STRIP := llvm-objcopy
-CFLAGS := -O2 -g -Wall -Werror -I -I/usr/include -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include $(CFLAGS) -mcpu=v3
+CFLAGS := -O2 -g -Wall -Werror -I -I/usr/include -I$(ROOT_DIR)/bpf -I$(ROOT_DIR)/bpf/include $(CFLAGS)
 
 TESTDATA_DIR := $(ROOT_DIR)/pkg/bpf/testdata
 UIDGID := $(shell stat -c '%u:%g' ${ROOT_DIR})
 
 TARGETS := \
-	reachability \
 	unreachable-tailcall \
 	upgrade-map \
-	unused-map-pruning \
-	unused-map-false-negative
+	unused-map-pruning
 
 .PHONY: docker build clean
 

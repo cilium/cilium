@@ -69,7 +69,7 @@ rules:
   resources:
   - endpointslices
   verbs:
-{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled }}
+{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
   - create
   - update
   - delete
@@ -78,17 +78,6 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
-- apiGroups:
-  - ""
-  resources:
-  # The controller needs to be able to set a service's finalizers to be able to create an EndpointSlice
-  # resource that is owned by the service and sets blockOwnerDeletion=true in its ownerRef.
-  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
-  - services/finalizers
-  verbs:
-  - update
-{{- end }}
 - apiGroups:
   - ""
   resources:
@@ -114,6 +103,7 @@ rules:
   resources:
   # to perform the translation of a CNP that contains `ToGroup` to its endpoints
   - services
+  - endpoints
   verbs:
   - get
   - list
@@ -251,6 +241,7 @@ rules:
   - update
   resourceNames:
   - ciliumloadbalancerippools.cilium.io
+  - ciliumbgppeeringpolicies.cilium.io
   - ciliumbgpclusterconfigs.cilium.io
   - ciliumbgppeerconfigs.cilium.io
   - ciliumbgpadvertisements.cilium.io
@@ -271,15 +262,12 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
-{{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.installCRDs }}
-  - serviceimports.multicluster.x-k8s.io
-  - serviceexports.multicluster.x-k8s.io
-{{- end }}
 - apiGroups:
   - cilium.io
   resources:
   - ciliumloadbalancerippools
   - ciliumpodippools
+  - ciliumbgppeeringpolicies
   - ciliumbgpclusterconfigs
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
@@ -327,10 +315,6 @@ rules:
   - networking.k8s.io
   resources:
   - ingresses/status # To update ingress status with load balancer IP.
-  # The controller needs to be able to set ingress finalizers to be able to create a CiliumEnvoyConfig
-  # resource that is owned by the ingress, and set blockOwnerDeletion=true in its ownerRef.
-  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
-  - ingresses/finalizers
   verbs:
   - update
 {{- end }}
@@ -345,7 +329,6 @@ rules:
   - grpcroutes
   - referencegrants
   - referencepolicies
-  - backendtlspolicies
   verbs:
   - get
   - list
@@ -364,7 +347,6 @@ rules:
   - httproutes/status
   - grpcroutes/status
   - tlsroutes/status
-  - backendtlspolicies/status
   verbs:
   - update
   - patch
@@ -383,16 +365,8 @@ rules:
   verbs:
   - update
   - patch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch  
 {{- end }}
-{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled }}
+{{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -401,14 +375,14 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.clustermesh.mcsapi.enabled }}
+{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
   - create
   - update
   - patch
   - delete
 {{- end }}
 {{- end }}
-{{- if .Values.clustermesh.mcsapi.enabled }}
+{{- if or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -416,15 +390,6 @@ rules:
   verbs:
   - update
   - patch
-- apiGroups:
-  - multicluster.x-k8s.io
-  resources:
-  # The controller needs to be able to set serviceimport finalizers to be able to create a derived Service
-  # resource that is owned by the ServiceImport and sets blockOwnerDeletion=true in its ownerRef.
-  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
-  - serviceimports/finalizers
-  verbs:
-  - update
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -450,10 +415,4 @@ rules:
   - patch
   - delete
 {{- end }}
-- apiGroups:
-  - cilium.io
-  resources:
-  - ciliumendpointslices
-  verbs:
-  - deletecollection
 {{- end }}

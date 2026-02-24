@@ -40,10 +40,12 @@ You can enable metrics for ``cilium-agent`` (including Envoy) with the Helm valu
 ``prometheus.enabled=true``. ``cilium-operator`` metrics are enabled by default,
 if you want to disable them, set Helm value ``operator.prometheus.enabled=false``.
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: prometheus.enabled=true
-         operator.prometheus.enabled=true
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true
 
 Cilium Metrics Scraping
 -----------------------
@@ -133,23 +135,25 @@ Hubble with ``hubble.enabled=true`` and provide a set of Hubble metrics you want
 enable via ``hubble.metrics.enabled``.
 
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: prometheus.enabled=true
-         operator.prometheus.enabled=true
-         hubble.enabled=true
-         hubble.metrics.enableOpenMetrics=true
-         hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
 
 Installation with a dynamic metrics exporter
 --------------------------------------------
 
-To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble
+To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble 
 with ``hubble.enabled=true`` and ``hubble.metrics.dynamic.enabled=true``.
 
 In this example, a ``ConfigMap`` with a set of metrics will be applied before
-enabling the exporter, but the desired set of metrics (together with the
+enabling the exporter, but the desired set of metrics (together with the 
 ``ConfigMap``) can be created during installation.
 
 See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
@@ -229,23 +233,25 @@ See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
             - destination_pod:
               - default/
             name: policy
-
+    
 Deploy the :term:`ConfigMap`:
 
 .. code-block:: shell-session
 
    kubectl apply -f dynamic-metrics.yaml
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: prometheus.enabled=true
-         operator.prometheus.enabled=true
-         hubble.enabled=true
-         hubble.metrics.enableOpenMetrics=true
-         hubble.metrics.enabled=[]
-         hubble.metrics.dynamic.enabled=true
-         hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config
-         hubble.metrics.dynamic.config.createConfigMap=false
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled=[] \\
+     --set hubble.metrics.dynamic.enabled=true \\
+     --set hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config \\
+     --set hubble.metrics.dynamic.config.createConfigMap=false
 
 Hubble Metrics Scraping
 -----------------------
@@ -346,12 +352,14 @@ setting the following values:
 * kvstoremesh: ``clustermesh.apiserver.metrics.kvstoremesh.enabled=true``
 * sidecar etcd instance: ``clustermesh.apiserver.metrics.etcd.enabled=true``
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: clustermesh.useAPIServer=true
-         clustermesh.apiserver.metrics.enabled=true
-         clustermesh.apiserver.metrics.kvstoremesh.enabled=true
-         clustermesh.apiserver.metrics.etcd.enabled=true
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set clustermesh.useAPIServer=true \\
+     --set clustermesh.apiserver.metrics.enabled=true \\
+     --set clustermesh.apiserver.metrics.kvstoremesh.enabled=true \\
+     --set clustermesh.apiserver.metrics.etcd.enabled=true
 
 You can figure the ports by way of ``clustermesh.apiserver.metrics.port``,
 ``clustermesh.apiserver.metrics.kvstoremesh.port`` and
@@ -395,31 +403,15 @@ To expose any metrics, invoke ``cilium-agent`` with the
 passing an empty IP (e.g. ``:9962``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
-To customize metrics, use ``+/-`` prefix to enable/disable specific metrics.
-For large clusters, consider disabling high-cardinality metrics like
-``cilium_node_connectivity_status`` and ``cilium_node_connectivity_latency_seconds``.
+To customize ``cilium-agent`` metrics, configure the ``--metrics`` option with
+``"+metric_a -metric_b -metric_c"``, where ``+/-`` means to enable/disable
+the metric. For example, for really large clusters, users may consider to
+disable the following two metrics as they generate too much data:
 
-.. tabs::
+- ``cilium_node_connectivity_status``
+- ``cilium_node_connectivity_latency_seconds``
 
-   .. group-tab:: Helm
-
-      Use the ``prometheus.metrics`` value:
-
-      .. parsed-literal::
-
-         helm install cilium cilium/cilium |CHART_VERSION| \\
-             --namespace kube-system \\
-             --set prometheus.enabled=true \\
-             --set prometheus.metrics="{-cilium_node_connectivity_status,-cilium_node_connectivity_latency_seconds}"
-
-   .. group-tab:: CLI
-
-      Use the ``--metrics`` flag:
-
-      .. code-block:: shell-session
-
-         cilium-agent --prometheus-serve-addr=:9962 \
-             --metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"
+You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
 
 Feature Metrics
 ~~~~~~~~~~~~~~~
@@ -475,12 +467,19 @@ Endpoint
 Name                                         Labels                                             Default    Description
 ============================================ ================================================== ========== ========================================================
 ``endpoint``                                                                                    Enabled    Number of endpoints managed by this agent
-``endpoint_restoration_endpoints``           ``phase``, ``outcome``                             Enabled    Number of restored endpoints labeled by phase and outcome
-``endpoint_restoration_duration_seconds``    ``phase``                                          Enabled    Duration of restoration phases in seconds
+``endpoint_max_ifindex``                                                                        Disabled   Maximum interface index observed for existing endpoints
 ``endpoint_regenerations_total``             ``outcome``                                        Enabled    Count of all endpoint regenerations that have completed
 ``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Endpoint regeneration time stats
 ``endpoint_state``                           ``state``                                          Enabled    Count of all endpoints
 ============================================ ================================================== ========== ========================================================
+
+The default enabled status of ``endpoint_max_ifindex`` is dynamic. On earlier
+kernels (typically with version lower than 5.10), Cilium must store the
+interface index for each endpoint in the conntrack map, which reserves 16 bits
+for this field. If Cilium is running on such a kernel, this metric will be
+enabled by default. It can be used to implement an alert if the ifindex is
+approaching the limit of 65535. This may be the case in instances of
+significant Endpoint churn.
 
 Services
 ~~~~~~~~
@@ -505,28 +504,27 @@ Name                                       Labels                               
 Node Connectivity
 ~~~~~~~~~~~~~~~~~
 
-============================================= ======================================== ========== ==========================================================================================================================================
-Name                                          Labels                                    Default    Description
-============================================= ======================================== ========== ==========================================================================================================================================
-``node_health_connectivity_status``           ``type``, ``status``                     Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
-``node_health_connectivity_latency_seconds``  ``type``, ``address_type``, ``protocol`` Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
-============================================= ======================================== ========== ==========================================================================================================================================
+============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
+Name                                          Labels                                                                                                                                                                 Default    Description
+============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
+``node_health_connectivity_status``           ``source_cluster``, ``source_node_name``, ``type``, ``status``                                                                                                         Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+``node_health_connectivity_latency_seconds``  ``source_cluster``, ``source_node_name``, ``type``, ``address_type``, ``protocol``                                                                                     Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
+============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
 
 Clustermesh
 ~~~~~~~~~~~
 
-================================================ ================== ========== =================================================================
-Name                                             Labels             Default    Description
-================================================ ================== ========== =================================================================
-``clustermesh_remote_cluster_services``          ``target_cluster`` Enabled    The total number of services per remote cluster
-``clustermesh_remote_cluster_endpoints``         ``target_cluster`` Enabled    The total number of endpoints per remote cluster
-``clustermesh_remote_cluster_nodes``             ``target_cluster`` Enabled    The total number of nodes per remote cluster
-``clustermesh_remote_clusters``                                     Enabled    The total number of remote clusters meshed with the local cluster
-``clustermesh_remote_cluster_failures``          ``target_cluster`` Enabled    The total number of failures related to the remote cluster
-``clustermesh_remote_cluster_last_failure_ts``   ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
-``clustermesh_remote_cluster_readiness_status``  ``target_cluster`` Enabled    The readiness status of the remote cluster
-``clustermesh_remote_cluster_cache_revocations`` ``target_cluster`` Enabled    The total number of cache revocations related to the remote cluster
-================================================ ================== ========== =================================================================
+=============================================== ============================================================ ========== =================================================================
+Name                                            Labels                                                       Default    Description
+=============================================== ============================================================ ========== =================================================================
+``clustermesh_remote_cluster_services``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoints``        ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of endpoints per remote cluster
+``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes per remote cluster
+``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
+=============================================== ============================================================ ========== =================================================================
 
 Datapath
 ~~~~~~~~
@@ -560,7 +558,7 @@ eBPF
 Name                                       Labels                                                                Default    Description
 ========================================== ===================================================================== ========== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Disabled   Duration of eBPF system call performed
-``bpf_map_ops_total``                      ``map_name``, ``operation``, ``outcome``                              Enabled    Number of eBPF map operations performed.
+``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Enabled    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
 ``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map pressure metrics are emitted only when map utilization exceeds the threshold set by ``policyMapPressureMetricsThreshold`` helm value, which defaults to 0.1 (10% full).
 ``bpf_map_capacity``                       ``map_group``                                                         Enabled    Maximum size of eBPF maps by group of maps (type of map that have the same max capacity size). Map types with size of 65536 are not emitted, missing map types can be assumed to be 65536.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
@@ -583,8 +581,6 @@ Name                                       Labels                               
 ``drop_bytes_total``                       ``reason``, ``direction``                          Enabled    Total dropped bytes
 ``forward_count_total``                    ``direction``                                      Enabled    Total forwarded packets
 ``forward_bytes_total``                    ``direction``                                      Enabled    Total forwarded bytes
-``mtu_error_message_total``                ``direction``                                      Enabled    Total number of icmp fragmentation-needed or ICMPv6 packet-too-big messages processed
-``fragmented_count_total``                 ``direction``                                      Enabled    Total number of fragmented packets processed
 ========================================== ================================================== ========== ========================================================
 
 Policy
@@ -594,6 +590,8 @@ Policy
 Name                                       Labels                                             Default    Description
 ========================================== ================================================== ========== ========================================================
 ``policy``                                                                                    Enabled    Number of policies currently loaded
+``policy_regeneration_total``                                                                 Enabled    Deprecated, will be removed in Cilium 1.17 - use ``endpoint_regenerations_total`` instead. Total number of policies regenerated successfully
+``policy_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Deprecated, will be removed in Cilium 1.17 - use ``endpoint_regeneration_time_stats_seconds`` instead. Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
 ``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
@@ -741,6 +739,7 @@ Agent
 ================================ ================================ ========== ========================================================
 Name                             Labels                           Default    Description
 ================================ ================================ ========== ========================================================
+``agent_bootstrap_seconds``      ``scope``, ``outcome``           Enabled    Duration of various bootstrap phases
 ``api_process_time_seconds``                                      Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
 ================================ ================================ ========== ========================================================
 
@@ -760,17 +759,14 @@ Name                               Labels                           Default     
 Jobs
 ~~~~
 
-=================================================== ================================ ============ ========================================================
-Name                                                Labels                           Default      Description
-=================================================== ================================ ============ ========================================================
-``hive_jobs_runs_total``                            ``module``, ``job_name``         Enabled      Total number of jobs runs
-``hive_jobs_runs_failed``                           ``module``, ``job_name``         Enabled      Number of jobs runs that returned an error
-``hive_jobs_oneshot_last_run_duration_seconds``     ``module``, ``job_name``         Enabled      Duration of last one shot job run
-``hive_jobs_observer_last_run_duration_seconds``    ``module``, ``job_name``         Enabled      Duration of last observer job run
-``hive_jobs_observer_run_duration_seconds``         ``module``, ``job_name``         Enabled      Histogram of observer job run duration
-``hive_jobs_timer_last_run_duration_seconds``       ``module``, ``job_name``         Enabled      Duration of last timer job run
-``hive_jobs_timer_run_duration_seconds``            ``module``, ``job_name``         Enabled      Histogram of timer job run duration
-=================================================== ================================ ============ ========================================================
+================================== ================================ ============ ========================================================
+Name                               Labels                           Default      Description
+================================== ================================ ============ ========================================================
+``jobs_errors_total``              ``job``                          Enabled      Number of jobs runs that returned an error
+``jobs_one_shot_run_seconds``      ``job``                          Enabled      Histogram of one shot job run duration
+``jobs_timer_run_seconds``         ``job``                          Enabled      Histogram of timer job run duration
+``jobs_observer_run_seconds``      ``job``                          Enabled      Histogram of observer job run duration
+================================== ================================ ============ ========================================================
 
 CIDRGroups
 ~~~~~~~~~~
@@ -1010,30 +1006,29 @@ Name                                                 Labels                     
 MCS-API
 ~~~~~~~
 
-========================================= ======================================================================== ========== =========================================================
-Name                                      Labels                                                                   Default    Description
-========================================= ======================================================================== ========== =========================================================
-``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                                         Enabled    Information about ServiceExport in the local cluster
-``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``, ``reason``  Enabled    Status Condition of ServiceExport in the local cluster
-``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                                         Enabled    Information about ServiceImport in the local cluster
-``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``, ``reason``  Enabled    Status Condition of ServiceImport in the local cluster
-``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                                         Enabled    The number of clusters currently backing a ServiceImport
-========================================= ======================================================================== ========== =========================================================
+========================================= ============================================================ ========== =========================================================
+Name                                      Labels                                                       Default    Description
+========================================= ============================================================ ========== =========================================================
+``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
+``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
+``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
+``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                             Enabled    The number of clusters currently backing a ServiceImport
+========================================= ============================================================ ========== =========================================================
 
 Clustermesh
 ~~~~~~~~~~~
 
-================================================= ================== ========== ====================================================================
-Name                                              Labels             Default    Description
-================================================= ================== ========== ====================================================================
-``clustermesh_remote_clusters``                                      Enabled    The total number of remote clusters meshed with the local cluster
-``clustermesh_remote_cluster_failures``           ``target_cluster`` Enabled    The total number of failures related to the remote cluster
-``clustermesh_remote_cluster_last_failure_ts``    ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
-``clustermesh_remote_cluster_readiness_status``   ``target_cluster`` Enabled    The readiness status of the remote cluster
-``clustermesh_remote_cluster_cache_revocations``  ``target_cluster`` Enabled    The total number of cache revocations related to the remote cluster
-``clustermesh_remote_cluster_services``           ``target_cluster`` Enabled    The total number of services per remote cluster
-``clustermesh_remote_cluster_service_exports``    ``target_cluster`` Enabled    The total number of MCS-API service exports per remote cluster
-================================================= ================== ========== ====================================================================
+=============================================== ============================================================ ========== ==================================================================
+Name                                            Labels                                                       Default    Description
+=============================================== ============================================================ ========== ==================================================================
+``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
+``clustermesh_remote_cluster_services``         ``source_cluster``, ``target_cluster``                       Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_service_exports``  ``source_cluster``, ``target_cluster``                       Enabled    The total number of MCS-API service exports per remote cluster
+=============================================== ============================================================ ========== ==================================================================
 
 
 Hubble
@@ -1383,20 +1378,6 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
-``sctp``
-~~~~~~~~
-
-================================ ======================================== ========== ==================================================
-Name                             Labels                                   Default    Description
-================================ ======================================== ========== ==================================================
-``sctp_chunk_types_total``       ``chunk_type``, ``family``               Disabled   SCTP chunk type occurrences
-================================ ======================================== ========== ==================================================
-
-Options
-"""""""
-
-This metric supports :ref:`Context Options<hubble_context_options>`.
-
 dynamic_exporter_exporters_total
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1497,11 +1478,11 @@ Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ========================================================
-Name                                     Description
-======================================== ========================================================
-``bootstrap_seconds``                    Duration in seconds to complete bootstrap
-======================================== ========================================================
+======================================== ============================================ ========================================================
+Name                                     Labels                                       Description
+======================================== ============================================ ========================================================
+``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
+======================================== ============================================ ========================================================
 
 KVstore
 ~~~~~~~
@@ -1569,11 +1550,11 @@ All metrics are exported under the ``cilium_kvstoremesh_`` Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ========================================================
-Name                                     Description
-======================================== ========================================================
-``bootstrap_seconds``                    Duration in seconds to complete bootstrap
-======================================== ========================================================
+======================================== ============================================ ========================================================
+Name                                     Labels                                       Description
+======================================== ============================================ ========================================================
+``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
+======================================== ============================================ ========================================================
 
 KVStoremesh
 ~~~~~~~~~~~
@@ -1589,15 +1570,14 @@ Clustermesh
 
 Note that these metrics are not prefixed by ``clustermesh_``.
 
-=============================================== ================== ====================================================================
-Name                                            Labels             Description
-=============================================== ================== ====================================================================
-``remote_clusters``                                                The total number of remote clusters meshed with the local cluster
-``remote_cluster_failures``                     ``target_cluster`` The total number of failures related to the remote cluster
-``remote_cluster_last_failure_ts``              ``target_cluster`` The timestamp of the last failure of the remote cluster
-``remote_cluster_readiness_status``             ``target_cluster`` The readiness status of the remote cluster
-``remote_cluster_cache_revocations``            ``target_cluster`` The total number of cache revocations related to the remote cluster
-=============================================== ================== ====================================================================
+=============================================== ============================================================ ==================================================================
+Name                                            Labels                                                       Description
+=============================================== ============================================================ ==================================================================
+``remote_clusters``                             ``source_cluster``, ``source_node_name``                     The total number of remote clusters meshed with the local cluster
+``remote_cluster_failures``                     ``source_cluster``, ``source_node_name``, ``target_cluster`` The total number of failures related to the remote cluster
+``remote_cluster_last_failure_ts``              ``source_cluster``, ``source_node_name``, ``target_cluster`` The timestamp of the last failure of the remote cluster
+``remote_cluster_readiness_status``             ``source_cluster``, ``source_node_name``, ``target_cluster`` The readiness status of the remote cluster
+=============================================== ============================================================ ==================================================================
 
 KVstore
 ~~~~~~~
@@ -1665,15 +1645,3 @@ Given a Node forwarding one or more such egress-IP and remote endpoint tuples, t
 This metric is especially useful when using the egress gateway feature where it's possible to overload a Node if many connections are all going to the same endpoint.
 In general, this metric should normally be fairly low.
 A high number here may indicate that a Node is reaching its limit for connections to one or more external endpoints.
-
-Local Redirect Policy (control plane)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. _local_redirect_policy_metrics:
-
-============================================= ======================================== ========== ==========================================================================================================================================
-Name                                          Labels                                    Default    Description
-============================================= ======================================== ========== ==========================================================================================================================================
-``controller_duration_seconds``                                                         Enabled    Histogram of processing times for local redirect policies
-============================================= ======================================== ========== ==========================================================================================================================================
-

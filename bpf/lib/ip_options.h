@@ -166,7 +166,7 @@ trace_id_from_ctx(struct __ctx_buff *ctx, __s64 *value, __u8 ip_opt_type_value)
 	void *data, *data_end;
 	__s64 trace_id = 0;
 	struct iphdr *ip4;
-	__be16 proto;
+	__u16 proto;
 	int ret;
 
 	if (!validate_ethertype(ctx, &proto))

@@ -7,9 +7,8 @@ package cidrset
 import (
 	"math/big"
 	"net"
+	"reflect"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCIDRSetFullyAllocated(t *testing.T) {
@@ -251,7 +250,9 @@ func TestCIDRSet_RandomishAllocation(t *testing.T) {
 			t.Fatalf("expected error because of fully-allocated range for %v", tc.description)
 		}
 
-		assert.Equal(t, cidrs, rcidrs, "expected re-allocated cidrs are the same collection for %v", tc.description)
+		if !reflect.DeepEqual(cidrs, rcidrs) {
+			t.Fatalf("expected re-allocated cidrs are the same collection for %v", tc.description)
+		}
 	}
 }
 
@@ -319,7 +320,9 @@ func TestCIDRSet_AllocationOccupied(t *testing.T) {
 		for i := numCIDRs / 2; i < numCIDRs; i++ {
 			rcidrs = append(rcidrs, cidrs[i])
 		}
-		assert.Equal(t, cidrs, rcidrs, "expected re-allocated cidrs are the same collection for %v", tc.description)
+		if !reflect.DeepEqual(cidrs, rcidrs) {
+			t.Fatalf("expected re-allocated cidrs are the same collection for %v", tc.description)
+		}
 	}
 }
 

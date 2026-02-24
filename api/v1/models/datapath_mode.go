@@ -17,7 +17,7 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// DatapathMode Operational datapath mode
+// DatapathMode Datapath mode
 //
 // swagger:model DatapathMode
 type DatapathMode string
@@ -44,7 +44,7 @@ const (
 )
 
 // for schema
-var datapathModeEnum []any
+var datapathModeEnum []interface{}
 
 func init() {
 	var res []DatapathMode

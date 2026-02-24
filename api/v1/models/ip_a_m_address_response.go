@@ -40,10 +40,6 @@ type IPAMAddressResponse struct {
 
 	// MAC of master interface if address is a slave/secondary of a master interface
 	MasterMac string `json:"master-mac,omitempty"`
-
-	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.
-	//
-	SkipMasquerade bool `json:"skip-masquerade,omitempty"`
 }
 
 // Validate validates this IP a m address response

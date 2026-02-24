@@ -54,10 +54,7 @@ type CacheReader struct {
 }
 
 // Get checks the indexer for the object and writes a copy of it if found.
-func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Object, opts ...client.GetOption) error {
-	getOpts := client.GetOptions{}
-	getOpts.ApplyOptions(opts)
-
+func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Object, _ ...client.GetOption) error {
 	if c.scopeName == apimeta.RESTScopeNameRoot {
 		key.Namespace = ""
 	}
@@ -84,7 +81,7 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Ob
 		return fmt.Errorf("cache contained %T, which is not an Object", obj)
 	}
 
-	if c.disableDeepCopy || (getOpts.UnsafeDisableDeepCopy != nil && *getOpts.UnsafeDisableDeepCopy) {
+	if c.disableDeepCopy {
 		// skip deep copy which might be unsafe
 		// you must DeepCopy any object before mutating it outside
 	} else {
@@ -100,7 +97,7 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Ob
 		return fmt.Errorf("cache had type %s, but %s was asked for", objVal.Type(), outVal.Type())
 	}
 	reflect.Indirect(outVal).Set(reflect.Indirect(objVal))
-	if !c.disableDeepCopy && (getOpts.UnsafeDisableDeepCopy == nil || !*getOpts.UnsafeDisableDeepCopy) {
+	if !c.disableDeepCopy {
 		out.GetObjectKind().SetGroupVersionKind(c.groupVersionKind)
 	}
 

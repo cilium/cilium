@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: BSD-3-Clause
-
 // Copyright (C) 2014-2015 Docker Inc & Go Authors. All rights reserved.
 // Copyright (C) 2017-2025 SUSE LLC. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -13,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-
-	"github.com/cyphar/filepath-securejoin/internal/consts"
 )
+
+const maxSymlinkLimit = 255
 
 // IsNotExist tells you if err is an error that implies that either the path
 // accessed does not exist (or path components don't exist). This is
@@ -51,13 +49,12 @@ func hasDotDot(path string) bool {
 	return strings.Contains("/"+path+"/", "/../")
 }
 
-// SecureJoinVFS joins the two given path components (similar to
-// [filepath.Join]) except that the returned path is guaranteed to be scoped
-// inside the provided root path (when evaluated). Any symbolic links in the
-// path are evaluated with the given root treated as the root of the
-// filesystem, similar to a chroot. The filesystem state is evaluated through
-// the given [VFS] interface (if nil, the standard [os].* family of functions
-// are used).
+// SecureJoinVFS joins the two given path components (similar to [filepath.Join]) except
+// that the returned path is guaranteed to be scoped inside the provided root
+// path (when evaluated). Any symbolic links in the path are evaluated with the
+// given root treated as the root of the filesystem, similar to a chroot. The
+// filesystem state is evaluated through the given [VFS] interface (if nil, the
+// standard [os].* family of functions are used).
 //
 // Note that the guarantees provided by this function only apply if the path
 // components in the returned string are not modified (in other words are not
@@ -81,7 +78,7 @@ func hasDotDot(path string) bool {
 // fully resolved using [filepath.EvalSymlinks] or otherwise constructed to
 // avoid containing symlink components. Of course, the root also *must not* be
 // attacker-controlled.
-func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) { //nolint:revive // name is part of public API
+func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) {
 	// The root path must not contain ".." components, otherwise when we join
 	// the subpath we will end up with a weird path. We could work around this
 	// in other ways but users shouldn't be giving us non-lexical root paths in
@@ -141,7 +138,7 @@ func SecureJoinVFS(root, unsafePath string, vfs VFS) (string, error) { //nolint:
 		// It's a symlink, so get its contents and expand it by prepending it
 		// to the yet-unparsed path.
 		linksWalked++
-		if linksWalked > consts.MaxSymlinkLimit {
+		if linksWalked > maxSymlinkLimit {
 			return "", &os.PathError{Op: "SecureJoin", Path: root + string(filepath.Separator) + unsafePath, Err: syscall.ELOOP}
 		}
 

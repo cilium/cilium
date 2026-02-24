@@ -20,14 +20,8 @@ package v1beta1
 
 // DeviceApplyConfiguration represents a declarative configuration of the Device type for use
 // with apply.
-//
-// Device represents one individual hardware instance that can be selected based
-// on its attributes. Besides the name, exactly one field must be set.
 type DeviceApplyConfiguration struct {
-	// Name is unique identifier among all devices managed by
-	// the driver in the pool. It must be a DNS label.
-	Name *string `json:"name,omitempty"`
-	// Basic defines one device instance.
+	Name  *string                        `json:"name,omitempty"`
 	Basic *BasicDeviceApplyConfiguration `json:"basic,omitempty"`
 }
 

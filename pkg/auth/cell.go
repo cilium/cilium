@@ -5,7 +5,6 @@ package auth
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -49,7 +48,7 @@ var Cell = cell.Module(
 		newAlwaysFailAuthHandler,
 	),
 	cell.Config(config{
-		MeshAuthEnabled:               false,
+		MeshAuthEnabled:               true,
 		MeshAuthQueueSize:             1024,
 		MeshAuthGCInterval:            5 * time.Minute,
 		MeshAuthSignalBackoffDuration: 1 * time.Second, // this default is based on the default TCP retransmission timeout
@@ -104,11 +103,6 @@ type authManagerParams struct {
 func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	if !params.Config.MeshAuthEnabled {
 		params.Logger.Info("Authentication processing is disabled")
-		// No-op signal handler because because the manager expects at least
-		// one handler.
-		if err := params.SignalManager.RegisterHandler(func(_ io.Reader) (_ string, _ error) { return "", nil }, signal.SignalAuthRequired); err != nil {
-			return nil, fmt.Errorf("failed to set up no-op signal handler for disabled auth events: %w", err)
-		}
 		return nil, nil
 	}
 

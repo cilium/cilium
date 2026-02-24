@@ -20,17 +20,11 @@ package v1beta1
 
 // ParentReferenceApplyConfiguration represents a declarative configuration of the ParentReference type for use
 // with apply.
-//
-// ParentReference describes a reference to a parent object.
 type ParentReferenceApplyConfiguration struct {
-	// Group is the group of the object being referenced.
-	Group *string `json:"group,omitempty"`
-	// Resource is the resource of the object being referenced.
-	Resource *string `json:"resource,omitempty"`
-	// Namespace is the namespace of the object being referenced.
+	Group     *string `json:"group,omitempty"`
+	Resource  *string `json:"resource,omitempty"`
 	Namespace *string `json:"namespace,omitempty"`
-	// Name is the name of the object being referenced.
-	Name *string `json:"name,omitempty"`
+	Name      *string `json:"name,omitempty"`
 }
 
 // ParentReferenceApplyConfiguration constructs a declarative configuration of the ParentReference type for use with

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -67,7 +66,6 @@ type configModifyApiHandlerParams struct {
 	// initialized in that phase.
 	legacy.DaemonInitialization
 
-	DaemonConfig    *option.DaemonConfig
 	DB              *statedb.DB
 	Devices         statedb.Table[*datapathTables.Device]
 	Clientset       k8sClient.Clientset
@@ -78,8 +76,6 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
-	ConnectorConfig datapath.ConnectorConfig
-	LocalNodeStore  *node.LocalNodeStore
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -95,7 +91,6 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 	return configModifyApiHandlerOut{
 		GetConfigHandler: &getConfigHandler{
 			logger:          params.Logger,
-			daemonConfig:    params.DaemonConfig,
 			db:              params.DB,
 			devices:         params.Devices,
 			clientset:       params.Clientset,
@@ -106,8 +101,6 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
-			connectorConfig: params.ConnectorConfig,
-			localNodeStore:  params.LocalNodeStore,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -343,7 +336,6 @@ func (h *patchConfigHandler) Handle(params daemonapi.PatchConfigParams) middlewa
 type getConfigHandler struct {
 	logger *slog.Logger
 
-	daemonConfig    *option.DaemonConfig
 	db              *statedb.DB
 	devices         statedb.Table[*datapathTables.Device]
 	clientset       k8sClient.Clientset
@@ -354,8 +346,6 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
-	connectorConfig datapath.ConnectorConfig
-	localNodeStore  *node.LocalNodeStore
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -387,13 +377,8 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 	}
 
-	routerNodeAddressing, err := h.getNodeRouterAddressing(params.HTTPRequest.Context())
-	if err != nil {
-		return api.Error(http.StatusInternalServerError, err)
-	}
-
 	status := &models.DaemonConfigurationStatus{
-		Addressing:       routerNodeAddressing,
+		Addressing:       node.GetNodeAddressing(h.logger),
 		K8sConfiguration: h.clientset.Config().K8sKubeConfigPath,
 		K8sEndpoint:      h.clientset.Config().K8sAPIServer,
 		NodeMonitor:      h.monitorAgent.State(),
@@ -406,14 +391,14 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		DeviceMTU:                    int64(h.mtuConfig.GetDeviceMTU()),
 		RouteMTU:                     int64(h.mtuConfig.GetRouteMTU()),
 		EnableRouteMTUForCNIChaining: h.mtuConfig.IsEnableRouteMTUForCNIChaining(),
-		DatapathMode:                 models.DatapathMode(h.connectorConfig.GetOperationalMode().String()),
-		ConfiguredDatapathMode:       models.ConfiguredDatapathMode(h.connectorConfig.GetConfiguredMode().String()),
+		DatapathMode:                 models.DatapathMode(option.Config.DatapathMode),
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
+		EgressMultiHomeIPRuleCompat:         option.Config.EgressMultiHomeIPRuleCompat,
 		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
 		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
 		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
@@ -421,9 +406,6 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
-		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
-		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
-		PacketizationLayerPMTUDMode:         h.mtuConfig.PacketizationLayerPMTUDMode(),
 	}
 
 	cfg := &models.DaemonConfiguration{
@@ -432,33 +414,6 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 	}
 
 	return daemonapi.NewGetConfigOK().WithPayload(cfg)
-}
-
-func (h *getConfigHandler) getNodeRouterAddressing(ctx context.Context) (*models.NodeAddressing, error) {
-	ln, err := h.localNodeStore.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get local node: %w", err)
-	}
-
-	nodeRouterAddressing := &models.NodeAddressing{}
-
-	if h.daemonConfig.EnableIPv6 {
-		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
-			Enabled:    h.daemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIP(true).String(),
-			AllocRange: ln.IPv6AllocCIDR.String(),
-		}
-	}
-
-	if h.daemonConfig.EnableIPv4 {
-		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
-			Enabled:    h.daemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIP(false).String(),
-			AllocRange: ln.IPv4AllocCIDR.String(),
-		}
-	}
-
-	return nodeRouterAddressing, nil
 }
 
 // getIPLocalReservedPorts returns a comma-separated list of ports which

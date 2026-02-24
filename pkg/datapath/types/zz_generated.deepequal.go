@@ -232,12 +232,6 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableEncapsulation != other.EnableEncapsulation {
 		return false
 	}
-	if in.TunnelProtocol != other.TunnelProtocol {
-		return false
-	}
-	if in.TunnelPort != other.TunnelPort {
-		return false
-	}
 	if in.EnableAutoDirectRouting != other.EnableAutoDirectRouting {
 		return false
 	}
@@ -247,16 +241,7 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableLocalNodeRoute != other.EnableLocalNodeRoute {
 		return false
 	}
-	if in.DatapathIsLayer2 != other.DatapathIsLayer2 {
-		return false
-	}
-	if in.DatapathIsNetkit != other.DatapathIsNetkit {
-		return false
-	}
 	if in.EnableWireguard != other.EnableWireguard {
-		return false
-	}
-	if in.EphemeralMin != other.EphemeralMin {
 		return false
 	}
 	if in.WireguardIfIndex != other.WireguardIfIndex {
@@ -266,12 +251,6 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 	if in.EncryptNode != other.EncryptNode {
-		return false
-	}
-	if in.EnablePolicyAccounting != other.EnablePolicyAccounting {
-		return false
-	}
-	if in.EnableConntrackAccounting != other.EnableConntrackAccounting {
 		return false
 	}
 	if ((in.IPv4PodSubnets != nil) && (other.IPv4PodSubnets != nil)) || ((in.IPv4PodSubnets == nil) != (other.IPv4PodSubnets == nil)) {

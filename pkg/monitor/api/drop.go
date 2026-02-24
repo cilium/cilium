@@ -25,11 +25,10 @@ var errors = map[uint8]string{
 	8:   "LB, sock cgroup: Reverse entry stale",
 	9:   "Fragmented packet",
 	10:  "Fragmented packet entry update failed",
-	11:  "Missed tail call to custom program", // Unused
+	11:  "Missed tail call to custom program",
 	12:  "Interface Decrypting",
 	13:  "Interface Encrypting",
 	14:  "LB: sock cgroup: Reverse entry delete succeeded",
-	15:  "MTU error message",
 	130: "Invalid source mac",      // Unused
 	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",
@@ -105,7 +104,6 @@ var errors = map[uint8]string{
 	203: "Endpoint policy program not available",
 	204: "No Egress IP configured",
 	205: "Punt to proxy",
-	206: "No device",
 }
 
 func extendedReason(extError int8) string {

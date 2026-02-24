@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
@@ -44,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -170,17 +170,7 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		return nil, false, fmt.Errorf("No EPs available when restoring")
 	}
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		Logger:           s.logger,
-		IdentityManager:  identitymanager.NewIDManager(s.logger),
-		PolicyRepo:       s.repo,
-	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(context.TODO(), s.logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(s.logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	ep.Start(uint16(model.ID))
 	defer ep.Stop()
 	return ep, false, err
@@ -224,15 +214,15 @@ var (
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
-	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID1Selector)
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
-	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID2Selector)
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID2Selector)
 	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
-	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID3Selector)
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID3Selector)
 	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
-	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, DstID4Selector)
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID4Selector)
 
-	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
 
 	epID1            = uint64(111)
 	epID2            = uint64(222)
@@ -254,7 +244,6 @@ func TestPrivilegedRejectFromDifferentEndpoint(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -276,7 +265,6 @@ func TestPrivilegedAcceptFromMatchingEndpoint(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -298,7 +286,6 @@ func TestPrivilegedAcceptNonRegex(t *testing.T) {
 	name := "simple.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -320,7 +307,6 @@ func TestPrivilegedRejectNonRegex(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -340,7 +326,6 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -414,7 +399,6 @@ func TestPrivilegedRespondViaCorrectProtocol(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -445,7 +429,6 @@ func TestPrivilegedRespondMixedCaseInRequestResponse(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -479,7 +462,6 @@ func TestPrivilegedCheckNoRules(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{},
 		},
 	}
@@ -495,7 +477,6 @@ func TestPrivilegedCheckNoRules(t *testing.T) {
 
 	l7map = policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{},
 			},
@@ -515,7 +496,6 @@ func TestPrivilegedCheckAllowedTwiceRemovedOnce(t *testing.T) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}},
 			},
@@ -630,7 +610,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	//	| EP1  | DstID2 |      53 |  UDP  | cilium.io      |
 	_, err := s.proxy.UpdateAllowed(epID1, udpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "*.ubuntu.com."},
@@ -639,7 +618,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			},
 		},
 		cachedDstID2Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "cilium.io."},
@@ -652,7 +630,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	//      | EP1  | DstID1 |      53 |  TCP  | sub.ubuntu.com |
 	_, err = s.proxy.UpdateAllowed(epID1, tcpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "sub.ubuntu.com."},
@@ -665,7 +642,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	//	| EP1  | DstID1 |      54 |  UDP  | example.com    |
 	_, err = s.proxy.UpdateAllowed(epID1, udpProtoPort54, policy.L7DataMap{
 		cachedWildcardSelector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "example.com."},
@@ -680,7 +656,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	// | EP3  | DstID4 |      53 |  UDP  | nil            |
 	_, err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "example.com."},
@@ -688,7 +663,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			},
 		},
 		cachedDstID3Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "*"},
@@ -702,7 +676,6 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	// | EP3  | DstID3 |      53 |  TCP  | example.com    |
 	_, err = s.proxy.UpdateAllowed(epID3, tcpProtoPort53, policy.L7DataMap{
 		cachedDstID3Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{
 					{MatchPattern: "example.com"},
@@ -816,11 +789,11 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 		},
 	}
-	restored1, _ := s.proxy.GetRules(uint16(epID1))
+	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	assertRulesEqual(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
-	restored2, _ := s.proxy.GetRules(uint16(epID2))
+	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
 	assertRulesEqual(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
@@ -833,7 +806,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored3, _ := s.proxy.GetRules(uint16(epID3))
+	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
 	assertRulesEqual(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
@@ -852,7 +825,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored1b, _ := s.proxy.GetRules(uint16(epID1))
+	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	assertRulesEqual(t, expected1b, restored1b)
 
 	// unlimited again
@@ -905,23 +878,13 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
-	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
 	t.Cleanup(ep1.Stop)
 
-	ep1.DNSRules = restored1
+	ep1.DNSRulesV2 = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -967,23 +930,13 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
-	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	ep3.Start(uint16(modelEP3.ID))
 	t.Cleanup(ep3.Stop)
 
-	ep3.DNSRules = restored3
+	ep3.DNSRulesV2 = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
 	require.True(t, exists)
@@ -1073,7 +1026,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 	require.NoError(t, err, "Could not marshal restored rules to json")
 	require.Equal(t, pretty.String(), string(jsn2))
 
-	ep1.DNSRules = rules
+	ep1.DNSRulesV2 = rules
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1134,7 +1087,6 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	pattern := "*.cilium.com."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: []api.PortRuleDNS{{MatchName: name}, {MatchPattern: pattern}},
 			},
@@ -1170,7 +1122,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	}
 
 	// Get restored rules
-	restored, _ := s.proxy.GetRules(uint16(epID1))
+	restored, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 
 	// remove rules
 	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
@@ -1189,17 +1141,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
-		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		Logger:           hivetest.Logger(t),
-		IdentityManager:  identitymanager.NewIDManager(logger),
-		PolicyRepo:       s.repo,
-	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -1207,7 +1149,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 
 	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
 	ep1.IPv6 = netip.MustParseAddr("::1")
-	ep1.DNSRules = restored
+	ep1.DNSRulesV2 = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists := s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1240,7 +1182,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &invalidRePattern}},
 		restore.IPRule{Re: restore.RuleRegex{Pattern: &validRePattern}},
 	)
-	ep1.DNSRules = restored
+	ep1.DNSRulesV2 = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	require.True(t, exists)
@@ -1479,19 +1421,15 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
-func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (t selectorMock) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (t selectorMock) GetMetadataLabels() labels.LabelArrayList {
-	panic("implement me")
-}
-
-func (t selectorMock) Selects(identity.NumericIdentity) bool {
+func (t selectorMock) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
 	panic("implement me")
 }
 
@@ -1540,7 +1478,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 		if (i+1)%everyNHasWildcard == 0 {
 			commonRules = append(commonRules, api.PortRuleDNS{MatchPattern: "*"})
 		}
-		psp := &policy.PerSelectorPolicy{Verdict: types.Allow, L7Rules: api.L7Rules{DNS: commonRules}}
+		psp := &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: commonRules}}
 		rulesPerEP = append(rulesPerEP, policy.L7DataMap{new(selectorMock): psp, new(selectorMock): psp})
 	}
 
@@ -1549,7 +1487,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		for epID := range uint64(nEPs) {
+		for epID := uint64(0); epID < nEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, nil)
 		}
 		b.StartTimer()
@@ -1630,7 +1568,6 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 			}
 		}
 		rules[new(selectorMock)] = &policy.PerSelectorPolicy{
-			Verdict: types.Allow,
 			L7Rules: api.L7Rules{
 				DNS: portRuleDNS,
 			},
@@ -1710,7 +1647,7 @@ func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRe
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
-		Properties: map[string]any{
+		Properties: map[string]interface{}{
 			endpoint.PropertyFakeEndpoint: true,
 		},
 	}

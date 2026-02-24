@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -94,15 +93,11 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 
 	if m.CiliumStatus != nil {
 		if err := m.CiliumStatus.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium-status")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("cilium-status")
 			}
-
 			return err
 		}
 	}
@@ -117,15 +112,11 @@ func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
 
 	if m.Encryption != nil {
 		if err := m.Encryption.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("encryption")
 			}
-
 			return err
 		}
 	}
@@ -145,15 +136,11 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 
 		if m.EndpointList[i] != nil {
 			if err := m.EndpointList[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -170,15 +157,11 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 
 	if m.Policy != nil {
 		if err := m.Policy.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("policy")
 			}
-
 			return err
 		}
 	}
@@ -198,15 +181,11 @@ func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
 
 		if m.ServiceList[i] != nil {
 			if err := m.ServiceList[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("service-list" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -255,15 +234,11 @@ func (m *DebugInfo) contextValidateCiliumStatus(ctx context.Context, formats str
 		}
 
 		if err := m.CiliumStatus.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium-status")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("cilium-status")
 			}
-
 			return err
 		}
 	}
@@ -280,15 +255,11 @@ func (m *DebugInfo) contextValidateEncryption(ctx context.Context, formats strfm
 		}
 
 		if err := m.Encryption.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("encryption")
 			}
-
 			return err
 		}
 	}
@@ -307,15 +278,11 @@ func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats str
 			}
 
 			if err := m.EndpointList[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -334,15 +301,11 @@ func (m *DebugInfo) contextValidatePolicy(ctx context.Context, formats strfmt.Re
 		}
 
 		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("policy")
 			}
-
 			return err
 		}
 	}
@@ -361,15 +324,11 @@ func (m *DebugInfo) contextValidateServiceList(ctx context.Context, formats strf
 			}
 
 			if err := m.ServiceList[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("service-list" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -427,15 +386,11 @@ func (m *DebugInfoEncryption) validateWireguard(formats strfmt.Registry) error {
 
 	if m.Wireguard != nil {
 		if err := m.Wireguard.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption" + "." + "wireguard")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("encryption" + "." + "wireguard")
 			}
-
 			return err
 		}
 	}
@@ -466,15 +421,11 @@ func (m *DebugInfoEncryption) contextValidateWireguard(ctx context.Context, form
 		}
 
 		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption" + "." + "wireguard")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("encryption" + "." + "wireguard")
 			}
-
 			return err
 		}
 	}

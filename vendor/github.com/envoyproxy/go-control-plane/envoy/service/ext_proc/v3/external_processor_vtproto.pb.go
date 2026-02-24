@@ -381,23 +381,6 @@ func (m *ProcessingResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, err
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.RequestDrain {
-		i--
-		if m.RequestDrain {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x60
-	}
-	if msg, ok := m.Response.(*ProcessingResponse_StreamedImmediateResponse); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
 	if m.OverrideMessageTimeout != nil {
 		size, err := (*durationpb.Duration)(m.OverrideMessageTimeout).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -653,29 +636,6 @@ func (m *ProcessingResponse_ImmediateResponse) MarshalToSizedBufferVTStrict(dAtA
 	}
 	return len(dAtA) - i, nil
 }
-func (m *ProcessingResponse_StreamedImmediateResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *ProcessingResponse_StreamedImmediateResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.StreamedImmediateResponse != nil {
-		size, err := m.StreamedImmediateResponse.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x5a
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x5a
-	}
-	return len(dAtA) - i, nil
-}
 func (m *HttpHeaders) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -792,26 +752,6 @@ func (m *HttpBody) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
-	}
-	if m.GrpcMessageCompressed {
-		i--
-		if m.GrpcMessageCompressed {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x20
-	}
-	if m.EndOfStreamWithoutMessage {
-		i--
-		if m.EndOfStreamWithoutMessage {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x18
 	}
 	if m.EndOfStream {
 		i--
@@ -1017,141 +957,6 @@ func (m *TrailersResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error
 	return len(dAtA) - i, nil
 }
 
-func (m *StreamedImmediateResponse) MarshalVTStrict() (dAtA []byte, err error) {
-	if m == nil {
-		return nil, nil
-	}
-	size := m.SizeVT()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *StreamedImmediateResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *StreamedImmediateResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	if m == nil {
-		return 0, nil
-	}
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.unknownFields != nil {
-		i -= len(m.unknownFields)
-		copy(dAtA[i:], m.unknownFields)
-	}
-	if msg, ok := m.Response.(*StreamedImmediateResponse_TrailersResponse); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
-	if msg, ok := m.Response.(*StreamedImmediateResponse_BodyResponse); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
-	if msg, ok := m.Response.(*StreamedImmediateResponse_HeadersResponse); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *StreamedImmediateResponse_HeadersResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *StreamedImmediateResponse_HeadersResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.HeadersResponse != nil {
-		size, err := m.HeadersResponse.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0xa
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-func (m *StreamedImmediateResponse_BodyResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *StreamedImmediateResponse_BodyResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.BodyResponse != nil {
-		size, err := m.BodyResponse.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x12
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x12
-	}
-	return len(dAtA) - i, nil
-}
-func (m *StreamedImmediateResponse_TrailersResponse) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *StreamedImmediateResponse_TrailersResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.TrailersResponse != nil {
-		if vtmsg, ok := interface{}(m.TrailersResponse).(interface {
-			MarshalToSizedBufferVTStrict([]byte) (int, error)
-		}); ok {
-			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		} else {
-			encoded, err := proto.Marshal(m.TrailersResponse)
-			if err != nil {
-				return 0, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
-		}
-		i--
-		dAtA[i] = 0x1a
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x1a
-	}
-	return len(dAtA) - i, nil
-}
 func (m *CommonResponse) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -1465,26 +1270,6 @@ func (m *StreamedBodyResponse) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.GrpcMessageCompressed {
-		i--
-		if m.GrpcMessageCompressed {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x20
-	}
-	if m.EndOfStreamWithoutMessage {
-		i--
-		if m.EndOfStreamWithoutMessage {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x18
-	}
 	if m.EndOfStream {
 		i--
 		if m.EndOfStream {
@@ -1786,9 +1571,6 @@ func (m *ProcessingResponse) SizeVT() (n int) {
 		l = (*durationpb.Duration)(m.OverrideMessageTimeout).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
-	if m.RequestDrain {
-		n += 2
-	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1891,20 +1673,6 @@ func (m *ProcessingResponse_ImmediateResponse) SizeVT() (n int) {
 	}
 	return n
 }
-func (m *ProcessingResponse_StreamedImmediateResponse) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.StreamedImmediateResponse != nil {
-		l = m.StreamedImmediateResponse.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
 func (m *HttpHeaders) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -1952,12 +1720,6 @@ func (m *HttpBody) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	if m.EndOfStream {
-		n += 2
-	}
-	if m.EndOfStreamWithoutMessage {
-		n += 2
-	}
-	if m.GrpcMessageCompressed {
 		n += 2
 	}
 	n += len(m.unknownFields)
@@ -2026,67 +1788,6 @@ func (m *TrailersResponse) SizeVT() (n int) {
 	return n
 }
 
-func (m *StreamedImmediateResponse) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if vtmsg, ok := m.Response.(interface{ SizeVT() int }); ok {
-		n += vtmsg.SizeVT()
-	}
-	n += len(m.unknownFields)
-	return n
-}
-
-func (m *StreamedImmediateResponse_HeadersResponse) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.HeadersResponse != nil {
-		l = m.HeadersResponse.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
-func (m *StreamedImmediateResponse_BodyResponse) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.BodyResponse != nil {
-		l = m.BodyResponse.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
-func (m *StreamedImmediateResponse_TrailersResponse) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.TrailersResponse != nil {
-		if size, ok := interface{}(m.TrailersResponse).(interface {
-			SizeVT() int
-		}); ok {
-			l = size.SizeVT()
-		} else {
-			l = proto.Size(m.TrailersResponse)
-		}
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
 func (m *CommonResponse) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -2209,12 +1910,6 @@ func (m *StreamedBodyResponse) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	if m.EndOfStream {
-		n += 2
-	}
-	if m.EndOfStreamWithoutMessage {
-		n += 2
-	}
-	if m.GrpcMessageCompressed {
 		n += 2
 	}
 	n += len(m.unknownFields)

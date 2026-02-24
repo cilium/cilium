@@ -24,7 +24,6 @@ understand the workflow of getting these changes reviewed and merged upstream.
    images
    codeoverview
    datapath_config
-   bpf_tests
    hive
    statedb
    debugging

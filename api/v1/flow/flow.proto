@@ -151,10 +151,6 @@ message Flow {
     // this list is empty. Duplicate values are elided; each
     // entry is unique.
     repeated string policy_log = 21006;
-
-    // Aggregate contains flow aggregation counters when flow aggregation is enabled.
-    // This field is only populated for aggregated flows.
-    Aggregate aggregate = 21007;
 }
 
 // Emitter identifies the source that emits a Hubble flow.
@@ -240,7 +236,7 @@ enum TraceReason {
     REOPENED = 5 [deprecated=true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
-    ENCRYPT_OVERLAY = 8 [deprecated=true];
+    ENCRYPT_OVERLAY = 8;
 }
 
 message FileInfo {
@@ -256,8 +252,6 @@ message Layer4 {
         ICMPv4 ICMPv4 = 3;
         ICMPv6 ICMPv6 = 4;
         SCTP SCTP = 5;
-        VRRP VRRP = 6;
-        IGMP IGMP = 7;
     }
 }
 
@@ -357,17 +351,6 @@ message UDP {
 message SCTP {
     uint32 source_port = 1;
     uint32 destination_port = 2;
-    SCTPChunkType chunk_type = 3;
-}
-
-enum SCTPChunkType {
-    UNSUPPORTED = 0;
-    INIT = 1;
-    INIT_ACK = 2;
-    SHUTDOWN = 3;
-    SHUTDOWN_ACK = 4;
-    SHUTDOWN_COMPLETE = 5;
-    ABORT = 6;
 }
 
 message ICMPv4 {
@@ -378,17 +361,6 @@ message ICMPv4 {
 message ICMPv6 {
     uint32 type = 1;
     uint32 code = 2;
-}
-
-message VRRP {
-    uint32 type = 1;
-    uint32 vrid = 2;
-    uint32 priority = 3;
-}
-
-message IGMP {
-    uint32 type = 1;
-    string group_address = 2;
 }
 
 enum IPVersion {
@@ -407,7 +379,6 @@ message Tunnel {
     Protocol protocol = 1;
     IP IP = 2;
     Layer4 l4 = 3;
-    uint32 vni = 4;
 }
 
 enum Verdict {
@@ -524,8 +495,6 @@ enum DropReason {
     DROP_NO_EGRESS_IP = 204;
     // Punt packet to a user space proxy.
     DROP_PUNT_PROXY = 205;
-    // A BPF program failed to look up information for a network device.
-    DROP_NO_DEVICE = 206;
 }
 
 enum TrafficDirection {
@@ -690,11 +659,6 @@ message FlowFilter {
     repeated string trace_id = 28;
     // ip_trace_id filters flows by IPTraceID
     repeated uint64 ip_trace_id = 39;
-
-    // encrypted filters flows based on encryption status (WireGuard/IPsec).
-    // When set to true, only encrypted flows are returned.
-    // When set to false, only unencrypted flows are returned.
-    repeated bool encrypted = 40;
 
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
@@ -1015,16 +979,4 @@ enum DebugEventType {
     DBG_SKIP_POLICY = 66;
     DBG_LB6_LOOPBACK_SNAT = 67;
     DBG_LB6_LOOPBACK_SNAT_REV = 68;
-}
-
-// Aggregate contains flow aggregation counters
-message Aggregate {
-    // ingress_flow_count is the count of flows in the ingress direction
-    uint32 ingress_flow_count = 1;
-
-    // egress_flow_count is the count of flows in the egress direction  
-    uint32 egress_flow_count = 2;
-
-    // unknown_direction_flow_count is the count of flows with unknown traffic direction
-    uint32 unknown_direction_flow_count = 3;
 }

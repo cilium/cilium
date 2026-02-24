@@ -6,7 +6,6 @@
 
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
-#include <bpf/config/xdp.h>
 #include <netdev_config.h>
 #include <filter_config.h>
 
@@ -38,10 +37,7 @@
  */
 #undef ENABLE_HEALTH_CHECK
 
-#define	NODEPORT_USE_NAT_46x64		1
-
 #include "lib/common.h"
-#include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/events.h"
 #include "lib/nodeport.h"
@@ -53,7 +49,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v4_fix __section_maps_btf;
 
 struct {
@@ -62,7 +58,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v4_dyn __section_maps_btf;
 
 struct {
@@ -71,7 +67,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v6_fix __section_maps_btf;
 
 struct {
@@ -80,7 +76,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_cidr_v6_dyn __section_maps_btf;
 
 static __always_inline __maybe_unused int
@@ -105,20 +101,20 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 		int l3_off = ETH_HLEN;
 		void *data, *data_end;
 		struct iphdr *ip4;
-		bool is_dsr = false;
+		bool __maybe_unused is_dsr = false;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 			ret = DROP_INVALID;
 			goto out;
 		}
 
-#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_BYUSER) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 		{
 			int l4_off, inner_l2_off;
 			struct genevehdr geneve;
 			__sum16	udp_csum;
 			__be16 dport;
-			__be16 proto;
+			__u16 proto;
 
 			if (ip4->protocol != IPPROTO_UDP)
 				goto no_encap;
@@ -134,7 +130,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 				goto out;
 			}
 
-			if (dport != bpf_htons(CONFIG(tunnel_port)))
+			if (dport != bpf_htons(TUNNEL_PORT))
 				goto no_encap;
 
 			/* Cilium uses BPF_F_ZERO_CSUM_TX for its tunnel traffic.
@@ -184,9 +180,12 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			}
 		}
 no_encap:
-#endif /* ENABLE_DSR && !ENABLE_DSR_BYUSER && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
+#endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
+		if (ret == NAT_46X64_RECIRC)
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
+						 &ext_err);
 	}
 
 out:
@@ -212,7 +211,8 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
-static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
+#ifdef ENABLE_PREFILTER
+static __always_inline int check_v4(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -230,13 +230,18 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 	if (map_lookup_elem(&cilium_cidr_v4_dyn, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR4_LPM_PREFILTER */
-
-	if (map_lookup_elem(&cilium_cidr_v4_fix, &pfx))
-		return CTX_ACT_DROP;
+	return map_lookup_elem(&cilium_cidr_v4_fix, &pfx) ?
+		CTX_ACT_DROP : check_v4_lb(ctx);
+#else
+	return check_v4_lb(ctx);
 #endif /* CIDR4_FILTER */
-
-	return 0;
 }
+#else
+static __always_inline int check_v4(struct __ctx_buff *ctx)
+{
+	return check_v4_lb(ctx);
+}
+#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -284,7 +289,8 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
-static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
+#ifdef ENABLE_PREFILTER
+static __always_inline int check_v6(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -302,13 +308,18 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 	if (map_lookup_elem(&cilium_cidr_v6_dyn, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR6_LPM_PREFILTER */
-
-	if (map_lookup_elem(&cilium_cidr_v6_fix, &pfx))
-		return CTX_ACT_DROP;
+	return map_lookup_elem(&cilium_cidr_v6_fix, &pfx) ?
+		CTX_ACT_DROP : check_v6_lb(ctx);
+#else
+	return check_v6_lb(ctx);
 #endif /* CIDR6_FILTER */
-
-	return 0;
 }
+#else
+static __always_inline int check_v6(struct __ctx_buff *ctx)
+{
+	return check_v6_lb(ctx);
+}
+#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
 #ifndef xdp_early_hook
@@ -318,7 +329,7 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 static __always_inline int check_filters(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
-	__be16 proto;
+	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto))
 		return CTX_ACT_OK;
@@ -333,24 +344,12 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		if (CONFIG(enable_xdp_prefilter)) {
-			ret = prefilter_v4(ctx);
-			if (ret == CTX_ACT_DROP)
-				return ret;
-		}
-
-		ret = check_v4_lb(ctx);
+		ret = check_v4(ctx);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (CONFIG(enable_xdp_prefilter)) {
-			ret = prefilter_v6(ctx);
-			if (ret == CTX_ACT_DROP)
-				return ret;
-		}
-
-		ret = check_v6_lb(ctx);
+		ret = check_v6(ctx);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:

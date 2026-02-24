@@ -59,22 +59,21 @@ const (
 	BPF_F_INGRESS                              = 1
 	BPF_F_INNER_MAP                            = 4096
 	BPF_F_INVALIDATE_HASH                      = 2
-	BPF_F_IPV6                                 = 128
 	BPF_F_KPROBE_MULTI_RETURN                  = 1
 	BPF_F_LINK                                 = 8192
 	BPF_F_LOCK                                 = 4
 	BPF_F_MARK_ENFORCE                         = 64
 	BPF_F_MARK_MANGLED_0                       = 32
 	BPF_F_MMAPABLE                             = 1024
-	BPF_F_NEIGH                                = 65536
-	BPF_F_NEXTHOP                              = 262144
+	BPF_F_NEIGH                                = 2
+	BPF_F_NEXTHOP                              = 8
 	BPF_F_NO_COMMON_LRU                        = 2
 	BPF_F_NO_PREALLOC                          = 1
 	BPF_F_NO_TUNNEL_KEY                        = 16
 	BPF_F_NO_USER_CONV                         = 262144
 	BPF_F_NUMA_NODE                            = 4
 	BPF_F_PATH_FD                              = 16384
-	BPF_F_PEER                                 = 131072
+	BPF_F_PEER                                 = 4
 	BPF_F_PRESERVE_ELEMS                       = 2048
 	BPF_F_PSEUDO_HDR                           = 16
 	BPF_F_RDONLY                               = 8
@@ -102,7 +101,6 @@ const (
 	BPF_LOAD_HDR_OPT_TCP_SYN                   = 1
 	BPF_LOCAL_STORAGE_GET_F_CREATE             = 1
 	BPF_MAX_LOOPS                              = 8388608
-	BPF_MAX_TIMED_LOOPS                        = 65535
 	BPF_MAX_TRAMP_LINKS                        = 38
 	BPF_NOEXIST                                = 1
 	BPF_RB_AVAIL_DATA                          = 0
@@ -154,15 +152,9 @@ const (
 	BPF_SOCK_OPS_TCP_CONNECT_CB                = 3
 	BPF_SOCK_OPS_TCP_LISTEN_CB                 = 11
 	BPF_SOCK_OPS_TIMEOUT_INIT                  = 1
-	BPF_SOCK_OPS_TSTAMP_ACK_CB                 = 19
-	BPF_SOCK_OPS_TSTAMP_SCHED_CB               = 16
-	BPF_SOCK_OPS_TSTAMP_SENDMSG_CB             = 20
-	BPF_SOCK_OPS_TSTAMP_SND_HW_CB              = 18
-	BPF_SOCK_OPS_TSTAMP_SND_SW_CB              = 17
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
-	BPF_STREAM_MAX_CAPACITY                    = 100000
 	BPF_TASK_ITER_ALL_PROCS                    = 0
 	BPF_TASK_ITER_ALL_THREADS                  = 1
 	BPF_TASK_ITER_PROC_THREADS                 = 2
@@ -252,8 +244,7 @@ const (
 	BPF_NETKIT_PRIMARY                 AttachType = 54
 	BPF_NETKIT_PEER                    AttachType = 55
 	BPF_TRACE_KPROBE_SESSION           AttachType = 56
-	BPF_TRACE_UPROBE_SESSION           AttachType = 57
-	__MAX_BPF_ATTACH_TYPE              AttachType = 58
+	__MAX_BPF_ATTACH_TYPE              AttachType = 57
 )
 
 type Cmd uint32
@@ -297,8 +288,7 @@ const (
 	BPF_LINK_DETACH                 Cmd = 34
 	BPF_PROG_BIND_MAP               Cmd = 35
 	BPF_TOKEN_CREATE                Cmd = 36
-	BPF_PROG_STREAM_READ_BY_FD      Cmd = 37
-	__MAX_BPF_CMD                   Cmd = 38
+	__MAX_BPF_CMD                   Cmd = 37
 )
 
 type FunctionId uint32
@@ -589,18 +579,6 @@ const (
 	__MAX_BPF_MAP_TYPE                            MapType = 34
 )
 
-type NetfilterInetHook uint32
-
-const (
-	NF_INET_PRE_ROUTING  NetfilterInetHook = 0
-	NF_INET_LOCAL_IN     NetfilterInetHook = 1
-	NF_INET_FORWARD      NetfilterInetHook = 2
-	NF_INET_LOCAL_OUT    NetfilterInetHook = 3
-	NF_INET_POST_ROUTING NetfilterInetHook = 4
-	NF_INET_NUMHOOKS     NetfilterInetHook = 5
-	NF_INET_INGRESS      NetfilterInetHook = 5
-)
-
 type ObjType uint32
 
 const (
@@ -711,19 +689,6 @@ const (
 	XDP_REDIRECT XdpAction = 4
 )
 
-type NetfilterProtocolFamily uint32
-
-const (
-	NFPROTO_UNSPEC   NetfilterProtocolFamily = 0
-	NFPROTO_INET     NetfilterProtocolFamily = 1
-	NFPROTO_IPV4     NetfilterProtocolFamily = 2
-	NFPROTO_ARP      NetfilterProtocolFamily = 3
-	NFPROTO_NETDEV   NetfilterProtocolFamily = 5
-	NFPROTO_BRIDGE   NetfilterProtocolFamily = 7
-	NFPROTO_IPV6     NetfilterProtocolFamily = 10
-	NFPROTO_NUMPROTO NetfilterProtocolFamily = 11
-)
-
 type BtfInfo struct {
 	_         structs.HostLayout
 	Btf       TypedPointer[uint8]
@@ -775,9 +740,6 @@ type MapInfo struct {
 	BtfValueTypeId        TypeID
 	BtfVmlinuxId          uint32
 	MapExtra              uint64
-	Hash                  uint64
-	HashSize              uint32
-	_                     [4]byte
 }
 
 type ProgInfo struct {
@@ -985,8 +947,8 @@ type LinkCreateNetfilterAttr struct {
 	TargetFd       uint32
 	AttachType     AttachType
 	Flags          uint32
-	Pf             NetfilterProtocolFamily
-	Hooknum        NetfilterInetHook
+	Pf             uint32
+	Hooknum        uint32
 	Priority       int32
 	NetfilterFlags uint32
 	_              [32]byte
@@ -1167,9 +1129,6 @@ type MapCreateAttr struct {
 	MapExtra              uint64
 	ValueTypeBtfObjFd     int32
 	MapTokenFd            int32
-	ExclProgHash          uint64
-	ExclProgHashSize      uint32
-	_                     [4]byte
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -1491,10 +1450,7 @@ type ProgLoadAttr struct {
 	CoreReloRecSize    uint32
 	LogTrueSize        uint32
 	ProgTokenFd        int32
-	FdArrayCnt         uint32
-	Signature          uint64
-	SignatureSize      uint32
-	KeyringId          int32
+	_                  [4]byte
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
@@ -1577,21 +1533,6 @@ type CgroupLinkInfo struct {
 	_          [36]byte
 }
 
-type EventLinkInfo struct {
-	_             structs.HostLayout
-	Type          LinkType
-	Id            LinkID
-	ProgId        uint32
-	_             [4]byte
-	PerfEventType PerfEventType
-	_             [4]byte
-	Config        uint64
-	EventType     uint32
-	_             [4]byte
-	Cookie        uint64
-	_             [16]byte
-}
-
 type IterLinkInfo struct {
 	_             structs.HostLayout
 	Type          LinkType
@@ -1649,8 +1590,8 @@ type NetfilterLinkInfo struct {
 	Id       LinkID
 	ProgId   uint32
 	_        [4]byte
-	Pf       NetfilterProtocolFamily
-	Hooknum  NetfilterInetHook
+	Pf       uint32
+	Hooknum  uint32
 	Priority int32
 	Flags    uint32
 	_        [32]byte
@@ -1684,9 +1625,7 @@ type RawTracepointLinkInfo struct {
 	_         [4]byte
 	TpName    TypedPointer[uint8]
 	TpNameLen uint32
-	_         [4]byte
-	Cookie    uint64
-	_         [24]byte
+	_         [36]byte
 }
 
 type TcxLinkInfo struct {
@@ -1700,21 +1639,6 @@ type TcxLinkInfo struct {
 	_          [40]byte
 }
 
-type TracepointLinkInfo struct {
-	_             structs.HostLayout
-	Type          LinkType
-	Id            LinkID
-	ProgId        uint32
-	_             [4]byte
-	PerfEventType PerfEventType
-	_             [4]byte
-	TpName        TypedPointer[uint8]
-	NameLen       uint32
-	_             [4]byte
-	Cookie        uint64
-	_             [16]byte
-}
-
 type TracingLinkInfo struct {
 	_           structs.HostLayout
 	Type        LinkType
@@ -1724,41 +1648,7 @@ type TracingLinkInfo struct {
 	AttachType  AttachType
 	TargetObjId uint32
 	TargetBtfId TypeID
-	_           [4]byte
-	Cookie      uint64
-	_           [24]byte
-}
-
-type UprobeLinkInfo struct {
-	_             structs.HostLayout
-	Type          LinkType
-	Id            LinkID
-	ProgId        uint32
-	_             [4]byte
-	PerfEventType PerfEventType
-	_             [4]byte
-	FileName      TypedPointer[uint8]
-	NameLen       uint32
-	Offset        uint32
-	Cookie        uint64
-	RefCtrOffset  uint64
-	_             [8]byte
-}
-
-type UprobeMultiLinkInfo struct {
-	_             structs.HostLayout
-	Type          LinkType
-	Id            LinkID
-	ProgId        uint32
-	_             [4]byte
-	Path          TypedPointer[uint8]
-	Offsets       TypedPointer[uint64]
-	RefCtrOffsets TypedPointer[uint64]
-	Cookies       TypedPointer[uint64]
-	PathSize      uint32
-	Count         uint32
-	Flags         uint32
-	Pid           uint32
+	_           [36]byte
 }
 
 type XDPLinkInfo struct {

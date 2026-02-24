@@ -20,14 +20,8 @@ package v1
 
 // PhotonPersistentDiskVolumeSourceApplyConfiguration represents a declarative configuration of the PhotonPersistentDiskVolumeSource type for use
 // with apply.
-//
-// Represents a Photon Controller persistent disk resource.
 type PhotonPersistentDiskVolumeSourceApplyConfiguration struct {
-	// pdID is the ID that identifies Photon Controller persistent disk
-	PdID *string `json:"pdID,omitempty"`
-	// fsType is the filesystem type to mount.
-	// Must be a filesystem type supported by the host operating system.
-	// Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+	PdID   *string `json:"pdID,omitempty"`
 	FSType *string `json:"fsType,omitempty"`
 }
 

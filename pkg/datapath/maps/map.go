@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,11 +56,11 @@ type MapSweeper struct {
 	kprCfg    kpr.KPRConfig
 }
 
-// newMapSweeper creates an object that walks map paths and garbage-collects
+// NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func newMapSweeper(logger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
 	return &MapSweeper{
-		logger:          logger,
+		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
@@ -95,12 +96,19 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 
 	mapPrefix := []string{
 		policymap.MapName,
+		ctmap.MapNameTCP6,
+		ctmap.MapNameTCP4,
+		ctmap.MapNameAny6,
+		ctmap.MapNameAny4,
 		callsmap.MapName,
+		callsmap.CustomCallsMapName,
 	}
 
 	for _, m := range mapPrefix {
-		if endpointID, found := strings.CutPrefix(filename, m); found {
-			ms.deleteMapIfStale(path, filename, endpointID)
+		if strings.HasPrefix(filename, m) {
+			if endpointID := strings.TrimPrefix(filename, m); endpointID != filename {
+				ms.deleteMapIfStale(path, filename, endpointID)
+			}
 		}
 	}
 
@@ -147,9 +155,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends_v2",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
-			"cilium_snat_v6_alloc_retries",
-			"cilium_l2_responder_v6",
-			"cilium_egress_gw_policy_v6",
 			lbmaps.MaglevOuter6MapName,
 			lbmaps.Affinity6MapName,
 			lbmaps.SourceRange6MapName,
@@ -172,9 +177,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends_v2",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
-			"cilium_snat_v4_alloc_retries",
-			"cilium_l2_responder_v4",
-			"cilium_egress_gw_policy_v4",
 			lbmaps.MaglevOuter4MapName,
 			lbmaps.Affinity4MapName,
 			lbmaps.SourceRange4MapName,
@@ -186,10 +188,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
-		maps = append(maps, []string{
-			"cilium_snat_v4_external", "cilium_snat_v6_external",
-			"cilium_snat_v4_alloc_retries", "cilium_snat_v6_alloc_retries",
-		}...)
+		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
 	if !option.Config.EnableIPv4FragmentsTracking {
@@ -204,7 +203,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_throttle")
 	}
 
-	if !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
+	if !option.Config.EnableHealthDatapath {
 		maps = append(maps, lbmaps.HealthProbe6MapName, lbmaps.HealthProbe4MapName)
 	}
 
@@ -219,16 +218,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv6Masquerade) {
 		maps = append(maps, ipmasq.MapNameIPv6)
-	}
-
-	if !option.Config.EnableSRv6 {
-		maps = append(maps,
-			"cilium_srv6_sid",
-			"cilium_srv6_policy_v4",
-			"cilium_srv6_policy_v6",
-			"cilium_srv6_vrf_v4",
-			"cilium_srv6_vrf_v6",
-		)
 	}
 
 	if !option.Config.EnableXDPPrefilter {

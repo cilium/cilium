@@ -4,10 +4,8 @@ aliases:
   # active folks who can be contacted to perform admin-related
   # tasks on the repo, or otherwise approve any PRS.
   controller-runtime-admins:
-  - alvaroaleman
-  - joelanford
-  - sbueringer
   - vincepri
+  - joelanford
 
   # non-admin folks who have write-access and can approve any PRs in the repo
   controller-runtime-maintainers:

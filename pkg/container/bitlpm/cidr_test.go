@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/netip"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -199,7 +200,9 @@ func TestDescendants(t *testing.T) {
 				gotRes = append(gotRes, v)
 				return true
 			})
-			assert.Equal(t, expectedRes, gotRes, "Descendants prefix %s", pref.String())
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("Descendants prefix %s, expected to get %v, but got: %v", pref.String(), expectedRes, gotRes)
+			}
 		}
 	}
 }
@@ -319,7 +322,9 @@ func TestDescendantsShortestPrefixFirst(t *testing.T) {
 				gotRes = append(gotRes, v)
 				return true
 			})
-			assert.Equal(t, expectedRes, gotRes, "LPM Descendants prefix %s", pref.String())
+			if !reflect.DeepEqual(expectedRes, gotRes) {
+				t.Fatalf("LPM Descendants prefix %s, expected to get %v, but got: %v", pref.String(), expectedRes, gotRes)
+			}
 		}
 	}
 }

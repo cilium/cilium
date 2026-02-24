@@ -9,67 +9,43 @@ package config
 // not instantiate directly! Always use [NewBPFHost] to ensure the default
 // values configured in the ELF are honored.
 type BPFHost struct {
-	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
-	// Respond to ARP requests from local containers to resolve the default
-	// gateway.
-	EnableARPResponder bool `config:"enable_arp_responder"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
-	// Apply Network Policy for ICMP packets.
-	EnableICMPRule bool `config:"enable_icmp_rule"`
-	// Enable L2 Announcements.
-	EnableL2Announcements bool `config:"enable_l2_announcements"`
-	// Use netkit devices for pods.
-	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
-	// Maintain packet and byte counters for every policy entry.
-	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
-	// Ephemeral port range minimun.
-	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
-	// The host endpoint ID.
-	HostEPID uint16 `config:"host_ep_id"`
-	// Enable hybrid mode routing based on subnet IDs.
-	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
+	// The host endpoint's security ID.
+	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfIndex uint32 `config:"interface_ifindex"`
+	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
-	// If the agent is down for longer than the lease duration, stop responding.
-	L2AnnouncementsMaxLiveness uint64 `config:"l2_announcements_max_liveness"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	// Pull security context from IP cache.
+	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
-	// Port number used for the overlay network.
-	TunnelPort uint16 `config:"tunnel_port"`
-	// The identifier of the tunnel protocol used for the overlay network.
-	TunnelProtocol uint8 `config:"tunnel_protocol"`
-	// VXLAN tunnel endpoint network mask.
-	VTEPMask uint32 `config:"vtep_mask"`
 	// Index of the WireGuard interface.
-	WGIfIndex uint32 `config:"wg_ifindex"`
+	WgIfindex uint32 `config:"wg_ifindex"`
 	// Port for the WireGuard interface.
-	WGPort uint16 `config:"wg_port"`
+	WgPort uint16 `config:"wg_port"`
 
 	Node
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, false,
-		false, 0x0, 0xe, 0x0, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, node}
 }

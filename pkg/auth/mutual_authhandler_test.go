@@ -15,12 +15,12 @@ import (
 	"math/big"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
@@ -265,7 +265,9 @@ func Test_mutualAuthHandler_verifyPeerCertificate(t *testing.T) {
 				t.Errorf("mutualAuthHandler.verifyPeerCertificate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("mutualAuthHandler.verifyPeerCertificate() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -340,7 +342,9 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() leaf certificate has no URIs")
 				}
 				gotURI := got.Leaf.URIs[0].String()
-				assert.Equal(t, tt.wantURI, gotURI)
+				if !reflect.DeepEqual(gotURI, tt.wantURI) {
+					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() = %v, want %v", got, tt.wantURI)
+				}
 			}
 
 		})
@@ -428,7 +432,9 @@ func Test_mutualAuthHandler_authenticate(t *testing.T) {
 				t.Errorf("mutualAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("mutualAuthHandler.authenticate() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -58,15 +57,11 @@ func (m *BPFMapStatus) validateMaps(formats strfmt.Registry) error {
 
 		if m.Maps[i] != nil {
 			if err := m.Maps[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("maps" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("maps" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -101,15 +96,11 @@ func (m *BPFMapStatus) contextValidateMaps(ctx context.Context, formats strfmt.R
 			}
 
 			if err := m.Maps[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("maps" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("maps" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

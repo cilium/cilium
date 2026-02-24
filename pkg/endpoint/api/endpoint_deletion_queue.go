@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // DeletionQueue manages the processing of persisted CNI delete requests.
@@ -36,28 +35,14 @@ type DeletionQueue struct {
 }
 
 func (dq *DeletionQueue) process(ctx context.Context, health cell.Health) error {
-	restorer, err := dq.endpointRestorePromise.Await(ctx)
-	if err != nil {
-		dq.logger.Error("deletionQueue: failed to wait for restorer promise", logfields.Error, err)
-		return fmt.Errorf("failed to wait for restorer promise: %w", err)
+	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
+		dq.logger.Error("deletionQueue: restorer promise failed", logfields.Error, err)
+		return fmt.Errorf("restorer promise failed: %w", err)
 	}
 
-	if err := restorer.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
-		dq.logger.Error("deletionQueue: failed to wait for endpoint restoration", logfields.Error, err)
-		return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
-	}
-
-	dq.logger.Debug(
-		"Attempting to acquire deletion queue lock",
-		logfields.Path, defaults.DeleteQueueLockfile,
-	)
-	startTime := time.Now()
 	if err := dq.lock(ctx); err != nil {
 		return fmt.Errorf("unable to get exclusive lock: %w", err)
 	}
-	dq.logger.Debug("Deletion Queue lock acquired",
-		logfields.Path, defaults.DeleteQueueLockfile,
-		logfields.Duration, time.Since(startTime))
 
 	// unlock lock file also in case of errors
 	defer func() { close(dq.processed) }()
@@ -106,7 +91,7 @@ func (dq *DeletionQueue) Wait(ctx context.Context) error {
 }
 
 func (dq *DeletionQueue) lock(ctx context.Context) error {
-	if err := os.MkdirAll(defaults.DeleteQueueDir, 0o755); err != nil {
+	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
 		dq.logger.Error("Failed to ensure CNI deletion queue directory exists",
 			logfields.Path, defaults.DeleteQueueDir,
 			logfields.Error, err,

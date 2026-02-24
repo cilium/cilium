@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -399,24 +400,27 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 }
 
 func tlsPassthroughFilterChains(m *model.Model) []*envoy_config_listener.FilterChain {
-	ptBackendsToHostnames := m.TLSBackends()
+	ptBackendsToHostnames := m.TLSBackendsToHostnames()
 	if len(ptBackendsToHostnames) == 0 {
 		return nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	for _, backend := range ptBackendsToHostnames {
+	orderedBackends := goslices.Sorted(maps.Keys(ptBackendsToHostnames))
+
+	for _, backend := range orderedBackends {
+		hostNames := ptBackendsToHostnames[backend]
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(backend.Hostnames),
+			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: tcpProxyType,
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{
 						TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-							StatPrefix: backend.BackendKey,
+							StatPrefix: backend,
 							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-								Cluster: backend.BackendKey,
+								Cluster: backend,
 							},
 						}),
 					},
@@ -463,10 +467,11 @@ func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMa
 	res := &envoy_config_listener.FilterChainMatch{
 		TransportProtocol: tlsTransportProtocol,
 	}
-	// The hostNames slice cannot have duplicates, so we do not need to check for uniqueness.
-	if goslices.Contains(hostNames, "*") {
+	// ServerNames must be sorted and unique, however, envoy don't support "*" as a server name
+	serverNames := slices.SortedUnique(hostNames)
+	if goslices.Contains(serverNames, "*") {
 		return res
 	}
-	res.ServerNames = hostNames
+	res.ServerNames = serverNames
 	return res
 }

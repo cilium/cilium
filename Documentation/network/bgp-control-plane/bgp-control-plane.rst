@@ -32,11 +32,13 @@ Installation
         Cilium BGP Control Plane can be enabled with Helm flag ``bgpControlPlane.enabled``
         set as true.
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: bgpControlPlane.enabled=true
-           :post-commands: kubectl -n kube-system rollout restart ds/cilium
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set bgpControlPlane.enabled=true
+            $ kubectl -n kube-system rollout restart ds/cilium
 
   .. group-tab:: Cilium CLI
 
@@ -57,11 +59,16 @@ IPv6 routes when Cilium Agent is configured to use only IPv4 address family.
 Configuring BGP Control Plane
 -----------------------------
 
+There are two ways to configure the BGP Control Plane. Using legacy ``CiliumBGPPeeringPolicy`` resource,
+or using newer BGP resources like ``CiliumBGPClusterConfig``. Currently, both configuration options are
+supported, however ``CiliumBGPPeeringPolicy`` will be deprecated in the future.
+
 .. toctree::
     :maxdepth: 2
     :glob:
 
-    bgp-control-plane-configuration
+    bgp-control-plane-v2
+    bgp-control-plane-v1
 
 Troubleshooting and Operation Guide
 -----------------------------------

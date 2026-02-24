@@ -7,12 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
 )
 
@@ -30,25 +27,15 @@ var Cell = cell.Module(
 type clientParams struct {
 	cell.In
 
-	Logger           *slog.Logger
-	IPToIdentity     statedb.RWTable[client.IPtoEndpointInfo]
-	PrefixToIdentity statedb.RWTable[client.PrefixToIdentity]
-	DB               *statedb.DB
-	JobGroup         job.Group
+	Logger       *slog.Logger
+	IPToIdentity statedb.RWTable[client.IPtoIdentity]
+	DB           *statedb.DB
 }
 
 func newRulesClient(params clientParams) lookup.ProxyLookupHandler {
-	r := &rulesClient{
-		logger:                params.Logger,
-		ipToIdentityTable:     params.IPToIdentity,
-		prefixToIdentityTable: params.PrefixToIdentity,
-		db:                    params.DB,
-		prefixLengths:         counter.DefaultPrefixLengthCounter(),
+	return &rulesClient{
+		Logger:            params.Logger,
+		IPtoIdentityTable: params.IPToIdentity,
+		DB:                params.DB,
 	}
-
-	params.JobGroup.Add(job.OneShot("sdp-watch-prefix-to-identity-mapping", r.watchPrefixToIdentityTable,
-		job.WithRetry(3, &job.ExponentialBackoff{Min: 5 * time.Second, Max: 10 * time.Second}),
-		job.WithShutdown()))
-
-	return r
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -21,6 +20,7 @@ import (
 type MTUConfiguration interface {
 	GetDeviceMTU() int
 	GetRouteMTU() int
+	GetRoutePostEncryptMTU() int
 }
 
 // LocalNodeConfiguration represents the configuration of the local node
@@ -142,19 +142,6 @@ type LocalNodeConfiguration struct {
 	// subsequent calls to NodeConfigurationChanged().
 	EnableEncapsulation bool
 
-	// TunnelProtocol is the datapath ID of the encapsulation protocol
-	// (0 if disabled, 1 for VXLAN, 2 for Geneve).
-	//
-	// This field is immutable at runtime. The value will not change in
-	// subsequent calls to NodeConfigurationChanged().
-	TunnelProtocol tunnel.BPFEncapProtocol
-
-	// TunnelPort is the UDP port used by the tunnel protocol (0 if disabled).
-	//
-	// This field is immutable at runtime. The value will not change in
-	// subsequent calls to NodeConfigurationChanged().
-	TunnelPort uint16
-
 	// EnableAutoDirectRouting enables the use of direct routes for
 	// communication between nodes if two nodes have direct L2
 	// connectivity.
@@ -181,20 +168,9 @@ type LocalNodeConfiguration struct {
 	// allocation CIDR IPs into Cilium endpoints.
 	EnableLocalNodeRoute bool
 
-	// DatapathIsLayer2 holds the configuration for whether the underlying
-	// connector to Pods on this node operate at Layer 2.
-	DatapathIsLayer2 bool
-
-	// DatapathIsNetkit holds the configuration for whether the underlying
-	// connector to pods on this node is Netkit or not.
-	DatapathIsNetkit bool
-
 	// EnableWireguard is used to check if we need to attach to the native
 	// device and to cilium_wg0.
 	EnableWireguard bool
-
-	// Ephemeral port range minimun.
-	EphemeralMin uint16
 
 	// Index of the cilium_wg0 interface if enabled.
 	WireguardIfIndex uint32
@@ -204,13 +180,6 @@ type LocalNodeConfiguration struct {
 
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
-
-	// EnablePolicyAccounting enables maintaining packet and byte counters for every
-	// policy entry
-	EnablePolicyAccounting bool
-
-	// Enable per flow (conntrack) statistics
-	EnableConntrackAccounting bool
 
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node

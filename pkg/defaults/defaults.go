@@ -7,21 +7,15 @@ import (
 	"time"
 )
 
-// Hive options
 const (
-	// HiveStartTimeout is the default value for option.HiveStartTimeout
-	HiveStartTimeout = 5 * time.Minute
+	// AgentHealthPort is the default value for option.AgentHealthPort
+	AgentHealthPort = 9879
 
-	// HiveStopTimeout is the default value for option.HiveStopTimeout
-	HiveStopTimeout = time.Minute
-
-	// HiveLogThreshold is the default value for option.HiveLogThreshold
-	HiveLogThreshold = 100 * time.Millisecond
-)
-
-const (
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
+
+	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
+	ClusterMeshHealthPort = 80
 
 	// EnableGops is the default value for option.EnableGops
 	EnableGops = true
@@ -198,10 +192,6 @@ const (
 	// EnableSRv6 is the default value for the SRv6 support enablement.
 	EnableSRv6 = false
 
-	// EnableFibTableIDAnnotation is the default value for the
-	// fib-table-id-annotation option.
-	EnableFibTableIDAnnotation = false
-
 	// SRv6EncapMode is the encapsulation mode for SRv6.
 	SRv6EncapMode = "reduced"
 
@@ -259,6 +249,10 @@ const (
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
 
+	// EnableHealthCheckLoadBalancerIP is the default value for
+	// EnableHealthCheckLoadBalancerIP
+	EnableHealthCheckLoadBalancerIP = false
+
 	// HealthCheckICMPFailureThreshold is the default value for HealthCheckICMPFailureThreshold
 	HealthCheckICMPFailureThreshold = 3
 
@@ -292,6 +286,12 @@ const (
 	// ConntrackGCStartingInterval is the default starting interval for
 	// connection tracking garbage collection
 	ConntrackGCStartingInterval = 5 * time.Minute
+
+	// ServiceLoopbackIPv4 is the default address for service loopback
+	ServiceLoopbackIPv4 = "169.254.42.1"
+
+	// ServiceLoopbackIPv6 is the default address for service loopback
+	ServiceLoopbackIPv6 = "fe80::1"
 
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
@@ -344,10 +344,6 @@ const (
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
 
-	// ENIDeleteOnTermination is the default value for
-	// CiliumNode.Spec.ENI.DeleteOnTermination if no value is set.
-	ENIDeleteOnTermination = true
-
 	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
 
@@ -360,12 +356,18 @@ const (
 	// ENIGarbageCollectionTagClusterValue is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagClusterValue = ClusterName
 
+	// ENIGarbageCollectionInterval is the default interval for the ENIGarbageCollectionInterval operator flag
+	ENIGarbageCollectionInterval = 5 * time.Minute
+
 	// ENIGarbageCollectionMaxPerInterval is the maximum number of ENIs which might be garbage collected
 	// per GC interval
 	ENIGarbageCollectionMaxPerInterval = 25
 
 	// AWSResultsPerApiCall is the maximum number of objects to fetch per paginated API call
 	AWSResultsPerApiCall = 1000
+
+	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
+	ParallelAllocWorkers = 50
 
 	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
 	IPAMAPIBurst = 20
@@ -426,6 +428,11 @@ const (
 	// for local traffic
 	EnableIdentityMark = true
 
+	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
+	// for the support of Leases in Kubernetes when there is an error in discovering
+	// API groups using Discovery API.
+	K8sEnableLeasesFallbackDiscovery = false
+
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
 
@@ -447,7 +454,7 @@ const (
 	TunnelSourcePortRange = "0-0"
 
 	// UnderlayProtocol is the default IP family for the underlay.
-	UnderlayProtocol = "auto"
+	UnderlayProtocol = "ipv4"
 
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"
@@ -483,9 +490,6 @@ const (
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = true
-
-	// EnableK8sClusterNetworkPolicy enables support for K8s ClusterNetworkPolicy.
-	EnableK8sClusterNetworkPolicy = false
 
 	// EnableCiliumNetworkPolicy enables support for Cilium Network Policy.
 	EnableCiliumNetworkPolicy = true
@@ -539,12 +543,6 @@ const (
 
 	// IPTracingOptionType is the default value for option.IPTracingOptionType
 	IPTracingOptionType = 0
-
-	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
-	EnableCiliumNodeCRD = true
-
-	// PolicyAccouting is the default value for option.PolicyAccounting
-	PolicyAccounting = true
 )
 
 var (

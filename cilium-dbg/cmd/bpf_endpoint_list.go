@@ -26,12 +26,7 @@ var bpfEndpointListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf endpoint list")
 
 		bpfEndpointList := make(map[string][]string)
-		m, err := lxcmap.OpenMap(log)
-		if err != nil {
-			os.Exit(1)
-		}
-
-		if err := m.Dump(bpfEndpointList); err != nil {
+		if err := lxcmap.LXCMap(nil).Dump(bpfEndpointList); err != nil {
 			os.Exit(1)
 		}
 

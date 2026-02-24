@@ -137,9 +137,6 @@ const (
 	UserAgentFeatureCredentialsIMDS                 = "0"
 
 	UserAgentFeatureBearerServiceEnvVars = "3"
-
-	UserAgentFeatureCredentialsProfileLogin = "AC"
-	UserAgentFeatureCredentialsLogin        = "AD"
 )
 
 var credentialSourceToFeature = map[aws.CredentialSource]UserAgentFeature{
@@ -163,8 +160,6 @@ var credentialSourceToFeature = map[aws.CredentialSource]UserAgentFeature{
 	aws.CredentialSourceProcess:              UserAgentFeatureCredentialsProcess,
 	aws.CredentialSourceHTTP:                 UserAgentFeatureCredentialsHTTP,
 	aws.CredentialSourceIMDS:                 UserAgentFeatureCredentialsIMDS,
-	aws.CredentialSourceProfileLogin:         UserAgentFeatureCredentialsProfileLogin,
-	aws.CredentialSourceLogin:                UserAgentFeatureCredentialsLogin,
 }
 
 // RequestUserAgent is a build middleware that set the User-Agent for the request.

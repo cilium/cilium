@@ -13,11 +13,13 @@
 // limitations under the License.
 
 //go:build !windows
+// +build !windows
 
 package renameio
 
 import (
-	"math/rand/v2"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,10 +29,10 @@ import (
 const defaultPerm os.FileMode = 0o600
 
 // nextrandom is a function generating a random number.
-var nextrandom = rand.Int64
+var nextrandom = rand.Int63
 
 // openTempFile creates a randomly named file and returns an open handle. It is
-// similar to os.CreateTemp except that the directory must be given, the file
+// similar to ioutil.TempFile except that the directory must be given, the file
 // permissions can be controlled and patterns in the name are not supported.
 // The name is always suffixed with a random number.
 func openTempFile(dir, name string, perm os.FileMode) (*os.File, error) {
@@ -48,33 +50,6 @@ func openTempFile(dir, name string, perm os.FileMode) (*os.File, error) {
 
 		if attempt++; attempt > 10000 {
 			return nil, &os.PathError{
-				Op:   "tempfile",
-				Path: name,
-				Err:  os.ErrExist,
-			}
-		}
-	}
-}
-
-// openTempFileRoot creates a randomly named file in root and returns an open
-// handle. It is similar to os.CreateTemp except that the directory must be
-// given, the file permissions can be controlled and patterns in the name are
-// not supported.  The name is always suffixed with a random number.
-func openTempFileRoot(root *os.Root, name string, perm os.FileMode) (string, *os.File, error) {
-	prefix := name
-
-	for attempt := 0; ; {
-		// Generate a reasonably random name which is unlikely to already
-		// exist. O_EXCL ensures that existing files generate an error.
-		name := prefix + strconv.FormatInt(nextrandom(), 10)
-
-		f, err := root.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, perm)
-		if !os.IsExist(err) {
-			return name, f, err
-		}
-
-		if attempt++; attempt > 10000 {
-			return "", nil, &os.PathError{
 				Op:   "tempfile",
 				Path: name,
 				Err:  os.ErrExist,
@@ -108,7 +83,7 @@ func tempDir(dir, dest string) string {
 	// the TMPDIR environment variable.
 	tmpdir := os.TempDir()
 
-	testsrc, err := os.CreateTemp(tmpdir, "."+filepath.Base(dest))
+	testsrc, err := ioutil.TempFile(tmpdir, "."+filepath.Base(dest))
 	if err != nil {
 		return fallback
 	}
@@ -120,7 +95,7 @@ func tempDir(dir, dest string) string {
 	}()
 	testsrc.Close()
 
-	testdest, err := os.CreateTemp(filepath.Dir(dest), "."+filepath.Base(dest))
+	testdest, err := ioutil.TempFile(filepath.Dir(dest), "."+filepath.Base(dest))
 	if err != nil {
 		return fallback
 	}
@@ -139,12 +114,9 @@ func tempDir(dir, dest string) string {
 type PendingFile struct {
 	*os.File
 
-	path           string
-	done           bool
-	closed         bool
-	replaceOnClose bool
-	root           *os.Root
-	tmpname        string
+	path   string
+	done   bool
+	closed bool
 }
 
 // Cleanup is a no-op if CloseAtomicallyReplace succeeded, and otherwise closes
@@ -159,16 +131,10 @@ func (t *PendingFile) Cleanup() error {
 	// reporting, there is nothing the caller can recover here.
 	var closeErr error
 	if !t.closed {
-		closeErr = t.File.Close()
+		closeErr = t.Close()
 	}
-	if t.root != nil {
-		if err := t.root.Remove(t.tmpname); err != nil {
-			return err
-		}
-	} else {
-		if err := os.Remove(t.Name()); err != nil {
-			return err
-		}
+	if err := os.Remove(t.Name()); err != nil {
+		return err
 	}
 	t.done = true
 	return closeErr
@@ -193,29 +159,14 @@ func (t *PendingFile) CloseAtomicallyReplace() error {
 		return err
 	}
 	t.closed = true
-	if err := t.File.Close(); err != nil {
+	if err := t.Close(); err != nil {
 		return err
 	}
-	if t.root != nil {
-		if err := t.root.Rename(t.tmpname, t.path); err != nil {
-			return err
-		}
-	} else {
-		if err := os.Rename(t.Name(), t.path); err != nil {
-			return err
-		}
+	if err := os.Rename(t.Name(), t.path); err != nil {
+		return err
 	}
 	t.done = true
 	return nil
-}
-
-// Close closes the file. By default it just calls Close() on the underlying file. For PendingFiles created with
-// WithReplaceOnClose it calls CloseAtomicallyReplace() instead.
-func (t *PendingFile) Close() error {
-	if t.replaceOnClose {
-		return t.CloseAtomicallyReplace()
-	}
-	return t.File.Close()
 }
 
 // TempFile creates a temporary file destined to atomically creating or
@@ -238,8 +189,6 @@ type config struct {
 	attemptPermCopy bool
 	ignoreUmask     bool
 	chmod           *os.FileMode
-	renameOnClose   bool
-	root            *os.Root
 }
 
 // NewPendingFile creates a temporary file destined to atomically creating or
@@ -267,15 +216,8 @@ func NewPendingFile(path string, opts ...Option) (*PendingFile, error) {
 	}
 
 	if cfg.attemptPermCopy {
-		var existing os.FileInfo
-		var err error
-		if cfg.root != nil {
-			existing, err = cfg.root.Lstat(cfg.path)
-		} else {
-			existing, err = os.Lstat(cfg.path)
-		}
 		// Try to determine permissions from an existing file.
-		if err == nil && existing.Mode().IsRegular() {
+		if existing, err := os.Lstat(cfg.path); err == nil && existing.Mode().IsRegular() {
 			perm := existing.Mode() & os.ModePerm
 			cfg.chmod = &perm
 
@@ -287,14 +229,7 @@ func NewPendingFile(path string, opts ...Option) (*PendingFile, error) {
 		}
 	}
 
-	var f *os.File
-	var err error
-	var tmpname string
-	if cfg.root != nil {
-		tmpname, f, err = openTempFileRoot(cfg.root, "."+filepath.Base(cfg.path), cfg.createPerm)
-	} else {
-		f, err = openTempFile(tempDir(cfg.dir, cfg.path), "."+filepath.Base(cfg.path), cfg.createPerm)
-	}
+	f, err := openTempFile(tempDir(cfg.dir, cfg.path), "."+filepath.Base(cfg.path), cfg.createPerm)
 	if err != nil {
 		return nil, err
 	}
@@ -309,13 +244,7 @@ func NewPendingFile(path string, opts ...Option) (*PendingFile, error) {
 		}
 	}
 
-	return &PendingFile{
-		File:           f,
-		path:           cfg.path,
-		replaceOnClose: cfg.renameOnClose,
-		root:           cfg.root,
-		tmpname:        tmpname,
-	}, nil
+	return &PendingFile{File: f, path: cfg.path}, nil
 }
 
 // Symlink wraps os.Symlink, replacing an existing symlink with the same name
@@ -327,9 +256,9 @@ func Symlink(oldname, newname string) error {
 		return err
 	}
 
-	// We need to use os.MkdirTemp, as we cannot overwrite a os.CreateTemp file,
+	// We need to use ioutil.TempDir, as we cannot overwrite a ioutil.TempFile,
 	// and removing+symlinking creates a TOCTOU race.
-	d, err := os.MkdirTemp(filepath.Dir(newname), "."+filepath.Base(newname))
+	d, err := ioutil.TempDir(filepath.Dir(newname), "."+filepath.Base(newname))
 	if err != nil {
 		return err
 	}
@@ -346,44 +275,6 @@ func Symlink(oldname, newname string) error {
 	}
 
 	if err := os.Rename(symlink, newname); err != nil {
-		return err
-	}
-
-	cleanup = false
-	return os.RemoveAll(d)
-}
-
-// SymlinkRoot wraps os.Symlink, replacing an existing symlink with the same
-// name atomically (os.Symlink fails when newname already exists, at least on
-// Linux).
-func SymlinkRoot(root *os.Root, oldname, newname string) error {
-	// Fast path: if newname does not exist yet, we can skip the whole dance
-	// below.
-	if err := root.Symlink(oldname, newname); err == nil || !os.IsExist(err) {
-		return err
-	}
-
-	// We need to use os.MkdirTemp, as we cannot overwrite a os.CreateTemp file,
-	// and removing+symlinking creates a TOCTOU race.
-	//
-	// There is no os.Root-compatible os.MkdirTemp, so we use the path directly.
-	d, err := os.MkdirTemp(root.Name(), "."+filepath.Base(newname))
-	if err != nil {
-		return err
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			os.RemoveAll(d)
-		}
-	}()
-
-	symlink := filepath.Join(filepath.Base(d), "tmp.symlink")
-	if err := root.Symlink(oldname, symlink); err != nil {
-		return err
-	}
-
-	if err := root.Rename(symlink, newname); err != nil {
 		return err
 	}
 

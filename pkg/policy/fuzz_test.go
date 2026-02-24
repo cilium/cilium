@@ -9,6 +9,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -31,13 +32,13 @@ func FuzzResolvePolicy(f *testing.F) {
 		}
 
 		logger := slog.New(slog.DiscardHandler)
-		td := newTestData(f, logger).withIDs(ruleTestIDs)
+		td := newTestData(logger).withIDs(ruleTestIDs)
 		td.repo.mustAdd(r)
 		sp, err := td.repo.resolvePolicyLocked(idA)
 		if err != nil {
 			return
 		}
-		sp.DistillPolicy(logger, &endpointInfo{ID: uint64(idA.ID)}, nil)
+		sp.DistillPolicy(logger, &EndpointInfo{ID: uint64(idA.ID)}, nil)
 	})
 }
 
@@ -49,7 +50,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
-		keys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), key, entry, allFeatures, ChangeState{})
+		keys.insertWithChanges(key, entry, allFeatures, ChangeState{})
 	})
 }
 
@@ -83,13 +84,9 @@ func FuzzAccumulateMapChange(f *testing.F) {
 			proxyPort = 1
 		}
 		key := KeyForDirection(dir).WithPortProto(proto, port)
-		verdict := types.Allow
-		if deny {
-			verdict = types.Deny
-		}
-		value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, 0, verdict, NoAuthRequirement)
+		value := newMapStateEntry(NilRuleOrigin, proxyPort, 0, deny, NoAuthRequirement)
 		policyMaps := MapChanges{logger: slog.New(slog.DiscardHandler)}
-		policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
-		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
+		policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
 	})
 }

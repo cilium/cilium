@@ -49,34 +49,6 @@ func (m *ExtAuthz) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if len(m.TypedMetadataContextNamespaces) > 0 {
-		for iNdEx := len(m.TypedMetadataContextNamespaces) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.TypedMetadataContextNamespaces[iNdEx])
-			copy(dAtA[i:], m.TypedMetadataContextNamespaces[iNdEx])
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.TypedMetadataContextNamespaces[iNdEx])))
-			i--
-			dAtA[i] = 0x5a
-		}
-	}
-	if len(m.MetadataContextNamespaces) > 0 {
-		for iNdEx := len(m.MetadataContextNamespaces) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.MetadataContextNamespaces[iNdEx])
-			copy(dAtA[i:], m.MetadataContextNamespaces[iNdEx])
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.MetadataContextNamespaces[iNdEx])))
-			i--
-			dAtA[i] = 0x52
-		}
-	}
-	if m.SendTlsAlertOnDenial {
-		i--
-		if m.SendTlsAlertOnDenial {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x48
-	}
 	if m.IncludeTlsSession {
 		i--
 		if m.IncludeTlsSession {
@@ -218,21 +190,6 @@ func (m *ExtAuthz) SizeVT() (n int) {
 	}
 	if m.IncludeTlsSession {
 		n += 2
-	}
-	if m.SendTlsAlertOnDenial {
-		n += 2
-	}
-	if len(m.MetadataContextNamespaces) > 0 {
-		for _, s := range m.MetadataContextNamespaces {
-			l = len(s)
-			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-		}
-	}
-	if len(m.TypedMetadataContextNamespaces) > 0 {
-		for _, s := range m.TypedMetadataContextNamespaces {
-			l = len(s)
-			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-		}
 	}
 	n += len(m.unknownFields)
 	return n

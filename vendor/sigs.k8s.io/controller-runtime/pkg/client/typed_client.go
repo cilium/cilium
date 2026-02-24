@@ -18,10 +18,8 @@ package client
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/util/apply"
 )
 
 var _ Reader = &typedClient{}
@@ -43,7 +41,7 @@ func (c *typedClient) Create(ctx context.Context, obj Object, opts ...CreateOpti
 	createOpts.ApplyOptions(opts)
 
 	return o.Post().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
 		Body(obj).
 		VersionedParams(createOpts.AsCreateOptions(), c.paramCodec).
@@ -62,9 +60,9 @@ func (c *typedClient) Update(ctx context.Context, obj Object, opts ...UpdateOpti
 	updateOpts.ApplyOptions(opts)
 
 	return o.Put().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		Body(obj).
 		VersionedParams(updateOpts.AsUpdateOptions(), c.paramCodec).
 		Do(ctx).
@@ -82,9 +80,9 @@ func (c *typedClient) Delete(ctx context.Context, obj Object, opts ...DeleteOpti
 	deleteOpts.ApplyOptions(opts)
 
 	return o.Delete().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		Body(deleteOpts.AsDeleteOptions()).
 		Do(ctx).
 		Error()
@@ -125,38 +123,13 @@ func (c *typedClient) Patch(ctx context.Context, obj Object, patch Patch, opts .
 	patchOpts.ApplyOptions(opts)
 
 	return o.Patch(patch.Type()).
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		VersionedParams(patchOpts.AsPatchOptions(), c.paramCodec).
 		Body(data).
 		Do(ctx).
 		Into(obj)
-}
-
-func (c *typedClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
-	o, err := c.resources.getObjMeta(obj)
-	if err != nil {
-		return err
-	}
-	req, err := apply.NewRequest(o, obj)
-	if err != nil {
-		return fmt.Errorf("failed to create apply request: %w", err)
-	}
-	applyOpts := &ApplyOptions{}
-	applyOpts.ApplyOptions(opts)
-
-	return req.
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
-		Resource(o.resource()).
-		Name(o.name).
-		VersionedParams(applyOpts.AsPatchOptions(), c.paramCodec).
-		Do(ctx).
-		// This is hacky, it is required because `Into` takes a `runtime.Object` and
-		// that is not implemented by the ApplyConfigurations. The generated clients
-		// don't have this problem because they deserialize into the api type, not the
-		// apply configuration: https://github.com/kubernetes/kubernetes/blob/22f5e01a37c0bc6a5f494dec14dd4e3688ee1d55/staging/src/k8s.io/client-go/gentype/type.go#L296-L317
-		Into(runtimeObjectFromApplyConfiguration(obj))
 }
 
 // Get implements client.Client.
@@ -206,9 +179,9 @@ func (c *typedClient) GetSubResource(ctx context.Context, obj, subResourceObj Ob
 	getOpts.ApplyOptions(opts)
 
 	return o.Get().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		SubResource(subResource).
 		VersionedParams(getOpts.AsGetOptions(), c.paramCodec).
 		Do(ctx).
@@ -229,9 +202,9 @@ func (c *typedClient) CreateSubResource(ctx context.Context, obj Object, subReso
 	createOpts.ApplyOptions(opts)
 
 	return o.Post().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		SubResource(subResource).
 		Body(subResourceObj).
 		VersionedParams(createOpts.AsCreateOptions(), c.paramCodec).
@@ -264,9 +237,9 @@ func (c *typedClient) UpdateSubResource(ctx context.Context, obj Object, subReso
 	}
 
 	return o.Put().
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		SubResource(subResource).
 		Body(body).
 		VersionedParams(updateOpts.AsUpdateOptions(), c.paramCodec).
@@ -295,9 +268,9 @@ func (c *typedClient) PatchSubResource(ctx context.Context, obj Object, subResou
 	}
 
 	return o.Patch(patch.Type()).
-		NamespaceIfScoped(o.namespace, o.isNamespaced()).
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
 		Resource(o.resource()).
-		Name(o.name).
+		Name(o.GetName()).
 		SubResource(subResource).
 		Body(data).
 		VersionedParams(patchOpts.AsPatchOptions(), c.paramCodec).

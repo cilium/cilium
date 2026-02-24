@@ -2,12 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
-
-static __u64 __now;
-
-#define ktime_get_ns()	(__now * NSEC_PER_SEC)
-#define jiffies64()	(__now)
-
 #include "common.h"
 
 #define ENABLE_IPV4
@@ -15,6 +9,11 @@ static __u64 __now;
 
 #include <bpf/config/node.h>
 #include "lib/common.h"
+
+static __u64 __now;
+
+#define ktime_get_ns()	(__now * NSEC_PER_SEC)
+#define jiffies64()	(__now)
 
 /* Is not part of these tests, and is causing issues in the CI */
 #undef CONNTRACK_ACCOUNTING

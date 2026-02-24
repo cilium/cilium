@@ -57,10 +57,6 @@ func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
 	o.nodesMutex.Unlock()
 }
 
-func TestMain(m *testing.M) {
-	testutils.GoleakVerifyTestMain(m)
-}
-
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
 	logger := hivetest.Logger(t)
@@ -137,9 +133,11 @@ func TestClusterMesh(t *testing.T) {
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 	// cluster2 is the cluster which is tested with sync canaries
 	nodesWSS := storeFactory.NewSyncStore("cluster2", client, nodeStore.NodeStorePrefix)
-	wg.Go(func() {
+	wg.Add(1)
+	go func() {
 		nodesWSS.Run(ctx)
-	})
+		wg.Done()
+	}()
 	nodeNames := []string{"foo", "bar", "baz"}
 
 	// wait for the two expected clusters to appear in the list of cm clusters

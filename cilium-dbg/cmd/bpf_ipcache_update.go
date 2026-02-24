@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 
@@ -44,8 +45,8 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		if err != nil {
 			Usagef(cmd, "Invalid tunnel endpoint. "+usage)
 		}
-		tunnelEndpoint, err := netip.ParseAddr(tunnelEndpointString)
-		if err != nil {
+		tunnelEndpoint := net.ParseIP(tunnelEndpointString)
+		if tunnelEndpoint == nil {
 			Usagef(cmd, "Invalid tunnel endpoint. "+usage)
 		}
 
@@ -72,7 +73,9 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 			Usagef(cmd, "Invalid cluster ID. "+usage)
 		}
 
-		key := ipcache.NewKey(prefix, clusterID)
+		ip := net.IP(prefix.Addr().AsSlice())
+		mask := net.CIDRMask(prefix.Bits(), 32)
+		key := ipcache.NewKey(ip, mask, clusterID)
 		value := ipcache.NewValue(identity, tunnelEndpoint, encryptKey, flags)
 		if err := ipcache.IPCacheMap(nil).Update(&key, &value); err != nil {
 			fmt.Fprintf(os.Stderr, "Error updating entry %s: %v\n", key, err)

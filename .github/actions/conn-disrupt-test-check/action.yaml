@@ -28,10 +28,6 @@ inputs:
     required: false
     default: 'false'
     description: 'Skip NS traffic disruption test (--include-conn-disrupt-test-ns-traffic). Can be removed after Cilium v1.20 release'
-  include-conn-disrupt-test-l7-traffic:
-    required: false
-    default: 'false'
-    description: 'Include L7 traffic disruption test (--include-conn-disrupt-test-l7-traffic)'
 runs:
   using: composite
   steps:
@@ -41,7 +37,7 @@ runs:
         if [[ -n "${{ inputs.tests }}" ]]; then
           TEST_ARG="${{ inputs.tests }}"
         else
-          TEST_ARG="no-interrupted-connections,no-ipsec-xfrm-error"
+          TEST_ARG="no-interrupted-connections"
           EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
           if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
             EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
@@ -54,11 +50,6 @@ runs:
             EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
           fi
         fi
-
-        if [[ "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
-          EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-l7-traffic"
-        fi
-
         ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \

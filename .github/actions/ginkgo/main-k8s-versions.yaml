@@ -1,34 +1,34 @@
 # This file contains which kernel versions should be run with which k8s versions
 ---
 include:
-  - k8s-version: "1.35"
-    ip-family: "dual"
-    # renovate: datasource=docker
-    kube-image: "quay.io/cilium/kindest-node:v1.35.0@sha256:a36285a50bb7ee33d44b6d7938dca10e34f8a9294873ae4b0b04f9d21619d44c"
-    # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.18-20260217.190018"
-    kernel-type: "latest"
-
   - k8s-version: "1.34"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.12-20260217.190018"
-    kernel-type: "oldstable"
+    kernel: "6.12-20250929.013214"
+    kernel-type: "latest"
 
   - k8s-version: "1.33"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "quay.io/cilium/kindest-node:v1.33.4@sha256:25a6018e48dfcaee478f4a59af81157a437f15e6e140bf103f85a2e7cd0cbbf2"
+    kube-image: "quay.io/cilium/kindest-node:v1.33.0@sha256:03032c2e474eef9d706416a077f2eeb14600653eecbdfada9fc2d81a4e0461f9"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.6-20260217.190018"
+    kernel: "rhel8.6-20250812.093650"
     kernel-type: "oldstable"
 
   - k8s-version: "1.32"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "quay.io/cilium/kindest-node:v1.32.8@sha256:abd489f042d2b644e2d033f5c2d900bc707798d075e8186cb65e3f1367a9d5a1"
+    kube-image: "quay.io/cilium/kindest-node:v1.32.0@sha256:22cf2864f90cfab0d442fda2decf2eae107edd03483053a902614dec637eff76"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.1-20260217.190018"
+    kernel: "rhel8.6-20250812.093650"
+    kernel-type: "oldstable"
+
+  - k8s-version: "1.31"
+    ip-family: "dual"
+    # renovate: datasource=docker
+    kube-image: "quay.io/cilium/kindest-node:v1.31.0@sha256:d2b2a8cd6fa282b9a4126938341a4d2924dfa96f60b1f983d519498c9cde1a99"
+    # renovate: datasource=docker depName=quay.io/lvh-images/kind
+    kernel: "5.10-20250929.013214"
     kernel-type: "stable"

@@ -213,9 +213,10 @@ func (c *desiredNeighborCalculator) commitDesiredNeighbors(
 			Status:             reconciler.StatusPending(),
 		}, func(old *DesiredNeighbor, new *DesiredNeighbor) *DesiredNeighbor {
 			// New object, but no modifications
-			new.DesiredNeighborKey = old.DesiredNeighborKey
-			new.Status = old.Status
-			return new
+			return &DesiredNeighbor{
+				DesiredNeighborKey: old.DesiredNeighborKey,
+				Status:             old.Status,
+			}
 		}); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to insert desired neighbor: %w", err))
 		}

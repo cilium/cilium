@@ -20,15 +20,9 @@ package v1
 
 // ServiceBackendPortApplyConfiguration represents a declarative configuration of the ServiceBackendPort type for use
 // with apply.
-//
-// ServiceBackendPort is the service port being referenced.
 type ServiceBackendPortApplyConfiguration struct {
-	// name is the name of the port on the Service.
-	// This is a mutually exclusive setting with "Number".
-	Name *string `json:"name,omitempty"`
-	// number is the numerical port number (e.g. 80) on the Service.
-	// This is a mutually exclusive setting with "Name".
-	Number *int32 `json:"number,omitempty"`
+	Name   *string `json:"name,omitempty"`
+	Number *int32  `json:"number,omitempty"`
 }
 
 // ServiceBackendPortApplyConfiguration constructs a declarative configuration of the ServiceBackendPort type for use with

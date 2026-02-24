@@ -274,8 +274,8 @@ func (reporter *JUnitReporter) failureTypeForState(state types.SpecState) string
 // information that is within the <Checks></Checks> labels. It'll return the
 // given output as first result, and the check output in the second string.
 func reportChecks(output string) (string, string) {
-	var checks strings.Builder
-	var stdout strings.Builder
+	var checks string
+	var stdout string
 	var dest = "stdout"
 
 	for line := range strings.SplitSeq(output, "\n") {
@@ -290,14 +290,14 @@ func reportChecks(output string) (string, string) {
 		}
 		switch dest {
 		case "stdout":
-			stdout.WriteString(line + "\n")
+			stdout += line + "\n"
 			continue
 		case "checks":
-			checks.WriteString(line + "\n")
+			checks += line + "\n"
 			continue
 		}
 	}
-	return stdout.String(), checks.String()
+	return stdout, checks
 }
 
 // mapTestToCODEOWNER maps the test prefix to the corresponding filename
@@ -309,6 +309,8 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/chaos.go"
 	case "K8sAgentFQDNTest":
 		return "test/k8s/fqdn.go"
+	case "RuntimeAgentFQDNPolicies":
+		return "test/runtime/fqdn.go"
 	case "K8sAgentHubbleTest":
 		return "test/k8s/hubble.go"
 	case "K8sAgentPolicyTest":
@@ -317,6 +319,10 @@ func (reporter *JUnitReporter) mapTestToCODEOWNER(prefix string) string {
 		return "test/k8s/config.go"
 	case "K8sPolicyTestExtended":
 		return "test/k8s/net_policies.go"
+	case "RuntimeAgentPolicies":
+		return "test/runtime/net_policies.go"
+	case "K8sDatapathBandwidthTest":
+		return "test/k8s/bandwidth.go"
 	case "K8sDatapathConfig":
 		return "test/k8s/datapath_configuration.go"
 	case "RuntimeDatapathMonitorTest":

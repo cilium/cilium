@@ -13,5 +13,5 @@ Forked from the popular gopacket [repo](https://github.com/google/gopacket) by G
 
 See [godoc](https://godoc.org/github.com/gopacket/gopacket) for more details.
 
-Minimum Go supported is 1.24.0
+Minimum Go supported is 1.19
 

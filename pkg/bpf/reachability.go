@@ -20,6 +20,7 @@ type reachables map[string]*reachableSpec
 
 func computeReachability(spec *ebpf.CollectionSpec) (reachables, error) {
 	out := make(reachables, len(spec.Programs))
+	vars := analyze.VariableSpecs(spec.Variables)
 
 	for name, prog := range spec.Programs {
 		// Load Blocks computed after compilation, or compute new ones.
@@ -29,7 +30,7 @@ func computeReachability(spec *ebpf.CollectionSpec) (reachables, error) {
 		}
 
 		// Analyze reachability given the VariableSpecs provided at load time.
-		r, err := analyze.Reachability(bl, prog.Instructions, spec.Variables)
+		r, err := analyze.Reachability(bl, prog.Instructions, vars)
 		if err != nil {
 			return nil, fmt.Errorf("reachability analysis for program %s: %w", prog.Name, err)
 		}

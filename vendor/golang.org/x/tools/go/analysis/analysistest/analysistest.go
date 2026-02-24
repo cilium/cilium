@@ -8,7 +8,6 @@ package analysistest
 import (
 	"bytes"
 	"fmt"
-	"go/ast"
 	"go/format"
 	"go/token"
 	"go/types"
@@ -29,7 +28,6 @@ import (
 	"golang.org/x/tools/go/analysis/checker"
 	"golang.org/x/tools/go/analysis/internal"
 	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/internal/analysis/driverutil"
 	"golang.org/x/tools/internal/diff"
 	"golang.org/x/tools/internal/testenv"
 	"golang.org/x/tools/txtar"
@@ -158,8 +156,6 @@ func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns
 		}
 	}
 
-	generated := make(map[*token.File]bool)
-
 	// Process each result (package) separately, matching up the suggested
 	// fixes into a diff, which we will compare to the .golden file.  We have
 	// to do this per-result in case a file appears in two packages, such as in
@@ -173,16 +169,6 @@ func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns
 	for _, result := range results {
 		act := result.Action
 
-		// Compute set of generated files.
-		for _, file := range internal.ActionPass(act).Files {
-			// Memoize, since there may be many actions
-			// for the same package (list of files).
-			tokFile := act.Package.Fset.File(file.Pos())
-			if _, seen := generated[tokFile]; !seen {
-				generated[tokFile] = ast.IsGenerated(file)
-			}
-		}
-
 		// For each fix, split its edits by file and convert to diff form.
 		var (
 			// fixEdits: message -> fixes -> filename -> edits
@@ -195,19 +181,10 @@ func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns
 		)
 		for _, diag := range act.Diagnostics {
 			// Fixes are validated upon creation in Pass.Report.
-		fixloop:
 			for _, fix := range diag.SuggestedFixes {
 				// Assert that lazy fixes have a Category (#65578, #65087).
 				if inTools && len(fix.TextEdits) == 0 && diag.Category == "" {
 					t.Errorf("missing Diagnostic.Category for SuggestedFix without TextEdits (gopls requires the category for the name of the fix command")
-				}
-
-				// Skip any fix that edits a generated file.
-				for _, edit := range fix.TextEdits {
-					file := act.Package.Fset.File(edit.Pos)
-					if generated[file] {
-						continue fixloop
-					}
 				}
 
 				// Convert edits to diff form.
@@ -249,7 +226,7 @@ func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns
 			// check checks that the accumulated edits applied
 			// to the original content yield the wanted content.
 			check := func(prefix string, accumulated []diff.Edit, want []byte) {
-				if err := applyDiffsAndCompare(result.Pass.Pkg, filename, content, want, accumulated); err != nil {
+				if err := applyDiffsAndCompare(filename, content, want, accumulated); err != nil {
 					t.Errorf("%s: %s", prefix, err)
 				}
 			}
@@ -304,7 +281,7 @@ func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns
 
 // applyDiffsAndCompare applies edits to original and compares the results against
 // want after formatting both. fileName is use solely for error reporting.
-func applyDiffsAndCompare(pkg *types.Package, filename string, original, want []byte, edits []diff.Edit) error {
+func applyDiffsAndCompare(filename string, original, want []byte, edits []diff.Edit) error {
 	// Relativize filename, for tidier errors.
 	if cwd, err := os.Getwd(); err == nil {
 		if rel, err := filepath.Rel(cwd, filename); err == nil {
@@ -319,7 +296,7 @@ func applyDiffsAndCompare(pkg *types.Package, filename string, original, want []
 	if err != nil {
 		return fmt.Errorf("%s: error applying fixes: %v (see possible explanations at RunWithSuggestedFixes)", filename, err)
 	}
-	fixed, err := driverutil.FormatSourceRemoveImports(pkg, fixedBytes)
+	fixed, err := format.Source(fixedBytes)
 	if err != nil {
 		return fmt.Errorf("%s: error formatting resulting source: %v\n%s", filename, err, fixedBytes)
 	}
@@ -597,12 +574,11 @@ func check(t Testing, gopath string, act *checker.Action) {
 	// TODO(adonovan): we may need to handle //line directives.
 	files := act.Package.OtherFiles
 
-	// Hack: these analyzers need to extract expectations from
+	// Hack: these two analyzers need to extract expectations from
 	// all configurations, so include the files are usually
 	// ignored. (This was previously a hack in the respective
 	// analyzers' tests.)
-	switch act.Analyzer.Name {
-	case "buildtag", "directive", "plusbuild":
+	if act.Analyzer.Name == "buildtag" || act.Analyzer.Name == "directive" {
 		files = slices.Concat(files, act.Package.IgnoredFiles)
 	}
 
@@ -614,7 +590,7 @@ func check(t Testing, gopath string, act *checker.Action) {
 		}
 		filename := sanitize(gopath, filename)
 		linenum := 0
-		for line := range strings.SplitSeq(string(data), "\n") {
+		for _, line := range strings.Split(string(data), "\n") {
 			linenum++
 
 			// Hack: treat a comment of the form "//...// want..."

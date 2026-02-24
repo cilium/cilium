@@ -156,14 +156,6 @@ fi
 iptables -w -t nat -D POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ || true
 {{- end }}
 
-{{- if .Values.nodeinit.waitForCloudInit }}
-echo "Waiting for cloud-init..."
-if command -v cloud-init >/dev/null 2>&1; then
-  cloud-init status --wait
-  echo "cloud-init completed!"
-fi
-{{- end }}
-
 {{- if not (eq .Values.nodeinit.bootstrapFile "") }}
 mkdir -p {{ .Values.nodeinit.bootstrapFile | dir | quote }}
 date > {{ .Values.nodeinit.bootstrapFile | quote }}

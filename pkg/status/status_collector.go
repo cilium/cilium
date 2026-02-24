@@ -220,7 +220,7 @@ func (d *statusCollector) getRoutingStatus() *models.Routing {
 		InterHostRoutingMode: models.RoutingInterHostRoutingModeTunnel,
 		TunnelProtocol:       d.statusParams.TunnelConfig.EncapProtocol().String(),
 	}
-	if d.statusParams.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
+	if d.statusParams.DaemonConfig.EnableHostLegacyRouting {
 		s.IntraHostRoutingMode = models.RoutingIntraHostRoutingModeLegacy
 	}
 	if d.statusParams.DaemonConfig.RoutingMode == option.RoutingModeNative {
@@ -255,24 +255,11 @@ func (d *statusCollector) getAttachModeStatus() models.AttachMode {
 
 func (d *statusCollector) getDatapathModeStatus() models.DatapathMode {
 	mode := models.DatapathModeVeth
-	switch d.statusParams.ConnectorConfig.GetOperationalMode().String() {
+	switch d.statusParams.DaemonConfig.DatapathMode {
 	case datapathOption.DatapathModeNetkit:
 		mode = models.DatapathModeNetkit
 	case datapathOption.DatapathModeNetkitL2:
 		mode = models.DatapathModeNetkitDashL2
-	}
-	return mode
-}
-
-func (d *statusCollector) getConfiguredDatapathModeStatus() models.ConfiguredDatapathMode {
-	mode := models.ConfiguredDatapathModeVeth
-	switch d.statusParams.ConnectorConfig.GetConfiguredMode().String() {
-	case datapathOption.DatapathModeAuto:
-		mode = models.ConfiguredDatapathModeAuto
-	case datapathOption.DatapathModeNetkit:
-		mode = models.ConfiguredDatapathModeNetkit
-	case datapathOption.DatapathModeNetkitL2:
-		mode = models.ConfiguredDatapathModeNetkitDashL2
 	}
 	return mode
 }
@@ -314,7 +301,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
-		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly,
+		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
 	}
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		features.NodePort.Enabled = true
@@ -691,12 +678,6 @@ func (d *statusCollector) getProbes() []Probe {
 					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, false, failures)
 				}
 
-				if !option.Config.EnableCiliumNodeCRD {
-					// When CiliumNode CRD is disabled, just use a constant base interval
-					// to validate connectivity.
-					return backoff.ClusterSizeDependantInterval(2*time.Minute, 0)
-				}
-
 				// The base interval is dependant on the
 				// cluster size. One status interval does not
 				// automatically translate to an apiserver
@@ -713,7 +694,7 @@ func (d *statusCollector) getProbes() []Probe {
 				// 2048  | 1m15s
 				// 8192  | 1m30s
 				// 16384 | 1m32s
-				return d.statusParams.NodeManager.ClusterSizeDependantInterval(10 * time.Second)
+				return d.statusParams.NodeDiscovery.Manager.ClusterSizeDependantInterval(10 * time.Second)
 			},
 			Probe: func(ctx context.Context) (any, error) {
 				return d.getK8sStatus(), nil
@@ -926,10 +907,6 @@ func (d *statusCollector) getProbes() []Probe {
 						Mode:      models.EncryptionStatusModeWireguard,
 						Msg:       msg,
 						Wireguard: status,
-					}, nil
-				case d.statusParams.ZtunnelConfig.EnableZTunnel:
-					return &models.EncryptionStatus{
-						Mode: models.EncryptionStatusModeZtunnel,
 					}, nil
 				default:
 					return &models.EncryptionStatus{
@@ -1207,22 +1184,6 @@ func (d *statusCollector) getProbes() []Probe {
 				if status.Err == nil {
 					if s, ok := status.Data.(models.DatapathMode); ok {
 						d.statusResponse.DatapathMode = s
-					}
-				}
-			},
-		},
-		{
-			Name: "configured-datapath-mode",
-			Probe: func(ctx context.Context) (any, error) {
-				return d.getConfiguredDatapathModeStatus(), nil
-			},
-			OnStatusUpdate: func(status Status) {
-				d.statusCollectMutex.Lock()
-				defer d.statusCollectMutex.Unlock()
-
-				if status.Err == nil {
-					if s, ok := status.Data.(models.ConfiguredDatapathMode); ok {
-						d.statusResponse.ConfiguredDatapathMode = s
 					}
 				}
 			},

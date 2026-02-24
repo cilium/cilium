@@ -15,7 +15,6 @@ EXCLUDED_DIRS=(
     "pkg/loadbalancer/repl"
     "tools/alignchecker"
     "tools/api-flaggen"
-    "tools/complexity-diff"
     "tools/crdcheck"
     "tools/crdlistgen"
     "tools/dev-doctor"

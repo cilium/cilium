@@ -66,14 +66,18 @@ Deploy Cilium release via Helm:
 
      .. group-tab:: Using CRI-O
 
-        .. cilium-helm-install::
-           :namespace: kube-system
-           :set: bpf.autoMount.enabled=false
+        .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set bpf.autoMount.enabled=false
 
      .. group-tab:: Using CRI-containerd
 
-        .. cilium-helm-install::
-           :namespace: kube-system
+        .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system
 
 .. warning::
 

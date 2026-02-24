@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package spec
 
@@ -12,10 +23,10 @@ import (
 
 // ResponseProps properties specific to a response
 type ResponseProps struct {
-	Description string            `json:"description"`
-	Schema      *Schema           `json:"schema,omitempty"`
-	Headers     map[string]Header `json:"headers,omitempty"`
-	Examples    map[string]any    `json:"examples,omitempty"`
+	Description string                 `json:"description"`
+	Schema      *Schema                `json:"schema,omitempty"`
+	Headers     map[string]Header      `json:"headers,omitempty"`
+	Examples    map[string]interface{} `json:"examples,omitempty"`
 }
 
 // Response describes a single response from an API Operation.
@@ -40,7 +51,7 @@ func ResponseRef(url string) *Response {
 }
 
 // JSONLookup look up a value by the json property name
-func (r Response) JSONLookup(token string) (any, error) {
+func (r Response) JSONLookup(token string) (interface{}, error) {
 	if ex, ok := r.Extensions[token]; ok {
 		return &ex, nil
 	}
@@ -75,10 +86,10 @@ func (r Response) MarshalJSON() ([]byte, error) {
 	} else {
 		// when there is $ref inside the schema, description should be omitempty-ied
 		b1, err = json.Marshal(struct {
-			Description string            `json:"description,omitempty"`
-			Schema      *Schema           `json:"schema,omitempty"`
-			Headers     map[string]Header `json:"headers,omitempty"`
-			Examples    map[string]any    `json:"examples,omitempty"`
+			Description string                 `json:"description,omitempty"`
+			Schema      *Schema                `json:"schema,omitempty"`
+			Headers     map[string]Header      `json:"headers,omitempty"`
+			Examples    map[string]interface{} `json:"examples,omitempty"`
 		}{
 			Description: r.Description,
 			Schema:      r.Schema,
@@ -132,9 +143,9 @@ func (r *Response) RemoveHeader(name string) *Response {
 }
 
 // AddExample adds an example to this response
-func (r *Response) AddExample(mediaType string, example any) *Response {
+func (r *Response) AddExample(mediaType string, example interface{}) *Response {
 	if r.Examples == nil {
-		r.Examples = make(map[string]any)
+		r.Examples = make(map[string]interface{})
 	}
 	r.Examples[mediaType] = example
 	return r

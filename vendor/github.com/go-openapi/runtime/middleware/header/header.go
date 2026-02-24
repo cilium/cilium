@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
-
 // Copyright 2013 The Go Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style
@@ -13,7 +10,6 @@
 package header
 
 import (
-	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -69,7 +65,9 @@ func init() {
 // Copy returns a shallow copy of the header.
 func Copy(header http.Header) http.Header {
 	h := make(http.Header)
-	maps.Copy(h, header)
+	for k, vs := range header {
+		h[k] = vs
+	}
 	return h
 }
 

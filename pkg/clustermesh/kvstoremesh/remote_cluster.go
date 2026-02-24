@@ -4,29 +4,31 @@
 package kvstoremesh
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"path"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh/reflector"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
 )
 
 // remoteCluster represents a remote cluster other than the local one this
@@ -36,14 +38,14 @@ type remoteCluster struct {
 
 	localBackend kvstore.BackendOperations
 
-	// reflectors are the reflectors that handle the synchronization.
-	reflectors map[reflector.Name]reflector.Reflector
+	nodes          reflector
+	services       reflector
+	serviceExports reflector
+	identities     reflector
+	ipcache        reflector
 
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
-
-	// registered represents whether the watchers have been registered.
-	registered atomic.Bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -61,6 +63,7 @@ type remoteCluster struct {
 	disableDrainOnDisconnection bool
 
 	logger *slog.Logger
+	clock  clock.Clock
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg types.CiliumClusterConfig, ready chan<- error) {
@@ -72,9 +75,15 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		close(rc.synced.connected)
 	}
 
-	var dstcfg = srccfg
-	dstcfg.Capabilities.SyncedCanaries = true
-	dstcfg.Capabilities.Cached = true
+	dstcfg := types.CiliumClusterConfig{
+		ID: srccfg.ID,
+		Capabilities: types.CiliumClusterConfigCapabilities{
+			SyncedCanaries:        true,
+			Cached:                true,
+			MaxConnectedClusters:  srccfg.Capabilities.MaxConnectedClusters,
+			ServiceExportsEnabled: srccfg.Capabilities.ServiceExportsEnabled,
+		},
+	}
 
 	stopAndWait, err := clustercfg.Enforce(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
 	defer stopAndWait()
@@ -91,12 +100,51 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		mgr = store.NewWatchStoreManagerImmediate(rc.logger)
 	}
 
-	for _, rfl := range rc.reflectors {
-		rfl.Register(mgr, backend, srccfg)
+	adapter := func(prefix string) string { return prefix }
+	if srccfg.Capabilities.Cached {
+		adapter = kvstore.StateToCachePrefix
 	}
 
-	rc.registered.Store(true)
-	defer rc.registered.Store(false)
+	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
+		rc.nodes.watcher.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
+	})
+
+	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+		rc.services.watcher.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
+	})
+
+	if srccfg.Capabilities.ServiceExportsEnabled != nil {
+		mgr.Register(adapter(mcsapitypes.ServiceExportStorePrefix), func(ctx context.Context) {
+			rc.serviceExports.watcher.Watch(ctx, backend, path.Join(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
+		})
+	} else {
+		// Additionnally drain the service exports to remove stale entries if the
+		// service exports was previously supported and is now not supported anymore.
+		rc.serviceExports.watcher.Drain()
+		// Also mimic that the service exports are synced if the remote cluster
+		// doesn't support service exports (remote cluster is running Cilium
+		// version 1.16 or less).
+		rc.serviceExports.syncer.OnSync(ctx)
+	}
+
+	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
+		suffix := ipcache.DefaultAddressSpace
+		if srccfg.Capabilities.Cached {
+			suffix = rc.name
+		}
+
+		rc.ipcache.watcher.Watch(ctx, backend, path.Join(adapter(ipcache.IPIdentitiesPath), suffix))
+	})
+
+	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
+		var suffix string
+		if srccfg.Capabilities.Cached {
+			suffix = rc.name
+		}
+		suffix = path.Join(suffix, "id")
+
+		rc.identities.watcher.Watch(ctx, backend, path.Join(adapter(identityCache.IdentitiesPath), suffix))
+	})
 
 	close(ready)
 	mgr.Run(ctx)
@@ -106,16 +154,6 @@ func (rc *remoteCluster) Stop() {
 	rc.cancel()
 	rc.synced.Stop()
 	rc.wg.Wait()
-}
-
-// RevokeCache performs a partial revocation of the remote cluster's cache, draining only remote
-// services and serviceExports. This prevents the kvstoremesh from keeping services in the kvstore
-// for clusters with potentially stale service backends. Other resources are left intact to reduce
-// churn and avoid disrupting existing connections like active IPsec security associations.
-func (rc *remoteCluster) RevokeCache(ctx context.Context) {
-	for _, rfl := range rc.reflectors {
-		rfl.RevokeCache(ctx)
-	}
 }
 
 func (rc *remoteCluster) Remove(ctx context.Context) {
@@ -151,7 +189,7 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 
 		rc.logger.Warn("Failed to remove cached data from kvstore, retrying", logfields.Error, err)
 		select {
-		case <-time.After(backoff):
+		case <-rc.clock.After(backoff):
 			retry++
 			backoff *= 2
 		case <-ctx.Done():
@@ -165,9 +203,22 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 // removing the rest of the cached data. Indeed, there's no point in retrieving
 // incomplete data, and it is expected that agents will be disconnecting as well.
 func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err error) {
-	var cfgkey = path.Join(kvstore.ClusterConfigPrefix, rc.name)
-	if err = rc.localBackend.Delete(ctx, cfgkey); err != nil {
-		return fmt.Errorf("deleting key %q: %w", cfgkey, err)
+	keys := []string{
+		path.Join(kvstore.ClusterConfigPrefix, rc.name),
+	}
+	prefixes := []string{
+		path.Join(kvstore.SyncedPrefix, rc.name),
+		path.Join(kvstore.StateToCachePrefix(nodeStore.NodeStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(mcsapitypes.ServiceExportStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(identityCache.IdentitiesPath), rc.name),
+		path.Join(kvstore.StateToCachePrefix(ipcache.IPIdentitiesPath), rc.name),
+	}
+
+	for _, key := range keys {
+		if err = rc.localBackend.Delete(ctx, key); err != nil {
+			return fmt.Errorf("deleting key %q: %w", key, err)
+		}
 	}
 
 	if withGracePeriod {
@@ -185,25 +236,14 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(drainGracePeriod):
+		case <-rc.clock.After(drainGracePeriod):
 			rc.logger.Info("Finished waiting before removing cached data from kvstore")
 		}
 	}
 
-	var synpfx = path.Join(kvstore.SyncedPrefix, rc.name) + "/"
-	if err = rc.localBackend.DeletePrefix(ctx, synpfx); err != nil {
-		return fmt.Errorf("deleting prefix %q: %w", synpfx, err)
-	}
-
-	// Sort the reflectors to ensure consistent ordering, relied upon by tests.
-	sorted := slices.SortedFunc(
-		maps.Values(rc.reflectors),
-		func(a, b reflector.Reflector) int { return cmp.Compare(a.Name(), b.Name()) },
-	)
-
-	for _, rfl := range sorted {
-		if err = rfl.DeleteCache(ctx); err != nil {
-			return fmt.Errorf("draining reflector: %w", err)
+	for _, prefix := range prefixes {
+		if err = rc.localBackend.DeletePrefix(ctx, prefix+"/"); err != nil {
+			return fmt.Errorf("deleting prefix %q: %w", prefix+"/", err)
 		}
 	}
 
@@ -226,41 +266,73 @@ func (rc *remoteCluster) waitForConnection(ctx context.Context) {
 func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status := rc.status()
 
-	get := func(name reflector.Name) reflector.Status {
-		rfl, ok := rc.reflectors[name]
-		if ok {
-			return rfl.Status()
-		}
-		return reflector.Status{}
-	}
-
-	status.NumNodes = int64(get(reflector.Nodes).Entries)
-	status.NumSharedServices = int64(get(reflector.Services).Entries)
-	status.NumServiceExports = int64(get(reflector.ServiceExports).Entries)
-	status.NumIdentities = int64(get(reflector.Identities).Entries)
-	status.NumEndpoints = int64(get(reflector.Endpoints).Entries)
+	status.NumNodes = int64(rc.nodes.watcher.NumEntries())
+	status.NumSharedServices = int64(rc.services.watcher.NumEntries())
+	status.NumServiceExports = int64(rc.serviceExports.watcher.NumEntries())
+	status.NumIdentities = int64(rc.identities.watcher.NumEntries())
+	status.NumEndpoints = int64(rc.ipcache.watcher.NumEntries())
 
 	status.Synced = &models.RemoteClusterSynced{
-		Nodes:      get(reflector.Nodes).Synced,
-		Services:   get(reflector.Services).Synced,
-		Identities: get(reflector.Identities).Synced,
-		Endpoints:  get(reflector.Endpoints).Synced,
+		Nodes:      rc.nodes.watcher.Synced(),
+		Services:   rc.services.watcher.Synced(),
+		Identities: rc.identities.watcher.Synced(),
+		Endpoints:  rc.ipcache.watcher.Synced(),
+	}
+	if status.Config != nil && status.Config.ServiceExportsEnabled != nil {
+		status.Synced.ServiceExports = ptr.To(rc.serviceExports.watcher.Synced())
 	}
 
-	if get(reflector.ServiceExports).Enabled {
-		status.Synced.ServiceExports = ptr.To(get(reflector.ServiceExports).Synced)
-	}
-
-	// We mark the status as ready only after being sure that all reflectors
-	// have been registered, and at that point we know that [status.Enabled]
-	// is set if the reflector is enabled for the current configuration.
-	status.Ready = status.Ready && rc.registered.Load()
-	for _, rfl := range rc.reflectors {
-		var st = rfl.Status()
-		status.Ready = status.Ready && (!st.Enabled || st.Synced)
-	}
+	status.Ready = status.Ready &&
+		status.Synced.Nodes && status.Synced.Services &&
+		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports) &&
+		status.Synced.Identities && status.Synced.Endpoints
 
 	return status
+}
+
+type reflector struct {
+	watcher store.WatchStore
+	syncer  syncer
+}
+
+type syncer struct {
+	store.SyncStore
+	syncedDone lock.DoneFunc
+	isSynced   *atomic.Bool
+}
+
+func (o *syncer) OnUpdate(key store.Key) {
+	o.UpsertKey(context.Background(), key)
+}
+
+func (o *syncer) OnDelete(key store.NamedKey) {
+	o.DeleteKey(context.Background(), key)
+}
+
+func (o *syncer) OnSync(ctx context.Context) {
+	// As we send fake OnSync when service exports support is disabled we need
+	// to make sure that this is called only once.
+	if o.isSynced.CompareAndSwap(false, true) {
+		o.Synced(ctx, func(context.Context) { o.syncedDone() })
+	}
+}
+
+func newReflector(local kvstore.BackendOperations, cluster, prefix, suffix string, factory store.Factory, synced *resources) reflector {
+	prefix = kvstore.StateToCachePrefix(prefix)
+	syncStorePrefix := path.Join(prefix, cluster, suffix)
+
+	syncer := syncer{
+		SyncStore:  factory.NewSyncStore(cluster, local, syncStorePrefix, store.WSSWithSyncedKeyOverride(prefix)),
+		syncedDone: synced.Add(),
+		isSynced:   &atomic.Bool{},
+	}
+
+	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer, store.RWSWithOnSyncCallback(syncer.OnSync))
+
+	return reflector{
+		syncer:  syncer,
+		watcher: watcher,
+	}
 }
 
 // resources is a wrapper around StoppableWaitGroup that collects the

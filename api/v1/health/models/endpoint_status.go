@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -55,15 +54,11 @@ func (m *EndpointStatus) validatePrimaryAddress(formats strfmt.Registry) error {
 
 	if m.PrimaryAddress != nil {
 		if err := m.PrimaryAddress.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("primary-address")
 			}
-
 			return err
 		}
 	}
@@ -83,15 +78,11 @@ func (m *EndpointStatus) validateSecondaryAddresses(formats strfmt.Registry) err
 
 		if m.SecondaryAddresses[i] != nil {
 			if err := m.SecondaryAddresses[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -128,15 +119,11 @@ func (m *EndpointStatus) contextValidatePrimaryAddress(ctx context.Context, form
 		}
 
 		if err := m.PrimaryAddress.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("primary-address")
 			}
-
 			return err
 		}
 	}
@@ -155,15 +142,11 @@ func (m *EndpointStatus) contextValidateSecondaryAddresses(ctx context.Context, 
 			}
 
 			if err := m.SecondaryAddresses[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

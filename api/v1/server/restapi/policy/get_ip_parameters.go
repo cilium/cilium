@@ -33,6 +33,7 @@ func NewGetIPParams() GetIPParams {
 //
 // swagger:parameters GetIP
 type GetIPParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -40,7 +41,6 @@ type GetIPParams struct {
 	  In: query
 	*/
 	Cidr *string
-
 	/*List of labels
 
 	  In: body
@@ -56,6 +56,7 @@ func (o *GetIPParams) BindRequest(r *http.Request, route *middleware.MatchedRout
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qCidr, qhkCidr, _ := qs.GetOK("cidr")
@@ -64,9 +65,7 @@ func (o *GetIPParams) BindRequest(r *http.Request, route *middleware.MatchedRout
 	}
 
 	if runtime.HasBody(r) {
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		defer r.Body.Close()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("labels", "body", "", err))

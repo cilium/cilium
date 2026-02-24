@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -396,7 +397,9 @@ func TestRing_Read(t *testing.T) {
 					t.Errorf("LostEvent mismatch (-want +got):\n%s", diff)
 				}
 			} else {
-				assert.Equal(t, tt.want, got)
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("Ring.read() got = %v, want %v", got, tt.want)
+				}
 			}
 			if !errors.Is(got1, tt.wantErr) {
 				t.Errorf("Ring.read() got1 = %v, want %v", got1, tt.wantErr)
@@ -486,7 +489,7 @@ func TestRing_Write(t *testing.T) {
 				data: tt.want.data,
 			}
 			want.write.Store(tt.want.write)
-			assert.Equal(t, want, r)
+			reflect.DeepEqual(want, r)
 		})
 	}
 }

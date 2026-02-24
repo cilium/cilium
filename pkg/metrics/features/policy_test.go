@@ -9,15 +9,12 @@ import (
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
-	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 func Test_ruleType(t *testing.T) {
 	type args struct {
-		r policytypes.PolicyEntry
+		r api.Rule
 	}
 	type metrics struct {
 		npL3Ingested                float64
@@ -46,10 +43,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from FromEndpoints",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: true,
-					L3:      types.ToSelectors(api.NewESFromLabels()),
+				r: api.Rule{
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -64,12 +67,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from FromCIDRSet with CIDRGroupRef",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: true,
-					L3: types.ToSelectors(api.CIDRRule{
-						CIDRGroupRef: "some-group-ref",
-					}),
+				r: api.Rule{
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromCIDRSet: []api.CIDRRule{
+									{CIDRGroupRef: "some-group-ref"},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -86,12 +93,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 IngressDeny from FromCIDRSet with CIDRGroupRef",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Deny,
-					Ingress: true,
-					L3: types.ToSelectors(api.CIDRRule{
-						CIDRGroupRef: "some-group-ref",
-					}),
+				r: api.Rule{
+					IngressDeny: []api.IngressDenyRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromCIDRSet: []api.CIDRRule{
+									{CIDRGroupRef: "some-group-ref"},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -108,15 +119,20 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "L3 from Ingress FromNodes",
+			name: "L3 from Ingress ToNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: true,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
-					Authentication: &api.Authentication{
-						Mode: api.AuthenticationModeRequired,
+				r: api.Rule{
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+							Authentication: &api.Authentication{
+								Mode: api.AuthenticationModeRequired,
+							},
+						},
 					},
 				},
 			},
@@ -136,11 +152,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from Egress ToNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -157,19 +178,33 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "No L3 rule present",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
+				r: api.Rule{
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{},
+						},
+					},
+					Egress: []api.EgressRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "L3 from IngressDeny FromNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Ingress: true,
-					Verdict: types.Deny,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
+				r: api.Rule{
+					IngressDeny: []api.IngressDenyRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -188,10 +223,14 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from IngressDeny IsL3",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Ingress: true,
-					Verdict: types.Deny,
-					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
+				r: api.Rule{
+					IngressDeny: []api.IngressDenyRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromCIDR: []api.CIDR{"192.168.0.0/24"},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -208,10 +247,14 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from EgressDeny IsL3",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Ingress: false,
-					Verdict: types.Deny,
-					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
+				r: api.Rule{
+					EgressDeny: []api.EgressDenyRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToCIDR: []api.CIDR{"192.168.0.0/24"},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -228,11 +271,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "L3 from EgressDeny ToNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Ingress: false,
-					Verdict: types.Deny,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
+				r: api.Rule{
+					EgressDeny: []api.EgressDenyRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -251,11 +299,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "Host from EgressDeny ToNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Ingress: false,
-					Verdict: types.Deny,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
+				r: api.Rule{
+					EgressDeny: []api.EgressDenyRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -274,11 +327,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "Host from Egress ToNodes",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L3: types.ToSelectors(api.NewESFromLabels(
-						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
+				r: api.Rule{
+					Egress: []api.EgressRule{
+						{
+							EgressCommonRule: api.EgressCommonRule{
+								ToNodes: []api.EndpointSelector{
+									{},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -295,19 +353,21 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "DNS rules and other L7",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L4: api.PortRules{
+				r: api.Rule{
+					Egress: []api.EgressRule{
 						{
-							Rules: &api.L7Rules{
-								DNS: []api.PortRuleDNS{
-									{
-										MatchName: "cilium.io",
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										DNS: []api.PortRuleDNS{
+											{
+												MatchName: "cilium.io",
+											},
+										},
+										Kafka: []kafka.PortRule{
+											{},
+										},
 									},
-								},
-								Kafka: []kafka.PortRule{
-									{},
 								},
 							},
 						},
@@ -328,14 +388,18 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "FQDN rules w/ default deny config",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict:     types.Allow,
-					Ingress:     false,
-					DefaultDeny: true,
-					L3: types.ToSelectors(api.FQDNSelector{
-						MatchName:    "cilium.io",
-						MatchPattern: "",
-					}),
+				r: api.Rule{
+					EnableDefaultDeny: api.DefaultDenyConfig{Ingress: func() *bool { a := true; return &a }()},
+					Egress: []api.EgressRule{
+						{
+							ToFQDNs: api.FQDNSelectorSlice{
+								{
+									MatchName:    "cilium.io",
+									MatchPattern: "",
+								},
+							},
+						},
+					},
 				},
 			},
 			want: wanted{
@@ -352,14 +416,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "HTTP ingress rules",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: true,
-					L4: api.PortRules{
+				r: api.Rule{
+					Ingress: []api.IngressRule{
 						{
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{},
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{},
+										},
+									},
 								},
 							},
 						},
@@ -378,14 +444,16 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "HTTP egress rules",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L4: api.PortRules{
+				r: api.Rule{
+					Egress: []api.EgressRule{
 						{
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{},
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{},
+										},
+									},
 								},
 							},
 						},
@@ -404,16 +472,18 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "HTTP matches ingress rules",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: true,
-					L4: api.PortRules{
+				r: api.Rule{
+					Ingress: []api.IngressRule{
 						{
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{
-										HeaderMatches: []*api.HeaderMatch{
-											{},
+							ToPorts: api.PortRules{
+								{
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{
+												HeaderMatches: []*api.HeaderMatch{
+													{},
+												},
+											},
 										},
 									},
 								},
@@ -436,22 +506,24 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "HTTP matches egress rules, other L7 and SNI",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L4: api.PortRules{
+				r: api.Rule{
+					Egress: []api.EgressRule{
 						{
-							ServerNames: []api.ServerName{""},
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{
-										HeaderMatches: []*api.HeaderMatch{
+							ToPorts: api.PortRules{
+								{
+									ServerNames: []api.ServerName{""},
+									Rules: &api.L7Rules{
+										HTTP: []api.PortRuleHTTP{
+											{
+												HeaderMatches: []*api.HeaderMatch{
+													{},
+												},
+											},
+										},
+										L7: []api.PortRuleL7{
 											{},
 										},
 									},
-								},
-								L7: []api.PortRuleL7{
-									{},
 								},
 							},
 						},
@@ -476,12 +548,14 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "Rules matches on TLS",
 			args: args{
-				r: policytypes.PolicyEntry{
-					Verdict: types.Allow,
-					Ingress: false,
-					L4: api.PortRules{
+				r: api.Rule{
+					Egress: []api.EgressRule{
 						{
-							TerminatingTLS: &api.TLSContext{},
+							ToPorts: api.PortRules{
+								{
+									TerminatingTLS: &api.TLSContext{},
+								},
+							},
 						},
 					},
 				},
@@ -498,7 +572,6 @@ func Test_ruleType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Log(tt.name)
 			rt := ruleType(tt.args.r)
 			assert.Equalf(t, tt.want.wantRF, rt, "ruleType(%v)", tt.args.r)
 

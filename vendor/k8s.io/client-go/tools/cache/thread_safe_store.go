@@ -19,10 +19,8 @@ package cache
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	utiltrace "k8s.io/utils/trace"
 )
 
 // ThreadSafeStore is an interface that allows concurrent indexed
@@ -60,19 +58,6 @@ type ThreadSafeStore interface {
 	Resync() error
 }
 
-// ThreadSafeStoreWithTransaction is a store that can batch execute multiple transactions.
-type ThreadSafeStoreWithTransaction interface {
-	ThreadSafeStore
-	// Transaction allows performing multiple writes in one call.
-	Transaction(fns ...ThreadSafeStoreTransaction)
-}
-
-// ThreadSafeStoreTransaction embeds a Transaction and includes the specific Key identifying the affected object.
-type ThreadSafeStoreTransaction struct {
-	Transaction
-	Key string
-}
-
 // storeIndex implements the indexing functionality for Store interface
 type storeIndex struct {
 	// indexers maps a name to an IndexFunc
@@ -85,7 +70,7 @@ func (i *storeIndex) reset() {
 	i.indices = Indices{}
 }
 
-func (i *storeIndex) getKeysFromIndex(indexName string, obj interface{}) (sets.Set[string], error) {
+func (i *storeIndex) getKeysFromIndex(indexName string, obj interface{}) (sets.String, error) {
 	indexFunc := i.indexers[indexName]
 	if indexFunc == nil {
 		return nil, fmt.Errorf("Index with name %s does not exist", indexName)
@@ -97,7 +82,7 @@ func (i *storeIndex) getKeysFromIndex(indexName string, obj interface{}) (sets.S
 	}
 	index := i.indices[indexName]
 
-	var storeKeySet sets.Set[string]
+	var storeKeySet sets.String
 	if len(indexedValues) == 1 {
 		// In majority of cases, there is exactly one value matching.
 		// Optimize the most common path - deduping is not needed here.
@@ -105,7 +90,7 @@ func (i *storeIndex) getKeysFromIndex(indexName string, obj interface{}) (sets.S
 	} else {
 		// Need to de-dupe the return list.
 		// Since multiple keys are allowed, this can happen.
-		storeKeySet = sets.Set[string]{}
+		storeKeySet = sets.String{}
 		for _, indexedValue := range indexedValues {
 			for key := range index[indexedValue] {
 				storeKeySet.Insert(key)
@@ -116,7 +101,7 @@ func (i *storeIndex) getKeysFromIndex(indexName string, obj interface{}) (sets.S
 	return storeKeySet, nil
 }
 
-func (i *storeIndex) getKeysByIndex(indexName, indexedValue string) (sets.Set[string], error) {
+func (i *storeIndex) getKeysByIndex(indexName, indexedValue string) (sets.String, error) {
 	indexFunc := i.indexers[indexName]
 	if indexFunc == nil {
 		return nil, fmt.Errorf("Index with name %s does not exist", indexName)
@@ -136,10 +121,10 @@ func (i *storeIndex) getIndexValues(indexName string) []string {
 }
 
 func (i *storeIndex) addIndexers(newIndexers Indexers) error {
-	oldKeys := sets.KeySet(i.indexers)
-	newKeys := sets.KeySet(newIndexers)
+	oldKeys := sets.StringKeySet(i.indexers)
+	newKeys := sets.StringKeySet(newIndexers)
 
-	if oldKeys.HasAny(sets.List(newKeys)...) {
+	if oldKeys.HasAny(newKeys.List()...) {
 		return fmt.Errorf("indexer conflict: %v", oldKeys.Intersection(newKeys))
 	}
 
@@ -182,10 +167,10 @@ func (i *storeIndex) updateSingleIndex(name string, oldObj interface{}, newObj i
 		indexValues = indexValues[:0]
 	}
 
-	idx := i.indices[name]
-	if idx == nil {
-		idx = index{}
-		i.indices[name] = idx
+	index := i.indices[name]
+	if index == nil {
+		index = Index{}
+		i.indices[name] = index
 	}
 
 	if len(indexValues) == 1 && len(oldIndexValues) == 1 && indexValues[0] == oldIndexValues[0] {
@@ -194,10 +179,10 @@ func (i *storeIndex) updateSingleIndex(name string, oldObj interface{}, newObj i
 	}
 
 	for _, value := range oldIndexValues {
-		i.deleteKeyFromIndex(key, value, idx)
+		i.deleteKeyFromIndex(key, value, index)
 	}
 	for _, value := range indexValues {
-		i.addKeyToIndex(key, value, idx)
+		i.addKeyToIndex(key, value, index)
 	}
 }
 
@@ -212,16 +197,16 @@ func (i *storeIndex) updateIndices(oldObj interface{}, newObj interface{}, key s
 	}
 }
 
-func (i *storeIndex) addKeyToIndex(key, indexValue string, index index) {
+func (i *storeIndex) addKeyToIndex(key, indexValue string, index Index) {
 	set := index[indexValue]
 	if set == nil {
-		set = sets.Set[string]{}
+		set = sets.String{}
 		index[indexValue] = set
 	}
 	set.Insert(key)
 }
 
-func (i *storeIndex) deleteKeyFromIndex(key, indexValue string, index index) {
+func (i *storeIndex) deleteKeyFromIndex(key, indexValue string, index Index) {
 	set := index[indexValue]
 	if set == nil {
 		return
@@ -244,41 +229,13 @@ type threadSafeMap struct {
 	index *storeIndex
 }
 
-func (c *threadSafeMap) Transaction(txns ...ThreadSafeStoreTransaction) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	trace := utiltrace.New("ThreadSafeMap Transaction Process",
-		utiltrace.Field{Key: "Size", Value: len(txns)},
-		utiltrace.Field{Key: "Reason", Value: "Slow batch process due to too many items"})
-	defer trace.LogIfLong(min(500*time.Millisecond*time.Duration(len(txns)), 5*time.Second))
-
-	for _, txn := range txns {
-		switch txn.Type {
-		case TransactionTypeAdd:
-			c.addLocked(txn.Key, txn.Object)
-		case TransactionTypeUpdate:
-			c.updateLocked(txn.Key, txn.Object)
-		case TransactionTypeDelete:
-			c.deleteLocked(txn.Key)
-		}
-	}
-}
-
 func (c *threadSafeMap) Add(key string, obj interface{}) {
 	c.Update(key, obj)
-}
-
-func (c *threadSafeMap) addLocked(key string, obj interface{}) {
-	c.updateLocked(key, obj)
 }
 
 func (c *threadSafeMap) Update(key string, obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.updateLocked(key, obj)
-}
-
-func (c *threadSafeMap) updateLocked(key string, obj interface{}) {
 	oldObject := c.items[key]
 	c.items[key] = obj
 	c.index.updateIndices(oldObject, obj, key)
@@ -287,10 +244,6 @@ func (c *threadSafeMap) updateLocked(key string, obj interface{}) {
 func (c *threadSafeMap) Delete(key string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.deleteLocked(key)
-}
-
-func (c *threadSafeMap) deleteLocked(key string) {
 	if obj, exists := c.items[key]; exists {
 		c.index.updateIndices(obj, nil, key)
 		delete(c.items, key)
@@ -383,7 +336,7 @@ func (c *threadSafeMap) IndexKeys(indexName, indexedValue string) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	return sets.List(set), nil
+	return set.List(), nil
 }
 
 func (c *threadSafeMap) ListIndexFuncValues(indexName string) []string {

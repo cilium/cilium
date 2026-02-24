@@ -201,15 +201,10 @@ type Options struct {
 	// LeaseDuration time first.
 	LeaderElectionReleaseOnCancel bool
 
-	// LeaderElectionLabels allows a controller to supplement all leader election api calls with a set of custom labels based on
-	// the replica attempting to acquire leader status.
-	LeaderElectionLabels map[string]string
-
 	// LeaderElectionResourceLockInterface allows to provide a custom resourcelock.Interface that was created outside
 	// of the controller-runtime. If this value is set the options LeaderElectionID, LeaderElectionNamespace,
-	//  LeaderElectionResourceLock, LeaseDuration, RenewDeadline, RetryPeriod and LeaderElectionLeases will be ignored.
-	// This can be useful if you want to use a locking mechanism that is currently not supported, like a MultiLock across
-	// two Kubernetes clusters.
+	// LeaderElectionResourceLock, LeaseDuration, RenewDeadline and RetryPeriod will be ignored. This can be useful if you
+	// want to use a locking mechanism that is currently not supported, like a MultiLock across two Kubernetes clusters.
 	LeaderElectionResourceLockInterface resourcelock.Interface
 
 	// LeaseDuration is the duration that non-leader candidates will
@@ -319,15 +314,6 @@ type LeaderElectionRunnable interface {
 	NeedLeaderElection() bool
 }
 
-// warmupRunnable knows if a Runnable requires warmup. A warmup runnable is a runnable
-// that should be run when the manager is started but before it becomes leader.
-// Note: Implementing this interface is only useful when LeaderElection can be enabled, as the
-// behavior when leaderelection is not enabled is to run LeaderElectionRunnables immediately.
-type warmupRunnable interface {
-	// Warmup will be called when the manager is started but before it becomes leader.
-	Warmup(context.Context) error
-}
-
 // New returns a new Manager for creating Controllers.
 // Note that if ContentType in the given config is not set, "application/vnd.kubernetes.protobuf"
 // will be used for all built-in resources of Kubernetes, and "application/json" is for other types
@@ -404,7 +390,6 @@ func New(config *rest.Config, options Options) (Manager, error) {
 			LeaderElectionID:           options.LeaderElectionID,
 			LeaderElectionNamespace:    options.LeaderElectionNamespace,
 			RenewDeadline:              *options.RenewDeadline,
-			LeaderLabels:               options.LeaderElectionLabels,
 		})
 		if err != nil {
 			return nil, err
@@ -432,7 +417,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 	}
 
 	errChan := make(chan error, 1)
-	runnables := newRunnables(options.BaseContext, errChan).withLogger(options.Logger)
+	runnables := newRunnables(options.BaseContext, errChan)
 	return &controllerManager{
 		stopProcedureEngaged:          ptr.To(int64(0)),
 		cluster:                       cluster,

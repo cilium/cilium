@@ -162,7 +162,7 @@ type FilterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m FilterConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -291,7 +291,7 @@ type PerRouteConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m PerRouteConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -421,7 +421,7 @@ type SubClusterConfigMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SubClusterConfigMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

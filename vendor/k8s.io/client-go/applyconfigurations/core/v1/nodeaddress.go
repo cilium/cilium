@@ -24,13 +24,9 @@ import (
 
 // NodeAddressApplyConfiguration represents a declarative configuration of the NodeAddress type for use
 // with apply.
-//
-// NodeAddress contains information for the node's address.
 type NodeAddressApplyConfiguration struct {
-	// Node address type, one of Hostname, ExternalIP or InternalIP.
-	Type *corev1.NodeAddressType `json:"type,omitempty"`
-	// The node address.
-	Address *string `json:"address,omitempty"`
+	Type    *corev1.NodeAddressType `json:"type,omitempty"`
+	Address *string                 `json:"address,omitempty"`
 }
 
 // NodeAddressApplyConfiguration constructs a declarative configuration of the NodeAddress type for use with

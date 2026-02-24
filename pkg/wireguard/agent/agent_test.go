@@ -228,9 +228,7 @@ type config struct {
 func (c *config) toAgentConfig() Config {
 	return Config{
 		UserConfig: UserConfig{
-			EnableConfig: EnableConfig{
-				EnableWireguard: true,
-			},
+			EnableWireguard:              true,
 			WireguardTrackAllIPsFallback: c.Fallback,
 			WireguardPersistentKeepalive: 0,
 			NodeEncryptionOptOutLabels:   "",

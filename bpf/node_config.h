@@ -14,10 +14,20 @@
  */
 #include <lib/static_data.h>
 
+#define CLUSTER_ID 0
+
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
+#define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
 #define LRU_MEM_FLAVOR 0
+
+#define TUNNEL_PORT 8472
+#define TUNNEL_PROTOCOL_VXLAN 1
+#define TUNNEL_PROTOCOL_GENEVE 2
+#ifndef TUNNEL_PROTOCOL
+#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
+#endif
 
 #define UNKNOWN_ID 0
 #define HOST_ID 1
@@ -36,6 +46,10 @@
 #define REMOTE_NODE_ID 6
 #define KUBE_APISERVER_NODE_ID 7
 #define CILIUM_HOST_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
+#define NODEPORT_PORT_MIN 30000
+#define NODEPORT_PORT_MAX 32767
+#define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
+#define NODEPORT_PORT_MAX_NAT 65535
 
 #define CT_CONNECTION_LIFETIME_TCP	21600
 #define CT_CONNECTION_LIFETIME_NONTCP	60
@@ -49,7 +63,16 @@
 # define CT_REPORT_FLAGS		0xff
 #endif
 
+#define KERNEL_HZ 250   /* warp: 0 jiffies */
+
 #define ENABLE_IDENTITY_MARK 1
+
+#define HASH_INIT4_SEED 0xcafe
+#define HASH_INIT6_SEED 0xeb9f
+
+#ifndef L2_ANNOUNCEMENTS_MAX_LIVENESS
+# define L2_ANNOUNCEMENTS_MAX_LIVENESS 3000000000ULL
+#endif
 
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
@@ -92,6 +115,7 @@
 
 #define LB_MAGLEV_LUT_SIZE 32749
 #define THROTTLE_MAP_SIZE 65536
+#define ENABLE_ARP_RESPONDER
 #define VTEP_MAP_SIZE 8
 #define ENDPOINTS_MAP_SIZE 65536
 #define METRICS_MAP_SIZE 65536
@@ -118,10 +142,19 @@
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES 8192
 #define CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES 8192
+#ifndef SKIP_DEBUG
+#define LB_DEBUG
+#endif
 #ifndef MONITOR_AGGREGATION
 #define MONITOR_AGGREGATION 5
 #endif
 #define MTU 1500
+#define EPHEMERAL_MIN 32768
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT_46X64)
+#define CONNTRACK_ACCOUNTING
+#define POLICY_ACCOUNTING
+
+#endif /* ENABLE_NODEPORT || ENABLE_HOST_FIREWALL */
 
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
@@ -143,6 +176,10 @@
 # endif
 #endif
 
+#ifndef IS_L3_DEV
+# define IS_L3_DEV(ifindex) false
+#endif
+
 #define LB4_SRC_RANGE_MAP_SIZE	1000
 #define LB6_SRC_RANGE_MAP_SIZE	1000
 
@@ -153,13 +190,15 @@
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
-#ifdef ENCRYPTION_STRICT_MODE_EGRESS
-#  ifndef STRICT_IPV4_NET
-#   define STRICT_IPV4_NET	0
-#  endif
-#  ifndef STRICT_IPV4_NET_SIZE
-#   define STRICT_IPV4_NET_SIZE	8
-#  endif
+#ifdef ENABLE_WIREGUARD
+# ifdef ENCRYPTION_STRICT_MODE
+#  define STRICT_IPV4_NET	0
+#  define STRICT_IPV4_NET_SIZE	8
+# endif
+#endif
+
+#ifdef ENABLE_VTEP
+# define VTEP_MASK 0xffffff
 #endif
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
@@ -180,6 +219,27 @@ return true; \
 break; \
 } \
 return false;
+
+#define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
+#define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)
+
+#ifndef NAT_46X64_PREFIX_0
+# define NAT_46X64_PREFIX_0 0
+# define NAT_46X64_PREFIX_1 0
+# define NAT_46X64_PREFIX_2 0
+# define NAT_46X64_PREFIX_3 0
+#endif
+
+#ifndef __CLUSTERMESH_IDENTITY__
+#define __CLUSTERMESH_IDENTITY__
+#define CLUSTER_ID_MAX 255
+#endif
+
+#ifndef __CLUSTERMESH_HELPERS__
+#define __CLUSTERMESH_HELPERS__
+#define IDENTITY_LEN 16
+#define IDENTITY_MAX 65535
+#endif
 
 /*
  *   **** WARNING, THIS FILE IS DEPRECATED, SEE COMMENT AT THE TOP ****

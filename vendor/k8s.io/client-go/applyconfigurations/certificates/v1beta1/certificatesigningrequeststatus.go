@@ -21,10 +21,8 @@ package v1beta1
 // CertificateSigningRequestStatusApplyConfiguration represents a declarative configuration of the CertificateSigningRequestStatus type for use
 // with apply.
 type CertificateSigningRequestStatusApplyConfiguration struct {
-	// Conditions applied to the request, such as approval or denial.
-	Conditions []CertificateSigningRequestConditionApplyConfiguration `json:"conditions,omitempty"`
-	// If request was approved, the controller will place the issued certificate here.
-	Certificate []byte `json:"certificate,omitempty"`
+	Conditions  []CertificateSigningRequestConditionApplyConfiguration `json:"conditions,omitempty"`
+	Certificate []byte                                                 `json:"certificate,omitempty"`
 }
 
 // CertificateSigningRequestStatusApplyConfiguration constructs a declarative configuration of the CertificateSigningRequestStatus type for use with

@@ -5,19 +5,16 @@ package mcsapi
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
-	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -38,12 +35,7 @@ func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.
 		utils.ListerWatcherFromTyped(cs.MulticlusterV1alpha1().ServiceExports("")),
 		opts...,
 	)
-	return resource.New[*mcsapiv1alpha1.ServiceExport](
-		lc, lw, mp,
-		resource.WithMetric("ServiceExport"),
-		// Namespace index is needed for efficient lookup when namespace global status changes.
-		resource.WithIndexers(cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-	)
+	return resource.New[*mcsapiv1alpha1.ServiceExport](lc, lw, mp, resource.WithMetric("ServiceExport"))
 }
 
 // ServiceExportSyncCallback represents a callback that, if provided, is executed
@@ -54,7 +46,7 @@ type ServiceExportSyncParameters struct {
 	cell.In
 
 	Logger      *slog.Logger
-	Config      mcsapitypes.MCSAPIConfig
+	Config      operator.MCSAPIConfig
 	ClusterInfo cmtypes.ClusterInfo
 
 	Clientset     client.Clientset
@@ -65,9 +57,6 @@ type ServiceExportSyncParameters struct {
 	Services       resource.Resource[*slim_corev1.Service]
 
 	SyncCallback ServiceExportSyncCallback `optional:"true"`
-
-	NamespaceManager cmnamespace.Manager
-	Namespaces       resource.Resource[*slim_corev1.Namespace]
 }
 
 func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
@@ -87,7 +76,7 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 			func(ctx context.Context, _ cell.Health) error {
 				(&serviceExportSync{
 					logger:      cfg.Logger,
-					enabled:     cfg.Config.EnableMCSAPI,
+					enabled:     cfg.Config.ClusterMeshEnableMCSAPI,
 					clusterName: cfg.ClusterInfo.Name,
 
 					clientset:      cfg.Clientset,
@@ -96,9 +85,6 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 
 					store:        store,
 					syncCallback: cfg.SyncCallback,
-
-					namespaceManager: cfg.NamespaceManager,
-					namespaces:       cfg.Namespaces,
 				}).loop(ctx)
 				return nil
 			},
@@ -124,9 +110,6 @@ type serviceExportSync struct {
 
 	store        store.SyncStore
 	syncCallback ServiceExportSyncCallback
-
-	namespaceManager cmnamespace.Manager
-	namespaces       resource.Resource[*slim_corev1.Namespace]
 }
 
 func (s *serviceExportSync) loop(ctx context.Context) {
@@ -168,10 +151,8 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 		return
 	}
 
-	namespaceEvents := s.namespaces.Events(ctx)
-
 	servicesSynced, serviceExportsSynced := false, false
-	for serviceEvents != nil || serviceExportsEvents != nil || namespaceEvents != nil {
+	for serviceEvents != nil || serviceExportsEvents != nil {
 		select {
 		case ev, ok := <-serviceEvents:
 			if !ok {
@@ -188,7 +169,8 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 				continue
 			}
 
-			ev.Done(s.syncMCSAPIServiceSpec(ctx, serviceStore, serviceExportStore, ev.Key))
+			ev.Done(s.syncMCSAPIServiceSpec(ctx,
+				serviceStore, serviceExportStore, ev.Key))
 
 		case ev, ok := <-serviceExportsEvents:
 			if !ok {
@@ -205,41 +187,8 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 				continue
 			}
 
-			ev.Done(s.syncMCSAPIServiceSpec(ctx, serviceStore, serviceExportStore, ev.Key))
-
-		case ev, ok := <-namespaceEvents:
-			if !ok {
-				namespaceEvents = nil
-				continue
-			}
-
-			if ev.Kind == resource.Sync {
-				ev.Done(nil)
-				continue
-			}
-
-			nsName := ev.Key.Name
-
-			// Get all service exports in this namespace and resync them
-			svcExports, err := serviceExportStore.ByIndex(cache.NamespaceIndex, nsName)
-			if err != nil {
-				s.logger.Warn("Failed to list service exports for namespace update",
-					logfields.Error, err,
-					logfields.K8sNamespace, nsName,
-				)
-				ev.Done(err)
-				continue
-			}
-
-			var errs []error
-			for _, svcExport := range svcExports {
-				key := resource.NewKey(svcExport)
-				// syncMCSAPIServiceSpec handles both global and non-global namespaces
-				if err := s.syncMCSAPIServiceSpec(ctx, serviceStore, serviceExportStore, key); err != nil {
-					errs = append(errs, err)
-				}
-			}
-			ev.Done(errors.Join(errs...))
+			ev.Done(s.syncMCSAPIServiceSpec(ctx,
+				serviceStore, serviceExportStore, ev.Key))
 		}
 	}
 }
@@ -250,14 +199,6 @@ func (s *serviceExportSync) syncMCSAPIServiceSpec(
 	serviceExportStore resource.Store[*mcsapiv1alpha1.ServiceExport],
 	key resource.Key,
 ) error {
-	isGlobal, err := s.namespaceManager.IsGlobalNamespaceByName(key.Namespace)
-	if err != nil {
-		return err
-	}
-	if !isGlobal {
-		return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
-	}
-
 	svc, exist, err := serviceStore.GetByKey(key)
 	if err != nil {
 		return err

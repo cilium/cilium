@@ -24,13 +24,9 @@ import (
 
 // PreconditionsApplyConfiguration represents a declarative configuration of the Preconditions type for use
 // with apply.
-//
-// Preconditions must be fulfilled before an operation (update, delete, etc.) is carried out.
 type PreconditionsApplyConfiguration struct {
-	// Specifies the target UID.
-	UID *types.UID `json:"uid,omitempty"`
-	// Specifies the target ResourceVersion
-	ResourceVersion *string `json:"resourceVersion,omitempty"`
+	UID             *types.UID `json:"uid,omitempty"`
+	ResourceVersion *string    `json:"resourceVersion,omitempty"`
 }
 
 // PreconditionsApplyConfiguration constructs a declarative configuration of the Preconditions type for use with

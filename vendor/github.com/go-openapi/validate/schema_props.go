@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package validate
 
@@ -23,7 +34,7 @@ type schemaPropsValidator struct {
 	allOfValidators []*SchemaValidator
 	oneOfValidators []*SchemaValidator
 	notValidator    *SchemaValidator
-	Root            any
+	Root            interface{}
 	KnownFormats    strfmt.Registry
 	Options         *SchemaValidatorOptions
 }
@@ -33,7 +44,7 @@ func (s *schemaPropsValidator) SetPath(path string) {
 }
 
 func newSchemaPropsValidator(
-	path string, in string, allOf, oneOf, anyOf []spec.Schema, not *spec.Schema, deps spec.Dependencies, root any, formats strfmt.Registry,
+	path string, in string, allOf, oneOf, anyOf []spec.Schema, not *spec.Schema, deps spec.Dependencies, root interface{}, formats strfmt.Registry,
 	opts *SchemaValidatorOptions) *schemaPropsValidator {
 	if opts == nil {
 		opts = new(SchemaValidatorOptions)
@@ -82,12 +93,12 @@ func newSchemaPropsValidator(
 	return s
 }
 
-func (s *schemaPropsValidator) Applies(source any, _ reflect.Kind) bool {
+func (s *schemaPropsValidator) Applies(source interface{}, _ reflect.Kind) bool {
 	_, isSchema := source.(*spec.Schema)
 	return isSchema
 }
 
-func (s *schemaPropsValidator) Validate(data any) *Result {
+func (s *schemaPropsValidator) Validate(data interface{}) *Result {
 	var mainResult *Result
 	if s.Options.recycleResult {
 		mainResult = pools.poolOfResults.BorrowResult()
@@ -139,7 +150,7 @@ func (s *schemaPropsValidator) Validate(data any) *Result {
 	return mainResult.Merge(keepResultAllOf, keepResultOneOf, keepResultAnyOf)
 }
 
-func (s *schemaPropsValidator) validateAnyOf(data any, mainResult, keepResultAnyOf *Result) {
+func (s *schemaPropsValidator) validateAnyOf(data interface{}, mainResult, keepResultAnyOf *Result) {
 	// Validates at least one in anyOf schemas
 	var bestFailures *Result
 
@@ -181,7 +192,7 @@ func (s *schemaPropsValidator) validateAnyOf(data any, mainResult, keepResultAny
 	mainResult.Merge(bestFailures)
 }
 
-func (s *schemaPropsValidator) validateOneOf(data any, mainResult, keepResultOneOf *Result) {
+func (s *schemaPropsValidator) validateOneOf(data interface{}, mainResult, keepResultOneOf *Result) {
 	// Validates exactly one in oneOf schemas
 	var (
 		firstSuccess, bestFailures *Result
@@ -240,7 +251,7 @@ func (s *schemaPropsValidator) validateOneOf(data any, mainResult, keepResultOne
 	}
 }
 
-func (s *schemaPropsValidator) validateAllOf(data any, mainResult, keepResultAllOf *Result) {
+func (s *schemaPropsValidator) validateAllOf(data interface{}, mainResult, keepResultAllOf *Result) {
 	// Validates all of allOf schemas
 	var validated int
 
@@ -266,7 +277,7 @@ func (s *schemaPropsValidator) validateAllOf(data any, mainResult, keepResultAll
 	}
 }
 
-func (s *schemaPropsValidator) validateNot(data any, mainResult *Result) {
+func (s *schemaPropsValidator) validateNot(data interface{}, mainResult *Result) {
 	result := s.notValidator.Validate(data)
 	if s.Options.recycleValidators {
 		s.notValidator = nil
@@ -280,8 +291,8 @@ func (s *schemaPropsValidator) validateNot(data any, mainResult *Result) {
 	}
 }
 
-func (s *schemaPropsValidator) validateDependencies(data any, mainResult *Result) {
-	val := data.(map[string]any)
+func (s *schemaPropsValidator) validateDependencies(data interface{}, mainResult *Result) {
+	val := data.(map[string]interface{})
 	for key := range val {
 		dep, ok := s.Dependencies[key]
 		if !ok {

@@ -42,6 +42,7 @@ func CRDResourceName(crd string) string {
 
 func agentCRDResourceNames() []string {
 	result := []string{
+		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2alpha1.CPIPName),
 	}
@@ -51,10 +52,6 @@ func agentCRDResourceNames() []string {
 		if option.Config.EnableCiliumEndpointSlice {
 			result = append(result, CRDResourceName(v2alpha1.CESName))
 		}
-	}
-
-	if option.Config.EnableCiliumNodeCRD {
-		result = append(result, CRDResourceName(v2.CNName))
 	}
 
 	if option.Config.EnableCiliumNetworkPolicy {
@@ -80,6 +77,8 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2.CECName))
 	}
 	if option.Config.EnableBGPControlPlane {
+		result = append(result, CRDResourceName(v2alpha1.BGPPName))
+		// BGPv2 CRDs
 		result = append(result, CRDResourceName(v2.BGPCCName))
 		result = append(result, CRDResourceName(v2.BGPAName))
 		result = append(result, CRDResourceName(v2.BGPPCName))

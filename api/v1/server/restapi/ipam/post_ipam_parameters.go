@@ -32,6 +32,7 @@ func NewPostIpamParams() PostIpamParams {
 //
 // swagger:parameters PostIpam
 type PostIpamParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -39,17 +40,14 @@ type PostIpamParams struct {
 	  In: header
 	*/
 	Expiration *bool
-
 	/*
 	  In: query
 	*/
 	Family *string
-
 	/*
 	  In: query
 	*/
 	Owner *string
-
 	/*
 	  In: query
 	*/
@@ -64,6 +62,7 @@ func (o *PostIpamParams) BindRequest(r *http.Request, route *middleware.MatchedR
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	if err := o.bindExpiration(r.Header[http.CanonicalHeaderKey("expiration")], true, route.Formats); err != nil {
@@ -134,10 +133,10 @@ func (o *PostIpamParams) bindFamily(rawData []string, hasKey bool, formats strfm
 	return nil
 }
 
-// validateFamily carries out validations for parameter Family
+// validateFamily carries on validations for parameter Family
 func (o *PostIpamParams) validateFamily(formats strfmt.Registry) error {
 
-	if err := validate.EnumCase("family", "query", *o.Family, []any{"ipv4", "ipv6"}, true); err != nil {
+	if err := validate.EnumCase("family", "query", *o.Family, []interface{}{"ipv4", "ipv6"}, true); err != nil {
 		return err
 	}
 

@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
-
 package client
 
 import (
@@ -111,7 +108,7 @@ func newOpenTelemetryTransport(transport runtime.ClientTransport, host string, o
 	return tr
 }
 
-func (t *openTelemetryTransport) Submit(op *runtime.ClientOperation) (any, error) {
+func (t *openTelemetryTransport) Submit(op *runtime.ClientOperation) (interface{}, error) {
 	if op.Context == nil {
 		return t.transport.Submit(op)
 	}
@@ -131,7 +128,7 @@ func (t *openTelemetryTransport) Submit(op *runtime.ClientOperation) (any, error
 		return params.WriteToRequest(req, reg)
 	})
 
-	op.Reader = runtime.ClientResponseReaderFunc(func(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
+	op.Reader = runtime.ClientResponseReaderFunc(func(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 		if span != nil {
 			statusCode := response.Code()
 			// NOTE: this is replaced by semconv.HTTPResponseStatusCode in semconv v1.21

@@ -70,7 +70,7 @@ func (s *Server) Start(ctx context.Context) error {
 		shutdownCtx := context.Background()
 		if s.ShutdownTimeout != nil {
 			var shutdownCancel context.CancelFunc
-			shutdownCtx, shutdownCancel = context.WithTimeout(shutdownCtx, *s.ShutdownTimeout)
+			shutdownCtx, shutdownCancel = context.WithTimeout(context.Background(), *s.ShutdownTimeout)
 			defer shutdownCancel()
 		}
 

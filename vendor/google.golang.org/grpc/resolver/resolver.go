@@ -182,7 +182,6 @@ type BuildOptions struct {
 
 // An Endpoint is one network endpoint, or server, which may have multiple
 // addresses with which it can be accessed.
-// TODO(i/8773) : make resolver.Endpoint and resolver.Address immutable
 type Endpoint struct {
 	// Addresses contains a list of addresses used to access this endpoint.
 	Addresses []Address

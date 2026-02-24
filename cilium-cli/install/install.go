@@ -10,14 +10,11 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"helm.sh/helm/v4/pkg/action"
-	"helm.sh/helm/v4/pkg/chart"
-	"helm.sh/helm/v4/pkg/cli"
-	"helm.sh/helm/v4/pkg/cli/values"
-	"helm.sh/helm/v4/pkg/getter"
-	"helm.sh/helm/v4/pkg/kube"
-	"helm.sh/helm/v4/pkg/release"
-	v1release "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -84,7 +81,7 @@ type K8sInstaller struct {
 	params       Parameters
 	flavor       k8s.Flavor
 	chartVersion semver.Version
-	chart        chart.Charter
+	chart        *chart.Chart
 }
 
 type AzureParameters struct {
@@ -152,9 +149,6 @@ type Parameters struct {
 
 	// NodesWithoutCilium enables the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule
 	NodesWithoutCilium bool
-
-	// Force restart pods after upgrade
-	Restart bool
 }
 
 func (p *Parameters) IsDryRun() bool {
@@ -267,37 +261,18 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Clien
 	helmClient := action.NewInstall(k8sClient.HelmActionConfig)
 	helmClient.ReleaseName = k.params.HelmReleaseName
 	helmClient.Namespace = k.params.Namespace
-	if k.params.Wait {
-		helmClient.WaitStrategy = kube.StatusWatcherStrategy
-	} else {
-		// Helm v4 always requires a WaitStrategy. HookOnlyStrategy waits only
-		// for hooks to complete without waiting for chart resources to be ready,
-		// which preserves the old Wait:false behavior.
-		helmClient.WaitStrategy = kube.HookOnlyStrategy
-	}
+	helmClient.Wait = k.params.Wait
 	helmClient.Timeout = k.params.WaitDuration
-	if k.params.IsDryRun() {
-		helmClient.DryRunStrategy = action.DryRunClient
-	} else {
-		helmClient.DryRunStrategy = action.DryRunNone
-	}
-	rel, err := helmClient.RunWithContext(ctx, k.chart, vals)
+	helmClient.DryRun = k.params.IsDryRun()
+	release, err := helmClient.RunWithContext(ctx, k.chart, vals)
 	if err != nil {
 		return err
 	}
 	if k.params.DryRun {
-		accessor, err := release.NewAccessor(rel)
-		if err != nil {
-			return fmt.Errorf("failed to create release accessor: %w", err)
-		}
-		fmt.Println(accessor.Manifest())
+		fmt.Println(release.Manifest)
 	}
 	if k.params.DryRunHelmValues {
-		v1rel, ok := rel.(*v1release.Release)
-		if !ok {
-			return fmt.Errorf("unsupported release type: %T", rel)
-		}
-		helmValues, err := yaml.Marshal(v1rel.Config)
+		helmValues, err := yaml.Marshal(release.Config)
 		if err != nil {
 			return err
 		}

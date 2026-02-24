@@ -46,7 +46,8 @@ type DescribeIpamResourceDiscoveriesInput struct {
 	// The maximum number of resource discoveries to return in one page of results.
 	MaxResults *int32
 
-	// The token for the next page of results.
+	// Specify the pagination token from a previous request to retrieve the next page
+	// of results.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -57,8 +58,8 @@ type DescribeIpamResourceDiscoveriesOutput struct {
 	// The resource discoveries.
 	IpamResourceDiscoveries []types.IpamResourceDiscovery
 
-	// The token to use to retrieve the next page of results. This value is null when
-	// there are no more results to return.
+	// Specify the pagination token from a previous request to retrieve the next page
+	// of results.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -158,7 +159,40 @@ func (c *Client) addOperationDescribeIpamResourceDiscoveriesMiddlewares(stack *m
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptors(stack, options); err != nil {
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

@@ -17,7 +17,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -85,22 +84,21 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
-	Logger         *slog.Logger
-	TunnelConf     tunnel.Config
-	Lifecycle      cell.Lifecycle
-	IPCache        *ipcache.IPCache
-	IPSetMgr       ipset.Manager
-	IPSetFilter    IPSetFilterFn `optional:"true"`
-	NodeMetrics    *nodeMetrics
-	Health         cell.Health
-	JobGroup       job.Group
-	DB             *statedb.DB
-	Devices        statedb.Table[*tables.Device]
-	WGConfig       wgTypes.WireguardConfig
-	LocalNodeStore *node.LocalNodeStore
+	Logger      *slog.Logger
+	TunnelConf  tunnel.Config
+	Lifecycle   cell.Lifecycle
+	IPCache     *ipcache.IPCache
+	IPSetMgr    ipset.Manager
+	IPSetFilter IPSetFilterFn `optional:"true"`
+	NodeMetrics *nodeMetrics
+	Health      cell.Health
+	JobGroup    job.Group
+	DB          *statedb.DB
+	Devices     statedb.Table[*tables.Device]
+	WGConfig    wgTypes.WireguardConfig
 },
 ) (NodeManager, error) {
-	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig, in.LocalNodeStore)
+	mngr, err := New(in.Logger, option.Config, in.TunnelConf, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health, in.JobGroup, in.DB, in.Devices, in.WGConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -31,8 +31,7 @@ enum {
 	NOTIFY_COMMON_HDR						\
 	__u32		len_orig;	/* Length of original packet */	\
 	__u16		len_cap;	/* Length of captured bytes */	\
-	__u8		version;	/* Capture header version */    \
-	__u8		ext_version;	/* Capture header extension version */
+	__u16		version;	/* Capture header version */
 
 #define __notify_common_hdr(t, s)	\
 	.type		= (t),		\
@@ -43,8 +42,7 @@ enum {
 #define __notify_pktcap_hdr(o, c, v)	\
 	.len_orig	= (o),		\
 	.len_cap	= (c),		\
-	.version	= (v),		\
-	.ext_version	= 0
+	.version	= (v)
 
 /* Available observation points. */
 enum trace_point {

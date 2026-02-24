@@ -66,7 +66,8 @@ func IntValue(v int) Value {
 
 // IntSliceValue creates an INTSLICE Value.
 func IntSliceValue(v []int) Value {
-	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeFor[int64]()))
+	var int64Val int64
+	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(int64Val)))
 	for i, val := range v {
 		cp.Elem().Index(i).SetInt(int64(val))
 	}

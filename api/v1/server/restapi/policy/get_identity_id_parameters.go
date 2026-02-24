@@ -29,6 +29,7 @@ func NewGetIdentityIDParams() GetIdentityIDParams {
 //
 // swagger:parameters GetIdentityID
 type GetIdentityIDParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

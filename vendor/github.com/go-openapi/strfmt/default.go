@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package strfmt
 
@@ -8,15 +19,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/mail"
 	"net/netip"
-	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/net/idna"
 )
 
@@ -50,33 +60,10 @@ const (
 	//
 	// Deprecated: strfmt no longer uses regular expressions to validate UUIDs.
 	UUID5Pattern = `(?i)(^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$)|(^[0-9a-f]{12}5[0-9a-f]{3}[89ab][0-9a-f]{15}$)`
-
-	isbn10Pattern   string = "^(?:[0-9]{9}X|[0-9]{10})$"
-	isbn13Pattern   string = "^(?:[0-9]{13})$"
-	usCardPattern   string = "^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|(222[1-9]|22[3-9][0-9]|2[3-6][0-9]{2}|27[01][0-9]|2720)[0-9]{12}|6(?:011|5[0-9][0-9])[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\\d{3})\\d{11}|6[27][0-9]{14})$"
-	ssnPattern      string = `^\d{3}[- ]?\d{2}[- ]?\d{4}$`
-	hexColorPattern string = "^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-	rgbColorPattern string = "^rgb\\(\\s*(0|[1-9]\\d?|1\\d\\d?|2[0-4]\\d|25[0-5])\\s*,\\s*(0|[1-9]\\d?|1\\d\\d?|2[0-4]\\d|25[0-5])\\s*,\\s*(0|[1-9]\\d?|1\\d\\d?|2[0-4]\\d|25[0-5])\\s*\\)$"
 )
 
-const (
-	isbnVersion10 = 10
-	isbnVersion13 = 13
-	decimalBase   = 10
-)
-
-var (
-	idnaHostChecker = idna.New(
-		idna.ValidateForRegistration(), // shorthand for [idna.StrictDomainName],  [idna.ValidateLabels], [idna.VerifyDNSLength], [idna.BidiRule]
-	)
-
-	whiteSpacesAndMinus = regexp.MustCompile(`[\s-]+`)
-	rxISBN10            = regexp.MustCompile(isbn10Pattern)
-	rxISBN13            = regexp.MustCompile(isbn13Pattern)
-	rxCreditCard        = regexp.MustCompile(usCardPattern)
-	rxSSN               = regexp.MustCompile(ssnPattern)
-	rxHexcolor          = regexp.MustCompile(hexColorPattern)
-	rxRGBcolor          = regexp.MustCompile(rgbColorPattern)
+var idnaHostChecker = idna.New(
+	idna.ValidateForRegistration(), // shorthand for [idna.StrictDomainName],  [idna.ValidateLabels], [idna.VerifyDNSLength], [idna.BidiRule]
 )
 
 // IsHostname returns true when the string is a valid hostname.
@@ -335,7 +322,6 @@ const (
 	uuidV3 = 3
 	uuidV4 = 4
 	uuidV5 = 5
-	uuidV7 = 7
 )
 
 // IsUUID3 returns true is the string matches a UUID v3, upper case is allowed
@@ -354,12 +340,6 @@ func IsUUID4(str string) bool {
 func IsUUID5(str string) bool {
 	id, err := uuid.Parse(str)
 	return err == nil && id.Version() == uuid.Version(uuidV5)
-}
-
-// IsUUID7 returns true is the string matches a UUID v7, upper case is allowed
-func IsUUID7(str string) bool {
-	id, err := uuid.Parse(str)
-	return err == nil && id.Version() == uuid.Version(uuidV7)
 }
 
 // IsEmail validates an email address.
@@ -390,9 +370,8 @@ func init() {
 	//   - uuid3
 	//   - uuid4
 	//   - uuid5
-	//   - uuid7
 	u := URI("")
-	Default.Add("uri", &u, isRequestURI)
+	Default.Add("uri", &u, govalidator.IsRequestURI)
 
 	eml := Email("")
 	Default.Add("email", &eml, IsEmail)
@@ -401,16 +380,16 @@ func init() {
 	Default.Add("hostname", &hn, IsHostname)
 
 	ip4 := IPv4("")
-	Default.Add("ipv4", &ip4, isIPv4)
+	Default.Add("ipv4", &ip4, govalidator.IsIPv4)
 
 	ip6 := IPv6("")
-	Default.Add("ipv6", &ip6, isIPv6)
+	Default.Add("ipv6", &ip6, govalidator.IsIPv6)
 
 	cidr := CIDR("")
-	Default.Add("cidr", &cidr, isCIDR)
+	Default.Add("cidr", &cidr, govalidator.IsCIDR)
 
 	mac := MAC("")
-	Default.Add("mac", &mac, isMAC)
+	Default.Add("mac", &mac, govalidator.IsMAC)
 
 	uid := UUID("")
 	Default.Add("uuid", &uid, IsUUID)
@@ -424,32 +403,29 @@ func init() {
 	uid5 := UUID5("")
 	Default.Add("uuid5", &uid5, IsUUID5)
 
-	uid7 := UUID7("")
-	Default.Add("uuid7", &uid7, IsUUID7)
-
 	isbn := ISBN("")
-	Default.Add("isbn", &isbn, func(str string) bool { return isISBN10(str) || isISBN13(str) })
+	Default.Add("isbn", &isbn, func(str string) bool { return govalidator.IsISBN10(str) || govalidator.IsISBN13(str) })
 
 	isbn10 := ISBN10("")
-	Default.Add("isbn10", &isbn10, isISBN10)
+	Default.Add("isbn10", &isbn10, govalidator.IsISBN10)
 
 	isbn13 := ISBN13("")
-	Default.Add("isbn13", &isbn13, isISBN13)
+	Default.Add("isbn13", &isbn13, govalidator.IsISBN13)
 
 	cc := CreditCard("")
-	Default.Add("creditcard", &cc, isCreditCard)
+	Default.Add("creditcard", &cc, govalidator.IsCreditCard)
 
 	ssn := SSN("")
-	Default.Add("ssn", &ssn, isSSN)
+	Default.Add("ssn", &ssn, govalidator.IsSSN)
 
 	hc := HexColor("")
-	Default.Add("hexcolor", &hc, isHexcolor)
+	Default.Add("hexcolor", &hc, govalidator.IsHexcolor)
 
 	rc := RGBColor("")
-	Default.Add("rgbcolor", &rc, isRGBcolor)
+	Default.Add("rgbcolor", &rc, govalidator.IsRGBcolor)
 
 	b64 := Base64([]byte(nil))
-	Default.Add("byte", &b64, isBase64)
+	Default.Add("byte", &b64, govalidator.IsBase64)
 
 	pw := Password("")
 	Default.Add("password", &pw, func(_ string) bool { return true })
@@ -484,7 +460,7 @@ func (b *Base64) UnmarshalText(data []byte) error { // validation is performed l
 }
 
 // Scan read a value from a database driver
-func (b *Base64) Scan(raw any) error {
+func (b *Base64) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		dbuf := make([]byte, base64.StdEncoding.DecodedLen(len(v)))
@@ -534,6 +510,29 @@ func (b *Base64) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (b Base64) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": b.String()})
+}
+
+// UnmarshalBSON document into this value
+func (b *Base64) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if bd, ok := m["data"].(string); ok {
+		vb, err := base64.StdEncoding.DecodeString(bd)
+		if err != nil {
+			return err
+		}
+		*b = Base64(vb)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as base64: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (b *Base64) DeepCopyInto(out *Base64) {
 	*out = *b
@@ -566,7 +565,7 @@ func (u *URI) UnmarshalText(data []byte) error { // validation is performed late
 }
 
 // Scan read a value from a database driver
-func (u *URI) Scan(raw any) error {
+func (u *URI) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = URI(string(v))
@@ -603,6 +602,25 @@ func (u *URI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u URI) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *URI) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = URI(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as uri: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *URI) DeepCopyInto(out *URI) {
 	*out = *u
@@ -635,7 +653,7 @@ func (e *Email) UnmarshalText(data []byte) error { // validation is performed la
 }
 
 // Scan read a value from a database driver
-func (e *Email) Scan(raw any) error {
+func (e *Email) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*e = Email(string(v))
@@ -672,6 +690,25 @@ func (e *Email) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (e Email) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": e.String()})
+}
+
+// UnmarshalBSON document into this value
+func (e *Email) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*e = Email(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as email: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (e *Email) DeepCopyInto(out *Email) {
 	*out = *e
@@ -704,7 +741,7 @@ func (h *Hostname) UnmarshalText(data []byte) error { // validation is performed
 }
 
 // Scan read a value from a database driver
-func (h *Hostname) Scan(raw any) error {
+func (h *Hostname) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*h = Hostname(string(v))
@@ -741,6 +778,25 @@ func (h *Hostname) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (h Hostname) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": h.String()})
+}
+
+// UnmarshalBSON document into this value
+func (h *Hostname) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*h = Hostname(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as hostname: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (h *Hostname) DeepCopyInto(out *Hostname) {
 	*out = *h
@@ -773,7 +829,7 @@ func (u *IPv4) UnmarshalText(data []byte) error { // validation is performed lat
 }
 
 // Scan read a value from a database driver
-func (u *IPv4) Scan(raw any) error {
+func (u *IPv4) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = IPv4(string(v))
@@ -810,6 +866,25 @@ func (u *IPv4) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u IPv4) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *IPv4) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = IPv4(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as ipv4: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *IPv4) DeepCopyInto(out *IPv4) {
 	*out = *u
@@ -842,7 +917,7 @@ func (u *IPv6) UnmarshalText(data []byte) error { // validation is performed lat
 }
 
 // Scan read a value from a database driver
-func (u *IPv6) Scan(raw any) error {
+func (u *IPv6) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = IPv6(string(v))
@@ -879,6 +954,25 @@ func (u *IPv6) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u IPv6) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *IPv6) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = IPv6(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as ipv6: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *IPv6) DeepCopyInto(out *IPv6) {
 	*out = *u
@@ -911,7 +1005,7 @@ func (u *CIDR) UnmarshalText(data []byte) error { // validation is performed lat
 }
 
 // Scan read a value from a database driver
-func (u *CIDR) Scan(raw any) error {
+func (u *CIDR) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = CIDR(string(v))
@@ -948,6 +1042,25 @@ func (u *CIDR) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u CIDR) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *CIDR) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = CIDR(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as CIDR: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *CIDR) DeepCopyInto(out *CIDR) {
 	*out = *u
@@ -980,7 +1093,7 @@ func (u *MAC) UnmarshalText(data []byte) error { // validation is performed late
 }
 
 // Scan read a value from a database driver
-func (u *MAC) Scan(raw any) error {
+func (u *MAC) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = MAC(string(v))
@@ -1017,6 +1130,25 @@ func (u *MAC) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u MAC) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *MAC) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = MAC(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as MAC: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *MAC) DeepCopyInto(out *MAC) {
 	*out = *u
@@ -1049,7 +1181,7 @@ func (u *UUID) UnmarshalText(data []byte) error { // validation is performed lat
 }
 
 // Scan read a value from a database driver
-func (u *UUID) Scan(raw any) error {
+func (u *UUID) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = UUID(string(v))
@@ -1089,6 +1221,25 @@ func (u *UUID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u UUID) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *UUID) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = UUID(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as UUID: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *UUID) DeepCopyInto(out *UUID) {
 	*out = *u
@@ -1121,7 +1272,7 @@ func (u *UUID3) UnmarshalText(data []byte) error { // validation is performed la
 }
 
 // Scan read a value from a database driver
-func (u *UUID3) Scan(raw any) error {
+func (u *UUID3) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = UUID3(string(v))
@@ -1161,6 +1312,25 @@ func (u *UUID3) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u UUID3) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *UUID3) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = UUID3(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as UUID3: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *UUID3) DeepCopyInto(out *UUID3) {
 	*out = *u
@@ -1193,7 +1363,7 @@ func (u *UUID4) UnmarshalText(data []byte) error { // validation is performed la
 }
 
 // Scan read a value from a database driver
-func (u *UUID4) Scan(raw any) error {
+func (u *UUID4) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = UUID4(string(v))
@@ -1233,6 +1403,25 @@ func (u *UUID4) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u UUID4) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *UUID4) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = UUID4(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as UUID4: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *UUID4) DeepCopyInto(out *UUID4) {
 	*out = *u
@@ -1265,7 +1454,7 @@ func (u *UUID5) UnmarshalText(data []byte) error { // validation is performed la
 }
 
 // Scan read a value from a database driver
-func (u *UUID5) Scan(raw any) error {
+func (u *UUID5) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = UUID5(string(v))
@@ -1305,6 +1494,25 @@ func (u *UUID5) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u UUID5) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *UUID5) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = UUID5(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as UUID5: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *UUID5) DeepCopyInto(out *UUID5) {
 	*out = *u
@@ -1316,78 +1524,6 @@ func (u *UUID5) DeepCopy() *UUID5 {
 		return nil
 	}
 	out := new(UUID5)
-	u.DeepCopyInto(out)
-	return out
-}
-
-// UUID7 represents a uuid7 string format
-//
-// swagger:strfmt uuid7
-type UUID7 string
-
-// MarshalText turns this instance into text
-func (u UUID7) MarshalText() ([]byte, error) {
-	return []byte(string(u)), nil
-}
-
-// UnmarshalText hydrates this instance from text
-func (u *UUID7) UnmarshalText(data []byte) error { // validation is performed later on
-	*u = UUID7(string(data))
-	return nil
-}
-
-// Scan read a value from a database driver
-func (u *UUID7) Scan(raw any) error {
-	switch v := raw.(type) {
-	case []byte:
-		*u = UUID7(string(v))
-	case string:
-		*u = UUID7(v)
-	default:
-		return fmt.Errorf("cannot sql.Scan() strfmt.UUID7 from: %#v: %w", v, ErrFormat)
-	}
-
-	return nil
-}
-
-// Value converts a value to a database driver value
-func (u UUID7) Value() (driver.Value, error) {
-	return driver.Value(string(u)), nil
-}
-
-func (u UUID7) String() string {
-	return string(u)
-}
-
-// MarshalJSON returns the UUID as JSON
-func (u UUID7) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(u))
-}
-
-// UnmarshalJSON sets the UUID from JSON
-func (u *UUID7) UnmarshalJSON(data []byte) error {
-	if string(data) == jsonNull {
-		return nil
-	}
-	var ustr string
-	if err := json.Unmarshal(data, &ustr); err != nil {
-		return err
-	}
-	*u = UUID7(ustr)
-	return nil
-}
-
-// DeepCopyInto copies the receiver and writes its value into out.
-func (u *UUID7) DeepCopyInto(out *UUID7) {
-	*out = *u
-}
-
-// DeepCopy copies the receiver into a new UUID7.
-func (u *UUID7) DeepCopy() *UUID7 {
-	if u == nil {
-		return nil
-	}
-	out := new(UUID7)
 	u.DeepCopyInto(out)
 	return out
 }
@@ -1409,7 +1545,7 @@ func (u *ISBN) UnmarshalText(data []byte) error { // validation is performed lat
 }
 
 // Scan read a value from a database driver
-func (u *ISBN) Scan(raw any) error {
+func (u *ISBN) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = ISBN(string(v))
@@ -1449,6 +1585,25 @@ func (u *ISBN) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u ISBN) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *ISBN) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = ISBN(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as ISBN: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *ISBN) DeepCopyInto(out *ISBN) {
 	*out = *u
@@ -1481,7 +1636,7 @@ func (u *ISBN10) UnmarshalText(data []byte) error { // validation is performed l
 }
 
 // Scan read a value from a database driver
-func (u *ISBN10) Scan(raw any) error {
+func (u *ISBN10) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = ISBN10(string(v))
@@ -1521,6 +1676,25 @@ func (u *ISBN10) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u ISBN10) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *ISBN10) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = ISBN10(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as ISBN10: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *ISBN10) DeepCopyInto(out *ISBN10) {
 	*out = *u
@@ -1553,7 +1727,7 @@ func (u *ISBN13) UnmarshalText(data []byte) error { // validation is performed l
 }
 
 // Scan read a value from a database driver
-func (u *ISBN13) Scan(raw any) error {
+func (u *ISBN13) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = ISBN13(string(v))
@@ -1593,6 +1767,25 @@ func (u *ISBN13) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u ISBN13) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *ISBN13) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = ISBN13(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as ISBN13: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *ISBN13) DeepCopyInto(out *ISBN13) {
 	*out = *u
@@ -1625,7 +1818,7 @@ func (u *CreditCard) UnmarshalText(data []byte) error { // validation is perform
 }
 
 // Scan read a value from a database driver
-func (u *CreditCard) Scan(raw any) error {
+func (u *CreditCard) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = CreditCard(string(v))
@@ -1665,6 +1858,25 @@ func (u *CreditCard) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u CreditCard) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *CreditCard) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = CreditCard(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as CreditCard: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *CreditCard) DeepCopyInto(out *CreditCard) {
 	*out = *u
@@ -1697,7 +1909,7 @@ func (u *SSN) UnmarshalText(data []byte) error { // validation is performed late
 }
 
 // Scan read a value from a database driver
-func (u *SSN) Scan(raw any) error {
+func (u *SSN) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*u = SSN(string(v))
@@ -1737,6 +1949,25 @@ func (u *SSN) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (u SSN) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": u.String()})
+}
+
+// UnmarshalBSON document into this value
+func (u *SSN) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*u = SSN(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as SSN: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (u *SSN) DeepCopyInto(out *SSN) {
 	*out = *u
@@ -1769,7 +2000,7 @@ func (h *HexColor) UnmarshalText(data []byte) error { // validation is performed
 }
 
 // Scan read a value from a database driver
-func (h *HexColor) Scan(raw any) error {
+func (h *HexColor) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*h = HexColor(string(v))
@@ -1809,6 +2040,25 @@ func (h *HexColor) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (h HexColor) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": h.String()})
+}
+
+// UnmarshalBSON document into this value
+func (h *HexColor) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*h = HexColor(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as HexColor: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (h *HexColor) DeepCopyInto(out *HexColor) {
 	*out = *h
@@ -1841,7 +2091,7 @@ func (r *RGBColor) UnmarshalText(data []byte) error { // validation is performed
 }
 
 // Scan read a value from a database driver
-func (r *RGBColor) Scan(raw any) error {
+func (r *RGBColor) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*r = RGBColor(string(v))
@@ -1881,6 +2131,25 @@ func (r *RGBColor) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (r RGBColor) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": r.String()})
+}
+
+// UnmarshalBSON document into this value
+func (r *RGBColor) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*r = RGBColor(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as RGBColor: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (r *RGBColor) DeepCopyInto(out *RGBColor) {
 	*out = *r
@@ -1914,7 +2183,7 @@ func (r *Password) UnmarshalText(data []byte) error { // validation is performed
 }
 
 // Scan read a value from a database driver
-func (r *Password) Scan(raw any) error {
+func (r *Password) Scan(raw interface{}) error {
 	switch v := raw.(type) {
 	case []byte:
 		*r = Password(string(v))
@@ -1954,6 +2223,25 @@ func (r *Password) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalBSON document from this value
+func (r Password) MarshalBSON() ([]byte, error) {
+	return bson.Marshal(bson.M{"data": r.String()})
+}
+
+// UnmarshalBSON document into this value
+func (r *Password) UnmarshalBSON(data []byte) error {
+	var m bson.M
+	if err := bson.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	if ud, ok := m["data"].(string); ok {
+		*r = Password(ud)
+		return nil
+	}
+	return fmt.Errorf("couldn't unmarshal bson bytes as Password: %w", ErrFormat)
+}
+
 // DeepCopyInto copies the receiver and writes its value into out.
 func (r *Password) DeepCopyInto(out *Password) {
 	*out = *r
@@ -1967,144 +2255,4 @@ func (r *Password) DeepCopy() *Password {
 	out := new(Password)
 	r.DeepCopyInto(out)
 	return out
-}
-
-func isRequestURI(rawurl string) bool {
-	_, err := url.ParseRequestURI(rawurl)
-	return err == nil
-}
-
-// isIPv4 checks if the string is an IP version 4.
-func isIPv4(str string) bool {
-	ip := net.ParseIP(str)
-	return ip != nil && strings.Contains(str, ".")
-}
-
-// isIPv6 checks if the string is an IP version 6.
-func isIPv6(str string) bool {
-	ip := net.ParseIP(str)
-	return ip != nil && strings.Contains(str, ":")
-}
-
-// isCIDR checks if the string is an valid CIDR notiation (IPV4 & IPV6)
-func isCIDR(str string) bool {
-	_, _, err := net.ParseCIDR(str)
-	return err == nil
-}
-
-// isMAC checks if a string is valid MAC address.
-// Possible MAC formats:
-// 01:23:45:67:89:ab
-// 01:23:45:67:89:ab:cd:ef
-// 01-23-45-67-89-ab
-// 01-23-45-67-89-ab-cd-ef
-// 0123.4567.89ab
-// 0123.4567.89ab.cdef
-func isMAC(str string) bool {
-	_, err := net.ParseMAC(str)
-	return err == nil
-}
-
-// isISBN checks if the string is an ISBN (version 10 or 13).
-// If version value is not equal to 10 or 13, it will be checks both variants.
-func isISBN(str string, version int) bool {
-	sanitized := whiteSpacesAndMinus.ReplaceAllString(str, "")
-	var checksum int32
-	var i int32
-
-	switch version {
-	case isbnVersion10:
-		if !rxISBN10.MatchString(sanitized) {
-			return false
-		}
-		for i = range isbnVersion10 - 1 {
-			checksum += (i + 1) * int32(sanitized[i]-'0')
-		}
-		if sanitized[isbnVersion10-1] == 'X' {
-			checksum += isbnVersion10 * isbnVersion10
-		} else {
-			checksum += isbnVersion10 * int32(sanitized[isbnVersion10-1]-'0')
-		}
-		if checksum%(isbnVersion10+1) == 0 {
-			return true
-		}
-		return false
-	case isbnVersion13:
-		if !rxISBN13.MatchString(sanitized) {
-			return false
-		}
-		factor := []int32{1, 3}
-		for i = range isbnVersion13 - 1 {
-			checksum += factor[i%2] * int32(sanitized[i]-'0')
-		}
-		return (int32(sanitized[isbnVersion13-1]-'0'))-((decimalBase-(checksum%decimalBase))%decimalBase) == 0
-	default:
-		return isISBN(str, isbnVersion10) || isISBN(str, isbnVersion13)
-	}
-}
-
-// isISBN10 checks if the string is an ISBN version 10.
-func isISBN10(str string) bool {
-	return isISBN(str, isbnVersion10)
-}
-
-// isISBN13 checks if the string is an ISBN version 13.
-func isISBN13(str string) bool {
-	return isISBN(str, isbnVersion13)
-}
-
-// isCreditCard checks if the string is a credit card.
-func isCreditCard(str string) bool {
-	sanitized := whiteSpacesAndMinus.ReplaceAllString(str, "")
-	if !rxCreditCard.MatchString(sanitized) {
-		return false
-	}
-
-	number, err := strconv.ParseInt(sanitized, 0, 64)
-	if err != nil {
-		return false
-	}
-	number, lastDigit := number/decimalBase, number%decimalBase
-
-	var sum int64
-	for i := 0; number > 0; i++ {
-		digit := number % decimalBase
-
-		if i%2 == 0 {
-			digit *= 2
-			if digit > decimalBase-1 {
-				digit -= decimalBase - 1
-			}
-		}
-
-		sum += digit
-		number /= decimalBase
-	}
-
-	return (sum+lastDigit)%decimalBase == 0
-}
-
-// isSSN will validate the given string as a U.S. Social Security Number
-func isSSN(str string) bool {
-	if str == "" || len(str) != 11 {
-		return false
-	}
-	return rxSSN.MatchString(str)
-}
-
-// isHexcolor checks if the string is a hexadecimal color.
-func isHexcolor(str string) bool {
-	return rxHexcolor.MatchString(str)
-}
-
-// isRGBcolor checks if the string is a valid RGB color in form rgb(RRR, GGG, BBB).
-func isRGBcolor(str string) bool {
-	return rxRGBcolor.MatchString(str)
-}
-
-// isBase64 checks if a string is base64 encoded.
-func isBase64(str string) bool {
-	_, err := base64.StdEncoding.DecodeString(str)
-
-	return err == nil
 }

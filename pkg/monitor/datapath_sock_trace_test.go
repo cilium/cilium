@@ -10,13 +10,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 func TestDecodeTraceSockNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 40, TraceSockNotifyLen)
+	require.Equal(t, 38, TraceSockNotifyLen)
 
 	input := TraceSockNotify{
 		Type:       0x00,
@@ -38,7 +39,7 @@ func TestDecodeTraceSockNotify(t *testing.T) {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, binary.NativeEndian, input)
+	err := binary.Write(buf, byteorder.Native, input)
 	require.NoError(t, err)
 
 	output := &TraceSockNotify{}
@@ -58,7 +59,7 @@ func BenchmarkNewDecodeTraceSockNotify(b *testing.B) {
 	input := &TraceSockNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
+	if err := binary.Write(buf, byteorder.Native, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -76,7 +77,7 @@ func BenchmarkOldDecodeTraceSockNotify(b *testing.B) {
 	input := &TraceSockNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
+	if err := binary.Write(buf, byteorder.Native, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -84,7 +85,7 @@ func BenchmarkOldDecodeTraceSockNotify(b *testing.B) {
 
 	for b.Loop() {
 		tsn := &TraceSockNotify{}
-		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), binary.NativeEndian, tsn); err != nil {
+		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, tsn); err != nil {
 			b.Fatal(err)
 		}
 	}

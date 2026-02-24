@@ -2,7 +2,7 @@ package node
 
 type Node struct {
 	ID    int
-	Value any
+	Value interface{}
 }
 
 type NodeOrderedSet []Node

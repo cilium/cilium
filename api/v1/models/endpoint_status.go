@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -118,15 +117,11 @@ func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
 	}
 
 	if err := m.Controllers.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("controllers")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("controllers")
 		}
-
 		return err
 	}
 
@@ -140,15 +135,11 @@ func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) er
 
 	if m.ExternalIdentifiers != nil {
 		if err := m.ExternalIdentifiers.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("external-identifiers")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("external-identifiers")
 			}
-
 			return err
 		}
 	}
@@ -163,15 +154,11 @@ func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
 
 	if m.Health != nil {
 		if err := m.Health.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("health")
 			}
-
 			return err
 		}
 	}
@@ -186,15 +173,11 @@ func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
 
 	if m.Identity != nil {
 		if err := m.Identity.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("identity")
 			}
-
 			return err
 		}
 	}
@@ -209,15 +192,11 @@ func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
 
 	if m.Labels != nil {
 		if err := m.Labels.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("labels")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("labels")
 			}
-
 			return err
 		}
 	}
@@ -231,15 +210,11 @@ func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
 	}
 
 	if err := m.Log.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("log")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("log")
 		}
-
 		return err
 	}
 
@@ -252,15 +227,11 @@ func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
 	}
 
 	if err := m.NamedPorts.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("namedPorts")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("namedPorts")
 		}
-
 		return err
 	}
 
@@ -274,15 +245,11 @@ func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
 
 	if m.Networking != nil {
 		if err := m.Networking.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("networking")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("networking")
 			}
-
 			return err
 		}
 	}
@@ -297,15 +264,11 @@ func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
 
 	if m.Policy != nil {
 		if err := m.Policy.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("policy")
 			}
-
 			return err
 		}
 	}
@@ -320,15 +283,11 @@ func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
 
 	if m.Realized != nil {
 		if err := m.Realized.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}
@@ -348,15 +307,11 @@ func (m *EndpointStatus) validateState(formats strfmt.Registry) error {
 
 	if m.State != nil {
 		if err := m.State.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("state")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("state")
 			}
-
 			return err
 		}
 	}
@@ -421,15 +376,11 @@ func (m *EndpointStatus) ContextValidate(ctx context.Context, formats strfmt.Reg
 func (m *EndpointStatus) contextValidateControllers(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Controllers.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("controllers")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("controllers")
 		}
-
 		return err
 	}
 
@@ -445,15 +396,11 @@ func (m *EndpointStatus) contextValidateExternalIdentifiers(ctx context.Context,
 		}
 
 		if err := m.ExternalIdentifiers.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("external-identifiers")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("external-identifiers")
 			}
-
 			return err
 		}
 	}
@@ -470,15 +417,11 @@ func (m *EndpointStatus) contextValidateHealth(ctx context.Context, formats strf
 		}
 
 		if err := m.Health.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("health")
 			}
-
 			return err
 		}
 	}
@@ -495,15 +438,11 @@ func (m *EndpointStatus) contextValidateIdentity(ctx context.Context, formats st
 		}
 
 		if err := m.Identity.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("identity")
 			}
-
 			return err
 		}
 	}
@@ -520,15 +459,11 @@ func (m *EndpointStatus) contextValidateLabels(ctx context.Context, formats strf
 		}
 
 		if err := m.Labels.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("labels")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("labels")
 			}
-
 			return err
 		}
 	}
@@ -539,15 +474,11 @@ func (m *EndpointStatus) contextValidateLabels(ctx context.Context, formats strf
 func (m *EndpointStatus) contextValidateLog(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Log.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("log")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("log")
 		}
-
 		return err
 	}
 
@@ -557,15 +488,11 @@ func (m *EndpointStatus) contextValidateLog(ctx context.Context, formats strfmt.
 func (m *EndpointStatus) contextValidateNamedPorts(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.NamedPorts.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("namedPorts")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("namedPorts")
 		}
-
 		return err
 	}
 
@@ -581,15 +508,11 @@ func (m *EndpointStatus) contextValidateNetworking(ctx context.Context, formats 
 		}
 
 		if err := m.Networking.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("networking")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("networking")
 			}
-
 			return err
 		}
 	}
@@ -606,15 +529,11 @@ func (m *EndpointStatus) contextValidatePolicy(ctx context.Context, formats strf
 		}
 
 		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("policy")
 			}
-
 			return err
 		}
 	}
@@ -631,15 +550,11 @@ func (m *EndpointStatus) contextValidateRealized(ctx context.Context, formats st
 		}
 
 		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("realized")
 			}
-
 			return err
 		}
 	}
@@ -652,15 +567,11 @@ func (m *EndpointStatus) contextValidateState(ctx context.Context, formats strfm
 	if m.State != nil {
 
 		if err := m.State.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("state")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("state")
 			}
-
 			return err
 		}
 	}

@@ -178,7 +178,7 @@ func verifyCIDUsageInCES(ctx context.Context, fakeClient *k8sClient.FakeClientse
 		return err
 	}
 
-	cep1 := cestest.CreateManagerEndpoint("cep1", int64(cidNum), "node1")
+	cep1 := cestest.CreateManagerEndpoint("cep1", int64(cidNum))
 	ces1 := cestest.CreateStoreEndpointSlice("ces1", "ns", []capi_v2a1.CoreCiliumEndpoint{cep1})
 	if _, err := fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(ctx, ces1, metav1.CreateOptions{}); err != nil {
 		return err
@@ -318,8 +318,7 @@ func TestUpdatePodLabels(t *testing.T) {
 	}
 
 	// Create the first pod.
-	current, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{})
-	if err != nil {
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("create pod: %v", err)
 	}
 
@@ -334,7 +333,6 @@ func TestUpdatePodLabels(t *testing.T) {
 	ev.Done(nil)
 
 	// Update labels of the first pod.
-	pod1b.SetResourceVersion(current.GetResourceVersion())
 	if _, err := fakeClient.Slim().CoreV1().Pods(pod1b.Namespace).Update(ctx, pod1b, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("update pod: %v", err)
 	}

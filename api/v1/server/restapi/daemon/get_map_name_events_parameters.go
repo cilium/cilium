@@ -31,6 +31,7 @@ func NewGetMapNameEventsParams() GetMapNameEventsParams {
 //
 // swagger:parameters GetMapNameEvents
 type GetMapNameEventsParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -38,7 +39,6 @@ type GetMapNameEventsParams struct {
 	  In: query
 	*/
 	Follow *bool
-
 	/*Name of map
 	  Required: true
 	  In: path
@@ -54,6 +54,7 @@ func (o *GetMapNameEventsParams) BindRequest(r *http.Request, route *middleware.
 	var res []error
 
 	o.HTTPRequest = r
+
 	qs := runtime.Values(r.URL.Query())
 
 	qFollow, qhkFollow, _ := qs.GetOK("follow")

@@ -3,6 +3,7 @@
 - CiliumBGPNodeConfig
 - CiliumBGPNodeConfigOverride
 - CiliumBGPPeerConfig
+- CiliumBGPPeeringPolicy
 - :ref:`CiliumCIDRGroup<CiliumCIDRGroup>`
 - CiliumClusterwideEnvoyConfig
 - :ref:`CiliumClusterwideNetworkPolicy<CiliumClusterwideNetworkPolicy>`

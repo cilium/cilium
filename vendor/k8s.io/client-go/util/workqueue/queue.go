@@ -169,13 +169,12 @@ func newQueue[T comparable](c clock.WithTicker, queue Queue[T], metrics queueMet
 		cond:                       sync.NewCond(&sync.Mutex{}),
 		metrics:                    metrics,
 		unfinishedWorkUpdatePeriod: updatePeriod,
-		stopCh:                     make(chan struct{}),
 	}
 
 	// Don't start the goroutine for a type of noMetrics so we don't consume
 	// resources unnecessarily
 	if _, ok := metrics.(noMetrics[T]); !ok {
-		t.wg.Go(t.updateUnfinishedWorkLoop)
+		go t.updateUnfinishedWorkLoop()
 	}
 
 	return t
@@ -211,14 +210,6 @@ type Typed[t comparable] struct {
 
 	unfinishedWorkUpdatePeriod time.Duration
 	clock                      clock.WithTicker
-
-	// wg manages goroutines started by the queue to allow graceful shutdown
-	// ShutDown() will wait for goroutines to exit before returning.
-	wg sync.WaitGroup
-
-	stopCh chan struct{}
-	// stopOnce guarantees we only signal shutdown a single time
-	stopOnce sync.Once
 }
 
 // Add marks item as needing processing. When the queue is shutdown new
@@ -305,11 +296,6 @@ func (q *Typed[T]) Done(item T) {
 // goroutines will continue processing items in the queue until it is
 // empty and then receive the shutdown signal.
 func (q *Typed[T]) ShutDown() {
-	defer q.wg.Wait()
-	q.stopOnce.Do(func() {
-		defer close(q.stopCh)
-	})
-
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -325,10 +311,6 @@ func (q *Typed[T]) ShutDown() {
 // Workers must call Done on an item after processing it, otherwise
 // ShutDownWithDrain will block indefinitely.
 func (q *Typed[T]) ShutDownWithDrain() {
-	defer q.wg.Wait()
-	q.stopOnce.Do(func() {
-		defer close(q.stopCh)
-	})
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -348,22 +330,20 @@ func (q *Typed[T]) ShuttingDown() bool {
 	return q.shuttingDown
 }
 
-func (q *Typed[T]) updateUnfinishedWork() {
-	q.cond.L.Lock()
-	defer q.cond.L.Unlock()
-	if !q.shuttingDown {
-		q.metrics.updateUnfinishedWork()
-	}
-}
-
 func (q *Typed[T]) updateUnfinishedWorkLoop() {
 	t := q.clock.NewTicker(q.unfinishedWorkUpdatePeriod)
 	defer t.Stop()
-	for {
-		select {
-		case <-t.C():
-			q.updateUnfinishedWork()
-		case <-q.stopCh:
+	for range t.C() {
+		if !func() bool {
+			q.cond.L.Lock()
+			defer q.cond.L.Unlock()
+			if !q.shuttingDown {
+				q.metrics.updateUnfinishedWork()
+				return true
+			}
+			return false
+
+		}() {
 			return
 		}
 	}

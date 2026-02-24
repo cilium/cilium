@@ -7,22 +7,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	baseclocktest "k8s.io/utils/clock/testing"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -44,53 +41,83 @@ var (
 	timeout = 5 * time.Second
 )
 
-type RemoteClient kvstore.Client
+type remoteEtcdClientWrapper struct {
+	kvstore.BackendOperations
+	name   string
+	cached bool
 
-func fixture(extra ...cell.Cell) *hive.Hive {
-	return hive.New(
-		Cell,
+	kvs map[string]string
+	mu  lock.Mutex
 
-		store.Cell,
-		cell.Provide(
-			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
-			func() Config { return DefaultConfig },
-			func(db *statedb.DB) (kvstore.Client, RemoteClient) {
-				return kvstore.NewInMemoryClient(db, "__local__"), kvstore.NewInMemoryClient(db, "__remote__")
-			},
-		),
+	syncedCanariesWatched bool
+}
 
-		cell.DecorateAll(func(client RemoteClient) common.RemoteClientFactoryFn {
-			// All remote clusters share the same underlying client.
-			return func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-				errch := make(chan error)
-				close(errch)
-				return client, errch
+// Override the ListAndWatch method so that we can propagate whatever event we want without key conflicts with
+// those eventually created by kvstoremesh. Additionally, this also allows to track which prefixes have been watched.
+func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
+	events := make(chan kvstore.KeyValueEvent, 10)
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if prefix == fmt.Sprintf("cilium/synced/%s/", w.name) {
+		state := "state"
+		if w.cached {
+			state = "cache"
+		}
+
+		w.syncedCanariesWatched = true
+		events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: fmt.Sprintf("cilium/synced/%s/cilium/%s/nodes/v1", w.name, state)}
+		events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: fmt.Sprintf("cilium/synced/%s/cilium/%s/services/v1", w.name, state)}
+		events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: fmt.Sprintf("cilium/synced/%s/cilium/%s/serviceexports/v1", w.name, state)}
+		events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: fmt.Sprintf("cilium/synced/%s/cilium/%s/identities/v1", w.name, state)}
+		events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: fmt.Sprintf("cilium/synced/%s/cilium/%s/ip/v1", w.name, state)}
+	} else {
+		for key, value := range w.kvs {
+			var found bool
+			if strings.HasPrefix(key, prefix) {
+				events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: key, Value: []byte(value)}
+				found = true
+				delete(w.kvs, key)
 			}
-		}),
 
-		cell.Group(extra...),
-	)
-}
-
-type remoteClientWrapper struct {
-	kvstore.Client
-	syncedCanariesWatched atomic.Bool
-}
-
-// Override the ListAndWatch method to track whether synced canaries have been watched.
-func (w *remoteClientWrapper) ListAndWatch(ctx context.Context, prefix string) kvstore.EventChan {
-	if strings.HasPrefix(prefix, "cilium/synced/") {
-		w.syncedCanariesWatched.Store(true)
+			if found {
+				events <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeListDone}
+			}
+		}
 	}
 
-	return w.Client.ListAndWatch(ctx, prefix)
+	go func() {
+		<-ctx.Done()
+		close(events)
+	}()
+
+	return events
 }
 
-func TestMain(m *testing.M) {
-	testutils.GoleakVerifyTestMain(m)
+func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	for !fc.HasWaiters() {
+		select {
+		case <-ctx.Done():
+			assert.FailNow(t, "Could not advance clock within expected timeout")
+		case <-time.After(1 * time.Millisecond):
+		}
+	}
+
+	fc.Step(d)
 }
 
 func TestRemoteClusterRun(t *testing.T) {
+	testutils.IntegrationTest(t)
+
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
+		// Explicitly set higher QPS than the default to speedup the test
+		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	)
+
 	tests := []struct {
 		name   string
 		srccfg types.CiliumClusterConfig
@@ -196,56 +223,42 @@ func TestRemoteClusterRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var (
-				wg     sync.WaitGroup
-				local  kvstore.Client
-				remote *remoteClientWrapper
-				km     *KVStoreMesh
-			)
+			var wg sync.WaitGroup
+			ctx, cancel := context.WithCancel(context.Background())
 
-			h := fixture(
-				cell.Invoke(func(local_ kvstore.Client, remote_ RemoteClient, km_ *KVStoreMesh) {
-					local, remote, km = local_, &remoteClientWrapper{Client: remote_}, km_
-				}),
-			)
-			require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
-
-			ctx, cancel := context.WithCancel(t.Context())
 			t.Cleanup(func() {
 				cancel()
 				wg.Wait()
+
+				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
-			// Populate the remote instance with the desired keys.
-			for key, value := range tt.kvs {
-				require.NoError(t, remote.Update(ctx, key, []byte(value), false))
+			remoteClient := &remoteEtcdClientWrapper{
+				BackendOperations: client,
+				name:              "foo",
+				cached:            tt.srccfg.Capabilities.Cached,
+				kvs:               tt.kvs,
 			}
 
-			// And additionally create the synced canaries.
-			for _, key := range []string{"nodes", "services", "serviceexports", "identities", "ip"} {
-				var state = "state"
-				if tt.srccfg.Capabilities.Cached {
-					state = "cache"
-				}
-
-				require.NoError(t, remote.Update(ctx,
-					fmt.Sprintf("cilium/synced/foo/cilium/%s/%s/v1", state, key),
-					[]byte("synced"), false))
-			}
+			st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
+			fakeclock := baseclocktest.NewFakeClock(time.Now())
+			km := KVStoreMesh{client: client, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
 
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
 
-			wg.Go(func() {
-				rc.Run(ctx, remote, tt.srccfg, ready)
+			wg.Add(1)
+			go func() {
+				rc.Run(ctx, remoteClient, tt.srccfg, ready)
 				rc.Stop()
-			})
+				wg.Done()
+			}()
 
 			require.NoError(t, <-ready, "rc.Run() failed")
 
 			// Assert that the cluster config got properly propagated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				cfg, err := clustercfg.Get(ctx, "foo", local)
+				cfg, err := clustercfg.Get(ctx, "foo", client)
 				assert.NoError(c, err)
 				assert.Equal(c, tt.dstcfg, cfg)
 			}, timeout, tick, "Failed to retrieve the cluster config")
@@ -262,14 +275,14 @@ func TestRemoteClusterRun(t *testing.T) {
 			// Assert that the keys have been properly reflected
 			for key, value := range expectedReflected {
 				require.EventuallyWithTf(t, func(c *assert.CollectT) {
-					v, err := local.Get(ctx, key)
+					v, err := client.Get(ctx, key)
 					assert.NoError(c, err)
 					assert.Equal(c, value, string(v))
 				}, timeout, tick, "Expected key %q does not seem to have the correct value %q", key, value)
 			}
 
 			// Assert that other keys have not been reflected
-			values, err := local.ListPrefix(ctx, "cilium/cache/identities/v1/")
+			values, err := client.ListPrefix(ctx, "cilium/cache/identities/v1/")
 			require.NoError(t, err)
 			require.Len(t, values, 1)
 
@@ -285,32 +298,28 @@ func TestRemoteClusterRun(t *testing.T) {
 			// Assert that the sync canaries have been properly set
 			for _, key := range expectedSyncedCanaries {
 				require.EventuallyWithTf(t, func(c *assert.CollectT) {
-					v, err := local.Get(ctx, key)
+					v, err := client.Get(ctx, key)
 					assert.NoError(c, err)
 					assert.NotEmpty(c, string(v))
 				}, timeout, tick, "Expected sync canary %q is not correctly present", key)
 			}
 
 			// Assert that synced canaries have been watched if expected
-			require.Equal(t, tt.srccfg.Capabilities.SyncedCanaries, remote.syncedCanariesWatched.Load())
+			require.Equal(t, tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
 
 			cancel()
 			wg.Wait()
 
 			// rc.Remove waits for a 3 minutes grace period before proceeding
-			// with the deletion. Let's handle that in a synctest bubble.
-			synctest.Test(t, func(t *testing.T) {
-				go rc.Remove(t.Context())
+			// with the deletion. Let's handle that by advancing the fake time.
+			go clockAdvance(t, fakeclock, 3*time.Minute)
 
-				synctest.Wait()
-				time.Sleep(3 * time.Minute)
-				synctest.Wait()
+			// Assert that Remove() removes all keys previously created
+			rc.Remove(context.Background())
 
-				// Assert that Remove() removes all keys previously created
-				pairs, err := local.ListPrefix(t.Context(), kvstore.BaseKeyPrefix)
-				require.NoError(t, err, "Failed to retrieve kvstore keys")
-				require.Empty(t, pairs, "Cached keys not correctly removed")
-			})
+			pairs, err := client.ListPrefix(context.Background(), kvstore.BaseKeyPrefix)
+			require.NoError(t, err, "Failed to retrieve kvstore keys")
+			require.Empty(t, pairs, "Cached keys not correctly removed")
 		})
 	}
 }
@@ -339,185 +348,211 @@ func (lcw *localClientWrapper) DeletePrefix(ctx context.Context, path string) er
 }
 
 func TestRemoteClusterRemove(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		var (
-			ctx   = t.Context()
-			local kvstore.Client
-			km    *KVStoreMesh
-		)
+	testutils.IntegrationTest(t)
 
-		h := fixture(
-			cell.DecorateAll(func(local kvstore.Client) kvstore.Client {
-				return &localClientWrapper{
-					Client: local,
-					errors: map[string]uint{
-						"cilium/cache/nodes/v1/foobar/": 1,
-						"cilium/cluster-config/baz":     10,
-					},
-				}
-			}),
+	ctx := context.Background()
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
+		// Explicitly set higher QPS than the default to speedup the test
+		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	)
 
-			cell.Invoke(func(local_ kvstore.Client, km_ *KVStoreMesh) {
-				local, km = local_, km_
-			}),
-		)
-		require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
-
-		keys := func(name string) []string {
-			return []string{
-				fmt.Sprintf("cilium/cluster-config/%s", name),
-				fmt.Sprintf("cilium/synced/%s/cilium/cache/nodes/v1", name),
-				fmt.Sprintf("cilium/synced/%s/cilium/cache/services/v1", name),
-				fmt.Sprintf("cilium/synced/%s/cilium/cache/identities/v1", name),
-				fmt.Sprintf("cilium/synced/%s/cilium/cache/ip/v1", name),
-				fmt.Sprintf("cilium/cache/identities/v1/%s/id/bar", name),
-				fmt.Sprintf("cilium/cache/ip/v1/%s/bar", name),
-				fmt.Sprintf("cilium/cache/nodes/v1/%s/bar", name),
-				fmt.Sprintf("cilium/cache/services/v1/%s/bar", name),
-			}
+	keys := func(name string) []string {
+		return []string{
+			fmt.Sprintf("cilium/cluster-config/%s", name),
+			fmt.Sprintf("cilium/synced/%s/cilium/cache/nodes/v1", name),
+			fmt.Sprintf("cilium/synced/%s/cilium/cache/services/v1", name),
+			fmt.Sprintf("cilium/synced/%s/cilium/cache/identities/v1", name),
+			fmt.Sprintf("cilium/synced/%s/cilium/cache/ip/v1", name),
+			fmt.Sprintf("cilium/cache/nodes/v1/%s/bar", name),
+			fmt.Sprintf("cilium/cache/services/v1/%s/bar", name),
+			fmt.Sprintf("cilium/cache/identities/v1/%s/bar", name),
+			fmt.Sprintf("cilium/cache/ip/v1/%s/bar", name),
 		}
+	}
 
-		rcs := make(map[string]*remoteCluster)
-		for _, cluster := range []string{"foo", "foobar", "baz"} {
-			rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
-			rcs[cluster].Stop()
+	wrapper := &localClientWrapper{
+		Client: client,
+		errors: map[string]uint{
+			"cilium/cache/identities/v1/foobar/": 1,
+			"cilium/cluster-config/baz":          10,
+		},
+	}
+
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
+	fakeclock := baseclocktest.NewFakeClock(time.Now())
+	km := KVStoreMesh{client: wrapper, storeFactory: st, logger: hivetest.Logger(t), clock: fakeclock}
+	rcs := make(map[string]*remoteCluster)
+	for _, cluster := range []string{"foo", "foobar", "baz"} {
+		rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
+		rcs[cluster].Stop()
+	}
+
+	for _, rc := range rcs {
+		for _, key := range keys(rc.name) {
+			require.NoError(t, client.Update(ctx, key, []byte("value"), false))
 		}
+	}
 
-		for _, rc := range rcs {
-			for _, key := range keys(rc.name) {
-				require.NoError(t, local.Update(ctx, key, []byte("value"), false))
-			}
-		}
+	var wg sync.WaitGroup
+	bgrun := func(ctx context.Context, fn func(context.Context)) {
+		wg.Add(1)
+		go func() {
+			fn(ctx)
+			wg.Done()
+		}()
+	}
 
-		var wg sync.WaitGroup
+	assertDeleted := func(t assert.TestingT, ctx context.Context, key string) {
+		value, err := client.Get(ctx, key)
+		assert.NoError(t, err, "Failed to retrieve kvstore key %s", key)
+		assert.Empty(t, string(value), "Key %s has not been deleted", key)
+	}
 
-		assertDeleted := func(t *testing.T, ctx context.Context, key string) {
-			synctest.Wait()
-			value, err := local.Get(ctx, key)
-			require.NoError(t, err, "Failed to retrieve kvstore key %s", key)
-			require.Empty(t, string(value), "Key %s has not been deleted", key)
-		}
+	assertNotDeleted := func(t assert.TestingT, ctx context.Context, key string) {
+		value, err := client.Get(ctx, key)
+		assert.NoError(t, err, "Failed to retrieve kvstore key %s", key)
+		assert.NotEmpty(t, string(value), "Key %s has been incorrectly deleted", key)
+	}
 
-		assertNotDeleted := func(t *testing.T, ctx context.Context, key string) {
-			synctest.Wait()
-			value, err := local.Get(ctx, key)
-			require.NoError(t, err, "Failed to retrieve kvstore key %s", key)
-			require.NotEmpty(t, string(value), "Key %s has been incorrectly deleted", key)
-		}
-
-		// Remove should only delete the cluster config key before grace period expiration
-		wg.Go(func() { rcs["foo"].Remove(ctx) })
-
-		assertDeleted(t, ctx, keys("foo")[0])
+	// Remove should only delete the cluster config key before grace period expiration
+	bgrun(ctx, rcs["foo"].Remove)
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		assertDeleted(c, ctx, keys("foo")[0])
 		for _, key := range keys("foo")[1:] {
+			assertNotDeleted(c, ctx, key)
+		}
+	}, timeout, tick)
+
+	clockAdvance(t, fakeclock, 3*time.Minute-1*time.Millisecond)
+
+	// Grace period should still not have expired
+	time.Sleep(tick)
+	for _, key := range keys("foo")[1:] {
+		assertNotDeleted(t, ctx, key)
+	}
+
+	clockAdvance(t, fakeclock, 1*time.Millisecond)
+	wg.Wait()
+
+	// Grace period expired, all keys should now have been deleted
+	for _, key := range keys("foo") {
+		assertDeleted(t, ctx, key)
+	}
+
+	// Keys of other clusters should not have been touched
+	for _, cluster := range []string{"foobar", "baz"} {
+		for _, key := range keys(cluster) {
 			assertNotDeleted(t, ctx, key)
 		}
+	}
 
-		// Grace period should still not have expired
-		time.Sleep(3*time.Minute - 1*time.Millisecond)
-		for _, key := range keys("foo")[1:] {
-			assertNotDeleted(t, ctx, key)
-		}
+	// Simulate the failure of one of the delete calls
+	bgrun(ctx, rcs["foobar"].Remove)
 
-		time.Sleep(1 * time.Millisecond)
-		wg.Wait()
-
-		// Grace period expired, all keys should now have been deleted
-		for _, key := range keys("foo") {
-			assertDeleted(t, ctx, key)
-		}
-
-		// Keys of other clusters should not have been touched
-		for _, cluster := range []string{"foobar", "baz"} {
-			for _, key := range keys(cluster) {
-				assertNotDeleted(t, ctx, key)
-			}
-		}
-
-		// Simulate the failure of one of the delete calls
-		wg.Go(func() { rcs["foobar"].Remove(ctx) })
-
-		time.Sleep(3 * time.Minute)
+	clockAdvance(t, fakeclock, 3*time.Minute)
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		// Only the keys up to the erroring one should have been deleted
 		for _, key := range keys("foobar")[0:7] {
-			assertDeleted(t, ctx, key)
+			assertDeleted(c, ctx, key)
 		}
 		for _, key := range keys("foobar")[7:] {
-			assertNotDeleted(t, ctx, key)
+			assertNotDeleted(c, ctx, key)
 		}
+	}, timeout, tick)
 
-		time.Sleep(2*time.Second - 1*time.Millisecond)
-		for _, key := range keys("foobar")[7:] {
-			// Backoff should not have expired yet
-			assertNotDeleted(t, ctx, key)
-		}
+	clockAdvance(t, fakeclock, 2*time.Second-1*time.Millisecond)
+	time.Sleep(tick)
+	for _, key := range keys("foobar")[7:] {
+		// Backoff should not have expired yet
+		assertNotDeleted(t, ctx, key)
+	}
 
-		time.Sleep(1 * time.Millisecond)
-		wg.Wait()
+	clockAdvance(t, fakeclock, 1*time.Millisecond)
+	wg.Wait()
 
-		for _, key := range keys("foobar") {
-			// Backoff expired, all keys should have been deleted
-			assertDeleted(t, ctx, key)
-		}
+	for _, key := range keys("foobar") {
+		// Backoff expired, all keys should have been deleted
+		assertDeleted(t, ctx, key)
+	}
 
-		// Simulate the persistent failure of one of the delete calls
-		var returned atomic.Bool
-		wg.Go(func() { rcs["baz"].Remove(ctx); returned.Store(true) })
+	// Simulate the persistent failure of one of the delete calls
+	bgrun(ctx, rcs["baz"].Remove)
 
-		time.Sleep(2 * time.Second)  // First retry
-		time.Sleep(4 * time.Second)  // Second retry
-		time.Sleep(8 * time.Second)  // Third retry
-		time.Sleep(16 * time.Second) // Forth retry
+	clockAdvance(t, fakeclock, 2*time.Second)  // First retry
+	clockAdvance(t, fakeclock, 4*time.Second)  // Second retry
+	clockAdvance(t, fakeclock, 8*time.Second)  // Third retry
+	clockAdvance(t, fakeclock, 16*time.Second) // Forth retry
 
-		// Fifth and last retry
-		time.Sleep(32*time.Second - 1*time.Millisecond)
+	// Fifth and last retry
+	clockAdvance(t, fakeclock, 32*time.Second-1*time.Millisecond)
 
-		synctest.Wait()
-		require.False(t, returned.Load(), "[Remove] should not have returned yet")
+	// Make sure that Remove() is still actually waiting. If it weren't,
+	// clockAdvance couldn't complete successfully.
+	clockAdvance(t, fakeclock, 1*time.Millisecond)
+	wg.Wait()
 
-		time.Sleep(1 * time.Millisecond)
-		wg.Wait()
+	for _, key := range keys("baz") {
+		// All keys should not have been deleted due to the persistent error
+		assertNotDeleted(t, ctx, key)
+	}
 
-		for _, key := range keys("baz") {
-			// All keys should not have been deleted due to the persistent error
-			assertNotDeleted(t, ctx, key)
-		}
+	// The context expired during grace period
+	cctx, cancel := context.WithCancel(context.Background())
+	bgrun(cctx, rcs["foo"].Remove)
+	clockAdvance(t, fakeclock, 1*time.Minute)
+	cancel()
+	wg.Wait()
 
-		// The context expired during grace period
-		cctx, cancel := context.WithCancel(t.Context())
-		wg.Go(func() { rcs["foo"].Remove(cctx) })
-		time.Sleep(1 * time.Minute)
-		cancel()
-		wg.Wait()
+	// Remove the existing waiter that we didn't clean-up due to context termination.
+	if fakeclock.HasWaiters() {
+		fakeclock.Step(5 * time.Minute)
+	}
 
-		// The context expired during backoff
-		cctx, cancel = context.WithCancel(t.Context())
-		wg.Go(func() { rcs["baz"].Remove(cctx) })
-		time.Sleep(1 * time.Minute)
-		cancel()
-		wg.Wait()
-	})
+	// The context expired during backoff
+	cctx, cancel = context.WithCancel(context.Background())
+	bgrun(cctx, rcs["baz"].Remove)
+	clockAdvance(t, fakeclock, 1*time.Minute)
+	cancel()
+	wg.Wait()
+
+	// Remove the existing waiter that we didn't clean-up due to context termination.
+	if fakeclock.HasWaiters() {
+		fakeclock.Step(5 * time.Minute)
+	}
 }
 
 func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	// Test that KVStoreMesh shutdown process is not blocked by possible
 	// in-progress remote cluster removals.
-	ctx := t.Context()
+	testutils.IntegrationTest(t)
 
-	dir := t.TempDir()
-	cfg := fmt.Appendf(nil, "endpoints:\n- in-memory\n")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "remote"), cfg, 0644))
-
-	var (
-		km    *KVStoreMesh
-		local kvstore.Client
+	ctx := context.Background()
+	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
+		// Explicitly set higher QPS than the default to speedup the test
+		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
 
-	h := fixture(
-		cell.Invoke(func(local_ kvstore.Client, remote_ RemoteClient, km_ *KVStoreMesh) {
-			local, km = local_, km_
-			require.NoError(t, clustercfg.Set(ctx, "remote", types.CiliumClusterConfig{ID: 20}, remote_))
-		}),
+	dir := t.TempDir()
+	cfg := fmt.Appendf(nil, "endpoints:\n- %s\n", kvstore.EtcdDummyAddress())
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "remote"), cfg, 0644))
+
+	// Let's manually create a fake cluster configuration for the remote cluster,
+	// because we are using the same kvstore. This will be used as a synchronization
+	// point to stop the hive while blocked waiting for the grace period.
+	require.NoError(t, clustercfg.Set(ctx, "remote", types.CiliumClusterConfig{ID: 20}, client))
+
+	var km *KVStoreMesh
+	h := hive.New(
+		Cell,
+
+		store.Cell,
+		cell.Provide(
+			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
+			func() Config { return DefaultConfig },
+			func() (kvstore.Client, kvstore.Config) { return client, kvstore.Config{} },
+		),
+
+		cell.Invoke(func(km_ *KVStoreMesh) { km = km_ }),
 	)
 	hive.AddConfigOverride(h, func(cfg *common.Config) { cfg.ClusterMeshConfig = dir })
 
@@ -538,7 +573,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	// actually waiting for the grace period expiration.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		key := path.Join(kvstore.ClusterConfigPrefix, "remote")
-		value, err := local.Get(ctx, key)
+		value, err := client.Get(ctx, key)
 		assert.NoError(c, err, "Failed to retrieve kvstore key %s", key)
 		assert.Empty(c, string(value), "Key %s has not been deleted", key)
 	}, timeout, tick)
@@ -549,41 +584,37 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 }
 
 func TestRemoteClusterStatus(t *testing.T) {
+	testutils.IntegrationTest(t)
+
+	client := kvstore.SetupDummy(t, "etcd")
+
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
 	})
 
-	var (
-		remote kvstore.Client
-		km     *KVStoreMesh
-	)
-
-	h := fixture(
-		cell.Invoke(func(remote_ RemoteClient, km_ *KVStoreMesh) {
-			remote, km = remote_, km_
-		}),
-	)
-	require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
-
-	for key, value := range map[string]string{
-		"cilium/state/nodes/v1/foo/bar":          "qux0",
-		"cilium/state/nodes/v1/foo/baz":          "qux1",
-		"cilium/state/services/v1/foo/bar":       "qux2",
-		"cilium/state/services/v1/foo/baz":       "qux3",
-		"cilium/state/services/v1/foo/qux":       "qux4",
-		"cilium/state/serviceexports/v1/foo/qux": "qux5",
-		"cilium/state/identities/v1/id/bar":      "qux6",
-		"cilium/state/ip/v1/default/fred":        "qux7",
-		"cilium/state/ip/v1/default/bar":         "qux8",
-		"cilium/state/ip/v1/default/baz":         "qux9",
-		"cilium/state/ip/v1/default/qux":         "qux10",
-	} {
-		require.NoError(t, remote.Update(ctx, key, []byte(value), false))
+	remoteClient := &remoteEtcdClientWrapper{
+		BackendOperations: client,
+		name:              "foo",
+		kvs: map[string]string{
+			"cilium/state/nodes/v1/foo/bar":          "qux0",
+			"cilium/state/nodes/v1/foo/baz":          "qux1",
+			"cilium/state/services/v1/foo/bar":       "qux2",
+			"cilium/state/services/v1/foo/baz":       "qux3",
+			"cilium/state/services/v1/foo/qux":       "qux4",
+			"cilium/state/serviceexports/v1/foo/qux": "qux5",
+			"cilium/state/identities/v1/id/bar":      "qux6",
+			"cilium/state/ip/v1/default/fred":        "qux7",
+			"cilium/state/ip/v1/default/bar":         "qux8",
+			"cilium/state/ip/v1/default/baz":         "qux9",
+			"cilium/state/ip/v1/default/qux":         "qux10",
+		},
 	}
+	st := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
+	km := KVStoreMesh{client: client, storeFactory: st, logger: hivetest.Logger(t)}
 
 	rc := km.newRemoteCluster("foo", func() *models.RemoteCluster {
 		return &models.RemoteCluster{
@@ -593,7 +624,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 	})
 	cfg := types.CiliumClusterConfig{
 		ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries: false, ServiceExportsEnabled: ptr.To(true),
+			SyncedCanaries: true, ServiceExportsEnabled: ptr.To(true),
 		},
 	}
 	ready := make(chan error)
@@ -614,10 +645,12 @@ func TestRemoteClusterStatus(t *testing.T) {
 	require.EqualValues(t, 0, status.NumIdentities, "Incorrect number of identities")
 	require.EqualValues(t, 0, status.NumEndpoints, "Incorrect number of endpoints")
 
-	wg.Go(func() {
-		rc.Run(ctx, remote, cfg, ready)
+	wg.Add(1)
+	go func() {
+		rc.Run(ctx, remoteClient, cfg, ready)
 		rc.Stop()
-	})
+		wg.Done()
+	}()
 
 	require.NoError(t, <-ready, "rc.Run() failed")
 
@@ -708,7 +741,7 @@ func TestRemoteClusterSync(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
 			mockClusterMesh := &mockClusterMesh{

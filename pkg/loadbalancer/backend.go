@@ -126,14 +126,13 @@ type BackendInstanceKey struct {
 }
 
 func (k BackendInstanceKey) Key() []byte {
-	const separator = ' '
 	if k.SourcePriority == 0 {
-		return append(k.ServiceName.Key(), separator)
+		return k.ServiceName.Key()
 	}
 	sk := k.ServiceName.Key()
 	buf := make([]byte, 0, 2+len(sk))
 	buf = append(buf, sk...)
-	return append(buf, separator, k.SourcePriority)
+	return append(buf, ' ', k.SourcePriority)
 }
 
 func (be *Backend) GetInstance(name ServiceName) *BackendParams {
@@ -157,10 +156,12 @@ func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
 	return be.GetInstance(serviceName)
 }
 
-func (be *Backend) GetInstanceFromSource(name ServiceName, srcPriority uint8) *BackendParams {
-	inst, found := be.Instances.Get(BackendInstanceKey{ServiceName: name, SourcePriority: srcPriority})
-	if found {
-		return &inst
+func (be *Backend) GetInstanceFromSource(name ServiceName, src source.Source) *BackendParams {
+	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
+		if k.ServiceName == name && inst.Source == src {
+			return &inst
+		}
+		break
 	}
 	return nil
 }
@@ -298,6 +299,7 @@ func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendPar
 				}
 			} // Skip instances with the same ServiceName but lower (numerically larger) priorities.
 		}
+
 	}
 }
 

@@ -86,7 +86,9 @@ type syncCRDsPromiseParams struct {
 
 	Logger *slog.Logger
 
-	JobGroup      job.Group
+	Lifecycle     cell.Lifecycle
+	Jobs          job.Registry
+	Health        cell.Health
 	Clientset     client.Clientset
 	Resources     *Resources
 	APIGroups     *APIGroups
@@ -101,7 +103,8 @@ func newCRDSyncPromise(params syncCRDsPromiseParams) promise.Promise[CRDSync] {
 		return crdSyncPromise
 	}
 
-	params.JobGroup.Add(job.OneShot("sync-crds", func(ctx context.Context, health cell.Health) error {
+	g := params.Jobs.NewGroup(params.Health, params.Lifecycle)
+	g.Add(job.OneShot("sync-crds", func(ctx context.Context, health cell.Health) error {
 		err := SyncCRDs(ctx, params.Logger, params.Clientset, params.ResourceNames, params.Resources, params.APIGroups, params.Config)
 		if err != nil {
 			crdSyncResolver.Reject(err)

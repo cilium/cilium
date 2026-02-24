@@ -18,7 +18,6 @@ package authorizer
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/fields"
@@ -183,16 +182,3 @@ const (
 	// to allow or deny an action.
 	DecisionNoOpinion
 )
-
-func (d Decision) String() string {
-	switch d {
-	case DecisionDeny:
-		return "Deny"
-	case DecisionAllow:
-		return "Allow"
-	case DecisionNoOpinion:
-		return "NoOpinion"
-	default:
-		return fmt.Sprintf("Unknown (%d)", int(d))
-	}
-}

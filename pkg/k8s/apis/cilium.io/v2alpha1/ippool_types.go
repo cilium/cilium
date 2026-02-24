@@ -22,7 +22,6 @@ type CiliumPodIPPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -33,12 +32,12 @@ type IPPoolSpec struct {
 	// IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv4 *IPv4PoolSpec `json:"ipv4,omitempty"`
+	IPv4 *IPv4PoolSpec `json:"ipv4"`
 
 	// IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv6 *IPv6PoolSpec `json:"ipv6,omitempty"`
+	IPv6 *IPv6PoolSpec `json:"ipv6"`
 
 	// PodSelector selects the set of Pods that are eligible to receive IPs from
 	// this pool when neither the Pod nor its Namespace specify an explicit

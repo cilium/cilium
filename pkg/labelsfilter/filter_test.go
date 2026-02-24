@@ -4,11 +4,11 @@
 package labelsfilter
 
 import (
+	"reflect"
 	"regexp"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -116,8 +116,6 @@ func TestDefaultFilterLabels(t *testing.T) {
 		"apps.kubernetes.io/pod-index":                              "0",
 		"io.cilium.k8s.policy.cluster":                              "default",
 		"io.cilium.k8s.policy.serviceaccount":                       "luke",
-		"topology.kubernetes.io/zone":                               "us-east-1-a",
-		"topology.kubernetes.io/region":                             "us-east-1",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
@@ -246,8 +244,9 @@ func TestFilterLabelsByRegex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FilterLabelsByRegex(tt.args.excludePatterns, tt.args.labels)
-			assert.Equal(t, tt.want, got)
+			if got := FilterLabelsByRegex(tt.args.excludePatterns, tt.args.labels); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FilterLabelsByRegex() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

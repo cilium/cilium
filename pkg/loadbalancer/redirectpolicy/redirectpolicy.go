@@ -13,10 +13,8 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
-	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 // localRedirectServiceSuffix is the suffix to append to the local redirect policy
@@ -100,7 +98,7 @@ type LocalRedirectPolicy struct {
 	// ServiceID is the parsed service name and namespace
 	ServiceID lb.ServiceName
 	// BackendSelector is an endpoint selector generated from the parsed policy selector
-	BackendSelector *policytypes.LabelSelector
+	BackendSelector api.EndpointSelector
 	// BackendPorts is a slice of backend port and protocol along with the port name
 	BackendPorts []bePortInfo
 	// BackendPortsByPortName is a map indexed by port name with the value as
@@ -133,7 +131,7 @@ func (lrp *LocalRedirectPolicy) TableRow() []string {
 		lrp.ServiceID.String(),
 		frontendConfigTypeString(lrp.FrontendType),
 		strings.Join(mappings, ", "),
-		lrp.BackendSelector.Key(),
+		lrp.BackendSelector.String(),
 	}
 }
 
@@ -313,13 +311,13 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 	}
 
 	// Get an EndpointSelector from the passed policy labelSelector for optimized matching.
-	sel := policytypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &redirectTo.LocalEndpointSelector))
+	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LocalRedirectPolicy{
 		UID:                     uid,
 		ServiceID:               k8sSvc,
 		FrontendMappings:        feMappings,
-		BackendSelector:         sel,
+		BackendSelector:         selector,
 		BackendPorts:            bePorts,
 		BackendPortsByPortName:  bePortsMap,
 		LRPType:                 lrpType,

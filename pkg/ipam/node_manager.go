@@ -169,17 +169,16 @@ type nodeMap map[string]*Node
 
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	logger               *slog.Logger
-	mutex                lock.RWMutex
-	nodes                nodeMap
-	instancesAPI         AllocationImplementation
-	k8sAPI               CiliumNodeGetterUpdater
-	metricsAPI           MetricsAPI
-	parallelWorkers      int64
-	releaseExcessIPs     bool
-	excessIPReleaseDelay int
-	stableInstancesAPI   bool
-	prefixDelegation     bool
+	logger             *slog.Logger
+	mutex              lock.RWMutex
+	nodes              nodeMap
+	instancesAPI       AllocationImplementation
+	k8sAPI             CiliumNodeGetterUpdater
+	metricsAPI         MetricsAPI
+	parallelWorkers    int64
+	releaseExcessIPs   bool
+	stableInstancesAPI bool
+	prefixDelegation   bool
 }
 
 func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
@@ -192,21 +191,20 @@ func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) t
 
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
-	parallelWorkers int64, releaseExcessIPs bool, excessIPReleaseDelay int, prefixDelegation bool) (*NodeManager, error) {
+	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
 
 	mngr := &NodeManager{
-		logger:               logger,
-		nodes:                nodeMap{},
-		instancesAPI:         instancesAPI,
-		k8sAPI:               k8sAPI,
-		metricsAPI:           metrics,
-		parallelWorkers:      parallelWorkers,
-		releaseExcessIPs:     releaseExcessIPs,
-		excessIPReleaseDelay: excessIPReleaseDelay,
-		prefixDelegation:     prefixDelegation,
+		logger:           logger,
+		nodes:            nodeMap{},
+		instancesAPI:     instancesAPI,
+		k8sAPI:           k8sAPI,
+		metricsAPI:       metrics,
+		parallelWorkers:  parallelWorkers,
+		releaseExcessIPs: releaseExcessIPs,
+		prefixDelegation: prefixDelegation,
 	}
 
 	// Assume readiness, the initial blocking resync in Start() will update
@@ -302,7 +300,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				ipsMarkedForRelease: make(map[string]time.Time),
 				ipReleaseStatus:     make(map[string]string),
 			},
-			excessIPReleaseDelay: time.Duration(n.excessIPReleaseDelay) * time.Second,
 		}
 		node.logger.Store(node.rootLogger.With(fieldName, resource.Name))
 

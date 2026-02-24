@@ -14,7 +14,7 @@ import (
 	"io"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/internal/analysis/driverutil"
+	"golang.org/x/tools/go/analysis/internal/analysisflags"
 )
 
 // PrintText emits diagnostics as plain text to w.
@@ -58,7 +58,7 @@ func writeTextDiagnostics(w io.Writer, roots []*Action, contextLines int) error 
 				}
 				seen[k] = true
 
-				driverutil.PrintPlain(buf, act.Package.Fset, contextLines, diag)
+				analysisflags.PrintPlain(buf, act.Package.Fset, contextLines, diag)
 			}
 		}
 		return nil
@@ -75,7 +75,7 @@ func (g *Graph) PrintJSON(w io.Writer) error {
 }
 
 func writeJSONDiagnostics(w io.Writer, roots []*Action) error {
-	tree := make(driverutil.JSONTree)
+	tree := make(analysisflags.JSONTree)
 	forEach(roots, func(act *Action) error {
 		var diags []analysis.Diagnostic
 		if act.IsRoot {

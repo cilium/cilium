@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iter"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -23,49 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-func init() {
-	xdpConfigs.register(config.XDP)
-	xdpRenames.register(defaultXDPMapRenames)
-}
-
-const (
-	symbolFromHostNetdevXDP = "cil_xdp_entry"
-)
-
-// xdpConfigs holds functions that yield a BPF configuration object for
-// attaching instances of bpf_xdp.c to externally-facing network devices.
-var xdpConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
-
-// xdpRenames holds functions that yield BPF map renames for
-// attaching instances of bpf_xdp.c to externally-facing network devices.
-var xdpRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
-
-// xdpConfiguration returns a slice of BPF configuration objects yielded
-// by all registered config providers of [xdpConfigs].
-func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
-	for f := range xdpConfigs.all() {
-		configs = append(configs, f(lnc, link))
-	}
-	return configs
-}
-
-// xdpMapRenames returns the merged map of XDP map renames yielded by all registered rename providers.
-func xdpMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
-	for f := range xdpRenames.all() {
-		renames = append(renames, f(lnc, link))
-	}
-	return renames
-}
-
-func defaultXDPMapRenames(lnc *datapath.LocalNodeConfiguration, iface netlink.Link) (renames map[string]string) {
-	return map[string]string{
-		"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
-	}
-}
 
 func xdpConfigModeToFlag(xdpMode xdp.Mode) link.XDPAttachFlags {
 	switch xdpMode {
@@ -142,8 +102,21 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMo
 	}
 }
 
+// xdpCompileArgs derives compile arguments for bpf_xdp.c.
+func xdpCompileArgs(extraCArgs []string) ([]string, error) {
+	args := []string{}
+	copy(args, extraCArgs)
+
+	return args, nil
+}
+
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode) error {
+func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
+	args, err := xdpCompileArgs(extraCArgs)
+	if err != nil {
+		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
+	}
+
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -154,6 +127,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		Source:     xdpProg,
 		Output:     xdpObj,
 		OutputType: outputObject,
+		Options:    args,
 	}
 
 	objPath, err := compile(ctx, logger, prog, dirs)
@@ -174,107 +148,30 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	if err := loadAssignAttach(logger, xdpMode, iface, spec, lnc); err != nil {
+	cfg := config.NewBPFXDP(config.NodeConfig(lnc))
+	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
+	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
+
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+
+	var obj xdpObjects
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+		Constants: cfg,
+		MapRenames: map[string]string{
+			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
+		},
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+	})
+	if err != nil {
 		return err
 	}
+	defer obj.Close()
 
-	return nil
-}
-
-// xdpPermutations returns a sequence of CollectionSpecs with all combinations
-// of ProgramSpec.AttachType set to AttachXDP or AttachNone, as well the
-// BPF_F_XDP_HAS_FRAGS flag in on and off states.
-func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionSpec] {
-	type xdpPerms struct {
-		flipAttach bool
-		flipFrags  bool
-	}
-
-	perms := []xdpPerms{
-		{flipAttach: false, flipFrags: false},
-		{flipAttach: true, flipFrags: false},
-		{flipAttach: false, flipFrags: true},
-		{flipAttach: true, flipFrags: false},
-	}
-
-	return func(yield func(int, *ebpf.CollectionSpec) bool) {
-		for i, p := range perms {
-			for _, prog := range spec.Programs {
-				if prog.Type != ebpf.XDP {
-					continue
-				}
-
-				if p.flipAttach {
-					switch prog.AttachType {
-					case ebpf.AttachXDP:
-						prog.AttachType = ebpf.AttachNone
-					case ebpf.AttachNone:
-						prog.AttachType = ebpf.AttachXDP
-					}
-				}
-
-				if p.flipFrags {
-					prog.Flags ^= unix.BPF_F_XDP_HAS_FRAGS
-				}
-			}
-
-			if !yield(i, spec) {
-				return
-			}
-		}
-	}
-}
-
-func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
-	var (
-		obj    xdpObjects
-		commit func() error
-		err    error
-	)
-	for i, spec := range xdpPermutations(spec) {
-		commit, err = bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-			Constants:  xdpConfiguration(lnc, iface),
-			MapRenames: xdpMapRenames(lnc, iface),
-			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-			},
-			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-		})
-		if err != nil {
-			return err
-		}
-		defer obj.Close()
-
-		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
-			bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))
-		if errors.Is(err, unix.EINVAL) {
-			// EINVAL during attachment can have multiple causes. There are two common
-			// cases we can handle:
-			//
-			// * The configured MTU on the device is so large that the driver
-			// requires loading XDP programs with BPF_F_XDP_HAS_FRAGS. In that case,
-			// retry with the flag set.
-			//
-			// * The interface has an existing BPF link with a different attach
-			// type. Try the other attach type.
-			//
-			// Neither of these properties can be probed, so try all permutations
-			// until they've been exhausted.
-			prog := spec.Programs[symbolFromHostNetdevXDP]
-			logger.Info("attaching XDP program failed",
-				logfields.Error, err,
-				logfields.Attempt, i,
-				logfields.AttachType, prog.AttachType,
-				logfields.WithFrags, prog.Flags&unix.BPF_F_XDP_HAS_FRAGS != 0,
-			)
-			continue
-		}
-
-		// Error is nil or unrecoverable, exit the loop.
-		break
-	}
-	if err != nil {
-		return fmt.Errorf("attaching XDP program: %w", err)
+	if err := attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
+		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
+		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
 
 	if err := commit(); err != nil {

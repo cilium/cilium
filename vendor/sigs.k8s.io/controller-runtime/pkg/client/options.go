@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/utils/ptr"
 )
 
 // {{{ "Functional" Option Interfaces
@@ -60,12 +59,6 @@ type UpdateOption interface {
 type PatchOption interface {
 	// ApplyToPatch applies this configuration to the given patch options.
 	ApplyToPatch(*PatchOptions)
-}
-
-// ApplyOption is some configuration that modifies options for an apply request.
-type ApplyOption interface {
-	// ApplyToApply applies this configuration to the given apply options.
-	ApplyToApply(*ApplyOptions)
 }
 
 // DeleteAllOfOption is some configuration that modifies options for a delete request.
@@ -122,12 +115,7 @@ func (dryRunAll) ApplyToPatch(opts *PatchOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
 
-// ApplyToApply applies this configuration to the given apply options.
-func (dryRunAll) ApplyToApply(opts *ApplyOptions) {
-	opts.DryRun = []string{metav1.DryRunAll}
-}
-
-// ApplyToDelete applies this configuration to the given delete options.
+// ApplyToPatch applies this configuration to the given delete options.
 func (dryRunAll) ApplyToDelete(opts *DeleteOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
@@ -163,11 +151,6 @@ func (f FieldOwner) ApplyToCreate(opts *CreateOptions) {
 
 // ApplyToUpdate applies this configuration to the given update options.
 func (f FieldOwner) ApplyToUpdate(opts *UpdateOptions) {
-	opts.FieldManager = string(f)
-}
-
-// ApplyToApply applies this configuration to the given apply options.
-func (f FieldOwner) ApplyToApply(opts *ApplyOptions) {
 	opts.FieldManager = string(f)
 }
 
@@ -448,12 +431,6 @@ type GetOptions struct {
 	// Raw represents raw GetOptions, as passed to the API server.  Note
 	// that these may not be respected by all implementations of interface.
 	Raw *metav1.GetOptions
-
-	// UnsafeDisableDeepCopy indicates not to deep copy objects during get object.
-	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
-	// otherwise you will mutate the object in the cache.
-	// +optional
-	UnsafeDisableDeepCopy *bool
 }
 
 var _ GetOption = &GetOptions{}
@@ -462,9 +439,6 @@ var _ GetOption = &GetOptions{}
 func (o *GetOptions) ApplyToGet(lo *GetOptions) {
 	if o.Raw != nil {
 		lo.Raw = o.Raw
-	}
-	if o.UnsafeDisableDeepCopy != nil {
-		lo.UnsafeDisableDeepCopy = o.UnsafeDisableDeepCopy
 	}
 }
 
@@ -644,9 +618,6 @@ type MatchingLabelsSelector struct {
 
 // ApplyToList applies this configuration to the given list options.
 func (m MatchingLabelsSelector) ApplyToList(opts *ListOptions) {
-	if m.Selector == nil {
-		m.Selector = labels.Nothing()
-	}
 	opts.LabelSelector = m
 }
 
@@ -680,9 +651,6 @@ type MatchingFieldsSelector struct {
 
 // ApplyToList applies this configuration to the given list options.
 func (m MatchingFieldsSelector) ApplyToList(opts *ListOptions) {
-	if m.Selector == nil {
-		m.Selector = fields.Nothing()
-	}
 	opts.FieldSelector = m
 }
 
@@ -724,14 +692,15 @@ func (l Limit) ApplyToList(opts *ListOptions) {
 // otherwise you will mutate the object in the cache.
 type UnsafeDisableDeepCopyOption bool
 
-// ApplyToGet applies this configuration to the given an Get options.
-func (d UnsafeDisableDeepCopyOption) ApplyToGet(opts *GetOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
-}
-
 // ApplyToList applies this configuration to the given an List options.
 func (d UnsafeDisableDeepCopyOption) ApplyToList(opts *ListOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
+	definitelyTrue := true
+	definitelyFalse := false
+	if d {
+		opts.UnsafeDisableDeepCopy = &definitelyTrue
+	} else {
+		opts.UnsafeDisableDeepCopy = &definitelyFalse
+	}
 }
 
 // UnsafeDisableDeepCopy indicates not to deep copy objects during list objects.
@@ -894,18 +863,10 @@ func (o *PatchOptions) AsPatchOptions() *metav1.PatchOptions {
 		o.Raw = &metav1.PatchOptions{}
 	}
 
-	if o.DryRun != nil {
-		o.Raw.DryRun = o.DryRun
-	}
-	if o.Force != nil {
-		o.Raw.Force = o.Force
-	}
-	if o.FieldManager != "" {
-		o.Raw.FieldManager = o.FieldManager
-	}
-	if o.FieldValidation != "" {
-		o.Raw.FieldValidation = o.FieldValidation
-	}
+	o.Raw.DryRun = o.DryRun
+	o.Raw.Force = o.Force
+	o.Raw.FieldManager = o.FieldManager
+	o.Raw.FieldValidation = o.FieldValidation
 	return o.Raw
 }
 
@@ -938,15 +899,13 @@ var ForceOwnership = forceOwnership{}
 type forceOwnership struct{}
 
 func (forceOwnership) ApplyToPatch(opts *PatchOptions) {
-	opts.Force = ptr.To(true)
+	definitelyTrue := true
+	opts.Force = &definitelyTrue
 }
 
 func (forceOwnership) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
-	opts.Force = ptr.To(true)
-}
-
-func (forceOwnership) ApplyToApply(opts *ApplyOptions) {
-	opts.Force = ptr.To(true)
+	definitelyTrue := true
+	opts.Force = &definitelyTrue
 }
 
 // }}}
@@ -980,57 +939,3 @@ func (o *DeleteAllOfOptions) ApplyToDeleteAllOf(do *DeleteAllOfOptions) {
 }
 
 // }}}
-
-// ApplyOptions are the options for an apply request.
-type ApplyOptions struct {
-	// When present, indicates that modifications should not be
-	// persisted. An invalid or unrecognized dryRun directive will
-	// result in an error response and no further processing of the
-	// request. Valid values are:
-	// - All: all dry run stages will be processed
-	DryRun []string
-
-	// Force is going to "force" Apply requests. It means user will
-	// re-acquire conflicting fields owned by other people.
-	Force *bool
-
-	// fieldManager is a name associated with the actor or entity
-	// that is making these changes. The value must be less than or
-	// 128 characters long, and only contain printable characters,
-	// as defined by https://golang.org/pkg/unicode/#IsPrint. This
-	// field is required.
-	//
-	// +required
-	FieldManager string
-}
-
-// ApplyOptions applies the given opts onto the ApplyOptions
-func (o *ApplyOptions) ApplyOptions(opts []ApplyOption) *ApplyOptions {
-	for _, opt := range opts {
-		opt.ApplyToApply(o)
-	}
-	return o
-}
-
-// ApplyToApply applies the given opts onto the ApplyOptions
-func (o *ApplyOptions) ApplyToApply(opts *ApplyOptions) {
-	if o.DryRun != nil {
-		opts.DryRun = o.DryRun
-	}
-	if o.Force != nil {
-		opts.Force = o.Force
-	}
-
-	if o.FieldManager != "" {
-		opts.FieldManager = o.FieldManager
-	}
-}
-
-// AsPatchOptions constructs patch options from the given ApplyOptions
-func (o *ApplyOptions) AsPatchOptions() *metav1.PatchOptions {
-	return &metav1.PatchOptions{
-		DryRun:       o.DryRun,
-		Force:        o.Force,
-		FieldManager: o.FieldManager,
-	}
-}

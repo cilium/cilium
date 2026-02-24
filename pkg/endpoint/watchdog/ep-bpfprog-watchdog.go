@@ -68,22 +68,14 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 		orchestrator:    p.Orchestrator,
 	}
 
-	p.JobGroup.Add(job.OneShot("wait-for-endpoint-restore", func(ctx context.Context, _ cell.Health) error {
-		restorer, err := p.RestorerPromise.Await(ctx)
+	p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
+		_, err := p.RestorerPromise.Await(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
+			return err
 		}
 
-		if err := restorer.WaitForEndpointRestore(ctx); err != nil {
-			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
-		}
-
-		p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
-			return watchdog.checkEndpointBPFPrograms(ctx)
-		}, p.Config.EndpointBPFProgWatchdogInterval))
-
-		return nil
-	}))
+		return watchdog.checkEndpointBPFPrograms(ctx, p)
+	}, p.Config.EndpointBPFProgWatchdogInterval))
 }
 
 type endpointBPFProgWatchdog struct {
@@ -93,10 +85,8 @@ type endpointBPFProgWatchdog struct {
 	orchestrator    datapath.Orchestrator
 }
 
-func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) error {
+func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchdogParams) error {
 	eps := r.endpointManager.GetEndpoints()
-	epsWithoutProgramsLoaded := map[uint16]string{}
-
 	for _, ep := range eps {
 		if ep.GetState() != endpoint.StateReady {
 			continue
@@ -120,26 +110,26 @@ func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) 
 		}
 
 		// We've detected missing bpf progs for this endpoint.
-		// Trigger bpf progs reload - but first fetch all endpoints that
-		// don't have the programs loaded.
+		// Trigger bpf progs reload.
 		if !loaded {
-			epsWithoutProgramsLoaded[ep.ID] = ep.GetK8sNamespaceAndCEPName()
+			return r.reloadBPFPrograms(ctx, len(eps))
 		}
 	}
 
-	if len(epsWithoutProgramsLoaded) > 0 {
-		r.logger.Warn(
-			"Detected unexpected endpoint BPF program removal. "+
-				"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. "+
-				"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
-			logfields.Endpoints, epsWithoutProgramsLoaded,
-			logfields.Total, len(eps),
-		)
+	return nil
+}
 
-		if err := r.orchestrator.Reinitialize(ctx); err != nil {
-			r.logger.Error("Failed to reload Cilium endpoints BPF programs", logfields.Error, err)
-			return fmt.Errorf("failed to reload Cilium endpoints BPF programs: %w", err)
-		}
+func (r *endpointBPFProgWatchdog) reloadBPFPrograms(ctx context.Context, endpointCount int) error {
+	r.logger.Warn(
+		"Detected unexpected endpoint BPF program removal. "+
+			"Consider investigating whether other software running on this machine is removing Cilium's endpoint BPF programs. "+
+			"If endpoint BPF programs are removed, the associated pods will lose connectivity and only reinstating the programs will restore connectivity.",
+		logfields.Count, endpointCount,
+	)
+
+	if err := r.orchestrator.Reinitialize(ctx); err != nil {
+		r.logger.Error("Failed to reload Cilium endpoints BPF programs", logfields.Error, err)
+		return fmt.Errorf("failed to reload Cilium endpoints BPF programs: %w", err)
 	}
 
 	return nil

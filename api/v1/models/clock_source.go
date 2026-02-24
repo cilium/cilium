@@ -45,7 +45,7 @@ func (m *ClockSource) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var clockSourceTypeModePropEnum []any
+var clockSourceTypeModePropEnum []interface{}
 
 func init() {
 	var res []string

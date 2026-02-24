@@ -22,16 +22,19 @@ var (
 		Unique:     true,
 	}
 
+	SysctlStatusIndex = reconciler.NewStatusIndex((*Sysctl).GetStatus)
+
 	SysctlTableName = "sysctl"
 )
 
-func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], error) {
+func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sysctl, reconciler.StatusKind], error) {
 	tbl, err := statedb.NewTable(
 		db,
 		SysctlTableName,
 		SysctlNameIndex,
+		SysctlStatusIndex,
 	)
-	return tbl, err
+	return tbl, SysctlStatusIndex, err
 }
 
 func (*Sysctl) TableHeader() []string {

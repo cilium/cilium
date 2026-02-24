@@ -45,14 +45,13 @@ var k8sObjDecodeErrRe = regexp.MustCompile("invalid character.*looking for begin
 // K8sErrorHandler handles the error messages in a non verbose way by omitting
 // repeated instances of the same error message for a timeout defined with
 // k8sErrLogTimeout.
-func K8sErrorHandler(ctx context.Context, e error, msg string, args ...any) {
-	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
-	logger := logging.DefaultSlogLogger
-
+func K8sErrorHandler(_ context.Context, e error, _ string, _ ...any) {
 	if e == nil {
-		logger.ErrorContext(ctx, msg, args...)
 		return
 	}
+
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+	logger := logging.DefaultSlogLogger
 
 	// We rate-limit certain categories of error message. These are matched
 	// below, with a default behaviour to print everything else without

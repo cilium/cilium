@@ -32,7 +32,6 @@ func (to *observable[Obj]) Observe(ctx context.Context, next func(Change[Obj]), 
 			complete(err)
 			return
 		}
-		defer iter.Close()
 		defer complete(nil)
 
 		for {

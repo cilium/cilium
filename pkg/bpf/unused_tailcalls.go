@@ -104,23 +104,23 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 		}
 
 		// Start a backtracking session starting at the current instruction.
-		bt := iter.Backtrack()
+		iter = iter.Clone()
 
 		// The preceding instruction must be the load of the index into R3.
-		if !bt.Previous() {
+		if !iter.Previous() {
 			continue
 		}
-		movIdx := bt.Instruction()
+		movIdx := iter.Instruction()
 		if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
 			continue
 		}
 		slot := uint32(movIdx.Constant)
 
 		// The preceding instruction must be the load of the calls pointer map into R2.
-		if !bt.Previous() {
+		if !iter.Previous() {
 			continue
 		}
-		mapPtr := bt.Instruction()
+		mapPtr := iter.Instruction()
 		if !mapPtr.IsLoadFromMap() {
 			continue
 		}
@@ -150,7 +150,6 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 
 // deleteUnused removes unreferenced tail calls from the CollectionSpec.
 func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) {
-	var deleted []string
 	for name, prog := range spec.Programs {
 		if !isTailCall(prog) {
 			continue
@@ -161,10 +160,7 @@ func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], l
 		}
 
 		delete(spec.Programs, name)
-		deleted = append(deleted, name)
-	}
 
-	if logger != nil && len(deleted) > 0 {
-		logger.Debug("Removed unused tail calls from CollectionSpec", logfields.Programs, deleted)
+		logger.Debug("Deleted unreferenced tail call from CollectionSpec", logfields.Prog, prog.Name)
 	}
 }

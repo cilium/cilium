@@ -29,12 +29,9 @@ type CiliumLocalRedirectPolicy struct {
 	metav1.TypeMeta `json:",inline"`
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired behavior of the local redirect policy.
-	//
-	// +kubebuilder:validation:Optional
 	Spec CiliumLocalRedirectPolicySpec `json:"spec,omitempty"`
 
 	// Status is the most recent status of the local redirect policy.
@@ -42,7 +39,7 @@ type CiliumLocalRedirectPolicy struct {
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
-	Status CiliumLocalRedirectPolicyStatus `json:"status,omitempty"`
+	Status CiliumLocalRedirectPolicyStatus `json:"status"`
 }
 
 type Frontend struct {
@@ -75,14 +72,12 @@ type RedirectFrontend struct {
 	// redirected.
 	//
 	// +kubebuilder:validation:OneOf
-	// +kubebuilder:validation:Optional
 	AddressMatcher *Frontend `json:"addressMatcher,omitempty"`
 
 	// ServiceMatcher specifies Kubernetes service and port that matches
 	// traffic to be redirected.
 	//
 	// +kubebuilder:validation:OneOf
-	// +kubebuilder:validation:Optional
 	ServiceMatcher *ServiceInfo `json:"serviceMatcher,omitempty"`
 }
 
@@ -107,7 +102,7 @@ type PortInfo struct {
 	//
 	// +kubebuilder:validation:Pattern=`^([0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$`
 	// +kubebuilder:validation:Optional
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 }
 
 type ServiceInfo struct {
@@ -188,7 +183,7 @@ type CiliumLocalRedirectPolicySpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="skipRedirectFromBackend is immutable"
-	SkipRedirectFromBackend bool `json:"skipRedirectFromBackend,omitempty"`
+	SkipRedirectFromBackend bool `json:"skipRedirectFromBackend"`
 
 	// Description can be used by the creator of the policy to describe the
 	// purpose of this policy.
@@ -200,8 +195,6 @@ type CiliumLocalRedirectPolicySpec struct {
 // CiliumLocalRedirectPolicyStatus is the status of a Local Redirect Policy.
 type CiliumLocalRedirectPolicyStatus struct {
 	// TODO Define status(aditi)
-	//
-	// +kubebuilder:validation:Optional
 	OK bool `json:"ok,omitempty"`
 }
 

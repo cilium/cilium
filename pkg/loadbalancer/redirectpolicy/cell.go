@@ -8,9 +8,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
@@ -66,14 +64,8 @@ var Cell = cell.Module(
 	cell.Provide(lrpAPI),
 )
 
-func lrpAPI(
-	enabled lrpIsEnabled,
-	db *statedb.DB,
-	lrps statedb.Table[*LocalRedirectPolicy],
-	backends statedb.Table[*lb.Backend],
-	pods statedb.Table[daemonk8s.LocalPod],
-) service.GetLrpHandler {
-	return &getLrpHandler{db, lrps, backends, pods}
+func lrpAPI(enabled lrpIsEnabled, db *statedb.DB, lrps statedb.Table[*LocalRedirectPolicy]) service.GetLrpHandler {
+	return &getLrpHandler{db, lrps}
 }
 
 type lrpIsEnabled bool
@@ -93,6 +85,7 @@ func newControllerMetrics() controllerMetrics {
 			Subsystem: "localredirectpolicy",
 			Name:      "controller_duration_seconds",
 			Help:      "Histogram of LocalRedirectPolicy processing times",
+			Disabled:  true,
 			// Use buckets in the 0.5ms-1.0s range.
 			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
 		}),

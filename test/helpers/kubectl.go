@@ -53,6 +53,18 @@ const (
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
 
+	// CIIntegrationEKSChaining contains the constants to be used when running tests on EKS with aws-cni in chaining mode.
+	CIIntegrationEKSChaining = "eks-chaining"
+
+	// CIIntegrationEKS contains the constants to be used when running tests on EKS in ENI mode.
+	CIIntegrationEKS = "eks"
+
+	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
+	CIIntegrationGKE = "gke"
+
+	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
+	CIIntegrationAKS = "aks"
+
 	// CIIntegrationKind contains the constant to be used when running tests on kind.
 	CIIntegrationKind = "kind"
 
@@ -137,6 +149,58 @@ var (
 		"connectivityProbeFrequencyRatio": "0",
 	}
 
+	eksChainingHelmOverrides = map[string]string{
+		"k8s.requireIPv4PodCIDR": "false",
+		"cni.chainingMode":       "aws-cni",
+		"masquerade":             "false",
+		"routingMode":            "native",
+		"nodeinit.enabled":       "true",
+	}
+
+	eksHelmOverrides = map[string]string{
+		"egressMasqueradeInterfaces": "eth0",
+		"eni.enabled":                "true",
+		"ipam.mode":                  "eni",
+		"ipv6.enabled":               "false",
+		"k8s.requireIPv4PodCIDR":     "false",
+		"nodeinit.enabled":           "true",
+		"routingMode":                "native",
+	}
+
+	gkeHelmOverrides = map[string]string{
+		"ipv6.enabled":                "false",
+		"nodeinit.enabled":            "true",
+		"nodeinit.reconfigureKubelet": "true",
+		"nodeinit.removeCbrBridge":    "true",
+		"nodeinit.restartPods":        "true",
+		"cni.binPath":                 "/home/kubernetes/bin",
+		"gke.enabled":                 "true",
+		"loadBalancer.mode":           "snat",
+		"ipv4NativeRoutingCIDR":       NativeRoutingCIDR(),
+		"hostFirewall.enabled":        "false",
+		"ipam.mode":                   "kubernetes",
+		"devices":                     "", // Override "eth0 eth0\neth0"
+	}
+
+	aksHelmOverrides = map[string]string{
+		"ipam.mode":                           "delegated-plugin",
+		"routingMode":                         "native",
+		"endpointRoutes.enabled":              "true",
+		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
+		"k8s.requireIPv4PodCIDR":              "false",
+		"ipv6.enabled":                        "false",
+		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
+		"enableIPv4Masquerade":                "false",
+		"install-no-conntrack-iptables-rules": "false",
+		"l7Proxy":                             "false",
+		"hubble.enabled":                      "false",
+		"kubeProxyReplacement":                "true",
+		"endpointHealthChecking.enabled":      "false",
+		"cni.install":                         "true",
+		"cni.customConf":                      "true",
+		"cni.configMap":                       "cni-configuration",
+	}
+
 	microk8sHelmOverrides = map[string]string{
 		"cni.confPath":      "/var/snap/microk8s/current/args/cni-network",
 		"cni.binPath":       "/var/snap/microk8s/current/opt/cni/bin",
@@ -161,9 +225,13 @@ var (
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
-		CIIntegrationKind:     kindHelmOverrides,
-		CIIntegrationMicrok8s: microk8sHelmOverrides,
-		CIIntegrationMinikube: minikubeHelmOverrides,
+		CIIntegrationEKSChaining: eksChainingHelmOverrides,
+		CIIntegrationEKS:         eksHelmOverrides,
+		CIIntegrationGKE:         gkeHelmOverrides,
+		CIIntegrationAKS:         aksHelmOverrides,
+		CIIntegrationKind:        kindHelmOverrides,
+		CIIntegrationMicrok8s:    microk8sHelmOverrides,
+		CIIntegrationMinikube:    minikubeHelmOverrides,
 	}
 
 	// resourcesToClean is the list of resources which should be cleaned
@@ -1030,7 +1098,7 @@ func (kub *Kubectl) getNodeIPByLabel(label string, external bool, ipFamily v1.IP
 		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
 	}
 
-	for ipStr := range strings.FieldsSeq(out) {
+	for _, ipStr := range strings.Fields(out) {
 		ip := net.ParseIP(ipStr)
 		switch ipFamily {
 		case v1.IPv4Protocol:
@@ -2296,12 +2364,14 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["nodePort.enableHealthCheck"] = "false"
 		}
 
-		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
-		if err != nil {
-			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %w", err)
+		if DoesNotRunOnGKE() {
+			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
+			if err != nil {
+				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %w", err)
+			}
+			opts["k8sServiceHost"] = nodeIP
+			opts["k8sServicePort"] = "6443"
 		}
-		opts["k8sServiceHost"] = nodeIP
-		opts["k8sServicePort"] = "6443"
 
 		if RunsOn54OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
@@ -2312,11 +2382,17 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	if RunsOn54OrLaterKernel() {
+		// To enable SA for both cases when KPR is enabled and disabled
+		addIfNotOverwritten(options, "sessionAffinity", "true")
+	}
+
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "kubeProxyReplacement", "false")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
+		addIfNotOverwritten(options, "sessionAffinity", "false")
 		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")
 	}
 
@@ -2575,19 +2651,19 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 		defer cancel()
 
-		var errorMessage strings.Builder
+		var errorMessage string
 		for _, pod := range ciliumPods {
 			var endpoints []models.Endpoint
 			cmdRes := kub.CiliumEndpointsList(ctx, pod)
 			if !cmdRes.WasSuccessful() {
-				fmt.Fprintf(&errorMessage,
+				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \terror: unable to get endpoint list: %s",
 					pod, cmdRes.err)
 				continue
 			}
 			err := cmdRes.Unmarshal(&endpoints)
 			if err != nil {
-				fmt.Fprintf(&errorMessage,
+				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \terror: unable to parse endpoint list: %s",
 					pod, err)
 				continue
@@ -2597,12 +2673,12 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				if ep.Status.State != nil {
 					state = string(*ep.Status.State)
 				}
-				fmt.Fprintf(&errorMessage,
+				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
 					pod, ep.ID, ep.Status.Identity.ID, state)
 			}
 		}
-		return errorMessage.String()
+		return errorMessage
 	}
 	return NewSSHMetaError(err.Error(), callback)
 }
@@ -3770,22 +3846,22 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 // from the cluster. For this the caller has to make sure that there are no leftover cilium
 // components in the cluster.
 func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options map[string]string) *CmdRes {
-	var optionsString strings.Builder
+	optionsString := ""
 
 	for k, v := range options {
 		switch {
 		case v == "true" || v == "false":
-			fmt.Fprintf(&optionsString, " --set %s=%s ", k, v)
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
 		case v == "'true'" || v == "'false'":
-			fmt.Fprintf(&optionsString, " --set-string %s=%s ", k, v)
+			optionsString += fmt.Sprintf(" --set-string %s=%s ", k, v)
 		default:
-			fmt.Fprintf(&optionsString, " --set '%s=%s' ", k, v)
+			optionsString += fmt.Sprintf(" --set '%s=%s' ", k, v)
 		}
 	}
 
 	return kub.ExecMiddle("helm template --validate " +
 		chartDir + " " +
-		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString.String(), filename))
+		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
 // HubbleObserve runs `hubble observe --output=jsonpb <args>` on 'ns/pod' and

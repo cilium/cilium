@@ -3,11 +3,7 @@
 
 package metric // import "go.opentelemetry.io/otel/metric"
 
-import (
-	"slices"
-
-	"go.opentelemetry.io/otel/attribute"
-)
+import "go.opentelemetry.io/otel/attribute"
 
 // MeterConfig contains options for Meters.
 type MeterConfig struct {
@@ -66,38 +62,12 @@ func WithInstrumentationVersion(version string) MeterOption {
 	})
 }
 
-// WithInstrumentationAttributes adds the instrumentation attributes.
+// WithInstrumentationAttributes sets the instrumentation attributes.
 //
-// This is equivalent to calling [WithInstrumentationAttributeSet] with an
-// [attribute.Set] created from a clone of the passed attributes.
-// [WithInstrumentationAttributeSet] is recommended for more control.
-//
-// If multiple [WithInstrumentationAttributes] or [WithInstrumentationAttributeSet]
-// options are passed, the attributes will be merged together in the order
-// they are passed. Attributes with duplicate keys will use the last value passed.
+// The passed attributes will be de-duplicated.
 func WithInstrumentationAttributes(attr ...attribute.KeyValue) MeterOption {
-	set := attribute.NewSet(slices.Clone(attr)...)
-	return WithInstrumentationAttributeSet(set)
-}
-
-// WithInstrumentationAttributeSet adds the instrumentation attributes.
-//
-// If multiple [WithInstrumentationAttributes] or [WithInstrumentationAttributeSet]
-// options are passed, the attributes will be merged together in the order
-// they are passed. Attributes with duplicate keys will use the last value passed.
-func WithInstrumentationAttributeSet(set attribute.Set) MeterOption {
-	if set.Len() == 0 {
-		return meterOptionFunc(func(config MeterConfig) MeterConfig {
-			return config
-		})
-	}
-
 	return meterOptionFunc(func(config MeterConfig) MeterConfig {
-		if config.attrs.Len() == 0 {
-			config.attrs = set
-		} else {
-			config.attrs = mergeSets(config.attrs, set)
-		}
+		config.attrs = attribute.NewSet(attr...)
 		return config
 	})
 }

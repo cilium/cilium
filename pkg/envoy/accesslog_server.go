@@ -29,9 +29,9 @@ type AccessLogServer struct {
 	logger             *slog.Logger
 	accessLogger       accesslog.ProxyAccessLogger
 	socketPath         string
-	socketListener     *net.UnixListener
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
+	stopCh             chan struct{}
 	bufferSize         uint
 }
 
@@ -47,36 +47,47 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 }
 
 // start starts the access log server.
-func (s *AccessLogServer) start(ctx context.Context) error {
+func (s *AccessLogServer) start() error {
 	socketListener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
-	s.socketListener = socketListener
 
-	s.logger.Info("Envoy: Starting access log server listening",
-		logfields.Address, socketListener.Addr(),
-	)
-	for {
-		// Each Envoy listener opens a new connection over the Unix domain socket.
-		// Multiple worker threads serving the listener share that same connection
-		uc, err := socketListener.AcceptUnix()
-		if err != nil {
-			// These errors are expected when we are closing down
-			if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
-				break
+	s.stopCh = make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		s.logger.Info("Envoy: Starting access log server listening",
+			logfields.Address, socketListener.Addr(),
+		)
+		for {
+			// Each Envoy listener opens a new connection over the Unix domain socket.
+			// Multiple worker threads serving the listener share that same connection
+			uc, err := socketListener.AcceptUnix()
+			if err != nil {
+				// These errors are expected when we are closing down
+				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
+					break
+				}
+				s.logger.Warn("Envoy: Failed to accept access log connection",
+					logfields.Error, err,
+				)
+				continue
 			}
-			s.logger.Warn("Envoy: Failed to accept access log connection",
-				logfields.Error, err,
-			)
-			continue
-		}
-		s.logger.Info("Envoy: Accepted access log connection")
+			s.logger.Info("Envoy: Accepted access log connection")
 
-		// Serve this access log socket in a goroutine, so we can serve multiple
-		// connections concurrently.
-		go s.handleConn(ctx, uc)
-	}
+			// Serve this access log socket in a goroutine, so we can serve multiple
+			// connections concurrently.
+			go s.handleConn(ctx, uc)
+		}
+	}()
+
+	go func() {
+		<-s.stopCh
+		_ = socketListener.Close()
+		cancel()
+	}()
 
 	return nil
 }
@@ -93,7 +104,7 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 	accessLogListener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by owner and group only.
-	if err = os.Chmod(s.socketPath, 0o660); err != nil {
+	if err = os.Chmod(s.socketPath, 0660); err != nil {
 		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
@@ -107,8 +118,8 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 }
 
 func (s *AccessLogServer) stop() {
-	if s.socketListener != nil {
-		_ = s.socketListener.Close()
+	if s.stopCh != nil {
+		s.stopCh <- struct{}{}
 	}
 }
 
@@ -163,11 +174,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			)
 		}
 
-		r, err := s.logRecord(ctx, &pblog)
-		if err != nil {
-			s.logger.Error("Envoy: Failed to log access log message", logfields.Error, err)
-			continue
-		}
+		r := s.logRecord(ctx, &pblog)
 
 		// Update proxy stats for the endpoint if it still exists
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
@@ -184,7 +191,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}
 }
 
-func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) (*accesslog.LogRecord, error) {
+func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) *accesslog.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -238,16 +245,12 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		addrInfo.DstIPPort = pblog.DestinationAddress
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
 	}
-	r, err := s.accessLogger.NewLogRecord(ctx, flowType, pblog.IsIngress,
+	r := s.accessLogger.NewLogRecord(flowType, pblog.IsIngress,
 		accesslog.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		accesslog.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		accesslog.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create log record: %w", err)
-	}
-
 	s.accessLogger.Log(r)
 
 	// Each kafka topic needs to be logged separately, log the rest if any
@@ -256,5 +259,5 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		s.accessLogger.Log(r)
 	}
 
-	return r, nil
+	return r
 }

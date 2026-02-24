@@ -11,16 +11,15 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,32 +35,28 @@ type k8sCiliumEndpointsWatcherParams struct {
 
 	Logger *slog.Logger
 
-	CiliumSlimEndpoint  resource.Resource[*types.CiliumEndpoint]
-	CiliumEndpointSlice resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice]
-	K8sResourceSynced   *k8sSynced.Resources
-	K8sAPIGroups        *k8sSynced.APIGroups
+	Resources         agentK8s.Resources
+	K8sResourceSynced *k8sSynced.Resources
+	K8sAPIGroups      *k8sSynced.APIGroups
 
 	EndpointManager endpointmanager.EndpointManager
 	PolicyUpdater   *policy.Updater
 	IPCache         *ipcache.IPCache
 	WgConfig        wgTypes.WireguardConfig
 	IPSecConfig     datapath.IPsecConfig
-	LocalNodeStore  *node.LocalNodeStore
 }
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
 	return &K8sCiliumEndpointsWatcher{
-		logger:              params.Logger,
-		k8sResourceSynced:   params.K8sResourceSynced,
-		k8sAPIGroups:        params.K8sAPIGroups,
-		ciliumEndpointSlice: params.CiliumEndpointSlice,
-		ciliumSlimEndpoint:  params.CiliumSlimEndpoint,
-		endpointManager:     params.EndpointManager,
-		policyManager:       params.PolicyUpdater,
-		ipcache:             params.IPCache,
-		wgConfig:            params.WgConfig,
-		ipsecConfig:         params.IPSecConfig,
-		localNodeStore:      params.LocalNodeStore,
+		logger:            params.Logger,
+		k8sResourceSynced: params.K8sResourceSynced,
+		k8sAPIGroups:      params.K8sAPIGroups,
+		resources:         params.Resources,
+		endpointManager:   params.EndpointManager,
+		policyManager:     params.PolicyUpdater,
+		ipcache:           params.IPCache,
+		wgConfig:          params.WgConfig,
+		ipsecConfig:       params.IPSecConfig,
 	}
 }
 
@@ -81,10 +76,8 @@ type K8sCiliumEndpointsWatcher struct {
 	ipcache         ipcacheManager
 	wgConfig        wgTypes.WireguardConfig
 	ipsecConfig     datapath.IPsecConfig
-	localNodeStore  *node.LocalNodeStore
 
-	ciliumSlimEndpoint  resource.Resource[*types.CiliumEndpoint]
-	ciliumEndpointSlice resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice]
+	resources agentK8s.Resources
 }
 
 // initCiliumEndpointOrSlices initializes the ciliumEndpoints or ciliumEndpointSlice
@@ -99,16 +92,6 @@ func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Conte
 	}
 }
 
-// GetCiliumEndpointResource returns Resource[T] slim CEP object
-func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointResource() resource.Resource[*types.CiliumEndpoint] {
-	return k.ciliumSlimEndpoint
-}
-
-// GetCiliumEndpointSliceResource returns Resource[T] slim CEP object
-func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointSliceResource() resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice] {
-	return k.ciliumEndpointSlice
-}
-
 func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
 	var synced atomic.Bool
 
@@ -121,7 +104,7 @@ func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointV2)
 
 	go func() {
-		events := k.ciliumSlimEndpoint.Events(ctx)
+		events := k.resources.CiliumSlimEndpoint.Events(ctx)
 		cache := make(map[resource.Key]*types.CiliumEndpoint)
 		for event := range events {
 			switch event.Kind {
@@ -179,21 +162,16 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 		}()
 	}
 
-	ln, err := k.localNodeStore.Get(context.TODO())
-	if err != nil {
-		logging.Fatal(k.logger, "getLocalNode: unexpected error", logfields.Error, err)
-	}
-
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
-
-	if endpoint.Encryption != nil {
-		encryptionKey = uint8(endpoint.Encryption.Key)
-	}
+	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {
 		id = identity.NumericIdentity(endpoint.Identity.ID)
+	}
+
+	if endpoint.Encryption != nil {
+		encryptionKey = uint8(endpoint.Encryption.Key)
 	}
 
 	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {

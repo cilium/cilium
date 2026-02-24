@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -60,15 +59,11 @@ func (m *FrontendMapping) validateBackends(formats strfmt.Registry) error {
 
 		if m.Backends[i] != nil {
 			if err := m.Backends[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backends" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("backends" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -85,15 +80,11 @@ func (m *FrontendMapping) validateFrontendAddress(formats strfmt.Registry) error
 
 	if m.FrontendAddress != nil {
 		if err := m.FrontendAddress.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("frontend-address")
 			}
-
 			return err
 		}
 	}
@@ -130,15 +121,11 @@ func (m *FrontendMapping) contextValidateBackends(ctx context.Context, formats s
 			}
 
 			if err := m.Backends[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backends" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("backends" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -157,15 +144,11 @@ func (m *FrontendMapping) contextValidateFrontendAddress(ctx context.Context, fo
 		}
 
 		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("frontend-address")
 			}
-
 			return err
 		}
 	}

@@ -101,7 +101,7 @@ type BodyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m BodyMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -258,7 +258,7 @@ type ConnectionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ConnectionMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

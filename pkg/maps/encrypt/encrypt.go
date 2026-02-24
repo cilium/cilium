@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -63,7 +62,7 @@ func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonC
 		&EncryptKey{},
 		&EncryptValue{},
 		MaxEntries,
-		unix.BPF_F_RDONLY_PROG,
+		0,
 	).WithCache().WithEvents(dc.GetEventBufferConfig(MapName))
 
 	lc.Append(cell.Hook{

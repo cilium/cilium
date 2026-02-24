@@ -11,7 +11,6 @@ package models
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -58,7 +57,7 @@ func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var endpointStatusChangeTypeCodePropEnum []any
+var endpointStatusChangeTypeCodePropEnum []interface{}
 
 func init() {
 	var res []string
@@ -106,15 +105,11 @@ func (m *EndpointStatusChange) validateState(formats strfmt.Registry) error {
 	}
 
 	if err := m.State.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("state")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("state")
 		}
-
 		return err
 	}
 
@@ -142,15 +137,11 @@ func (m *EndpointStatusChange) contextValidateState(ctx context.Context, formats
 	}
 
 	if err := m.State.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("state")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("state")
 		}
-
 		return err
 	}
 

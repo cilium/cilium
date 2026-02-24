@@ -44,10 +44,7 @@ be performed.
 
    This may result in the need to update firewall rules to allow ESP traffic
    between nodes.
-   This is also important for cloud environments where security groups (or VPC firewall rules)
-   are used to control traffic between nodes. In such cases, ensure that the
-   security groups allow ESP traffic between the nodes in the cluster.
-   This applies to AWS, Azure and GCP.
+   This is especially important in Google Cloud GKE environments.
    The default firewall rules for the cluster's subnet may not allow ESP.
 
 
@@ -84,7 +81,7 @@ following command:
 
        .. parsed-literal::
 
-          $ kubectl create -n kube-system secret generic cilium-ipsec-keys \\
+          $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
               --from-literal=keys="3+ rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
 
        .. attention::
@@ -118,8 +115,8 @@ Enable Encryption in Cilium
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
-             --set encryption.enabled=true \\
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
              --set encryption.type=ipsec
 
     .. group-tab:: Helm
@@ -127,10 +124,12 @@ Enable Encryption in Cilium
        If you are deploying Cilium with Helm by following
        :ref:`k8s_install_helm`, pass the following options:
 
-       .. cilium-helm-install::
-          :namespace: kube-system
-          :set: encryption.enabled=true
-                encryption.type=ipsec
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set encryption.enabled=true \\
+             --set encryption.type=ipsec
 
        ``encryption.enabled`` enables encryption of the traffic between
        Cilium-managed pods. ``encryption.type`` specifies the encryption method
@@ -167,9 +166,9 @@ interface as follows:
 
        .. parsed-literal::
 
-          cilium install |CHART_VERSION| \\
-             --set encryption.enabled=true \\
-             --set encryption.type=ipsec \\
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec \
              --set encryption.ipsec.interface=ethX
 
     .. group-tab:: Helm
@@ -440,6 +439,7 @@ Limitations
     * Transparent encryption is not currently supported when chaining Cilium on
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
+    * IPsec encryption currently does not work with BPF Host Routing.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.
     * Decryption with Cilium IPsec is limited to a single CPU core per IPsec

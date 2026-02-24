@@ -9,7 +9,6 @@ package prefilter
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -34,6 +33,7 @@ func NewDeletePrefilterParams() DeletePrefilterParams {
 //
 // swagger:parameters DeletePrefilter
 type DeletePrefilterParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -54,12 +54,10 @@ func (o *DeletePrefilterParams) BindRequest(r *http.Request, route *middleware.M
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer func() {
-			_ = r.Body.Close()
-		}()
+		defer r.Body.Close()
 		var body models.PrefilterSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if stderrors.Is(err, io.EOF) {
+			if err == io.EOF {
 				res = append(res, errors.Required("prefilterSpec", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("prefilterSpec", "body", "", err))

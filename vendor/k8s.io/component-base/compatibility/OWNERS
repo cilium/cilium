@@ -9,6 +9,5 @@ approvers:
 reviewers:
   - sig-api-machinery-api-reviewers
   - siyuanfoundation
-  - jefftree
 labels:
   - sig/api-machinery

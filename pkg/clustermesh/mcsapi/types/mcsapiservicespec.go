@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -40,18 +39,10 @@ type MCSAPIServiceSpec struct {
 	Namespace string `json:"namespace"`
 
 	// Annotations contains the exported annotations
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Annotations map[string]string
 
 	// Labels contains the exported labels
-	Labels map[string]string `json:"labels,omitempty"`
-
-	// LegacyLabels contains the exported labels.
-	// Deprecated: Use Labels instead, this is kept for backward compatibility
-	LegacyLabels map[string]string `json:"Labels,omitempty"`
-
-	// LegacyAnnotations contains the exported annotations.
-	// Deprecated: Use Annotations instead, this is kept for backward compatibility
-	LegacyAnnotations map[string]string `json:"Annotations,omitempty"`
+	Labels map[string]string
 
 	// ExportCreationTimestamp is the timestamp representing when the
 	// ServiceExport object was created. It is used for conflict resolution.
@@ -74,25 +65,6 @@ type MCSAPIServiceSpec struct {
 
 	// SessionAffinityConfig contains session affinity configuration.
 	SessionAffinityConfig *corev1.SessionAffinityConfig `json:"sessionAffinityConfig,omitempty"`
-
-	// IPFamilies identifies all the IPFamilies assigned for this ServiceImport.
-	IPFamilies []corev1.IPFamily `json:"ipFamilies,omitempty"`
-
-	// InternalTrafficPolicy describes how nodes distribute service traffic they
-	// receive on the ClusterIP. If set to "Local", the proxy will assume that pods
-	// only want to talk to endpoints of the service on the same node as the pod,
-	// dropping the traffic if there are no local endpoints. The default value,
-	// "Cluster", uses the standard behavior of routing to all endpoints evenly
-	// (possibly modified by topology and other features).
-	InternalTrafficPolicy *corev1.ServiceInternalTrafficPolicy `json:"internalTrafficPolicy,omitempty"`
-
-	// TrafficDistribution offers a way to express preferences for how traffic
-	// is distributed to Service endpoints. Implementations can use this field
-	// as a hint, but are not required to guarantee strict adherence. If the
-	// field is not set, the implementation will apply its default routing
-	// strategy. If set to "PreferClose", implementations should prioritize
-	// endpoints that are in the same zone.
-	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
 // GetKeyName returns the kvstore key to be used for MCSAPIServiceSpec
@@ -109,9 +81,6 @@ func (s *MCSAPIServiceSpec) NamespacedName() types.NamespacedName {
 
 // Marshal returns the MCS-API Service Spec object as JSON byte slice
 func (s *MCSAPIServiceSpec) Marshal() ([]byte, error) {
-	// Populate legacy fields for forward compatibility
-	s.LegacyAnnotations = s.Annotations
-	s.LegacyLabels = s.Labels
 	return json.Marshal(s)
 }
 
@@ -122,16 +91,6 @@ func (s *MCSAPIServiceSpec) Unmarshal(_ string, data []byte) error {
 	if err := json.Unmarshal(data, &newMCSAPIServiceSpec); err != nil {
 		return err
 	}
-
-	// Handle backward compatibility of old annotations/labels fields
-	if len(newMCSAPIServiceSpec.Annotations) == 0 {
-		newMCSAPIServiceSpec.Annotations = newMCSAPIServiceSpec.LegacyAnnotations
-	}
-	if len(newMCSAPIServiceSpec.Labels) == 0 {
-		newMCSAPIServiceSpec.Labels = newMCSAPIServiceSpec.LegacyLabels
-	}
-	newMCSAPIServiceSpec.LegacyAnnotations = nil
-	newMCSAPIServiceSpec.LegacyLabels = nil
 
 	if err := newMCSAPIServiceSpec.validate(); err != nil {
 		return err
@@ -156,15 +115,6 @@ func (s *MCSAPIServiceSpec) validate() error {
 		return fmt.Errorf("type is unknown: %s", s.Type)
 	case s.SessionAffinity != corev1.ServiceAffinityClientIP && s.SessionAffinity != corev1.ServiceAffinityNone:
 		return fmt.Errorf("session affinity is unknown: %s", s.SessionAffinity)
-	case s.InternalTrafficPolicy != nil &&
-		*s.InternalTrafficPolicy != corev1.ServiceInternalTrafficPolicyCluster &&
-		*s.InternalTrafficPolicy != corev1.ServiceInternalTrafficPolicyLocal:
-		return fmt.Errorf("internal traffic policy is unknown: %s", *s.InternalTrafficPolicy)
-	case s.TrafficDistribution != nil &&
-		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferClose &&
-		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameZone &&
-		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameNode:
-		return fmt.Errorf("traffic distribution is unknown: %s", *s.TrafficDistribution)
 	}
 
 	return nil
@@ -224,14 +174,6 @@ func KeyCreator(validators ...mcsAPIServiceSpecValidator) store.KeyCreator {
 	}
 }
 
-func toKubeIPFamilies(ipFamilies []slim_corev1.IPFamily) []corev1.IPFamily {
-	kubeIPFamilies := make([]corev1.IPFamily, 0, len(ipFamilies))
-	for _, ipFamily := range ipFamilies {
-		kubeIPFamilies = append(kubeIPFamilies, corev1.IPFamily(ipFamily))
-	}
-	return kubeIPFamilies
-}
-
 func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.Service, svcExport *mcsapiv1alpha1.ServiceExport) *MCSAPIServiceSpec {
 	ports := make([]mcsapiv1alpha1.ServicePort, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
@@ -253,26 +195,20 @@ func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.S
 		Ports:           ports,
 		Type:            mcsAPISvcType,
 		SessionAffinity: corev1.ServiceAffinity(svc.Spec.SessionAffinity),
-		IPFamilies:      toKubeIPFamilies(svc.Spec.IPFamilies),
 		Annotations:     maps.Clone(svcExport.Spec.ExportedAnnotations),
 		Labels:          maps.Clone(svcExport.Spec.ExportedLabels),
 	}
 	if svc.Spec.SessionAffinityConfig != nil &&
 		svc.Spec.SessionAffinityConfig.ClientIP != nil &&
 		svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds != nil {
+
+		timeoutSeconds := *svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds
 		mcsAPISvcSpec.SessionAffinityConfig = &corev1.SessionAffinityConfig{
 			ClientIP: &corev1.ClientIPConfig{
-				TimeoutSeconds: ptr.To(*svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds),
+				TimeoutSeconds: &timeoutSeconds,
 			},
 		}
 	}
-	if svc.Spec.InternalTrafficPolicy != nil {
-		mcsAPISvcSpec.InternalTrafficPolicy = ptr.To(corev1.ServiceInternalTrafficPolicy(*svc.Spec.InternalTrafficPolicy))
-	}
-	if svc.Spec.TrafficDistribution != nil {
-		mcsAPISvcSpec.TrafficDistribution = ptr.To(*svc.Spec.TrafficDistribution)
-	}
-
 	mcsAPISvcSpec.ExportCreationTimestamp = svcExport.CreationTimestamp
 	return mcsAPISvcSpec
 }

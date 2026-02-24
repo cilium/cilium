@@ -45,7 +45,7 @@ func (m *Srv6) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var srv6TypeSrv6EncapModePropEnum []any
+var srv6TypeSrv6EncapModePropEnum []interface{}
 
 func init() {
 	var res []string

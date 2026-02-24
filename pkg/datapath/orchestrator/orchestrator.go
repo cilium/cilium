@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -16,8 +17,6 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -100,11 +99,11 @@ type orchestratorParams struct {
 	DB                  *statedb.DB
 	Devices             statedb.Table[*tables.Device]
 	NodeAddresses       statedb.Table[tables.NodeAddress]
-	Sysctl              sysctl.Sysctl
 	DirectRoutingDevice tables.DirectRoutingDevice
 	LocalNodeStore      *node.LocalNodeStore
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	JobGroup            job.Group
+	JobRegistry         job.Registry
+	Health              cell.Health
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
@@ -115,8 +114,6 @@ type orchestratorParams struct {
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
-	BIGTCPConfig        *bigtcp.Configuration
-	ConnectorConfig     datapath.ConnectorConfig
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -151,7 +148,8 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	params.JobGroup.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
+	group := params.JobRegistry.NewGroup(params.Health, params.Lifecycle)
+	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
 
 	return o
 }
@@ -203,10 +201,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
+			o.params.Log,
 			option.Config,
 			localNode,
-			o.params.Sysctl,
-			o.params.TunnelConfig,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
@@ -220,31 +217,29 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.MTU,
 			o.params.WgAgent,
 			o.params.IPsecConfig,
-			o.params.ConnectorConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
-			o.params.Log.Warn("Failed to construct local node configuration", logfields.Error, err)
-		} else {
-			// Reinitializing is expensive, only do so if the configuration has changed.
-			prevConfig := o.latestLocalNodeConfig.Load()
-			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
-					o.params.Log.Warn("Failed to initialize datapath, retrying later",
-						logfields.Error, err,
-						logfields.RetryDelay, reinitRetryDuration,
-					)
-					health.Degraded("Failed to reinitialize datapath", err)
-					retryChan = time.After(reinitRetryDuration)
-				} else {
-					retryChan = nil
-					health.OK("OK")
-				}
+		}
+
+		// Reinitializeing is expensive, only do so if the configuration has changed.
+		prevConfig := o.latestLocalNodeConfig.Load()
+		if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
+			if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
+				o.params.Log.Warn("Failed to initialize datapath, retrying later",
+					logfields.Error, err,
+					logfields.RetryDelay, reinitRetryDuration,
+				)
+				health.Degraded("Failed to reinitialize datapath", err)
+				retryChan = time.After(reinitRetryDuration)
 			} else {
-				// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
-				if request.errChan != nil {
-					close(request.errChan)
-				}
+				retryChan = nil
+				health.OK("OK")
+			}
+		} else {
+			// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
+			if request.errChan != nil {
+				close(request.errChan)
 			}
 		}
 
@@ -285,26 +280,15 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ctx = req.ctx
 	}
 
-	err := o.params.Loader.Reinitialize(
+	var errs []error
+	if err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,
 		o.params.Proxy,
-		o.params.BIGTCPConfig,
-	)
-	if err == nil {
-		err = o.params.ConnectorConfig.Reinitialize()
-	}
-	if err != nil {
-		if req.errChan != nil {
-			select {
-			case req.errChan <- err:
-			default:
-			}
-			close(req.errChan)
-		}
-		return err
+	); err != nil {
+		errs = append(errs, err)
 	}
 
 	// Store the latest local node configuration before triggering the regeneration and
@@ -327,7 +311,17 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ParentContext:     ctx,
 	}
 	o.params.EndpointManager.RegenerateAllEndpoints(regenRequest).Wait()
-	return nil
+
+	err := errors.Join(errs...)
+	if req.errChan != nil {
+		select {
+		case req.errChan <- err:
+		default:
+		}
+		close(req.errChan)
+	}
+
+	return err
 }
 
 func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
@@ -338,6 +332,16 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 	}
 
 	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats)
+}
+
+func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+	select {
+	case <-o.dpInitialized:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs)
 }
 
 func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {

@@ -1,22 +1,19 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
-
 package spec
 
 // CommonValidations describe common JSON-schema validations
 type CommonValidations struct {
-	Maximum          *float64 `json:"maximum,omitempty"`
-	ExclusiveMaximum bool     `json:"exclusiveMaximum,omitempty"`
-	Minimum          *float64 `json:"minimum,omitempty"`
-	ExclusiveMinimum bool     `json:"exclusiveMinimum,omitempty"`
-	MaxLength        *int64   `json:"maxLength,omitempty"`
-	MinLength        *int64   `json:"minLength,omitempty"`
-	Pattern          string   `json:"pattern,omitempty"`
-	MaxItems         *int64   `json:"maxItems,omitempty"`
-	MinItems         *int64   `json:"minItems,omitempty"`
-	UniqueItems      bool     `json:"uniqueItems,omitempty"`
-	MultipleOf       *float64 `json:"multipleOf,omitempty"`
-	Enum             []any    `json:"enum,omitempty"`
+	Maximum          *float64      `json:"maximum,omitempty"`
+	ExclusiveMaximum bool          `json:"exclusiveMaximum,omitempty"`
+	Minimum          *float64      `json:"minimum,omitempty"`
+	ExclusiveMinimum bool          `json:"exclusiveMinimum,omitempty"`
+	MaxLength        *int64        `json:"maxLength,omitempty"`
+	MinLength        *int64        `json:"minLength,omitempty"`
+	Pattern          string        `json:"pattern,omitempty"`
+	MaxItems         *int64        `json:"maxItems,omitempty"`
+	MinItems         *int64        `json:"minItems,omitempty"`
+	UniqueItems      bool          `json:"uniqueItems,omitempty"`
+	MultipleOf       *float64      `json:"multipleOf,omitempty"`
+	Enum             []interface{} `json:"enum,omitempty"`
 }
 
 // SetValidations defines all validations for a simple schema.
@@ -40,12 +37,12 @@ func (v *CommonValidations) SetValidations(val SchemaValidations) {
 
 type clearedValidation struct {
 	Validation string
-	Value      any
+	Value      interface{}
 }
 
 type clearedValidations []clearedValidation
 
-func (c clearedValidations) apply(cbs []func(string, any)) {
+func (c clearedValidations) apply(cbs []func(string, interface{})) {
 	for _, cb := range cbs {
 		for _, cleared := range c {
 			cb(cleared.Validation, cleared.Value)
@@ -56,7 +53,7 @@ func (c clearedValidations) apply(cbs []func(string, any)) {
 // ClearNumberValidations clears all number validations.
 //
 // Some callbacks may be set by the caller to capture changed values.
-func (v *CommonValidations) ClearNumberValidations(cbs ...func(string, any)) {
+func (v *CommonValidations) ClearNumberValidations(cbs ...func(string, interface{})) {
 	const maxNumberValidations = 5
 	done := make(clearedValidations, 0, maxNumberValidations)
 	defer func() {
@@ -88,7 +85,7 @@ func (v *CommonValidations) ClearNumberValidations(cbs ...func(string, any)) {
 // ClearStringValidations clears all string validations.
 //
 // Some callbacks may be set by the caller to capture changed values.
-func (v *CommonValidations) ClearStringValidations(cbs ...func(string, any)) {
+func (v *CommonValidations) ClearStringValidations(cbs ...func(string, interface{})) {
 	const maxStringValidations = 3
 	done := make(clearedValidations, 0, maxStringValidations)
 	defer func() {
@@ -112,7 +109,7 @@ func (v *CommonValidations) ClearStringValidations(cbs ...func(string, any)) {
 // ClearArrayValidations clears all array validations.
 //
 // Some callbacks may be set by the caller to capture changed values.
-func (v *CommonValidations) ClearArrayValidations(cbs ...func(string, any)) {
+func (v *CommonValidations) ClearArrayValidations(cbs ...func(string, interface{})) {
 	const maxArrayValidations = 3
 	done := make(clearedValidations, 0, maxArrayValidations)
 	defer func() {
@@ -166,7 +163,7 @@ func (v CommonValidations) HasEnum() bool {
 // SchemaValidations describes the validation properties of a schema
 //
 // NOTE: at this moment, this is not embedded in SchemaProps because this would induce a breaking change
-// in the exported members: all initializers using literals would fail.
+// in the exported members: all initializers using litterals would fail.
 type SchemaValidations struct {
 	CommonValidations
 
@@ -200,7 +197,7 @@ func (v SchemaValidations) Validations() SchemaValidations {
 // ClearObjectValidations returns a clone of the validations with all object validations cleared.
 //
 // Some callbacks may be set by the caller to capture changed values.
-func (v *SchemaValidations) ClearObjectValidations(cbs ...func(string, any)) {
+func (v *SchemaValidations) ClearObjectValidations(cbs ...func(string, interface{})) {
 	const maxObjectValidations = 3
 	done := make(clearedValidations, 0, maxObjectValidations)
 	defer func() {

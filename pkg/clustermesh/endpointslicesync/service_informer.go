@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -172,13 +171,6 @@ func (i *meshServiceInformer) clusterSvcToSvc(clusterSvc *store.ClusterService, 
 		mcsapiv1alpha1.LabelSourceCluster: clusterSvc.Cluster,
 	})
 
-	// Use the internal supported IP families annotation from our MCS-API implementation if present
-	valIPFamilies, ok := svc.Annotations[annotation.SupportedIPFamilies]
-	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
-	if !ok || err != nil {
-		ipFamilies = toKubeIpFamilies(svc.Spec.IPFamilies)
-	}
-
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterSvc.Name + "-" + clusterSvc.Cluster,
@@ -195,7 +187,7 @@ func (i *meshServiceInformer) clusterSvcToSvc(clusterSvc *store.ClusterService, 
 			ClusterIP:  svc.Spec.ClusterIP,
 			ClusterIPs: svc.Spec.ClusterIPs,
 			Type:       v1.ServiceType(svc.Spec.Type),
-			IPFamilies: ipFamilies,
+			IPFamilies: toKubeIpFamilies(svc.Spec.IPFamilies),
 		},
 	}, nil
 }

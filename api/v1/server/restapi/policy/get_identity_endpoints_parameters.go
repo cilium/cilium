@@ -28,6 +28,7 @@ func NewGetIdentityEndpointsParams() GetIdentityEndpointsParams {
 //
 // swagger:parameters GetIdentityEndpoints
 type GetIdentityEndpointsParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

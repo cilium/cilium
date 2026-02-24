@@ -20,10 +20,7 @@ package v1
 
 // NodeDaemonEndpointsApplyConfiguration represents a declarative configuration of the NodeDaemonEndpoints type for use
 // with apply.
-//
-// NodeDaemonEndpoints lists ports opened by daemons running on the Node.
 type NodeDaemonEndpointsApplyConfiguration struct {
-	// Endpoint on which Kubelet is listening.
 	KubeletEndpoint *DaemonEndpointApplyConfiguration `json:"kubeletEndpoint,omitempty"`
 }
 

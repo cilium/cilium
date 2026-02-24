@@ -27,7 +27,6 @@ type CiliumL2AnnouncementPolicy struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is a human readable description of a L2 announcement policy
@@ -39,7 +38,7 @@ type CiliumL2AnnouncementPolicy struct {
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
-	Status CiliumL2AnnouncementPolicyStatus `json:"status,omitempty"`
+	Status CiliumL2AnnouncementPolicyStatus `json:"status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -67,7 +66,7 @@ type CiliumL2AnnouncementPolicySpec struct {
 	// If nil this policy applies to all nodes.
 	//
 	// +kubebuilder:validation:Optional
-	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector"`
 	// ServiceSelector selects a set of services which will be announced over L2 networks.
 	// The loadBalancerClass for a service must be nil or specify a supported class, e.g.
 	// "io.cilium/l2-announcer". Refer to the following document for additional details
@@ -78,22 +77,22 @@ type CiliumL2AnnouncementPolicySpec struct {
 	// If nil this policy applies to all services.
 	//
 	// +kubebuilder:validation:Optional
-	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector,omitempty"`
+	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
 	// If true, the loadbalancer IPs of the services are announced
 	//
 	// If nil this policy applies to all services.
 	//
 	// +kubebuilder:validation:Optional
-	LoadBalancerIPs bool `json:"loadBalancerIPs,omitempty"`
+	LoadBalancerIPs bool `json:"loadBalancerIPs"`
 	// If true, the external IPs of the services are announced
 	//
 	// +kubebuilder:validation:Optional
-	ExternalIPs bool `json:"externalIPs,omitempty"`
+	ExternalIPs bool `json:"externalIPs"`
 	// A list of regular expressions that express which network interface(s) should be used
 	// to announce the services over. If nil, all network interfaces are used.
 	//
 	// +kubebuilder:validation:Optional
-	Interfaces []string `json:"interfaces,omitempty"`
+	Interfaces []string `json:"interfaces"`
 }
 
 // +deepequal-gen=false
@@ -101,7 +100,7 @@ type CiliumL2AnnouncementPolicySpec struct {
 // CiliumL2AnnouncementPolicyStatus contains the status of a CiliumL2AnnouncementPolicy.
 type CiliumL2AnnouncementPolicyStatus struct {
 	// Current service state
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map

@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package spec
 
@@ -8,7 +19,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strconv"
 
 	"github.com/go-openapi/jsonpointer"
@@ -26,7 +36,7 @@ type Swagger struct {
 }
 
 // JSONLookup look up a value by the json property name
-func (s Swagger) JSONLookup(token string) (any, error) {
+func (s Swagger) JSONLookup(token string) (interface{}, error) {
 	if ex, ok := s.Extensions[token]; ok {
 		return &ex, nil
 	}
@@ -217,7 +227,7 @@ type SchemaOrBool struct {
 }
 
 // JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrBool) JSONLookup(token string) (any, error) {
+func (s SchemaOrBool) JSONLookup(token string) (interface{}, error) {
 	if token == "allows" {
 		return s.Allows, nil
 	}
@@ -264,7 +274,7 @@ type SchemaOrStringArray struct {
 }
 
 // JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrStringArray) JSONLookup(token string) (any, error) {
+func (s SchemaOrStringArray) JSONLookup(token string) (interface{}, error) {
 	r, _, err := jsonpointer.GetForToken(s.Schema, token)
 	return r, err
 }
@@ -323,11 +333,16 @@ type StringOrArray []string
 
 // Contains returns true when the value is contained in the slice
 func (s StringOrArray) Contains(value string) bool {
-	return slices.Contains(s, value)
+	for _, str := range s {
+		if str == value {
+			return true
+		}
+	}
+	return false
 }
 
 // JSONLookup implements an interface to customize json pointer lookup
-func (s SchemaOrArray) JSONLookup(token string) (any, error) {
+func (s SchemaOrArray) JSONLookup(token string) (interface{}, error) {
 	if _, err := strconv.Atoi(token); err == nil {
 		r, _, err := jsonpointer.GetForToken(s.Schemas, token)
 		return r, err
@@ -352,7 +367,7 @@ func (s *StringOrArray) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	var single any
+	var single interface{}
 	if err := json.Unmarshal(data, &single); err != nil {
 		return err
 	}

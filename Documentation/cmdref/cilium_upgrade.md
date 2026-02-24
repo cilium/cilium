@@ -38,13 +38,12 @@ cilium upgrade [flags]
       --repository string         Helm chart repository to download Cilium charts from (default "https://helm.cilium.io")
       --reset-then-reuse-values   When upgrading, reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f. If '--reset-values' or '--reuse-values' is specified, this is ignored (default true)
       --reset-values              When upgrading, reset the helm values to the ones built into the chart
-  -r, --restart                   Force restart Cilium pods
       --reuse-values              When upgrading, reuse the helm values from the latest release unless any overrides from are set from other flags. This option takes precedence over HelmResetValues
       --set stringArray           Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray      Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-string stringArray    Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
   -f, --values strings            Specify helm values in a YAML file or a URL (can specify multiple)
-      --version string            Cilium version to install (default "v1.19.1")
+      --version string            Cilium version to install (default "v1.18.2")
       --wait                      Wait for helm install to finish
       --wait-duration duration    Maximum time to wait for status (default 5m0s)
 ```
@@ -57,7 +56,7 @@ cilium upgrade [flags]
       --context string             Kubernetes configuration context
       --helm-release-name string   Helm release name (default "cilium")
       --kubeconfig string          Path to the kubeconfig file
-  -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
+  -n, --namespace string           Namespace Cilium is running in (default "kube-system")
 ```
 
 ### SEE ALSO

@@ -32,17 +32,12 @@ type BufferPool interface {
 	Get(length int) *[]byte
 
 	// Put returns a buffer to the pool.
-	//
-	// The provided pointer must hold a prefix of the buffer obtained via
-	// BufferPool.Get to ensure the buffer's entire capacity can be re-used.
 	Put(*[]byte)
 }
 
-const goPageSize = 4 << 10 // 4KiB. N.B. this must be a power of 2.
-
 var defaultBufferPoolSizes = []int{
 	256,
-	goPageSize,
+	4 << 10,  // 4KB (go page size)
 	16 << 10, // 16KB (max HTTP/2 frame size used by gRPC)
 	32 << 10, // 32KB (default buffer size for io.Copy)
 	1 << 20,  // 1MB
@@ -53,7 +48,7 @@ var defaultBufferPool BufferPool
 func init() {
 	defaultBufferPool = NewTieredBufferPool(defaultBufferPoolSizes...)
 
-	internal.SetDefaultBufferPool = func(pool BufferPool) {
+	internal.SetDefaultBufferPoolForTesting = func(pool BufferPool) {
 		defaultBufferPool = pool
 	}
 
@@ -123,11 +118,7 @@ type sizedBufferPool struct {
 }
 
 func (p *sizedBufferPool) Get(size int) *[]byte {
-	buf, ok := p.pool.Get().(*[]byte)
-	if !ok {
-		buf := make([]byte, size, p.defaultSize)
-		return &buf
-	}
+	buf := p.pool.Get().(*[]byte)
 	b := *buf
 	clear(b[:cap(b)])
 	*buf = b[:size]
@@ -146,6 +137,12 @@ func (p *sizedBufferPool) Put(buf *[]byte) {
 
 func newSizedBufferPool(size int) *sizedBufferPool {
 	return &sizedBufferPool{
+		pool: sync.Pool{
+			New: func() any {
+				buf := make([]byte, size)
+				return &buf
+			},
+		},
 		defaultSize: size,
 	}
 }
@@ -163,7 +160,6 @@ type simpleBufferPool struct {
 func (p *simpleBufferPool) Get(size int) *[]byte {
 	bs, ok := p.pool.Get().(*[]byte)
 	if ok && cap(*bs) >= size {
-		clear((*bs)[:cap(*bs)])
 		*bs = (*bs)[:size]
 		return bs
 	}
@@ -174,14 +170,7 @@ func (p *simpleBufferPool) Get(size int) *[]byte {
 		p.pool.Put(bs)
 	}
 
-	// If we're going to allocate, round up to the nearest page. This way if
-	// requests frequently arrive with small variation we don't allocate
-	// repeatedly if we get unlucky and they increase over time. By default we
-	// only allocate here if size > 1MiB. Because goPageSize is a power of 2, we
-	// can round up efficiently.
-	allocSize := (size + goPageSize - 1) & ^(goPageSize - 1)
-
-	b := make([]byte, size, allocSize)
+	b := make([]byte, size)
 	return &b
 }
 

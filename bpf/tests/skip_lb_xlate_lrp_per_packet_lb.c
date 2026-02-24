@@ -8,14 +8,12 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK
+#define ENABLE_LOCAL_REDIRECT_POLICY 1
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #include "lib/bpf_lxc.h"
 
-#define NETNS_COOKIE	5000
-
-ASSIGN_CONFIG(bool, enable_lrp, true)
-ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
+ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
 
 #include "lib/lb.h"
 #include "lib/ipcache.h"
@@ -61,7 +59,7 @@ int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 
 	/* Add the service in cilium_skip_lb4 to skip service translation for request originating from the local backend */
 	struct skip_lb4_key key = {
-		.netns_cookie = NETNS_COOKIE,
+		.netns_cookie = ENDPOINT_NETNS_COOKIE,
 		.address = V4_SERVICE_IP,
 		.port = SERVICE_PORT,
 	};
@@ -156,7 +154,7 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 
 	/* Add the service in cilium_skip_lb6 to skip service translation for request originating from the local backend */
 	struct skip_lb6_key key __align_stack_8 = {
-		.netns_cookie = NETNS_COOKIE,
+		.netns_cookie = ENDPOINT_NETNS_COOKIE,
 		.port = SERVICE_PORT,
 	};
 	__u8 val = 0;

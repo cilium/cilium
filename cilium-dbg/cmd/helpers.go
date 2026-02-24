@@ -66,6 +66,16 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 	}
 }
 
+func requirePath(cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		Usagef(cmd, "Missing path argument")
+	}
+
+	if args[0] == "" {
+		Usagef(cmd, "Empty path argument")
+	}
+}
+
 // TablePrinter prints the map[string][]string, which is an usual representation
 // of dumped BPF map, using tabwriter.
 func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
@@ -178,11 +188,7 @@ type PolicyUpdateArgs struct {
 	// command, if specified.
 	protocols []u8proto.U8proto
 
-	// isDeny is true when the policy should be denied.
 	isDeny bool
-
-	// cookie is the policy log cookie.
-	cookie uint32
 }
 
 // parseTrafficString converts the provided string to its corresponding
@@ -205,18 +211,12 @@ func parseTrafficString(td string) (trafficdirection.TrafficDirection, error) {
 // command, provided as a list containing the endpoint ID, traffic direction,
 // identity and optionally, a list of ports.
 // Returns a parsed representation of the command arguments.
-func parsePolicyUpdateArgs(
-	logger *slog.Logger,
-	cmd *cobra.Command,
-	args []string,
-	isDeny bool,
-	cookie uint32,
-) *PolicyUpdateArgs {
+func parsePolicyUpdateArgs(logger *slog.Logger, cmd *cobra.Command, args []string, isDeny bool) *PolicyUpdateArgs {
 	if len(args) < 3 {
 		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
 	}
 
-	pa, err := parsePolicyUpdateArgsHelper(logger, args, isDeny, cookie)
+	pa, err := parsePolicyUpdateArgsHelper(logger, args, isDeny)
 	if err != nil {
 		Fatalf("%s", err)
 	}
@@ -243,7 +243,7 @@ func endpointToPolicyMapPath(logger *slog.Logger, endpointID string) (string, er
 	return bpf.MapPath(logger, mapName), nil
 }
 
-func parsePolicyUpdateArgsHelper(logger *slog.Logger, args []string, isDeny bool, cookie uint32) (*PolicyUpdateArgs, error) {
+func parsePolicyUpdateArgsHelper(logger *slog.Logger, args []string, isDeny bool) (*PolicyUpdateArgs, error) {
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
@@ -291,7 +291,6 @@ func parsePolicyUpdateArgsHelper(logger *slog.Logger, args []string, isDeny bool
 		port:             port,
 		protocols:        protos,
 		isDeny:           isDeny,
-		cookie:           cookie,
 	}
 
 	return pa, nil
@@ -315,7 +314,7 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 		entry := fmt.Sprintf("%d %d/%s", pa.label, pa.port, u8p.String())
 		mapKey := policymap.NewKeyFromPolicyKey(policyTypes.KeyForDirection(pa.trafficDirection).WithIdentity(pa.label).WithPortProto(proto, pa.port))
 		if add {
-			mapEntry := policymap.NewEntryFromPolicyEntry(mapKey, policyTypes.MapStateEntry{Cookie: pa.cookie}.WithDeny(pa.isDeny))
+			mapEntry := policymap.NewEntryFromPolicyEntry(mapKey, policyTypes.MapStateEntry{}.WithDeny(pa.isDeny))
 			if err := policyMap.Update(&mapKey, &mapEntry); err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}

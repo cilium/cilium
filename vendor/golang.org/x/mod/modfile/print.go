@@ -33,7 +33,7 @@ type printer struct {
 }
 
 // printf prints to the buffer.
-func (p *printer) printf(format string, args ...any) {
+func (p *printer) printf(format string, args ...interface{}) {
 	fmt.Fprintf(p, format, args...)
 }
 

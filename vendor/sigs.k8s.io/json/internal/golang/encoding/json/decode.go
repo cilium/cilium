@@ -52,8 +52,8 @@ import (
 //   - bool, for JSON booleans
 //   - float64, for JSON numbers
 //   - string, for JSON strings
-//   - []any, for JSON arrays
-//   - map[string]any, for JSON objects
+//   - []interface{}, for JSON arrays
+//   - map[string]interface{}, for JSON objects
 //   - nil for JSON null
 //
 // To unmarshal a JSON array into a slice, Unmarshal resets the slice length
@@ -117,6 +117,9 @@ func Unmarshal(data []byte, v any, opts ...UnmarshalOpt) error {
 // The input can be assumed to be a valid encoding of
 // a JSON value. UnmarshalJSON must copy the JSON data
 // if it wishes to retain the data after returning.
+//
+// By convention, to approximate the behavior of [Unmarshal] itself,
+// Unmarshalers implement UnmarshalJSON([]byte("null")) as a no-op.
 type Unmarshaler interface {
 	UnmarshalJSON([]byte) error
 }
@@ -129,7 +132,7 @@ type UnmarshalTypeError struct {
 	Type   reflect.Type // type of Go value it could not be assigned to
 	Offset int64        // error occurred after reading Offset bytes
 	Struct string       // name of the struct type containing the field
-	Field  string       // the full path from root node to the field, include embedded struct
+	Field  string       // the full path from root node to the field
 }
 
 func (e *UnmarshalTypeError) Error() string {
@@ -278,11 +281,7 @@ func (d *decodeState) addErrorContext(err error) error {
 		switch err := err.(type) {
 		case *UnmarshalTypeError:
 			err.Struct = d.errorContext.Struct.Name()
-			fieldStack := d.errorContext.FieldStack
-			if err.Field != "" {
-				fieldStack = append(fieldStack, err.Field)
-			}
-			err.Field = strings.Join(fieldStack, ".")
+			err.Field = strings.Join(d.errorContext.FieldStack, ".")
 		}
 	}
 	return err
@@ -493,9 +492,9 @@ func indirect(v reflect.Value, decodingNull bool) (Unmarshaler, encoding.TextUnm
 		}
 
 		// Prevent infinite loop if v is an interface pointing to its own address:
-		//     var v any
+		//     var v interface{}
 		//     v = &v
-		if v.Elem().Kind() == reflect.Interface && v.Elem().Elem().Equal(v) {
+		if v.Elem().Kind() == reflect.Interface && v.Elem().Elem() == v {
 			v = v.Elem()
 			break
 		}
@@ -785,10 +784,7 @@ func (d *decodeState) object(v reflect.Value) error {
 				}
 				subv = v
 				destring = f.quoted
-				if d.errorContext == nil {
-					d.errorContext = new(errorContext)
-				}
-				for i, ind := range f.index {
+				for _, i := range f.index {
 					if subv.Kind() == reflect.Pointer {
 						if subv.IsNil() {
 							// If a struct embeds a pointer to an unexported type,
@@ -808,16 +804,13 @@ func (d *decodeState) object(v reflect.Value) error {
 						}
 						subv = subv.Elem()
 					}
-					if i < len(f.index)-1 {
-						d.errorContext.FieldStack = append(
-							d.errorContext.FieldStack,
-							subv.Type().Field(ind).Name,
-						)
-					}
-					subv = subv.Field(ind)
+					subv = subv.Field(i)
 				}
-				d.errorContext.Struct = t
+				if d.errorContext == nil {
+					d.errorContext = new(errorContext)
+				}
 				d.errorContext.FieldStack = append(d.errorContext.FieldStack, f.name)
+				d.errorContext.Struct = t
 				d.appendStrictFieldStackKey(f.name)
 			} else if d.disallowUnknownFields {
 				d.saveStrictError(d.newFieldError(unknownStrictErrType, string(key)))
@@ -1125,7 +1118,7 @@ func (d *decodeState) literalStore(item []byte, v reflect.Value, fromQuoted bool
 // in an empty interface. They are not strictly necessary,
 // but they avoid the weight of reflection in this common case.
 
-// valueInterface is like value but returns any.
+// valueInterface is like value but returns interface{}
 func (d *decodeState) valueInterface() (val any) {
 	switch d.opcode {
 	default:
@@ -1142,7 +1135,7 @@ func (d *decodeState) valueInterface() (val any) {
 	return
 }
 
-// arrayInterface is like array but returns []any.
+// arrayInterface is like array but returns []interface{}.
 func (d *decodeState) arrayInterface() []any {
 	origStrictFieldStackLen := len(d.strictFieldStack)
 	defer func() {
@@ -1177,7 +1170,7 @@ func (d *decodeState) arrayInterface() []any {
 	return v
 }
 
-// objectInterface is like object but returns map[string]any.
+// objectInterface is like object but returns map[string]interface{}.
 func (d *decodeState) objectInterface() map[string]any {
 	origStrictFieldStackLen := len(d.strictFieldStack)
 	defer func() {

@@ -35,6 +35,10 @@ func (c *FakeCiliumV2alpha1) CiliumBGPPeerConfigs() v2alpha1.CiliumBGPPeerConfig
 	return newFakeCiliumBGPPeerConfigs(c)
 }
 
+func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeeringPolicyInterface {
+	return newFakeCiliumBGPPeeringPolicies(c)
+}
+
 func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterface {
 	return newFakeCiliumCIDRGroups(c)
 }
@@ -43,8 +47,8 @@ func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSlice
 	return newFakeCiliumEndpointSlices(c)
 }
 
-func (c *FakeCiliumV2alpha1) CiliumGatewayClassConfigs(namespace string) v2alpha1.CiliumGatewayClassConfigInterface {
-	return newFakeCiliumGatewayClassConfigs(c, namespace)
+func (c *FakeCiliumV2alpha1) CiliumGatewayClassConfigs() v2alpha1.CiliumGatewayClassConfigInterface {
+	return newFakeCiliumGatewayClassConfigs(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumL2AnnouncementPolicies() v2alpha1.CiliumL2AnnouncementPolicyInterface {

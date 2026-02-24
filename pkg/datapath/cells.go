@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -21,13 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
-	deviceReconciler "github.com/cilium/cilium/pkg/datapath/linux/device"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
@@ -54,9 +51,6 @@ var Cell = cell.Module(
 
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,
-
-	// Cleanup of stale and disabled BPF maps
-	datapathmaps.Cell,
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
@@ -116,9 +110,6 @@ var Cell = cell.Module(
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,
 
-	// Connector provides pod-specific interface configuration
-	connector.Cell,
-
 	orchestrator.Cell,
 
 	// DevicesController manages the devices and routes tables
@@ -161,9 +152,6 @@ var Cell = cell.Module(
 	// Provides the desired route table, and a reconciler that installs these desired routes
 	// into the Linux kernel routing table.
 	routeReconciler.Cell,
-
-	// Provides the desired device table, and a reconciler that install these links into the Linux kernel.
-	deviceReconciler.Cell,
 )
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {

@@ -239,19 +239,6 @@ func (m *CustomTag) validate(all bool) error {
 			}
 		}
 
-	case *CustomTag_Value:
-		if v == nil {
-			err := CustomTagValidationError{
-				field:  "Type",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofTypePresent = true
-		// no validation rules for Value
 	default:
 		_ = v // ensures v is used
 	}
@@ -279,7 +266,7 @@ type CustomTagMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CustomTagMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -390,7 +377,7 @@ type CustomTag_LiteralMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CustomTag_LiteralMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -505,7 +492,7 @@ type CustomTag_EnvironmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CustomTag_EnvironmentMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -631,7 +618,7 @@ type CustomTag_HeaderMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CustomTag_HeaderMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -793,7 +780,7 @@ type CustomTag_MetadataMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m CustomTag_MetadataMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

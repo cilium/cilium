@@ -21,8 +21,7 @@ import (
 // For Set-only use only [bytesFromKey] needs to be defined.
 type Set[T any] struct {
 	toBytes func(T) []byte
-	tree    Tree[T]
-	hasTree bool
+	tree    *Tree[T]
 }
 
 // NewSet creates a new set of T.
@@ -37,14 +36,13 @@ func NewSet[T any](values ...T) Set[T] {
 	for _, v := range values {
 		txn.Insert(s.toBytes(v), v)
 	}
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	return s
 }
 
 func (s *Set[T]) ensureTree() {
-	if !s.hasTree {
-		s.tree = New[T](RootOnlyWatch)
-		s.hasTree = true
+	if s.tree == nil {
+		s.tree = New[T](RootOnlyWatch, NoCache)
 	}
 	s.toBytes = lookupKeyType[T]()
 }
@@ -54,59 +52,49 @@ func (s Set[T]) Set(v T) Set[T] {
 	s.ensureTree()
 	txn := s.tree.Txn()
 	txn.Insert(s.toBytes(v), v)
-	s.tree = txn.Commit() // As Set is passed by value we can just modify it.
+	s.tree = txn.CommitOnly() // As Set is passed by value we can just modify it.
 	return s
 }
 
 // Delete returns a new set without the value. The original
 // set is unchanged.
 func (s Set[T]) Delete(v T) Set[T] {
-	if !s.hasTree {
+	if s.tree == nil {
 		return s
 	}
 	txn := s.tree.Txn()
 	txn.Delete(s.toBytes(v))
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	if s.tree.Len() == 0 {
-		s.tree = Tree[T]{}
-		s.hasTree = false
+		s.tree = nil
 	}
 	return s
 }
 
 // Has returns true if the set has the value.
 func (s Set[T]) Has(v T) bool {
-	if !s.hasTree {
+	if s.tree == nil {
 		return false
 	}
 	_, _, found := s.tree.Get(s.toBytes(v))
 	return found
 }
 
-func emptySeq[T any](yield func(T) bool) {
-}
-
 // All returns an iterator for all values.
 func (s Set[T]) All() iter.Seq[T] {
-	if !s.hasTree {
-		return emptySeq[T]
+	if s.tree == nil {
+		return toSeq[T](nil)
 	}
-	return s.yieldAll
-}
-
-func (s Set[T]) yieldAll(yield func(v T) bool) {
-	for _, v := range s.tree.Iterator().All {
-		yield(v)
-	}
+	return toSeq(s.tree.Iterator())
 }
 
 // Union returns a set that is the union of the values
 // in the input sets.
 func (s Set[T]) Union(s2 Set[T]) Set[T] {
-	if !s2.hasTree {
+	if s2.tree == nil {
 		return s
 	}
-	if !s.hasTree {
+	if s.tree == nil {
 		return s2
 	}
 	txn := s.tree.Txn()
@@ -114,14 +102,14 @@ func (s Set[T]) Union(s2 Set[T]) Set[T] {
 	for k, v, ok := iter.Next(); ok; k, v, ok = iter.Next() {
 		txn.Insert(k, v)
 	}
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	return s
 }
 
 // Difference returns a set with values that only
 // appear in the first set.
 func (s Set[T]) Difference(s2 Set[T]) Set[T] {
-	if !s.hasTree || !s2.hasTree {
+	if s.tree == nil || s2.tree == nil {
 		return s
 	}
 
@@ -130,13 +118,13 @@ func (s Set[T]) Difference(s2 Set[T]) Set[T] {
 	for k, _, ok := iter.Next(); ok; k, _, ok = iter.Next() {
 		txn.Delete(k)
 	}
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	return s
 }
 
 // Len returns the number of values in the set.
 func (s Set[T]) Len() int {
-	if !s.hasTree {
+	if s.tree == nil {
 		return 0
 	}
 	return s.tree.size
@@ -145,7 +133,7 @@ func (s Set[T]) Len() int {
 // Equal returns true if the two sets contain the equal keys.
 func (s Set[T]) Equal(other Set[T]) bool {
 	switch {
-	case !s.hasTree && !other.hasTree:
+	case s.tree == nil && other.tree == nil:
 		return true
 	case s.Len() != other.Len():
 		return false
@@ -175,7 +163,7 @@ func (s Set[T]) ToBytesFunc() func(T) []byte {
 }
 
 func (s Set[T]) MarshalJSON() ([]byte, error) {
-	if !s.hasTree {
+	if s.tree == nil {
 		return []byte("[]"), nil
 	}
 	var b bytes.Buffer
@@ -219,10 +207,9 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 		}
 		txn.Insert(s.toBytes(x), x)
 	}
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	if s.tree.Len() == 0 {
-		s.tree = Tree[T]{}
-		s.hasTree = false
+		s.tree = nil
 	}
 
 	t, err = dec.Token()
@@ -256,6 +243,20 @@ func (s *Set[T]) UnmarshalYAML(value *yaml.Node) error {
 		}
 		txn.Insert(s.toBytes(v), v)
 	}
-	s.tree = txn.Commit()
+	s.tree = txn.CommitOnly()
 	return nil
+}
+
+func toSeq[T any](iter *Iterator[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		if iter == nil {
+			return
+		}
+		iter = iter.Clone()
+		for _, x, ok := iter.Next(); ok; _, x, ok = iter.Next() {
+			if !yield(x) {
+				break
+			}
+		}
+	}
 }

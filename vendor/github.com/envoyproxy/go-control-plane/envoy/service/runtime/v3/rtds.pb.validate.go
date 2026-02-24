@@ -71,7 +71,7 @@ type RtdsDummyMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RtdsDummyMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -209,7 +209,7 @@ type RuntimeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RuntimeMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

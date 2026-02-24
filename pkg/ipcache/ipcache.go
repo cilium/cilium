@@ -504,11 +504,6 @@ type MU struct {
 	IsCIDR   bool
 }
 
-// cidrResourceID is a fixed resource type to represent CIDR metadata entries
-// from policies. This resource type represents entries from the CIDR
-// consolidation optimization logic.
-var cidrResourceID = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "consolidated-prefix")
-
 // UpsertMetadata upserts a given IP and some corresponding information into
 // the ipcache metadata map. See IPMetadata for a list of types that are valid
 // to pass into this function. This will trigger asynchronous calculation of
@@ -527,11 +522,7 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Add(upd.Prefix) {
-			resource := upd.Resource
-			if upd.IsCIDR {
-				resource = cidrResourceID
-			}
-			prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, resource, upd.Metadata...)...)
+			prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
 		}
 	}
 	ipc.metadata.Unlock()
@@ -562,11 +553,7 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	ipc.metadata.Lock()
 	for _, upd := range updates {
 		if !upd.IsCIDR || ipc.metadata.prefixRefCounter.Delete(upd.Prefix) {
-			resource := upd.Resource
-			if upd.IsCIDR {
-				resource = cidrResourceID
-			}
-			prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, resource, upd.Metadata...)...)
+			prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
 		}
 	}
 	ipc.metadata.Unlock()

@@ -260,22 +260,6 @@ func getAppProtocol(m *model.Model, ns string, name string, port string) string 
 	return ""
 }
 
-func getTLSOrigination(m *model.Model, ns string, name string, port string) *model.BackendTLSOrigination {
-	for _, l := range m.HTTP {
-		for _, r := range l.Routes {
-			for _, be := range r.Backends {
-				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
-					if be.TLS != nil {
-						return be.TLS
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // getNamespaceNamePortsMap returns a map of namespace -> name -> ports.
 // it gets all HTTP and TLS routes.
 // The ports are sorted and unique.

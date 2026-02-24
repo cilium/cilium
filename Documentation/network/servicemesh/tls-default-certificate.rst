@@ -29,13 +29,16 @@ Installation
         ``ingressController.defaultSecretName```
         set as true. Please refer to :ref:`k8s_install_helm` for a fresh installation.
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: ingressController.defaultSecretNamespace=kube-system
-                 ingressController.defaultSecretName=default-cert
-           :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
-                           kubectl -n kube-system rollout restart ds/cilium
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --reuse-values \\
+                --set ingressController.defaultSecretNamespace=kube-system \\
+                --set ingressController.defaultSecretName=default-cert
+
+            $ kubectl -n kube-system rollout restart deployment/cilium-operator
+            $ kubectl -n kube-system rollout restart ds/cilium
 
     .. group-tab:: Cilium CLI
 
@@ -45,8 +48,8 @@ Installation
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \\
-                --set kubeProxyReplacement=true \\
-                --set ingressController.enabled=true \\
-                --set ingressController.defaultSecretNamespace=kube-system \\
+            $ cilium install |CHART_VERSION| \
+                --set kubeProxyReplacement=true \
+                --set ingressController.enabled=true \
+                --set ingressController.defaultSecretNamespace=kube-system \
                 --set ingressController.defaultSecretName=default-cert

@@ -6,8 +6,6 @@ package secretsync
 import (
 	"context"
 	"log/slog"
-	"math/rand/v2"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,8 +73,6 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		}
 	}
 
-	changed := synced
-
 	// Check whether synced secret needs to be deleted from the secret namespaces
 	// where the secret is no longer referenced by any registration.
 	for ns := range cleanupNamespaces {
@@ -85,33 +81,11 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		if err != nil {
 			return controllerruntime.Fail(err)
 		}
-		changed = changed || deleted
+		synced = synced || deleted
 	}
 
-	if synced {
-		resync := r.getJitteredResyncInterval()
-		scopedLog.DebugContext(ctx, "Successfully reconciled Secret with resync",
-			logfields.Action, action(synced),
-			logfields.SyncInterval, resync)
-		return ctrl.Result{RequeueAfter: resync}, nil
-	}
-
-	// If the object wasn't deleted, setup a resync.
-	scopedLog.DebugContext(ctx, "Successfully reconciled Secret",
-		logfields.Action, action(changed))
-	return ctrl.Result{}, nil
-}
-
-func (r *secretSyncer) getJitteredResyncInterval() time.Duration {
-	// We use the global rand source, as we don't need strong randomness.
-	maxJitter := time.Duration(float64(r.resyncInterval) * float64(r.jitterAmount))
-	randomJitter := time.Duration(rand.Float64() * float64(maxJitter))
-	randomSign := rand.IntN(2)
-	if randomSign > 1 {
-		return r.resyncInterval + randomJitter
-	}
-
-	return r.resyncInterval - randomJitter
+	scopedLog.DebugContext(ctx, "Successfully reconciled Secret", logfields.Action, action(synced))
+	return controllerruntime.Success()
 }
 
 func action(synced bool) string {
@@ -125,8 +99,7 @@ func action(synced bool) string {
 
 func (r *secretSyncer) cleanupSyncedSecret(ctx context.Context, req reconcile.Request, scopedLog *slog.Logger, ns string) (bool, error) {
 	syncSecret := &corev1.Secret{}
-	syncedSecretName := types.NamespacedName{Namespace: ns, Name: req.Namespace + "-" + req.Name}
-	if err := r.client.Get(ctx, syncedSecretName, syncSecret); err == nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: ns, Name: req.Namespace + "-" + req.Name}, syncSecret); err == nil {
 		// Try to delete existing synced secret
 		scopedLog.DebugContext(ctx, "Delete synced secret", logfields.K8sNamespace, ns)
 		if err := r.client.Delete(ctx, syncSecret); err != nil {

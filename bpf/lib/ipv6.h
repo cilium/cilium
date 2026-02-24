@@ -7,7 +7,6 @@
 
 #include "eth.h"
 #include "dbg.h"
-#include "ipv6_core.h"
 #include "l4.h"
 #include "metrics.h"
 #include "ipfrag.h"
@@ -126,8 +125,7 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off
 	 * - protocol = 0 (unused when !is_fragment)
 	 * This is the default in case no NEXTHDR_FRAGMENT is found.
 	 */
-	if (fraginfo)
-		*fraginfo = 0;
+	*fraginfo = 0;
 
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
@@ -142,7 +140,7 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, int l3_off
 			return len;
 		}
 
-		if (fraginfo && nh == NEXTHDR_FRAGMENT) {
+		if (nh == NEXTHDR_FRAGMENT) {
 			struct ipv6_frag_hdr frag = { 0 };
 
 			if (ctx_load_bytes(ctx, l3_off + len, &frag, sizeof(frag)) < 0)
@@ -168,7 +166,9 @@ static __always_inline int ipv6_hdrlen_with_fraginfo(struct __ctx_buff *ctx,
 
 static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 {
-	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, NULL);
+	fraginfo_t fraginfo;
+
+	return ipv6_hdrlen_offset(ctx, ETH_HLEN, nexthdr, &fraginfo);
 }
 
 static __always_inline void ipv6_addr_copy(union v6addr *dst,
@@ -275,7 +275,7 @@ static __always_inline int ipv6_load_saddr(struct __ctx_buff *ctx, int off,
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static __always_inline int ipv6_store_saddr(struct __ctx_buff *ctx, const __u8 *addr,
+static __always_inline int ipv6_store_saddr(struct __ctx_buff *ctx, __u8 *addr,
 					    int off)
 {
 	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);

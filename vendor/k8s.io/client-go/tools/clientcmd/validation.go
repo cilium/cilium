@@ -25,7 +25,6 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/validation"
-	authexec "k8s.io/client-go/plugin/pkg/client/auth/exec"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -327,10 +326,6 @@ func validateAuthInfo(authInfoName string, authInfo clientcmdapi.AuthInfo) []err
 			// These are valid
 		default:
 			validationErrors = append(validationErrors, fmt.Errorf("invalid interactiveMode for %v: %q", authInfoName, authInfo.Exec.InteractiveMode))
-		}
-
-		if err := authexec.ValidatePluginPolicy(authInfo.Exec.PluginPolicy); err != nil {
-			validationErrors = append(validationErrors, fmt.Errorf("allowlist misconfiguration: %w", err))
 		}
 	}
 

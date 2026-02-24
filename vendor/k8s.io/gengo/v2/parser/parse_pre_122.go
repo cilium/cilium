@@ -28,7 +28,3 @@ import (
 func (p *Parser) walkAliasType(u types.Universe, in gotypes.Type) *types.Type {
 	return nil
 }
-
-func isTypeAlias(in gotypes.Type) bool {
-	return false
-}

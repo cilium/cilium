@@ -54,6 +54,47 @@ func (hs *handles) Close() error {
 	return errors.Join(errs...)
 }
 
+// splitSymbols splits insns into subsections delimited by Symbol Instructions.
+// insns cannot be empty and must start with a Symbol Instruction.
+//
+// The resulting map is indexed by Symbol name.
+func splitSymbols(insns asm.Instructions) (map[string]asm.Instructions, error) {
+	if len(insns) == 0 {
+		return nil, errors.New("insns is empty")
+	}
+
+	currentSym := insns[0].Symbol()
+	if currentSym == "" {
+		return nil, errors.New("insns must start with a Symbol")
+	}
+
+	start := 0
+	progs := make(map[string]asm.Instructions)
+	for i, ins := range insns[1:] {
+		i := i + 1
+
+		sym := ins.Symbol()
+		if sym == "" {
+			continue
+		}
+
+		// New symbol, flush the old one out.
+		progs[currentSym] = slices.Clone(insns[start:i])
+
+		if progs[sym] != nil {
+			return nil, fmt.Errorf("insns contains duplicate Symbol %s", sym)
+		}
+		currentSym = sym
+		start = i
+	}
+
+	if tail := insns[start:]; len(tail) > 0 {
+		progs[currentSym] = slices.Clone(tail)
+	}
+
+	return progs, nil
+}
+
 // The linker is responsible for resolving bpf-to-bpf calls between programs
 // within an ELF. Each BPF program must be a self-contained binary blob,
 // so when an instruction in one ELF program section wants to jump to
@@ -482,11 +523,8 @@ func resolveKsymReferences(insns asm.Instructions) error {
 		return nil
 	}
 
-	err := kallsyms.AssignAddresses(symbols)
-	// Tolerate ErrRestrictedKernel during initial lookup, user may have all weak
-	// ksyms and a fallback path.
-	if err != nil && !errors.Is(err, ErrRestrictedKernel) {
-		return fmt.Errorf("resolve ksyms: %w", err)
+	if err := kallsyms.AssignAddresses(symbols); err != nil {
+		return fmt.Errorf("resolve ksym addresses: %w", err)
 	}
 
 	var missing []string
@@ -504,11 +542,6 @@ func resolveKsymReferences(insns asm.Instructions) error {
 	}
 
 	if len(missing) > 0 {
-		if err != nil {
-			// Program contains required ksyms, return the error from above.
-			return fmt.Errorf("resolve required ksyms: %s: %w", strings.Join(missing, ","), err)
-		}
-
 		return fmt.Errorf("kernel is missing symbol: %s", strings.Join(missing, ","))
 	}
 

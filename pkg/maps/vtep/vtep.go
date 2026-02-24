@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"net"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -39,7 +37,7 @@ type Map interface {
 
 // Key implements the bpf.MapKey interface.
 //
-// Must be in sync with struct vtep_key in <bpf/lib/vtep.h>
+// Must be in sync with struct vtep_key in <bpf/lib/common.h>
 type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
@@ -55,8 +53,7 @@ func newKey(ip net.IP) Key {
 	result := Key{}
 
 	if ip4 := ip.To4(); ip4 != nil {
-		maskBytes := option.Config.VtepCidrMask.As4()
-		ip4.Mask(net.IPMask(maskBytes[:]))
+		ip4.Mask(net.IPMask(option.Config.VtepCidrMask))
 		copy(result.IP[:], ip4)
 	}
 
@@ -143,7 +140,7 @@ func newMap(logger *slog.Logger, registry *metrics.Registry) *vtepMap {
 			&Key{},
 			&VtepEndpointInfo{},
 			MaxEntries,
-			unix.BPF_F_RDONLY_PROG,
+			0,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapName)),
 		logger: logger,

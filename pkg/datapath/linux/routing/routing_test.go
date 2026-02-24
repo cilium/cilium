@@ -32,7 +32,7 @@ func TestPrivilegedConfigure(t *testing.T) {
 
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMENI, true, false)
+		ip, ri := getFakes(t, true, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -43,22 +43,7 @@ func TestPrivilegedConfigure(t *testing.T) {
 
 	ns2 := netns.NewNetNS(t)
 	ns2.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMAzure, false, false)
-		masterMAC := ri.MasterIfMAC
-		ifaceCleanup := createDummyDevice(t, masterMAC)
-		defer ifaceCleanup()
-
-		runConfigureThenDelete(t, ri, ip, 1500)
-		return nil
-	})
-}
-
-func TestPrivilegedConfigureAzureMasquerade(t *testing.T) {
-	setupLinuxRoutingSuite(t)
-
-	ns := netns.NewNetNS(t)
-	ns.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMAzure, true, false)
+		ip, ri := getFakes(t, false, false)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -73,7 +58,7 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 
 	ns1 := netns.NewNetNS(t)
 	ns1.Do(func() error {
-		ip, ri := getFakes(t, ipamOption.IPAMENI, true, true)
+		ip, ri := getFakes(t, true, true)
 		masterMAC := ri.MasterIfMAC
 		ifaceCleanup := createDummyDevice(t, masterMAC)
 		defer ifaceCleanup()
@@ -86,8 +71,8 @@ func TestPrivilegedConfigureZeros(t *testing.T) {
 func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	_, ri := getFakes(t, ipamOption.IPAMENI, true, false)
-	err := ri.Configure(nil, 1500, false)
+	_, ri := getFakes(t, true, false)
+	err := ri.Configure(nil, 1500, false, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -96,7 +81,7 @@ func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ip := netip.Addr{}
-	err := Delete(hivetest.Logger(t), ip)
+	err := Delete(hivetest.Logger(t), ip, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -104,7 +89,7 @@ func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 func TestPrivilegedDelete(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
-	fakeIP, fakeRoutingInfo := getFakes(t, ipamOption.IPAMENI, true, false)
+	fakeIP, fakeRoutingInfo := getFakes(t, true, false)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
 	tests := []struct {
@@ -175,7 +160,7 @@ func TestPrivilegedDelete(t *testing.T) {
 				defer ifaceCleanup()
 
 				ip := tt.preRun()
-				err := Delete(hivetest.Logger(t), ip)
+				err := Delete(hivetest.Logger(t), ip, false)
 				require.Equalf(t, tt.wantErr, (err != nil), "got error: %v", err)
 
 				return nil
@@ -195,8 +180,6 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 	require.NotEqual(t, len(afterCreationRules), len(beforeCreationRules))
 	require.NotEqual(t, len(afterCreationRoutes), len(beforeCreationRoutes))
 
-	verifyMasqueradeRules(t, afterCreationRules, ri, ip)
-
 	// Delete rules and routes
 	beforeDeletionRules, beforeDeletionRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
 	runDelete(t, ip)
@@ -209,39 +192,12 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 }
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
-	err := ri.Configure(ip.AsSlice(), mtu, false)
+	err := ri.Configure(ip.AsSlice(), mtu, false, false)
 	require.NoError(t, err)
 }
 
-// verifyMasqueradeRules checks that rules are consistent with the masquerading configuration:
-// - If masquerading is enabled, rules need to have the 'to' field (example: 'from 10.194.0.56 to 10.0.0.0/8 lookup 3')
-// - If masquerading is disabled or if ri.CIDRs has 0.0.0.0/0, the 'to' field should not be there
-func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, ip netip.Addr) {
-	t.Helper()
-
-	hasZeroCidr := false
-	for _, cidr := range ri.CIDRs {
-		if cidr.IP.IsUnspecified() {
-			hasZeroCidr = true
-			break
-		}
-	}
-
-	for _, rule := range rules {
-		if rule.Src != nil && rule.Src.IP.Equal(ip.AsSlice()) {
-			if ri.Masquerade && !hasZeroCidr && rule.Dst == nil {
-				require.Fail(t, "rule is missing the 'to' field with masquerading enabled")
-			} else if ri.Masquerade && hasZeroCidr && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field with a 0.0.0.0/0 CIDR")
-			} else if !ri.Masquerade && rule.Dst != nil {
-				require.Fail(t, "rule has the 'to' field despite masquerading being disabled")
-			}
-		}
-	}
-}
-
 func runDelete(t *testing.T, ip netip.Addr) {
-	err := Delete(hivetest.Logger(t), ip)
+	err := Delete(hivetest.Logger(t), ip, false)
 	require.NoError(t, err)
 }
 
@@ -295,9 +251,9 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 }
 
 // getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test harnesses.
-// To create routing info with a list of CIDRs which the interface has access to, set masquerade parameter to true
+// To create routing info with a list of CIDRs which the interface has access to, set withCIDR parameter to true
 // If withZeroCIDR is also set to true, the function will use the "0.0.0.0/0" CIDR block instead of other CIDR blocks.
-func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool) (netip.Addr, RoutingInfo) {
+func getFakes(t *testing.T, withCIDR bool, withZeroCIDR bool) (netip.Addr, RoutingInfo) {
 	t.Helper()
 
 	logger := hivetest.Logger(t)
@@ -308,13 +264,17 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 	fakeMAC := "00:11:22:33:44:55"
 
 	var cidrs []string
-	if masquerade {
+	ipamMode := ipamOption.IPAMAzure
+	masquerade := false
+
+	if withCIDR {
 		cidrs = []string{fakeSubnet1CIDR, fakeSubnet2CIDR}
 		if withZeroCIDR {
 			cidrs = []string{"0.0.0.0/0"}
 		}
+		ipamMode = ipamOption.IPAMENI
+		masquerade = true
 	}
-
 	fakeRoutingInfo, err := NewRoutingInfo(
 		logger,
 		fakeGateway,

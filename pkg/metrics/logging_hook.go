@@ -6,6 +6,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"os"
@@ -43,6 +44,7 @@ func FlushLoggingMetrics() {
 // Prometheus metric.
 type LoggingHook struct {
 	errs, warn *atomic.Uint64
+	th         slog.Handler
 	attrs      map[string]slog.Value
 }
 
@@ -50,8 +52,14 @@ type LoggingHook struct {
 // component.
 func NewLoggingHook() *LoggingHook {
 	lh := &LoggingHook{
-		errs:  &atomic.Uint64{},
-		warn:  &atomic.Uint64{},
+		errs: &atomic.Uint64{},
+		warn: &atomic.Uint64{},
+		// We want to override the default level with slog.LevelWarn
+		//nolint:sloglint
+		th: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+			AddSource: false,
+			Level:     slog.LevelWarn,
+		}),
 		attrs: make(map[string]slog.Value),
 	}
 	go func() {
@@ -70,12 +78,19 @@ func NewLoggingHook() *LoggingHook {
 	return lh
 }
 
-func (h *LoggingHook) Enabled(_ context.Context, level slog.Level) bool {
-	// Only handle Error and Warning logging records.
-	return level >= slog.LevelWarn
+// Levels returns the list of logging levels on which the hook is triggered.
+func (h *LoggingHook) Levels() []slog.Level {
+	return []slog.Level{
+		slog.LevelError,
+		slog.LevelWarn,
+	}
 }
 
-func (h *LoggingHook) Handle(_ context.Context, record slog.Record) error {
+func (h *LoggingHook) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.th.Enabled(ctx, level)
+}
+
+func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 	// Get information about subsystem from logging entry field.
 	logSysValue, logSysPresent := h.attrs[logfields.LogSubsys]
 	if slogDupAttrDetection {
@@ -101,7 +116,10 @@ func (h *LoggingHook) Handle(_ context.Context, record slog.Record) error {
 			panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
 		}
 	}
-	if logSysPresent && logSysValue.Kind() != slog.KindString {
+	if !logSysPresent {
+		return fmt.Errorf("log entry doesn't contain 'subsys' field: %s", record.Message)
+	}
+	if logSysValue.Kind() != slog.KindString {
 		return fmt.Errorf("type of the 'subsystem' log entry field is not string but %s", logSysValue)
 	}
 
@@ -114,17 +132,13 @@ func (h *LoggingHook) Handle(_ context.Context, record slog.Record) error {
 	}
 
 	// Increment the metric.
-	if logSysPresent {
-		ErrorsWarnings.WithLabelValues(record.Level.String(), logSysValue.String()).Inc()
-	} else {
-		ErrorsWarnings.WithLabelValues(record.Level.String(), "unspecified").Inc()
-	}
+	ErrorsWarnings.WithLabelValues(record.Level.String(), logSysValue.String()).Inc()
 
 	return nil
 }
 
 func (h *LoggingHook) WithAttrs(attrs []slog.Attr) slog.Handler {
-	lh := &LoggingHook{errs: h.errs, warn: h.warn}
+	lh := &LoggingHook{errs: h.errs, warn: h.warn, th: h.th.WithAttrs(attrs)}
 	lh.attrs = maps.Clone(h.attrs)
 	for _, attr := range attrs {
 		if slogDupAttrDetection {
@@ -138,5 +152,5 @@ func (h *LoggingHook) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 func (h *LoggingHook) WithGroup(name string) slog.Handler {
-	return &LoggingHook{errs: h.errs, warn: h.warn, attrs: maps.Clone(h.attrs)}
+	return &LoggingHook{errs: h.errs, warn: h.warn, th: h.th.WithGroup(name)}
 }

@@ -70,7 +70,7 @@ type GrpcWebMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m GrpcWebMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

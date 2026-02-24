@@ -5,7 +5,6 @@ package features
 
 import (
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
 )
 
 type RuleFeatures struct {
@@ -24,7 +23,7 @@ type RuleFeatures struct {
 	ToFQDNs           bool
 }
 
-func (m Metrics) AddRule(r types.PolicyEntry) {
+func (m Metrics) AddRule(r api.Rule) {
 	rf := ruleType(r)
 
 	if rf.L3 {
@@ -68,7 +67,7 @@ func (m Metrics) AddRule(r types.PolicyEntry) {
 	}
 }
 
-func (m Metrics) DelRule(r types.PolicyEntry) {
+func (m Metrics) DelRule(r api.Rule) {
 	rf := ruleType(r)
 
 	if rf.L3 {
@@ -112,8 +111,43 @@ func (m Metrics) DelRule(r types.PolicyEntry) {
 	}
 }
 
+func (rf *RuleFeatures) allFeaturesIngressCommon() bool {
+	return rf.L3 && rf.Host && rf.IngressCIDRGroup
+}
+
+func (rf *RuleFeatures) allFeaturesEgressCommon() bool {
+	return rf.L3 && rf.Host
+}
+
 func (rf *RuleFeatures) allFeaturesPortRules() bool {
 	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.OtherL7 && rf.TLSInspection && rf.SNIAllowList
+}
+
+func ruleTypeIngressCommon(rf *RuleFeatures, i api.IngressCommonRule) {
+	if len(i.FromNodes) > 0 {
+		rf.Host = true
+		rf.L3 = true
+	}
+	for _, cidrRuleSet := range i.FromCIDRSet {
+		if cidrRuleSet.CIDRGroupRef != "" {
+			rf.IngressCIDRGroup = true
+			rf.L3 = true
+		}
+	}
+	if !rf.L3 && i.IsL3() {
+		rf.L3 = true
+	}
+}
+
+func ruleTypeEgressCommon(rf *RuleFeatures, e api.EgressCommonRule) {
+	if len(e.ToNodes) > 0 {
+		rf.Host = true
+		rf.L3 = true
+	}
+
+	if !rf.L3 && e.IsL3() {
+		rf.L3 = true
+	}
 }
 
 func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
@@ -146,16 +180,63 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 	}
 }
 
-func ruleType(r types.PolicyEntry) RuleFeatures {
+func ruleType(r api.Rule) RuleFeatures {
 
 	var rf RuleFeatures
 
-	rf.Deny = r.IsDeny()
-	rf.MutualAuth = r.Authentication != nil
-	rf.NonDefaultDeny = r.DefaultDeny
-	rf.ToFQDNs, rf.Host, rf.IngressCIDRGroup = r.L3.GetRuleTypes()
-	rf.L3 = len(r.L3) > 0 && !rf.ToFQDNs
-	ruleTypePortRules(&rf, r.L4)
+	rf.NonDefaultDeny =
+		r.EnableDefaultDeny.Ingress != nil && *r.EnableDefaultDeny.Ingress ||
+			r.EnableDefaultDeny.Egress != nil && *r.EnableDefaultDeny.Egress
 
+	for _, i := range r.Ingress {
+		ruleTypeIngressCommon(&rf, i.IngressCommonRule)
+		if !rf.allFeaturesPortRules() {
+			ruleTypePortRules(&rf, i.ToPorts)
+		}
+		if i.Authentication != nil {
+			rf.MutualAuth = true
+		}
+		if rf.allFeaturesIngressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth {
+			break
+		}
+	}
+
+	if !(rf.allFeaturesIngressCommon() && rf.Deny) {
+		for _, i := range r.IngressDeny {
+			ruleTypeIngressCommon(&rf, i.IngressCommonRule)
+			rf.Deny = true
+			if rf.allFeaturesIngressCommon() && rf.Deny {
+				break
+			}
+		}
+	}
+
+	if !(rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth) {
+		for _, e := range r.Egress {
+			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
+			if !(rf.allFeaturesPortRules() && rf.ToFQDNs) {
+				if len(e.ToFQDNs) > 0 {
+					rf.ToFQDNs = true
+				}
+				ruleTypePortRules(&rf, e.ToPorts)
+			}
+			if e.Authentication != nil {
+				rf.MutualAuth = true
+			}
+			if rf.allFeaturesEgressCommon() && rf.allFeaturesPortRules() && rf.MutualAuth && rf.ToFQDNs {
+				break
+			}
+		}
+	}
+
+	if !(rf.allFeaturesEgressCommon() && rf.Deny) {
+		for _, e := range r.EgressDeny {
+			rf.Deny = true
+			ruleTypeEgressCommon(&rf, e.EgressCommonRule)
+			if rf.allFeaturesEgressCommon() && rf.Deny {
+				break
+			}
+		}
+	}
 	return rf
 }

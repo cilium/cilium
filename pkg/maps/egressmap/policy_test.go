@@ -81,13 +81,10 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 		gatewayIP1 := netip.MustParseAddr("3.3.3.1")
 		gatewayIP2 := netip.MustParseAddr("3.3.3.2")
 
-		ifIndex1 := uint32(1)
-		ifIndex2 := uint32(2)
-
-		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, gatewayIP1, ifIndex1)
+		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, gatewayIP1)
 		assert.NoError(t, err)
 
-		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, gatewayIP2, ifIndex2)
+		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, gatewayIP2)
 		assert.NoError(t, err)
 
 		val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)
@@ -95,14 +92,12 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 
 		assert.Equal(t, val.EgressIP.Addr(), egressIP1)
 		assert.Equal(t, val.GatewayIP.Addr(), gatewayIP1)
-		assert.Equal(t, val.EgressIfindex, ifIndex1)
 
 		val, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 		assert.NoError(t, err)
 
 		assert.Equal(t, val.EgressIP.Addr(), egressIP2)
 		assert.Equal(t, val.GatewayIP.Addr(), gatewayIP2)
-		assert.Equal(t, val.EgressIfindex, ifIndex2)
 
 		err = egressPolicyMap.Delete(sourceIP2, destCIDR2)
 		assert.NoError(t, err)
@@ -112,7 +107,6 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 
 		assert.Equal(t, val.EgressIP.Addr(), egressIP1)
 		assert.Equal(t, val.GatewayIP.Addr(), gatewayIP1)
-		assert.Equal(t, val.EgressIfindex, ifIndex1)
 
 		_, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
 		assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)

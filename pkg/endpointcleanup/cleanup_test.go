@@ -134,6 +134,9 @@ func TestGC(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			defer testutils.GoleakVerifyNone(t)
 
+			node.SetTestLocalNodeStore()
+			defer node.UnsetTestLocalNodeStore()
+
 			var (
 				testCleanup *cleanup
 				deletedSet  []string
@@ -149,7 +152,10 @@ func TestGC(t *testing.T) {
 					return &fakeRestorer{}
 				}),
 				cell.Provide(func() *node.LocalNodeStore {
-					return node.NewTestLocalNodeStore(node.LocalNode{})
+					// no need to provide a real LocalNodeStore since the one set by
+					// SetTestLocalNodeStore will be referenced through the global
+					// variable
+					return nil
 				}),
 				cell.Invoke(func(clientset *k8sFakeClient.FakeClientset) error {
 					clientset.CiliumFakeClientset.PrependReactor("get", "ciliumendpoints", k8stesting.ReactionFunc(
@@ -207,7 +213,6 @@ func TestGC(t *testing.T) {
 					clientset k8sClient.Clientset,
 					restorerPromise promise.Promise[endpointstate.Restorer],
 					endpointsCache localEndpointCache,
-					localNodeStore *node.LocalNodeStore,
 				) *cleanup {
 					testCleanup = &cleanup{
 						log:                        logger,
@@ -217,7 +222,6 @@ func TestGC(t *testing.T) {
 						restorerPromise:            restorerPromise,
 						endpointsCache:             endpointsCache,
 						ciliumEndpointSliceEnabled: test.enableCES,
-						localNodeStore:             localNodeStore,
 					}
 					return testCleanup
 				}),
@@ -260,14 +264,11 @@ func cep(name, ns, nodeIP string) types.CiliumEndpoint {
 	}
 }
 
-type fakeRestorer struct{}
+type fakeRestorer struct {
+}
 
 func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 	return r, nil
-}
-
-func (r *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
-	return nil
 }
 
 func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {

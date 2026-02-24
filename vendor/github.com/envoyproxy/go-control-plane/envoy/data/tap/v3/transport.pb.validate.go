@@ -116,8 +116,6 @@ func (m *SocketEvent) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for SeqNum
-
 	switch v := m.EventSelector.(type) {
 	case *SocketEvent_Read_:
 		if v == nil {
@@ -259,7 +257,7 @@ type SocketEventMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketEventMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -428,7 +426,7 @@ type SocketBufferedTraceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketBufferedTraceMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -563,7 +561,7 @@ type SocketEventsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketEventsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -793,7 +791,7 @@ type SocketStreamedTraceSegmentMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketStreamedTraceSegmentMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -924,7 +922,7 @@ type SocketEvent_ReadMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketEvent_ReadMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1055,7 +1053,7 @@ type SocketEvent_WriteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketEvent_WriteMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1157,7 +1155,7 @@ type SocketEvent_ClosedMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m SocketEvent_ClosedMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -23,5 +23,7 @@ func (fds *FdSet) IsSet(fd int) bool {
 
 // Zero clears the set fds.
 func (fds *FdSet) Zero() {
-	clear(fds.Bits[:])
+	for i := range fds.Bits {
+		fds.Bits[i] = 0
+	}
 }

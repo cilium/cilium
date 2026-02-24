@@ -11,9 +11,8 @@ cilium-dbg bpf policy add <endpoint id> <traffic-direction> <identity> [port/pro
 ### Options
 
 ```
-      --cookie uint32   Sets policy log cookie
-      --deny            Sets deny mode
-  -h, --help            help for add
+      --deny   Sets deny mode
+  -h, --help   help for add
 ```
 
 ### Options inherited from parent commands

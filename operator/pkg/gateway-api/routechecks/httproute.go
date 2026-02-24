@@ -65,7 +65,7 @@ func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentR
 		}
 	}
 	if index != -1 {
-		h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions = merge(h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
 	h.HTTPRoute.Status.RouteStatus.Parents = append(h.HTTPRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
@@ -165,10 +165,6 @@ func (h *HTTPRouteInput) Log() *slog.Logger {
 	return h.Logger
 }
 
-func (h *HTTPRouteInput) GetValidProtocols() []gatewayv1.ProtocolType {
-	return []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType}
-}
-
 // HTTPRouteRule is used to implement the GenericRule interface for TLSRoute
 type HTTPRouteRule struct {
 	Rule gatewayv1.HTTPRouteRule
@@ -190,20 +186,4 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 		}
 	}
 	return refs
-}
-
-// Validates the HTTPRoute header
-func (r *HTTPRouteInput) ValidateHeaderModifier() error {
-	for _, backendref := range r.HTTPRoute.Spec.Rules {
-		for _, f := range backendref.Filters {
-			if f.Type == gatewayv1.HTTPRouteFilterRequestHeaderModifier {
-				for _, set := range f.RequestHeaderModifier.Set {
-					if set.Name == "Host" {
-						return fmt.Errorf("Invalid HTTPRoute header: %q", set.Name)
-					}
-				}
-			}
-		}
-	}
-	return nil
 }

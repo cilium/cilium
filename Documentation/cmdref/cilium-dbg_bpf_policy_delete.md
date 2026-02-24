@@ -11,6 +11,7 @@ cilium-dbg bpf policy delete <endpoint id> <identity> [port/proto] [flags]
 ### Options
 
 ```
+      --deny   Sets deny mode
   -h, --help   help for delete
 ```
 

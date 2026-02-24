@@ -10,28 +10,6 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-const (
-	// By default, BGP control plane will not set this value, and the kernel will pick a random port source port.
-	DefaultBGPPeerLocalPort = 0
-	// DefaultBGPPeerPort defines the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
-	DefaultBGPPeerPort = 179
-	// DefaultBGPEBGPMultihopTTL defines the default value for the TTL value used in BGP packets sent to the eBGP neighbors.
-	DefaultBGPEBGPMultihopTTL = 1
-	// DefaultBGPConnectRetryTimeSeconds defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
-	DefaultBGPConnectRetryTimeSeconds = 120
-	// DefaultBGPHoldTimeSeconds defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
-	DefaultBGPHoldTimeSeconds = 90
-	// DefaultBGPKeepAliveTimeSeconds defines the default initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
-	DefaultBGPKeepAliveTimeSeconds = 30
-	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
-	DefaultBGPGRRestartTimeSeconds = 120
-	// BGPLoadBalancerClass defines the BGP Control Plane load balancer class for Services.
-	BGPLoadBalancerClass = "io.cilium/bgp-control-plane"
-	// PodCIDRSelectorName defines the name for a selector matching Pod CIDRs
-	// (standard cluster scope / Kubernetes IPAM CIDRs, not Multi-Pool IPAM CIDRs).
-	PodCIDRSelectorName = "PodCIDR"
-)
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
@@ -57,18 +35,15 @@ type CiliumBGPPeerConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the specification of the desired behavior of the CiliumBGPPeerConfig.
-	//
-	// +kubebuilder:validation:Required
 	Spec CiliumBGPPeerConfigSpec `json:"spec"`
 
 	// Status is the running status of the CiliumBGPPeerConfig
 	//
 	// +kubebuilder:validation:Optional
-	Status CiliumBGPPeerConfigStatus `json:"status,omitempty"`
+	Status CiliumBGPPeerConfigStatus `json:"status"`
 }
 
 type CiliumBGPPeerConfigSpec struct {
@@ -123,33 +98,10 @@ type CiliumBGPPeerConfigSpec struct {
 	Families []CiliumBGPFamilyWithAdverts `json:"families,omitempty"`
 }
 
-type CiliumBGPNeighborGracefulRestart struct {
-	// Enabled flag, when set enables graceful restart capability.
-	//
-	// +kubebuilder:validation:Required
-	Enabled bool `json:"enabled"`
-	// RestartTimeSeconds is the estimated time it will take for the BGP
-	// session to be re-established with peer after a restart.
-	// After this period, peer will remove stale routes. This is
-	// described RFC 4724 section 4.2.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=4095
-	// +kubebuilder:default=120
-	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
-}
-
-func (gr *CiliumBGPNeighborGracefulRestart) SetDefaults() {
-	if gr.RestartTimeSeconds == nil || *gr.RestartTimeSeconds == 0 {
-		gr.RestartTimeSeconds = ptr.To[int32](DefaultBGPGRRestartTimeSeconds)
-	}
-}
-
 type CiliumBGPPeerConfigStatus struct {
 	// The current conditions of the CiliumBGPPeerConfig
 	//
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +deepequal-gen=false
@@ -157,7 +109,7 @@ type CiliumBGPPeerConfigStatus struct {
 }
 
 // Conditions for CiliumBGPPeerConfig. When you add a new condition, don't
-// forget to update the below AllBGPPeerConfigConditions list as well.
+// forget to to update the below AllBGPPeerConfigConditions list as well.
 const (
 	// Referenced auth secret is missing
 	BGPPeerConfigConditionMissingAuthSecret = "cilium.io/MissingAuthSecret"
@@ -189,6 +141,9 @@ type CiliumBGPFamilyWithAdverts struct {
 	// Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 	//
 	// If not specified, no advertisements are sent for this family.
+	//
+	// This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
+	// Use CiliumBGPPeeringPolicy advertisement options instead.
 	//
 	// +kubebuilder:validation:Optional
 	Advertisements *slimv1.LabelSelector `json:"advertisements,omitempty"`

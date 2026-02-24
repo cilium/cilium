@@ -11,7 +11,6 @@ package models
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -65,7 +64,7 @@ func (m *ProxyStatus) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var proxyStatusTypeEnvoyDeploymentModePropEnum []any
+var proxyStatusTypeEnvoyDeploymentModePropEnum []interface{}
 
 func init() {
 	var res []string
@@ -119,15 +118,11 @@ func (m *ProxyStatus) validateRedirects(formats strfmt.Registry) error {
 
 		if m.Redirects[i] != nil {
 			if err := m.Redirects[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("redirects" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("redirects" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -162,15 +157,11 @@ func (m *ProxyStatus) contextValidateRedirects(ctx context.Context, formats strf
 			}
 
 			if err := m.Redirects[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("redirects" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("redirects" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

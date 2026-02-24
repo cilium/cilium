@@ -403,35 +403,6 @@ func (m *ExternalProcessor) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetProcessingRequestModifier()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "ProcessingRequestModifier",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "ProcessingRequestModifier",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetProcessingRequestModifier()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ExternalProcessorValidationError{
-				field:  "ProcessingRequestModifier",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	if all {
 		switch v := interface{}(m.GetOnProcessingResponse()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
@@ -460,35 +431,6 @@ func (m *ExternalProcessor) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetStatusOnError()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "StatusOnError",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ExternalProcessorValidationError{
-					field:  "StatusOnError",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetStatusOnError()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ExternalProcessorValidationError{
-				field:  "StatusOnError",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	if len(errors) > 0 {
 		return ExternalProcessorMultiError(errors)
 	}
@@ -503,7 +445,7 @@ type ExternalProcessorMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExternalProcessorMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -634,7 +576,7 @@ type ExtProcHttpServiceMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtProcHttpServiceMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -780,35 +722,6 @@ func (m *MetadataOptions) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetClusterMetadataForwardingNamespaces()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, MetadataOptionsValidationError{
-					field:  "ClusterMetadataForwardingNamespaces",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, MetadataOptionsValidationError{
-					field:  "ClusterMetadataForwardingNamespaces",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetClusterMetadataForwardingNamespaces()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return MetadataOptionsValidationError{
-				field:  "ClusterMetadataForwardingNamespaces",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	if len(errors) > 0 {
 		return MetadataOptionsMultiError(errors)
 	}
@@ -823,7 +736,7 @@ type MetadataOptionsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MetadataOptionsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -981,7 +894,7 @@ type HeaderForwardingRulesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m HeaderForwardingRulesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1165,7 +1078,7 @@ type ExtProcPerRouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtProcPerRouteMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1403,35 +1316,6 @@ func (m *ExtProcOverrides) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetProcessingRequestModifier()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ExtProcOverridesValidationError{
-					field:  "ProcessingRequestModifier",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ExtProcOverridesValidationError{
-					field:  "ProcessingRequestModifier",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetProcessingRequestModifier()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ExtProcOverridesValidationError{
-				field:  "ProcessingRequestModifier",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	if len(errors) > 0 {
 		return ExtProcOverridesMultiError(errors)
 	}
@@ -1446,7 +1330,7 @@ type ExtProcOverridesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ExtProcOverridesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1548,7 +1432,7 @@ type MetadataOptions_MetadataNamespacesMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MetadataOptions_MetadataNamespacesMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

@@ -29,6 +29,7 @@ func NewGetEndpointIDHealthzParams() GetEndpointIDHealthzParams {
 //
 // swagger:parameters GetEndpointIDHealthz
 type GetEndpointIDHealthzParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 

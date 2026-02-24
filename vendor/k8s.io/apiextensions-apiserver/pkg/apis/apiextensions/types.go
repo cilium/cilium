@@ -346,12 +346,6 @@ type CustomResourceDefinitionCondition struct {
 	// Human-readable message indicating details about last transition.
 	// +optional
 	Message string
-	// observedGeneration represents the .metadata.generation that the condition was set based upon.
-	// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-	// with respect to the current state of the instance.
-	// +featureGate=CRDObservedGenerationTracking
-	// +optional
-	ObservedGeneration int64
 }
 
 // CustomResourceDefinitionStatus indicates the state of the CustomResourceDefinition
@@ -372,11 +366,6 @@ type CustomResourceDefinitionStatus struct {
 	// versions from this list.
 	// None of the versions in this list can be removed from the spec.Versions field.
 	StoredVersions []string
-
-	// The generation observed by the CRD controller.
-	// +featureGate=CRDObservedGenerationTracking
-	// +optional
-	ObservedGeneration int64
 }
 
 // CustomResourceCleanupFinalizer is the name of the finalizer which will delete instances of

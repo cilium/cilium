@@ -20,13 +20,9 @@ package v1
 
 // ObjectFieldSelectorApplyConfiguration represents a declarative configuration of the ObjectFieldSelector type for use
 // with apply.
-//
-// ObjectFieldSelector selects an APIVersioned field of an object.
 type ObjectFieldSelectorApplyConfiguration struct {
-	// Version of the schema the FieldPath is written in terms of, defaults to "v1".
 	APIVersion *string `json:"apiVersion,omitempty"`
-	// Path of the field to select in the specified API version.
-	FieldPath *string `json:"fieldPath,omitempty"`
+	FieldPath  *string `json:"fieldPath,omitempty"`
 }
 
 // ObjectFieldSelectorApplyConfiguration constructs a declarative configuration of the ObjectFieldSelector type for use with

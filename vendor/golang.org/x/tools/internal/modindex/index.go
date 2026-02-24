@@ -10,6 +10,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -106,14 +107,14 @@ var IndexDir string = func() string {
 		var err error
 		dir, err = os.UserCacheDir()
 		// shouldn't happen, but TempDir is better than
-		// creating ./goimports
+		// creating ./go/imports
 		if err != nil {
 			dir = os.TempDir()
 		}
 	}
 	dir = filepath.Join(dir, "goimports")
 	if err := os.MkdirAll(dir, 0777); err != nil {
-		dir = "" // #75505, people complain about the error message
+		log.Printf("failed to create modcache index dir: %v", err)
 	}
 	return dir
 }()
@@ -125,9 +126,6 @@ func Read(gomodcache string) (*Index, error) {
 	gomodcache, err := filepath.Abs(gomodcache)
 	if err != nil {
 		return nil, err
-	}
-	if IndexDir == "" {
-		return nil, os.ErrNotExist
 	}
 
 	// Read the "link" file for the specified gomodcache directory.
@@ -229,9 +227,6 @@ func readIndexFrom(gomodcache string, r io.Reader) (*Index, error) {
 
 // write writes the index file and updates the index directory to refer to it.
 func write(gomodcache string, ix *Index) error {
-	if IndexDir == "" {
-		return os.ErrNotExist
-	}
 	// Write the index into a payload file with a fresh name.
 	f, err := os.CreateTemp(IndexDir, fmt.Sprintf("index-%d-*", CurrentVersion))
 	if err != nil {

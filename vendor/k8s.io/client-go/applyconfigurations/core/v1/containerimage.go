@@ -20,14 +20,9 @@ package v1
 
 // ContainerImageApplyConfiguration represents a declarative configuration of the ContainerImage type for use
 // with apply.
-//
-// Describe a container image
 type ContainerImageApplyConfiguration struct {
-	// Names by which this image is known.
-	// e.g. ["kubernetes.example/hyperkube:v1.0.7", "cloud-vendor.registry.example/cloud-vendor/hyperkube:v1.0.7"]
-	Names []string `json:"names,omitempty"`
-	// The size of the image in bytes.
-	SizeBytes *int64 `json:"sizeBytes,omitempty"`
+	Names     []string `json:"names,omitempty"`
+	SizeBytes *int64   `json:"sizeBytes,omitempty"`
 }
 
 // ContainerImageApplyConfiguration constructs a declarative configuration of the ContainerImage type for use with

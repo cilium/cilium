@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package middleware
 
@@ -39,7 +50,7 @@ func NewUntypedRequestBinder(parameters map[string]spec.Parameter, spec *spec.Sw
 }
 
 // Bind perform the databinding and validation
-func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RouteParams, consumer runtime.Consumer, data any) error {
+func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RouteParams, consumer runtime.Consumer, data interface{}) error {
 	val := reflect.Indirect(reflect.ValueOf(data))
 	isMap := val.Kind() == reflect.Map
 	var result []error
@@ -57,9 +68,9 @@ func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RoutePara
 			tpe := binder.Type()
 			if tpe == nil {
 				if param.Schema.Type.Contains(typeArray) {
-					tpe = reflect.TypeFor[[]any]()
+					tpe = reflect.TypeOf([]interface{}{})
 				} else {
-					tpe = reflect.TypeFor[map[string]any]()
+					tpe = reflect.TypeOf(map[string]interface{}{})
 				}
 			}
 			target = reflect.Indirect(reflect.New(tpe))

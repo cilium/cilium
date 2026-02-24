@@ -4,7 +4,7 @@
 package cmd
 
 import (
-	"net/netip"
+	"net"
 
 	"github.com/spf13/cobra"
 
@@ -23,17 +23,12 @@ var bpfEndpointDeleteCmd = &cobra.Command{
 			Fatalf("Please specify the endpoint to delete")
 		}
 
-		addr, err := netip.ParseAddr(args[0])
-		if err != nil {
-			Fatalf("Unable to parse IP '%s': %v", args[0], err)
+		ip := net.ParseIP(args[0])
+		if ip == nil {
+			Fatalf("Unable to parse IP '%s'", args[0])
 		}
 
-		m, err := lxcmap.OpenMap(log)
-		if err != nil {
-			Fatalf("Unable to open map: %s", err)
-		}
-
-		if err := m.DeleteEntry(addr); err != nil {
+		if err := lxcmap.DeleteEntry(ip); err != nil {
 			Fatalf("Unable to delete endpoint entry: %s", err)
 		}
 	},

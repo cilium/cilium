@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -237,7 +238,7 @@ func assertHandlersInDfp(t *testing.T, dfp *DynamicFlowProcessor, cfg *api.Confi
 	for _, m := range dfp.Metrics {
 		_, ok := names[m.Name]
 		assert.True(t, ok)
-		assert.Equal(t, *(names[m.Name]), *m.MetricConfig)
+		assert.True(t, reflect.DeepEqual(*m.MetricConfig, *(names[m.Name])))
 	}
 }
 

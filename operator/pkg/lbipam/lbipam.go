@@ -35,7 +35,6 @@ import (
 	slim_meta "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/api/meta"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
-	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -87,7 +86,7 @@ type lbIPAMParams struct {
 
 	metrics *ipamMetrics
 
-	config      lbipamconfig.Config
+	config      lbipamConfig
 	defaultIPAM bool
 
 	testCounters *testCounters
@@ -455,7 +454,6 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		}
 
 		// Remove all ingress IPs and conditions, cleaning up the service for reuse by another controller
-		ipam.logger.Info("Removing all Ingress IPs and conditions", logfields.ServiceName, sv.Key)
 		sv.Status.LoadBalancer.Ingress = nil
 		slim_meta.RemoveStatusCondition(&sv.Status.Conditions, ciliumSvcRequestSatisfiedCondition)
 
@@ -752,17 +750,6 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 
 	// Check if we have removed any ingresses
 	if len(sv.Status.LoadBalancer.Ingress) != len(newIngresses) {
-		removedIPs := map[string]struct{}{}
-		for _, lbi := range sv.Status.LoadBalancer.Ingress {
-			removedIPs[lbi.IP] = struct{}{}
-		}
-		for _, lbi := range newIngresses {
-			delete(removedIPs, lbi.IP)
-		}
-		ipam.logger.Info("Removing Ingress IPs",
-			logfields.ServiceName, sv.Key,
-			logfields.IPAddrs, slices.Collect(maps.Keys(removedIPs)),
-		)
 		statusModified = true
 	}
 
@@ -899,10 +886,6 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 			return addr.Compare(alloc.IP) == 0
 		}) == -1 {
 			// We allocated a new IP, add it to the ingress list
-			ipam.logger.Info("Assigning Ingress IP",
-				logfields.ServiceName, sv.Key,
-				logfields.IPAddr, alloc.IP,
-			)
 			sv.Status.LoadBalancer.Ingress = append(sv.Status.LoadBalancer.Ingress, slim_core_v1.LoadBalancerIngress{
 				IP: alloc.IP.String(),
 			})
@@ -1920,20 +1903,6 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 		}
 	}
 
-	// Count the number of conflicting pools and update the metric.
-	var conflictingPools float64
-	for _, pool := range ipam.pools {
-		lbRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
-		// When a pool is marked as conflicting, all of its lbRanges are
-		// internally disabled. Therefore, checking a single lbRange
-		// is sufficient to conclude that the pool is conflicting.
-		if len(lbRanges) > 0 && lbRanges[0].internallyDisabled {
-			conflictingPools++
-		}
-	}
-
-	ipam.metrics.ConflictingPools.Set(conflictingPools)
-
 	return nil
 }
 
@@ -1947,6 +1916,8 @@ func (ipam *LBIPAM) markPoolConflicting(
 	if isPoolConflicting(targetPool) {
 		return nil
 	}
+
+	ipam.metrics.ConflictingPools.Inc()
 
 	ipam.logger.WarnContext(ctx,
 		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
@@ -1990,6 +1961,8 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2.Ci
 	for _, poolRange := range targetPoolRanges {
 		poolRange.internallyDisabled = false
 	}
+
+	ipam.metrics.ConflictingPools.Dec()
 
 	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)

@@ -48,8 +48,6 @@ func NewKvstoreMeshAPI(spec *loads.Document) *KvstoreMeshAPI {
 		JSONProducer: runtime.JSONProducer(),
 
 		ClusterGetClusterHandler: cluster.GetClusterHandlerFunc(func(params cluster.GetClusterParams) middleware.Responder {
-			_ = params
-
 			return middleware.NotImplemented("operation cluster.GetCluster has not yet been implemented")
 		}),
 	}
@@ -107,7 +105,7 @@ type KvstoreMeshAPI struct {
 	CommandLineOptionsGroups []swag.CommandLineOptionsGroup
 
 	// User defined logger function.
-	Logger func(string, ...any)
+	Logger func(string, ...interface{})
 }
 
 // UseRedoc for documentation at /docs
@@ -194,12 +192,12 @@ func (o *KvstoreMeshAPI) Authorizer() runtime.Authorizer {
 }
 
 // ConsumersFor gets the consumers for the specified media types.
-//
 // MIME type parameters are ignored here.
 func (o *KvstoreMeshAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Consumer {
 	result := make(map[string]runtime.Consumer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		if mt == "application/json" {
+		switch mt {
+		case "application/json":
 			result["application/json"] = o.JSONConsumer
 		}
 
@@ -207,17 +205,16 @@ func (o *KvstoreMeshAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Co
 			result[mt] = c
 		}
 	}
-
 	return result
 }
 
 // ProducersFor gets the producers for the specified media types.
-//
 // MIME type parameters are ignored here.
 func (o *KvstoreMeshAPI) ProducersFor(mediaTypes []string) map[string]runtime.Producer {
 	result := make(map[string]runtime.Producer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		if mt == "application/json" {
+		switch mt {
+		case "application/json":
 			result["application/json"] = o.JSONProducer
 		}
 
@@ -225,7 +222,6 @@ func (o *KvstoreMeshAPI) ProducersFor(mediaTypes []string) map[string]runtime.Pr
 			result[mt] = p
 		}
 	}
-
 	return result
 }
 

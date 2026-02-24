@@ -340,21 +340,18 @@ func getContentsFromPathOrURL(manifestFS []fs.FS, location string, timeoutConfig
 		}
 		return manifests, nil
 	}
-
-	var buffer bytes.Buffer
+	var err error
+	var buf []byte
 	for _, mfs := range manifestFS {
-		buf, err := fs.ReadFile(mfs, location)
+		buf, err = fs.ReadFile(mfs, location)
 		if err != nil && errors.Is(err, fs.ErrNotExist) {
 			continue
 		} else if err != nil {
 			return nil, err
 		}
-		_, err = buffer.Write(buf)
-		if err != nil {
-			return nil, err
-		}
+		return bytes.NewBuffer(buf), nil
 	}
-	return &buffer, nil
+	return nil, err
 }
 
 // convertGatewayAddrsToPrimitives converts a slice of Gateway addresses

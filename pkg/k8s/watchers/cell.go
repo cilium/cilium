@@ -22,6 +22,7 @@ var Cell = cell.Module(
 	cell.Provide(newK8sWatcher),
 	cell.ProvidePrivate(newK8sPodWatcher),
 	cell.Provide(newK8sCiliumNodeWatcher),
+	cell.ProvidePrivate(newK8sEndpointsWatcher),
 	cell.ProvidePrivate(newK8sCiliumEndpointsWatcher),
 	cell.Provide(newK8sEventReporter),
 )
@@ -36,6 +37,7 @@ type k8sWatcherParams struct {
 	K8sEventReporter          *K8sEventReporter
 	K8sPodWatcher             *K8sPodWatcher
 	K8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
+	K8sEndpointsWatcher       *K8sEndpointsWatcher
 	K8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	AgentConfig *option.DaemonConfig
@@ -43,7 +45,6 @@ type k8sWatcherParams struct {
 	Clientset         k8sClient.Clientset
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
-	K8sCacheStatus    k8sSynced.CacheStatus
 	ResourceGroupsFn  ResourceGroupFunc
 
 	KVStoreClient kvstore.Client
@@ -56,10 +57,10 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.Clientset,
 		params.K8sPodWatcher,
 		params.K8sCiliumNodeWatcher,
+		params.K8sEndpointsWatcher,
 		params.K8sCiliumEndpointsWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
-		params.K8sCacheStatus,
 		params.K8sAPIGroups,
 		params.AgentConfig,
 		params.KVStoreClient,

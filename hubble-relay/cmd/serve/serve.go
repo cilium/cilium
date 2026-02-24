@@ -35,8 +35,6 @@ const (
 	keyPprofPort               = "pprof-port"
 	keyGops                    = "gops"
 	keyGopsPort                = "gops-port"
-	keyLogFormat               = "log-format"
-	keyLogLevel                = "log-level"
 	keyRetryTimeout            = "retry-timeout"
 	keyListenAddress           = "listen-address"
 	keyHealthListenAddress     = "health-listen-address"
@@ -89,14 +87,6 @@ func New(vp *viper.Viper) *cobra.Command {
 		keyGopsPort,
 		defaults.GopsPort,
 		"Port for gops server to listen on")
-	flags.String(
-		keyLogFormat,
-		"",
-		"Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts")
-	flags.String(
-		keyLogLevel,
-		"",
-		"Log level for hubble-relay. Valid values are: debug, info, warn, error")
 	flags.Duration(
 		keyRetryTimeout,
 		defaults.RetryTimeout,

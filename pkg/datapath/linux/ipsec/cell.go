@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
@@ -28,8 +27,6 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(buildConfigFrom),
 )
 
-var OperatorCell = cell.Config(defaultEnableConfig)
-
 type params struct {
 	cell.In
 
@@ -42,20 +39,9 @@ type params struct {
 	EncryptMap     encrypt.EncryptMap
 }
 
-// newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent]
-// and the map of macros [defines.NodeOut] for datapath compilation.
-func newIPsecAgent(p params) (out struct {
-	cell.Out
-	types.IPsecAgent
-	defines.NodeOut
-}) {
-	out.IPsecAgent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
-	if out.IPsecAgent.Enabled() {
-		out.NodeDefines = map[string]string{
-			"ENABLE_IPSEC": "1",
-		}
-	}
-	return
+// newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent].
+func newIPsecAgent(p params) types.IPsecAgent {
+	return newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
 }
 
 // newIPsecAgent returns the [Config] as an interface [types.IPsecConfig].
@@ -73,7 +59,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 }
 
 var defaultUserConfig = UserConfig{
-	EnableConfig:                             defaultEnableConfig,
+	EnableIPsec:                              false,
 	EnableIPsecKeyWatcher:                    true,
 	EnableIPsecXfrmStateCaching:              true,
 	UseCiliumInternalIPForIPsec:              false,
@@ -83,7 +69,7 @@ var defaultUserConfig = UserConfig{
 }
 
 type UserConfig struct {
-	EnableConfig                             `mapstructure:",squash"`
+	EnableIPsec                              bool
 	EnableIPsecKeyWatcher                    bool
 	EnableIPsecXfrmStateCaching              bool
 	UseCiliumInternalIPForIPsec              bool
@@ -93,7 +79,7 @@ type UserConfig struct {
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	def.EnableConfig.Flags(flags)
+	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
 	flags.Bool(types.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	flags.Bool(types.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
 	flags.MarkHidden(types.EnableIPSecXfrmStateCaching)
@@ -112,26 +98,14 @@ type Config struct {
 	EncryptNode bool
 }
 
+func (c Config) Enabled() bool {
+	return c.EnableIPsec
+}
+
 func (c Config) UseCiliumInternalIP() bool {
 	return c.UseCiliumInternalIPForIPsec
 }
 
 func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 	return c.DNSProxyInsecureSkipTransparentModeCheck
-}
-
-var defaultEnableConfig = EnableConfig{
-	EnableIPsec: false,
-}
-
-type EnableConfig struct {
-	EnableIPsec bool
-}
-
-func (def EnableConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
-}
-
-func (c EnableConfig) Enabled() bool {
-	return c.EnableIPsec
 }

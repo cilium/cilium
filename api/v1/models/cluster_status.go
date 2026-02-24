@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -60,15 +59,11 @@ func (m *ClusterStatus) validateCiliumHealth(formats strfmt.Registry) error {
 
 	if m.CiliumHealth != nil {
 		if err := m.CiliumHealth.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ciliumHealth")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("ciliumHealth")
 			}
-
 			return err
 		}
 	}
@@ -88,15 +83,11 @@ func (m *ClusterStatus) validateNodes(formats strfmt.Registry) error {
 
 		if m.Nodes[i] != nil {
 			if err := m.Nodes[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("nodes" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -133,15 +124,11 @@ func (m *ClusterStatus) contextValidateCiliumHealth(ctx context.Context, formats
 		}
 
 		if err := m.CiliumHealth.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ciliumHealth")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("ciliumHealth")
 			}
-
 			return err
 		}
 	}
@@ -160,15 +147,11 @@ func (m *ClusterStatus) contextValidateNodes(ctx context.Context, formats strfmt
 			}
 
 			if err := m.Nodes[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("nodes" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

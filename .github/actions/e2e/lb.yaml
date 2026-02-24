@@ -1,5 +1,6 @@
 - name: 'lb-1'
-  kernel: '5.15'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '5.15-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -10,10 +11,9 @@
   egress-gateway: 'true'
   host-fw: 'true'
   ingress-controller: 'true'
-  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
-  test-l7: 'true'
 - name: 'lb-2'
-  kernel: '6.1'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.1-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -24,10 +24,10 @@
   host-fw: 'true'
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
-  # L7 testing: SNAT load balancer mode + Ingress controller requires L7 proxy for HTTP routing
-  test-l7: 'true'
+  bgp-control-plane: 'true'
 - name: 'lb-3'
-  kernel: '6.12'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -40,14 +40,13 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
-  # L7 testing: SNAT load balancer + Ingress controller + node local DNS requires DNS proxy
-  test-l7: 'true'
 - name: 'lb-4'
   # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
   # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
   # explains why 5.4 might cause north-south-loadbalancing tests to
   # fail.
-  kernel: '5.15'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '5.15-20250929.013214'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -57,10 +56,9 @@
   egress-gateway: 'true'
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
-  # L7 testing: SNAT load balancer mode + Ingress controller requires L7 proxy for HTTP routing
-  test-l7: 'true'
 - name: 'lb-5'
-  kernel: '6.12'
+  # renovate: datasource=docker depName=quay.io/lvh-images/kind
+  kernel: '6.12-20250929.013214'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -69,5 +67,4 @@
   lb-mode: 'dsr'
   ingress-controller: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
-  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
-  test-l7: 'true'
+

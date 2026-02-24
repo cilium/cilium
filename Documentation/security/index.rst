@@ -22,7 +22,6 @@ Securing Networks with Cilium
 
    http
    dns
-   standalone-dns-proxy
    tls-visibility
    kafka
    grpc

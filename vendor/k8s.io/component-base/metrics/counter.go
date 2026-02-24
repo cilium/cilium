@@ -30,6 +30,7 @@ import (
 // Counter is our internal representation for our wrapping struct around prometheus
 // counters. Counter implements both kubeCollector and CounterMetric.
 type Counter struct {
+	ctx context.Context
 	CounterMetric
 	*CounterOpts
 	lazyMetric
@@ -39,10 +40,12 @@ type Counter struct {
 // The implementation of the Metric interface is expected by testutil.GetCounterMetricValue.
 var _ Metric = &Counter{}
 
+// All supported exemplar metric types implement the metricWithExemplar interface.
+var _ metricWithExemplar = &Counter{}
+
 // exemplarCounterMetric holds a context to extract exemplar labels from, and a counter metric to attach them to. It implements the metricWithExemplar interface.
 type exemplarCounterMetric struct {
-	ctx      context.Context
-	delegate CounterMetric
+	*Counter
 }
 
 // NewCounter returns an object which satisfies the kubeCollector and CounterMetric interfaces.
@@ -104,12 +107,26 @@ func (c *Counter) initializeDeprecatedMetric() {
 
 // WithContext allows the normal Counter metric to pass in context.
 func (c *Counter) WithContext(ctx context.Context) CounterMetric {
-	return &exemplarCounterMetric{ctx: ctx, delegate: c.CounterMetric}
+	c.ctx = ctx
+	return c.CounterMetric
 }
 
-// Add attaches an exemplar to the metric and then calls the delegate.
-func (e *exemplarCounterMetric) Add(v float64) {
-	if m, ok := e.delegate.(prometheus.ExemplarAdder); ok {
+// withExemplar initializes the exemplarMetric object and sets the exemplar value.
+func (c *Counter) withExemplar(v float64) {
+	(&exemplarCounterMetric{c}).withExemplar(v)
+}
+
+func (c *Counter) Add(v float64) {
+	c.withExemplar(v)
+}
+
+func (c *Counter) Inc() {
+	c.withExemplar(1)
+}
+
+// withExemplar attaches an exemplar to the metric.
+func (e *exemplarCounterMetric) withExemplar(v float64) {
+	if m, ok := e.CounterMetric.(prometheus.ExemplarAdder); ok {
 		maybeSpanCtx := trace.SpanContextFromContext(e.ctx)
 		if maybeSpanCtx.IsValid() && maybeSpanCtx.IsSampled() {
 			exemplarLabels := prometheus.Labels{
@@ -121,12 +138,7 @@ func (e *exemplarCounterMetric) Add(v float64) {
 		}
 	}
 
-	e.delegate.Add(v)
-}
-
-// Inc attaches an exemplar to the metric and then calls the delegate.
-func (e *exemplarCounterMetric) Inc() {
-	e.Add(1)
+	e.CounterMetric.Add(v)
 }
 
 // CounterVec is the internal representation of our wrapping struct around prometheus

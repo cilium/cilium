@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
-	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -23,7 +23,7 @@ import (
 
 func encodeDebugEvent(msg *monitor.DebugMsg) []byte {
 	buf := &bytes.Buffer{}
-	if err := binary.Write(buf, binary.NativeEndian, msg); err != nil {
+	if err := binary.Write(buf, byteorder.Native, msg); err != nil {
 		panic(fmt.Sprintf("failed to encode debug event: %s", err))
 	}
 	return buf.Bytes()
@@ -52,12 +52,14 @@ func TestDecodeDebugEvent(t *testing.T) {
 		},
 	}
 
+	p, err := New(hivetest.Logger(t), endpointGetter)
+	assert.NoError(t, err)
+
 	tt := []struct {
 		name    string
 		data    []byte
 		cpu     int
 		ev      *flowpb.DebugEvent
-		opts    []options.Option
 		wantErr bool
 	}{
 		{
@@ -68,7 +70,6 @@ func TestDecodeDebugEvent(t *testing.T) {
 				Source:  0,
 				Arg1:    1,
 				Arg2:    2,
-				Arg3:    3,
 			}),
 			cpu: 0,
 			ev: &flowpb.DebugEvent{
@@ -76,8 +77,8 @@ func TestDecodeDebugEvent(t *testing.T) {
 				Hash:    wrapperspb.UInt32(0),
 				Arg1:    wrapperspb.UInt32(1),
 				Arg2:    wrapperspb.UInt32(2),
-				Arg3:    wrapperspb.UInt32(3),
-				Message: "No message, arg1=1 (0x1) arg2=2 (0x2) arg3=3 (0x3)",
+				Arg3:    wrapperspb.UInt32(0),
+				Message: "No message, arg1=1 (0x1) arg2=2 (0x2)",
 				Cpu:     wrapperspb.Int32(0),
 			},
 		},
@@ -187,44 +188,10 @@ func TestDecodeDebugEvent(t *testing.T) {
 			data:    []byte{0, 1, 2},
 			wantErr: true,
 		},
-		{
-			name: "custom decoder",
-			data: encodeDebugEvent(&monitor.DebugMsg{
-				Type:    monitorAPI.MessageTypeDebug,
-				SubType: monitor.DbgGeneric,
-				Source:  0,
-				Arg1:    1,
-				Arg2:    2,
-			}),
-			cpu: 0,
-			opts: []options.Option{
-				options.WithDebugMsgDecoder(func(data []byte) (*monitor.DebugMsg, error) {
-					return &monitor.DebugMsg{
-						Type:    monitorAPI.MessageTypeDebug,
-						SubType: monitor.DbgGeneric,
-						Source:  0,
-						Arg1:    13,
-						Arg2:    37,
-						Arg3:    42,
-					}, nil
-				}),
-			},
-			ev: &flowpb.DebugEvent{
-				Type:    flowpb.DebugEventType_DBG_GENERIC,
-				Hash:    wrapperspb.UInt32(0),
-				Arg1:    wrapperspb.UInt32(13),
-				Arg2:    wrapperspb.UInt32(37),
-				Arg3:    wrapperspb.UInt32(42),
-				Message: "No message, arg1=13 (0xd) arg2=37 (0x25) arg3=42 (0x2a)",
-				Cpu:     wrapperspb.Int32(0),
-			},
-		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := New(hivetest.Logger(t), endpointGetter, tc.opts...)
-			assert.NoError(t, err)
 			ev, err := p.Decode(tc.data, tc.cpu)
 			if tc.wantErr {
 				assert.Error(t, err)

@@ -43,13 +43,15 @@ Installation
         You may also deploy your own SPIRE server and configure Cilium to use it.
         Please refer to :ref:`k8s_install_helm` for a fresh installation.
 
-        .. cilium-helm-install::
-           :namespace: kube-system
-           :set: authentication.enabled=true
-                 authentication.mutual.spire.enabled=true
-                 authentication.mutual.spire.install.enabled=true
-           :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
-                           kubectl -n kube-system rollout restart ds/cilium
+        .. parsed-literal::
+
+            $ helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set authentication.mutual.spire.enabled=true \\
+                --set authentication.mutual.spire.install.enabled=true
+
+            $ kubectl -n kube-system rollout restart deployment/cilium-operator
+            $ kubectl -n kube-system rollout restart ds/cilium
 
         Next, you can check the status of the Cilium agent and operator:
 

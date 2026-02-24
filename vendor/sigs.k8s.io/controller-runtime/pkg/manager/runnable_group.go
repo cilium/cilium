@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -33,7 +32,6 @@ type runnables struct {
 	Webhooks       *runnableGroup
 	Caches         *runnableGroup
 	LeaderElection *runnableGroup
-	Warmup         *runnableGroup
 	Others         *runnableGroup
 }
 
@@ -44,19 +42,8 @@ func newRunnables(baseContext BaseContextFunc, errChan chan error) *runnables {
 		Webhooks:       newRunnableGroup(baseContext, errChan),
 		Caches:         newRunnableGroup(baseContext, errChan),
 		LeaderElection: newRunnableGroup(baseContext, errChan),
-		Warmup:         newRunnableGroup(baseContext, errChan),
 		Others:         newRunnableGroup(baseContext, errChan),
 	}
-}
-
-// withLogger returns the runnables with the logger set for all runnable groups.
-func (r *runnables) withLogger(logger logr.Logger) *runnables {
-	r.HTTPServers.withLogger(logger)
-	r.Webhooks.withLogger(logger)
-	r.Caches.withLogger(logger)
-	r.LeaderElection.withLogger(logger)
-	r.Others.withLogger(logger)
-	return r
 }
 
 // Add adds a runnable to closest group of runnable that they belong to.
@@ -78,20 +65,8 @@ func (r *runnables) Add(fn Runnable) error {
 		})
 	case webhook.Server:
 		return r.Webhooks.Add(fn, nil)
-	case warmupRunnable, LeaderElectionRunnable:
-		if warmupRunnable, ok := fn.(warmupRunnable); ok {
-			if err := r.Warmup.Add(RunnableFunc(warmupRunnable.Warmup), nil); err != nil {
-				return err
-			}
-		}
-
-		leaderElectionRunnable, ok := fn.(LeaderElectionRunnable)
-		if !ok {
-			// If the runnable is not a LeaderElectionRunnable, add it to the leader election group for backwards compatibility
-			return r.LeaderElection.Add(fn, nil)
-		}
-
-		if !leaderElectionRunnable.NeedLeaderElection() {
+	case LeaderElectionRunnable:
+		if !runnable.NeedLeaderElection() {
 			return r.Others.Add(fn, nil)
 		}
 		return r.LeaderElection.Add(fn, nil)
@@ -130,9 +105,6 @@ type runnableGroup struct {
 	// wg is an internal sync.WaitGroup that allows us to properly stop
 	// and wait for all the runnables to finish before returning.
 	wg *sync.WaitGroup
-
-	// logger is used for logging when errors are dropped during shutdown
-	logger logr.Logger
 }
 
 func newRunnableGroup(baseContext BaseContextFunc, errChan chan error) *runnableGroup {
@@ -141,16 +113,10 @@ func newRunnableGroup(baseContext BaseContextFunc, errChan chan error) *runnable
 		errChan:      errChan,
 		ch:           make(chan *readyRunnable),
 		wg:           new(sync.WaitGroup),
-		logger:       logr.Discard(), // Default to no-op logger
 	}
 
 	r.ctx, r.cancel = context.WithCancel(baseContext())
 	return r
-}
-
-// withLogger sets the logger for this runnable group.
-func (r *runnableGroup) withLogger(logger logr.Logger) {
-	r.logger = logger
 }
 
 // Started returns true if the group has started.
@@ -258,27 +224,7 @@ func (r *runnableGroup) reconcile() {
 
 			// Start the runnable.
 			if err := rn.Start(r.ctx); err != nil {
-				// Check if we're during the shutdown process.
-				r.stop.RLock()
-				isStopped := r.stopped
-				r.stop.RUnlock()
-
-				if isStopped {
-					// During shutdown, try to send error first (error drain goroutine might still be running)
-					// but drop if it would block to prevent goroutine leaks
-					select {
-					case r.errChan <- err:
-						// Error sent successfully (error drain goroutine is still running)
-					default:
-						// Error drain goroutine has exited, drop error to prevent goroutine leak
-						if !errors.Is(err, context.Canceled) { // don't log context.Canceled errors as they are expected during shutdown
-							r.logger.Info("error dropped during shutdown to prevent goroutine leak", "error", err)
-						}
-					}
-				} else {
-					// During normal operation, always try to send errors (may block briefly)
-					r.errChan <- err
-				}
+				r.errChan <- err
 			}
 		}(runnable)
 	}

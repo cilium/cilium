@@ -147,61 +147,6 @@ func (m *HeaderMutationRules) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 	return len(dAtA) - i, nil
 }
 
-func (m *HeaderMutation_RemoveOnMatch) MarshalVTStrict() (dAtA []byte, err error) {
-	if m == nil {
-		return nil, nil
-	}
-	size := m.SizeVT()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HeaderMutation_RemoveOnMatch) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *HeaderMutation_RemoveOnMatch) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	if m == nil {
-		return 0, nil
-	}
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.unknownFields != nil {
-		i -= len(m.unknownFields)
-		copy(dAtA[i:], m.unknownFields)
-	}
-	if m.KeyMatcher != nil {
-		if vtmsg, ok := interface{}(m.KeyMatcher).(interface {
-			MarshalToSizedBufferVTStrict([]byte) (int, error)
-		}); ok {
-			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		} else {
-			encoded, err := proto.Marshal(m.KeyMatcher)
-			if err != nil {
-				return 0, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
 func (m *HeaderMutation) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -231,13 +176,6 @@ func (m *HeaderMutation) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
-	}
-	if msg, ok := m.Action.(*HeaderMutation_RemoveOnMatch_); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
 	}
 	if msg, ok := m.Action.(*HeaderMutation_Append); ok {
 		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -305,29 +243,6 @@ func (m *HeaderMutation_Append) MarshalToSizedBufferVTStrict(dAtA []byte) (int, 
 	}
 	return len(dAtA) - i, nil
 }
-func (m *HeaderMutation_RemoveOnMatch_) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *HeaderMutation_RemoveOnMatch_) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.RemoveOnMatch != nil {
-		size, err := m.RemoveOnMatch.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x1a
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x1a
-	}
-	return len(dAtA) - i, nil
-}
 func (m *HeaderMutationRules) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -378,26 +293,6 @@ func (m *HeaderMutationRules) SizeVT() (n int) {
 	return n
 }
 
-func (m *HeaderMutation_RemoveOnMatch) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.KeyMatcher != nil {
-		if size, ok := interface{}(m.KeyMatcher).(interface {
-			SizeVT() int
-		}); ok {
-			l = size.SizeVT()
-		} else {
-			l = proto.Size(m.KeyMatcher)
-		}
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	n += len(m.unknownFields)
-	return n
-}
-
 func (m *HeaderMutation) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -435,20 +330,6 @@ func (m *HeaderMutation_Append) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.Append)
 		}
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
-func (m *HeaderMutation_RemoveOnMatch_) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.RemoveOnMatch != nil {
-		l = m.RemoveOnMatch.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	} else {
 		n += 2

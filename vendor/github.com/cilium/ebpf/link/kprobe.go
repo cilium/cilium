@@ -33,9 +33,8 @@ type KprobeOptions struct {
 	// Increase the maximum number of concurrent invocations of a kretprobe.
 	// Required when tracing some long running functions in the kernel.
 	//
-	// Warning: this setting forces the use of an outdated kernel API and is
-	// not portable across kernel versions. On supported kernels, consider using
-	// fexit programs instead, as they don't have this MaxActive limitation.
+	// Deprecated: this setting forces the use of an outdated kernel API and is not portable
+	// across kernel versions.
 	RetprobeMaxActive int
 	// Prefix used for the event name if the kprobe must be attached using tracefs.
 	// The group name will be formatted as `<prefix>_<randomstr>`.

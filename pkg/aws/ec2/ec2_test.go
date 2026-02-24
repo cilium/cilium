@@ -4,13 +4,13 @@
 package ec2
 
 import (
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/stretchr/testify/assert"
 )
 
 type Filters []ec2_types.Filter
@@ -94,7 +94,9 @@ func TestNewSubnetsFilters(t *testing.T) {
 			got := NewSubnetsFilters(tt.args.tags, tt.args.ids)
 			sort.Sort(Filters(got))
 			sort.Sort(Filters(tt.want))
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewSubnetsFilters() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -139,7 +141,9 @@ func TestNewTagsFilters(t *testing.T) {
 			got := NewTagsFilter(tt.args.tags)
 			sort.Sort(Filters(got))
 			sort.Sort(Filters(tt.want))
-			assert.Equal(t, tt.want, got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewTagsFilter() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

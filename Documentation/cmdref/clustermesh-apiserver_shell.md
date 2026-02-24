@@ -2,7 +2,7 @@
 
 ## clustermesh-apiserver shell
 
-Connect to the shell
+Connect to the Cilium shell
 
 ```
 clustermesh-apiserver shell [command] [args]... [flags]

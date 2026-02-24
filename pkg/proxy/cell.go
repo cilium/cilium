@@ -11,9 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/spf13/pflag"
 
-	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -38,7 +36,6 @@ var Cell = cell.Module(
 
 	cell.Provide(newProxy),
 	cell.Provide(newEnvoyProxyIntegration),
-	cell.Config(defaultEnvoyProxyIntegrationConfig),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
 	cell.Provide(proxyports.NewProxyPorts),
@@ -52,7 +49,6 @@ type proxyParams struct {
 	Lifecycle             cell.Lifecycle
 	JobGroup              job.Group
 	Logger                *slog.Logger
-	DaemonConfig          *option.DaemonConfig
 	LocalNodeStore        *node.LocalNodeStore
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
@@ -61,18 +57,6 @@ type proxyParams struct {
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 	RouteManager *reconciler.DesiredRouteManager
-}
-
-type EnvoyProxyIntegrationConfig struct {
-	ProxyUseOriginalSourceAddress bool
-}
-
-var defaultEnvoyProxyIntegrationConfig = EnvoyProxyIntegrationConfig{
-	ProxyUseOriginalSourceAddress: true,
-}
-
-func (def EnvoyProxyIntegrationConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("proxy-use-original-source-address", def.ProxyUseOriginalSourceAddress, "Controls if Cilium's Envoy BPF metadata listener filter for L7 policy enforcement redirects should be configured to use original source address when extracting the metadata (doesn't affect Ingress/Gateway API).")
 }
 
 func newProxy(params proxyParams) (*Proxy, error) {
@@ -88,17 +72,6 @@ func newProxy(params proxyParams) (*Proxy, error) {
 		}
 
 		return p, nil
-	}
-
-	if !params.DaemonConfig.DryMode {
-		params.Lifecycle.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
-					return fmt.Errorf("failed to ensure local routing rule: %w", err)
-				}
-				return nil
-			},
-		})
 	}
 
 	p.proxyPorts.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
@@ -137,19 +110,25 @@ type envoyProxyIntegrationParams struct {
 	IptablesManager datapath.IptablesManager
 	XdsServer       envoy.XDSServer
 	AdminClient     *envoy.EnvoyAdminClient
-	Cfg             EnvoyProxyIntegrationConfig
 }
 
 func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyIntegration {
+	if !option.Config.EnableL7Proxy {
+		return nil
+	}
+
 	return &envoyProxyIntegration{
-		xdsServer:                     params.XdsServer,
-		iptablesManager:               params.IptablesManager,
-		adminClient:                   params.AdminClient,
-		proxyUseOriginalSourceAddress: params.Cfg.ProxyUseOriginalSourceAddress,
+		xdsServer:       params.XdsServer,
+		iptablesManager: params.IptablesManager,
+		adminClient:     params.AdminClient,
 	}
 }
 
 func newDNSProxyIntegration(dnsProxy fqdnproxy.DNSProxier, sdpPolicyUpdater *service.FQDNDataServer) *dnsProxyIntegration {
+	if !option.Config.EnableL7Proxy {
+		return nil
+	}
+
 	return &dnsProxyIntegration{
 		dnsProxy:         dnsProxy,
 		sdpPolicyUpdater: sdpPolicyUpdater,

@@ -28,6 +28,7 @@ import (
 // Histogram is our internal representation for our wrapping struct around prometheus
 // histograms. Summary implements both kubeCollector and ObserverMetric
 type Histogram struct {
+	ctx context.Context
 	ObserverMetric
 	*HistogramOpts
 	lazyMetric
@@ -36,8 +37,7 @@ type Histogram struct {
 
 // exemplarHistogramMetric holds a context to extract exemplar labels from, and a historgram metric to attach them to. It implements the metricWithExemplar interface.
 type exemplarHistogramMetric struct {
-	ctx      context.Context
-	delegate ObserverMetric
+	*Histogram
 }
 
 type exemplarHistogramVec struct {
@@ -45,9 +45,18 @@ type exemplarHistogramVec struct {
 	observer prometheus.Observer
 }
 
-// Observe attaches an exemplar to the metric and then calls the delegate.
-func (e *exemplarHistogramMetric) Observe(v float64) {
-	if m, ok := e.delegate.(prometheus.ExemplarObserver); ok {
+func (h *Histogram) Observe(v float64) {
+	h.withExemplar(v)
+}
+
+// withExemplar initializes the exemplarMetric object and sets the exemplar value.
+func (h *Histogram) withExemplar(v float64) {
+	(&exemplarHistogramMetric{h}).withExemplar(v)
+}
+
+// withExemplar attaches an exemplar to the metric.
+func (e *exemplarHistogramMetric) withExemplar(v float64) {
+	if m, ok := e.Histogram.ObserverMetric.(prometheus.ExemplarObserver); ok {
 		maybeSpanCtx := trace.SpanContextFromContext(e.ctx)
 		if maybeSpanCtx.IsValid() && maybeSpanCtx.IsSampled() {
 			exemplarLabels := prometheus.Labels{
@@ -59,7 +68,7 @@ func (e *exemplarHistogramMetric) Observe(v float64) {
 		}
 	}
 
-	e.delegate.Observe(v)
+	e.ObserverMetric.Observe(v)
 }
 
 // NewHistogram returns an object which is Histogram-like. However, nothing
@@ -104,7 +113,8 @@ func (h *Histogram) initializeDeprecatedMetric() {
 
 // WithContext allows the normal Histogram metric to pass in context. The context is no-op now.
 func (h *Histogram) WithContext(ctx context.Context) ObserverMetric {
-	return &exemplarHistogramMetric{ctx: ctx, delegate: h.ObserverMetric}
+	h.ctx = ctx
+	return h.ObserverMetric
 }
 
 // HistogramVec is the internal representation of our wrapping struct around prometheus

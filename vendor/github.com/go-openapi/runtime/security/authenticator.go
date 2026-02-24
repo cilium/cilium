@@ -1,5 +1,16 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package security
 
@@ -20,8 +31,8 @@ const (
 )
 
 // HttpAuthenticator is a function that authenticates a HTTP request
-func HttpAuthenticator(handler func(*http.Request) (bool, any, error)) runtime.Authenticator { //nolint:revive
-	return runtime.AuthenticatorFunc(func(params any) (bool, any, error) {
+func HttpAuthenticator(handler func(*http.Request) (bool, interface{}, error)) runtime.Authenticator { //nolint:revive
+	return runtime.AuthenticatorFunc(func(params interface{}) (bool, interface{}, error) {
 		if request, ok := params.(*http.Request); ok {
 			return handler(request)
 		}
@@ -33,8 +44,8 @@ func HttpAuthenticator(handler func(*http.Request) (bool, any, error)) runtime.A
 }
 
 // ScopedAuthenticator is a function that authenticates a HTTP request against a list of valid scopes
-func ScopedAuthenticator(handler func(*ScopedAuthRequest) (bool, any, error)) runtime.Authenticator {
-	return runtime.AuthenticatorFunc(func(params any) (bool, any, error) {
+func ScopedAuthenticator(handler func(*ScopedAuthRequest) (bool, interface{}, error)) runtime.Authenticator {
+	return runtime.AuthenticatorFunc(func(params interface{}) (bool, interface{}, error) {
 		if request, ok := params.(*ScopedAuthRequest); ok {
 			return handler(request)
 		}
@@ -43,22 +54,22 @@ func ScopedAuthenticator(handler func(*ScopedAuthRequest) (bool, any, error)) ru
 }
 
 // UserPassAuthentication authentication function
-type UserPassAuthentication func(string, string) (any, error)
+type UserPassAuthentication func(string, string) (interface{}, error)
 
 // UserPassAuthenticationCtx authentication function with context.Context
-type UserPassAuthenticationCtx func(context.Context, string, string) (context.Context, any, error)
+type UserPassAuthenticationCtx func(context.Context, string, string) (context.Context, interface{}, error)
 
 // TokenAuthentication authentication function
-type TokenAuthentication func(string) (any, error)
+type TokenAuthentication func(string) (interface{}, error)
 
 // TokenAuthenticationCtx authentication function with context.Context
-type TokenAuthenticationCtx func(context.Context, string) (context.Context, any, error)
+type TokenAuthenticationCtx func(context.Context, string) (context.Context, interface{}, error)
 
 // ScopedTokenAuthentication authentication function
-type ScopedTokenAuthentication func(string, []string) (any, error)
+type ScopedTokenAuthentication func(string, []string) (interface{}, error)
 
 // ScopedTokenAuthenticationCtx authentication function with context.Context
-type ScopedTokenAuthenticationCtx func(context.Context, string, []string) (context.Context, any, error)
+type ScopedTokenAuthenticationCtx func(context.Context, string, []string) (context.Context, interface{}, error)
 
 var DefaultRealmName = "API"
 
@@ -104,7 +115,7 @@ func BasicAuthRealm(realm string, authenticate UserPassAuthentication) runtime.A
 		realm = DefaultRealmName
 	}
 
-	return HttpAuthenticator(func(r *http.Request) (bool, any, error) {
+	return HttpAuthenticator(func(r *http.Request) (bool, interface{}, error) {
 		if usr, pass, ok := r.BasicAuth(); ok {
 			p, err := authenticate(usr, pass)
 			if err != nil {
@@ -128,7 +139,7 @@ func BasicAuthRealmCtx(realm string, authenticate UserPassAuthenticationCtx) run
 		realm = DefaultRealmName
 	}
 
-	return HttpAuthenticator(func(r *http.Request) (bool, any, error) {
+	return HttpAuthenticator(func(r *http.Request) (bool, interface{}, error) {
 		if usr, pass, ok := r.BasicAuth(); ok {
 			ctx, p, err := authenticate(r.Context(), usr, pass)
 			if err != nil {
@@ -159,7 +170,7 @@ func APIKeyAuth(name, in string, authenticate TokenAuthentication) runtime.Authe
 		getToken = func(r *http.Request) string { return r.URL.Query().Get(name) }
 	}
 
-	return HttpAuthenticator(func(r *http.Request) (bool, any, error) {
+	return HttpAuthenticator(func(r *http.Request) (bool, interface{}, error) {
 		token := getToken(r)
 		if token == "" {
 			return false, nil, nil
@@ -187,7 +198,7 @@ func APIKeyAuthCtx(name, in string, authenticate TokenAuthenticationCtx) runtime
 		getToken = func(r *http.Request) string { return r.URL.Query().Get(name) }
 	}
 
-	return HttpAuthenticator(func(r *http.Request) (bool, any, error) {
+	return HttpAuthenticator(func(r *http.Request) (bool, interface{}, error) {
 		token := getToken(r)
 		if token == "" {
 			return false, nil, nil
@@ -208,11 +219,11 @@ type ScopedAuthRequest struct {
 // BearerAuth for use with oauth2 flows
 func BearerAuth(name string, authenticate ScopedTokenAuthentication) runtime.Authenticator {
 	const prefix = "Bearer "
-	return ScopedAuthenticator(func(r *ScopedAuthRequest) (bool, any, error) {
+	return ScopedAuthenticator(func(r *ScopedAuthRequest) (bool, interface{}, error) {
 		var token string
 		hdr := r.Request.Header.Get(runtime.HeaderAuthorization)
-		if after, ok := strings.CutPrefix(hdr, prefix); ok {
-			token = after
+		if strings.HasPrefix(hdr, prefix) {
+			token = strings.TrimPrefix(hdr, prefix)
 		}
 		if token == "" {
 			qs := r.Request.URL.Query()
@@ -238,11 +249,11 @@ func BearerAuth(name string, authenticate ScopedTokenAuthentication) runtime.Aut
 // BearerAuthCtx for use with oauth2 flows with support for context.Context.
 func BearerAuthCtx(name string, authenticate ScopedTokenAuthenticationCtx) runtime.Authenticator {
 	const prefix = "Bearer "
-	return ScopedAuthenticator(func(r *ScopedAuthRequest) (bool, any, error) {
+	return ScopedAuthenticator(func(r *ScopedAuthRequest) (bool, interface{}, error) {
 		var token string
 		hdr := r.Request.Header.Get(runtime.HeaderAuthorization)
-		if after, ok := strings.CutPrefix(hdr, prefix); ok {
-			token = after
+		if strings.HasPrefix(hdr, prefix) {
+			token = strings.TrimPrefix(hdr, prefix)
 		}
 		if token == "" {
 			qs := r.Request.URL.Query()

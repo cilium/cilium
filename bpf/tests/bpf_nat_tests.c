@@ -9,10 +9,7 @@
 #define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#include <bpf/config/global.h>
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
+#include <bpf/config/node.h>
 
 #define DEBUG
 
@@ -224,7 +221,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	void *data;
 	void *data_end;
 
@@ -289,12 +286,6 @@ int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 
 		memcpy(data, pkt, pkt_size);
 	}
-	/* We also need to set the packet size in ctx, since that's what
-	 * the BPF code now checks for this condition.  The verifier prevents
-	 * us from directly writing the len field of the context,
-	 * but there is a BPF helper function for this.
-	 */
-	ctx_change_tail(ctx, pkt_size, 0);
 
 	test_init();
 	/* The test is validating that the function snat_v4_rev_nat()
@@ -344,7 +335,7 @@ int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	void *data;
 	void *data_end;
 
@@ -462,7 +453,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	void *data;
 	void *data_end;
 
@@ -575,7 +566,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	void *data;
 	void *data_end;
 
@@ -753,7 +744,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -813,12 +804,6 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 
 		memcpy(data, pkt, pkt_size);
 	}
-	/* We also need to set the packet size in ctx, since that's what
-	 * the BPF code now checks for this condition.  The verifier prevents
-	 * us from directly writing the len field of the context,
-	 * but there is a BPF helper function for this.
-	 */
-	ctx_change_tail(ctx, pkt_size, 0);
 
 	test_init();
 	/* The test is validating that the function snat_v4_nat()
@@ -878,7 +863,7 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1001,7 +986,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1119,7 +1104,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1226,7 +1211,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__be16 proto;
+	__u16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1282,8 +1267,7 @@ __u32 daddrs[] = {
 #define SNAT_TEST_CLIENTS 16
 #define SNAT_TEST_ITERATIONS \
 	SIMPLE_MIN(ARRAY_SIZE(tcp_ports0) * SNAT_TEST_CLIENTS, \
-		   ARRAY_SIZE(daddrs) * (NODEPORT_PORT_MAX_NAT - \
-		   NODEPORT_PORT_MIN_NAT + 1))
+		   ARRAY_SIZE(daddrs) * (NODEPORT_PORT_MAX_NAT - NODEPORT_PORT_MIN_NAT + 1))
 
 static __u32 retries_before[SNAT_COLLISION_RETRIES + 1];
 static __u32 retries_10percent[SNAT_COLLISION_RETRIES + 1];
@@ -1379,18 +1363,22 @@ static long snat_callback_tcp(__u32 i, struct snat_callback_ctx *ctx)
 	if (ctx->err)
 		printk("error %d at iteration %u\n", ctx->err, i);
 
-	if (i == SNAT_TEST_ITERATIONS / 10) {
+	switch (i) {
+	case SNAT_TEST_ITERATIONS / 10:
 		printk("TCP port allocation retries at 10%% of test:\n");
 		if (!store_retries(retries_10percent, true))
 			ctx->err = -ENOMEM;
-	} else if (i == SNAT_TEST_ITERATIONS / 2) {
+		break;
+	case SNAT_TEST_ITERATIONS / 2:
 		printk("TCP port allocation retries at 50%% of test:\n");
 		if (!store_retries(retries_50percent, true))
 			ctx->err = -ENOMEM;
-	} else if (i == SNAT_TEST_ITERATIONS * 3 / 4) {
+		break;
+	case SNAT_TEST_ITERATIONS * 3 / 4:
 		printk("TCP port allocation retries at 75%% of test:\n");
 		if (!store_retries(retries_75percent, true))
 			ctx->err = -ENOMEM;
+		break;
 	}
 
 	return ctx->err != 0;
@@ -1418,16 +1406,16 @@ int test_nat4_port_allocation_tcp_check(struct __ctx_buff *ctx)
 	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
 
 	/* Non-negligible amount of failures happens after 70% of the test. */
-	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
+	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
 
 	/* Only occasional failures at 50% of the test. */
 	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
 
 	/* Less than 7% of failures at 75% of the test. */
-	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
+	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
 
 	/* Less than 16% of failures at 100% of the test. */
-	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 16 / 100);
+	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.16);
 
 	/* Negligible amount of ports allocated after 10+ retries. */
 	for (__u32 i = 10; i < SNAT_COLLISION_RETRIES; i++)
@@ -1506,18 +1494,22 @@ static long snat_callback_udp(__u32 i, struct snat_callback_ctx *ctx)
 	if (ctx->err)
 		printk("error %d at iteration %u\n", ctx->err, i);
 
-	if (i == SNAT_TEST_ITERATIONS / 10) {
+	switch (i) {
+	case SNAT_TEST_ITERATIONS / 10:
 		printk("UDP port allocation retries at 10%% of test:\n");
 		if (!store_retries(retries_10percent, true))
 			ctx->err = -ENOMEM;
-	} else if (i == SNAT_TEST_ITERATIONS / 2) {
+		break;
+	case SNAT_TEST_ITERATIONS / 2:
 		printk("UDP port allocation retries at 50%% of test:\n");
 		if (!store_retries(retries_50percent, true))
 			ctx->err = -ENOMEM;
-	} else if (i == SNAT_TEST_ITERATIONS * 3 / 4) {
+		break;
+	case SNAT_TEST_ITERATIONS * 3 / 4:
 		printk("UDP port allocation retries at 75%% of test:\n");
 		if (!store_retries(retries_75percent, true))
 			ctx->err = -ENOMEM;
+		break;
 	}
 
 	return ctx->err != 0;
@@ -1545,16 +1537,16 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 	printk("5%% failures happened at iteration %u\n", cb_ctx.fail_thres);
 
 	/* Non-negligible amount of failures happens after 70% of the test. */
-	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 7 / 10);
+	assert(cb_ctx.fail_thres >= SNAT_TEST_ITERATIONS * 0.7);
 
 	/* Only occasional failures at 50% of the test. */
 	assert(retries_50percent[SNAT_COLLISION_RETRIES] < 15);
 
 	/* Less than 7% of failures at 75% of the test. */
-	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 75 * 7 / 10000);
+	assert(retries_75percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.75 * 0.07);
 
 	/* Less than 16% of failures at 100% of the test. */
-	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 16 / 100);
+	assert(retries_100percent[SNAT_COLLISION_RETRIES] < SNAT_TEST_ITERATIONS * 0.16);
 
 	/* Negligible amount of ports allocated after 11+ retries. */
 	for (__u32 i = 11; i < SNAT_COLLISION_RETRIES; i++)

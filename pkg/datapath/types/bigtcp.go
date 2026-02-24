@@ -10,10 +10,6 @@ import (
 const (
 	EnableIPv4BIGTCPFlag = "enable-ipv4-big-tcp"
 	EnableIPv6BIGTCPFlag = "enable-ipv6-big-tcp"
-
-	// Corresponds to the value of GRO_LEGACY_MAX_SIZE and GSO_LEGACY_MAX_SIZE in
-	// the kernel. This is the maximum aggregation size of a packet pre BIG TCP.
-	GROGSOLegacyMaxSize = 65536
 )
 
 // BigTCPUserConfig are the configuration flags that the user can modify.
@@ -41,11 +37,4 @@ func (def BigTCPUserConfig) IsIPv6Enabled() bool {
 type BigTCPConfig interface {
 	IsIPv4Enabled() bool
 	IsIPv6Enabled() bool
-}
-
-type BigTCPConfiguration interface {
-	GetGROIPv6MaxSize() int
-	GetGSOIPv6MaxSize() int
-	GetGROIPv4MaxSize() int
-	GetGSOIPv4MaxSize() int
 }

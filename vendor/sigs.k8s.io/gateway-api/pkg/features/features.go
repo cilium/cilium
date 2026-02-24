@@ -60,10 +60,7 @@ var (
 			Insert(TLSRouteCoreFeatures.UnsortedList()...).
 			Insert(MeshCoreFeatures.UnsortedList()...).
 			Insert(MeshExtendedFeatures.UnsortedList()...).
-			Insert(GRPCRouteCoreFeatures.UnsortedList()...).
-			Insert(GRPCRouteExtendedFeatures.UnsortedList()...).
-			Insert(BackendTLSPolicyCoreFeatures.UnsortedList()...).
-			Insert(BackendTLSPolicyExtendedFeatures.UnsortedList()...)
+			Insert(GRPCRouteCoreFeatures.UnsortedList()...)
 
 	featureMap = map[FeatureName]Feature{}
 )

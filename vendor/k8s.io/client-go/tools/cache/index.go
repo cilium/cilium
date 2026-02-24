@@ -91,10 +91,10 @@ func MetaNamespaceIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // Index maps the indexed value to a set of keys in the store that match on that value
-type index map[string]sets.Set[string]
+type Index map[string]sets.String
 
 // Indexers maps a name to an IndexFunc
 type Indexers map[string]IndexFunc
 
 // Indices maps a name to an Index
-type Indices map[string]index
+type Indices map[string]Index

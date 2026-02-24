@@ -12,13 +12,19 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type endpointInfo struct {
+type Flow struct {
+	From, To *identity.Identity
+	Proto    u8proto.U8proto
+	Dport    uint16
+}
+
+type EndpointInfo struct {
 	ID uint64
 
 	TCPNamedPorts map[string]uint16
@@ -27,7 +33,7 @@ type endpointInfo struct {
 	Logger *slog.Logger
 
 	// Used when determining peer named ports
-	remoteEndpoint *endpointInfo
+	remoteEndpoint *EndpointInfo
 }
 
 // LookupFlow determines the policy verdict for a given flow.
@@ -38,88 +44,79 @@ type endpointInfo struct {
 // This function is only used for testing, but in multiple packages.
 //
 // TODO: add support for redirects
-func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager identitymanager.IDManager, flow types.Flow) (verdict types.LookupResult, egress, ingress RuleMeta, err error) {
-	identityManager.Add(flow.From)
-	identityManager.Add(flow.To)
-	defer func() {
-		identityManager.Remove(flow.From)
-		identityManager.Remove(flow.To)
-	}()
-
+func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (verdict api.Decision, egress, ingress RuleMeta, err error) {
 	if flow.From.ID == 0 || flow.To.ID == 0 {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
 	}
-	if !repo.GetSubjectSelectorCache().idCache.exists(flow.From.ID) {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("From.ID not in SelectorCache!")
+	if _, exists := repo.GetSelectorCache().idCache[flow.From.ID]; !exists {
+		return api.Undecided, ingress, egress, fmt.Errorf("From.ID not in SelectorCache!")
 	}
-	if !repo.GetSubjectSelectorCache().idCache.exists(flow.To.ID) {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("To.ID not in SelectorCache!")
+	if _, exists := repo.GetSelectorCache().idCache[flow.To.ID]; !exists {
+		return api.Undecided, ingress, egress, fmt.Errorf("To.ID not in SelectorCache!")
 	}
 	if flow.Dport == 0 {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("cannot lookup flow: port number missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: port number missing")
 	}
 	if flow.Proto == 0 {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("cannot lookup flow: protocol missing")
+		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: protocol missing")
 	}
 
-	srcEP := &endpointInfo{
-		ID:            uint64(flow.From.ID),
-		TCPNamedPorts: flow.NamedPortsTCP,
-		UDPNamedPorts: flow.NamedPortsUDP,
+	if srcEP == nil {
+		srcEP = &EndpointInfo{
+			ID: uint64(flow.From.ID),
+		}
 	}
-	dstEP := &endpointInfo{
-		ID:            uint64(flow.To.ID),
-		TCPNamedPorts: flow.NamedPortsTCP,
-		UDPNamedPorts: flow.NamedPortsUDP,
+
+	if dstEP == nil {
+		dstEP = &EndpointInfo{
+			ID: uint64(flow.To.ID),
+		}
 	}
+
 	srcEP.remoteEndpoint = dstEP
 	dstEP.remoteEndpoint = srcEP
 
 	// Resolve and look up the flow as egress from the source
 	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
 	if err != nil {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
+		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
 
 	epp := selPolSrc.DistillPolicy(logger, srcEP, nil)
 	epp.Ready()
 	epp.Detach(logger)
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
-	egressEntry, ingress, _ := epp.Lookup(key)
-	if egressEntry.IsDeny() {
-		verdict.Egress = types.DecisionDenied
-	} else {
-		verdict.Egress = types.DecisionAllowed
+	entry, ingress, _ := epp.Lookup(key)
+	if entry.IsDeny() {
+		return api.Denied, ingress, egress, nil
 	}
 
 	// Resolve ingress policy for destination
 	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
 	if err != nil {
-		return types.LookupResult{}, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
+		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
 	epp = selPolDst.DistillPolicy(logger, dstEP, nil)
 	epp.Ready()
 	epp.Detach(logger)
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)
-	ingressEntry, egress, _ := epp.Lookup(key)
-	if ingressEntry.IsDeny() {
-		verdict.Ingress = types.DecisionDenied
-	} else {
-		verdict.Ingress = types.DecisionAllowed
+	entry, egress, _ = epp.Lookup(key)
+	if entry.IsDeny() {
+		return api.Denied, ingress, egress, nil
 	}
 
-	return verdict, ingress, egress, nil
+	return api.Allowed, ingress, egress, nil
 }
 
-var _ PolicyOwner = &endpointInfo{}
+var _ PolicyOwner = &EndpointInfo{}
 
-func (ei *endpointInfo) GetID() uint64 {
+func (ei *EndpointInfo) GetID() uint64 {
 	return ei.ID
 }
 
 // GetNamedPort determines the named port of the *destination*. So, if ingress
 // is false, then this looks up the peer.
-func (ei *endpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
+func (ei *EndpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if !ingress && ei.remoteEndpoint != nil {
 		return ei.remoteEndpoint.GetNamedPort(true, name, proto)
 	}
@@ -133,23 +130,24 @@ func (ei *endpointInfo) GetNamedPort(ingress bool, name string, proto u8proto.U8
 	return 0
 }
 
-func (ei *endpointInfo) PolicyDebug(msg string, attrs ...any) {
+func (ei *EndpointInfo) PolicyDebug(msg string, attrs ...any) {
 	if ei.Logger != nil {
 		ei.Logger.Debug(msg, attrs...)
 	}
 }
 
-func (ei *endpointInfo) IsHost() bool {
+func (ei *EndpointInfo) IsHost() bool {
 	return false
 }
 
-// PreviousMapState returns an empty mapstate
-func (ei *endpointInfo) PreviousMapState() *MapState {
-	return nil
+// MapStateSize returns the size of the current desired policy map, used for preallocation of the
+// new map. Return 0 here as this is only used for testing.
+func (ei *EndpointInfo) MapStateSize() int {
+	return 0
 }
 
 // RegenerateIfAlive returns immediately as there is nothing to regenerate
-func (ei *endpointInfo) RegenerateIfAlive(*regeneration.ExternalRegenerationMetadata) <-chan bool {
+func (ei *EndpointInfo) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	ch := make(chan bool)
 	close(ch)
 	return ch

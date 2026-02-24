@@ -46,7 +46,6 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
-	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
@@ -54,16 +53,19 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
 func TestScript(t *testing.T) {
+	// Catch any leaked goroutines.
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
 	version.Force(k8sTestutils.DefaultVersion)
 	setup := func(t testing.TB, args []string) *script.Engine {
 		fakeEnvoy := &fakeEnvoySyncerAndPolicyTrigger{
@@ -81,9 +83,6 @@ func TestScript(t *testing.T) {
 			cell.Config(CECConfig{}),
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 			cell.Config(envoyCfg.ProxyConfig{}),
-
-			lbipamconfig.Cell,
-			nodeipamconfig.Cell,
 
 			lbcell.Cell,
 
@@ -515,11 +514,6 @@ func (s staticPortAllocator) AckProxyPortWithReference(ctx context.Context, name
 // AllocateCRDProxyPort implements PortAllocator.
 func (s staticPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return 1000, nil
-}
-
-// ReallocateCRDProxyPort implements PortAllocator.
-func (s staticPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error) {
-	return 1001, nil
 }
 
 // ReleaseProxyPort implements PortAllocator.

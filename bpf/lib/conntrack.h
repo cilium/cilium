@@ -14,6 +14,7 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
+#include "signal.h"
 #include "ipfrag.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
@@ -38,37 +39,6 @@ enum ct_entry_type {
 	CT_ENTRY_SVC		= (1 << 2),
 };
 
-struct ct_state {
-	union v6addr nat_addr;
-	__be16 nat_port;
-	__u16 rev_nat_index;
-#ifdef USE_LOOPBACK_LB
-	__u16 loopback:1,
-#else
-	__u16 loopback_disabled:1,
-#endif
-	      node_port:1,
-	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
-	      syn:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved1:1,	/* Was auth_required, not used in production anywhere */
-	      from_tunnel:1,	/* Connection is from tunnel */
-		  closing:1,
-	      reserved:7;
-	__u32 src_sec_id;
-	__u32 backend_id;	/* Backend ID in lb4_backends */
-};
-
-static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
-{
-#ifdef ENABLE_L7_LB
-	return ct_state->from_l7lb;
-#else
-	return false;
-#endif
-}
-
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -83,50 +53,6 @@ struct ct_buffer6 {
 	__u32 monitor;
 	int ret;
 	int l4_off;
-	fraginfo_t fraginfo;
-};
-
-struct ct_entry {
-	union {
-		/* For CT_EGRESS entry: */
-		union v6addr nat_addr;
-		/* For CT_SERVICE entry: */
-		struct {
-			__u64 reserved0;	/* unused since v1.16 */
-			__u64 backend_id;
-		};
-	};
-	__u64 packets;
-	__u64 bytes;
-	__u32 lifetime;
-	__u16 rx_closing:1,
-	      tx_closing:1,
-	      reserved1:1,	/* unused since v1.12 */
-	      lb_loopback:1,
-	      seen_non_syn:1,
-	      node_port:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved2:1,	/* unused since v1.14 */
-	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved3:5;
-	__u16 rev_nat_index;
-	__be16 nat_port;	/* For CT_EGRESS entry. */
-
-	/* *x_flags_seen represents the OR of all TCP flags seen for the
-	 * transmit/receive direction of this entry.
-	 */
-	__u8  tx_flags_seen;
-	__u8  rx_flags_seen;
-
-	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
-
-	/* last_*x_report is a timestamp of the last time a monitor
-	 * notification was sent for the transmit/receive direction.
-	 */
-	__u32 last_tx_report;
-	__u32 last_rx_report;
 };
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
@@ -280,8 +206,6 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
-		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
-		state->nat_port = entry->nat_port;
 	}
 }
 
@@ -377,11 +301,10 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-		if (CONFIG(enable_conntrack_accounting)) {
-			__sync_fetch_and_add(&entry->packets, 1);
-			__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
-		}
-
+#ifdef CONNTRACK_ACCOUNTING
+		__sync_fetch_and_add(&entry->packets, 1);
+		__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
+#endif
 		switch (action) {
 		case ACTION_CREATE:
 			if (unlikely(ct_entry_closing(entry))) {
@@ -616,11 +539,8 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMPV6_PKT_TOOBIG:
-			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
-				       REASON_MTU_ERROR_MSG);
-			fallthrough;
 		case ICMPV6_DEST_UNREACH:
+		case ICMPV6_PKT_TOOBIG:
 		case ICMPV6_TIME_EXCEED:
 		case ICMPV6_PARAMPROB:
 			tuple->flags |= TUPLE_F_RELATED;
@@ -741,12 +661,16 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff 
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-				      fraginfo_t fraginfo, int l4_off,
-				      enum ct_dir dir, enum ct_scope scope,
+				      int l4_off, enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
 				      __u32 *monitor)
 {
+	fraginfo_t fraginfo;
 	int ret;
+
+	fraginfo = ipv6_get_fraginfo(ctx, ip6);
+	if (fraginfo < 0)
+		return (int)fraginfo;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
@@ -854,10 +778,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
-		struct {
-			__u8 type;
-			__u8 code;
-		} hdr;
+		__u8 type;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -867,9 +788,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &hdr, 2) < 0)
+		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
 			return DROP_CT_INVALID_HDR;
-		if ((hdr.type == ICMP_ECHO || hdr.type == ICMP_ECHOREPLY) &&
+		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -877,17 +798,13 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->sport = 0;
 		tuple->dport = 0;
 
-		switch (hdr.type) {
+		switch (type) {
 		case ICMP_DEST_UNREACH:
-			if (hdr.code == ICMP_FRAG_NEEDED)
-				update_metrics(ctx_full_len(ctx),
-					       ct_to_metrics_dir(dir),
-					       REASON_MTU_ERROR_MSG);
-			fallthrough;
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
 			break;
+
 		case ICMP_ECHOREPLY:
 			tuple->sport = identifier;
 			break;
@@ -1058,8 +975,6 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 #ifdef USE_LOOPBACK_LB
 		entry->lb_loopback = state->loopback;
 #endif
-		ipv6_addr_copy(&entry->nat_addr, &state->nat_addr);
-		entry->nat_port = state->nat_port;
 		entry->node_port = state->node_port;
 		entry->dsr_internal = state->dsr_internal;
 		entry->from_tunnel = state->from_tunnel;
@@ -1094,7 +1009,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
-		struct ipv6_ct_tuple icmp_tuple __align_stack_8 = {
+		struct ipv6_ct_tuple icmp_tuple = {
 			.nexthdr = IPPROTO_ICMPV6,
 			.sport = 0,
 			.dport = 0,
@@ -1106,23 +1021,25 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto drop_err;
+			goto err_ct_fill_up;
 	}
 
-	if (CONFIG(enable_conntrack_accounting)) {
-		entry.packets = 1;
-		entry.bytes = ctx_full_len(ctx);
-	}
+#ifdef CONNTRACK_ACCOUNTING
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
+#endif
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto drop_err;
+		goto err_ct_fill_up;
 
 	return 0;
 
-drop_err:
+err_ct_fill_up:
 	if (ext_err)
 		*ext_err = (__s8)err;
+	if (err == -ENOMEM)
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1161,13 +1078,13 @@ static __always_inline int ct_create4(const void *map_main,
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto drop_err;
+			goto err_ct_fill_up;
 	}
 
-	if (CONFIG(enable_conntrack_accounting)) {
-		entry.packets = 1;
-		entry.bytes = ctx_full_len(ctx);
-	}
+#ifdef CONNTRACK_ACCOUNTING
+	entry.packets = 1;
+	entry.bytes = ctx_full_len(ctx);
+#endif
 
 	/* Previous map update succeeded, we could delete it in case
 	 * the below throws an error, but we might as well just let
@@ -1175,13 +1092,15 @@ static __always_inline int ct_create4(const void *map_main,
 	 */
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto drop_err;
+		goto err_ct_fill_up;
 
 	return 0;
 
-drop_err:
+err_ct_fill_up:
 	if (ext_err)
 		*ext_err = (__s8)err;
+	if (err == -ENOMEM)
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1190,7 +1109,7 @@ static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
-	const struct ct_entry *entry;
+	struct ct_entry *entry;
 
 	tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, tuple);
@@ -1203,7 +1122,7 @@ static __always_inline bool
 ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
-	const struct ct_entry *entry;
+	struct ct_entry *entry;
 
 	tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, tuple);
@@ -1212,32 +1131,6 @@ ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 	return entry && entry->lb_loopback;
 }
 #endif
-
-static __always_inline bool
-ct_has_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
-{
-	__u8 flags = tuple->flags;
-	const struct ct_entry *entry;
-
-	tuple->flags = TUPLE_F_OUT;
-	entry = map_lookup_elem(map, tuple);
-	tuple->flags = flags;
-
-	return entry;
-}
-
-static __always_inline bool
-ct_has_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
-{
-	__u8 flags = tuple->flags;
-	const struct ct_entry *entry;
-
-	tuple->flags = TUPLE_F_OUT;
-	entry = map_lookup_elem(map, tuple);
-	tuple->flags = flags;
-
-	return entry;
-}
 
 static __always_inline bool
 __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
@@ -1250,20 +1143,6 @@ __ct_has_nodeport_egress_entry(const struct ct_entry *entry,
 	}
 
 	return check_dsr && entry->dsr_internal;
-}
-
-static __always_inline const struct ct_entry *
-ct_get_nodeport_egress_entry4(const void *map,
-			      struct ipv4_ct_tuple *ingress_tuple)
-{
-	__u8 prev_flags = ingress_tuple->flags;
-	const struct ct_entry *entry;
-
-	ingress_tuple->flags = TUPLE_F_OUT;
-	entry = map_lookup_elem(map, ingress_tuple);
-	ingress_tuple->flags = prev_flags;
-
-	return entry;
 }
 
 /* The function tries to determine whether the flow identified by the given
@@ -1280,9 +1159,13 @@ ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
 			      __u16 *rev_nat_index, bool check_dsr)
 {
-	const struct ct_entry *entry;
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
 
-	entry = ct_get_nodeport_egress_entry4(map, ingress_tuple);
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
 	if (!entry)
 		return false;
 
@@ -1293,7 +1176,7 @@ static __always_inline bool
 ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	const struct ct_entry *entry;
+	struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);
@@ -1305,28 +1188,18 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 	return 0;
 }
 
-static __always_inline const struct ct_entry *
-ct_get_nodeport_egress_entry6(const void *map,
-			      struct ipv6_ct_tuple *ingress_tuple)
-{
-	__u8 prev_flags = ingress_tuple->flags;
-	const struct ct_entry *entry;
-
-	ingress_tuple->flags = TUPLE_F_OUT;
-	entry = map_lookup_elem(map, ingress_tuple);
-	ingress_tuple->flags = prev_flags;
-
-	return entry;
-}
-
 static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple,
 			      __u16 *rev_nat_index, bool check_dsr)
 {
-	const struct ct_entry *entry;
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
 
-	entry = ct_get_nodeport_egress_entry6(map, ingress_tuple);
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
 	if (!entry)
 		return false;
 
@@ -1337,7 +1210,7 @@ static __always_inline bool
 ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	const struct ct_entry *entry;
+	struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -28,7 +29,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/annotation"
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -81,8 +81,6 @@ const (
 	lrpBackendDeploymentName                   = "lrp-backend"
 	lrpClientDeploymentName                    = "lrp-client"
 	kindLrpName                                = "lrp"
-	ccnpDeploymentName                         = "client-ccnp"
-	kindCCNPName                               = "ccnp"
 	loadbalancerL7DeploymentName               = "l7-lb"
 
 	hostNetNSDeploymentName          = "host-netns"
@@ -91,31 +89,24 @@ const (
 
 	testConnDisruptClientDeploymentName                              = "test-conn-disrupt-client"
 	testConnDisruptClientNSTrafficDeploymentName                     = "test-conn-disrupt-client"
-	testConnDisruptClientL7TrafficDeploymentName                     = "test-conn-disrupt-client-l7"
 	testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName    = "test-conn-disrupt-client-egw-gw-node"
 	testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName = "test-conn-disrupt-client-egw-non-gw-node"
 	testConnDisruptServerDeploymentName                              = "test-conn-disrupt-server"
 	testConnDisruptServerNSTrafficDeploymentName                     = "test-conn-disrupt-server-ns-traffic"
-	testConnDisruptServerL7TrafficDeploymentName                     = "test-conn-disrupt-server-l7-traffic"
 	testConnDisruptServerEgressGatewayDeploymentName                 = "test-conn-disrupt-server-egw"
 	testConnDisruptServiceName                                       = "test-conn-disrupt"
 	testConnDisruptNSTrafficServiceName                              = "test-conn-disrupt-ns-traffic"
-	testConnDisruptL7TrafficServiceName                              = "test-conn-disrupt-l7-traffic"
 	testConnDisruptEgressGatewayServiceName                          = "test-conn-disrupt-egw"
 	testConnDisruptCNPName                                           = "test-conn-disrupt"
 	testConnDisruptNSTrafficCNPName                                  = "test-conn-disrupt-ns-traffic"
-	testConnDisruptL7TrafficCNPName                                  = "test-conn-disrupt-l7-traffic"
 	testConnDisruptEgressGatewayCNPName                              = "test-conn-disrupt-egw"
 	testConnDisruptCEGPName                                          = "test-conn-disrupt"
 	testConnDisruptServerNSTrafficAppLabel                           = "test-conn-disrupt-server-ns-traffic"
-	testConnDisruptServerL7TrafficAppLabel                           = "test-conn-disrupt-server-l7-traffic"
-	testConnDisruptClientL7TrafficAppLabel                           = "test-conn-disrupt-client-l7-traffic"
 	testConnDisruptServerEgressGatewayAppLabel                       = "test-conn-disrupt-server-egw"
 	testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel          = "test-conn-disrupt-client-egw-gw-node"
 	testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel       = "test-conn-disrupt-client-egw-non-gw-node"
 	KindTestConnDisrupt                                              = "test-conn-disrupt"
 	KindTestConnDisruptNSTraffic                                     = "test-conn-disrupt-ns-traffic"
-	KindTestConnDisruptL7Traffic                                     = "test-conn-disrupt-l7-traffic"
 	KindTestConnDisruptEgressGateway                                 = "test-conn-disrupt-egw"
 
 	bwPrioAnnotationString = "bandwidth.cilium.io/priority"
@@ -133,9 +124,11 @@ const (
 	perfPodRoleProfiling = perfPodRole("profiling")
 )
 
-var appLabels = map[string]string{
-	"app.kubernetes.io/name": "cilium-cli",
-}
+var (
+	appLabels = map[string]string{
+		"app.kubernetes.io/name": "cilium-cli",
+	}
+)
 
 type deploymentParameters struct {
 	Name                          string
@@ -172,8 +165,7 @@ func (p *deploymentParameters) args() []string {
 func (p *deploymentParameters) ports() (ports []corev1.ContainerPort) {
 	if p.Port != 0 {
 		ports = append(ports, corev1.ContainerPort{
-			Name: p.namedPort(), ContainerPort: int32(p.Port), HostPort: int32(p.HostPort),
-		})
+			Name: p.namedPort(), ContainerPort: int32(p.Port), HostPort: int32(p.HostPort)})
 	}
 
 	return ports
@@ -544,46 +536,6 @@ func newConnDisruptCNPForNSTraffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 	}
 }
 
-func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
-	selector := policyapi.EndpointSelector{
-		LabelSelector: &slimmetav1.LabelSelector{
-			MatchLabels: map[string]string{"kind": KindTestConnDisruptL7Traffic},
-		},
-	}
-
-	ports := []policyapi.PortRule{{
-		Ports: []policyapi.PortProtocol{{
-			Protocol: policyapi.ProtoTCP,
-			Port:     "8000",
-		}},
-		Rules: &policyapi.L7Rules{
-			HTTP: []policyapi.PortRuleHTTP{{
-				Path:   "/echo",
-				Method: "GET",
-			}},
-		},
-	}}
-
-	return &ciliumv2.CiliumNetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       ciliumv2.CNPKindDefinition,
-			APIVersion: ciliumv2.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptL7TrafficCNPName, Namespace: ns},
-		Spec: &policyapi.Rule{
-			EndpointSelector: selector,
-			Ingress: []policyapi.IngressRule{{
-				IngressCommonRule: policyapi.IngressCommonRule{
-					FromEntities: policyapi.EntitySlice{
-						policyapi.EntityCluster,
-					},
-				},
-				ToPorts: ports,
-			}},
-		},
-	}
-}
-
 func newConnDisruptCNPForEgressGateway(ns string) *ciliumv2.CiliumNetworkPolicy {
 	selector := policyapi.EndpointSelector{
 		LabelSelector: &slimmetav1.LabelSelector{
@@ -702,306 +654,23 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context) error {
 			if err := ct.DeleteConnDisruptTestDeployment(ctx, client); err != nil {
 				return err
 			}
-			if err := ct.DeleteCCNPTestEnv(ctx, client); err != nil {
-				return err
-			}
 		}
 
-		namespace, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
+		_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ct.params.TestNamespace)
-			namespace = &corev1.Namespace{
+			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        ct.params.TestNamespace,
 					Annotations: ct.params.NamespaceAnnotations,
 					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 				},
 			}
-		}
-		if !ct.Features[features.DefaultGlobalNamespace].Enabled {
-			// Mark the namespace as global to ensure resources under this
-			// namespace are treated as global. This is required for
-			// multi-cluster tests.
-			if namespace.Annotations == nil {
-				namespace.Annotations = make(map[string]string)
-			}
-			namespace.Annotations[annotation.GlobalNamespace] = "true"
-		}
-		if err == nil { // Namespace already exists.
-			_, err = client.UpdateNamespace(ctx, namespace, metav1.UpdateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to update namespace %s: %w", ct.params.TestNamespace, err)
-			}
-		} else {
 			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %w", ct.params.TestNamespace, err)
 			}
 		}
-	}
-	return nil
-}
-
-// DeployZtunnelTestEnv deploys the test infrastructure for ztunnel e2e tests.
-// This is exported so it can be called from the test's WithSetupFunc.
-func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) error {
-	namespaceConfigs := []struct {
-		name string
-		obj  *corev1.Namespace
-	}{
-		{
-			name: "cilium-test-ztunnel-enrolled-0",
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ztunnel-enrolled-0",
-				},
-			},
-		},
-		{
-			name: "cilium-test-ztunnel-enrolled-1",
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ztunnel-enrolled-1",
-				},
-			},
-		},
-		{
-			name: "cilium-test-ztunnel-unenrolled",
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ztunnel-unenrolled",
-				},
-			},
-		},
-	}
-
-	client := ct.K8sClient()
-
-	for _, nsConfig := range namespaceConfigs {
-		var err error
-
-		// Create namespace
-		_, err = client.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Creating namespace %s...", client.ClusterName(), nsConfig.name)
-			_, err = client.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
-			}
-		}
-
-		// Create client deployment
-		_, err = client.GetDeployment(ctx, nsConfig.name, clientDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), clientDeploymentName, nsConfig.name)
-			var clientAffinity *corev1.Affinity
-			if nsConfig.name == "cilium-test-ztunnel-enrolled-0" {
-				// First namespace - just use node affinity
-				clientAffinity = &corev1.Affinity{
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-				}
-			} else {
-				// Subsequent namespaces - add pod affinity to first namespace's client
-				clientAffinity = &corev1.Affinity{
-					PodAffinity: &corev1.PodAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-							{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{
-											Key:      "name",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{clientDeploymentName},
-										},
-									},
-								},
-								Namespaces:  []string{"cilium-test-ztunnel-enrolled-0"},
-								TopologyKey: corev1.LabelHostname,
-							},
-						},
-					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-				}
-			}
-
-			clientDeployment := newDeployment(deploymentParameters{
-				Name:         clientDeploymentName,
-				Kind:         kindClientName,
-				Image:        ct.params.CurlImage,
-				Command:      []string{"/usr/bin/pause"},
-				Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
-				Affinity:     clientAffinity,
-				NodeSelector: ct.params.NodeSelector,
-				Tolerations:  ct.params.GetTolerations(),
-			})
-			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s in namespace %s: %w", clientDeploymentName, nsConfig.name, err)
-			}
-			_, err = client.CreateDeployment(ctx, nsConfig.name, clientDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", clientDeploymentName, nsConfig.name, err)
-			}
-		}
-
-		// Create echo-same-node deployment
-		_, err = client.GetDeployment(ctx, nsConfig.name, echoSameNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), echoSameNodeDeploymentName, nsConfig.name)
-			containerPort := 8080
-			echoSameNodeDeployment := newDeployment(deploymentParameters{
-				Name:        echoSameNodeDeploymentName,
-				Kind:        kindEchoName,
-				Port:        containerPort,
-				NamedPort:   "http-8080",
-				Image:       ct.params.JSONMockImage,
-				Labels:      map[string]string{"other": "echo"},
-				Annotations: ct.params.DeploymentAnnotations.Match(echoSameNodeDeploymentName),
-				Affinity: &corev1.Affinity{
-					PodAffinity: &corev1.PodAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-							{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
-									},
-								},
-								TopologyKey: corev1.LabelHostname,
-							},
-						},
-					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-				},
-				Tolerations:    ct.params.GetTolerations(),
-				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
-			})
-			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
-			}
-			_, err = client.CreateDeployment(ctx, nsConfig.name, echoSameNodeDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", echoSameNodeDeploymentName, nsConfig.name, err)
-			}
-		}
-
-		// Create echo-other-node deployment
-		_, err = client.GetDeployment(ctx, nsConfig.name, echoOtherNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), echoOtherNodeDeploymentName, nsConfig.name)
-			containerPort := 8080
-			echoOtherNodeDeployment := newDeployment(deploymentParameters{
-				Name:        echoOtherNodeDeploymentName,
-				Kind:        kindEchoName,
-				NamedPort:   "http-8080",
-				Port:        containerPort,
-				Image:       ct.params.JSONMockImage,
-				Labels:      map[string]string{"first": "echo"},
-				Annotations: ct.params.DeploymentAnnotations.Match(echoOtherNodeDeploymentName),
-				Affinity: &corev1.Affinity{
-					PodAntiAffinity: &corev1.PodAntiAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-							{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
-									},
-								},
-								TopologyKey: corev1.LabelHostname,
-							},
-						},
-					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-				},
-				NodeSelector:   ct.params.NodeSelector,
-				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
-				Tolerations:    ct.params.GetTolerations(),
-			})
-			_, err = client.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(echoOtherNodeDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
-			}
-			_, err = client.CreateDeployment(ctx, nsConfig.name, echoOtherNodeDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", echoOtherNodeDeploymentName, nsConfig.name, err)
-			}
-		}
-	}
-
-	// Wait for deployments to be ready
-	namespaces := []string{"cilium-test-ztunnel-enrolled-0", "cilium-test-ztunnel-enrolled-1", "cilium-test-ztunnel-unenrolled"}
-	for _, ns := range namespaces {
-		if err := WaitForDeployment(ctx, ct, client, ns, clientDeploymentName); err != nil {
-			return err
-		}
-		if err := WaitForDeployment(ctx, ct, client, ns, echoSameNodeDeploymentName); err != nil {
-			return err
-		}
-		if err := WaitForDeployment(ctx, ct, client, ns, echoOtherNodeDeploymentName); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
-	namespaceConfigs := []struct {
-		name string
-		obj  *corev1.Namespace
-	}{
-		{
-			name: "cilium-test-ccnp1",
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp1",
-				},
-			},
-		},
-		{
-			name: "cilium-test-ccnp2",
-			obj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp2",
-				},
-			},
-		},
-	}
-
-	for _, nsConfig := range namespaceConfigs {
-
-		clientccnp := ct.clients.src
-		var err error
-
-		_, err = clientccnp.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
-		if err != nil {
-			_, err = clientccnp.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
-			}
-		}
-
-		_, err = clientccnp.GetDeployment(ctx, nsConfig.name, ccnpDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			clientDeployment := newDeployment(deploymentParameters{
-				Name:         ccnpDeploymentName,
-				Kind:         kindCCNPName,
-				Image:        ct.params.CurlImage,
-				Command:      []string{"/usr/bin/pause"},
-				Annotations:  ct.params.DeploymentAnnotations.Match(ccnpDeploymentName),
-				Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
-				NodeSelector: ct.params.NodeSelector,
-			})
-			_, err = clientccnp.CreateServiceAccount(ctx, nsConfig.name, k8s.NewServiceAccount(ccnpDeploymentName), metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create service account %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
-			}
-			_, err = clientccnp.CreateDeployment(ctx, nsConfig.name, clientDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s in namespace %s: %w", ccnpDeploymentName, nsConfig.name, err)
-			}
-		}
-
 	}
 
 	return nil
@@ -1017,19 +686,19 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// test namespace in case of tests concurrent run)
 	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
 		if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
-			testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP, ""); err != nil {
+			testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP); err != nil {
 			return err
 		}
 
 		if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientDeploymentName, KindTestConnDisrupt,
 			"test-conn-disrupt-client", fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-			5, false, nil, ""); err != nil {
+			5, false, nil); err != nil {
 			return err
 		}
 
 		if ct.ShouldRunConnDisruptNSTraffic() {
 			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerNSTrafficDeploymentName, KindTestConnDisruptNSTraffic, 1,
-				testConnDisruptNSTrafficServiceName, testConnDisruptServerNSTrafficAppLabel, false, newConnDisruptCNPForNSTraffic, ""); err != nil {
+				testConnDisruptNSTrafficServiceName, testConnDisruptServerNSTrafficAppLabel, false, newConnDisruptCNPForNSTraffic); err != nil {
 				return err
 			}
 
@@ -1038,49 +707,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		} else {
 			ct.Info("Skipping conn-disrupt-test for NS traffic")
-		}
-
-		if ct.ShouldRunConnDisruptL7Traffic() {
-			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerL7TrafficDeploymentName, KindTestConnDisruptL7Traffic, 1,
-				testConnDisruptL7TrafficServiceName, testConnDisruptServerL7TrafficAppLabel, false, newConnDisruptCNPForL7Traffic, "http"); err != nil {
-				return err
-			}
-
-			allTargets := map[string]string{
-				"svc": fmt.Sprintf("%s.%s.svc.cluster.local.", testConnDisruptL7TrafficServiceName, ct.params.TestNamespace),
-			}
-			serverPods, err := ct.clients.src.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=%s", testConnDisruptServerL7TrafficAppLabel)})
-			if err != nil {
-				return err
-			}
-			for _, serverPod := range serverPods.Items {
-				for _, podIPAddr := range serverPod.Status.PodIPs {
-					podIP, err := netip.ParseAddr(podIPAddr.IP)
-					if err != nil {
-						continue
-					}
-
-					if podIP.Unmap().Is4() {
-						allTargets["ep-v4"] = podIPAddr.IP
-					} else {
-						allTargets["ep-v6"] = podIPAddr.IP
-					}
-				}
-			}
-
-			for targetName, target := range allTargets {
-				clientDeploymentName := fmt.Sprintf("%s-%s", testConnDisruptClientL7TrafficDeploymentName, targetName)
-				targetAddress := fmt.Sprintf("http://%s:8000/echo", target)
-
-				if err := ct.createTestConnDisruptClientDeployment(ctx, clientDeploymentName, KindTestConnDisruptL7Traffic,
-					testConnDisruptClientL7TrafficAppLabel, targetAddress, 1, false, nil, "http"); err != nil {
-					return err
-				}
-
-				ct.testConnDisruptClientL7TrafficDeploymentNames = append(ct.testConnDisruptClientL7TrafficDeploymentNames, clientDeploymentName)
-			}
-		} else {
-			ct.Info("Skipping conn-disrupt-test for L7 traffic")
 		}
 
 		if ct.ShouldRunConnDisruptEgressGateway() {
@@ -1096,18 +722,18 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 
 			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerEgressGatewayDeploymentName, KindTestConnDisruptEgressGateway, 1,
-				testConnDisruptEgressGatewayServiceName, testConnDisruptServerEgressGatewayAppLabel, true, newConnDisruptCNPForEgressGateway, ""); err != nil {
+				testConnDisruptEgressGatewayServiceName, testConnDisruptServerEgressGatewayAppLabel, true, newConnDisruptCNPForEgressGateway); err != nil {
 				return err
 			}
 
 			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
 				testConnDisruptClientEgressGatewayOnGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}, ""); err != nil {
+				1, false, map[string]string{"kubernetes.io/hostname": gatewayNode}); err != nil {
 				return err
 			}
 			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, KindTestConnDisruptEgressGateway,
 				testConnDisruptClientEgressGatewayOnNonGatewayNodeAppLabel, fmt.Sprintf("test-conn-disrupt-egw.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}, ""); err != nil {
+				1, false, map[string]string{"kubernetes.io/hostname": nonGatewayNode}); err != nil {
 				return err
 			}
 			for _, clientDeploy := range []string{testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName} {
@@ -1410,6 +1036,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			svcHeadless.Spec.Type = corev1.ServiceTypeClusterIP
 			svcHeadless.ObjectMeta.Annotations["service.cilium.io/global-sync-endpoint-slices"] = "true"
 			_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.GetOptions{})
+
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), EchoOtherNodeDeploymentHeadlessServiceName)
 				_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svcHeadless, metav1.CreateOptions{})
@@ -1566,11 +1193,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[features.CCNP].Enabled {
-		ct.Logf("✨ [%s] Deploying ccnp deployment...", ct.clients.src.ClusterName())
-		ct.deployCCNPTestEnv(ctx)
-	}
-
 	if ct.Features[features.LocalRedirectPolicy].Enabled {
 		ct.Logf("✨ [%s] Deploying lrp-client deployment...", ct.clients.src.ClusterName())
 		lrpClientDeployment := newDeployment(deploymentParameters{
@@ -1696,111 +1318,67 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
-		containerPort := 8080
-		l7lbDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-			Name:  loadbalancerL7DeploymentName,
-			Kind:  kindL7LBName,
-			Image: ct.params.EchoImage,
-			Args: []string{
-				"--tcp=9090", "--port=8080", "--grpc=7070", "--port=8443", "--tls=8443", "--crt=/cert.crt", "--key=/cert.key",
-			},
-			Labels: map[string]string{"kind": "l7-lb"},
-			Affinity: &corev1.Affinity{
-				PodAffinity: &corev1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{loadbalancerL7DeploymentName}},
+	if ct.Features[features.L7LoadBalancer].Enabled {
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
+			containerPort := 8080
+			l7lbDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
+				Name:  loadbalancerL7DeploymentName,
+				Kind:  kindL7LBName,
+				Image: ct.params.EchoImage,
+				Args: []string{
+					"--tcp=9090", "--port=8080", "--grpc=7070", "--port=8443", "--tls=8443", "--crt=/cert.crt", "--key=/cert.key",
+				},
+				Labels: map[string]string{"kind": "l7-lb"},
+				Affinity: &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{loadbalancerL7DeploymentName}},
+									},
 								},
+								TopologyKey: corev1.LabelHostname,
 							},
-							TopologyKey: corev1.LabelHostname,
 						},
 					},
+					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
-				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-			},
-			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
-			Tolerations:    ct.params.GetTolerations(),
-		}, ct.params.DNSTestServerImage)
-		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(loadbalancerL7DeploymentName), metav1.CreateOptions{})
+				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+				Tolerations:    ct.params.GetTolerations(),
+			}, ct.params.DNSTestServerImage)
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(loadbalancerL7DeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", loadbalancerL7DeploymentName, err)
+			}
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, l7lbDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", loadbalancerL7DeploymentName, err)
+			}
+		}
+
+		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %w", loadbalancerL7DeploymentName, err)
-		}
-		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, l7lbDeployment, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %w", loadbalancerL7DeploymentName, err)
-		}
-	}
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), echoOtherNodeDeploymentName)
+			svc := newService(
+				loadbalancerL7DeploymentName,
+				map[string]string{"name": loadbalancerL7DeploymentName},
+				map[string]string{"name": loadbalancerL7DeploymentName, "kind": kindL7LBName},
+				"http",
+				8080,
+				ct.Params().ServiceType)
 
-	_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), loadbalancerL7DeploymentName)
-		svc := newService(
-			loadbalancerL7DeploymentName,
-			map[string]string{"name": loadbalancerL7DeploymentName},
-			map[string]string{"name": loadbalancerL7DeploymentName, "kind": kindL7LBName},
-			"http",
-			8080,
-			ct.Params().ServiceType)
-
-		svc.ObjectMeta.Annotations = map[string]string{
-			"service.cilium.io/lb-l7": "enabled",
-		}
-		_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	// Create additional non-L7 service for L7LBClientPods to test BPF hairpinning
-	_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName+"-non-l7", metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying %s non-L7 service...", ct.clients.dst.ClusterName(), loadbalancerL7DeploymentName)
-		svcNonL7 := newService(
-			loadbalancerL7DeploymentName+"-non-l7",
-			map[string]string{"name": loadbalancerL7DeploymentName},
-			map[string]string{"name": loadbalancerL7DeploymentName, "kind": kindL7LBName},
-			"http",
-			8080,
-			ct.Params().ServiceType)
-
-		// No L7 annotation for this service - will use BPF hairpinning
-		_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svcNonL7, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (ct *ConnectivityTest) DeleteCCNPTestEnv(ctx context.Context, client *k8s.Client) error {
-	namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
-
-	for _, ns := range namespaces {
-		_, err := client.GetDeployment(ctx, ns, ccnpDeploymentName, metav1.GetOptions{})
-		if err == nil {
-			ct.Logf("🔥 [%s] Deleting ccnp deployment in %s ns...", client.ClusterName(), ns)
-			_ = client.DeleteDeployment(ctx, ns, ccnpDeploymentName, metav1.DeleteOptions{})
-		}
-
-		_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
-		if err == nil {
-			ct.Logf("⌛ [%s] Waiting for namespace %s to disappear", client.ClusterName(), ns)
-			for err == nil {
-				time.Sleep(time.Second)
-				// Retry the namespace deletion in-case the previous delete was
-				// rejected, i.e. by yahoo/k8s-namespace-guard
-				_ = client.DeleteNamespace(ctx, ns, metav1.DeleteOptions{})
-				_, err = client.GetNamespace(ctx, ns, metav1.GetOptions{})
+			svc.ObjectMeta.Annotations = map[string]string{
+				"service.cilium.io/lb-l7": "enabled",
+			}
+			_, err = ct.clients.dst.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -1824,7 +1402,7 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 		}
 
 		for _, pod := range clientPods.Items {
-			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name,
+			_, err := ct.client.ExecInPod(ctx, ct.params.TestNamespace, pod.Name, "",
 				[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)})
 			if err != nil {
 				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
@@ -1836,13 +1414,7 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.Context, deployName, kind string, replicas int, svcName, appLabel string,
-	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy, protocol string,
-) error {
-	command := []string{"tcd-server", "8000"}
-	if len(protocol) != 0 {
-		command = []string{"tcd-server", "--protocol", protocol, "8000"}
-	}
-
+	isExternal bool, cnpFunc func(ns string) *ciliumv2.CiliumNetworkPolicy) error {
 	_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), deployName)
@@ -1862,7 +1434,7 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 			Image:          ct.params.TestConnDisruptImage,
 			Replicas:       replicas,
 			Labels:         map[string]string{"app": appLabel},
-			Command:        command,
+			Command:        []string{"tcd-server", "8000"},
 			Port:           8000,
 			ReadinessProbe: readinessProbe,
 			Resources: corev1.ResourceRequirements{
@@ -1926,15 +1498,7 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 	return err
 }
 
-func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Context, deployName, kind, appLabel, address string, replicas int, isExternal bool, nodeSelector map[string]string, protocol string) error {
-	command := []string{
-		"tcd-client",
-		"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
-	}
-	if len(protocol) != 0 {
-		command = append(command, "--protocol", protocol)
-	}
-
+func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Context, deployName, kind, appLabel, address string, replicas int, isExternal bool, nodeSelector map[string]string) error {
 	_, err := ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, deployName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.dst.ClusterName(), deployName)
@@ -1955,8 +1519,11 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Co
 			Image:    ct.params.TestConnDisruptImage,
 			Replicas: replicas,
 			Labels:   map[string]string{"app": appLabel},
-			Command:  append(command, address),
-
+			Command: []string{
+				"tcd-client",
+				"--dispatch-interval", ct.params.ConnDisruptDispatchInterval.String(),
+				address,
+			},
 			ReadinessProbe: readinessProbe,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
@@ -2023,7 +1590,7 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeploymentForNSTraffic(ct
 						KindTestConnDisruptNSTraffic,
 						fmt.Sprintf("test-conn-disrupt-client-%s-%s-%s", n.nodeType, family, strings.ToLower(string(addr.Type))),
 						netip.AddrPortFrom(netip.MustParseAddr(addr.Address), np).String(),
-						1, true, nil, ""); err != nil {
+						1, true, nil); err != nil {
 						errs = errors.Join(errs, err)
 					}
 					ct.testConnDisruptClientNSTrafficDeploymentNames = append(ct.testConnDisruptClientNSTrafficDeploymentNames, deployName)
@@ -2083,12 +1650,13 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 	slices.Sort(workerNodes)
 
 	return workerNodes[0], workerNodes[1], nil
+
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) netip.Addr {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
-		return netip.Addr{}
+		return nil
 	}
 
 	for _, addr := range gatewayNode.Status.Addresses {
@@ -2096,18 +1664,18 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, i
 			continue
 		}
 
-		ip, err := netip.ParseAddr(addr.Address)
-		if err != nil {
+		ip := net.ParseIP(addr.Address)
+		if ip == nil {
 			continue
 		}
 
-		unMappedIp := ip.Unmap()
-		if unMappedIp.Is6() == ipv6 {
-			return unMappedIp
+		isIPv6 := ip.To4() == nil
+		if isIPv6 == ipv6 {
+			return ip
 		}
 	}
 
-	return netip.Addr{}
+	return nil
 }
 
 func (ct *ConnectivityTest) getConnDisruptClientEgressGatewayPodIPs(ctx context.Context) ([]string, error) {
@@ -2144,7 +1712,7 @@ func (ct *ConnectivityTest) GetConnDisruptEgressPolicyEntries(ctx context.Contex
 	}
 
 	gatewayIP := ct.GetGatewayNodeInternalIP(gatewayNode, false)
-	if !gatewayIP.IsValid() {
+	if gatewayIP == nil {
 		return nil, nil
 	}
 
@@ -2329,8 +1897,8 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.params.PerfParameters.HostNet = false
 
 		// TODO: Merge with existing annotations
-		lowPrioDeployAnnotations := annotations{bwPrioAnnotationString: "5"}
-		highPrioDeployAnnotations := annotations{bwPrioAnnotationString: "6"}
+		var lowPrioDeployAnnotations = annotations{bwPrioAnnotationString: "5"}
+		var highPrioDeployAnnotations = annotations{bwPrioAnnotationString: "6"}
 
 		ct.params.DeploymentAnnotations.Set(`{
 				"` + perClientLowPriorityDeploymentName + `": ` + lowPrioDeployAnnotations.String() + `,
@@ -2357,8 +1925,8 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.params.PerfParameters.SameNode = false
 		ct.params.PerfParameters.OtherNode = false
 
-		egressBandwidthAnnotations := annotations{egressBandwidth: "10M"}
-		ingressBandwidthAnnotations := annotations{ingressBandwidth: "10M"}
+		var egressBandwidthAnnotations = annotations{egressBandwidth: "10M"}
+		var ingressBandwidthAnnotations = annotations{ingressBandwidth: "10M"}
 		ct.params.DeploymentAnnotations.Set(`{
 				"` + perClientEgressDeploymentName + `": ` + egressBandwidthAnnotations.String() + `,
 			    "` + perServerIngressDeploymentName + `": ` + ingressBandwidthAnnotations.String() + `
@@ -2440,7 +2008,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		srcList = append(srcList, perClientLowPriorityDeploymentName)
 		srcList = append(srcList, perClientHighPriorityDeploymentName)
 		srcList = append(srcList, perfServerDeploymentName)
-		return srcList, dstList
+		return
 	}
 
 	if ct.params.PerfParameters.Bandwidth {
@@ -2448,7 +2016,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		srcList = append(srcList, perClientIngressDeploymentName)
 		srcList = append(srcList, perServerEgressDeploymentName)
 		srcList = append(srcList, perServerIngressDeploymentName)
-		return srcList, dstList
+		return
 	}
 
 	if ct.params.PerfParameters.PodNet || ct.params.PerfParameters.PodToHost {
@@ -2482,7 +2050,7 @@ func (ct *ConnectivityTest) deploymentListPerf() (srcList []string, dstList []st
 		}
 	}
 
-	return srcList, dstList
+	return
 }
 
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
@@ -2504,10 +2072,6 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		if ct.ShouldRunConnDisruptNSTraffic() {
 			srcList = append(srcList, testConnDisruptServerNSTrafficDeploymentName)
 			dstList = append(dstList, ct.testConnDisruptClientNSTrafficDeploymentNames...)
-		}
-		if ct.ShouldRunConnDisruptL7Traffic() {
-			srcList = append(srcList, testConnDisruptServerL7TrafficDeploymentName)
-			dstList = append(dstList, ct.testConnDisruptClientL7TrafficDeploymentNames...)
 		}
 		if ct.ShouldRunConnDisruptEgressGateway() {
 			srcList = append(srcList, testConnDisruptServerEgressGatewayDeploymentName)
@@ -2575,7 +2139,6 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 	ct.Debugf("🔥 [%s] Deleting test-conn-disrupt deployments...", client.ClusterName())
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
-
 	deployList, err := client.ListDeployment(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptNSTraffic})
 	if err != nil {
 		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptNSTraffic, err)
@@ -2584,35 +2147,21 @@ func (ct *ConnectivityTest) DeleteConnDisruptTestDeployment(ctx context.Context,
 		_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
 		_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
 	}
-
-	deployList, err = client.ListDeployment(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + KindTestConnDisruptL7Traffic})
-	if err != nil {
-		ct.Warnf("failed to list deployments: %s %v", KindTestConnDisruptNSTraffic, err)
-	}
-	for _, deploy := range deployList.Items {
-		_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
-		_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, deploy.Name, metav1.DeleteOptions{})
-	}
-
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
-	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerL7TrafficDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerEgressGatewayDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerNSTrafficDeploymentName, metav1.DeleteOptions{})
-	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerL7TrafficDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptServerEgressGatewayDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnGatewayNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, testConnDisruptClientEgressGatewayOnNonGatewayNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficServiceName, metav1.DeleteOptions{})
-	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptL7TrafficServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptCNPName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptNSTrafficCNPName, metav1.DeleteOptions{})
-	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptL7TrafficCNPName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumNetworkPolicy(ctx, ct.params.TestNamespace, testConnDisruptEgressGatewayCNPName, metav1.DeleteOptions{})
 	_ = client.DeleteCiliumEgressGatewayPolicy(ctx, testConnDisruptCEGPName, metav1.DeleteOptions{})
 
@@ -2711,26 +2260,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[features.CCNP].Enabled {
-
-		namespaces := []string{"cilium-test-ccnp1", "cilium-test-ccnp2"}
-		for _, ns := range namespaces {
-			if err := WaitForDeployment(ctx, ct, ct.clients.src, ns, ccnpDeploymentName); err != nil {
-				return err
-			}
-			ccnpPods, err := ct.client.ListPods(ctx, ns, metav1.ListOptions{LabelSelector: "kind=" + kindCCNPName})
-			if err != nil {
-				return fmt.Errorf("unable to list ccnp pods in namespace %s: %w", ns, err)
-			}
-			for _, ccnpPod := range ccnpPods.Items {
-				ct.ccnpTestPods[ns] = Pod{
-					K8sClient: ct.client,
-					Pod:       ccnpPod.DeepCopy(),
-				}
-			}
-		}
-	}
-
 	clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 	if err != nil {
 		return fmt.Errorf("unable to list client pods: %w", err)
@@ -2747,6 +2276,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				K8sClient: ct.client,
 				Pod:       pod.DeepCopy(),
 			}
+
 		}
 	}
 
@@ -2951,37 +2481,11 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("no client pod available")
 		}
 
-		// Wait for NodePorts to be ready on all node IP addresses.
-		// Tests iterate through all addresses in node.Status.Addresses[], which can include
-		// both IPv4 and IPv6 in dual-stack clusters. Validating only HostIP (typically IPv4)
-		// would leave IPv6 addresses unchecked, causing timeouts when tests try them.
-		for _, node := range ct.Nodes() {
-			for _, addr := range node.Status.Addresses {
-				// Only check IP addresses (skip DNS names, hostnames)
-				if addr.Type != slimcorev1.NodeInternalIP && addr.Type != slimcorev1.NodeExternalIP {
-					continue
-				}
-
-				// Skip IP addresses of families which are not enabled in Cilium
-				addrFamily := features.GetIPFamily(addr.Address)
-				if (addrFamily == features.IPFamilyV4 && !ct.Features[features.IPv4].Enabled) ||
-					(addrFamily == features.IPFamilyV6 && !ct.Features[features.IPv6].Enabled) {
-					continue
-				}
-
-				// On GKE, ExternalIP is not reachable from inside a cluster.
-				// Skip validation for external IPs in GKE to match the actual test behavior.
-				if addr.Type == slimcorev1.NodeExternalIP {
-					if f, ok := ct.Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
-						ct.Debugf("Skipping NodePort validation for external IP %s on GKE", addr.Address)
-						continue
-					}
-				}
-
-				for _, s := range ct.echoServices {
-					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
-						return err
-					}
+		for _, ciliumPod := range ct.ciliumPods {
+			hostIP := ciliumPod.Pod.Status.HostIP
+			for _, s := range ct.echoServices {
+				if err := WaitForNodePorts(ctx, ct, *client, hostIP, s); err != nil {
+					return err
 				}
 			}
 		}
@@ -3017,7 +2521,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			if iface := ct.params.SecondaryNetworkIface; iface != "" {
 				if ct.Features[features.IPv4].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
@@ -3025,7 +2529,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				}
 				if ct.Features[features.IPv6].Enabled {
 					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd)
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
@@ -3035,44 +2539,46 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	l7LBPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
-	if err != nil {
-		return fmt.Errorf("unable to list client pods: %w", err)
-	}
-
-	for _, pod := range l7LBPods.Items {
-		ct.l7LBClientPods[pod.Name] = Pod{
-			K8sClient: ct.client,
-			Pod:       pod.DeepCopy(),
+	// TODO: unconditionally re-enable the IPCache check once
+	// https://github.com/cilium/cilium-cli/issues/361 is resolved.
+	if ct.params.SkipIPCacheCheck {
+		ct.Infof("Skipping IPCache check")
+	} else {
+		pods := append(slices.Collect(maps.Values(ct.clientPods)), slices.Collect(maps.Values(ct.echoPods))...)
+		// Set the timeout for all IP cache lookup retries
+		for _, cp := range ct.ciliumPods {
+			if err := WaitForIPCache(ctx, ct, cp, pods); err != nil {
+				return err
+			}
 		}
 	}
 
-	service, err := ct.client.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
-	if err != nil {
-		return fmt.Errorf("unable to list L7 service: %w", err)
-	}
-
-	testClient := ct.RandomClientPod()
-	for _, svc := range service.Items {
-		s := Service{Service: svc.DeepCopy()}
-		if err := WaitForService(ctx, ct, *testClient, s); err != nil {
-			return err
+	if ct.Features[features.L7LoadBalancer].Enabled {
+		l7LBPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
+		if err != nil {
+			return fmt.Errorf("unable to list client pods: %w", err)
 		}
-		ct.l7LBService[svc.Name] = s
-	}
 
-	// Retrieve and wait for the non-L7 service for L7LBClientPods
-	nonL7Service, err := ct.client.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{FieldSelector: "metadata.name=" + loadbalancerL7DeploymentName + "-non-l7"})
-	if err != nil {
-		return fmt.Errorf("unable to list L7 non-L7 service: %w", err)
-	}
-
-	for _, svc := range nonL7Service.Items {
-		s := Service{Service: svc.DeepCopy()}
-		if err := WaitForService(ctx, ct, *testClient, s); err != nil {
-			return err
+		for _, pod := range l7LBPods.Items {
+			ct.l7LBClientPods[pod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+			}
 		}
-		ct.l7LBNonL7Service[svc.Name] = s
+
+		service, err := ct.client.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindL7LBName})
+		if err != nil {
+			return fmt.Errorf("unable to list L7 service: %w", err)
+		}
+
+		testClient := ct.RandomClientPod()
+		for _, svc := range service.Items {
+			s := Service{Service: svc.DeepCopy()}
+			if err := WaitForService(ctx, ct, *testClient, s); err != nil {
+				return err
+			}
+			ct.l7LBService[svc.Name] = s
+		}
 	}
 
 	return nil

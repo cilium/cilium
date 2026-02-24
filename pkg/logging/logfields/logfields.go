@@ -114,9 +114,6 @@ const (
 	// PolicyEntry is a policy map value
 	PolicyEntry = "policyEntry"
 
-	// PolicyPrecedence is the datapath precedence for a policy Entry
-	PolicyPrecedence = "policyPrecedence"
-
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
@@ -129,12 +126,6 @@ const (
 
 	// PolicyEntriesOld is a set of old policy map keys and values
 	PolicyEntriesOld = "policyEntriesOld"
-
-	// PolicyLogCookie is a policy log cookie.
-	PolicyLogCookie = "policyLogCookie"
-
-	// PolicyLogString is a policy log string.
-	PolicyLogString = "policyLogString"
 
 	// DatapathPolicyRevision is the policy revision currently running in
 	// the datapath
@@ -243,9 +234,6 @@ const (
 
 	// Port is a L4 port
 	Port = "port"
-
-	// EndPort is the last L4 port in a range of ports
-	EndPort = "endPort"
 
 	// Ports is a list of L4 ports
 	Ports = "ports"
@@ -494,12 +482,6 @@ const (
 	// Device is the device name
 	Device = "device"
 
-	// DeviceHeadroom is the head buffer margin of a network device
-	DeviceHeadroom = "deviceHeadroom"
-
-	// DeviceHeadroom is the tail buffer margin of a network device
-	DeviceTailroom = "deviceTailroom"
-
 	// Devices is the devices name
 	Devices = "devices"
 
@@ -657,12 +639,6 @@ const (
 	// K8sNetworkPolicyName is the name of a K8sPolicyObject
 	K8sNetworkPolicyName = "k8sNetworkPolicyName"
 
-	// K8sClusterNetworkPolicy is a k8s ClusterNetworkPolicy object.
-	K8sClusterNetworkPolicy = "k8sClusterNetworkPolicy"
-
-	// K8sClusterNetworkPolicyName is the name of a K8sPolicyObject
-	K8sClusterNetworkPolicyName = "k8sClusterNetworkPolicyName"
-
 	// K8sIngress is a k8s Ingress service object
 	K8sIngress = "k8sIngress"
 
@@ -677,9 +653,6 @@ const (
 
 	// K8sUID is the UID of a K8s object
 	K8sUID = "k8sUID"
-
-	// K8sServiceAccount is the name of a K8s ServiceAccount
-	K8sServiceAccount = "k8sServiceAccount"
 
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
@@ -1097,8 +1070,6 @@ const (
 
 	Link = "link"
 
-	LinkConfig = "linkConfig"
-
 	Hook = "hook"
 
 	DNSRedirect = "dnsRedirect"
@@ -1299,8 +1270,6 @@ const (
 
 	PrefixCount = "prefixCount"
 
-	MaxResults = "maxResults"
-
 	LenEIPS = "lenEIPS"
 
 	EIP = "eip"
@@ -1310,8 +1279,6 @@ const (
 	NumInterfaces = "numInterfaces"
 
 	NumSubnets = "numSubnets"
-
-	TargetedSubnets = "targetedSubnets"
 
 	NumRouteTables = "numRouteTables"
 
@@ -1507,8 +1474,6 @@ const (
 
 	CRDs = "CRDs"
 
-	CRDName = "crdName"
-
 	PodCIDRs = "podCIDRs"
 
 	LenIPs = "lenIPs"
@@ -1529,6 +1494,8 @@ const (
 
 	EgressAlive = "egressAlive"
 
+	CTMapIPVersion = "ctMapIPVersion"
+
 	ExpectedPrevInterval = "expectedPrevInterval"
 
 	ActualPrevInterval = "actualPrevInterval"
@@ -1547,11 +1514,7 @@ const (
 
 	Cmd = "cmd"
 
-	Maps = "maps"
-
 	Prog = "prog"
-
-	Programs = "programs"
 
 	Table = "table"
 
@@ -1573,6 +1536,8 @@ const (
 
 	BootTime = "bootTime"
 
+	BootstrapTime = "bootstrapTime"
+
 	Socket = "socket"
 
 	Filter = "filter"
@@ -1591,17 +1556,13 @@ const (
 
 	RssBytes = "rssBytes"
 
-	BPFFSPath = "bpffsPath"
+	BPFSPath = "bpffsPath"
 
 	ProgName = "progName"
 
 	Range = "range"
 
 	Pin = "pin"
-
-	Tier = "tier"
-
-	TierBasePriority = "tierBasePriority"
 
 	Priority = "priority"
 
@@ -1620,6 +1581,8 @@ const (
 	NewLocally = "newLocally"
 
 	Released = "released"
+
+	DNSRulesV2 = "dnsRulesV2"
 
 	BPFHeaderfileHashOld = "old-" + "bpfHeaderfileHash"
 
@@ -1859,18 +1822,4 @@ const (
 
 	// CompiledPools is a map of pools that use podSelectors
 	CompiledPools = "compiledPools"
-
-	ReloadKeypairError = "reloadKeypairError"
-
-	ReloadCAError = "reloadCAError"
-
-	ExtendedMessage = "extendedMessage"
-
-	BackendTLSPolicyName = "backendTLSPolicyName"
-
-	ConfigMapName = "configMapName"
-
-	AttachType = "attachType"
-
-	WithFrags = "withFrags"
 )

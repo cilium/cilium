@@ -31,9 +31,6 @@ type Node struct {
 
 	// manager is the Azure node manager responsible for this node
 	manager *InstancesManager
-
-	// vmss is the Azure VM Scale Set the node belongs to (optional)
-	vmss string
 }
 
 // UpdatedNode is called when an update to the CiliumNode is received.
@@ -142,10 +139,8 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
-	if n.vmss == "" {
-		return n.manager.api.AssignPublicIPAddressesVM(ctx, n.node.InstanceID(), staticIPTags)
-	}
-	return n.manager.api.AssignPublicIPAddressesVMSS(ctx, n.node.InstanceID(), n.vmss, staticIPTags)
+	// TODO, see https://github.com/cilium/cilium/issues/34094
+	return "", fmt.Errorf("not implemented")
 }
 
 // CreateInterface is called to create a new interface. This operation is
@@ -204,11 +199,6 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
-		}
-
-		// Cache the VMSS name from the first interface we see
-		if n.vmss == "" {
-			n.vmss = iface.GetVMScaleSetName()
 		}
 
 		_, available := isAvailableInterface(requiredIfaceName, iface, scopedLog)

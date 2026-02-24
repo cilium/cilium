@@ -559,6 +559,11 @@ paths:
       deprecated: true
       tags:
       - policy
+      parameters:
+      - name: labels
+        in: body
+        schema:
+          "$ref": "#/definitions/Labels"
       responses:
         '200':
           description: Success
@@ -566,21 +571,74 @@ paths:
             "$ref": "#/definitions/Policy"
         '404':
           description: No policy rules found
+    put:
+      summary: Create or update a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
+      tags:
+      - policy
+      parameters:
+      - "$ref": "#/parameters/policy-rules"
+      - "$ref": "#/parameters/policy-replace"
+      - "$ref": "#/parameters/policy-replace-with-labels"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Policy"
+        '400':
+          description: Invalid policy
+          x-go-name: InvalidPolicy
+          schema:
+            "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
+        '460':
+          description: Invalid path
+          x-go-name: InvalidPath
+          schema:
+            "$ref": "#/definitions/Error"
+        '500':
+          description: Policy import failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+    delete:
+      summary: Delete a policy (sub)tree
+      description: "Deprecated: will be removed in v1.19"
+      deprecated: true
+      tags:
+      - policy
+      parameters:
+      - name: labels
+        in: body
+        required: false
+        schema:
+          "$ref": "#/definitions/Labels"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/Policy"
+        '400':
+          description: Invalid request
+          x-go-name: Invalid
+          schema:
+            "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
+        '404':
+          description: Policy not found
+        '500':
+          description: Error while deleting policy
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
   "/policy/selectors":
     get:
       summary: See what selectors match which identities
       tags:
       - policy
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/SelectorCache"
-  "/policy/subject-selectors":
-    get:
-      summary: See what subject selectors match which identities on the local node
-      tags:
-        - policy
       responses:
         '200':
           description: Success
@@ -1179,9 +1237,6 @@ definitions:
       container-name:
         description: Name assigned to container
         type: string
-      container-netns-path:
-        description: Path of Container Netns
-        type: string
       docker-endpoint-id:
         description: Docker endpoint ID
         type: string
@@ -1683,10 +1738,6 @@ definitions:
         type: string
         description: |
           InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
-      skip-masquerade:
-        type: boolean
-        description: |
-          SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.
   AddressPair:
     description: Addressing information of an endpoint
     type: object
@@ -1872,11 +1923,8 @@ definitions:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
       datapath-mode:
-        description: Status of operational datapath mode
+        description: Status of datapath mode
         "$ref": "#/definitions/DatapathMode"
-      configured-datapath-mode:
-        description: Status of configured datapath mode
-        "$ref": "#/definitions/ConfiguredDatapathMode"
       attach-mode:
         description: Status of core datapath attachment mode
         "$ref": "#/definitions/AttachMode"
@@ -2477,13 +2525,8 @@ definitions:
       enableRouteMTUForCNIChaining:
         description: Enable route MTU for pod netns when CNI chaining is used
         type: boolean
-      packetizationLayerPMTUDMode:
-        description: Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).
-        type: string
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
-      configuredDatapathMode:
-        "$ref": "#/definitions/ConfiguredDatapathMode"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2499,6 +2542,9 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
+      egress-multi-home-ip-rule-compat:
+        description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
+        type: boolean
       installUplinkRoutesForDelegatedIPAM:
         description: |
           Install ingress/egress routes through uplink on host for Pods when working with
@@ -2520,12 +2566,6 @@ definitions:
       GROIPv4MaxSize:
         description: Maximum IPv4 GRO size on workload facing devices
         type: integer
-      deviceHeadroom:
-        description: Headroom buffer margin on workload facing devices
-        type: integer
-      deviceTailroom:
-        description: Tailroom buffer margin on workload facing devices
-        type: integer
       ipLocalReservedPorts:
         description: Comma-separated list of IP ports should be reserved in the workload network namespace
         type: string
@@ -2533,17 +2573,9 @@ definitions:
         description: True if BBR is enabled only in the host network namespace
         type: boolean
   DatapathMode:
-    description: Operational datapath mode
+    description: Datapath mode
     type: string
     enum:
-      - veth
-      - netkit
-      - netkit-l2
-  ConfiguredDatapathMode:
-    description: Configured datapath mode
-    type: string
-    enum:
-      - auto
       - veth
       - netkit
       - netkit-l2
@@ -2696,8 +2728,8 @@ definitions:
         description: string form of selector
         type: string
       labels:
-        description: Labels is a list of labels of the policy rules currently using this selector
-        "$ref": "#/definitions/LabelArrayList"
+        description: Labels are the metadata labels associated with the selector
+        "$ref": "#/definitions/LabelArray"
       identities:
         description: identities mapping to this selector
         type: array
@@ -3501,7 +3533,6 @@ definitions:
           - Disabled
           - IPsec
           - Wireguard
-          - Ztunnel
       msg:
         type: string
         description: Human readable error/warning message
@@ -3621,9 +3652,6 @@ definitions:
 
       +k8s:deepcopy-gen=true
     properties:
-      name:
-        description: Name of peer
-        type: string
       local-asn:
         description: Local AS Number
         type: integer
@@ -3814,16 +3842,20 @@ definitions:
     description: Single BGP route policy statement
     properties:
       match-neighbors:
-        description: Matches BGP neighbor IP address with the provided match rules
-        "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
+        description: Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.
+        type: array
+        items:
+          type: string
       match-families:
         description:  Matches any of the provided address families. If empty matches all address families.
         type: array
         items:
           "$ref": "#/definitions/BgpFamily"
       match-prefixes:
-        description: Matches CIDR prefix with the provided match rules
-        "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+        description:  Matches any of the provided prefixes. If empty matches all prefixes.
+        type: array
+        items:
+          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
       route-action:
         description: RIB processing action taken on the matched route
         type: string
@@ -3856,29 +3888,7 @@ definitions:
       unchanged:
         description: Don't change nexthop
         type: boolean
-  BgpRoutePolicyNeighborMatch:
-    description: Matches a neighbor in a BGP route policy
-    properties:
-      type:
-        description: Defines matching logic in case of multiple neighbors
-        "$ref": "#/definitions/BgpRoutePolicyMatchType"
-      neighbors:
-        description: Neighbor IP addresses to match with
-        type: array
-        items:
-          type: string
   BgpRoutePolicyPrefixMatch:
-    description: Matches a CIDR prefix in a BGP route policy
-    properties:
-      type:
-        description: Defines matching logic in case of multiple prefixes
-        "$ref": "#/definitions/BgpRoutePolicyMatchType"
-      prefixes:
-        description: Prefixes to match with
-        type: array
-        items:
-          "$ref": "#/definitions/BgpRoutePolicyPrefix"
-  BgpRoutePolicyPrefix:
     description: Matches a CIDR prefix in a BGP route policy
     properties:
       cidr:
@@ -3890,13 +3900,6 @@ definitions:
       prefix-len-max:
         description: Maximal prefix length that will match if it falls under CIDR
         type: integer
-  BgpRoutePolicyMatchType:
-    description: Defines BGP route policy matching logic in case of multiple match elements.
-    type: string
-    enum:
-      - any
-      - all
-      - invert
   BgpCapabilities:
     description: Represents the BGP capabilities.
     properties:
@@ -3920,8 +3923,3 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Label"
-  LabelArrayList:
-    description: LabelArrayList is an array of LabelArrays forming a set
-    type: array
-    items:
-      "$ref": "#/definitions/LabelArray"

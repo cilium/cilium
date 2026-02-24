@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -25,8 +24,8 @@ type SelectorIdentityMapping struct {
 	// identities mapping to this selector
 	Identities []int64 `json:"identities"`
 
-	// Labels is a list of labels of the policy rules currently using this selector
-	Labels LabelArrayList `json:"labels,omitempty"`
+	// Labels are the metadata labels associated with the selector
+	Labels LabelArray `json:"labels,omitempty"`
 
 	// string form of selector
 	Selector string `json:"selector,omitempty"`
@@ -55,15 +54,11 @@ func (m *SelectorIdentityMapping) validateLabels(formats strfmt.Registry) error 
 	}
 
 	if err := m.Labels.Validate(formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("labels")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("labels")
 		}
-
 		return err
 	}
 
@@ -87,15 +82,11 @@ func (m *SelectorIdentityMapping) ContextValidate(ctx context.Context, formats s
 func (m *SelectorIdentityMapping) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Labels.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("labels")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("labels")
 		}
-
 		return err
 	}
 

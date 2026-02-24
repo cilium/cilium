@@ -29,16 +29,10 @@ import (
 
 // LeaseCandidateApplyConfiguration represents a declarative configuration of the LeaseCandidate type for use
 // with apply.
-//
-// LeaseCandidate defines a candidate for a Lease object.
-// Candidates are created such that coordinated leader election will pick the best leader from the list of candidates.
 type LeaseCandidateApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration `json:",inline"`
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// spec contains the specification of the Lease.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec *LeaseCandidateSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                             *LeaseCandidateSpecApplyConfiguration `json:"spec,omitempty"`
 }
 
 // LeaseCandidate constructs a declarative configuration of the LeaseCandidate type for use with
@@ -52,14 +46,29 @@ func LeaseCandidate(name, namespace string) *LeaseCandidateApplyConfiguration {
 	return b
 }
 
-// ExtractLeaseCandidateFrom extracts the applied configuration owned by fieldManager from
-// leaseCandidate for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractLeaseCandidate extracts the applied configuration owned by fieldManager from
+// leaseCandidate. If no managedFields are found in leaseCandidate for fieldManager, a
+// LeaseCandidateApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // leaseCandidate must be a unmodified LeaseCandidate API object that was retrieved from the Kubernetes API.
-// ExtractLeaseCandidateFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractLeaseCandidate provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractLeaseCandidateFrom(leaseCandidate *coordinationv1beta1.LeaseCandidate, fieldManager string, subresource string) (*LeaseCandidateApplyConfiguration, error) {
+// Experimental!
+func ExtractLeaseCandidate(leaseCandidate *coordinationv1beta1.LeaseCandidate, fieldManager string) (*LeaseCandidateApplyConfiguration, error) {
+	return extractLeaseCandidate(leaseCandidate, fieldManager, "")
+}
+
+// ExtractLeaseCandidateStatus is the same as ExtractLeaseCandidate except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractLeaseCandidateStatus(leaseCandidate *coordinationv1beta1.LeaseCandidate, fieldManager string) (*LeaseCandidateApplyConfiguration, error) {
+	return extractLeaseCandidate(leaseCandidate, fieldManager, "status")
+}
+
+func extractLeaseCandidate(leaseCandidate *coordinationv1beta1.LeaseCandidate, fieldManager string, subresource string) (*LeaseCandidateApplyConfiguration, error) {
 	b := &LeaseCandidateApplyConfiguration{}
 	err := managedfields.ExtractInto(leaseCandidate, internal.Parser().Type("io.k8s.api.coordination.v1beta1.LeaseCandidate"), fieldManager, b, subresource)
 	if err != nil {
@@ -72,21 +81,6 @@ func ExtractLeaseCandidateFrom(leaseCandidate *coordinationv1beta1.LeaseCandidat
 	b.WithAPIVersion("coordination.k8s.io/v1beta1")
 	return b, nil
 }
-
-// ExtractLeaseCandidate extracts the applied configuration owned by fieldManager from
-// leaseCandidate. If no managedFields are found in leaseCandidate for fieldManager, a
-// LeaseCandidateApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// leaseCandidate must be a unmodified LeaseCandidate API object that was retrieved from the Kubernetes API.
-// ExtractLeaseCandidate provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractLeaseCandidate(leaseCandidate *coordinationv1beta1.LeaseCandidate, fieldManager string) (*LeaseCandidateApplyConfiguration, error) {
-	return ExtractLeaseCandidateFrom(leaseCandidate, fieldManager, "")
-}
-
 func (b LeaseCandidateApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -21,13 +21,12 @@ import (
 // +kubebuilder:storageversion
 
 // CiliumLoadBalancerIPPool is a Kubernetes third-party resource which
-// is used to defined pools of IPs which the operator can use to allocate
+// is used to defined pools of IPs which the operator can use to to allocate
 // and advertise IPs for Services of type LoadBalancer.
 type CiliumLoadBalancerIPPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is a human readable description for a BGP load balancer
@@ -44,7 +43,7 @@ type CiliumLoadBalancerIPPool struct {
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
-	Status CiliumLoadBalancerIPPoolStatus `json:"status,omitempty"`
+	Status CiliumLoadBalancerIPPoolStatus `json:"status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -69,7 +68,7 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	// ServiceSelector selects a set of services which are eligible to receive IPs from this
 	//
 	// +kubebuilder:validation:Optional
-	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector,omitempty"`
+	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
 	// AllowFirstLastIPs, if set to `Yes` or undefined means that the first and last IPs of each CIDR will be allocatable.
 	// If `No`, these IPs will be reserved. This field is ignored for /{31,32} and /{127,128} CIDRs since
 	// reserving the first and last IPs would make the CIDRs unusable.
@@ -85,7 +84,7 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	Disabled bool `json:"disabled,omitempty"`
+	Disabled bool `json:"disabled"`
 }
 
 // +kubebuilder:validation:Enum=Yes;No
@@ -98,8 +97,9 @@ const (
 
 // CiliumLoadBalancerIPPoolIPBlock describes a single IP block.
 type CiliumLoadBalancerIPPoolIPBlock struct {
+	// +kubebuilder:validation:Format=cidr
 	// +kubebuilder:validation:Optional
-	Cidr IPv4orIPv6CIDR `json:"cidr,omitempty"`
+	Cidr IPv4orIPv6CIDR `json:"cidr"`
 	// +kubebuilder:validation:Optional
 	Start string `json:"start,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -111,7 +111,7 @@ type CiliumLoadBalancerIPPoolIPBlock struct {
 // CiliumLoadBalancerIPPoolStatus contains the status of a CiliumLoadBalancerIPPool.
 type CiliumLoadBalancerIPPoolStatus struct {
 	// Current service state
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map

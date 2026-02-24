@@ -1280,6 +1280,15 @@ func init() {
         ],
         "summary": "Retrieve entire policy tree",
         "deprecated": true,
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -1291,6 +1300,102 @@ func init() {
             "description": "No policy rules found"
           }
         }
+      },
+      "put": {
+        "description": "Deprecated: will be removed in v1.19",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Create or update a policy (sub)tree",
+        "deprecated": true,
+        "parameters": [
+          {
+            "$ref": "#/parameters/policy-rules"
+          },
+          {
+            "$ref": "#/parameters/policy-replace"
+          },
+          {
+            "$ref": "#/parameters/policy-replace-with-labels"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPolicy"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "460": {
+            "description": "Invalid path",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPath"
+          },
+          "500": {
+            "description": "Policy import failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deprecated: will be removed in v1.19",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Delete a policy (sub)tree",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Policy not found"
+          },
+          "500": {
+            "description": "Error while deleting policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
       }
     },
     "/policy/selectors": {
@@ -1299,22 +1404,6 @@ func init() {
           "policy"
         ],
         "summary": "See what selectors match which identities",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/SelectorCache"
-            }
-          }
-        }
-      }
-    },
-    "/policy/subject-selectors": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "See what subject selectors match which identities on the local node",
         "responses": {
           "200": {
             "description": "Success",
@@ -1786,10 +1875,6 @@ func init() {
             "$ref": "#/definitions/BgpCapabilities"
           }
         },
-        "name": {
-          "description": "Name of peer",
-          "type": "string"
-        },
         "peer-address": {
           "description": "IP Address of peer",
           "type": "string"
@@ -1902,31 +1987,6 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyMatchType": {
-      "description": "Defines BGP route policy matching logic in case of multiple match elements.",
-      "type": "string",
-      "enum": [
-        "any",
-        "all",
-        "invert"
-      ]
-    },
-    "BgpRoutePolicyNeighborMatch": {
-      "description": "Matches a neighbor in a BGP route policy",
-      "properties": {
-        "neighbors": {
-          "description": "Neighbor IP addresses to match with",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "type": {
-          "description": "Defines matching logic in case of multiple neighbors",
-          "$ref": "#/definitions/BgpRoutePolicyMatchType"
-        }
-      }
-    },
     "BgpRoutePolicyNexthopAction": {
       "description": "BGP nexthop action",
       "properties": {
@@ -1940,7 +2000,7 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyPrefix": {
+    "BgpRoutePolicyPrefixMatch": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
         "cidr": {
@@ -1954,22 +2014,6 @@ func init() {
         "prefix-len-min": {
           "description": "Minimal prefix length that will match if it falls under CIDR",
           "type": "integer"
-        }
-      }
-    },
-    "BgpRoutePolicyPrefixMatch": {
-      "description": "Matches a CIDR prefix in a BGP route policy",
-      "properties": {
-        "prefixes": {
-          "description": "Prefixes to match with",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/BgpRoutePolicyPrefix"
-          }
-        },
-        "type": {
-          "description": "Defines matching logic in case of multiple prefixes",
-          "$ref": "#/definitions/BgpRoutePolicyMatchType"
         }
       }
     },
@@ -1998,12 +2042,18 @@ func init() {
           }
         },
         "match-neighbors": {
-          "description": "Matches BGP neighbor IP address with the provided match rules",
-          "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
+          "description": "Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "match-prefixes": {
-          "description": "Matches CIDR prefix with the provided match rules",
-          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+          "description": "Matches any of the provided prefixes. If empty matches all prefixes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+          }
         },
         "nexthop": {
           "description": "BGP nexthop action",
@@ -2222,16 +2272,6 @@ func init() {
         "type": "string"
       }
     },
-    "ConfiguredDatapathMode": {
-      "description": "Configured datapath mode",
-      "type": "string",
-      "enum": [
-        "auto",
-        "veth",
-        "netkit",
-        "netkit-l2"
-      ]
-    },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -2401,9 +2441,6 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
-        "configuredDatapathMode": {
-          "$ref": "#/definitions/ConfiguredDatapathMode"
-        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -2413,17 +2450,13 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
-        "deviceHeadroom": {
-          "description": "Headroom buffer margin on workload facing devices",
-          "type": "integer"
-        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
         },
-        "deviceTailroom": {
-          "description": "Tailroom buffer margin on workload facing devices",
-          "type": "integer"
+        "egress-multi-home-ip-rule-compat": {
+          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
@@ -2479,10 +2512,6 @@ func init() {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
         },
-        "packetizationLayerPMTUDMode": {
-          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
-          "type": "string"
-        },
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
@@ -2494,7 +2523,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Operational datapath mode",
+      "description": "Datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -2571,8 +2600,7 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard",
-            "Ztunnel"
+            "Wireguard"
           ]
         },
         "msg": {
@@ -2633,10 +2661,6 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
-          "type": "string"
-        },
-        "container-netns-path": {
-          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
@@ -3251,10 +3275,6 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
-        },
-        "skip-masquerade": {
-          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
-          "type": "boolean"
         }
       }
     },
@@ -3799,13 +3819,6 @@ func init() {
       "type": "array",
       "items": {
         "$ref": "#/definitions/Label"
-      }
-    },
-    "LabelArrayList": {
-      "description": "LabelArrayList is an array of LabelArrays forming a set",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/LabelArray"
       }
     },
     "LabelConfiguration": {
@@ -4520,8 +4533,8 @@ func init() {
           }
         },
         "labels": {
-          "description": "Labels is a list of labels of the policy rules currently using this selector",
-          "$ref": "#/definitions/LabelArrayList"
+          "description": "Labels are the metadata labels associated with the selector",
+          "$ref": "#/definitions/LabelArray"
         },
         "selector": {
           "description": "string form of selector",
@@ -4756,10 +4769,6 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
-        "configured-datapath-mode": {
-          "description": "Status of configured datapath mode",
-          "$ref": "#/definitions/ConfiguredDatapathMode"
-        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -4769,7 +4778,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of operational datapath mode",
+          "description": "Status of datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
@@ -6609,6 +6618,15 @@ func init() {
         ],
         "summary": "Retrieve entire policy tree",
         "deprecated": true,
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -6620,6 +6638,117 @@ func init() {
             "description": "No policy rules found"
           }
         }
+      },
+      "put": {
+        "description": "Deprecated: will be removed in v1.19",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Create or update a policy (sub)tree",
+        "deprecated": true,
+        "parameters": [
+          {
+            "description": "Policy rules",
+            "name": "policy",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "boolean",
+            "description": "If true, indicates that existing rules with identical labels should be replaced.",
+            "name": "replace",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "If present, indicates that existing rules with the given labels should be deleted.",
+            "name": "replace-with-labels",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPolicy"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "460": {
+            "description": "Invalid path",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "InvalidPath"
+          },
+          "500": {
+            "description": "Policy import failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deprecated: will be removed in v1.19",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Delete a policy (sub)tree",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Policy"
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Invalid"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Policy not found"
+          },
+          "500": {
+            "description": "Error while deleting policy",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
       }
     },
     "/policy/selectors": {
@@ -6628,22 +6757,6 @@ func init() {
           "policy"
         ],
         "summary": "See what selectors match which identities",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/SelectorCache"
-            }
-          }
-        }
-      }
-    },
-    "/policy/subject-selectors": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "See what subject selectors match which identities on the local node",
         "responses": {
           "200": {
             "description": "Success",
@@ -7127,10 +7240,6 @@ func init() {
             "$ref": "#/definitions/BgpCapabilities"
           }
         },
-        "name": {
-          "description": "Name of peer",
-          "type": "string"
-        },
         "peer-address": {
           "description": "IP Address of peer",
           "type": "string"
@@ -7243,31 +7352,6 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyMatchType": {
-      "description": "Defines BGP route policy matching logic in case of multiple match elements.",
-      "type": "string",
-      "enum": [
-        "any",
-        "all",
-        "invert"
-      ]
-    },
-    "BgpRoutePolicyNeighborMatch": {
-      "description": "Matches a neighbor in a BGP route policy",
-      "properties": {
-        "neighbors": {
-          "description": "Neighbor IP addresses to match with",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "type": {
-          "description": "Defines matching logic in case of multiple neighbors",
-          "$ref": "#/definitions/BgpRoutePolicyMatchType"
-        }
-      }
-    },
     "BgpRoutePolicyNexthopAction": {
       "description": "BGP nexthop action",
       "properties": {
@@ -7281,7 +7365,7 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyPrefix": {
+    "BgpRoutePolicyPrefixMatch": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
         "cidr": {
@@ -7295,22 +7379,6 @@ func init() {
         "prefix-len-min": {
           "description": "Minimal prefix length that will match if it falls under CIDR",
           "type": "integer"
-        }
-      }
-    },
-    "BgpRoutePolicyPrefixMatch": {
-      "description": "Matches a CIDR prefix in a BGP route policy",
-      "properties": {
-        "prefixes": {
-          "description": "Prefixes to match with",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/BgpRoutePolicyPrefix"
-          }
-        },
-        "type": {
-          "description": "Defines matching logic in case of multiple prefixes",
-          "$ref": "#/definitions/BgpRoutePolicyMatchType"
         }
       }
     },
@@ -7339,12 +7407,18 @@ func init() {
           }
         },
         "match-neighbors": {
-          "description": "Matches BGP neighbor IP address with the provided match rules",
-          "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
+          "description": "Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "match-prefixes": {
-          "description": "Matches CIDR prefix with the provided match rules",
-          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+          "description": "Matches any of the provided prefixes. If empty matches all prefixes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+          }
         },
         "nexthop": {
           "description": "BGP nexthop action",
@@ -7562,16 +7636,6 @@ func init() {
       "additionalProperties": {
         "type": "string"
       }
-    },
-    "ConfiguredDatapathMode": {
-      "description": "Configured datapath mode",
-      "type": "string",
-      "enum": [
-        "auto",
-        "veth",
-        "netkit",
-        "netkit-l2"
-      ]
     },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
@@ -7794,9 +7858,6 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
-        "configuredDatapathMode": {
-          "$ref": "#/definitions/ConfiguredDatapathMode"
-        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -7806,17 +7867,13 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
-        "deviceHeadroom": {
-          "description": "Headroom buffer margin on workload facing devices",
-          "type": "integer"
-        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
         },
-        "deviceTailroom": {
-          "description": "Tailroom buffer margin on workload facing devices",
-          "type": "integer"
+        "egress-multi-home-ip-rule-compat": {
+          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
+          "type": "boolean"
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
@@ -7872,10 +7929,6 @@ func init() {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
         },
-        "packetizationLayerPMTUDMode": {
-          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
-          "type": "string"
-        },
         "realized": {
           "description": "Currently applied configuration",
           "$ref": "#/definitions/DaemonConfigurationSpec"
@@ -7901,7 +7954,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Operational datapath mode",
+      "description": "Datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -7987,8 +8040,7 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard",
-            "Ztunnel"
+            "Wireguard"
           ]
         },
         "msg": {
@@ -8049,10 +8101,6 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
-          "type": "string"
-        },
-        "container-netns-path": {
-          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
@@ -8690,10 +8738,6 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
-        },
-        "skip-masquerade": {
-          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
-          "type": "boolean"
         }
       }
     },
@@ -9572,13 +9616,6 @@ func init() {
         "$ref": "#/definitions/Label"
       }
     },
-    "LabelArrayList": {
-      "description": "LabelArrayList is an array of LabelArrays forming a set",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/LabelArray"
-      }
-    },
     "LabelConfiguration": {
       "description": "Label configuration of an endpoint",
       "type": "object",
@@ -10305,8 +10342,8 @@ func init() {
           }
         },
         "labels": {
-          "description": "Labels is a list of labels of the policy rules currently using this selector",
-          "$ref": "#/definitions/LabelArrayList"
+          "description": "Labels are the metadata labels associated with the selector",
+          "$ref": "#/definitions/LabelArray"
         },
         "selector": {
           "description": "string form of selector",
@@ -10609,10 +10646,6 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
-        "configured-datapath-mode": {
-          "description": "Status of configured datapath mode",
-          "$ref": "#/definitions/ConfiguredDatapathMode"
-        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -10622,7 +10655,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of operational datapath mode",
+          "description": "Status of datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {

@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 )
 
@@ -66,7 +67,7 @@ type DefaultDecoder struct{}
 
 // Decode decodes the message in 'data' into the struct.
 func (d *DefaultDecoder) Decode(data []byte) error {
-	return binary.Read(bytes.NewReader(data), binary.NativeEndian, d)
+	return binary.Read(bytes.NewReader(data), byteorder.Native, d)
 }
 
 // DefaultSrcDstGetter is a default implementation of the GetSrc and GetDst methods

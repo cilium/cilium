@@ -29,20 +29,11 @@ import (
 
 // ServiceCIDRApplyConfiguration represents a declarative configuration of the ServiceCIDR type for use
 // with apply.
-//
-// ServiceCIDR defines a range of IP addresses using CIDR format (e.g. 192.168.0.0/24 or 2001:db2::/64).
-// This range is used to allocate ClusterIPs to Service objects.
 type ServiceCIDRApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration `json:",inline"`
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// spec is the desired state of the ServiceCIDR.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec *ServiceCIDRSpecApplyConfiguration `json:"spec,omitempty"`
-	// status represents the current state of the ServiceCIDR.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Status *ServiceCIDRStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *ServiceCIDRSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *ServiceCIDRStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // ServiceCIDR constructs a declarative configuration of the ServiceCIDR type for use with
@@ -55,14 +46,29 @@ func ServiceCIDR(name string) *ServiceCIDRApplyConfiguration {
 	return b
 }
 
-// ExtractServiceCIDRFrom extracts the applied configuration owned by fieldManager from
-// serviceCIDR for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractServiceCIDR extracts the applied configuration owned by fieldManager from
+// serviceCIDR. If no managedFields are found in serviceCIDR for fieldManager, a
+// ServiceCIDRApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // serviceCIDR must be a unmodified ServiceCIDR API object that was retrieved from the Kubernetes API.
-// ExtractServiceCIDRFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractServiceCIDR provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractServiceCIDRFrom(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string, subresource string) (*ServiceCIDRApplyConfiguration, error) {
+// Experimental!
+func ExtractServiceCIDR(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string) (*ServiceCIDRApplyConfiguration, error) {
+	return extractServiceCIDR(serviceCIDR, fieldManager, "")
+}
+
+// ExtractServiceCIDRStatus is the same as ExtractServiceCIDR except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractServiceCIDRStatus(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string) (*ServiceCIDRApplyConfiguration, error) {
+	return extractServiceCIDR(serviceCIDR, fieldManager, "status")
+}
+
+func extractServiceCIDR(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string, subresource string) (*ServiceCIDRApplyConfiguration, error) {
 	b := &ServiceCIDRApplyConfiguration{}
 	err := managedfields.ExtractInto(serviceCIDR, internal.Parser().Type("io.k8s.api.networking.v1beta1.ServiceCIDR"), fieldManager, b, subresource)
 	if err != nil {
@@ -74,27 +80,6 @@ func ExtractServiceCIDRFrom(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldMan
 	b.WithAPIVersion("networking.k8s.io/v1beta1")
 	return b, nil
 }
-
-// ExtractServiceCIDR extracts the applied configuration owned by fieldManager from
-// serviceCIDR. If no managedFields are found in serviceCIDR for fieldManager, a
-// ServiceCIDRApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// serviceCIDR must be a unmodified ServiceCIDR API object that was retrieved from the Kubernetes API.
-// ExtractServiceCIDR provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractServiceCIDR(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string) (*ServiceCIDRApplyConfiguration, error) {
-	return ExtractServiceCIDRFrom(serviceCIDR, fieldManager, "")
-}
-
-// ExtractServiceCIDRStatus extracts the applied configuration owned by fieldManager from
-// serviceCIDR for the status subresource.
-func ExtractServiceCIDRStatus(serviceCIDR *networkingv1beta1.ServiceCIDR, fieldManager string) (*ServiceCIDRApplyConfiguration, error) {
-	return ExtractServiceCIDRFrom(serviceCIDR, fieldManager, "status")
-}
-
 func (b ServiceCIDRApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

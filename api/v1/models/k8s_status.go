@@ -50,7 +50,7 @@ func (m *K8sStatus) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var k8sStatusTypeStatePropEnum []any
+var k8sStatusTypeStatePropEnum []interface{}
 
 func init() {
 	var res []string

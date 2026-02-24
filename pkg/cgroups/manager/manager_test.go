@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/cilium/hive/cell"
 	"github.com/stretchr/testify/require"
 
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -129,7 +128,8 @@ func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events ch
 
 	tcm.podEventsDone = events
 
-	go tcm.processPodEvents(t.Context(), &cell.SimpleHealth{})
+	go tcm.processPodEvents()
+	t.Cleanup(tcm.Close)
 
 	return tcm
 }
@@ -250,7 +250,7 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 
 func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	// Disable the feature flag.
-	option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = false
+	option.Config.EnableSocketLBTracing = false
 	mm := newCgroupManagerTest(t, providerMock{}, cgroupMock{}, nil)
 	c1CId := uint64(1234)
 
@@ -260,7 +260,7 @@ func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	require.Nil(t, got)
 
 	// Enable the feature flag, but the cgroup base path validation fails.
-	option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = true
+	option.Config.EnableSocketLBTracing = true
 	mm.OnAddPod(pod1)
 
 	got = mm.GetPodMetadataForContainer(c1CId)

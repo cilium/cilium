@@ -265,7 +265,13 @@ func (a *Agent) init() error {
 		return fmt.Errorf("failed to load or generate private key: %w", err)
 	}
 
-	link := &netlink.Wireguard{
+	// try to remove any old tun devices created by userspace mode
+	link, _ := safenetlink.LinkByName(types.IfaceName)
+	if _, isTuntap := link.(*netlink.Tuntap); isTuntap {
+		_ = netlink.LinkDel(link)
+	}
+
+	link = &netlink.Wireguard{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: types.IfaceName,
 		},
@@ -820,15 +826,6 @@ func (a *Agent) IfaceIndex() (uint32, error) {
 	}
 
 	return link.GetIfIndex(types.IfaceName)
-}
-
-// IfaceBufferMargins() returns the buffer margins of the Wireguard interface.
-func (a *Agent) IfaceBufferMargins() (uint16, uint16, error) {
-	if !a.Enabled() {
-		return 0, 0, nil
-	}
-
-	return link.GetIfBufferMargins(types.IfaceName)
 }
 
 // Status returns the state of the WireGuard tunnel managed by this instance.

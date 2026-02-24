@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -54,15 +53,11 @@ func (m *EndpointConfigurationSpec) validateLabelConfiguration(formats strfmt.Re
 
 	if m.LabelConfiguration != nil {
 		if err := m.LabelConfiguration.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("label-configuration")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("label-configuration")
 			}
-
 			return err
 		}
 	}
@@ -77,15 +72,11 @@ func (m *EndpointConfigurationSpec) validateOptions(formats strfmt.Registry) err
 
 	if m.Options != nil {
 		if err := m.Options.Validate(formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("options")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("options")
 			}
-
 			return err
 		}
 	}
@@ -120,15 +111,11 @@ func (m *EndpointConfigurationSpec) contextValidateLabelConfiguration(ctx contex
 		}
 
 		if err := m.LabelConfiguration.ContextValidate(ctx, formats); err != nil {
-			ve := new(errors.Validation)
-			if stderrors.As(err, &ve) {
+			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("label-configuration")
-			}
-			ce := new(errors.CompositeError)
-			if stderrors.As(err, &ce) {
+			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("label-configuration")
 			}
-
 			return err
 		}
 	}
@@ -143,15 +130,11 @@ func (m *EndpointConfigurationSpec) contextValidateOptions(ctx context.Context, 
 	}
 
 	if err := m.Options.ContextValidate(ctx, formats); err != nil {
-		ve := new(errors.Validation)
-		if stderrors.As(err, &ve) {
+		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("options")
-		}
-		ce := new(errors.CompositeError)
-		if stderrors.As(err, &ce) {
+		} else if ce, ok := err.(*errors.CompositeError); ok {
 			return ce.ValidateName("options")
 		}
-
 		return err
 	}
 

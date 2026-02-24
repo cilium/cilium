@@ -22,18 +22,15 @@ type CiliumBGPClusterConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
-	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the desired cluster configuration of the BGP control plane.
-	//
-	// +kubebuilder:validation:Required
 	Spec CiliumBGPClusterConfigSpec `json:"spec"`
 
 	// Status is a running status of the cluster configuration
 	//
 	// +kubebuilder:validation:Optional
-	Status CiliumBGPClusterConfigStatus `json:"status,omitempty"`
+	Status CiliumBGPClusterConfigStatus `json:"status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -143,14 +140,14 @@ type PeerConfigReference struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="cilium.io"
-	Group string `json:"group,omitempty"`
+	Group string `json:"group"`
 
 	// Kind is the kind of the peer config resource.
 	// If not specified, the default of "CiliumBGPPeerConfig" is used.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="CiliumBGPPeerConfig"
-	Kind string `json:"kind,omitempty"`
+	Kind string `json:"kind"`
 
 	// Name is the name of the peer config resource.
 	// Name refers to the name of a Kubernetes object (typically a CiliumBGPPeerConfig).
@@ -162,7 +159,7 @@ type PeerConfigReference struct {
 type CiliumBGPClusterConfigStatus struct {
 	// The current conditions of the CiliumBGPClusterConfig
 	//
-	// +kubebuilder:validation:Optional
+	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +deepequal-gen=false

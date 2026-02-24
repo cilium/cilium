@@ -374,8 +374,7 @@ const eventsQueueSize = 1024
 // CachingIdentityAllocator.
 func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwner, config AllocatorConfig) *CachingIdentityAllocator {
 	watcher := identityWatcher{
-		owner:  owner,
-		logger: logger,
+		owner: owner,
 	}
 
 	m := &CachingIdentityAllocator{

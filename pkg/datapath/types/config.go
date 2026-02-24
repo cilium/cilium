@@ -40,15 +40,6 @@ type LoadTimeConfiguration interface {
 
 	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
 	GetPolicyVerdictLogFilter() uint32
-
-	// GetPropertyValue returns the endpoint property value for this key.
-	GetPropertyValue(key string) any
-
-	GetFibTableID() uint32
-
-	// RequireARPPassthrough returns true if the datapath must implement
-	// ARP passthrough for this endpoint
-	RequireARPPassthrough() bool
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface
@@ -56,6 +47,10 @@ type LoadTimeConfiguration interface {
 // compile time.
 type CompileTimeConfiguration interface {
 	DeviceConfiguration
+
+	// RequireARPPassthrough returns true if the datapath must implement
+	// ARP passthrough for this endpoint
+	RequireARPPassthrough() bool
 
 	// RequireEgressProg returns true if the endpoint requires an egress
 	// program attached to the InterfaceName() invoking the section

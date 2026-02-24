@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -35,17 +34,14 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
-	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
-	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -77,8 +73,6 @@ func TestScript(t *testing.T) {
 	scripttest.Test(t,
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
-			var svcWriter *writer.Writer
-
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
@@ -90,8 +84,6 @@ func TestScript(t *testing.T) {
 
 				cell.Config(loadbalancer.TestConfig{}),
 				maglev.Cell,
-				lbipamconfig.Cell,
-				nodeipamconfig.Cell,
 				node.LocalNodeStoreTestCell,
 				cell.Provide(
 					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
@@ -101,8 +93,9 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4: true,
-							EnableIPv6: true,
+							EnableIPv4:                      true,
+							EnableIPv6:                      true,
+							EnableHealthCheckLoadBalancerIP: true,
 						}
 					},
 					func() kpr.KPRConfig {
@@ -111,9 +104,6 @@ func TestScript(t *testing.T) {
 						}
 					},
 				),
-				cell.Invoke(func(w *writer.Writer) {
-					svcWriter = w
-				}),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -123,7 +113,6 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")
-			flags.Set("enable-health-check-loadbalancer-ip", "true")
 
 			// Parse the shebang arguments in the script.
 			require.NoError(t, flags.Parse(args), "flags.Parse")
@@ -135,7 +124,6 @@ func TestScript(t *testing.T) {
 			require.NoError(t, err, "ScriptCommands")
 			maps.Insert(cmds, maps.All(script.DefaultCmds()))
 			cmds["http/get"] = httpGetCmd
-			cmds["svc/set-proxy-redirect"] = svcSetProxyRedirectCmd(svcWriter)
 
 			return &script.Engine{
 				Cmds:             cmds,
@@ -162,7 +150,7 @@ var httpGetCmd = script.Command(
 		}
 		defer resp.Body.Close()
 
-		f, err := os.OpenFile(s.Path(args[1]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		f, err := os.OpenFile(s.Path(args[1]), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
 		}
@@ -182,63 +170,3 @@ var httpGetCmd = script.Command(
 		return nil, err
 	},
 )
-
-func svcSetProxyRedirectCmd(writer *writer.Writer) script.Cmd {
-	return script.Command(
-		script.CmdUsage{
-			Summary: "Set ProxyRedirect on a service to simulate local Envoy proxy",
-			Args:    "namespace/name [proxy-port]",
-			Detail: []string{
-				"Sets ProxyRedirect on the specified service, indicating that the local",
-				"Envoy proxy is configured to handle traffic for this service.",
-				"",
-				"The proxy-port argument is optional (default: 10000).",
-			},
-		},
-		func(s *script.State, args ...string) (script.WaitFunc, error) {
-			if len(args) < 1 {
-				return nil, fmt.Errorf("usage: svc/set-proxy-redirect namespace/name [proxy-port]")
-			}
-
-			parts := strings.Split(args[0], "/")
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("invalid service name format %q, expected namespace/name", args[0])
-			}
-			namespace, name := parts[0], parts[1]
-
-			proxyPort := uint16(10000)
-			if len(args) > 1 {
-				port, err := strconv.ParseUint(args[1], 10, 16)
-				if err != nil {
-					return nil, fmt.Errorf("invalid proxy port %q: %w", args[1], err)
-				}
-				proxyPort = uint16(port)
-			}
-
-			return func(*script.State) (stdout, stderr string, err error) {
-				svcName := loadbalancer.NewServiceName(namespace, name)
-
-				wtxn := writer.WriteTxn()
-				defer wtxn.Abort()
-
-				svc, _, found := writer.Services().Get(wtxn, loadbalancer.ServiceByName(svcName))
-				if !found {
-					return "", "", fmt.Errorf("service %s not found", svcName)
-				}
-
-				svc = svc.Clone()
-				svc.ProxyRedirect = &loadbalancer.ProxyRedirect{
-					ProxyPort: proxyPort,
-					Ports:     []uint16{80, 443},
-				}
-
-				if _, err := writer.UpsertService(wtxn, svc); err != nil {
-					return "", "", fmt.Errorf("failed to upsert service: %w", err)
-				}
-
-				wtxn.Commit()
-				return fmt.Sprintf("Set ProxyRedirect (port=%d) on service %s\n", proxyPort, svcName), "", nil
-			}, nil
-		},
-	)
-}

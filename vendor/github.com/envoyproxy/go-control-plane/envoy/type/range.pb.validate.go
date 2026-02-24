@@ -75,7 +75,7 @@ type Int64RangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Int64RangeMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -178,7 +178,7 @@ type Int32RangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m Int32RangeMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -281,7 +281,7 @@ type DoubleRangeMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m DoubleRangeMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

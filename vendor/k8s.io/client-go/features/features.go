@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/version"
 )
 
 // NOTE: types Feature, FeatureSpec, prerelease (and its values)
@@ -50,13 +49,7 @@ type FeatureSpec struct {
 	LockToDefault bool
 	// PreRelease indicates the maturity level of the feature
 	PreRelease prerelease
-	// Version indicates the earliest version from which this FeatureSpec is valid.
-	// If multiple FeatureSpecs exist for a Feature, the one with the highest version that is less
-	// than or equal to the effective version of the component is used.
-	Version *version.Version
 }
-
-type VersionedSpecs []FeatureSpec
 
 // Gates indicates whether a given feature is enabled or not.
 type Gates interface {
@@ -71,15 +64,6 @@ type Registry interface {
 	// As of today, this method is used by AddFeaturesToExistingFeatureGates and
 	// ReplaceFeatureGates to take control of the features exposed by this library.
 	Add(map[Feature]FeatureSpec) error
-}
-
-// VersionedRegistry represents an external versioned feature gates registry.
-type VersionedRegistry interface {
-	// AddVersioned adds existing versioned feature gates to the provided registry.
-	//
-	// As of today, this method is used by AddVersionedFeaturesToExistingFeatureGates and
-	// ReplaceFeatureGates to take control of the features exposed by this library.
-	AddVersioned(in map[Feature]VersionedSpecs) error
 }
 
 // FeatureGates returns the feature gates exposed by this library.
@@ -101,15 +85,7 @@ func FeatureGates() Gates {
 // Usually this function is combined with ReplaceFeatureGates to take control of the
 // features exposed by this library.
 func AddFeaturesToExistingFeatureGates(registry Registry) error {
-	return registry.Add(unversionedFeatureGates(defaultVersionedKubernetesFeatureGates))
-}
-
-// AddFeaturesToExistingFeatureGates adds the default versioned feature gates to the provided registry.
-// Usually this function is combined with ReplaceFeatureGates to take control of the
-// features exposed by this library.
-// Generally only used by k/k.
-func AddVersionedFeaturesToExistingFeatureGates(registry VersionedRegistry) error {
-	return registry.AddVersioned(defaultVersionedKubernetesFeatureGates)
+	return registry.Add(defaultKubernetesFeatureGates)
 }
 
 // ReplaceFeatureGates overwrites the default implementation of the feature gates
@@ -145,23 +121,8 @@ func replaceFeatureGatesWithWarningIndicator(newFeatureGates Gates) bool {
 	return shouldProduceWarning
 }
 
-// unversionedFeatureGates takes the latest entry from the VersionedSpecs of each feature, and clears out the version information,
-// so that the result can be used with an unversioned feature gate.
-func unversionedFeatureGates(featureGates map[Feature]VersionedSpecs) map[Feature]FeatureSpec {
-	unversioned := map[Feature]FeatureSpec{}
-	for feature, specs := range featureGates {
-		if len(specs) == 0 {
-			continue
-		}
-		latestSpec := specs[len(specs)-1]
-		latestSpec.Version = nil // Clear version information.
-		unversioned[feature] = latestSpec
-	}
-	return unversioned
-}
-
 func init() {
-	envVarGates := newEnvVarFeatureGates(unversionedFeatureGates(defaultVersionedKubernetesFeatureGates))
+	envVarGates := newEnvVarFeatureGates(defaultKubernetesFeatureGates)
 
 	wrappedFeatureGates := &featureGatesWrapper{envVarGates}
 	featureGates.Store(wrappedFeatureGates)

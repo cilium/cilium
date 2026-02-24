@@ -306,7 +306,6 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 		return false
 	}
 	for _, ch := range text {
-		//nolint:staticcheck // QF1001: could apply De Morgan's law
 		if !((ch >= 'a' && ch <= 'z') ||
 			(ch >= 'A' && ch <= 'Z') ||
 			(ch >= '0' && ch <= '9') ||
@@ -335,6 +334,6 @@ func (f *TextFormatter) appendValue(b *bytes.Buffer, value interface{}) {
 	if !f.needsQuoting(stringVal) {
 		b.WriteString(stringVal)
 	} else {
-		fmt.Fprintf(b, "%q", stringVal)
+		b.WriteString(fmt.Sprintf("%q", stringVal))
 	}
 }

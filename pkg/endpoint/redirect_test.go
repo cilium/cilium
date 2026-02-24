@@ -112,11 +112,11 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
 }
 
 // UseCurrentNetworkPolicy does nothing.
-func (f *RedirectSuiteProxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
+func (f *RedirectSuiteProxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
 }
 
 // UpdateNetworkPolicy does nothing.
-func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	return nil, nil
 }
 
@@ -165,30 +165,11 @@ const (
 	crd2Port  = uint16(19005)
 )
 
-func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
-	logger := hivetest.Logger(tb)
-	return EndpointParams{
-		Logger:           logger,
-		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     &fakeTypes.FakeOrchestrator{},
-		PolicyRepo:       s.do.repo,
-		IdentityManager:  s.do.idmgr,
-		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
-		WgConfig:         fakeTypes.WireguardConfig{},
-		CTMapGC:          ctmap.NewFakeGCRunner(),
-		Allocator:        testidentity.NewMockIdentityAllocator(nil),
-		LocalNodeStore:   &fakeNodeGetter{},
-	}
-}
-
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	p := s.createTestEndpointParams(t)
-	p.KVStoreSynchronizer = kvstoreSync
-	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, s.rsp, model, nil)
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -198,7 +179,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
 	require.NoError(t, err)
-	ep.SetIdentity(epIdentity)
+	ep.SetIdentity(epIdentity, true)
 
 	return ep
 }
@@ -374,8 +355,8 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyAllL7:     policyTypes.AllowEntry().WithPriority(1000).WithProxyPort(httpPort).WithListenerPriority(policy.ListenerPriorityHTTP),
-		mapKeyFoo:       policyTypes.DenyEntry().WithPriority(1000),
+		mapKeyAllL7:     policyTypes.AllowEntry().WithProxyPort(httpPort).WithListenerPriority(policy.ListenerPriorityHTTP),
+		mapKeyFoo:       policyTypes.DenyEntry(),
 	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
@@ -503,8 +484,8 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithPriority(1000).WithProxyPort(crd2Port).WithListenerPriority(1),
-		mapKeyAllL7:     policyTypes.AllowEntry().WithPriority(1000),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd2Port).WithListenerPriority(1),
+		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
@@ -556,8 +537,8 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	expected := policy.MapStateMap{
 		mapKeyAllowAllE: policyTypes.AllowEntry(),
-		mapKeyFooL7:     policyTypes.AllowEntry().WithPriority(1000).WithProxyPort(crd1Port).WithListenerPriority(1),
-		mapKeyAllL7:     policyTypes.AllowEntry().WithPriority(1000),
+		mapKeyFooL7:     policyTypes.AllowEntry().WithProxyPort(crd1Port).WithListenerPriority(1),
+		mapKeyAllL7:     policyTypes.AllowEntry(),
 	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},

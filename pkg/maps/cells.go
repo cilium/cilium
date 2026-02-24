@@ -13,23 +13,17 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
-	"github.com/cilium/cilium/pkg/maps/fragmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/maps/neighborsmap"
-	"github.com/cilium/cilium/pkg/maps/netdev"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
-	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -46,21 +40,12 @@ var Cell = cell.Module(
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,
 
-	// Provides access to eBPF map which stores network devices properties for datapath usage.
-	netdev.Cell,
-
 	// Receives datapath signals for GC fill-up events
 	// Note that we can't import this from ctmap package, as gc needs to import ctmap.
 	gc.Cell,
 
-	// Provides the ctmap.GCMps which contains the connection tracking state maps.
-	ctmap.Cell,
-
 	// Provides access to egressgateway specific maps.
 	egressmap.Cell,
-
-	// Initializes the fragments map in the datapath
-	fragmap.Cell,
 
 	// Provides signalmap for datapath signals
 	signalmap.Cell,
@@ -74,9 +59,6 @@ var Cell = cell.Module(
 
 	// Provides access to the multicast maps.
 	multicast.Cell,
-
-	// Initializes the neighbors map in the datapath
-	neighborsmap.Cell,
 
 	// Provides access to the SRv6 maps.
 	srv6map.Cell,
@@ -97,14 +79,8 @@ var Cell = cell.Module(
 	// Provides access to the encryption map.
 	encrypt.Cell,
 
-	// Provides access to the lxc / endpoints map.
-	lxcmap.Cell,
-
 	// Provides access to the vtep map.
 	vtep.Cell,
-
-	// Provides access to the subnet map.
-	subnet.Cell,
 )
 
 type mapApiHandlerOut struct {

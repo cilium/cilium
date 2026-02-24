@@ -12,9 +12,9 @@
 #define ENABLE_NODEPORT_ACCELERATION
 
 #define ENABLE_EGRESS_GATEWAY
-#define ENABLE_MASQUERADE_IPV4	1
-#define ENABLE_MASQUERADE_IPV6	1
+#define ENABLE_MASQUERADE
 
+#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
 #define ENCAP_IFINDEX		42
 
 /* Skip ingress policy checks */
@@ -38,11 +38,6 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
-
-ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
-
-/* Set port ranges to have deterministic source port selection */
-#include "nodeport_defaults.h"
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -198,7 +193,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
+	if (l4->dest != bpf_htons(TUNNEL_PORT))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
@@ -268,7 +263,7 @@ int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
 
 	/* install EgressGW policy for the connection: */
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
-				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6, 0);
+				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6);
 
 	/* install RevSNAT entry */
 	struct ipv6_ct_tuple snat_tuple = {
@@ -367,7 +362,7 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
+	if (l4->dest != bpf_htons(TUNNEL_PORT))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))

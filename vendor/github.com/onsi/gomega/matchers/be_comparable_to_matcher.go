@@ -2,7 +2,6 @@ package matchers
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
@@ -10,11 +9,11 @@ import (
 )
 
 type BeComparableToMatcher struct {
-	Expected any
+	Expected interface{}
 	Options  cmp.Options
 }
 
-func (matcher *BeComparableToMatcher) Match(actual any) (success bool, matchErr error) {
+func (matcher *BeComparableToMatcher) Match(actual interface{}) (success bool, matchErr error) {
 	if actual == nil && matcher.Expected == nil {
 		return false, fmt.Errorf("Refusing to compare <nil> to <nil>.\nBe explicit and use BeNil() instead.  This is to avoid mistakes where both sides of an assertion are erroneously uninitialized.")
 	}
@@ -33,7 +32,7 @@ func (matcher *BeComparableToMatcher) Match(actual any) (success bool, matchErr 
 			if err, ok := r.(error); ok {
 				matchErr = err
 			} else if errMsg, ok := r.(string); ok {
-				matchErr = errors.New(errMsg)
+				matchErr = fmt.Errorf(errMsg)
 			}
 		}
 	}()
@@ -41,10 +40,10 @@ func (matcher *BeComparableToMatcher) Match(actual any) (success bool, matchErr 
 	return cmp.Equal(actual, matcher.Expected, matcher.Options...), nil
 }
 
-func (matcher *BeComparableToMatcher) FailureMessage(actual any) (message string) {
+func (matcher *BeComparableToMatcher) FailureMessage(actual interface{}) (message string) {
 	return fmt.Sprint("Expected object to be comparable, diff: ", cmp.Diff(actual, matcher.Expected, matcher.Options...))
 }
 
-func (matcher *BeComparableToMatcher) NegatedFailureMessage(actual any) (message string) {
+func (matcher *BeComparableToMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to be comparable to", matcher.Expected)
 }

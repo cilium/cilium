@@ -46,11 +46,13 @@ Enable the Hubble UI by running the following command:
 
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: $CILIUM_NAMESPACE
-           :extra-args: --reuse-values
-           :set: hubble.relay.enabled=true
-                 hubble.ui.enabled=true
+        .. parsed-literal::
+
+           helm upgrade cilium |CHART_RELEASE| \\
+              --namespace $CILIUM_NAMESPACE \\
+              --reuse-values \\
+              --set hubble.relay.enabled=true \\
+              --set hubble.ui.enabled=true
 
     .. group-tab:: Helm (Standalone install)
 
@@ -62,48 +64,45 @@ Enable the Hubble UI by running the following command:
 
         Below is an example deploying Hubble UI as standalone, with client certificates mounted from a ``my-hubble-ui-client-certs`` secret:
 
-        .. cilium-helm-upgrade::
-           :namespace: $CILIUM_NAMESPACE
-           :extra-args: --reuse-values
-           :set: hubble.relay.enabled=true
-                 hubble.ui.enabledd=true
-           :post-helm-commands: --values - <<EOF
-             agent: false
-             operator:
-               enabled: false
-             cni:
-               install: false
-             hubble:
-               enabled: false
-               relay:
-                 # set this to false as Hubble relay is already installed
-                 enabled: false
-                 tls:
-                   server:
-                     # set this to true if tls is enabled on Hubble relay server side
-                     enabled: true
-               ui:
-                 # enable Hubble UI
-                 enabled: true
-                 standalone:
-                   # enable Hubble UI standalone deployment
-                   enabled: true
-                   # provide a volume containing Hubble relay client certificates to mount in Hubble UI pod
-                   tls:
-                     certsVolume:
-                       projected:
-                         defaultMode: 0400
-                         sources:
-                           - secret:
-                               name: my-hubble-ui-client-certs
-                               items:
-                                 - key: tls.crt
-                                   path: client.crt
-                                 - key: tls.key
-                                   path: client.key
-                                 - key: ca.crt
-                                   path: hubble-relay-ca.crt
-             EOF
+        .. parsed-literal::
+
+            helm upgrade --install --namespace kube-system cilium |CHART_RELEASE| --values - <<EOF
+            agent: false
+            operator:
+              enabled: false
+            cni:
+              install: false
+            hubble:
+              enabled: false
+              relay:
+                # set this to false as Hubble relay is already installed
+                enabled: false
+                tls:
+                  server:
+                    # set this to true if tls is enabled on Hubble relay server side
+                    enabled: true
+              ui:
+                # enable Hubble UI
+                enabled: true
+                standalone:
+                  # enable Hubble UI standalone deployment
+                  enabled: true
+                  # provide a volume containing Hubble relay client certificates to mount in Hubble UI pod
+                  tls:
+                    certsVolume:
+                      projected:
+                        defaultMode: 0400
+                        sources:
+                          - secret:
+                              name: my-hubble-ui-client-certs
+                              items:
+                                - key: tls.crt
+                                  path: client.crt
+                                - key: tls.key
+                                  path: client.key
+                                - key: ca.crt
+                                  path: hubble-relay-ca.crt
+            EOF
 
         Please note that Hubble UI expects the certificate files to be available under the following paths:
 

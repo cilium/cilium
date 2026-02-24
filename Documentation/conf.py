@@ -47,7 +47,6 @@ extensions = ['myst_parser',
               'sphinxcontrib.spelling',
               'versionwarning.extension',
               "sphinxext.rediraffe",
-              'cilium_helm_directive',
 ]
 
 rediraffe_redirects = 'redirects.txt'

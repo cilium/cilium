@@ -24,8 +24,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/nodeipamconfig"
+)
+
+var (
+	nodeSvcLBClass                 = annotation.Prefix + "/node"
+	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-node-labels"
 )
 
 type nodeSvcLBReconciler struct {
@@ -159,7 +164,7 @@ func (r nodeSvcLBReconciler) isServiceSupported(svc *corev1.Service) bool {
 	if svc.Spec.LoadBalancerClass == nil {
 		return r.DefaultIPAM
 	}
-	return *svc.Spec.LoadBalancerClass == nodeipamconfig.NodeSvcLBClass
+	return *svc.Spec.LoadBalancerClass == nodeSvcLBClass
 }
 
 // getEndpointSliceNodes returns the set of node names if eTP=Local. If eTP=Cluster
@@ -207,7 +212,7 @@ func (r *nodeSvcLBReconciler) getRelevantNodes(ctx context.Context, svc *corev1.
 		return []corev1.Node{}, err
 	}
 	nodeListOptions := &client.ListOptions{}
-	if val, ok := svc.Annotations[nodeipamconfig.NodeSvcLBMatchLabelsAnnotation]; ok {
+	if val, ok := svc.Annotations[nodeSvcLBMatchLabelsAnnotation]; ok {
 		parsedLabels, err := labels.Parse(val)
 		if err != nil {
 			scopedLog.ErrorContext(

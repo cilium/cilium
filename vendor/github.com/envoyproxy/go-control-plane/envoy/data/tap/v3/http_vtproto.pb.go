@@ -151,16 +151,6 @@ func (m *HttpBufferedTrace) MarshalToSizedBufferVTStrict(dAtA []byte) (int, erro
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.UpstreamConnection != nil {
-		size, err := m.UpstreamConnection.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x22
-	}
 	if m.DownstreamConnection != nil {
 		size, err := m.DownstreamConnection.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -518,10 +508,6 @@ func (m *HttpBufferedTrace) SizeVT() (n int) {
 	}
 	if m.DownstreamConnection != nil {
 		l = m.DownstreamConnection.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	if m.UpstreamConnection != nil {
-		l = m.UpstreamConnection.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

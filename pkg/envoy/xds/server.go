@@ -437,20 +437,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 		default: // Pending watch response.
 			state := &typeStates[chosen]
-			if state.pendingWatchCancel != nil {
-				state.pendingWatchCancel()
-				state.pendingWatchCancel = nil
-			}
+			state.pendingWatchCancel()
+			state.pendingWatchCancel = nil
 
 			if !recvOK {
-				// chosen channel was closed. If context has an error (e.g.,
-				// cancelled or deadline exceeded) we should not log an error here.
-				if ctx.Err() != nil {
-					// The context is done, so the doneChIndex case WILL fire,
-					// can just continue here
-					continue
-				}
-
 				scopedLogger.Error(
 					"xDS resource watch failed; terminating",
 					logfields.XDSTypeURL, state.typeURL,

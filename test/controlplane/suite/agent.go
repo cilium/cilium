@@ -12,13 +12,11 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
-	statedbReconciler "github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
-	"github.com/cilium/cilium/daemon/cmd/legacy"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
@@ -35,16 +33,18 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 type agentHandle struct {
 	t         *testing.T
 	db        *statedb.DB
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
+	d         *cmd.Daemon
+	p         promise.Promise[*cmd.Daemon]
 	fnh       *fakeTypes.FakeNodeHandler
 
 	hive *hive.Hive
@@ -72,17 +72,13 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 
 		// Provide the mocked infrastructure and datapath components
 		cell.Provide(
-			func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) { return nil },
 			func() k8sClient.Clientset { return clientset },
-			func() k8sClient.Config { return clientset.Config() },
+			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
 			func() *server.Server { return nil },
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
-			func() statedb.RWTable[subnet.SubnetTableEntry] {
-				return nil
-			},
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		kvstore.Cell(kvstore.DisabledBackendName),
@@ -96,8 +92,8 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		store.Cell,
 		dial.ServiceResolverCell,
 		cmd.ControlPlane,
-		cell.Invoke(func(_ legacy.DaemonInitialization, nh *fakeTypes.FakeNodeHandler) {
-			// with dry-run enabled it's enough to depend on DaemonInitialization
+		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler) {
+			h.p = p
 			h.fnh = nh
 		}),
 
@@ -139,6 +135,14 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
 	// object bound to the test hive.
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
+}
+
+func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
+	if err := h.hive.Start(h.log, context.TODO()); err != nil {
+		return nil, err
+	}
+
+	return h.p.Await(context.TODO())
 }
 
 func setupTestDirectories() string {

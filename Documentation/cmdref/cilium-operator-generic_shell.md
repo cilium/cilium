@@ -2,7 +2,7 @@
 
 ## cilium-operator-generic shell
 
-Connect to the shell
+Connect to the Cilium shell
 
 ```
 cilium-operator-generic shell [command] [args]... [flags]

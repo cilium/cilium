@@ -36,7 +36,10 @@ spec:
       - { key: 'dns.operator.openshift.io/daemonset-dns', operator: Exists }
       - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "openshift-dns" ] }
       - { key: 'io.cilium.k8s.policy.cluster', operator: In, values: [ "{{.ClusterNameLocal}}" ] }
-  # For nodelocaldns using a link-local address (the "localip" mode).
+  # When node-local-dns is deployed with local IP,
+  # Cilium labels its ip as world.
+  # This change prevents failing the connectivity
+  # test for such environments.
   - toPorts:
     - ports:
       - port: "53"
@@ -46,7 +49,5 @@ spec:
       rules:
         dns:
         - matchPattern: "*"
-    # Including 'world' here may still be needed for versions up to 1.16 (#997)
     toEntities:
-      - host
-      - world
+    - world

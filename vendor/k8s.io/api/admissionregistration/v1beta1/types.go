@@ -26,7 +26,6 @@ import (
 type Rule = v1.Rule
 
 // ScopeType specifies a scope for a Rule.
-// +enum
 type ScopeType = v1.ScopeType
 
 const (
@@ -88,6 +87,7 @@ const (
 	SideEffectClassNoneOnDryRun SideEffectClass = "NoneOnDryRun"
 )
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -1072,18 +1072,16 @@ type MutatingWebhook struct {
 	MatchConditions []MatchCondition `json:"matchConditions,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,12,rep,name=matchConditions"`
 }
 
-// ReinvocationPolicyType specifies what type of policy is used when other admission plugins also perform
-// modifications.
-// +enum
+// ReinvocationPolicyType specifies what type of policy the admission hook uses.
 type ReinvocationPolicyType = v1.ReinvocationPolicyType
 
 const (
-	// NeverReinvocationPolicy indicates that the mutation must not be called more than once in a
+	// NeverReinvocationPolicy indicates that the webhook must not be called more than once in a
 	// single admission evaluation.
 	NeverReinvocationPolicy ReinvocationPolicyType = "Never"
-	// IfNeededReinvocationPolicy indicates that the mutation may be called at least one
+	// IfNeededReinvocationPolicy indicates that the webhook may be called at least one
 	// additional time as part of the admission evaluation if the object being admitted is
-	// modified by other admission plugins after the initial mutation call.
+	// modified by other admission plugins after the initial webhook call.
 	IfNeededReinvocationPolicy ReinvocationPolicyType = "IfNeeded"
 )
 

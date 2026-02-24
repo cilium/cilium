@@ -33,7 +33,19 @@ import (
 var (
 	zeroV4 = cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
+
+	ingressDummyAddress = cmtypes.MustParseAddrCluster("192.192.192.192")
+	ingressDummyPort    = uint16(9999)
 )
+
+func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
+	// The ingress and gateway-api controllers (operator/pkg/model/translation/{gateway-api,ingress}) create
+	// a dummy endpoint to force Cilium to reconcile the service. This is no longer required with this new
+	// control-plane, but due to rolling upgrades we cannot remove it immediately. Hence we have the
+	// special handling here to just ignore this endpoint to avoid populating the tables with unnecessary
+	// data.
+	return l3n4Addr.AddrCluster() == ingressDummyAddress && l3n4Addr.Port() == ingressDummyPort
+}
 
 func getAnnotationServiceForwardingMode(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
@@ -208,9 +220,11 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	// NodePort
-	// Do not reflect if KubeProxyReplacement is disabled, as it has no use and can affect NodePort service reachability.
+	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
+	// See https://github.com/cilium/cilium/issues/16197 for context.
+
 	if extCfg.KubeProxyReplacement {
+		// NodePort
 		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
 			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
 
@@ -262,23 +276,60 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				}
 			}
 		}
-	}
 
-	// LoadBalancer
-	if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
-		for _, ip := range svc.Status.LoadBalancer.Ingress {
-			if ip.IP == "" ||
-				(ip.IPMode != nil && *ip.IPMode != slim_corev1.LoadBalancerIPModeVIP) /* KEP-1860, skip non-VIP */ {
-				continue
+		// LoadBalancer
+		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
+			for _, ip := range svc.Status.LoadBalancer.Ingress {
+				if ip.IP == "" ||
+					(ip.IPMode != nil && *ip.IPMode != slim_corev1.LoadBalancerIPModeVIP) /* KEP-1860, skip non-VIP */ {
+					continue
+				}
+
+				addr, err := cmtypes.ParseAddrCluster(ip.IP)
+				if err != nil {
+					continue
+				}
+				if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
+					log().Debug(
+						"Skipping LoadBalancer due to disabled IP family",
+						logfields.IPv4, extCfg.EnableIPv4,
+						logfields.IPv6, extCfg.EnableIPv6,
+						logfields.Address, addr,
+					)
+					continue
+				}
+
+				for _, scope := range scopes {
+					for _, port := range svc.Spec.Ports {
+						fe := loadbalancer.FrontendParams{
+							Type:        loadbalancer.SVCTypeLoadBalancer,
+							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
+
+						fe.Address = loadbalancer.NewL3n4Addr(
+							loadbalancer.L4Type(port.Protocol),
+							addr,
+							uint16(port.Port),
+							scope,
+						)
+						fes = append(fes, fe)
+					}
+				}
+
 			}
+		}
 
-			addr, err := cmtypes.ParseAddrCluster(ip.IP)
+		// ExternalIP
+		for _, ip := range svc.Spec.ExternalIPs {
+			addr, err := cmtypes.ParseAddrCluster(ip)
 			if err != nil {
 				continue
 			}
 			if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
 				log().Debug(
-					"Skipping LoadBalancer due to disabled IP family",
+					"Skipping ExternalIP due to disabled IP family",
 					logfields.IPv4, extCfg.EnableIPv4,
 					logfields.IPv6, extCfg.EnableIPv6,
 					logfields.Address, addr,
@@ -286,58 +337,21 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				continue
 			}
 
-			for _, scope := range scopes {
-				for _, port := range svc.Spec.Ports {
-					fe := loadbalancer.FrontendParams{
-						Type:        loadbalancer.SVCTypeLoadBalancer,
-						PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
-					}
-
-					fe.Address = loadbalancer.NewL3n4Addr(
-						loadbalancer.L4Type(port.Protocol),
-						addr,
-						uint16(port.Port),
-						scope,
-					)
-					fes = append(fes, fe)
+			for _, port := range svc.Spec.Ports {
+				fe := loadbalancer.FrontendParams{
+					Type:        loadbalancer.SVCTypeExternalIPs,
+					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+					ServiceName: name,
+					ServicePort: uint16(port.Port),
 				}
+				fe.Address = loadbalancer.NewL3n4Addr(
+					loadbalancer.L4Type(port.Protocol),
+					addr,
+					uint16(port.Port),
+					loadbalancer.ScopeExternal,
+				)
+				fes = append(fes, fe)
 			}
-
-		}
-	}
-
-	// ExternalIP
-	for _, ip := range svc.Spec.ExternalIPs {
-		addr, err := cmtypes.ParseAddrCluster(ip)
-		if err != nil {
-			continue
-		}
-		if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
-			log().Debug(
-				"Skipping ExternalIP due to disabled IP family",
-				logfields.IPv4, extCfg.EnableIPv4,
-				logfields.IPv6, extCfg.EnableIPv6,
-				logfields.Address, addr,
-			)
-			continue
-		}
-
-		for _, port := range svc.Spec.Ports {
-			fe := loadbalancer.FrontendParams{
-				Type:        loadbalancer.SVCTypeExternalIPs,
-				PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-				ServiceName: name,
-				ServicePort: uint16(port.Port),
-			}
-			fe.Address = loadbalancer.NewL3n4Addr(
-				loadbalancer.L4Type(port.Protocol),
-				addr,
-				uint16(port.Port),
-				loadbalancer.ScopeExternal,
-			)
-			fes = append(fes, fe)
 		}
 	}
 
@@ -403,6 +417,9 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					l4Addr.Port,
 					loadbalancer.ScopeExternal,
 				)
+				if isIngressDummyEndpoint(l3n4Addr) {
+					continue
+				}
 
 				// Filter out the unnamed port, if present
 				if idx := slices.Index(portNames, ""); idx != -1 {
@@ -436,9 +453,9 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					// fully removed to avoid disrupting connections.
 					state = loadbalancer.BackendStateTerminating
 				default:
-					// In all other cases we mark the backend to be in maintenance. This avoids disruptions
-					// to existing connections when a backend readiness is flapping.
-					state = loadbalancer.BackendStateMaintenance
+					// In all other cases we mark the backend as quarantined. Existing connections
+					// are not disrupted until the backend is actually deleted.
+					state = loadbalancer.BackendStateQuarantined
 				}
 				bep := loadbalancer.BackendParams{
 					Address:   l3n4Addr,

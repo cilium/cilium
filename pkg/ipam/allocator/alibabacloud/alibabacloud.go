@@ -32,10 +32,6 @@ var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-alibaba-cloud"}
 
 // AllocatorAlibabaCloud is an implementation of IPAM allocator interface for AlibabaCloud ENI
 type AllocatorAlibabaCloud struct {
-	AlibabaCloudVPCID            string
-	AlibabaCloudReleaseExcessIPs bool
-	ParallelAllocWorkers         int64
-
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 	client     *openapi.Client
@@ -109,7 +105,7 @@ func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.Ci
 	}
 	instances := eni.NewInstancesManager(a.rootLogger, a.client)
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
-		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, 0, false)
+		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AlibabaCloudReleaseExcessIPs, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize AlibabaCloud node manager: %w", err)
 	}

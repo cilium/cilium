@@ -135,7 +135,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: health
+            port: {{ .Values.healthPort }}
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -155,7 +155,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: health
+            port: {{ .Values.healthPort }}
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -178,7 +178,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: health
+            port: {{ .Values.healthPort }}
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -251,17 +251,12 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         ports:
-        - name: health
-          containerPort: {{ .Values.healthPort }}
-          hostPort: {{ .Values.healthPort }}
-          protocol: TCP
-        {{- if .Values.hubble.enabled }}
         - name: peer-service
           containerPort: {{ .Values.hubble.peerService.targetPort }}
           hostPort: {{ .Values.hubble.peerService.targetPort }}
           protocol: TCP
-        {{- end }}
         {{- if .Values.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.prometheus.port }}
@@ -285,6 +280,7 @@ spec:
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
           protocol: TCP
+        {{- end }}
         {{- end }}
         securityContext:
           {{- if .Values.securityContext.privileged }}
@@ -379,10 +375,6 @@ spec:
         {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ipsec") }}
         - name: cilium-ipsec-secrets
           mountPath: {{ .Values.encryption.ipsec.mountPath }}
-        {{- end }}
-        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
-        - name: cilium-ztunnel-secrets
-          mountPath: /etc/ztunnel
         {{- end }}
         {{- if .Values.kubeConfigPath }}
         - name: kube-config
@@ -551,12 +543,9 @@ spec:
           value: {{ .Values.cgroup.hostRoot }}
         - name: BIN_PATH
           value: {{ .Values.cni.binPath }}
-        {{- if .Values.cgroup.autoMount.resources }}
+        {{- with .Values.cgroup.autoMount.resources }}
         resources:
-          {{- toYaml .Values.cgroup.autoMount.resources | trim | nindent 10 }}
-        {{- else if .Values.initResources }}
-        resources:
-          {{- toYaml .Values.initResources | trim | nindent 10 }}
+          {{- toYaml . | trim | nindent 10 }}
         {{- end }}
         command:
         - sh
@@ -834,9 +823,6 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.cilium.automount }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       hostNetwork: true
-      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
-      hostUsers: true
-      {{- end }}
       {{- include "cilium-agent.dnsPolicy" . | nindent 6 }}
       {{- if (eq .Values.scheduling.mode "anti-affinity")  }}
       {{- with .Values.affinity }}
@@ -865,11 +851,7 @@ spec:
       {{- if $buildDaemonConfig }}
       # For sharing configuration between the "config" initContainer and the agent
       - name: tmp
-        {{- if .Values.tmpVolume }}
-          {{- toYaml .Values.tmpVolume | nindent 8 }}
-        {{- else }}
         emptyDir: {}
-        {{- end }}
       {{- else }}
       # To read the configuration from the config map
       - name: cilium-config-path
@@ -1035,11 +1017,6 @@ spec:
       - name: cilium-ipsec-secrets
         secret:
           secretName: {{ .Values.encryption.ipsec.secretName }}
-      {{- end }}
-      {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
-      - name: cilium-ztunnel-secrets
-        secret:
-          secretName: cilium-ztunnel-secrets
       {{- end }}
       {{- if .Values.cni.configMap }}
       - name: cni-configuration

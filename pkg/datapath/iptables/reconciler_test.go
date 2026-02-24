@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net"
 	"net/netip"
+	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -565,7 +566,7 @@ func assertIptablesState(current, expected desiredState) error {
 			expected.localNodeInfo, current.localNodeInfo)
 	}
 	if len(current.proxies) != 0 && len(expected.proxies) != 0 &&
-		!assert.ObjectsAreEqual(expected.proxies, current.proxies) {
+		!reflect.DeepEqual(current.proxies, expected.proxies) {
 		return fmt.Errorf("expected proxies info to be %v, found %v",
 			expected.proxies, current.proxies)
 	}

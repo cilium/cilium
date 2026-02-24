@@ -105,15 +105,7 @@ func (sll *LinuxSLL2) CanDecode() gopacket.LayerClass {
 }
 
 func (sll *LinuxSLL2) LinkFlow() gopacket.Flow {
-	// Truncate address to MaxEndpointSize to prevent panics
-	// Linux SLL2 addresses should normally be 6-8 bytes, but malformed
-	// packets may claim larger sizes. This gracefully handles such cases
-	// by truncating oversized addresses instead of panicking.
-	addr := sll.Addr
-	if len(addr) > gopacket.MaxEndpointSize {
-		addr = addr[:gopacket.MaxEndpointSize]
-	}
-	return gopacket.NewFlow(EndpointMAC, addr, nil)
+	return gopacket.NewFlow(EndpointMAC, sll.Addr, nil)
 }
 
 func (sll *LinuxSLL2) NextLayerType() gopacket.LayerType {

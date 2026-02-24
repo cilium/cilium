@@ -31,5 +31,5 @@ runs:
             --action ALLOW \
             --rules esp \
             --priority 1000 \
-            --source-tags $cluster_node_target_tag \
+            --source-ranges 0.0.0.0/0 \
             --target-tags $cluster_node_target_tag

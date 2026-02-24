@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -22,13 +23,13 @@ var Cell = cell.Module(
 	cell.Provide(new),
 )
 
-func new(lc cell.Lifecycle, metrics Metrics) SyncState {
+func new(lc cell.Lifecycle, metrics Metrics, clusterInfo types.ClusterInfo) SyncState {
 	ss := SyncState{StoppableWaitGroup: lock.NewStoppableWaitGroup()}
 
 	go func() {
 		syncTime := spanstat.Start()
 		<-ss.WaitChannel()
-		metrics.BootstrapDuration.Set(syncTime.Seconds())
+		metrics.BootstrapDuration.WithLabelValues(clusterInfo.Name).Set(syncTime.Seconds())
 	}()
 	return ss
 }
@@ -62,15 +63,15 @@ func (ss SyncState) WaitForResource() func(context.Context) {
 // clustermesh-apiserver or kvstoremesh.
 type Metrics struct {
 	// BootstrapDuration tracks the duration in seconds until ready to serve requests.
-	BootstrapDuration metric.Gauge
+	BootstrapDuration metric.Vec[metric.Gauge]
 }
 
 func MetricsProvider() Metrics {
 	return Metrics{
-		BootstrapDuration: metric.NewGauge(metric.GaugeOpts{
+		BootstrapDuration: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Name:      "bootstrap_seconds",
 			Help:      "Duration in seconds to complete bootstrap",
-		}),
+		}, []string{metrics.LabelSourceCluster}),
 	}
 }

@@ -74,8 +74,6 @@ func (d derive[In, Out]) loop(ctx context.Context, _ cell.Health) error {
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
-
 	for {
 		wtxn := d.DB.WriteTxn(out)
 		changes, watch := iter.Next(wtxn)

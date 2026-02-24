@@ -27,11 +27,6 @@ import (
 
 var (
 	// Apply uses server-side apply to patch the given object.
-	//
-	// This should now only be used to patch sub resources, e.g. with client.Client.Status().Patch().
-	// Use client.Client.Apply() instead of client.Client.Patch(..., client.Apply, ...)
-	// This will be deprecated once the Apply method has been added for sub resources.
-	// See the following issue for more details: https://github.com/kubernetes-sigs/controller-runtime/issues/3183
 	Apply Patch = applyPatch{}
 
 	// Merge uses the raw object as a merge patch, without modifications.

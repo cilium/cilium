@@ -26,7 +26,3 @@ Primary usage:
 ```
 
 See also the provided [examples](https://pkg.go.dev/github.com/go-openapi/loads#pkg-examples).
-
-## Licensing
-
-This library ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).

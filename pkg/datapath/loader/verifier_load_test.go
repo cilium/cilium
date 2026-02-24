@@ -11,20 +11,11 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(5) {
+		for permutation := range permute(2) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
-			cfg.Node.DebugLB = true
-			cfg.AllowICMPFragNeeded = true
-			cfg.EnableICMPRule = true
-			cfg.EnableConntrackAccounting = true
-
-			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
-			cfg.EnableLRP = permutation[1]
-			cfg.HybridRoutingEnabled = permutation[2]
-			cfg.EnableARPResponder = permutation[3]
-			cfg.EnableNetkit = permutation[4]
-
+			cfg.SecctxFromIPCache = permutation[0]
+			cfg.Node.PolicyDenyResponseEnabled = permutation[1]
 			if !yield(cfg) {
 				return
 			}
@@ -34,22 +25,16 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(4) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
-			cfg.Node.DebugLB = true
-			cfg.AllowICMPFragNeeded = true
-			cfg.EnableICMPRule = true
-			cfg.EnableConntrackAccounting = true
-
-			cfg.EnableRemoteNodeMasquerade = permutation[0]
-			if permutation[1] {
+			cfg.SecctxFromIPCache = permutation[0]
+			cfg.EnableRemoteNodeMasquerade = permutation[1]
+			if permutation[2] {
 				cfg.EthHeaderLength = 0
 			} else {
 				cfg.EthHeaderLength = 14
 			}
-			cfg.EnableL2Announcements = permutation[2]
-			cfg.HybridRoutingEnabled = permutation[3]
 
 			if !yield(cfg) {
 				return
@@ -70,25 +55,10 @@ func networkLoadPermutations() iter.Seq[*config.BPFNetwork] {
 
 func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 	return func(yield func(*config.BPFOverlay) bool) {
-		cfg := config.NewBPFOverlay(*config.NewNode())
-		cfg.Node.TracingIPOptionType = 1
-		cfg.Node.DebugLB = true
-		cfg.EnableConntrackAccounting = true
-
-		if !yield(cfg) {
-			return
-		}
-	}
-}
-
-func sockLoadPermutations() iter.Seq[*config.BPFSock] {
-	return func(yield func(*config.BPFSock) bool) {
 		for permutation := range permute(1) {
-			cfg := config.NewBPFSock(*config.NewNode())
-			cfg.Node.DebugLB = true
-
-			cfg.EnableLRP = permutation[0]
-
+			cfg := config.NewBPFOverlay(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
+			cfg.SecctxFromIPCache = permutation[0]
 			if !yield(cfg) {
 				return
 			}
@@ -96,15 +66,24 @@ func sockLoadPermutations() iter.Seq[*config.BPFSock] {
 	}
 }
 
+type sockConfig struct {
+}
+
+func sockLoadPermutations() iter.Seq[*sockConfig] {
+	return func(yield func(*sockConfig) bool) {
+		yield(&sockConfig{}) // No load time config for sock programs
+	}
+}
+
 func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 	return func(yield func(*config.BPFWireguard) bool) {
-		cfg := config.NewBPFWireguard(*config.NewNode())
-		cfg.Node.TracingIPOptionType = 1
-		cfg.Node.DebugLB = true
-		cfg.EnableConntrackAccounting = true
-
-		if !yield(cfg) {
-			return
+		for permutation := range permute(1) {
+			cfg := config.NewBPFWireguard(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
+			cfg.SecctxFromIPCache = permutation[0]
+			if !yield(cfg) {
+				return
+			}
 		}
 	}
 }
@@ -114,11 +93,7 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
-			cfg.Node.DebugLB = true
-			cfg.EnableConntrackAccounting = true
-
-			cfg.EnableXDPPrefilter = permutation[0]
-
+			cfg.SecctxFromIPCache = permutation[0]
 			if !yield(cfg) {
 				return
 			}
@@ -129,8 +104,8 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 func permute(n int) iter.Seq[[]bool] {
 	permutation := make([]bool, n)
 	return func(yield func([]bool) bool) {
-		for i := range uint64(1 << n) {
-			for j := range n {
+		for i := uint64(0); i < (1 << n); i++ {
+			for j := 0; j < n; j++ {
 				permutation[j] = (i & (1 << j)) != 0
 			}
 			if !yield(permutation) {

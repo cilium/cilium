@@ -29,19 +29,11 @@ import (
 
 // CronJobApplyConfiguration represents a declarative configuration of the CronJob type for use
 // with apply.
-//
-// CronJob represents the configuration of a single cron job.
 type CronJobApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration `json:",inline"`
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	// Specification of the desired behavior of a cron job, including the schedule.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec *CronJobSpecApplyConfiguration `json:"spec,omitempty"`
-	// Current status of a cron job.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Status *CronJobStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                             *CronJobSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                           *CronJobStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // CronJob constructs a declarative configuration of the CronJob type for use with
@@ -55,14 +47,29 @@ func CronJob(name, namespace string) *CronJobApplyConfiguration {
 	return b
 }
 
-// ExtractCronJobFrom extracts the applied configuration owned by fieldManager from
-// cronJob for the specified subresource. Pass an empty string for subresource to extract
-// the main resource. Common subresources include "status", "scale", etc.
+// ExtractCronJob extracts the applied configuration owned by fieldManager from
+// cronJob. If no managedFields are found in cronJob for fieldManager, a
+// CronJobApplyConfiguration is returned with only the Name, Namespace (if applicable),
+// APIVersion and Kind populated. It is possible that no managed fields were found for because other
+// field managers have taken ownership of all the fields previously owned by fieldManager, or because
+// the fieldManager never owned fields any fields.
 // cronJob must be a unmodified CronJob API object that was retrieved from the Kubernetes API.
-// ExtractCronJobFrom provides a way to perform a extract/modify-in-place/apply workflow.
+// ExtractCronJob provides a way to perform a extract/modify-in-place/apply workflow.
 // Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
 // applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractCronJobFrom(cronJob *batchv1beta1.CronJob, fieldManager string, subresource string) (*CronJobApplyConfiguration, error) {
+// Experimental!
+func ExtractCronJob(cronJob *batchv1beta1.CronJob, fieldManager string) (*CronJobApplyConfiguration, error) {
+	return extractCronJob(cronJob, fieldManager, "")
+}
+
+// ExtractCronJobStatus is the same as ExtractCronJob except
+// that it extracts the status subresource applied configuration.
+// Experimental!
+func ExtractCronJobStatus(cronJob *batchv1beta1.CronJob, fieldManager string) (*CronJobApplyConfiguration, error) {
+	return extractCronJob(cronJob, fieldManager, "status")
+}
+
+func extractCronJob(cronJob *batchv1beta1.CronJob, fieldManager string, subresource string) (*CronJobApplyConfiguration, error) {
 	b := &CronJobApplyConfiguration{}
 	err := managedfields.ExtractInto(cronJob, internal.Parser().Type("io.k8s.api.batch.v1beta1.CronJob"), fieldManager, b, subresource)
 	if err != nil {
@@ -75,27 +82,6 @@ func ExtractCronJobFrom(cronJob *batchv1beta1.CronJob, fieldManager string, subr
 	b.WithAPIVersion("batch/v1beta1")
 	return b, nil
 }
-
-// ExtractCronJob extracts the applied configuration owned by fieldManager from
-// cronJob. If no managedFields are found in cronJob for fieldManager, a
-// CronJobApplyConfiguration is returned with only the Name, Namespace (if applicable),
-// APIVersion and Kind populated. It is possible that no managed fields were found for because other
-// field managers have taken ownership of all the fields previously owned by fieldManager, or because
-// the fieldManager never owned fields any fields.
-// cronJob must be a unmodified CronJob API object that was retrieved from the Kubernetes API.
-// ExtractCronJob provides a way to perform a extract/modify-in-place/apply workflow.
-// Note that an extracted apply configuration will contain fewer fields than what the fieldManager previously
-// applied if another fieldManager has updated or force applied any of the previously applied fields.
-func ExtractCronJob(cronJob *batchv1beta1.CronJob, fieldManager string) (*CronJobApplyConfiguration, error) {
-	return ExtractCronJobFrom(cronJob, fieldManager, "")
-}
-
-// ExtractCronJobStatus extracts the applied configuration owned by fieldManager from
-// cronJob for the status subresource.
-func ExtractCronJobStatus(cronJob *batchv1beta1.CronJob, fieldManager string) (*CronJobApplyConfiguration, error) {
-	return ExtractCronJobFrom(cronJob, fieldManager, "status")
-}
-
 func (b CronJobApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

@@ -114,7 +114,7 @@ type RouteConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteConfigurationMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -294,7 +294,7 @@ type RouteMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -456,7 +456,7 @@ type RouteMatchMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteMatchMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -655,7 +655,7 @@ type RouteActionMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m RouteActionMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -829,7 +829,7 @@ type MethodMatchMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MethodMatchMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -965,7 +965,7 @@ type MultipleRouteConfigurationMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MultipleRouteConfigurationMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1127,7 +1127,7 @@ type MethodMatch_ParameterMatchSpecifierMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m MethodMatch_ParameterMatchSpecifierMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

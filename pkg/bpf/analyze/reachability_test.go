@@ -5,9 +5,8 @@ package analyze
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
-	"math"
-	"structs"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -15,174 +14,143 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// symbols extracts all unique symbol references from insns, ignoring func and
-// map references.
-func symbols(insns asm.Instructions) map[string]struct{} {
-	syms := make(map[string]struct{})
-
-	for _, ins := range insns {
-		if ins.IsFunctionReference() || ins.IsLoadFromMap() {
-			continue
-		}
-		if ref := ins.Reference(); ref != "" {
-			syms[ref] = struct{}{}
-		}
-	}
-
-	return syms
-}
-
-// eachLiveRef calls fn for each live symbol reference appearing in r.
-func eachLiveRef(r *Reachable, fn func(ref string)) {
-	for iter, live := range r.Iterate() {
-		if !live {
-			continue
-		}
-		ins := iter.Instruction()
-		if ins.IsFunctionReference() || ins.IsLoadFromMap() {
-			continue
-		}
-		if ref := ins.Reference(); ref != "" {
-			fn(ref)
-		}
-	}
-}
-
-// allUnreachable asserts that all symbols appearing in insns are marked
-// unreachable in r.
-func allUnreachable(t *testing.T, insns asm.Instructions, r *Reachable) {
-	t.Helper()
-
-	syms := symbols(insns)
-	eachLiveRef(r, func(ref string) {
-		assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
-	})
-}
-
-// allReachable asserts that all symbols appearing in insns are marked live in
-// r.
-func allReachable(t *testing.T, insns asm.Instructions, r *Reachable) {
-	t.Helper()
-
-	syms := symbols(insns)
-	eachLiveRef(r, func(ref string) {
-		delete(syms, ref)
-	})
-	assert.Empty(t, syms, "not all symbols are marked live")
-}
-
+// Simple example with a `__config_use_map_b` Variable acting as a feature flag.
+// When true, the code using `map_a` is unreachable and can be eliminated. When
+// false, `map_a` is live must be kept. map_b is always live since it's the
+// default value for map pointer variable.
 func TestReachabilitySimple(t *testing.T) {
-	spec, err := ebpf.LoadCollectionSpec("../testdata/reachability.o")
+	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
 	require.NoError(t, err)
 
 	obj := struct {
-		Program *ebpf.ProgramSpec  `ebpf:"entry"`
-		SymA    *ebpf.VariableSpec `ebpf:"__config_sym_a"`
-		SymB    *ebpf.VariableSpec `ebpf:"__config_sym_b"`
-		SymCD   *ebpf.VariableSpec `ebpf:"__config_sym_cd"`
-		SymE    *ebpf.VariableSpec `ebpf:"__config_sym_e"`
-		SymF    *ebpf.VariableSpec `ebpf:"__config_sym_f"`
-		SymG    *ebpf.VariableSpec `ebpf:"__config_sym_g"`
-		SymH    *ebpf.VariableSpec `ebpf:"__config_sym_h"`
-		SymI    *ebpf.VariableSpec `ebpf:"__config_sym_i"`
-		SymJ    *ebpf.VariableSpec `ebpf:"__config_sym_j"`
-		SymK    *ebpf.VariableSpec `ebpf:"__config_sym_k"`
-		SymL    *ebpf.VariableSpec `ebpf:"__config_sym_l"`
+		Program *ebpf.ProgramSpec  `ebpf:"sample_program"`
+		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
-	insns := obj.Program.Instructions
 
-	blocks, err := MakeBlocks(insns)
+	blocks, err := MakeBlocks(obj.Program.Instructions)
 	require.NoError(t, err)
 
-	ur, err := Reachability(blocks, insns, spec.Variables)
+	noElim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	allUnreachable(t, insns, ur)
+	assert.EqualValues(t, 5, noElim.countAll(), "All blocks should be live")
+	assert.Equal(t, noElim.countAll(), noElim.countLive())
 
-	type ts struct {
-		_ structs.HostLayout
-
-		_     byte
-		sym_c bool
-		_     [2]byte
-		sym_d uint32
+	var found bool
+	for iter, live := range noElim.Iterate() {
+		assert.True(t, live)
+		if iter.Instruction().Reference() == "map_a" {
+			found = true
+		}
 	}
+	assert.True(t, found, "map_a reference should be in live instructions")
 
-	require.NoError(t, obj.SymA.Set(true))
-	require.NoError(t, obj.SymB.Set(uint64(math.MaxUint64)))
-	require.NoError(t, obj.SymCD.Set(ts{
-		sym_c: true,
-		sym_d: 1234,
-	}))
-	require.NoError(t, obj.SymE.Set(int64(-1)))
-	require.NoError(t, obj.SymF.Set(int8(-1)))
-	require.NoError(t, obj.SymG.Set(int16(-1)))
-	require.NoError(t, obj.SymH.Set(int32(-1)))
-	require.NoError(t, obj.SymI.Set(true))
-	require.NoError(t, obj.SymJ.Set(true))
-	require.NoError(t, obj.SymK.Set(int16(1)))
-	require.NoError(t, obj.SymL.Set(uint32(1)))
-
-	rr, err := Reachability(blocks, obj.Program.Instructions, spec.Variables)
+	require.NoError(t, obj.UseMapB.Set(true))
+	elim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	allReachable(t, insns, rr)
+	assert.False(t, elim.isLive(1), "Second block with map_a reference should be dead")
+	assert.Equal(t, elim.countAll()-1, elim.countLive())
+
+	for iter, live := range elim.Iterate() {
+		if !live {
+			continue
+		}
+		assert.NotEqual(t, "map_a", iter.Instruction().Reference(), "map_a should not be live")
+	}
 }
 
-// Load a map value pointer in one block and dereference in another. This is
-// common in real-world programs even if the config variable is only used once.
-//
-// The compiler is free to even insert a jump between the load and dereference
-// if the other branch value is already in a register or if the other branch
-// condition is deemed more likely.
-func TestReachabilityBacktrackBlock(t *testing.T) {
+var _ VariableSpec = (*mockVarSpec)(nil)
+
+type mockVarSpec struct {
+	mapName string
+	offset  uint64
+	size    uint64
+	value   uint64
+}
+
+func (mvs *mockVarSpec) MapName() string {
+	return mvs.mapName
+}
+func (mvs *mockVarSpec) Offset() uint64 {
+	return mvs.offset
+}
+func (mvs *mockVarSpec) Size() uint64 {
+	return mvs.size
+}
+func (mvs *mockVarSpec) Get(out any) error {
+	switch out := out.(type) {
+	case *int64:
+		*out = int64(mvs.value)
+		return nil
+	case *int32:
+		*out = int32(mvs.value)
+		return nil
+	case *int16:
+		*out = int16(mvs.value)
+		return nil
+	case *int8:
+		*out = int8(mvs.value)
+	default:
+		panic(fmt.Sprintf("unsupported type %T", out))
+	}
+
+	return nil
+}
+func (mvs *mockVarSpec) Constant() bool {
+	return true
+}
+
+// This tests asserts that when the "map pointer" instruction exists in a previous
+// basic block, that we can resolve this. This may happen when the same config
+// variable is used multiple times and the compiler decides to reuse the pointer
+// instead of re-emitting the instruction.
+func TestReachabilityPointerReuse(t *testing.T) {
+	const offset = 0
+
 	insns := asm.Instructions{
-		// Load the pointer to the config variable into a register.
-		asm.LoadMapValue(asm.R0, 0, 0).WithReference(".rodata").WithSymbol("prog"),
-		// Make a branch, ending the block.
+		// Load the pointer to the config variable into a register
+		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map"),
+		// Make a branch to go to exit (condition isn't important)
+		// This creates a separate basic block
 		asm.JEq.Imm(asm.R1, 0, "exit"),
 
-		// Dereference the map pointer.
-		asm.LoadMem(asm.R1, asm.R0, 0, asm.Byte),
-		// Random instruction.
+		// In this basic block, we dereference the pointer
+		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
+		// Add a random instruction in the middle, this can happen
 		asm.Mov.Reg(asm.R2, asm.R3),
-		// Branch on the dereferenced value.
-		asm.JEq.Imm(asm.R1, 1, "enabled"),
+		// Here is our conditional branch on R1 which is the config value.
+		asm.JEq.Imm(asm.R1, 1, "a_enabled_branch"),
 
 		// This branch is eliminated if `enable_a` == 1
 		asm.Mov.Imm(asm.R0, 0),
 		asm.Ja.Label("exit"),
 
-		// Separate block since it's a branch target.
-		asm.Mov.Imm(asm.R0, 1).WithSymbol("enabled"),
-
-		// Exit block.
+		asm.Mov.Imm(asm.R0, 1).WithSymbol("a_enabled_branch"),
 		asm.Return().WithSymbol("exit"),
 	}
 
 	// Marshal instructions to fix up references.
 	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
 
-	b, err := computeBlocks(insns)
+	blocks, err := computeBlocks(insns)
 	require.NoError(t, err)
 
-	r, err := Reachability(b, insns, map[string]*ebpf.VariableSpec{
-		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{1}},
+	eliminated, err := Reachability(blocks, insns, map[string]VariableSpec{
+		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 1},
 	})
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 5, r.countAll())
-	assert.NotEqual(t, r.countAll(), r.countLive())
-	assert.True(t, r.isLive(0))
-	assert.True(t, r.isLive(1))
-	assert.False(t, r.isLive(2))
-	assert.True(t, r.isLive(3))
-	assert.True(t, r.isLive(4))
+	assert.EqualValues(t, 5, eliminated.countAll())
+	assert.NotEqual(t, eliminated.countAll(), eliminated.countLive())
+	assert.True(t, eliminated.isLive(0))
+	assert.True(t, eliminated.isLive(1))
+	assert.False(t, eliminated.isLive(2))
+	assert.True(t, eliminated.isLive(3))
+	assert.True(t, eliminated.isLive(4))
 }
 
 // This tests asserts that we do basic block analysis and dead code elimination
@@ -190,11 +158,12 @@ func TestReachabilityBacktrackBlock(t *testing.T) {
 // instead of 16 bit offsets. Something the compiler can emit when programs
 // get large and compilation happens with -mcpu=v4
 func TestReachabilityLongJump(t *testing.T) {
+	const offset = 0
 	insns := asm.Instructions{
 		// Load the pointer to the config variable into a register
-		asm.LoadMapValue(asm.R0, 0, 0).WithReference(".rodata").WithSymbol("prog"),
+		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map"),
 		// Dereference the pointer, getting the actual config value
-		asm.LoadMem(asm.R1, asm.R0, 0, asm.Byte),
+		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
 		// If `a_enabled` is 0, skip over the long jump
 		asm.JEq.Imm(asm.R1, 0, "no_long_jump"),
 
@@ -217,8 +186,8 @@ func TestReachabilityLongJump(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 4, blocks.count())
 
-	disabled, err := Reachability(blocks, insns, map[string]*ebpf.VariableSpec{
-		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{0}},
+	disabled, err := Reachability(blocks, insns, map[string]VariableSpec{
+		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 0},
 	})
 	require.NoError(t, err)
 
@@ -233,8 +202,8 @@ func TestReachabilityLongJump(t *testing.T) {
 	assert.True(t, disabled.isLive(2))
 	assert.False(t, disabled.isLive(3))
 
-	enabled, err := Reachability(blocks, insns, map[string]*ebpf.VariableSpec{
-		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{1}},
+	enabled, err := Reachability(blocks, insns, map[string]VariableSpec{
+		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 1},
 	})
 	require.NoError(t, err)
 
@@ -255,13 +224,17 @@ func TestReachabilityLongJump(t *testing.T) {
 // reachability analysis as it is shared across all users of (copies of) a
 // CollectionSpec.
 func TestReachabilityConcurrent(t *testing.T) {
-	spec, err := ebpf.LoadCollectionSpec("../testdata/reachability.o")
+	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
 	require.NoError(t, err)
 
 	obj := struct {
-		Program *ebpf.ProgramSpec `ebpf:"entry"`
+		Program *ebpf.ProgramSpec  `ebpf:"sample_program"`
+		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
+
+	// Predict first branch as taken.
+	obj.UseMapB.Set(true)
 
 	blocks, err := computeBlocks(obj.Program.Instructions)
 	require.NoError(t, err)
@@ -269,7 +242,7 @@ func TestReachabilityConcurrent(t *testing.T) {
 	var eg errgroup.Group
 	for range 2 {
 		eg.Go(func() error {
-			_, err := Reachability(blocks, obj.Program.Instructions, spec.Variables)
+			_, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 			return err
 		})
 	}
@@ -288,26 +261,4 @@ func BenchmarkReachability(b *testing.B) {
 		_, err = Reachability(blocks, insns, nil)
 		require.NoError(b, err)
 	}
-}
-
-func BenchmarkReachabilityBPF(b *testing.B) {
-	testutils.BenchmarkFiles(b, testutils.Glob(b, "../../../bpf/*.o"), func(b *testing.B, file string) {
-		b.ReportAllocs()
-
-		spec, err := ebpf.LoadCollectionSpec(file)
-		require.NoError(b, err)
-
-		blocks := make(map[string]Blocks)
-		for name, prog := range spec.Programs {
-			blocks[name], err = computeBlocks(prog.Instructions)
-			require.NoError(b, err)
-		}
-
-		for b.Loop() {
-			for name, prog := range spec.Programs {
-				_, err = Reachability(blocks[name], prog.Instructions, nil)
-				require.NoError(b, err)
-			}
-		}
-	})
 }

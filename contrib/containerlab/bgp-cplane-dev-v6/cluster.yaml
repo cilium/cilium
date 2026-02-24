@@ -1,0 +1,23 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+name: bgp-cplane-dev-v6
+networking:
+  ipFamily: ipv6
+  disableDefaultCNI: true
+  podSubnet: "fd00:10:1::/63"
+  serviceSubnet: "fd00:10:2::/108"
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-ip: "fd00:10:0:1::2"
+- role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-ip: "fd00:10:0:2::2"

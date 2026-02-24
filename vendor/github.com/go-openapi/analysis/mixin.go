@@ -1,12 +1,22 @@
-// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
-// SPDX-License-Identifier: Apache-2.0
+// Copyright 2015 go-swagger maintainers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package analysis
 
 import (
 	"fmt"
 	"reflect"
-	"slices"
 
 	"github.com/go-openapi/spec"
 )
@@ -238,7 +248,14 @@ func mergeResponses(primary *spec.Swagger, m *spec.Swagger) (skipped []string) {
 
 func mergeConsumes(primary *spec.Swagger, m *spec.Swagger) []string {
 	for _, v := range m.Consumes {
-		found := slices.Contains(primary.Consumes, v)
+		found := false
+		for _, vv := range primary.Consumes {
+			if v == vv {
+				found = true
+
+				break
+			}
+		}
 
 		if found {
 			// no warning here: we just skip it
@@ -252,7 +269,14 @@ func mergeConsumes(primary *spec.Swagger, m *spec.Swagger) []string {
 
 func mergeProduces(primary *spec.Swagger, m *spec.Swagger) []string {
 	for _, v := range m.Produces {
-		found := slices.Contains(primary.Produces, v)
+		found := false
+		for _, vv := range primary.Produces {
+			if v == vv {
+				found = true
+
+				break
+			}
+		}
 
 		if found {
 			// no warning here: we just skip it
@@ -293,7 +317,14 @@ func mergeTags(primary *spec.Swagger, m *spec.Swagger) (skipped []string) {
 
 func mergeSchemes(primary *spec.Swagger, m *spec.Swagger) []string {
 	for _, v := range m.Schemes {
-		found := slices.Contains(primary.Schemes, v)
+		found := false
+		for _, vv := range primary.Schemes {
+			if v == vv {
+				found = true
+
+				break
+			}
+		}
 
 		if found {
 			// no warning here: we just skip it

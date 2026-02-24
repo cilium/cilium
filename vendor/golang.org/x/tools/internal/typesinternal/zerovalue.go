@@ -204,12 +204,23 @@ func ZeroExpr(t types.Type, qual types.Qualifier) (_ ast.Expr, isValid bool) {
 	}
 }
 
+// IsZeroExpr uses simple syntactic heuristics to report whether expr
+// is a obvious zero value, such as 0, "", nil, or false.
+// It cannot do better without type information.
+func IsZeroExpr(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		return e.Value == "0" || e.Value == `""`
+	case *ast.Ident:
+		return e.Name == "nil" || e.Name == "false"
+	default:
+		return false
+	}
+}
+
 // TypeExpr returns syntax for the specified type. References to named types
 // are qualified by an appropriate (optional) qualifier function.
 // It may panic for types such as Tuple or Union.
-//
-// See also https://go.dev/issues/75604, which will provide a robust
-// Type-to-valid-Go-syntax formatter.
 func TypeExpr(t types.Type, qual types.Qualifier) ast.Expr {
 	switch t := t.(type) {
 	case *types.Basic:
@@ -258,12 +269,12 @@ func TypeExpr(t types.Type, qual types.Qualifier) ast.Expr {
 
 	case *types.Signature:
 		var params []*ast.Field
-		for v := range t.Params().Variables() {
+		for i := 0; i < t.Params().Len(); i++ {
 			params = append(params, &ast.Field{
-				Type: TypeExpr(v.Type(), qual),
+				Type: TypeExpr(t.Params().At(i).Type(), qual),
 				Names: []*ast.Ident{
 					{
-						Name: v.Name(),
+						Name: t.Params().At(i).Name(),
 					},
 				},
 			})
@@ -273,9 +284,9 @@ func TypeExpr(t types.Type, qual types.Qualifier) ast.Expr {
 			last.Type = &ast.Ellipsis{Elt: last.Type.(*ast.ArrayType).Elt}
 		}
 		var returns []*ast.Field
-		for v := range t.Results().Variables() {
+		for i := 0; i < t.Results().Len(); i++ {
 			returns = append(returns, &ast.Field{
-				Type: TypeExpr(v.Type(), qual),
+				Type: TypeExpr(t.Results().At(i).Type(), qual),
 			})
 		}
 		return &ast.FuncType{
@@ -315,8 +326,8 @@ func TypeExpr(t types.Type, qual types.Qualifier) ast.Expr {
 		if hasTypeArgs, ok := t.(interface{ TypeArgs() *types.TypeList }); ok {
 			if typeArgs := hasTypeArgs.TypeArgs(); typeArgs != nil && typeArgs.Len() > 0 {
 				var indices []ast.Expr
-				for t0 := range typeArgs.Types() {
-					indices = append(indices, TypeExpr(t0, qual))
+				for i := range typeArgs.Len() {
+					indices = append(indices, TypeExpr(typeArgs.At(i), qual))
 				}
 				expr = &ast.IndexListExpr{
 					X:       expr,

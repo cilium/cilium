@@ -1103,9 +1103,6 @@ func TestBPFOps(t *testing.T) {
 		EnableIPv4:           true,
 		EnableIPv6:           true,
 		KubeProxyReplacement: true,
-		DefaultLBServiceIPAM: "lbipam",
-		EnableLBIPAM:         true,
-		EnableNodeIPAM:       false,
 	}
 
 	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})

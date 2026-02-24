@@ -4,9 +4,6 @@
 package creator
 
 import (
-	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/ipcache"
-
 	"github.com/cilium/hive/cell"
 )
 
@@ -15,8 +12,5 @@ var Cell = cell.Module(
 	"endpoint-creator",
 	"API for creating and parsing Endpoints",
 
-	cell.ProvidePrivate(func(ipc *ipcache.IPCache) endpoint.NamedPortsGetter {
-		return ipc
-	}),
 	cell.Provide(newEndpointCreator),
 )

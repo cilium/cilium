@@ -47,17 +47,7 @@ func TestMarkAndSweep(t *testing.T) {
 	allEndpointIDs := append(healthyEndpointIDs, endpointIDToDelete)
 	for _, id := range allEndpointIDs {
 		model := newTestEndpointModel(int(id), endpoint.StateReady)
-		ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
-			EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
-			NamedPortsGetter: testipcache.NewMockIPCache(),
-			Allocator:        testidentity.NewMockIdentityAllocator(nil),
-			CTMapGC:          ctmap.NewFakeGCRunner(),
-			WgConfig:         &fakeTypes.WireguardConfig{},
-			IPSecConfig:      fakeTypes.IPsecConfig{},
-			Logger:           logger,
-			IdentityManager:  identitymanager.NewIDManager(logger),
-			PolicyRepo:       s.repo,
-		}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
+		ep, err := endpoint.NewEndpointFromChangeModel(t.Context(), logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 		require.NoError(t, err)
 
 		ep.Start(uint16(model.ID))
@@ -86,7 +76,7 @@ func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRe
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
-		Properties: map[string]any{
+		Properties: map[string]interface{}{
 			endpoint.PropertyFakeEndpoint: true,
 		},
 	}

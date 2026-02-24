@@ -41,6 +41,15 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMInstanceTags)
 
+	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMAutoCreateCiliumPodIPPools),
+		operatorOption.IPAMAutoCreateCiliumPodIPPools,
+		"Automatically create CiliumPodIPPool resources on startup. "+
+			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
+	option.BindEnv(vp, operatorOption.IPAMAutoCreateCiliumPodIPPools)
+
+	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
+	option.BindEnv(vp, operatorOption.ParallelAllocWorkers)
+
 	// Operator-specific flags
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(vp, option.ConfigFile)
@@ -57,6 +66,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "")
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(vp, option.DisableCiliumEndpointCRDName)
+
+	flags.Bool(option.EnableIPv4EgressGateway, false, "")
+	flags.MarkHidden(option.EnableIPv4EgressGateway)
+	option.BindEnv(vp, option.EnableIPv4EgressGateway)
 
 	flags.Bool(option.EnableEgressGateway, false, "")
 	flags.MarkHidden(option.EnableEgressGateway)
@@ -201,6 +214,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(vp, operatorOption.SyncK8sServices)
 
+	flags.Int(operatorOption.UnmanagedPodWatcherInterval, 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
+	option.BindEnv(vp, operatorOption.UnmanagedPodWatcherInterval)
+
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(vp, option.Version)
 
@@ -255,10 +271,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
-	flags.Bool(option.EnableK8sClusterNetworkPolicy, defaults.EnableK8sClusterNetworkPolicy, "Enable support for K8s ClusterNetworkPolicy")
-	flags.MarkHidden(option.EnableK8sClusterNetworkPolicy)
-	option.BindEnv(vp, option.EnableK8sClusterNetworkPolicy)
-
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
@@ -278,10 +290,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableNodeSelectorLabels, defaults.EnableNodeSelectorLabels, "Enable use of node label based identity")
 	option.BindEnv(vp, option.EnableNodeSelectorLabels)
-
-	flags.Bool(option.EnableCiliumNodeCRDName, defaults.EnableCiliumNodeCRD, "Enable CiliumNode CRD")
-	flags.MarkHidden(option.EnableCiliumNodeCRDName)
-	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
 
 	vp.BindPFlags(flags)
 }

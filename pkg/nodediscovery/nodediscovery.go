@@ -46,7 +46,9 @@ const (
 	backoffDuration = 500 * time.Millisecond
 )
 
-var localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
+var (
+	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
+)
 
 type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
@@ -59,17 +61,15 @@ type GetNodeAddresses interface {
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	logger           *slog.Logger
-	manager          nodemanager.NodeManager
-	registrar        nodestore.NodeRegistrar
-	registered       chan struct{}
+	Manager          nodemanager.NodeManager
+	Registrar        nodestore.NodeRegistrar
+	Registered       chan struct{}
 	cniConfigManager cni.CNIConfigManager
 	k8sGetters       k8sGetters
 	localNodeStore   *node.LocalNodeStore
 	clientset        client.Clientset
 	kvstoreClient    kvstore.Client
 	ctrlmgr          *controller.Manager
-	daemonConfig     *option.DaemonConfig
-	config           config
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -81,26 +81,17 @@ func NewNodeDiscovery(
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
-	daemonConfig *option.DaemonConfig,
-	c config,
 ) *NodeDiscovery {
-	if !option.Config.EnableCiliumNodeCRD {
-		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
-		return &NodeDiscovery{}
-	}
-
 	return &NodeDiscovery{
 		logger:           logger,
-		manager:          manager,
+		Manager:          manager,
 		localNodeStore:   lns,
-		registered:       make(chan struct{}),
+		Registered:       make(chan struct{}),
 		cniConfigManager: cniConfigManager,
 		clientset:        clientset,
 		kvstoreClient:    kvstoreClient,
 		ctrlmgr:          controller.NewManager(),
 		k8sGetters:       k8sNodeWatcher,
-		daemonConfig:     daemonConfig,
-		config:           c,
 	}
 }
 
@@ -129,25 +120,25 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
+			if err := n.Registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.Manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
 				break
 			}
 		}
-		close(n.registered)
+		close(n.Registered)
 	}()
 
 	go func() {
 		select {
-		case <-n.registered:
+		case <-n.Registered:
 		case <-time.After(defaults.NodeInitTimeout):
 			logging.Fatal(n.logger, "Unable to initialize local node due to timeout")
 		}
 	}()
 
-	n.manager.NodeUpdated(localNode.Node)
+	n.Manager.NodeUpdated(localNode.Node)
 
 	n.updateLocalNode(ctx, &localNode)
 
@@ -158,7 +149,7 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			// This is particularly helpful when an IPSec key rotation occurs
 			// and the manager needs to evaluate the local node's EncryptionKey
 			// field.
-			n.manager.NodeUpdated(ln.Node)
+			n.Manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()
@@ -167,12 +158,8 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 // WaitForKVStoreSync blocks until kvstore synchronization of node information
 // completed. It returns immediately in CRD mode.
 func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
-	if !option.Config.EnableCiliumNodeCRD { // Do not block if CiliumNode CRD is disabled
-		return nil
-	}
-
 	select {
-	case <-n.registered:
+	case <-n.Registered:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -189,12 +176,12 @@ func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode)
 				CancelDoFuncOnUpdate: true,
 				DoFunc: func(ctx context.Context) error {
 					select {
-					case <-n.registered:
+					case <-n.Registered:
 					case <-ctx.Done():
 						return nil
 					}
 
-					err := n.registrar.UpdateLocalKeySync(ctx, &ln.Node)
+					err := n.Registrar.UpdateLocalKeySync(ctx, &ln.Node)
 					if err != nil && !errors.Is(err, context.Canceled) {
 						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
 					}
@@ -244,11 +231,13 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
-				n.logger.Info(
-					"Unable to get CiliumNode resource",
-					logfields.Error, err,
-					logfields.Retries, retryCount,
-				)
+				if retryCount == maxRetryCount {
+					n.logger.Warn(
+						"Unable to get CiliumNode resource",
+						logfields.Error, err,
+						logfields.Retries, maxRetryCount,
+					)
+				}
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
@@ -264,7 +253,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			n.logger.Warn(
 				"Unable to mutate nodeResource",
 				logfields.Error, err,
-				logfields.Retries, retryCount,
+				logfields.Retries, maxRetryCount,
 			)
 			continue
 		}
@@ -276,7 +265,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		if performUpdate {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
-					n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Warn("Unable to update CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue
@@ -288,7 +277,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		} else {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
-					n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Warn("Unable to create CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue
@@ -388,22 +377,15 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 	nodeResource.Spec.BootID = ln.BootID
 
-	nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
-	if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
-		if len(c.IPAM.StaticIPTags) > 0 {
-			nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
-		}
-	}
-
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
-		imds, err := metadata.NewClient(ctx)
+		imds, err := metadata.NewClient()
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to create metadata client", logfields.Error, err)
 		}
-		info, err := imds.GetInstanceMetadata(ctx)
+		info, err := imds.GetInstanceMetadata()
 		if err != nil {
 			logging.Fatal(n.logger, "Unable to retrieve InstanceID of own EC2 instance", logfields.Error, err)
 		}
@@ -420,20 +402,9 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// are not conflicting with each other, we must have similar logic to
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = info.VPCID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(n.config.ENIFirstInterfaceIndex)
-		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(n.config.ENIUsePrimaryAddress)
-		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(n.config.ENIDisablePrefixDelegation)
-		nodeResource.Spec.ENI.DeleteOnTermination = aws.Bool(n.config.ENIDeleteOnTermination)
-
-		nodeResource.Spec.ENI.SubnetIDs = n.config.ENISubnetIDs
-		nodeResource.Spec.ENI.SubnetTags = n.config.ENISubnetTags
-		nodeResource.Spec.ENI.SecurityGroups = n.config.ENISecurityGroups
-		nodeResource.Spec.ENI.SecurityGroupTags = n.config.ENISecurityGroupTags
-		nodeResource.Spec.ENI.ExcludeInterfaceTags = n.config.ENIExcludeInterfaceTags
-
-		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
-		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
-		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(defaults.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(defaults.UseENIPrimaryAddress)
+		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(defaults.ENIDisableNodeLevelPD)
 
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -442,6 +413,10 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {
@@ -502,17 +477,15 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// consistent results.
 		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix))
 
-		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
-		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
-		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
-		nodeResource.Spec.Azure.InterfaceName = n.config.AzureInterfaceName
-
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
 			}
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
@@ -553,14 +526,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
 		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
-		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
-		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
-		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
-		nodeResource.Spec.AlibabaCloud.VSwitches = n.config.AlibabaCloudVSwitches
-		nodeResource.Spec.AlibabaCloud.VSwitchTags = n.config.AlibabaCloudVSwitchTags
-		nodeResource.Spec.AlibabaCloud.SecurityGroups = n.config.AlibabaCloudSecurityGroups
-		nodeResource.Spec.AlibabaCloud.SecurityGroupTags = n.config.AlibabaCloudSecurityGroupTags
-
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.AlibabaCloud.VPCID != "" {
 				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
@@ -587,6 +552,10 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+
+			if len(c.IPAM.StaticIPTags) > 0 {
+				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 		}
 	}

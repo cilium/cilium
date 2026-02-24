@@ -6,7 +6,9 @@ package lxcmap
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
+	"sync"
 
 	"github.com/cilium/ebpf"
 
@@ -18,81 +20,33 @@ import (
 )
 
 const (
-	mapName = "cilium_lxc"
+	MapName = "cilium_lxc"
 
 	// MaxEntries represents the maximum number of endpoints in the map
 	MaxEntries = 65535
+
+	// PortMapMax represents the maximum number of Ports Mapping per container.
+	PortMapMax = 16
 )
 
-// Map provides access to the endpoints (lxc) eBPF map.
-type Map interface {
-	// WriteEndpoint updates the BPF map with the endpoint information and links
-	// the endpoint information to all keys provided.
-	WriteEndpoint(f EndpointFrontend) error
+var (
+	// LXCMap represents the BPF map for endpoints
+	lxcMap     *bpf.Map
+	lxcMapOnce sync.Once
+)
 
-	// SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
-	// Returns boolean indicating if a new entry was added and an error.
-	SyncHostEntry(addr netip.Addr) (bool, error)
-
-	// DeleteEntry deletes a single map entry
-	DeleteEntry(addr netip.Addr) error
-
-	// DeleteElement deletes the endpoint using all keys which represent the
-	// endpoint. It returns the number of errors encountered during deletion.
-	DeleteElement(logger *slog.Logger, f EndpointFrontend) []error
-
-	// Dump returns the map (type map[string][]string) which contains all
-	// data stored in BPF map.
-	Dump(hash map[string][]string) error
-
-	// DumpToMap dumps the contents of the lxcmap into a map and returns it
-	DumpToMap() (map[netip.Addr]EndpointInfo, error)
-}
-
-type lxcMap struct {
-	bpfMap *bpf.Map
-}
-
-func newMap(registry *metrics.Registry) *lxcMap {
-	return &lxcMap{
-		bpfMap: bpf.NewMap(mapName,
+func LXCMap(registry *metrics.Registry) *bpf.Map {
+	lxcMapOnce.Do(func() {
+		lxcMap = bpf.NewMap(MapName,
 			ebpf.Hash,
 			&EndpointKey{},
 			&EndpointInfo{},
 			MaxEntries,
 			0,
-		).
-			WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(mapName)),
-	}
-}
-
-// OpenMap opens the pre-initialized LXC map for access.
-// This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
-// It needs to initialized beforehand via the Cilium Agent.
-func OpenMap(logger *slog.Logger) (Map, error) {
-	m, err := bpf.OpenMap(bpf.MapPath(logger, mapName), &EndpointKey{}, &EndpointInfo{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to open map: %w", err)
-	}
-
-	return &lxcMap{bpfMap: m}, nil
-}
-
-func (m *lxcMap) init() error {
-	if err := m.bpfMap.OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to init bpf map: %w", err)
-	}
-
-	return nil
-}
-
-func (m *lxcMap) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
+		).WithCache().WithPressureMetric(registry).
+			WithEvents(option.Config.GetEventBufferConfig(MapName))
+	})
+	return lxcMap
 }
 
 const (
@@ -102,12 +56,6 @@ const (
 	// EndpointFlagAtHostNS indicates that this endpoint is located at the host networking
 	// namespace
 	EndpointFlagAtHostNS = 2
-
-	// EndpointFlagSkipMasqueradeV4 indicates that this endpoint should skip IPv4 masquerade for remote traffic
-	EndpointFlagSkipMasqueradeV4 = 4
-
-	// EndpointFlagSkipMasqueradeV6 indicates that this endpoint should skip IPv6 masquerade for remote traffic
-	EndpointFlagSkipMasqueradeV6 = 8
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -122,31 +70,27 @@ type EndpointFrontend interface {
 	IPv6Address() netip.Addr
 	GetIdentity() identity.NumericIdentity
 	IsAtHostNS() bool
-	// SkipMasqueradeV4 indicates whether this endpoint should skip IPv4 masquerade for remote traffic
-	SkipMasqueradeV4() bool
-	// SkipMasqueradeV6 indicates whether this endpoint should skip IPv6 masquerade for remote traffic
-	SkipMasqueradeV6() bool
 }
 
-// getBPFKeys returns all keys which should represent this endpoint in the BPF
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func (m *lxcMap) getBPFKeys(e EndpointFrontend) []*EndpointKey {
+func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 	keys := []*EndpointKey{}
 	if e.IPv6Address().IsValid() {
-		keys = append(keys, newEndpointKey(e.IPv6Address()))
+		keys = append(keys, NewEndpointKey(e.IPv6Address().AsSlice()))
 	}
 
 	if e.IPv4Address().IsValid() {
-		keys = append(keys, newEndpointKey(e.IPv4Address()))
+		keys = append(keys, NewEndpointKey(e.IPv4Address().AsSlice()))
 	}
 
 	return keys
 }
 
-// getBPFValue returns the value which should represent this endpoint in the
+// GetBPFValue returns the value which should represent this endpoint in the
 // BPF endpoints map
 // Must only be called if init() succeeded.
-func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
+func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	tmp := e.LXCMac()
 	mac, err := tmp.Uint64()
 	if len(tmp) > 0 && err != nil {
@@ -172,21 +116,16 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	if e.IsAtHostNS() {
 		info.Flags |= EndpointFlagAtHostNS
 	}
-	if e.SkipMasqueradeV4() {
-		info.Flags |= EndpointFlagSkipMasqueradeV4
-	}
-	if e.SkipMasqueradeV6() {
-		info.Flags |= EndpointFlagSkipMasqueradeV6
-	}
 
 	return info, nil
+
 }
 
 type pad2uint32 [2]uint32
 
 // EndpointInfo represents the value of the endpoints BPF map.
 //
-// Must be in sync with struct endpoint_info in <bpf/lib/eps.h>
+// Must be in sync with struct endpoint_info in <bpf/lib/common.h>
 type EndpointInfo struct {
 	IfIndex uint32 `align:"ifindex"`
 	Unused  uint16 `align:"unused"`
@@ -205,11 +144,11 @@ type EndpointKey struct {
 	bpf.EndpointKey
 }
 
-// newEndpointKey returns an EndpointKey based on the provided IP address. The
+// NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
-func newEndpointKey(addr netip.Addr) *EndpointKey {
+func NewEndpointKey(ip net.IP) *EndpointKey {
 	return &EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(addr, 0),
+		EndpointKey: bpf.NewEndpointKey(ip, 0),
 	}
 }
 
@@ -239,19 +178,21 @@ func (v *EndpointInfo) String() string {
 
 func (v *EndpointInfo) New() bpf.MapValue { return &EndpointInfo{} }
 
-func (m *lxcMap) WriteEndpoint(f EndpointFrontend) error {
-	info, err := m.getBPFValue(f)
+// WriteEndpoint updates the BPF map with the endpoint information and links
+// the endpoint information to all keys provided.
+func WriteEndpoint(f EndpointFrontend) error {
+	info, err := GetBPFValue(f)
 	if err != nil {
 		return err
 	}
 
-	keys := m.getBPFKeys(f)
+	keys := GetBPFKeys(f)
 	var writtenKeys []*EndpointKey
 
 	for _, key := range keys {
-		if err := m.bpfMap.Update(key, info); err != nil {
+		if err := LXCMap(nil).Update(key, info); err != nil {
 			for _, k := range writtenKeys {
-				_ = m.bpfMap.Delete(k)
+				_ = LXCMap(nil).Delete(k)
 			}
 			return fmt.Errorf("failed to update key %v in LXC map: %w", key, err)
 		}
@@ -261,18 +202,20 @@ func (m *lxcMap) WriteEndpoint(f EndpointFrontend) error {
 	return nil
 }
 
-// addHostEntry adds a special endpoint which represents the local host
-func (m *lxcMap) addHostEntry(addr netip.Addr) error {
-	key := newEndpointKey(addr)
+// AddHostEntry adds a special endpoint which represents the local host
+func AddHostEntry(ip net.IP) error {
+	key := NewEndpointKey(ip)
 	ep := &EndpointInfo{Flags: EndpointFlagHost}
-	return m.bpfMap.Update(key, ep)
+	return LXCMap(nil).Update(key, ep)
 }
 
-func (m *lxcMap) SyncHostEntry(addr netip.Addr) (bool, error) {
-	key := newEndpointKey(addr)
-	value, err := m.bpfMap.Lookup(key)
+// SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
+// Returns boolean indicating if a new entry was added and an error.
+func SyncHostEntry(ip net.IP) (bool, error) {
+	key := NewEndpointKey(ip)
+	value, err := LXCMap(nil).Lookup(key)
 	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
-		err = m.addHostEntry(addr)
+		err = AddHostEntry(ip)
 		if err == nil {
 			return true, nil
 		}
@@ -280,38 +223,38 @@ func (m *lxcMap) SyncHostEntry(addr netip.Addr) (bool, error) {
 	return false, err
 }
 
-func (m *lxcMap) DeleteEntry(addr netip.Addr) error {
-	return m.bpfMap.Delete(newEndpointKey(addr))
+// DeleteEntry deletes a single map entry
+func DeleteEntry(ip net.IP) error {
+	return LXCMap(nil).Delete(NewEndpointKey(ip))
 }
 
-func (m *lxcMap) DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
+// DeleteElement deletes the endpoint using all keys which represent the
+// endpoint. It returns the number of errors encountered during deletion.
+func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 	var errors []error
-	for _, k := range m.getBPFKeys(f) {
-		if err := m.bpfMap.Delete(k); err != nil {
-			errors = append(errors, fmt.Errorf("unable to delete key %v from %s: %w", k, bpf.MapPath(logger, mapName), err))
+	for _, k := range GetBPFKeys(f) {
+		if err := LXCMap(nil).Delete(k); err != nil {
+			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(logger, MapName), err))
 		}
 	}
 
 	return errors
 }
 
-func (m *lxcMap) Dump(hash map[string][]string) error {
-	return m.bpfMap.Dump(hash)
-}
-
-func (m *lxcMap) DumpToMap() (map[netip.Addr]EndpointInfo, error) {
-	result := map[netip.Addr]EndpointInfo{}
+// DumpToMap dumps the contents of the lxcmap into a map and returns it
+func DumpToMap() (map[string]EndpointInfo, error) {
+	m := map[string]EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
 		if info, ok := value.(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
-				result[endpointKey.ToAddr()] = *info
+				m[endpointKey.ToIP().String()] = *info
 			}
 		}
 	}
 
-	if err := m.bpfMap.DumpWithCallback(callback); err != nil {
+	if err := LXCMap(nil).DumpWithCallback(callback); err != nil {
 		return nil, fmt.Errorf("unable to read BPF endpoint list: %w", err)
 	}
 
-	return result, nil
+	return m, nil
 }

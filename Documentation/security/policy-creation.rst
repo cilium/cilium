@@ -58,10 +58,12 @@ modify the Cilium ConfigMap and restart all daemons:
          If you installed Cilium via ``helm install``, then you can use ``helm
          upgrade`` to enable Policy Audit Mode:
 
-         .. cilium-helm-upgrade::
-            :namespace: $CILIUM_NAMESPACE
-            :extra-args: --reuse-values
-            :set: policyAuditMode=true
+         .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace $CILIUM_NAMESPACE \\
+                --reuse-values \\
+                --set policyAuditMode=true
 
 
 Enable Policy Audit Mode (Specific Endpoint)
@@ -226,10 +228,12 @@ after deploying the policy is to disable Policy Audit Mode again:
 
       .. group-tab:: Helm Upgrade
 
-         .. cilium-helm-upgrade::
-            :namespace: $CILIUM_NAMESPACE
-            :extra-args: --reuse-values
-            :set: policyAuditMode=false
+         .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+                --namespace $CILIUM_NAMESPACE \\
+                --reuse-values \\
+                --set policyAuditMode=false
 
 
 Disable Policy Audit Mode (Specific Endpoint)

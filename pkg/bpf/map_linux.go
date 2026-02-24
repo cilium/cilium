@@ -271,7 +271,7 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	}
 }
 
-// NewMapWithInnerSpec creates a new Map instance - object representing a BPF map with an inner map specification
+// NewMap creates a new Map instance - object representing a BPF map
 func NewMapWithInnerSpec(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32, innerSpec *ebpf.MapSpec) *Map {
 
@@ -355,9 +355,9 @@ func (m *Map) WithCache() *Map {
 
 // WithEvents enables use of the event buffer, if the buffer is enabled.
 // This stores all map events (i.e. add/update/delete) in a bounded event buffer.
-// If eventTTL is not zero, then events that are older than the TTL
+// If eventTTL is not zero, than events that are older than the TTL
 // will periodically be removed from the buffer.
-// Enabling events will use approx proportional to 100MB for every million capacity
+// Enabling events will use aprox proportional to 100MB for every million capacity
 // in maxSize.
 //
 // TODO: The IPCache map have many periodic update events added by a controller for entries such as the 0.0.0.0/0 range.
@@ -428,7 +428,7 @@ func (m *Map) UpdatePressureMetricWithSize(size int32) {
 
 func (m *Map) updatePressureMetric() {
 	// Skipping pressure metric gauge updates for LRU map as the cache size
-	// does not accurately represent the actual map size.
+	// does not accurately represent the actual map sie.
 	if m.spec != nil && m.spec.Type == ebpf.LRUHash {
 		return
 	}
@@ -1631,6 +1631,26 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// CheckAndUpgrade checks the received map's properties (for the map currently
+// loaded into the kernel) against the desired properties, and if they do not
+// match, deletes the map.
+//
+// Returns true if the map was upgraded.
+func (m *Map) CheckAndUpgrade(desired *Map) bool {
+	flags := desired.Flags() | GetMapMemoryFlags(desired.Type())
+
+	return objCheck(
+		m.Logger,
+		m.m,
+		m.path,
+		desired.Type(),
+		desired.KeySize(),
+		desired.ValueSize(),
+		desired.MaxEntries(),
+		flags,
+	)
 }
 
 func (m *Map) exist() (bool, error) {

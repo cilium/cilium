@@ -206,7 +206,8 @@ func isDeprecated(doc *ast.CommentGroup) bool {
 	// go.dev/wiki/Deprecated Paragraph starting 'Deprecated:'
 	// This code fails for /* Deprecated: */, but it's the code from
 	// gopls/internal/analysis/deprecated
-	for line := range strings.SplitSeq(doc.Text(), "\n\n") {
+	lines := strings.Split(doc.Text(), "\n\n")
+	for _, line := range lines {
 		if strings.HasPrefix(line, "Deprecated:") {
 			return true
 		}

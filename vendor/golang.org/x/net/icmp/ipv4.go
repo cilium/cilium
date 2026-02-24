@@ -9,6 +9,7 @@ import (
 	"net"
 	"runtime"
 
+	"golang.org/x/net/internal/socket"
 	"golang.org/x/net/ipv4"
 )
 
@@ -48,12 +49,12 @@ func ParseIPv4Header(b []byte) (*ipv4.Header, error) {
 	}
 	switch runtime.GOOS {
 	case "darwin", "ios":
-		h.TotalLen = int(binary.NativeEndian.Uint16(b[2:4]))
+		h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
 	case "freebsd":
 		if freebsdVersion >= 1000000 {
 			h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))
 		} else {
-			h.TotalLen = int(binary.NativeEndian.Uint16(b[2:4]))
+			h.TotalLen = int(socket.NativeEndian.Uint16(b[2:4]))
 		}
 	default:
 		h.TotalLen = int(binary.BigEndian.Uint16(b[2:4]))

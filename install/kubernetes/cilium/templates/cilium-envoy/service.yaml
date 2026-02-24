@@ -32,5 +32,5 @@ spec:
   - name: envoy-metrics
     port: {{ .Values.envoy.prometheus.port }}
     protocol: TCP
-    targetPort: {{ .Values.envoy.prometheus.port }}
+    targetPort: envoy-metrics
 {{- end }}

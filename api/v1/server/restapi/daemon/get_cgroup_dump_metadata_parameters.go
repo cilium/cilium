@@ -28,6 +28,7 @@ func NewGetCgroupDumpMetadataParams() GetCgroupDumpMetadataParams {
 //
 // swagger:parameters GetCgroupDumpMetadata
 type GetCgroupDumpMetadataParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

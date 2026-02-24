@@ -51,25 +51,6 @@ func (m *ExtAuthz) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.EnforceResponseHeaderLimits {
-		i--
-		if m.EnforceResponseHeaderLimits {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x1
-		i--
-		dAtA[i] = 0xf8
-	}
-	if m.MaxDeniedResponseBodyBytes != 0 {
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.MaxDeniedResponseBodyBytes))
-		i--
-		dAtA[i] = 0x1
-		i--
-		dAtA[i] = 0xf0
-	}
 	if m.EmitFilterStateStats {
 		i--
 		if m.EmitFilterStateStats {
@@ -590,28 +571,6 @@ func (m *HttpService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.RetryPolicy != nil {
-		if vtmsg, ok := interface{}(m.RetryPolicy).(interface {
-			MarshalToSizedBufferVTStrict([]byte) (int, error)
-		}); ok {
-			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		} else {
-			encoded, err := proto.Marshal(m.RetryPolicy)
-			if err != nil {
-				return 0, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
-		}
-		i--
-		dAtA[i] = 0x4a
-	}
 	if m.AuthorizationResponse != nil {
 		size, err := m.AuthorizationResponse.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1003,20 +962,6 @@ func (m *CheckSettings) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if msg, ok := m.ServiceOverride.(*CheckSettings_HttpService); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
-	if msg, ok := m.ServiceOverride.(*CheckSettings_GrpcService); ok {
-		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-	}
 	if m.WithRequestBody != nil {
 		size, err := m.WithRequestBody.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1059,64 +1004,6 @@ func (m *CheckSettings) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *CheckSettings_GrpcService) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *CheckSettings_GrpcService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.GrpcService != nil {
-		if vtmsg, ok := interface{}(m.GrpcService).(interface {
-			MarshalToSizedBufferVTStrict([]byte) (int, error)
-		}); ok {
-			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		} else {
-			encoded, err := proto.Marshal(m.GrpcService)
-			if err != nil {
-				return 0, err
-			}
-			i -= len(encoded)
-			copy(dAtA[i:], encoded)
-			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
-		}
-		i--
-		dAtA[i] = 0x22
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x22
-	}
-	return len(dAtA) - i, nil
-}
-func (m *CheckSettings_HttpService) MarshalToVTStrict(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
-}
-
-func (m *CheckSettings_HttpService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	if m.HttpService != nil {
-		size, err := m.HttpService.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x2a
-	} else {
-		i = protohelpers.EncodeVarint(dAtA, i, 0)
-		i--
-		dAtA[i] = 0x2a
-	}
-	return len(dAtA) - i, nil
-}
 func (m *ExtAuthz) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -1271,12 +1158,6 @@ func (m *ExtAuthz) SizeVT() (n int) {
 	if m.EmitFilterStateStats {
 		n += 3
 	}
-	if m.MaxDeniedResponseBodyBytes != 0 {
-		n += 2 + protohelpers.SizeOfVarint(uint64(m.MaxDeniedResponseBodyBytes))
-	}
-	if m.EnforceResponseHeaderLimits {
-		n += 3
-	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1360,16 +1241,6 @@ func (m *HttpService) SizeVT() (n int) {
 	}
 	if m.AuthorizationResponse != nil {
 		l = m.AuthorizationResponse.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	if m.RetryPolicy != nil {
-		if size, ok := interface{}(m.RetryPolicy).(interface {
-			SizeVT() int
-		}); ok {
-			l = size.SizeVT()
-		} else {
-			l = proto.Size(m.RetryPolicy)
-		}
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
@@ -1525,44 +1396,6 @@ func (m *CheckSettings) SizeVT() (n int) {
 		l = m.WithRequestBody.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
-	if vtmsg, ok := m.ServiceOverride.(interface{ SizeVT() int }); ok {
-		n += vtmsg.SizeVT()
-	}
 	n += len(m.unknownFields)
-	return n
-}
-
-func (m *CheckSettings_GrpcService) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.GrpcService != nil {
-		if size, ok := interface{}(m.GrpcService).(interface {
-			SizeVT() int
-		}); ok {
-			l = size.SizeVT()
-		} else {
-			l = proto.Size(m.GrpcService)
-		}
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
-	return n
-}
-func (m *CheckSettings_HttpService) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.HttpService != nil {
-		l = m.HttpService.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	} else {
-		n += 2
-	}
 	return n
 }

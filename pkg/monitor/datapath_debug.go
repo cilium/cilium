@@ -5,7 +5,6 @@ package monitor
 
 import (
 	"bufio"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -218,7 +217,7 @@ func l4CreateInfo(n *DebugMsg) string {
 
 func ip4Str(arg1 uint32) string {
 	ip := make(net.IP, 4)
-	binary.NativeEndian.PutUint32(ip, arg1)
+	byteorder.Native.PutUint32(ip, arg1)
 	return ip.String()
 }
 
@@ -235,13 +234,13 @@ const (
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
 	api.DefaultSrcDstGetter
-	Type    uint8  `align:"type"`
-	SubType uint8  `align:"subtype"`
-	Source  uint16 `align:"source"`
-	Hash    uint32 `align:"hash"`
-	Arg1    uint32 `align:"arg1"`
-	Arg2    uint32 `align:"arg2"`
-	Arg3    uint32 `align:"arg3"`
+	Type    uint8
+	SubType uint8
+	Source  uint16
+	Hash    uint32
+	Arg1    uint32
+	Arg2    uint32
+	Arg3    uint32
 }
 
 // Dump prints the message according to the verbosity level specified
@@ -270,11 +269,11 @@ func (n *DebugMsg) Decode(data []byte) error {
 
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = binary.NativeEndian.Uint16(data[2:4])
-	n.Hash = binary.NativeEndian.Uint32(data[4:8])
-	n.Arg1 = binary.NativeEndian.Uint32(data[8:12])
-	n.Arg2 = binary.NativeEndian.Uint32(data[12:16])
-	n.Arg3 = binary.NativeEndian.Uint32(data[16:20])
+	n.Source = byteorder.Native.Uint16(data[2:4])
+	n.Hash = byteorder.Native.Uint32(data[4:8])
+	n.Arg1 = byteorder.Native.Uint32(data[8:12])
+	n.Arg2 = byteorder.Native.Uint32(data[12:16])
+	n.Arg3 = byteorder.Native.Uint32(data[16:20])
 
 	return nil
 }
@@ -283,7 +282,7 @@ func (n *DebugMsg) Decode(data []byte) error {
 func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	switch n.SubType {
 	case DbgGeneric:
-		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x) arg3=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2, n.Arg3, n.Arg3)
+		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2)
 	case DbgLocalDelivery:
 		return fmt.Sprintf("Attempting local delivery for container id %d from seclabel %d", n.Arg1, n.Arg2)
 	case DbgEncap:
@@ -433,33 +432,18 @@ const (
 	DebugCaptureLen = 24
 )
 
-const DebugCaptureExtensionDisabled = 0
-
-var (
-	// Downstream projects should register introduced extensions length so that
-	// the upstream parsing code still works even if the DP events contain
-	// additional fields.
-	debugCaptureExtensionLengthFromVersion = map[uint8]uint{
-		// The DebugCaptureExtension is intended for downstream extensions and
-		// should not be used in the upstream project.
-		DebugCaptureExtensionDisabled: 0,
-	}
-)
-
 // DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
 	api.DefaultSrcDstGetter
-	Type    uint8 `align:"type"`
-	SubType uint8 `align:"subtype"`
+	Type    uint8
+	SubType uint8
 	// Source, if populated, is the ID of the source endpoint.
-	Source     uint16 `align:"source"`
-	Hash       uint32 `align:"hash"`
-	OrigLen    uint32 `align:"len_orig"`
-	Len        uint16 `align:"len_cap"`
-	Version    uint8  `align:"version"`
-	ExtVersion uint8  `align:"ext_version"`
-	Arg1       uint32 `align:"arg1"`
-	Arg2       uint32 `align:"arg2"`
+	Source  uint16
+	Hash    uint32
+	Len     uint32
+	OrigLen uint32
+	Arg1    uint32
+	Arg2    uint32
 	// data
 }
 
@@ -489,22 +473,14 @@ func (n *DebugCapture) Decode(data []byte) error {
 
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = binary.NativeEndian.Uint16(data[2:4])
-	n.Hash = binary.NativeEndian.Uint32(data[4:8])
-	n.OrigLen = binary.NativeEndian.Uint32(data[8:12])
-	n.Len = binary.NativeEndian.Uint16(data[12:14])
-	n.Version = data[14]
-	n.ExtVersion = data[15]
-	n.Arg1 = binary.NativeEndian.Uint32(data[16:20])
-	n.Arg2 = binary.NativeEndian.Uint32(data[20:24])
+	n.Source = byteorder.Native.Uint16(data[2:4])
+	n.Hash = byteorder.Native.Uint32(data[4:8])
+	n.Len = byteorder.Native.Uint32(data[8:12])
+	n.OrigLen = byteorder.Native.Uint32(data[12:16])
+	n.Arg1 = byteorder.Native.Uint32(data[16:20])
+	n.Arg2 = byteorder.Native.Uint32(data[20:24])
 
 	return nil
-}
-
-// DataOffset returns the offset from the beginning of DebugCapture where the
-// notification data begins.
-func (n *DebugCapture) DataOffset() uint {
-	return DebugCaptureLen + debugCaptureExtensionLengthFromVersion[n.ExtVersion]
 }
 
 // DumpInfo prints a summary of the capture messages.
@@ -512,7 +488,7 @@ func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor gett
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
-		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[n.DataOffset():], nil))
+		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
 	}
 }
 
@@ -543,8 +519,8 @@ func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
 func (n *DebugCapture) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string) {
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DEBUG: %d bytes, %s", prefix, n.Hash, n.Source, n.Len, n.subTypeString())
 
-	if n.Len > 0 && len(data) > int(n.DataOffset()) {
-		Dissect(buf, dissect, data[n.DataOffset():], nil)
+	if n.Len > 0 && len(data) > DebugCaptureLen {
+		Dissect(buf, dissect, data[DebugCaptureLen:], nil)
 	}
 }
 
@@ -575,7 +551,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 
 	v := DebugCaptureToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
-	v.Summary = GetConnectionSummary(data[n.DataOffset():], nil)
+	v.Summary = GetConnectionSummary(data[DebugCaptureLen:], nil)
 
 	ret, err := json.Marshal(v)
 	return string(ret), err
@@ -600,7 +576,7 @@ type DebugCaptureVerbose struct {
 	Prefix    string `json:"prefix,omitempty"`
 
 	Source uint16 `json:"source"`
-	Bytes  uint16 `json:"bytes"`
+	Bytes  uint32 `json:"bytes"`
 
 	Summary string `json:"summary,omitempty"`
 }

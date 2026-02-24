@@ -17,7 +17,7 @@ linters:
     - gomoddirectives
     - gosmopolitan
     - inamedparam
-    - intrange
+    #- intrange # disabled while < go1.22
     - ireturn
     - lll
     - musttag

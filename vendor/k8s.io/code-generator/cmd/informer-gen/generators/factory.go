@@ -165,7 +165,6 @@ func NewSharedInformerFactory(client {{.clientSetInterface|raw}}, defaultResync 
 // NewFilteredSharedInformerFactory constructs a new instance of sharedInformerFactory.
 // Listers obtained via this SharedInformerFactory will be subject to the same filters
 // as specified here.
-//
 // Deprecated: Please use NewSharedInformerFactoryWithOptions instead
 func NewFilteredSharedInformerFactory(client {{.clientSetInterface|raw}}, defaultResync {{.timeDuration|raw}}, namespace string, tweakListOptions {{.interfacesTweakListOptionsFunc|raw}}) SharedInformerFactory {
 	return NewSharedInformerFactoryWithOptions(client, defaultResync, WithNamespace(namespace), WithTweakListOptions(tweakListOptions))
@@ -276,7 +275,7 @@ var sharedInformerFactoryInterface = `
 //
 // It is typically used like this:
 //
-//   ctx, cancel := context.WithCancel(context.Background())
+//   ctx, cancel := context.Background()
 //   defer cancel()
 //   factory := NewSharedInformerFactory(client, resyncPeriod)
 //   defer factory.WaitForStop()    // Returns immediately if nothing was started.

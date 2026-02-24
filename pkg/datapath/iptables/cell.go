@@ -12,7 +12,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var Cell = cell.Module(
@@ -29,7 +28,6 @@ var Cell = cell.Module(
 		cfg *option.DaemonConfig,
 		tunnelCfg tunnel.Config,
 		ipsecCfg datapath.IPsecConfig,
-		wgConfig wgTypes.WireguardConfig,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
@@ -49,7 +47,6 @@ var Cell = cell.Module(
 			EnableMasqueradeRouteSource: cfg.EnableMasqueradeRouteSource,
 			EnableL7Proxy:               cfg.EnableL7Proxy,
 			InstallIptRules:             cfg.InstallIptRules,
-			EnableWireguard:             wgConfig.Enabled(),
 		}
 	}),
 	cell.Provide(newIptablesManager),
@@ -111,5 +108,4 @@ type SharedConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableL7Proxy               bool
 	InstallIptRules             bool
-	EnableWireguard             bool
 }

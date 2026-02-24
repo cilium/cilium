@@ -40,15 +40,18 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
 .. tabs::
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: l2announcements.enabled=true
-                 k8sClientRateLimit.qps={QPS}
-                 k8sClientRateLimit.burst={BURST}
-                 kubeProxyReplacement=true
-                 k8sServiceHost=${API_SERVER_IP}
-                 k8sServicePort=${API_SERVER_PORT}
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2announcements.enabled=true \\
+               --set k8sClientRateLimit.qps={QPS} \\
+               --set k8sClientRateLimit.burst={BURST} \\
+               --set kubeProxyReplacement=true \\
+               --set k8sServiceHost=${API_SERVER_IP} \\
+               --set k8sServicePort=${API_SERVER_PORT}
+               
 
     .. group-tab:: ConfigMap
 
@@ -297,18 +300,20 @@ There are three Helm options that can be tuned with regards to leases:
 .. tabs::
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: l2announcements.enabled=true
-                 kubeProxyReplacement=true
-                 k8sServiceHost=${API_SERVER_IP}
-                 k8sServicePort=${API_SERVER_PORT}
-                 k8sClientRateLimit.qps={QPS}
-                 k8sClientRateLimit.burst={BURST}
-                 l2announcements.leaseDuration=3s
-                 l2announcements.leaseRenewDeadline=1s
-                 l2announcements.leaseRetryPeriod=200ms
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2announcements.enabled=true \\
+               --set kubeProxyReplacement=true \\
+               --set k8sServiceHost=${API_SERVER_IP} \\
+               --set k8sServicePort=${API_SERVER_PORT} \\
+               --set k8sClientRateLimit.qps={QPS} \\
+               --set k8sClientRateLimit.burst={BURST} \\
+               --set l2announcements.leaseDuration=3s \\
+               --set l2announcements.leaseRenewDeadline=1s \\
+               --set l2announcements.leaseRetryPeriod=200ms
 
     .. group-tab:: ConfigMap
 
@@ -566,11 +571,14 @@ To enable L2 Pod Announcements, set the following:
 .. tabs::
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: l2podAnnouncements.enabled=true
-                 l2podAnnouncements.interface=eth0
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2podAnnouncements.enabled=true \\
+               --set l2podAnnouncements.interface=eth0
+
 
     .. group-tab:: ConfigMap
 
@@ -587,11 +595,14 @@ This option takes a regex, matching on multiple interfaces.
 .. tabs::
     .. group-tab:: Helm
 
-        .. cilium-helm-upgrade::
-           :namespace: kube-system
-           :extra-args: --reuse-values
-           :set: l2podAnnouncements.enabled=true
-                 l2podAnnouncements.interfacePattern='^(eth0|ens1)$'
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2podAnnouncements.enabled=true \\
+               --set l2podAnnouncements.interfacePattern='^(eth0|ens1)$'
+
 
     .. group-tab:: ConfigMap
 

@@ -5,12 +5,10 @@ package ingestion
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -21,7 +19,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -33,18 +30,17 @@ type Input struct {
 	GatewayClass       gatewayv1.GatewayClass
 	GatewayClassConfig *v2alpha1.CiliumGatewayClassConfig
 
-	Gateway             gatewayv1.Gateway
-	HTTPRoutes          []gatewayv1.HTTPRoute
-	TLSRoutes           []gatewayv1alpha2.TLSRoute
-	GRPCRoutes          []gatewayv1.GRPCRoute
-	ReferenceGrants     []gatewayv1beta1.ReferenceGrant
-	Services            []corev1.Service
-	ServiceImports      []mcsapiv1alpha1.ServiceImport
-	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
+	Gateway         gatewayv1.Gateway
+	HTTPRoutes      []gatewayv1.HTTPRoute
+	TLSRoutes       []gatewayv1alpha2.TLSRoute
+	GRPCRoutes      []gatewayv1.GRPCRoute
+	ReferenceGrants []gatewayv1beta1.ReferenceGrant
+	Services        []corev1.Service
+	ServiceImports  []mcsapiv1alpha1.ServiceImport
 }
 
 // GatewayAPI translates Gateway API resources into a model.
-func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
+func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
 
@@ -90,7 +86,7 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 		}
 
 		var httpRoutes []model.HTTPRoute
-		httpRoutes = append(httpRoutes, toHTTPRoutes(log, l, allListenerHostNames, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
+		httpRoutes = append(httpRoutes, toHTTPRoutes(l, allListenerHostNames, input.HTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 		httpRoutes = append(httpRoutes, toGRPCRoutes(l, allListenerHostNames, input.GRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
 		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
@@ -98,9 +94,9 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 				{
 					Name:      input.Gateway.GetName(),
 					Namespace: input.Gateway.GetNamespace(),
-					Group:     gatewayv1.SchemeGroupVersion.Group,
-					Version:   gatewayv1.SchemeGroupVersion.Version,
-					Kind:      "Gateway",
+					Group:     input.Gateway.GroupVersionKind().Group,
+					Version:   input.Gateway.GroupVersionKind().Version,
+					Kind:      input.Gateway.GroupVersionKind().Kind,
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
@@ -118,9 +114,9 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 				{
 					Name:      input.Gateway.GetName(),
 					Namespace: input.Gateway.GetNamespace(),
-					Group:     gatewayv1.SchemeGroupVersion.Group,
-					Version:   gatewayv1.SchemeGroupVersion.Version,
-					Kind:      "Gateway",
+					Group:     input.Gateway.GroupVersionKind().Group,
+					Version:   input.Gateway.GroupVersionKind().Version,
+					Kind:      input.Gateway.GroupVersionKind().Kind,
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
@@ -164,14 +160,12 @@ func getBackendServiceName(namespace string, services []corev1.Service, serviceI
 	return svcName, nil
 }
 
-func toHTTPRoutes(log *slog.Logger,
-	listener gatewayv1.Listener,
+func toHTTPRoutes(listener gatewayv1.Listener,
 	allListenerHostNames []string,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1alpha1.ServiceImport,
 	grants []gatewayv1beta1.ReferenceGrant,
-	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -229,21 +223,13 @@ func toHTTPRoutes(log *slog.Logger,
 			computedHost = nil
 		}
 
-		httpRoutes = append(httpRoutes, extractRoutes(log, int32(listener.Port), computedHost, r, services, serviceImports, grants, btlspMap)...)
+		httpRoutes = append(httpRoutes, extractRoutes(int32(listener.Port), computedHost, r, services, serviceImports, grants)...)
 
 	}
 	return httpRoutes
 }
 
-func extractRoutes(logger *slog.Logger,
-	listenerPort int32,
-	hostnames []string,
-	hr gatewayv1.HTTPRoute,
-	services []corev1.Service,
-	serviceImports []mcsapiv1alpha1.ServiceImport,
-	grants []gatewayv1beta1.ReferenceGrant,
-	btlspMap helpers.BackendTLSPolicyServiceMap,
-) []model.HTTPRoute {
+func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, rule := range hr.Spec.Rules {
 		var backendHTTPFilters []*model.BackendHTTPFilter
@@ -270,9 +256,7 @@ func extractRoutes(logger *slog.Logger,
 			}
 			svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, hr.Namespace), services)
 			if svc != nil {
-				toAppend := backendToModelBackend(*svc, be.BackendRef, hr.Namespace)
-				toAppend = addBackendTLSDetails(logger, toAppend, svc, btlspMap)
-				bes = append(bes, toAppend)
+				bes = append(bes, backendToModelBackend(*svc, be.BackendRef, hr.Namespace))
 				for _, f := range be.Filters {
 					switch f.Type {
 					case gatewayv1.HTTPRouteFilterRequestHeaderModifier:
@@ -376,94 +360,6 @@ func extractRoutes(logger *slog.Logger,
 	return httpRoutes
 }
 
-func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) model.Backend {
-	svcFullName := types.NamespacedName{Name: svc.GetName(), Namespace: svc.GetNamespace()}
-
-	log = log.With(logfields.Service, svcFullName)
-	log.Debug("Checking Backend TLS Details for service",
-		logfields.Backend, be,
-		logfields.Port, be.Port.Port)
-
-	// Check for relevant BackendTLSPolicies
-	if collection, ok := btlspMap[svcFullName]; ok {
-		// A BackendTLSPolicy is relevant to this object.
-		// Now, we check to see if the port matches.
-		for _, port := range svc.Spec.Ports {
-			if port.Port != int32(be.Port.Port) {
-				continue
-			}
-			// Port matches, so now we need to check the sections that are valid.
-			// There are two possibilities here:
-			// * Specific section name, matches only that Service port.
-			// * no specific section name, matches any Service port
-			//
-			// The more specific section name must beat the less specific, so we check for that first,
-			// and in this case can blindly set the TLS settings correctly.
-			//
-			// When we are checking the no specific section name case, we need to allow for a more
-			// specific section name already handling this backend, and so skip if the TLS is already updated.
-			//
-			// Finally, if the TLS has been changed, we're done, so return after checking all the valid
-			// sections.
-			for sectionName, btlsp := range collection.Valid {
-
-				scopedLog := log.With(
-					logfields.BackendTLSPolicyName, btlsp.Name,
-					logfields.Port, port.Name,
-					logfields.Section, sectionName)
-
-				scopedLog.Debug("Checking valid BTLSP on port")
-
-				if port.Name == string(sectionName) {
-					scopedLog.Debug("Got a match for valid BTLSP on specific port, adding")
-					// We need to add the BackendTLSPolicy details into the backend, then eject
-					be.TLS = &model.BackendTLSOrigination{
-						SNI: string(btlsp.Spec.Validation.Hostname),
-					}
-					if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
-						// Cilium only supports ConfigMap currently
-						be.TLS.CACertRef = &model.FullyQualifiedResource{
-							Group:     "",
-							Kind:      "ConfigMap",
-							Version:   "v1",
-							Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
-							Namespace: btlsp.GetNamespace(),
-						}
-					}
-				}
-
-				if sectionName == "" {
-					scopedLog.Debug("Got a match for valid BTLSP on all ports, adding")
-					// If the TLS is already set, then a specific target reference has already claimed this port, and
-					// we need to skip it.
-					if be.TLS == nil {
-						be.TLS = &model.BackendTLSOrigination{
-							SNI: string(btlsp.Spec.Validation.Hostname),
-						}
-						if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
-							// Cilium only supports ConfigMap currently
-							be.TLS.CACertRef = &model.FullyQualifiedResource{
-								Group:     "",
-								Kind:      "ConfigMap",
-								Version:   "v1",
-								Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
-								Namespace: btlsp.GetNamespace(),
-							}
-						}
-					}
-				}
-
-			}
-			if be.TLS != nil {
-				return be
-			}
-
-		}
-	}
-	// There was no relevant BackendTLSPolicy, no changes.
-	return be
-}
-
 func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	res := model.Timeout{}
 	if timeouts == nil {
@@ -535,100 +431,94 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants)...)
-	}
-	return grpcRoutes
-}
 
-func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
-	var grpcRoutes []model.HTTPRoute
-	for _, rule := range grpcr.Spec.Rules {
-		bes := make([]model.Backend, 0, len(rule.BackendRefs))
-		for _, be := range rule.BackendRefs {
-			if !helpers.IsBackendReferenceAllowed(grpcr.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
-				continue
-			}
-			svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, grpcr.Namespace), services, serviceImports, be.BackendObjectReference)
-			if err != nil {
-				continue
-			}
-			if svcName != string(be.Name) {
-				be = *be.DeepCopy()
-				be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
-					Name:      gatewayv1beta1.ObjectName(svcName),
-					Port:      be.Port,
-					Namespace: be.Namespace,
+		for _, rule := range r.Spec.Rules {
+			bes := make([]model.Backend, 0, len(rule.BackendRefs))
+			for _, be := range rule.BackendRefs {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
+					continue
 				}
-			}
-			if be.BackendRef.Port == nil {
-				// must have port for Service reference
-				continue
-			}
-			svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, grpcr.Namespace), services)
-			if svc != nil {
-				bes = append(bes, backendToModelBackend(*svc, be.BackendRef, grpcr.Namespace))
-			}
-		}
-
-		var dr *model.DirectResponse
-		if len(bes) == 0 {
-			dr = &model.DirectResponse{
-				StatusCode: 500,
-			}
-		}
-
-		var requestHeaderFilter *model.HTTPHeaderFilter
-		var responseHeaderFilter *model.HTTPHeaderFilter
-		var requestMirrors []*model.HTTPRequestMirror
-
-		for _, f := range rule.Filters {
-			switch f.Type {
-			case gatewayv1.GRPCRouteFilterRequestHeaderModifier:
-				requestHeaderFilter = &model.HTTPHeaderFilter{
-					HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
-					HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
-					HeadersToRemove: f.RequestHeaderModifier.Remove,
+				svcName, err := getBackendServiceName(helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services, serviceImports, be.BackendObjectReference)
+				if err != nil {
+					continue
 				}
-			case gatewayv1.GRPCRouteFilterResponseHeaderModifier:
-				responseHeaderFilter = &model.HTTPHeaderFilter{
-					HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
-					HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
-					HeadersToRemove: f.ResponseHeaderModifier.Remove,
+				if svcName != string(be.Name) {
+					be = *be.DeepCopy()
+					be.BackendObjectReference = gatewayv1beta1.BackendObjectReference{
+						Name:      gatewayv1beta1.ObjectName(svcName),
+						Port:      be.Port,
+						Namespace: be.Namespace,
+					}
 				}
-			case gatewayv1.GRPCRouteFilterRequestMirror:
-				svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, grpcr.Namespace), services)
+				if be.BackendRef.Port == nil {
+					// must have port for Service reference
+					continue
+				}
+				svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services)
 				if svc != nil {
-					requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, grpcr.Namespace))
+					bes = append(bes, backendToModelBackend(*svc, be.BackendRef, r.Namespace))
 				}
 			}
-		}
 
-		if len(rule.Matches) == 0 {
-			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
-				Hostnames:              hostnames,
-				Backends:               bes,
-				DirectResponse:         dr,
-				RequestHeaderFilter:    requestHeaderFilter,
-				ResponseHeaderModifier: responseHeaderFilter,
-				RequestMirrors:         requestMirrors,
-			})
-		}
+			var dr *model.DirectResponse
+			if len(bes) == 0 {
+				dr = &model.DirectResponse{
+					StatusCode: 500,
+				}
+			}
 
-		for _, match := range rule.Matches {
-			grpcRoutes = append(grpcRoutes, model.HTTPRoute{
-				Hostnames:              hostnames,
-				PathMatch:              toGRPCPathMatch(match),
-				HeadersMatch:           toGRPCHeaderMatch(match),
-				Backends:               bes,
-				DirectResponse:         dr,
-				RequestHeaderFilter:    requestHeaderFilter,
-				ResponseHeaderModifier: responseHeaderFilter,
-				RequestMirrors:         requestMirrors,
-				IsGRPC:                 true,
-			})
+			var requestHeaderFilter *model.HTTPHeaderFilter
+			var responseHeaderFilter *model.HTTPHeaderFilter
+			var requestMirrors []*model.HTTPRequestMirror
+
+			for _, f := range rule.Filters {
+				switch f.Type {
+				case gatewayv1.GRPCRouteFilterRequestHeaderModifier:
+					requestHeaderFilter = &model.HTTPHeaderFilter{
+						HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
+						HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
+						HeadersToRemove: f.RequestHeaderModifier.Remove,
+					}
+				case gatewayv1.GRPCRouteFilterResponseHeaderModifier:
+					responseHeaderFilter = &model.HTTPHeaderFilter{
+						HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+						HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+						HeadersToRemove: f.ResponseHeaderModifier.Remove,
+					}
+				case gatewayv1.GRPCRouteFilterRequestMirror:
+					svc := getServiceSpec(string(f.RequestMirror.BackendRef.Name), helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, r.Namespace), services)
+					if svc != nil {
+						requestMirrors = append(requestMirrors, toHTTPRequestMirror(*svc, f.RequestMirror, r.Namespace))
+					}
+				}
+			}
+
+			if len(rule.Matches) == 0 {
+				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+					Hostnames:              computedHost,
+					Backends:               bes,
+					DirectResponse:         dr,
+					RequestHeaderFilter:    requestHeaderFilter,
+					ResponseHeaderModifier: responseHeaderFilter,
+					RequestMirrors:         requestMirrors,
+				})
+			}
+
+			for _, match := range rule.Matches {
+				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+					Hostnames:              computedHost,
+					PathMatch:              toGRPCPathMatch(match),
+					HeadersMatch:           toGRPCHeaderMatch(match),
+					Backends:               bes,
+					DirectResponse:         dr,
+					RequestHeaderFilter:    requestHeaderFilter,
+					ResponseHeaderModifier: responseHeaderFilter,
+					RequestMirrors:         requestMirrors,
+					IsGRPC:                 true,
+				})
+			}
 		}
 	}
-
 	return grpcRoutes
 }
 
@@ -996,7 +886,7 @@ func toQueryMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
+func toTLS(tls *gatewayv1.GatewayTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
 	if tls == nil {
 		return nil
 	}

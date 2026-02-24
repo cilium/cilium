@@ -67,10 +67,6 @@ type Balancer struct {
 	// balancerCurrent before the UpdateSubConnState is called on the
 	// balancerCurrent.
 	currentMu sync.Mutex
-
-	// activeGoroutines tracks all the goroutines that this balancer has started
-	// and that should be waited on when the balancer closes.
-	activeGoroutines sync.WaitGroup
 }
 
 // swap swaps out the current lb with the pending lb and updates the ClientConn.
@@ -80,9 +76,7 @@ func (gsb *Balancer) swap() {
 	cur := gsb.balancerCurrent
 	gsb.balancerCurrent = gsb.balancerPending
 	gsb.balancerPending = nil
-	gsb.activeGoroutines.Add(1)
 	go func() {
-		defer gsb.activeGoroutines.Done()
 		gsb.currentMu.Lock()
 		defer gsb.currentMu.Unlock()
 		cur.Close()
@@ -280,7 +274,6 @@ func (gsb *Balancer) Close() {
 
 	currentBalancerToClose.Close()
 	pendingBalancerToClose.Close()
-	gsb.activeGoroutines.Wait()
 }
 
 // balancerWrapper wraps a balancer.Balancer, and overrides some Balancer
@@ -331,12 +324,7 @@ func (bw *balancerWrapper) UpdateState(state balancer.State) {
 	defer bw.gsb.mu.Unlock()
 	bw.lastState = state
 
-	// If Close() acquires the mutex before UpdateState(), the balancer
-	// will already have been removed from the current or pending state when
-	// reaching this point.
 	if !bw.gsb.balancerCurrentOrPending(bw) {
-		// Returning here ensures that (*Balancer).swap() is not invoked after
-		// (*Balancer).Close() and therefore prevents "use after close".
 		return
 	}
 

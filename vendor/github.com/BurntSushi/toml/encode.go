@@ -228,9 +228,9 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 		}
 		switch v.Location() {
 		default:
-			enc.write(v.Format(format))
+			enc.wf(v.Format(format))
 		case internal.LocalDatetime, internal.LocalDate, internal.LocalTime:
-			enc.write(v.In(time.UTC).Format(format))
+			enc.wf(v.In(time.UTC).Format(format))
 		}
 		return
 	case Marshaler:
@@ -279,40 +279,40 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 	case reflect.String:
 		enc.writeQuoted(rv.String())
 	case reflect.Bool:
-		enc.write(strconv.FormatBool(rv.Bool()))
+		enc.wf(strconv.FormatBool(rv.Bool()))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		enc.write(strconv.FormatInt(rv.Int(), 10))
+		enc.wf(strconv.FormatInt(rv.Int(), 10))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		enc.write(strconv.FormatUint(rv.Uint(), 10))
+		enc.wf(strconv.FormatUint(rv.Uint(), 10))
 	case reflect.Float32:
 		f := rv.Float()
 		if math.IsNaN(f) {
 			if math.Signbit(f) {
-				enc.write("-")
+				enc.wf("-")
 			}
-			enc.write("nan")
+			enc.wf("nan")
 		} else if math.IsInf(f, 0) {
 			if math.Signbit(f) {
-				enc.write("-")
+				enc.wf("-")
 			}
-			enc.write("inf")
+			enc.wf("inf")
 		} else {
-			enc.write(floatAddDecimal(strconv.FormatFloat(f, 'g', -1, 32)))
+			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 32)))
 		}
 	case reflect.Float64:
 		f := rv.Float()
 		if math.IsNaN(f) {
 			if math.Signbit(f) {
-				enc.write("-")
+				enc.wf("-")
 			}
-			enc.write("nan")
+			enc.wf("nan")
 		} else if math.IsInf(f, 0) {
 			if math.Signbit(f) {
-				enc.write("-")
+				enc.wf("-")
 			}
-			enc.write("inf")
+			enc.wf("inf")
 		} else {
-			enc.write(floatAddDecimal(strconv.FormatFloat(f, 'g', -1, 64)))
+			enc.wf(floatAddDecimal(strconv.FormatFloat(f, 'f', -1, 64)))
 		}
 	case reflect.Array, reflect.Slice:
 		enc.eArrayOrSliceElement(rv)
@@ -330,32 +330,27 @@ func (enc *Encoder) eElement(rv reflect.Value) {
 // By the TOML spec, all floats must have a decimal with at least one number on
 // either side.
 func floatAddDecimal(fstr string) string {
-	for _, c := range fstr {
-		if c == 'e' { // Exponent syntax
-			return fstr
-		}
-		if c == '.' {
-			return fstr
-		}
+	if !strings.Contains(fstr, ".") {
+		return fstr + ".0"
 	}
-	return fstr + ".0"
+	return fstr
 }
 
 func (enc *Encoder) writeQuoted(s string) {
-	enc.write(`"` + dblQuotedReplacer.Replace(s) + `"`)
+	enc.wf("\"%s\"", dblQuotedReplacer.Replace(s))
 }
 
 func (enc *Encoder) eArrayOrSliceElement(rv reflect.Value) {
 	length := rv.Len()
-	enc.write("[")
+	enc.wf("[")
 	for i := 0; i < length; i++ {
 		elem := eindirect(rv.Index(i))
 		enc.eElement(elem)
 		if i != length-1 {
-			enc.write(", ")
+			enc.wf(", ")
 		}
 	}
-	enc.write("]")
+	enc.wf("]")
 }
 
 func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
@@ -368,7 +363,7 @@ func (enc *Encoder) eArrayOfTables(key Key, rv reflect.Value) {
 			continue
 		}
 		enc.newline()
-		enc.writef("%s[[%s]]", enc.indentStr(key), key)
+		enc.wf("%s[[%s]]", enc.indentStr(key), key)
 		enc.newline()
 		enc.eMapOrStruct(key, trv, false)
 	}
@@ -381,7 +376,7 @@ func (enc *Encoder) eTable(key Key, rv reflect.Value) {
 		enc.newline()
 	}
 	if len(key) > 0 {
-		enc.writef("%s[%s]", enc.indentStr(key), key)
+		enc.wf("%s[%s]", enc.indentStr(key), key)
 		enc.newline()
 	}
 	enc.eMapOrStruct(key, rv, false)
@@ -427,7 +422,7 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 			if inline {
 				enc.writeKeyValue(Key{mapKey.String()}, val, true)
 				if trailC || i != len(mapKeys)-1 {
-					enc.write(", ")
+					enc.wf(", ")
 				}
 			} else {
 				enc.encode(key.add(mapKey.String()), val)
@@ -436,12 +431,12 @@ func (enc *Encoder) eMap(key Key, rv reflect.Value, inline bool) {
 	}
 
 	if inline {
-		enc.write("{")
+		enc.wf("{")
 	}
 	writeMapKeys(mapKeysDirect, len(mapKeysSub) > 0)
 	writeMapKeys(mapKeysSub, false)
 	if inline {
-		enc.write("}")
+		enc.wf("}")
 	}
 }
 
@@ -539,7 +534,7 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 			if inline {
 				enc.writeKeyValue(Key{keyName}, fieldVal, true)
 				if fieldIndex[0] != totalFields-1 {
-					enc.write(", ")
+					enc.wf(", ")
 				}
 			} else {
 				enc.encode(key.add(keyName), fieldVal)
@@ -548,14 +543,14 @@ func (enc *Encoder) eStruct(key Key, rv reflect.Value, inline bool) {
 	}
 
 	if inline {
-		enc.write("{")
+		enc.wf("{")
 	}
 
 	l := len(fieldsDirect) + len(fieldsSub)
 	writeFields(fieldsDirect, l)
 	writeFields(fieldsSub, l)
 	if inline {
-		enc.write("}")
+		enc.wf("}")
 	}
 }
 
@@ -705,7 +700,7 @@ func isEmpty(rv reflect.Value) bool {
 
 func (enc *Encoder) newline() {
 	if enc.hasWritten {
-		enc.write("\n")
+		enc.wf("\n")
 	}
 }
 
@@ -727,22 +722,14 @@ func (enc *Encoder) writeKeyValue(key Key, val reflect.Value, inline bool) {
 		enc.eElement(val)
 		return
 	}
-	enc.writef("%s%s = ", enc.indentStr(key), key.maybeQuoted(len(key)-1))
+	enc.wf("%s%s = ", enc.indentStr(key), key.maybeQuoted(len(key)-1))
 	enc.eElement(val)
 	if !inline {
 		enc.newline()
 	}
 }
 
-func (enc *Encoder) write(s string) {
-	_, err := enc.w.WriteString(s)
-	if err != nil {
-		encPanic(err)
-	}
-	enc.hasWritten = true
-}
-
-func (enc *Encoder) writef(format string, v ...any) {
+func (enc *Encoder) wf(format string, v ...any) {
 	_, err := fmt.Fprintf(enc.w, format, v...)
 	if err != nil {
 		encPanic(err)

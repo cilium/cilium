@@ -122,16 +122,7 @@ func (f fakePoolAllocator) RestoreFinished() {}
 func TestLock(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    testConfiguration,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-	})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	// Since the IPs we have allocated to the endpoints might or might not
@@ -143,11 +134,11 @@ func TestLock(t *testing.T) {
 	ipv6 = ipv6.Next()
 
 	// Forcefully release possible allocated IPs
-	ipam.ipv4Allocator.Release(ipv4.AsSlice(), PoolDefault())
-	ipam.ipv6Allocator.Release(ipv6.AsSlice(), PoolDefault())
+	ipam.IPv4Allocator.Release(ipv4.AsSlice(), PoolDefault())
+	ipam.IPv6Allocator.Release(ipv6.AsSlice(), PoolDefault())
 
 	// Let's allocate the IP first so we can see the tests failing
-	result, err := ipam.ipv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault())
+	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault())
 	require.NoError(t, err)
 	require.Equal(t, net.IP(ipv4.AsSlice()), result.IP)
 }
@@ -155,16 +146,7 @@ func TestLock(t *testing.T) {
 func TestExcludeIP(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    testConfiguration,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-	})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
 	ipam.ConfigureAllocator()
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
@@ -212,24 +194,14 @@ func TestIPAMMetadata(t *testing.T) {
 		}
 	})
 
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    testConfiguration,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-		Metadata:       fakeMetadata,
-	})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil, nil)
 	ipam.ConfigureAllocator()
-	ipam.ipv4Allocator = newFakePoolAllocator(map[string]string{
+	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
 		"default": "10.10.0.0/16",
 		"test":    "192.168.178.0/24",
 		"special": "172.18.19.0/24",
 	})
-	ipam.ipv6Allocator = newFakePoolAllocator(map[string]string{
+	ipam.IPv6Allocator = newFakePoolAllocator(map[string]string{
 		"default": "fd00:100::/80",
 		"test":    "fc00:100::/96",
 		"special": "fe00:100::/80",
@@ -281,17 +253,7 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    testConfiguration,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-		Metadata:       fakeMetadata,
-	})
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil, nil)
 	ipam.ConfigureAllocator()
 
 	// AllocateIP requires explicit pool

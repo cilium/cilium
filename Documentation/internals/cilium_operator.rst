@@ -22,9 +22,11 @@ versions 1.14 and above. It is Cilium's default behavior since the 1.9 release.
 The number of replicas for the HA deployment can be configured using
 Helm option ``operator.replicas``.
 
-.. cilium-helm-install::
-   :namespace: kube-system
-   :set: operator.replicas=3
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+      --namespace kube-system \\
+      --set operator.replicas=3
 
 .. code-block:: shell-session
 

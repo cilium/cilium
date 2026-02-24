@@ -157,9 +157,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 					return paramsOut{
 						IPSecConfig: Config{
 							UserConfig: UserConfig{
-								EnableConfig: EnableConfig{
-									EnableIPsec: ipsecEnabled,
-								},
+								EnableIPsec:                              ipsecEnabled,
 								EnableIPsecKeyWatcher:                    true,
 								EnableIPsecXfrmStateCaching:              true,
 								UseCiliumInternalIPForIPsec:              false,

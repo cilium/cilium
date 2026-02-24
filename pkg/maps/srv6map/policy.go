@@ -154,7 +154,7 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 		&PolicyKey4{},
 		&PolicyValue{},
 		maxPolicyEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	m6 := bpf.NewMap(
@@ -163,7 +163,7 @@ func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*Poli
 		&PolicyKey6{},
 		&PolicyValue{},
 		maxPolicyEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
+		unix.BPF_F_NO_PREALLOC,
 	)
 
 	lc.Append(cell.Hook{

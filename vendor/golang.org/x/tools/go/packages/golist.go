@@ -364,6 +364,12 @@ type jsonPackage struct {
 	DepsErrors []*packagesinternal.PackageError
 }
 
+type jsonPackageError struct {
+	ImportStack []string
+	Pos         string
+	Err         string
+}
+
 func otherFiles(p *jsonPackage) [][]string {
 	return [][]string{p.CFiles, p.CXXFiles, p.MFiles, p.HFiles, p.FFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles, p.SysoFiles}
 }

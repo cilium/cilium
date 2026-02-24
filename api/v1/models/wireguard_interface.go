@@ -10,7 +10,6 @@ package models
 
 import (
 	"context"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -67,15 +66,11 @@ func (m *WireguardInterface) validatePeers(formats strfmt.Registry) error {
 
 		if m.Peers[i] != nil {
 			if err := m.Peers[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("peers" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("peers" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -110,15 +105,11 @@ func (m *WireguardInterface) contextValidatePeers(ctx context.Context, formats s
 			}
 
 			if err := m.Peers[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("peers" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("peers" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

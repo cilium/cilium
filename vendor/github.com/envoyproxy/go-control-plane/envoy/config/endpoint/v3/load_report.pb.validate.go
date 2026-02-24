@@ -272,7 +272,7 @@ type UpstreamLocalityStatsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UpstreamLocalityStatsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -474,7 +474,7 @@ type UpstreamEndpointStatsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UpstreamEndpointStatsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -582,7 +582,7 @@ type EndpointLoadMetricStatsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m EndpointLoadMetricStatsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -688,7 +688,7 @@ type UnnamedEndpointLoadMetricStatsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m UnnamedEndpointLoadMetricStatsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -913,7 +913,7 @@ type ClusterStatsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterStatsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}
@@ -1026,7 +1026,7 @@ type ClusterStats_DroppedRequestsMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
 func (m ClusterStats_DroppedRequestsMultiError) Error() string {
-	msgs := make([]string, 0, len(m))
+	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
 	}

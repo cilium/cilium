@@ -386,13 +386,6 @@ var partitions = []Partition{
 				SupportsFIPS:       nil,
 				SupportsDualStack:  nil,
 			},
-			"us-isob-west-1": {
-				Name:               nil,
-				DnsSuffix:          nil,
-				DualStackDnsSuffix: nil,
-				SupportsFIPS:       nil,
-				SupportsDualStack:  nil,
-			},
 		},
 	},
 	{

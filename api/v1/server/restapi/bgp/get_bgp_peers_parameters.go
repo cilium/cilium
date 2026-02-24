@@ -28,6 +28,7 @@ func NewGetBgpPeersParams() GetBgpPeersParams {
 //
 // swagger:parameters GetBgpPeers
 type GetBgpPeersParams struct {
+
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

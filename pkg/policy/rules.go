@@ -4,227 +4,96 @@
 package policy
 
 import (
-	"cmp"
-	"errors"
-	"slices"
-
-	"github.com/cilium/cilium/pkg/policy/types"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 )
-
-// ErrTooManyPriorityLevels is returned if an endpoint's policy results in more than
-// 2^24 distinct priorities for a given direction; the datapath cannot support more than that.
-var ErrTooManyPriorityLevels = errors.New("endpoint policy direction has more than 2^24 distinct priorities")
-
-// ErrUnorderedTiers is returned if tiers of policy entries are unordered when they are expected to
-// be ordered.
-var ErrUnorderedTiers = errors.New("Unordered policy entry tiers")
-
-// ErrUnorderedRules is returned if prioritites of policy entries are unordered when they are
-// expected to be ordered.
-var ErrUnorderedRules = errors.New("Unordered policy entry priorities")
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func roundUp(n int, to int) int {
-	return ((n + (to - 1)) / to) * to
-}
+func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
+	result := NewL4PolicyMap()
 
-// ensureSlice makes sure slice 's' can be indexed at 'index'.
-//
-// We avoid cloning and append in a loop since:
-// - 's' may have unused capacity, and
-// - 'index' is typically the same between invocations, and
-// - 'index' usually grows by one when not the same as before.
-// This way we avoid unnecessary allocations in typical cases.
-func ensureSlice[E any, S ~[]E, I ~uint | ~uint8](s *S, index I) {
-	for len(*s) <= int(index) {
-		var e E
-		*s = append(*s, e)
-	}
-}
+	policyCtx.PolicyTrace("Resolving ingress policy")
 
-var perTierRoundUp = 1000
-
-// computeTierPriorities determines how many priority levels are needed for each tier, considering
-// that PASS verdicts require priority space after them for all the rules in the lower tiers. Two
-// slices are returned: one with the number of priority levels needed for the tier, and other with
-// the base priority for each tier.
-//
-// The returned slices has the needed priority range for each tier (0, 1, ...), including the full
-// range for all the remaining tiers in the policy.  Policy tiers are not compressed, but used 1:1,
-// i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int it.
-//
-// Full range of the remaining tiers must be included so that we know to leave sufficient space
-// after each pass verdict for the rules promoted from the remaining tiers.
-//
-// Note that since the the full range of remaining tiers is included, the returned range for
-// tiers without any rules is the same as the next tier.
-//
-// Since the full range of the remaining tiers is included, the base priority of each tier can be
-// calculated as follows (range is the returned slice):
-//
-//	basePriority[tier] = range[0] - range[tier]
-//
-// 'rules' is already sorted by tier/priority
-func (rules ruleSlice) computeTierPriorities() ([]int, []types.Priority, error) {
-	lastTier := types.Tier(0)
-	nTiers := int(rules[len(rules)-1].Tier) + 1
-	tierPriorityLevels := make([]int, nTiers)
-	numPassVerdicts := make([]int, 1)
-
-	lastPrio := rules[0].Priority
-	levels := 1 // each tier with any rules occupies at least one priority level
-	lastPassLevel := 0
-
-	for _, r := range rules {
-		if r.Tier != lastTier {
-			if r.Tier < lastTier || r.Tier >= types.Tier(nTiers) {
-				return nil, nil, ErrUnorderedTiers
-			}
-			// Keep the needed priority levels for the previous tier,
-			// rounding up to next 10 to reduce policy map churn.
-			tierPriorityLevels[lastTier] = roundUp(levels, 10)
-
-			ensureSlice(&numPassVerdicts, r.Tier)
-
-			// reset counting priority levels for the next tier
-			lastTier = r.Tier
-			lastPrio = r.Priority
-			levels = 1
-			lastPassLevel = 0
-		} else if r.Priority != lastPrio {
-			if r.Priority < lastPrio {
-				return nil, nil, ErrUnorderedRules
-			}
-			levels++
-			lastPrio = r.Priority
-		}
-
-		// count the number of pass verdicts on different priorities on each tier
-		if r.Verdict == types.Pass && levels != lastPassLevel {
-			numPassVerdicts[lastTier]++
-			lastPassLevel = levels
-		}
-	}
-	// for the last tier
-	ensureSlice(&tierPriorityLevels, lastTier)
-	tierPriorityLevels[lastTier] = roundUp(levels, perTierRoundUp)
-
-	// Compute the whole priority range needed for each tier by adding the lower tier priorities
-	// for each pass verdict so that when computing mapstate we can elevate priority of each
-	// passed-to entry to the priorities following the pass verdict.
-	for tier := int(lastTier) - 1; tier >= 0; tier-- {
-		tierPriorityLevels[tier] += (numPassVerdicts[tier] + 1) * tierPriorityLevels[tier+1]
-		tierPriorityLevels[tier] = types.Roundup(tierPriorityLevels[tier], perTierRoundUp)
-	}
-
-	if tierPriorityLevels[0] > int(types.LowestPriority) {
-		return nil, nil, ErrTooManyPriorityLevels
-	}
-
-	tierBasePriorities := make([]types.Priority, nTiers)
-	basePriority := types.Priority(0)
-	for tier := 1; tier <= int(lastTier); tier++ {
-		basePriority += types.Priority(tierPriorityLevels[tier-1] - tierPriorityLevels[tier])
-		tierBasePriorities[tier] = basePriority
-	}
-
-	return tierPriorityLevels, tierBasePriorities, nil
-}
-
-func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPolicy, error) {
 	state := traceState{}
-	result := L4DirectionPolicy{
-		PortRules: L4PolicyMaps{makeL4PolicyMap()},
-	}
+	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
 
-	if len(rules) == 0 {
-		result.tierBasePriority = make([]types.Priority, 1)
-		state.trace(len(rules), policyCtx)
-		return result, nil
-	}
-
-	// compute how many priotity levels are needed for each tier.
-	tierPriorityLevels, tierBasePriorities, err := rules.computeTierPriorities()
-	if err != nil {
-		return result, err
-	}
-
-	result.tierBasePriority = tierBasePriorities
-	lastTier := types.Tier(len(tierPriorityLevels) - 1)
-
-	// add rules, computing the absolute priority for each rule,
-	// making sufficient gaps after each pass verdict, but keeping entries with the same
-	// priority at the same absolute priority
-	priority := types.Priority(0)
-	increment := types.Priority(1) // default increment
-	tier := types.Tier(0)
-	lastPrio := rules[0].Priority
+	// Iterate over all FromRequires which select ctx.To. These requirements
+	// will be appended to each EndpointSelector's MatchExpressions in
+	// each FromEndpoints for all ingress rules. This ensures that FromRequires
+	// is taken into account when evaluating policy at L4.
 	for _, r := range rules {
-		if r.Tier != tier {
-			tier = r.Tier
-			priority = result.tierBasePriority[tier]
-			increment = types.Priority(1) // reset increment to default
-			lastPrio = r.Priority
-		} else if r.Priority != lastPrio {
-			// This rule's priority is greater than that of the previous, so we bump
-			// level.  This has the effect of "flattening" an arbitrary float ordering
-			// of rules in to a single integer sequence of levels.
-			if !priority.Add(increment) {
-				return result, ErrTooManyPriorityLevels
+		for _, ingressRule := range r.Ingress {
+			for _, requirement := range ingressRule.FromRequires {
+				requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
 			}
-			increment = types.Priority(1) // reset increment to default
-			lastPrio = r.Priority
 		}
+		for _, ingressRule := range r.IngressDeny {
+			for _, requirement := range ingressRule.FromRequires {
+				requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+			}
+		}
+	}
 
-		policyCtx.SetPriority(tier, priority)
-
-		err := result.PortRules.resolveL4Policy(policyCtx, &state, r)
+	for _, r := range rules {
+		err := r.resolveIngressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
 		if err != nil {
-			return result, err
+			return nil, err
 		}
 		state.ruleID++
-
-		// Adjust increment to make space after pass verdict for all the lower tier rules.
-		// + 1 for the pass verdict itself so that there is space for all passed to entries
-		// after the pass entry itself.
-		if r.Verdict == types.Pass && tier < lastTier {
-			increment = types.Priority(tierPriorityLevels[tier+1]) + 1
-		}
 	}
 
 	state.trace(len(rules), policyCtx)
+
 	return result, nil
 }
 
-// Sort rules by tier and priority, then resource as a tiebreaker.
-// Sorting rules by priority is necessary to convert from the float
-// api priority to the integer datapath level.
-func (rules ruleSlice) sort() {
-	slices.SortFunc(rules, func(a, b *rule) int {
-		// tier first
-		if sign := cmp.Compare(a.Tier, b.Tier); sign != 0 {
-			return sign
+func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
+	result := NewL4PolicyMap()
+
+	policyCtx.PolicyTrace("resolving egress policy")
+
+	state := traceState{}
+	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
+
+	// Iterate over all ToRequires which select ctx.To. These requirements will
+	// be appended to each EndpointSelector's MatchExpressions in each
+	// ToEndpoints for all egress rules. This ensures that ToRequires is
+	// taken into account when evaluating policy at L4.
+	for _, r := range rules {
+		for _, egressRule := range r.Egress {
+			for _, requirement := range egressRule.ToRequires {
+				requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
+			}
 		}
-		// priority next
-		if sign := cmp.Compare(a.Priority, b.Priority); sign != 0 {
-			return sign
+		for _, egressRule := range r.EgressDeny {
+			for _, requirement := range egressRule.ToRequires {
+				requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
+			}
 		}
-		// resource id for consistency
-		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
-			return sign
+	}
+
+	for i, r := range rules {
+		state.ruleID = i
+		err := r.resolveEgressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
+		if err != nil {
+			return nil, err
 		}
-		return cmp.Compare(a.key.idx, b.key.idx)
-	})
+		state.ruleID++
+	}
+
+	state.trace(len(rules), policyCtx)
+
+	return result, nil
 }
 
-// AsPolicyEntries return the internal PolicyEntry objects as a PolicyEntries object
-func (rules ruleSlice) AsPolicyEntries() types.PolicyEntries {
-	policyRules := make(types.PolicyEntries, 0, len(rules))
+// AsPolicyRules return the internal policyapi.Rule objects as a policyapi.Rules object
+func (rules ruleSlice) AsPolicyRules() policyapi.Rules {
+	policyRules := make(policyapi.Rules, 0, len(rules))
 	for _, r := range rules {
-		policyRules = append(policyRules, &r.PolicyEntry)
+		policyRules = append(policyRules, &r.Rule)
 	}
 	return policyRules
 }
@@ -241,21 +110,29 @@ type traceState struct {
 	// matchedDenyRules is the number of rules that have denied traffic
 	matchedDenyRules int
 
+	// constrainedRules counts how many "FromRequires" constraints are
+	// unsatisfied
+	constrainedRules int
+
 	// ruleID is the rule ID currently being evaluated
 	ruleID int
 }
 
 func (state *traceState) trace(rules int, policyCtx PolicyContext) {
 	policyCtx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
-	if state.matchedRules > 0 {
-		policyCtx.PolicyTrace("Found allow rule\n")
+	if state.constrainedRules > 0 {
+		policyCtx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
 	} else {
-		policyCtx.PolicyTrace("Found no allow rule\n")
-	}
-	if state.matchedDenyRules > 0 {
-		policyCtx.PolicyTrace("Found deny rule\n")
-	} else {
-		policyCtx.PolicyTrace("Found no deny rule\n")
+		if state.matchedRules > 0 {
+			policyCtx.PolicyTrace("Found allow rule\n")
+		} else {
+			policyCtx.PolicyTrace("Found no allow rule\n")
+		}
+		if state.matchedDenyRules > 0 {
+			policyCtx.PolicyTrace("Found deny rule\n")
+		} else {
+			policyCtx.PolicyTrace("Found no deny rule\n")
+		}
 	}
 }
 

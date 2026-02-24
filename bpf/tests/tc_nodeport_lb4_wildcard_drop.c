@@ -21,7 +21,9 @@
 #define BACKEND_PORT	tcp_svc_two
 
 static volatile const __u8 *client_mac = mac_one;
-static volatile const __u8 *lb_mac = mac_host;
+
+/* this matches the default node_config.h: */
+static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
 #include "lib/bpf_host.h"
 
@@ -151,8 +153,8 @@ static __always_inline int validate_packet(const struct __ctx_buff *ctx,
 		assert(l4->source == CLIENT_PORT);
 		assert(l4->dest == dport);
 		assert(l4->syn == 1);
-		assert(l4->seq == bpf_ntohl(123456));
-		assert(l4->window == bpf_ntohs(65535));
+		assert(l4->seq == 123456);
+		assert(l4->window == 65535);
 		assert(l4->doff == 5);
 
 		break;
@@ -284,7 +286,7 @@ int tc_nodeport_lb4_wildcard_drop_not_unknown2_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_lb4_wildcard_drop_not_unknown2")
 int tc_nodeport_lb4_wildcard_drop_not_unknown2_setup(struct __ctx_buff *ctx)
 {
-	if (tail_no_service_ipv4(ctx) != CTX_ACT_REDIRECT)
+	if (tail_no_service_ipv4(ctx))
 		return TEST_ERROR;
 
 	setup_services(ctx);

@@ -6,6 +6,7 @@ package dynamicconfig
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
-	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -71,7 +71,9 @@ func TestWatchAllKeys(t *testing.T) {
 	}
 
 	keys, _ := WatchAllKeys(db.ReadTxn(), dct)
-	assert.Equal(t, expected, keys, "WatchAllKeys returned unexpected result")
+	if !reflect.DeepEqual(keys, expected) {
+		t.Errorf("WatchAllKeys returned unexpected result. Got: %v, Expected: %v", keys, expected)
+	}
 }
 
 func TestWatchKey(t *testing.T) {
@@ -201,7 +203,9 @@ func TestDynamicConfigMap(t *testing.T) {
 				t.Fatalf("waiting for config table timed out: %v", err)
 			}
 
-			assert.Equal(t, tc.expectedConfig, gotMap)
+			if !reflect.DeepEqual(gotMap, tc.expectedConfig) {
+				t.Fatalf("expectedConfig:\n%+v\ngot:\n%+v", tc.expectedConfig, gotMap)
+			}
 
 			for _, cm := range tc.cms {
 				for k, v := range cm.Data {

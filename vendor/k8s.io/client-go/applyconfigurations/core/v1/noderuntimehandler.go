@@ -20,13 +20,8 @@ package v1
 
 // NodeRuntimeHandlerApplyConfiguration represents a declarative configuration of the NodeRuntimeHandler type for use
 // with apply.
-//
-// NodeRuntimeHandler is a set of runtime handler information.
 type NodeRuntimeHandlerApplyConfiguration struct {
-	// Runtime handler name.
-	// Empty for the default runtime handler.
-	Name *string `json:"name,omitempty"`
-	// Supported features.
+	Name     *string                                       `json:"name,omitempty"`
 	Features *NodeRuntimeHandlerFeaturesApplyConfiguration `json:"features,omitempty"`
 }
 

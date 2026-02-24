@@ -49,13 +49,6 @@ func (m *MaxMindConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if len(m.CountryDbPath) > 0 {
-		i -= len(m.CountryDbPath)
-		copy(dAtA[i:], m.CountryDbPath)
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.CountryDbPath)))
-		i--
-		dAtA[i] = 0x32
-	}
 	if len(m.IspDbPath) > 0 {
 		i -= len(m.IspDbPath)
 		copy(dAtA[i:], m.IspDbPath)
@@ -138,10 +131,6 @@ func (m *MaxMindConfig) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	l = len(m.IspDbPath)
-	if l > 0 {
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	l = len(m.CountryDbPath)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}

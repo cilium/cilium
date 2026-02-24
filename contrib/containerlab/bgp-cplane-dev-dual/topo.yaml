@@ -1,0 +1,76 @@
+name: bgp-cplane-dev-dual
+topology:
+  nodes:
+    # A simple BGP router that peers with Cilium with eBGP.
+    router0:
+      kind: linux
+      image: frrouting/frr:v8.4.0
+      cmd: bash
+      exec:
+      - ip addr add 10.0.1.1/24 dev net0
+      - ip addr add 10.0.2.1/24 dev net1
+      - ip addr add 10.0.3.1/24 dev net2
+      - sysctl net.ipv6.conf.all.forwarding=1
+      - ip addr add fd00:10:0:1::1/64 dev net0
+      - ip addr add fd00:10:0:2::1/64 dev net1
+      - ip addr add fd00:10:0:3::1/64 dev net2
+      - ip route add blackhole 10.0.0.0/8
+      - ip route add blackhole fd00::/16
+      # Boiler plate to make FRR work
+      - touch /etc/frr/vtysh.conf
+      - touch /var/log/frr.log
+      - chown frr:frr /var/log/frr.log
+      - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
+      - /usr/lib/frr/frrinit.sh start
+      - >-
+        vtysh -c 'conf t'
+        -c 'log file /var/log/frr.log'
+        -c 'debug bgp neighbor-events'
+        -c 'debug bgp updates'
+        -c 'debug bgp zebra'
+        -c 'router bgp 65000'
+        -c '  bgp bestpath as-path multipath-relax'
+        -c '  no bgp ebgp-requires-policy'
+        -c '  bgp default ipv6-unicast'
+        -c '  bgp router-id 10.0.0.1'
+        -c '  neighbor CILIUM peer-group'
+        -c '  neighbor CILIUM remote-as external'
+        -c '  neighbor fd00:10:0:1::2 peer-group CILIUM'
+        -c '  neighbor fd00:10:0:2::2 peer-group CILIUM'
+        -c '!'
+    # Server with Cilium. It shares netns with kind node.
+    server0:
+      kind: linux
+      image: nicolaka/netshoot:v0.11
+      network-mode: container:bgp-cplane-dev-dual-control-plane
+      exec:
+      - ip addr add 10.0.1.2/24 dev net0
+      - ip addr add fd00:10:0:1::2/64 dev net0
+      # These static routes are needed because Cilium cannot import routes currently.
+      - ip route add 10.0.0.0/8 via 10.0.1.1 dev net0
+      - ip route add fd00::/16 via fd00:10:0:1::1 dev net0
+    # Server with Cilium. It shares netns with kind node.
+    server1:
+      kind: linux
+      image: nicolaka/netshoot:v0.11
+      network-mode: container:bgp-cplane-dev-dual-worker
+      exec:
+      - ip addr add 10.0.2.2/24 dev net0
+      - ip addr add fd00:10:0:2::2/64 dev net0
+      # These static routes are needed because Cilium cannot import routes currently.
+      - ip route add 10.0.0.0/8 via 10.0.2.1 dev net0
+      - ip route add fd00::/16 via fd00:10:0:2::1 dev net0
+    # Server without Cilium. Useful for testing connectivity.
+    server2:
+      kind: linux
+      image: nicolaka/netshoot:v0.11
+      exec:
+      - ip addr add 10.0.3.2/24 dev net0
+      - ip addr add fd00:10:0:3::2/64 dev net0
+      # These static routes are needed because this node doesn't have a BGP router.
+      - ip route add 10.0.0.0/8 via 10.0.3.1 dev net0
+      - ip route add fd00::/16 via fd00:10:0:3::1 dev net0
+  links:
+  - endpoints: ["router0:net0", "server0:net0"]
+  - endpoints: ["router0:net1", "server1:net0"]
+  - endpoints: ["router0:net2", "server2:net0"]

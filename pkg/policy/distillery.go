@@ -4,10 +4,9 @@
 package policy
 
 import (
-	"fmt"
-	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -37,21 +36,17 @@ func newPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *policyCa
 	return cache
 }
 
-// lookup is the same function as lookupLocked, except that it grabs the lock of the cache
-func (cache *policyCache) lookup(identity *identityPkg.Identity) (*cachedSelectorPolicy, bool) {
+// lookupOrCreate adds the specified Identity to the policy cache, with a reference
+// from the specified Endpoint, then returns the threadsafe copy of the policy.
+func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cache.Lock()
 	defer cache.Unlock()
-	return cache.lookupLocked(identity)
-}
-
-// lookupLocked returns the selector policy for the given identity. If the identity is not present in the cache it
-// will return nil and false
-func (cache *policyCache) lookupLocked(identity *identityPkg.Identity) (*cachedSelectorPolicy, bool) {
 	cip, ok := cache.policies[identity.ID]
 	if !ok {
-		return nil, false
+		cip = newCachedSelectorPolicy(identity)
+		cache.policies[identity.ID] = cip
 	}
-	return cip, true
+	return cip
 }
 
 // GetPolicySnapshot returns a snapshot of the current policy cache.
@@ -69,36 +64,12 @@ func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]Se
 	return snapshot
 }
 
-// insert adds the specified Identity to the policy cache
-func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelectorPolicy {
-	cache.Lock()
-	defer cache.Unlock()
-
-	wg := sync.WaitGroup{}
-	// This is only used for updating identities in the subject selector cache, that is used to index and track
-	// policies selecting identities used on the local node
-	cache.repo.subjectSelectorCache.UpdateIdentities(identityPkg.IdentityMap{identity.ID: identity.LabelArray}, nil, &wg)
-
-	cip, ok := cache.lookupLocked(identity)
-	if !ok {
-		cip = newCachedSelectorPolicy(identity)
-		cache.policies[identity.ID] = cip
-	}
-	return cip
-}
-
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
 //
 // Returns true if the SelectorPolicy was removed from the cache.
 func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()
 	defer cache.Unlock()
-
-	wg := sync.WaitGroup{}
-	// This is only used for updating identities in the subject selector cache, that is used to index and track
-	// policies selecting identities used on the local node
-	cache.repo.subjectSelectorCache.UpdateIdentities(nil, identityPkg.IdentityMap{identity.ID: identity.LabelArray}, &wg)
-
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
@@ -118,17 +89,11 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 // of themselves if the selector policy is created and initiates a regeneration trigger
 // on detach.
 //
-// Returns whether the cache was updated, or an error. It will return an error if the
-// identity is not in use by any endpoint on the node. That can happen in cases where
-// an endpoint changed its identity during policy regeneration, where the regeneration
-// is still referring to the old identity.
+// Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
 func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
-	cip, ok := cache.lookup(identity)
-	if !ok {
-		return nil, false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
-	}
+	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
 	// regeneration, it's possible for two endpoints with the
@@ -158,10 +123,9 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 	return selPolicy, true, nil
 }
 
-// LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
-// specified Identity, without calculating any policy for it.
+// LocalEndpointIdentityAdded is not needed; we only care about local endpoint
+// deletion
 func (cache *policyCache) LocalEndpointIdentityAdded(identity *identityPkg.Identity) {
-	cache.insert(identity)
 }
 
 // LocalEndpointIdentityRemoved deletes the cached SelectorPolicy for the
@@ -197,7 +161,7 @@ func (cache *policyCache) getAuthTypes(localID, remoteID identityPkg.NumericIden
 		}
 		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
 		// from the result
-		if missing && cs.Selects(remoteID) {
+		if missing && cs.Selects(versioned.Latest(), remoteID) {
 			if resTypes == nil {
 				resTypes = make(AuthTypes, 1)
 			}

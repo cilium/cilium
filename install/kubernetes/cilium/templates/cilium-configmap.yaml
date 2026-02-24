@@ -255,14 +255,6 @@ data:
   operator-prometheus-serve-addr: ":{{ .Values.operator.prometheus.port }}"
   enable-metrics: "true"
 {{- end }}
-{{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
-  operator-prometheus-enable-tls: "true"
-  operator-prometheus-tls-cert-file: /var/lib/cilium/tls/prometheus/server.crt
-  operator-prometheus-tls-key-file: /var/lib/cilium/tls/prometheus/server.key
-  {{- if .Values.operator.prometheus.tls.server.mtls.enabled }}
-  operator-prometheus-tls-client-ca-files: /var/lib/cilium/tls/prometheus/client-ca.crt
-  {{- end }}
-{{- end }}
 
 {{- if .Values.operator.skipCRDCreation }}
   skip-crd-creation: "true"
@@ -587,35 +579,6 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
-{{- if .Values.eni.nodeSpec }}
-  {{- if ne .Values.eni.nodeSpec.firstInterfaceIndex nil }}
-  eni-first-interface-index: {{ .Values.eni.nodeSpec.firstInterfaceIndex | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.subnetIDs }}
-  eni-subnet-ids: {{ .Values.eni.nodeSpec.subnetIDs | join "," | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.subnetTags }}
-  eni-subnet-tags: {{ .Values.eni.nodeSpec.subnetTags | join "," | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.securityGroups }}
-  eni-security-groups: {{ .Values.eni.nodeSpec.securityGroups | join "," | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.securityGroupTags }}
-  eni-security-group-tags: {{ .Values.eni.nodeSpec.securityGroupTags | join "," | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.excludeInterfaceTags }}
-  eni-exclude-interface-tags: {{ .Values.eni.nodeSpec.excludeInterfaceTags | join "," | quote }}
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.usePrimaryAddress }}
-  eni-use-primary-address: "true"
-  {{- end }}
-  {{- if .Values.eni.nodeSpec.disablePrefixDelegation }}
-  eni-disable-prefix-delegation: "true"
-  {{- end }}
-  {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
-  eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
-  {{- end }}
-{{- end }}
 {{- if .Values.eni.subnetIDsFilter }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
@@ -641,37 +604,15 @@ data:
 {{- end }}
   azure-use-primary-address: {{ $azureUsePrimaryAddress | quote }}
 {{- end }}
-{{- if .Values.azure.nodeSpec.azureInterfaceName }}
-  azure-interface-name: {{ .Values.azure.nodeSpec.azureInterfaceName | quote }}
-{{- end }}
 
 {{- if .Values.alibabacloud.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
 {{- end }}
-{{- if .Values.alibabacloud.nodeSpec.vSwitches }}
-  alibabacloud-vswitches: {{ .Values.alibabacloud.nodeSpec.vSwitches | join "," | quote }}
-{{- end }}
-{{- if .Values.alibabacloud.nodeSpec.vSwitchTags }}
-  alibabacloud-vswitch-tags: {{ .Values.alibabacloud.nodeSpec.vSwitchTags | join "," | quote }}
-{{- end }}
-{{- if .Values.alibabacloud.nodeSpec.securityGroups }}
-  alibabacloud-security-groups: {{ .Values.alibabacloud.nodeSpec.securityGroups | join "," | quote }}
-{{- end }}
-{{- if .Values.alibabacloud.nodeSpec.securityGroupTags }}
-  alibabacloud-security-group-tags: {{ .Values.alibabacloud.nodeSpec.securityGroupTags | join "," | quote }}
-{{- end }}
 
 {{- if hasKey .Values "l7Proxy" }}
   # Enables L7 proxy for L7 policy enforcement and visibility
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
-{{- end }}
-
-{{- if hasKey .Values "standaloneDnsProxy" }}
-  {{- if .Values.standaloneDnsProxy.enabled }}
-  enable-standalone-dns-proxy: {{ .Values.standaloneDnsProxy.enabled | quote }}
-  standalone-dns-proxy-server-port: {{ .Values.standaloneDnsProxy.serverPort | quote }}
-  {{- end }}
 {{- end }}
 
 {{- if ne $cniChainingMode "none" }}
@@ -750,8 +691,6 @@ data:
     {{- if .Values.encryption.wireguard.persistentKeepalive }}
   wireguard-persistent-keepalive: {{ .Values.encryption.wireguard.persistentKeepalive | quote }}
     {{- end }}
-  {{- else if eq .Values.encryption.type "ztunnel" }}
-  enable-ztunnel: {{ .Values.encryption.enabled | quote }}
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
@@ -759,20 +698,11 @@ data:
 {{- end }}
 
 {{- if .Values.encryption.strictMode.enabled }}
-  # --- DEPRECATED: Please use encryption.strictMode.egress.enabled instead
-  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.enabled | quote }}
-  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
-  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
-{{- end }}
+  enable-encryption-strict-mode: {{ .Values.encryption.strictMode.enabled | quote }}
 
-{{- if .Values.encryption.strictMode.ingress.enabled }}
-  enable-encryption-strict-mode-ingress: {{ .Values.encryption.strictMode.ingress.enabled | quote }}
-{{- end }}
+  encryption-strict-mode-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
 
-{{- if .Values.encryption.strictMode.egress.enabled }}
-  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.egress.enabled | quote }}
-  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.egress.cidr | quote }}
-  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.egress.allowRemoteNodeIdentities | quote }}
+  encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
@@ -915,10 +845,6 @@ data:
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
 {{- end }}
 
-{{- if .Values.bpf.monitorTraceIPOption }}
-  ip-tracing-option-type: {{ .Values.bpf.monitorTraceIPOption | quote }}
-{{- end }}
-
 {{- if hasKey .Values "l2NeighDiscovery" }}
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
   enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
@@ -964,9 +890,6 @@ data:
 {{- end }}
 {{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
-{{- end }}
-{{- if .Values.k8sClusterNetworkPolicy.enabled }}
-  enable-k8s-cluster-network-policy: "true"
 {{- end }}
   enable-endpoint-lockdown-on-policy-overflow: {{ .Values.endpointLockdownOnMapOverflow | quote }}
 {{- if .Values.cni.configMap }}
@@ -1120,10 +1043,8 @@ data:
   hubble-export-file-max-size-mb: {{ .Values.hubble.export.fileMaxSizeMb | default .Values.hubble.export.static.fileMaxSizeMb | quote }}
   hubble-export-file-max-backups: {{ .Values.hubble.export.fileMaxBackups | default .Values.hubble.export.static.fileMaxBackups | quote }}
   hubble-export-file-compress: {{ .Values.hubble.export.fileCompress | default .Values.hubble.export.static.fileCompress | quote }}
-  hubble-export-aggregation-interval: {{ include "validateDuration" .Values.hubble.export.aggregationInterval | default .Values.hubble.export.static.aggregationInterval | quote }}
   hubble-export-file-path: {{ .Values.hubble.export.static.filePath | quote }}
   hubble-export-fieldmask: {{ .Values.hubble.export.static.fieldMask | join " " | quote }}
-  hubble-export-fieldaggregate: {{ .Values.hubble.export.static.fieldAggregate | join " " | quote }}
   hubble-export-allowlist: {{ .Values.hubble.export.static.allowList | join " " | quote }}
   hubble-export-denylist: {{ .Values.hubble.export.static.denyList | join " " | quote }}
 {{- end }}
@@ -1160,27 +1081,9 @@ data:
   disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
 {{- end }}
 {{- if .Values.aksbyocni.enabled }}
-  {{- if or (not .Values.ipam.mode) (eq .Values.ipam.mode "cluster-pool") }}
   ipam: "cluster-pool"
-  {{- else if eq .Values.ipam.mode "multi-pool" }}
-  ipam: "multi-pool"
-  {{- end }}
 {{- else }}
   ipam: {{ $ipam | quote }}
-{{- end }}
-{{- if .Values.ipam.nodeSpec }}
-  {{- if ne .Values.ipam.nodeSpec.ipamMinAllocate nil }}
-  ipam-min-allocate: {{ .Values.ipam.nodeSpec.ipamMinAllocate | quote }}
-  {{- end }}
-  {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
-  ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
-  {{- end }}
-  {{- if ne .Values.ipam.nodeSpec.ipamMaxAllocate nil }}
-  ipam-max-allocate: {{ .Values.ipam.nodeSpec.ipamMaxAllocate | quote }}
-  {{- end }}
-  {{- if .Values.ipam.nodeSpec.ipamStaticIPTags }}
-  ipam-static-ip-tags: {{ .Values.ipam.nodeSpec.ipamStaticIPTags | join "," | quote }}
-  {{- end }}
 {{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
@@ -1269,6 +1172,11 @@ data:
   k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
 {{- end }}
 
+{{- if and .Values.customCalls .Values.customCalls.enabled }}
+  # Enable tail call hooks for custom eBPF programs.
+  enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
+{{- end }}
+
 {{- if .Values.l2announcements.enabled }}
   # Enable L2 announcements
   enable-l2-announcements: {{ .Values.l2announcements.enabled | quote }}
@@ -1304,8 +1212,6 @@ data:
 {{- if .Values.pmtuDiscovery.enabled }}
   enable-pmtu-discovery: "true"
 {{- end }}
-
-  packetization-layer-pmtud-mode: {{ .Values.pmtuDiscovery.packetizationLayerPMTUDMode | quote }}
 
 {{- if not .Values.securityContext.privileged }}
   procfs: "/host/proc"
@@ -1381,8 +1287,7 @@ data:
 {{- end }}
 
 {{- if .Values.operator.unmanagedPodWatcher.restart }}
-  {{- $interval := .Values.operator.unmanagedPodWatcher.intervalSeconds }}
-  unmanaged-pod-watcher-interval: {{ printf "%ds" (int $interval) | quote }}
+  unmanaged-pod-watcher-interval: {{ .Values.operator.unmanagedPodWatcher.intervalSeconds | quote }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
@@ -1460,16 +1365,11 @@ data:
   proxy-xff-num-trusted-hops-egress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyEgress | quote }}
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
   proxy-initial-fetch-timeout: {{ .Values.envoy.initialFetchTimeoutSeconds | quote }}
-  proxy-max-active-downstream-connections: {{ .Values.envoy.maxGlobalDownstreamConnections | quote }}
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
-  proxy-use-original-source-address: {{ .Values.envoy.useOriginalSourceAddress | quote }}
-  proxy-cluster-max-connections: {{ .Values.envoy.clusterMaxConnections | quote }}
-  proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
-  http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
@@ -1496,11 +1396,8 @@ data:
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}
-  clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
-  clustermesh-enable-mcs-api: {{ .Values.clustermesh.mcsapi.enabled | quote }}
-  clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
-  clustermesh-default-global-namespace: {{ .Values.clustermesh.defaultGlobalNamespace | quote }}
+  clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}

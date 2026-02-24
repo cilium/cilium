@@ -6,7 +6,6 @@ package writer
 import (
 	"encoding/binary"
 	"fmt"
-	"net/netip"
 	"slices"
 	"testing"
 
@@ -20,23 +19,17 @@ import (
 // reduces allocations a lot as the inner radix tree nodes allocated in the transaction
 // can be reused in subsequent inserts.
 func Benchmark_UpsertServiceAndFrontends_100(b *testing.B) {
-	benchmark_UpsertServiceAndFrontends(b, 100, false)
-}
-
-// Benchmark_UpsertServiceAndFrontends_100_Unchanged tests upsert performance for
-// a service and frontends when they don't change.
-func Benchmark_UpsertServiceAndFrontends_100_Unchanged(b *testing.B) {
-	benchmark_UpsertServiceAndFrontends(b, 100, true)
+	benchmark_UpsertServiceAndFrontends(b, 100)
 }
 
 // Benchmark_UpsertServiceAndFrontends_1 tests the worst-case upsert performance.
 // With a single service and frontend inserted per transaction causes many more
 // radix tree nodes to be allocated since they cannot be reused.
 func Benchmark_UpsertServiceAndFrontends_1(b *testing.B) {
-	benchmark_UpsertServiceAndFrontends(b, 1, false)
+	benchmark_UpsertServiceAndFrontends(b, 1)
 }
 
-func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int, commit bool) {
+func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 	p := fixture(b)
 
 	// Add 1000 existing objects to the table. This makes the benchmark more
@@ -47,7 +40,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int, commit bo
 		name := loadbalancer.NewServiceName("test-existing", fmt.Sprintf("svc-%d", i))
 		var addr1 [4]byte
 		binary.BigEndian.PutUint32(addr1[:], 0x02000000+uint32(i))
-		addrCluster := types.AddrClusterFrom(netip.AddrFrom4(addr1), 0)
+		addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 		p.Writer.UpsertServiceAndFrontends(
 			wtxn,
 			&loadbalancer.Service{
@@ -72,7 +65,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int, commit bo
 			name := loadbalancer.NewServiceName("test-new", fmt.Sprintf("svc-%d", i))
 			var addr1 [4]byte
 			binary.BigEndian.PutUint32(addr1[:], 0x01000000+uint32(i))
-			addrCluster := types.AddrClusterFrom(netip.AddrFrom4(addr1), 0)
+			addrCluster, _ := types.AddrClusterFromIP(addr1[:])
 			p.Writer.UpsertServiceAndFrontends(
 				wtxn,
 				&loadbalancer.Service{
@@ -86,11 +79,7 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int, commit bo
 				},
 			)
 		}
-		if commit {
-			wtxn.Commit()
-		} else {
-			wtxn.Abort()
-		}
+		wtxn.Abort()
 	}
 
 	b.StopTimer()
@@ -183,17 +172,16 @@ func BenchmarkReplaceBackend(b *testing.B) {
 	wtxn.Commit()
 
 	wtxn = p.Writer.WriteTxn()
-	params := slices.Values([]loadbalancer.BackendParams{
-		{
-			Address: beAddr,
-			State:   loadbalancer.BackendStateActive,
-		}})
 	for b.Loop() {
 		p.Writer.UpsertBackends(
 			wtxn,
 			name,
 			source.Kubernetes,
-			params,
+			slices.Values([]loadbalancer.BackendParams{
+				{
+					Address: beAddr,
+					State:   loadbalancer.BackendStateActive,
+				}}),
 		)
 	}
 	wtxn.Abort()

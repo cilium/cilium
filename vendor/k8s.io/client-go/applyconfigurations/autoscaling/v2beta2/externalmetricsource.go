@@ -20,15 +20,9 @@ package v2beta2
 
 // ExternalMetricSourceApplyConfiguration represents a declarative configuration of the ExternalMetricSource type for use
 // with apply.
-//
-// ExternalMetricSource indicates how to scale on a metric not associated with
-// any Kubernetes object (for example length of queue in cloud
-// messaging service, or QPS from loadbalancer running outside of cluster).
 type ExternalMetricSourceApplyConfiguration struct {
-	// metric identifies the target metric by name and selector
 	Metric *MetricIdentifierApplyConfiguration `json:"metric,omitempty"`
-	// target specifies the target value for the given metric
-	Target *MetricTargetApplyConfiguration `json:"target,omitempty"`
+	Target *MetricTargetApplyConfiguration     `json:"target,omitempty"`
 }
 
 // ExternalMetricSourceApplyConfiguration constructs a declarative configuration of the ExternalMetricSource type for use with

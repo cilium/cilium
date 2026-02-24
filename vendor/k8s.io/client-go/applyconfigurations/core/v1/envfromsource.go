@@ -20,16 +20,10 @@ package v1
 
 // EnvFromSourceApplyConfiguration represents a declarative configuration of the EnvFromSource type for use
 // with apply.
-//
-// EnvFromSource represents the source of a set of ConfigMaps or Secrets
 type EnvFromSourceApplyConfiguration struct {
-	// Optional text to prepend to the name of each environment variable.
-	// May consist of any printable ASCII characters except '='.
-	Prefix *string `json:"prefix,omitempty"`
-	// The ConfigMap to select from
+	Prefix       *string                               `json:"prefix,omitempty"`
 	ConfigMapRef *ConfigMapEnvSourceApplyConfiguration `json:"configMapRef,omitempty"`
-	// The Secret to select from
-	SecretRef *SecretEnvSourceApplyConfiguration `json:"secretRef,omitempty"`
+	SecretRef    *SecretEnvSourceApplyConfiguration    `json:"secretRef,omitempty"`
 }
 
 // EnvFromSourceApplyConfiguration constructs a declarative configuration of the EnvFromSource type for use with

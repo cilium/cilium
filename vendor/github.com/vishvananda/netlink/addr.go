@@ -18,7 +18,6 @@ type Addr struct {
 	PreferedLft int
 	ValidLft    int
 	LinkIndex   int
-	Protocol    int // IFA_PROTO: address protocol/origin (kernel 5.18+)
 }
 
 // String returns $ip/$netmask $label

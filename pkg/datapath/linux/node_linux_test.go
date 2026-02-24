@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"log/slog"
 	"net"
-	"net/netip"
 	"slices"
 	"testing"
 
@@ -90,6 +89,8 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.mtuCalc = mtuConfig.Calculate(1500)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
+
+	node.SetTestLocalNodeStore()
 
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
@@ -178,6 +179,7 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 }
 
 func tearDownTest(_ testing.TB) {
+	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 }
@@ -294,8 +296,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(t *testing.T) {
 	var linuxNodeHandler *linuxNodeHandler
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler = newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -344,8 +345,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestAuxiliaryPrefixes(t *testing.T) {
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -419,8 +419,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	linuxNodeHandler.OverrideEnableEncapsulation(override)
@@ -583,16 +582,15 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 // Tests that the node ID BPF map is correctly updated during the lifecycle of
 // nodes and that the mapping nodeID:node remains 1:1.
 func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
-	nodeIP1 := netip.MustParseAddr("4.4.4.4")
-	nodeIP2 := netip.MustParseAddr("8.8.8.8")
-	nodeIP3 := netip.MustParseAddr("1.1.1.1")
+	nodeIP1 := net.ParseIP("4.4.4.4")
+	nodeIP2 := net.ParseIP("8.8.8.8")
+	nodeIP3 := net.ParseIP("1.1.1.1")
 
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	nodeConfig := s.nodeConfigTemplate
 	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
@@ -602,22 +600,22 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 	node1v1 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
+			{IP: nodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	err = linuxNodeHandler.NodeAdd(node1v1)
 	require.NoError(t, err)
 
-	nodeValue1, err := nodeMap.Lookup(nodeIP1)
+	nodeID1, err := nodeMap.Lookup(nodeIP1)
 	require.NoError(t, err)
-	require.NotEqual(t, 0, nodeValue1.NodeID)
+	require.NotEqual(t, 0, nodeID1)
 
 	// When the node is updated, the new IPs are mapped to the existing node ID.
 	node1v2 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeExternalIP},
+			{IP: nodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: nodeIP2, Type: nodeaddressing.NodeExternalIP},
 		},
 	}
 	err = linuxNodeHandler.NodeUpdate(node1v1, node1v2)
@@ -625,15 +623,15 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 	_, err = nodeMap.Lookup(nodeIP1)
 	require.NoError(t, err)
-	nodeValue2, err := nodeMap.Lookup(nodeIP2)
+	nodeID2, err := nodeMap.Lookup(nodeIP2)
 	require.NoError(t, err)
-	require.Equal(t, nodeValue1.NodeID, nodeValue2.NodeID)
+	require.Equal(t, *nodeID1, *nodeID2)
 
 	// When the node is updated, the old IPs are unmapped from the node ID.
 	node1v3 := nodeTypes.Node{
 		Name: "node1",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeExternalIP},
+			{IP: nodeIP2, Type: nodeaddressing.NodeExternalIP},
 		},
 	}
 	err = linuxNodeHandler.NodeUpdate(node1v2, node1v3)
@@ -641,23 +639,23 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 
 	_, err = nodeMap.Lookup(nodeIP1)
 	require.ErrorContains(t, err, "IP not found in node ID map")
-	nodeValue3, err := nodeMap.Lookup(nodeIP2)
+	nodeID3, err := nodeMap.Lookup(nodeIP2)
 	require.NoError(t, err)
-	require.Equal(t, nodeValue2.NodeID, nodeValue3.NodeID)
+	require.Equal(t, *nodeID2, *nodeID3)
 
 	// If a second node is created, it receives a different node ID.
 	node2 := nodeTypes.Node{
 		Name: "node2",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP1.AsSlice(), Type: nodeaddressing.NodeInternalIP},
+			{IP: nodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
 	}
 	err = linuxNodeHandler.NodeAdd(node2)
 	require.NoError(t, err)
 
-	nodeValue4, err := nodeMap.Lookup(nodeIP1)
+	nodeID4, err := nodeMap.Lookup(nodeIP1)
 	require.NoError(t, err)
-	require.NotEqual(t, nodeValue3.NodeID, nodeValue4.NodeID)
+	require.NotEqual(t, nodeID3, nodeID4)
 
 	// When the node is deleted, all references to its ID are also removed.
 	err = linuxNodeHandler.NodeDelete(node1v3)
@@ -670,18 +668,18 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(t *testing.T) {
 	node3 := nodeTypes.Node{
 		Name: "node3",
 		IPAddresses: []nodeTypes.Address{
-			{IP: nodeIP2.AsSlice(), Type: nodeaddressing.NodeInternalIP},
-			{IP: nodeIP3.AsSlice(), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: nodeIP2, Type: nodeaddressing.NodeInternalIP},
+			{IP: nodeIP3, Type: nodeaddressing.NodeCiliumInternalIP},
 		},
 	}
 	err = linuxNodeHandler.NodeAdd(node3)
 	require.NoError(t, err)
 
-	nodeValue5, err := nodeMap.Lookup(nodeIP2)
+	nodeID5, err := nodeMap.Lookup(nodeIP2)
 	require.NoError(t, err)
-	nodeValue6, err := nodeMap.Lookup(nodeIP3)
+	nodeID6, err := nodeMap.Lookup(nodeIP3)
 	require.NoError(t, err)
-	require.Equal(t, nodeValue6.NodeID, nodeValue5.NodeID)
+	require.Equal(t, *nodeID6, *nodeID5)
 }
 
 // Tests that we don't leak XFRM policies and states as nodes come and go.
@@ -717,7 +715,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 	_, err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
 	require.NoError(t, err)
 	defer removeDevice(externalNodeDevice)
-	option.Config.UnsafeDaemonConfigOption.EncryptInterface = []string{externalNodeDevice}
+	option.Config.EncryptInterface = []string{externalNodeDevice}
 	option.Config.RoutingMode = option.RoutingModeNative
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
@@ -742,8 +740,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 	require.NoError(t, err)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{})
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(t, err)
@@ -836,8 +833,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -1097,8 +1093,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(t), fakeTypes.IPsecConfig{})
 	require.NotNil(t, linuxNodeHandler)
 
 	nodeConfig := s.nodeConfigTemplate
@@ -1255,8 +1250,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(t)
 	a := ipsec.NewTestIPsecAgent(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeTypes.IPsecConfig{})
 
 	require.NotNil(t, linuxNodeHandler)
 	nodeConfig := s.nodeConfigTemplate
@@ -1483,8 +1477,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(b *testing.B, config 
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -1581,8 +1574,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdateNOP(b *testing.B, conf
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)
@@ -1651,8 +1643,7 @@ func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeValidateImplementation(b *te
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 	log := hivetest.Logger(b)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{}, lns)
+	linuxNodeHandler := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsec.NewTestIPsecAgent(b), fakeTypes.IPsecConfig{})
 
 	err := linuxNodeHandler.NodeConfigurationChanged(config)
 	require.NoError(b, err)

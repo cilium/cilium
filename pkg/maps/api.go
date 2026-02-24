@@ -4,7 +4,6 @@
 package maps
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +23,7 @@ import (
 )
 
 type eventsDumper interface {
-	DumpAndSubscribe(ctx context.Context, cb bpf.EventCallbackFunc, follow bool)
+	DumpAndSubscribe(cb bpf.EventCallbackFunc, follow bool) (*bpf.Handle, error)
 	IsEventsEnabled() bool
 }
 
@@ -94,7 +93,7 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 
 		enc := json.NewEncoder(&flushWriter{f: flusher, w: w})
 
-		writeEventFn := func(e bpf.Event) {
+		writeEventFn := func(e *bpf.Event) {
 			errStr := "<nil>"
 			if e.GetLastError() != nil {
 				errStr = e.GetLastError().Error()
@@ -113,10 +112,21 @@ func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) 
 			flusher.Flush()
 		}
 
-		m.DumpAndSubscribe(params.HTTPRequest.Context(), writeEventFn, follow)
+		handle, err := m.DumpAndSubscribe(writeEventFn, follow)
+		if err != nil {
+			h.logger.Error("api handler failed to subscribe to map events", logfields.Error, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
-		if follow {
-			<-params.HTTPRequest.Context().Done()
+		if follow && h != nil {
+			go func() {
+				<-params.HTTPRequest.Context().Done()
+				handle.Close()
+			}()
+			for e := range handle.C() {
+				writeEventFn(e)
+			}
 		}
 	})
 }

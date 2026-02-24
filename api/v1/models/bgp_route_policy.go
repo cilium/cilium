@@ -11,7 +11,6 @@ package models
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -69,15 +68,11 @@ func (m *BgpRoutePolicy) validateStatements(formats strfmt.Registry) error {
 
 		if m.Statements[i] != nil {
 			if err := m.Statements[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("statements" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("statements" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}
@@ -87,7 +82,7 @@ func (m *BgpRoutePolicy) validateStatements(formats strfmt.Registry) error {
 	return nil
 }
 
-var bgpRoutePolicyTypeTypePropEnum []any
+var bgpRoutePolicyTypeTypePropEnum []interface{}
 
 func init() {
 	var res []string
@@ -154,15 +149,11 @@ func (m *BgpRoutePolicy) contextValidateStatements(ctx context.Context, formats 
 			}
 
 			if err := m.Statements[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
+				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("statements" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
+				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("statements" + "." + strconv.Itoa(i))
 				}
-
 				return err
 			}
 		}

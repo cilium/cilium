@@ -34,6 +34,8 @@ const (
 	DiffInsert Operation = 1
 	// DiffEqual item represents an equal diff.
 	DiffEqual Operation = 0
+	//IndexSeparator is used to seperate the array indexes in an index string
+	IndexSeparator = ","
 )
 
 // Diff represents one diff operation
@@ -404,11 +406,14 @@ func (dmp *DiffMatchPatch) DiffLinesToRunes(text1, text2 string) ([]rune, []rune
 func (dmp *DiffMatchPatch) DiffCharsToLines(diffs []Diff, lineArray []string) []Diff {
 	hydrated := make([]Diff, 0, len(diffs))
 	for _, aDiff := range diffs {
-		runes := []rune(aDiff.Text)
-		text := make([]string, len(runes))
+		chars := strings.Split(aDiff.Text, IndexSeparator)
+		text := make([]string, len(chars))
 
-		for i, r := range runes {
-			text[i] = lineArray[runeToInt(r)]
+		for i, r := range chars {
+			i1, err := strconv.Atoi(r)
+			if err == nil {
+				text[i] = lineArray[i1]
+			}
 		}
 
 		aDiff.Text = strings.Join(text, "")
@@ -1146,28 +1151,13 @@ func (dmp *DiffMatchPatch) DiffPrettyText(diffs []Diff) string {
 
 		switch diff.Type {
 		case DiffInsert:
-			lines := strings.Split(text, "\n")
-			for i, line := range lines {
-				_, _ = buff.WriteString("\x1b[32m")
-				_, _ = buff.WriteString(line)
-				if i < len(lines)-1 {
-					_, _ = buff.WriteString("\x1b[0m\n")
-				} else {
-					_, _ = buff.WriteString("\x1b[0m")
-				}
-			}
-
+			_, _ = buff.WriteString("\x1b[32m")
+			_, _ = buff.WriteString(text)
+			_, _ = buff.WriteString("\x1b[0m")
 		case DiffDelete:
-			lines := strings.Split(text, "\n")
-			for i, line := range lines {
-				_, _ = buff.WriteString("\x1b[31m")
-				_, _ = buff.WriteString(line)
-				if i < len(lines)-1 {
-					_, _ = buff.WriteString("\x1b[0m\n")
-				} else {
-					_, _ = buff.WriteString("\x1b[0m")
-				}
-			}
+			_, _ = buff.WriteString("\x1b[31m")
+			_, _ = buff.WriteString(text)
+			_, _ = buff.WriteString("\x1b[0m")
 		case DiffEqual:
 			_, _ = buff.WriteString(text)
 		}
@@ -1320,6 +1310,7 @@ func (dmp *DiffMatchPatch) DiffFromDelta(text1 string, delta string) (diffs []Di
 
 // diffLinesToStrings splits two texts into a list of strings. Each string represents one line.
 func (dmp *DiffMatchPatch) diffLinesToStrings(text1, text2 string) (string, string, []string) {
+	// '\x00' is a valid character, but various debuggers don't like it. So we'll insert a junk entry to avoid generating a null character.
 	lineArray := []string{""} // e.g. lineArray[4] == 'Hello\n'
 
 	lineHash := make(map[string]int)
@@ -1330,11 +1321,12 @@ func (dmp *DiffMatchPatch) diffLinesToStrings(text1, text2 string) (string, stri
 	return intArrayToString(strIndexArray1), intArrayToString(strIndexArray2), lineArray
 }
 
-// diffLinesToStringsMunge splits a text into an array of strings, and reduces the texts to a []index.
-func (dmp *DiffMatchPatch) diffLinesToStringsMunge(text string, lineArray *[]string, lineHash map[string]int) []index {
+// diffLinesToStringsMunge splits a text into an array of strings, and reduces the texts to a []string.
+func (dmp *DiffMatchPatch) diffLinesToStringsMunge(text string, lineArray *[]string, lineHash map[string]int) []uint32 {
+	// Walk the text, pulling out a substring for each line. text.split('\n') would would temporarily double our memory footprint. Modifying text would create many large strings to garbage collect.
 	lineStart := 0
 	lineEnd := -1
-	strs := []index{}
+	strs := []uint32{}
 
 	for lineEnd < len(text)-1 {
 		lineEnd = indexOf(text, "\n", lineStart)
@@ -1348,11 +1340,11 @@ func (dmp *DiffMatchPatch) diffLinesToStringsMunge(text string, lineArray *[]str
 		lineValue, ok := lineHash[line]
 
 		if ok {
-			strs = append(strs, index(lineValue))
+			strs = append(strs, uint32(lineValue))
 		} else {
 			*lineArray = append(*lineArray, line)
 			lineHash[line] = len(*lineArray) - 1
-			strs = append(strs, index(len(*lineArray)-1))
+			strs = append(strs, uint32(len(*lineArray)-1))
 		}
 	}
 

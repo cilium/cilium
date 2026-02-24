@@ -24,11 +24,13 @@ However, there are known issues when using tunnel mode with VXLAN as the encapsu
 
         Install Cilium via ``helm install`` with VXLAN Protocol
 
-        .. cilium-helm-install::
-           :namespace: kube-system
-           :set: image.pullPolicy=IfNotPresent
-                 ipam.mode=kubernetes
-                 tunnelProtocol=vxlan
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set image.pullPolicy=IfNotPresent \\
+                --set ipam.mode=kubernetes \\
+                --set tunnelProtocol=vxlan
 
         .. note::
 
@@ -39,11 +41,13 @@ However, there are known issues when using tunnel mode with VXLAN as the encapsu
 
         Install Cilium via ``helm install`` with Geneve Protocol
 
-        .. cilium-helm-install::
-           :namespace: kube-system
-           :set: image.pullPolicy=IfNotPresent
-                 ipam.mode=kubernetes
-                 tunnelProtocol=geneve
+        .. parsed-literal::
+
+            helm install cilium |CHART_RELEASE| \\
+                --namespace kube-system \\
+                --set image.pullPolicy=IfNotPresent \\
+                --set ipam.mode=kubernetes \\
+                --set tunnelProtocol=geneve
 
         .. note::
 
