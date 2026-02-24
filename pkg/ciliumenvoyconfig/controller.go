@@ -399,10 +399,10 @@ func computeLoadAssignments(
 	serviceName loadbalancer.ServiceName,
 	clusterRefs clusterReferences,
 	portNames map[string]uint16,
-	backends iter.Seq2[loadbalancer.BackendParams, statedb.Revision],
+	backends iter.Seq2[*loadbalancer.Backend, statedb.Revision],
 ) (assignments []*envoy_config_endpoint.ClusterLoadAssignment) {
 	// Partition backends by port name.
-	backendMap := map[string]map[string]loadbalancer.BackendParams{}
+	backendMap := map[string]map[string]*loadbalancer.Backend{}
 
 	// Union of all port names from all referencing CECs.
 	ports := sets.New[string]()
@@ -472,7 +472,7 @@ func computeLoadAssignments(
 		for _, portName := range bePortNames {
 			backends := backendMap[portName]
 			if backends == nil {
-				backends = map[string]loadbalancer.BackendParams{}
+				backends = map[string]*loadbalancer.Backend{}
 				backendMap[portName] = backends
 			}
 			backends[be.Address.String()] = be

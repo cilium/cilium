@@ -122,15 +122,15 @@ Address                Type           ServiceName        PortName   Backends    
 172.16.1.2:80/TCP      LoadBalancer   test/echo-single   http       10.244.2.1:80/TCP, 10.244.2.2:80/TCP                  Done
 
 -- backends.table --
-Address             Instances                  Shadows   NodeName
-10.244.1.1:80/TCP   test/echo-multi (http)               nodeport-worker1
-10.244.1.1:443/TCP  test/echo-multi (https)              nodeport-worker1
-10.244.1.1:443/UDP  test/echo-multi (dtls)               nodeport-worker1
-10.244.1.2:80/TCP   test/echo-multi (http)               nodeport-worker2
-10.244.1.2:443/TCP  test/echo-multi (https)              nodeport-worker2
-10.244.1.2:443/UDP  test/echo-multi (dtls)               nodeport-worker2
-10.244.2.1:80/TCP   test/echo-single (http)              nodeport-worker1
-10.244.2.2:80/TCP   test/echo-single (http)              nodeport-worker2
+Service            Address             PortNames  NodeName
+test/echo-multi    10.244.1.1:80/TCP   http       nodeport-worker1
+test/echo-multi    10.244.1.1:443/TCP  https      nodeport-worker1
+test/echo-multi    10.244.1.1:443/UDP  dtls       nodeport-worker1
+test/echo-multi    10.244.1.2:80/TCP   http       nodeport-worker2
+test/echo-multi    10.244.1.2:443/TCP  https      nodeport-worker2
+test/echo-multi    10.244.1.2:443/UDP  dtls       nodeport-worker2
+test/echo-single   10.244.2.1:80/TCP   http       nodeport-worker1
+test/echo-single   10.244.2.2:80/TCP   http       nodeport-worker2
 
 -- lbmaps-initial.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active

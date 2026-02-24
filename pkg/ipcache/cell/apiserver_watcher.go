@@ -33,9 +33,10 @@ func registerAPIServerBackendWatcher(jobs job.Group, db *statedb.DB, backends st
 			func(ctx context.Context, health cell.Health) error {
 				for {
 					// Get all backend IPs associated to the api-server
-					bes, watch := backends.ListWatch(
+					bes, watch := loadbalancer.ListBackendsByServiceName(
 						db.ReadTxn(),
-						loadbalancer.BackendByServiceName(loadbalancer.NewServiceName("default", "kubernetes")))
+						backends,
+						loadbalancer.NewServiceName("default", "kubernetes"))
 
 					desiredIPs := make(map[cmtypes.PrefixCluster]struct{})
 					for be := range bes {
