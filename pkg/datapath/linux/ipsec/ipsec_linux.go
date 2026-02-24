@@ -444,6 +444,7 @@ func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) er
 	if !deletedSomething {
 		return firstAttemptErr
 	}
+	scopedLog.Info("Retrying XFRM state add after deleting conflicting state")
 	return a.xfrmStateCache.XfrmStateAdd(new)
 }
 
@@ -1195,6 +1196,7 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 		return err
 	}
 	a.spi = spi
+	a.log.Debug("Updated BPF encrypt map with new SPI", logfields.SPI, spi)
 	return nil
 }
 
@@ -1237,6 +1239,10 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
+			a.log.Info("Loaded IPsec keyfile",
+				logfields.SPI, spi,
+				logfields.Path, keyfilePath,
+			)
 
 			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the
