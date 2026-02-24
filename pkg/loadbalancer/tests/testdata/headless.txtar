@@ -57,8 +57,8 @@ Name        Source   PortNames  TrafficPolicy  Flags
 test/echo   k8s      http=80    Cluster
 
 -- backends.table --
-Address             Instances          Shadows        NodeName
-10.244.1.1:80/TCP   test/echo (http)                  nodeport-worker
+Service    Address            NodeName
+test/echo  10.244.1.1:80/TCP  nodeport-worker
 
 -- frontends.table --
 Address        Type       Status  Backends 

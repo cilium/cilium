@@ -293,7 +293,7 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			)
 			var err error
 
-			// Convert [k8s.Endpoints] to [loadbalancer.BackendParams]
+			// Convert [k8s.Endpoints] to [loadbalancer.Backend]
 			backends := convertEndpoints(p.Log, p.ExtConfig, name, allEps.Backends())
 
 			// Find orphaned backends. We are using iter.Seq to avoid unnecessary allocations.
@@ -406,6 +406,7 @@ type bufferValue struct {
 
 type endpointsEvent struct {
 	name     string
+	svcName  loadbalancer.ServiceName
 	backends map[cmtypes.AddrCluster]*k8s.Backend
 }
 
@@ -418,7 +419,8 @@ type allEndpoints struct {
 
 func (ae allEndpoints) insert(deleted bool, ep *k8s.Endpoints) allEndpoints {
 	ev := endpointsEvent{
-		name: ep.EndpointSliceName,
+		name:    ep.EndpointSliceName,
+		svcName: ep.ServiceName,
 	}
 	if !deleted {
 		ev.backends = ep.Backends
@@ -560,7 +562,7 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 
 	type podServices struct {
 		service loadbalancer.Service
-		bes     []loadbalancer.BackendParams
+		bes     []loadbalancer.Backend
 		fes     sets.Set[loadbalancer.FrontendParams]
 	}
 
@@ -626,7 +628,7 @@ func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalanc
 				ipv4 = ipv4 || addr.Is4()
 				ipv6 = ipv6 || addr.Is6()
 
-				bep := loadbalancer.BackendParams{
+				bep := loadbalancer.Backend{
 					Address: loadbalancer.NewL3n4Addr(
 						proto,
 						addr,
