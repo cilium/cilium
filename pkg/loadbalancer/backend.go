@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
-	"github.com/cilium/statedb/part"
 
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
@@ -21,10 +20,16 @@ const (
 	BackendTableName = "backends"
 )
 
-// BackendParams defines the parameters of a backend for insertion into the backends table.
+// Backend defines a load-balancer backend.
+// Stored in the backends table and key'd by (ServiceName, Address, sourcePriority).
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
-type BackendParams struct {
+type Backend struct {
+	// ServiceName is the service to which this backend is associated to.
+	// This field is filled in by the [writer.Writer].
+	ServiceName ServiceName
+
+	// Address of the backend.
 	Address L3n4Addr
 
 	// PortNames are the optional names for the ports. A frontend can specify which
@@ -59,38 +64,51 @@ type BackendParams struct {
 	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated.
 	// +deepequal-gen=false
 	UnhealthyUpdatedAt *time.Time
+
+	// sourcePriority is the priority of [Source]. Filled in by the [writer.Writer].
+	// This along with [ServiceName] and [Address] form the unique primary key ([BackendKey])
+	// for the backends table.
+	sourcePriority uint8
 }
 
-const maxBackendParamsSize = 110
+const maxBackendSize = 140
 
-// Assert on the size of [BackendParams] to keep changes to it at check.
-// If you're adding more fields to [BackendParams] and they're most of the time
+// Assert on the size of [Backend] to keep changes to it at check.
+// If you're adding more fields to [Backend] and they're most of the time
 // not set, please consider putting them behind a separate struct and referring to
 // it by pointer. This way we use less memory for the majority of use-cases.
 var _ = func() struct{} {
-	if size := unsafe.Sizeof(BackendParams{}); size > maxBackendParamsSize {
-		panic(fmt.Sprintf("BackendParams has size %d, maximum set to %d\n", size, maxBackendParamsSize))
+	if size := unsafe.Sizeof(Backend{}); size > maxBackendSize {
+		panic(fmt.Sprintf("Backend has size %d, maximum set to %d\n", size, maxBackendSize))
 	}
 	return struct{}{}
 }()
 
-func (bep *BackendParams) GetZone() string {
-	if bep.Zone == nil {
+func (be *Backend) GetZone() string {
+	if be.Zone == nil {
 		return ""
 	}
-	return bep.Zone.Zone
+	return be.Zone.Zone
 }
 
-func (bep *BackendParams) GetUnhealthyUpdatedAt() time.Time {
-	if bep.UnhealthyUpdatedAt == nil {
+func (be *Backend) GetUnhealthyUpdatedAt() time.Time {
+	if be.UnhealthyUpdatedAt == nil {
 		return time.Time{}
 	}
-	return *bep.UnhealthyUpdatedAt
+	return *be.UnhealthyUpdatedAt
 }
 
-func (bep *BackendParams) DeepEqual(other *BackendParams) bool {
-	return bep.deepEqual(other) &&
-		bep.GetUnhealthyUpdatedAt().Equal(other.GetUnhealthyUpdatedAt())
+func (be *Backend) DeepEqual(other *Backend) bool {
+	return be.deepEqual(other) &&
+		be.GetUnhealthyUpdatedAt().Equal(other.GetUnhealthyUpdatedAt())
+}
+
+func (be *Backend) SourcePriority() uint8 {
+	return be.sourcePriority
+}
+
+func (be *Backend) SetSourcePriority(priority uint8) {
+	be.sourcePriority = priority
 }
 
 // BackendZone locates the backend to a specific zone and specifies what zones
@@ -104,80 +122,37 @@ type BackendZone struct {
 	ForZones []string
 }
 
-// Backend is a composite of the per-service backend instances that share the same
-// IP address and port.
-type Backend struct {
-	Address L3n4Addr
-
-	// Instances of this backend. A backend is always linked to a specific
-	// service and the instances may call the backend by different name
-	// (PortName) or they may come from  differents sources.
-	// Instances may contain multiple [BackendInstance]s per service
-	// coming from different sources. The version from the source with the
-	// highest priority (smallest uint8) is used. This is needed for smooth
-	// transitions when ownership of endpoints is passed between upstream
-	// data sources.
-	Instances part.Map[BackendInstanceKey, BackendParams]
-}
-
-type BackendInstanceKey struct {
+type BackendKey struct {
 	ServiceName    ServiceName
+	Address        L3n4Addr
 	SourcePriority uint8
 }
 
-func (k BackendInstanceKey) Key() []byte {
-	const separator = ' '
-	if k.SourcePriority == 0 {
-		return append(k.ServiceName.Key(), separator)
-	}
-	sk := k.ServiceName.Key()
-	buf := make([]byte, 0, 2+len(sk))
-	buf = append(buf, sk...)
-	return append(buf, separator, k.SourcePriority)
+func (k BackendKey) Key() index.Key {
+	const separator = 0x00
+	key := make([]byte, 0, len(k.ServiceName.Key())+1+len(k.Address.Bytes())+1+1)
+	key = append(key, k.ServiceName.Key()...)
+	key = append(key, separator)
+	key = append(key, k.Address.Bytes()...)
+	key = append(key, separator)
+	key = append(key, k.SourcePriority)
+	return key
 }
 
-func (be *Backend) GetInstance(name ServiceName) *BackendParams {
-	// Return the instance matching the service name with highest priority
-	// (lowest number)
-	for _, inst := range be.GetInstancesOfService(name) {
-		return &inst
-	}
-	return nil
+func (be *Backend) Key() index.Key {
+	return BackendKey{
+		ServiceName:    be.ServiceName,
+		Address:        be.Address,
+		SourcePriority: be.sourcePriority,
+	}.Key()
 }
 
-func (be *Backend) GetInstancesOfService(name ServiceName) iter.Seq2[BackendInstanceKey, BackendParams] {
-	return be.Instances.Prefix(BackendInstanceKey{ServiceName: name, SourcePriority: 0})
-}
-
-func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
-	serviceName := fe.ServiceName
-	if fe.RedirectTo != nil {
-		serviceName = *fe.RedirectTo
-	}
-	return be.GetInstance(serviceName)
-}
-
-func (be *Backend) GetInstanceFromSource(name ServiceName, srcPriority uint8) *BackendParams {
-	inst, found := be.Instances.Get(BackendInstanceKey{ServiceName: name, SourcePriority: srcPriority})
-	if found {
-		return &inst
-	}
-	return nil
-}
-
-// IsAlive returns true if any of the instances are marked active or terminating and healthy.
-// This signals whether the backend should still be considered alive or not for the purposes
-// of terminating connections to it.
+// IsAlive returns true if this backend instance is marked active or terminating and healthy.
 func (be *Backend) IsAlive() bool {
-	for _, inst := range be.Instances.All() {
-		switch {
-		case inst.Unhealthy:
-			continue
-		case inst.State == BackendStateActive, inst.State == BackendStateTerminating:
-			return true
-		}
+	if be.Unhealthy {
+		return false
 	}
-	return false
+	return be.State == BackendStateActive || be.State == BackendStateTerminating
 }
 
 func (be *Backend) String() string {
@@ -186,118 +161,26 @@ func (be *Backend) String() string {
 
 func (be *Backend) TableHeader() []string {
 	return []string{
+		"Service",
 		"Address",
-		"Instances",
-		"Shadows",
+		"Source",
+		"Priority",
+		"State",
+		"PortNames",
 		"NodeName",
 	}
 }
 
 func (be *Backend) TableRow() []string {
-	nodeName := ""
-	for _, inst := range be.Instances.All() {
-		if nodeName == "" {
-			nodeName = inst.NodeName
-		}
-	}
+	state, _ := be.State.String()
 	return []string{
+		be.ServiceName.String(),
 		be.Address.StringWithProtocol(),
-		showInstances(be),
-		showShadows(be),
-		nodeName,
-	}
-}
-
-// showInstances shows the backend instances in the following forms:
-// - no port name(s): "default/nginx"
-// - port name(s): "default/nginx (http, http-alt)"
-// - not active: "default/nginx [quarantined]"
-// - not active, port name(s): "default/nginx [quarantined] (http, http-alt)"
-func showInstances(be *Backend) string {
-	var b strings.Builder
-	for k, inst := range be.PreferredInstances() {
-		b.WriteString(k.ServiceName.String())
-
-		if inst.State != BackendStateActive || inst.Unhealthy {
-			b.WriteString(" [")
-			if inst.Unhealthy {
-				b.WriteString("unhealthy")
-			} else {
-				s, _ := inst.State.String()
-				b.WriteString(s)
-			}
-			b.WriteRune(']')
-		}
-		if len(inst.PortNames) > 0 {
-			b.WriteString(" (")
-			for i, name := range inst.PortNames {
-				b.WriteString(string(name))
-				if i < len(inst.PortNames)-1 {
-					b.WriteRune(' ')
-				}
-			}
-			b.WriteRune(')')
-		}
-		b.WriteString(", ")
-	}
-	return strings.TrimSuffix(b.String(), ", ")
-}
-
-func showShadows(be *Backend) string {
-	var (
-		services           []string
-		instances          []string
-		emptyName, svcName ServiceName
-	)
-	updateServices := func() {
-		if len(instances) > 0 {
-			services = append(services, fmt.Sprintf("%s [%s]", svcName.String(), strings.Join(instances, ", ")))
-		}
-	}
-	for k, inst := range be.Instances.All() {
-		if k.ServiceName != svcName {
-			if svcName != emptyName {
-				updateServices()
-			}
-			svcName = k.ServiceName
-			instances = instances[:0]
-			continue // Omit the instance that is already included in showInstances
-		}
-		instance := string(inst.Source)
-		if len(inst.PortNames) > 0 {
-			instance += fmt.Sprintf(" (%s)", strings.Join(inst.PortNames, " "))
-		}
-		instances = append(instances, instance)
-	}
-	updateServices()
-	return strings.Join(services, ", ")
-}
-
-func (be *Backend) serviceNameKeys() index.KeySet {
-	if be.Instances.Len() == 1 {
-		// Avoid allocating the slice.
-		for k := range be.PreferredInstances() {
-			return index.NewKeySet(k.ServiceName.Key())
-		}
-	}
-	keys := make([]index.Key, 0, be.Instances.Len()) // This may be more than enough if non-preferred instances exist.
-	for k := range be.PreferredInstances() {
-		keys = append(keys, k.ServiceName.Key())
-	}
-	return index.NewKeySet(keys...)
-}
-
-func (be *Backend) PreferredInstances() iter.Seq2[BackendInstanceKey, BackendParams] {
-	return func(yield func(BackendInstanceKey, BackendParams) bool) {
-		var svcName ServiceName
-		for k, v := range be.Instances.All() {
-			if k.ServiceName != svcName {
-				svcName = k.ServiceName
-				if !yield(k, v) {
-					break
-				}
-			} // Skip instances with the same ServiceName but lower (numerically larger) priorities.
-		}
+		string(be.Source),
+		fmt.Sprintf("%d", be.sourcePriority),
+		state,
+		strings.Join(be.PortNames, ","),
+		be.NodeName,
 	}
 }
 
@@ -308,34 +191,80 @@ func (be *Backend) Clone() *Backend {
 }
 
 var (
-	backendAddrIndex = statedb.Index[*Backend, L3n4Addr]{
-		Name: "address",
-		FromObject: func(obj *Backend) index.KeySet {
-			return index.NewKeySet(obj.Address.Bytes())
+	backendKeyIndex = statedb.Index[*Backend, BackendKey]{
+		Name: "key",
+		FromObject: func(be *Backend) index.KeySet {
+			return index.NewKeySet(be.Key())
 		},
-		FromKey:    func(l L3n4Addr) index.Key { return index.Key(l.Bytes()) },
-		FromString: L3n4AddrFromString,
-		Unique:     true,
+		FromKey: BackendKey.Key,
+		Unique:  true,
 	}
 
-	BackendByAddress = backendAddrIndex.Query
+	BackendByKey = backendKeyIndex.Query
 
-	backendServiceIndex = statedb.Index[*Backend, ServiceName]{
-		Name:       "service",
-		FromObject: (*Backend).serviceNameKeys,
-		FromKey:    ServiceName.Key,
-		FromString: index.FromString,
+	backendAddrIndex = statedb.Index[*Backend, L3n4Addr]{
+		Name: "address",
+		FromObject: func(be *Backend) index.KeySet {
+			return index.NewKeySet(be.Address.Bytes())
+		},
+		FromKey:    L3n4Addr.Key,
+		FromString: L3n4AddrFromString,
 		Unique:     false,
 	}
 
-	BackendByServiceName = backendServiceIndex.Query
+	BackendByAddress = backendAddrIndex.Query
 )
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 	return statedb.NewTable(
 		db,
 		BackendTableName,
+		backendKeyIndex,
 		backendAddrIndex,
-		backendServiceIndex,
 	)
+}
+
+// ListBackendsByServiceName returns backends associated with the given service and a watch channel that closes when
+// the associations change.
+func ListBackendsByServiceName(txn statedb.ReadTxn, backends statedb.Table[*Backend], name ServiceName) (iter.Seq2[*Backend, statedb.Revision], <-chan struct{}) {
+	key := name.Key()
+	prefix := make([]byte, len(key)+1 /* the 0x00 separator */)
+	copy(prefix, key)
+	// Prefix search for "<name>\0" to find all backends associated with the given service.
+	return backends.PrefixWatch(txn, backendKeyIndex.QueryFromKey(index.Key(prefix)))
+}
+
+// ListBackendsByServiceNameAndAddress returns backends associated with the given service and address
+// and a watch channel that closes when the associations change.
+func ListBackendsByServiceNameAndAddress(txn statedb.ReadTxn, backends statedb.Table[*Backend], name ServiceName, addr L3n4Addr) (iter.Seq2[*Backend, statedb.Revision], <-chan struct{}) {
+	// Prefix search for "<name>\0<addr>\0" to find all source-priority instances for this backend.
+	nameKey := name.Key()
+	addrKey := addr.Bytes()
+	prefix := make([]byte, 0, len(nameKey)+1+len(addrKey)+1)
+	prefix = append(prefix, nameKey...)
+	prefix = append(prefix, 0x00)
+	prefix = append(prefix, addrKey...)
+	prefix = append(prefix, 0x00)
+	return backends.PrefixWatch(txn, backendKeyIndex.QueryFromKey(index.Key(prefix)))
+}
+
+// PreferredBackendsByAddress yields only the preferred backend instance per address.
+// This relies on BackendKey ordering which sorts by service, then address, then
+// source priority (lower is preferred).
+func PreferredBackendsByAddress(seq iter.Seq2[*Backend, statedb.Revision]) iter.Seq2[*Backend, statedb.Revision] {
+	return func(yield func(*Backend, statedb.Revision) bool) {
+		var (
+			lastAddr L3n4Addr
+			hasAddr  bool
+		)
+		for be, rev := range seq {
+			if !hasAddr || be.Address != lastAddr {
+				lastAddr = be.Address
+				hasAddr = true
+				if !yield(be, rev) {
+					return
+				}
+			}
+		}
+	}
 }

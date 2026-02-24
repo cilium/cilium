@@ -116,11 +116,11 @@ Address                    Type        ServiceName   PortName   Backends        
 [1001::1]:8080/TCP         ClusterIP   test/echo     tcp                                                            Done
 
 -- backends-only-redirects.table --
-Address             Instances                           Shadows   NodeName
-10.244.2.1:70/UDP   test/lrp-svc:local-redirect (udp)
-10.244.2.1:80/TCP   test/lrp-svc:local-redirect (tcp)
-[2001::1]:70/UDP    test/lrp-svc:local-redirect (udp)
-[2001::1]:80/TCP    test/lrp-svc:local-redirect (tcp)
+Service                      Address            NodeName
+test/lrp-svc:local-redirect  10.244.2.1:70/UDP
+test/lrp-svc:local-redirect  10.244.2.1:80/TCP
+test/lrp-svc:local-redirect  [2001::1]:70/UDP
+test/lrp-svc:local-redirect  [2001::1]:80/TCP
 
 -- maps-before.expected --
 BE: ID=1 ADDR=10.244.1.1:7070/UDP STATE=active
