@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -67,16 +68,16 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{})
+	handler.ProcessFlow(ctx, &ir.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
-		Type:   pb.L7FlowType_RESPONSE,
-		Record: &pb.Layer7_Dns{},
+	handler.ProcessFlow(ctx, &ir.Flow{L7: ir.Layer7{
+		Type: pb.L7FlowType_RESPONSE,
+		DNS:  ir.DNS{},
 	}})
-	sourceEndpoint := &pb.Endpoint{
+	sourceEndpoint := ir.Endpoint{
 		Namespace: "source-ns",
 		PodName:   "source-deploy-pod",
-		Workloads: []*pb.Workload{{
+		Workloads: []ir.Workload{{
 			Name: "source-deploy",
 			Kind: "Deployment",
 		}},
@@ -84,10 +85,10 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 			"k8s:app=sourceapp",
 		},
 	}
-	destinationEndpoint := &pb.Endpoint{
+	destinationEndpoint := ir.Endpoint{
 		Namespace: "destination-ns",
 		PodName:   "destination-deploy-pod",
-		Workloads: []*pb.Workload{{
+		Workloads: []ir.Workload{{
 			Name: "destination-deploy",
 			Kind: "Deployment",
 		}},
@@ -96,18 +97,18 @@ func Test_kafkaHandler_ProcessFlow(t *testing.T) {
 		},
 	}
 	// should count for request
-	handler.ProcessFlow(ctx, &pb.Flow{
+	handler.ProcessFlow(ctx, &ir.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		Source:           sourceEndpoint,
 		Destination:      destinationEndpoint,
-		L7: &pb.Layer7{
+		L7: ir.Layer7{
 			Type:      pb.L7FlowType_REQUEST,
 			LatencyNs: 12345678,
-			Record: &pb.Layer7_Kafka{Kafka: &pb.Kafka{
+			Kafka: ir.Kafka{
 				Topic:     "test-topic",
-				ApiKey:    "test-api-key",
+				APIKey:    "test-api-key",
 				ErrorCode: 0,
-			}},
+			},
 		},
 	})
 	requestsExpected := `

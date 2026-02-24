@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestFQDNFilter(t *testing.T) {
@@ -30,10 +31,10 @@ func TestFQDNFilter(t *testing.T) {
 					{SourceFqdn: []string{"cilium.io", "ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{"ebpf.io"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{"cilium.io"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{"ebpf.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"ebpf.io"}}},
+					{Event: &ir.Flow{DestinationNames: []string{"cilium.io"}}},
+					{Event: &ir.Flow{DestinationNames: []string{"ebpf.io"}}},
 				},
 			},
 			want: []bool{
@@ -50,10 +51,10 @@ func TestFQDNFilter(t *testing.T) {
 					{DestinationFqdn: []string{"cilium.io", "ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{"ebpf.io"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{"cilium.io"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{"ebpf.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"ebpf.io"}}},
+					{Event: &ir.Flow{DestinationNames: []string{"cilium.io"}}},
+					{Event: &ir.Flow{DestinationNames: []string{"ebpf.io"}}},
 				},
 			},
 			want: []bool{
@@ -73,15 +74,15 @@ func TestFQDNFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"ebpf.io"},
 						DestinationNames: []string{"cilium.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
@@ -101,21 +102,21 @@ func TestFQDNFilter(t *testing.T) {
 					{DestinationFqdn: []string{"ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"ebpf.io"},
 						DestinationNames: []string{"cilium.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames: []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &flowpb.Flow{
+					{Event: &ir.Flow{
 						SourceNames:      []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
@@ -138,10 +139,10 @@ func TestFQDNFilter(t *testing.T) {
 				ev: []*v1.Event{
 					nil,
 					{},
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io."}}}, // should not have trailing dot
-					{Event: &flowpb.Flow{SourceNames: []string{"www.cilium.io"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{""}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{SourceNames: []string{"cilium.io."}}}, // should not have trailing dot
+					{Event: &ir.Flow{SourceNames: []string{"www.cilium.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{""}}},
 				},
 			},
 			want: []bool{
@@ -179,13 +180,13 @@ func TestFQDNFilter(t *testing.T) {
 					{DestinationFqdn: []string{"*"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{SourceNames: []string{"www.cilium.io"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{"multiple.domains.org"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &flowpb.Flow{SourceNames: []string{"tiefighter", "empire.org"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{"anything.really"}}},
-					{Event: &flowpb.Flow{DestinationNames: []string{""}}},
+					{Event: &ir.Flow{SourceNames: []string{"www.cilium.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"multiple.domains.org"}}},
+					{Event: &ir.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &ir.Flow{SourceNames: []string{"tiefighter", "empire.org"}}},
+					{Event: &ir.Flow{DestinationNames: []string{}}},
+					{Event: &ir.Flow{DestinationNames: []string{"anything.really"}}},
+					{Event: &ir.Flow{DestinationNames: []string{""}}},
 				},
 			},
 			want: []bool{
@@ -246,12 +247,10 @@ func Test_filterByDNSQuery(t *testing.T) {
 			name: "positive",
 			args: args{
 				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L7: &flowpb.Layer7{
-						Record: &flowpb.Layer7_Dns{
-							Dns: &flowpb.DNS{
-								Query: "cilium.io",
-							},
+				ev: &v1.Event{Event: &ir.Flow{
+					L7: ir.Layer7{
+						DNS: ir.DNS{
+							Query: "cilium.io",
 						},
 					},
 				}},
@@ -262,12 +261,10 @@ func Test_filterByDNSQuery(t *testing.T) {
 			name: "positive",
 			args: args{
 				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L7: &flowpb.Layer7{
-						Record: &flowpb.Layer7_Dns{
-							Dns: &flowpb.DNS{
-								Query: "cilium.io",
-							},
+				ev: &v1.Event{Event: &ir.Flow{
+					L7: ir.Layer7{
+						DNS: ir.DNS{
+							Query: "cilium.io",
 						},
 					},
 				}},
@@ -279,12 +276,10 @@ func Test_filterByDNSQuery(t *testing.T) {
 			name: "negative",
 			args: args{
 				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.net"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L7: &flowpb.Layer7{
-						Record: &flowpb.Layer7_Dns{
-							Dns: &flowpb.DNS{
-								Query: "cilium.io",
-							},
+				ev: &v1.Event{Event: &ir.Flow{
+					L7: ir.Layer7{
+						DNS: ir.DNS{
+							Query: "cilium.io",
 						},
 					},
 				}},

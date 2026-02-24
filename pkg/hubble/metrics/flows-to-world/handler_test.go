@@ -10,9 +10,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -35,33 +35,31 @@ func TestFlowsToWorldHandler_MatchingFlow(t *testing.T) {
 	h := &flowsToWorldHandler{}
 	assert.NoError(t, h.Init(registry, opts))
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
-	flow := flowpb.Flow{
+	flow := ir.Flow{
 		Verdict:        flowpb.Verdict_DROPPED,
 		DropReasonDesc: flowpb.DropReason_POLICY_DENIED,
-		EventType:      &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		EventType:      ir.EventType{Type: monitorAPI.MessageTypeDrop},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
 	}
 
 	h.ProcessFlow(t.Context(), &flow)
-	flow.L4 = &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{DestinationPort: 53}},
+	flow.L4 = ir.Layer4{
+		UDP: ir.UDP{DestinationPort: 53},
 	}
 	h.ProcessFlow(t.Context(), &flow)
-	flow.L4 = &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_ICMPv4{ICMPv4: &flowpb.ICMPv4{}},
+	flow.L4 = ir.Layer4{
+		ICMPv4: ir.ICMP{Type: 1},
 	}
 	h.ProcessFlow(t.Context(), &flow)
-	flow.L4 = &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_ICMPv6{ICMPv6: &flowpb.ICMPv6{}},
+	flow.L4 = ir.Layer4{
+		ICMPv6: ir.ICMP{Type: 1},
 	}
 	h.ProcessFlow(t.Context(), &flow)
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world
@@ -92,70 +90,64 @@ func TestFlowsToWorldHandler_NonMatchingFlows(t *testing.T) {
 	assert.NoError(t, h.Init(registry, opts))
 
 	// destination is missing.
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict: flowpb.Verdict_FORWARDED,
-		Source:  &flowpb.Endpoint{Namespace: "src-a"},
+		Source:  ir.Endpoint{Namespace: "src-a"},
 	})
 	// destination is not reserved:world
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict: flowpb.Verdict_FORWARDED,
-		Source:  &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source:  ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:host"},
 		},
 	})
 	// L4 information is missing.
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict: flowpb.Verdict_FORWARDED,
-		Source:  &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source:  ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 	})
 	// EventType is missing.
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict: flowpb.Verdict_FORWARDED,
-		Source:  &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source:  ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
 	})
 	// Drop reason is not "Policy denied".
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict:        flowpb.Verdict_DROPPED,
-		EventType:      &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop},
+		EventType:      ir.EventType{Type: monitorAPI.MessageTypeDrop},
 		DropReasonDesc: flowpb.DropReason_STALE_OR_UNROUTABLE_IP,
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
 	})
 	// Flow is a reply.
-	h.ProcessFlow(t.Context(), &flowpb.Flow{
+	h.ProcessFlow(t.Context(), &ir.Flow{
 		Verdict:   flowpb.Verdict_FORWARDED,
-		EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeTrace},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		EventType: ir.EventType{Type: monitorAPI.MessageTypeTrace},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
-		IsReply:          wrapperspb.Bool(true),
+		Reply:            ir.ReplyYes,
 	})
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
 }
@@ -181,17 +173,15 @@ func TestFlowsToWorldHandler_AnyDrop(t *testing.T) {
 	h := &flowsToWorldHandler{}
 	assert.NoError(t, h.Init(registry, opts))
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
-	flow := flowpb.Flow{
+	flow := ir.Flow{
 		Verdict:        flowpb.Verdict_DROPPED,
 		DropReasonDesc: flowpb.DropReason_STALE_OR_UNROUTABLE_IP,
-		EventType:      &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		EventType:      ir.EventType{Type: monitorAPI.MessageTypeDrop},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
@@ -225,32 +215,26 @@ func TestFlowsToWorldHandler_IncludePort(t *testing.T) {
 	h := &flowsToWorldHandler{}
 	assert.NoError(t, h.Init(registry, opts))
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
-	flow := flowpb.Flow{
+	flow := ir.Flow{
 		Verdict:   flowpb.Verdict_FORWARDED,
-		EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeTrace},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80},
-			},
+		EventType: ir.EventType{Type: monitorAPI.MessageTypeTrace},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
-		IsReply:          wrapperspb.Bool(false),
+		Reply:            ir.ReplyNo,
 	}
 	h.ProcessFlow(t.Context(), &flow)
-	flow.L4 = &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_UDP{
-			UDP: &flowpb.UDP{DestinationPort: 53},
-		},
+	flow.L4 = ir.Layer4{
+		UDP: ir.UDP{DestinationPort: 53},
 	}
 	h.ProcessFlow(t.Context(), &flow)
-	flow.L4 = &flowpb.Layer4{
-		Protocol: &flowpb.Layer4_SCTP{
-			SCTP: &flowpb.SCTP{DestinationPort: 2905},
-		},
+	flow.L4 = ir.Layer4{
+		SCTP: ir.SCTP{DestinationPort: 2905},
 	}
 	h.ProcessFlow(t.Context(), &flow)
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world
@@ -283,35 +267,33 @@ func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 	h := &flowsToWorldHandler{}
 	assert.NoError(t, h.Init(registry, opts))
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, strings.NewReader("")))
-	flow := flowpb.Flow{
+	flow := ir.Flow{
 		Verdict:        flowpb.Verdict_DROPPED,
 		DropReasonDesc: flowpb.DropReason_POLICY_DENIED,
-		EventType:      &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop},
-		L4: &flowpb.Layer4{
-			Protocol: &flowpb.Layer4_TCP{
-				TCP: &flowpb.TCP{DestinationPort: 80, Flags: &flowpb.TCPFlags{SYN: true}},
-			},
+		EventType:      ir.EventType{Type: monitorAPI.MessageTypeDrop},
+		L4: ir.Layer4{
+			TCP: ir.TCP{DestinationPort: 80, Flags: ir.TCPFlags{SYN: true}},
 		},
-		Source: &flowpb.Endpoint{Namespace: "src-a"},
-		Destination: &flowpb.Endpoint{
+		Source: ir.Endpoint{Namespace: "src-a"},
+		Destination: ir.Endpoint{
 			Labels: []string{"reserved:world"},
 		},
 		DestinationNames: []string{"cilium.io"},
-		IsReply:          wrapperspb.Bool(false),
+		Reply:            ir.ReplyNo,
 	}
 	h.ProcessFlow(t.Context(), &flow)
 
 	// flows without is_reply field should be counted.
-	flow.IsReply = nil
+	flow.Reply = ir.ReplyUnknown
 	h.ProcessFlow(t.Context(), &flow)
 
 	// reply flows should not be counted
-	flow.IsReply = wrapperspb.Bool(true)
+	flow.Reply = ir.ReplyYes
 	h.ProcessFlow(t.Context(), &flow)
 
 	// Non-SYN should not be counted
-	flow.IsReply = wrapperspb.Bool(false)
-	flow.L4.GetTCP().Flags = &flowpb.TCPFlags{ACK: true}
+	flow.Reply = ir.ReplyNo
+	flow.L4.TCP.Flags = ir.TCPFlags{ACK: true}
 	h.ProcessFlow(t.Context(), &flow)
 
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world

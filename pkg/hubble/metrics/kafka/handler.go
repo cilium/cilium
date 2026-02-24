@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -70,13 +71,13 @@ func (h *kafkaHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.requests.MetricVec, h.duration.MetricVec}
 }
 
-func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	l7 := flow.GetL7()
-	if l7 == nil {
+func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	l7 := flow.L7
+	if l7.IsEmpty() {
 		return nil
 	}
-	kafka := l7.GetKafka()
-	if kafka == nil {
+	kafka := l7.Kafka
+	if kafka.IsEmpty() {
 		return nil
 	}
 
@@ -94,15 +95,15 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 	}
 
 	reporter := "unknown"
-	switch flow.GetTrafficDirection() {
+	switch flow.TrafficDirection {
 	case flowpb.TrafficDirection_EGRESS:
 		reporter = "client"
 	case flowpb.TrafficDirection_INGRESS:
 		reporter = "server"
 	}
 
-	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, strconv.Itoa(int(kafka.ErrorCode)), reporter)...).Inc()
-	h.duration.WithLabelValues(append(labelValues, kafka.Topic, kafka.ApiKey, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
+	h.requests.WithLabelValues(append(labelValues, kafka.Topic, kafka.APIKey, strconv.Itoa(int(kafka.ErrorCode)), reporter)...).Inc()
+	h.duration.WithLabelValues(append(labelValues, kafka.Topic, kafka.APIKey, reporter)...).Observe(float64(l7.LatencyNs) / float64(time.Second))
 	return nil
 }
 

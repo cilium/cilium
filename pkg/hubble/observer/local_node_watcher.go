@@ -7,7 +7,7 @@ import (
 	"context"
 	"slices"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -43,9 +43,10 @@ func NewLocalNodeWatcher(ctx context.Context, localNodeStore *node.LocalNodeStor
 
 // OnDecodedFlow implements OnDecodedFlow for LocalNodeWatcher. The
 // LocalNodeWatcher populate the flow's node_labels field.
-func (w *LocalNodeWatcher) OnDecodedFlow(_ context.Context, flow *flowpb.Flow) (bool, error) {
+func (w *LocalNodeWatcher) OnDecodedFlow(_ context.Context, flow *ir.Flow) (bool, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	flow.NodeLabels = w.cache.labels
 	return false, nil
 }

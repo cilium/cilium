@@ -9,19 +9,28 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
-func sourceEndpoint(ev *v1.Event) *flowpb.Endpoint {
-	return ev.GetFlow().GetSource()
+func sourceEndpoint(ev *v1.Event) ir.Endpoint {
+	if ev == nil || ev.GetFlow() == nil {
+		return ir.Endpoint{}
+	}
+
+	return ev.GetFlow().Source
 }
 
-func destinationEndpoint(ev *v1.Event) *flowpb.Endpoint {
-	return ev.GetFlow().GetDestination()
+func destinationEndpoint(ev *v1.Event) ir.Endpoint {
+	if ev == nil || ev.GetFlow() == nil {
+		return ir.Endpoint{}
+	}
+
+	return ev.GetFlow().Destination
 }
 
-func filterByIdentity(identities []uint32, getEndpoint func(*v1.Event) *flowpb.Endpoint) FilterFunc {
+func filterByIdentity(identities []uint32, getEndpoint func(*v1.Event) ir.Endpoint) FilterFunc {
 	return func(ev *v1.Event) bool {
-		if endpoint := getEndpoint(ev); endpoint != nil {
+		if endpoint := getEndpoint(ev); !endpoint.IsEmpty() {
 			return slices.Contains(identities, endpoint.Identity)
 		}
 		return false

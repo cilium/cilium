@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestDropReasonDescFilter(t *testing.T) {
@@ -33,10 +34,10 @@ func TestDropReasonDescFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED, DropReasonDesc: flowpb.DropReason_UNSUPPORTED_L3_PROTOCOL}},
-					{Event: &flowpb.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_INVALID_SOURCE_IP}},
-					{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED, DropReasonDesc: flowpb.DropReason_POLICY_DENIED}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{Verdict: flowpb.Verdict_DROPPED, DropReasonDesc: flowpb.DropReason_UNSUPPORTED_L3_PROTOCOL}},
+					{Event: &ir.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_INVALID_SOURCE_IP}},
+					{Event: &ir.Flow{Verdict: flowpb.Verdict_DROPPED, DropReasonDesc: flowpb.DropReason_POLICY_DENIED}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.LostEvent{}},
 				},
@@ -59,9 +60,9 @@ func TestDropReasonDescFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_UNSUPPORTED_L3_PROTOCOL}},
-					{Event: &flowpb.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_INVALID_SOURCE_IP}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_UNSUPPORTED_L3_PROTOCOL}},
+					{Event: &ir.Flow{Verdict: flowpb.Verdict_VERDICT_UNKNOWN, DropReasonDesc: flowpb.DropReason_INVALID_SOURCE_IP}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.LostEvent{}},
 				},

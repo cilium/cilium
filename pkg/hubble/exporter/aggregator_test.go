@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldaggregate"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -131,19 +132,19 @@ func TestAggregateAdd(t *testing.T) {
 
 		// Add ingress, egress, and unknown direction flows with same verdict.
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN,
 			},
@@ -186,13 +187,13 @@ func TestAggregateAdd(t *testing.T) {
 
 		// Add multiple unknown direction flows.
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN,
 			},
 		})
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
+			Event: &ir.Flow{
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN,
 			},
@@ -270,43 +271,35 @@ func TestAggregateAdd(t *testing.T) {
 		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
 
 		// Create 2 identical TCP+HTTP flows.
-		flow1 := &flowpb.Flow{
-			Source: &flowpb.Endpoint{Namespace: "default"},
-			L4: &flowpb.Layer4{
-				Protocol: &flowpb.Layer4_TCP{
-					TCP: &flowpb.TCP{
-						SourcePort:      33001,
-						DestinationPort: 443,
-					},
+		flow1 := &ir.Flow{
+			Source: ir.Endpoint{Namespace: "default"},
+			L4: ir.Layer4{
+				TCP: ir.TCP{
+					SourcePort:      33001,
+					DestinationPort: 443,
 				},
 			},
-			L7: &flowpb.Layer7{
+			L7: ir.Layer7{
 				Type: flowpb.L7FlowType_RESPONSE,
-				Record: &flowpb.Layer7_Http{
-					Http: &flowpb.HTTP{
-						Code: 200,
-					},
+				HTTP: ir.HTTP{
+					Code: 200,
 				},
 			},
 			TrafficDirection: flowpb.TrafficDirection_INGRESS,
 		}
 
-		flow2 := &flowpb.Flow{
-			Source: &flowpb.Endpoint{Namespace: "default"},
-			L4: &flowpb.Layer4{
-				Protocol: &flowpb.Layer4_TCP{
-					TCP: &flowpb.TCP{
-						SourcePort:      33002, // Different source port (not in mask).
-						DestinationPort: 443,
-					},
+		flow2 := &ir.Flow{
+			Source: ir.Endpoint{Namespace: "default"},
+			L4: ir.Layer4{
+				TCP: ir.TCP{
+					SourcePort:      33002, // Different source port (not in mask).
+					DestinationPort: 443,
 				},
 			},
-			L7: &flowpb.Layer7{
+			L7: ir.Layer7{
 				Type: flowpb.L7FlowType_RESPONSE,
-				Record: &flowpb.Layer7_Http{
-					Http: &flowpb.HTTP{
-						Code: 200,
-					},
+				HTTP: ir.HTTP{
+					Code: 200,
 				},
 			},
 			TrafficDirection: flowpb.TrafficDirection_INGRESS,
@@ -340,8 +333,8 @@ func TestAggregateTimeEnrichment(t *testing.T) {
 		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
 		testTimestamp := &timestamp.Timestamp{Seconds: 1692369601, Nanos: 123456789}
 		aggregator.Add(&v1.Event{
-			Event: &flowpb.Flow{
-				Time:             testTimestamp,
+			Event: &ir.Flow{
+				CreatedOn:        testTimestamp.AsTime(),
 				Verdict:          flowpb.Verdict_FORWARDED,
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
 			},
@@ -482,14 +475,14 @@ func TestAsyncProcessingEdgeCases(t *testing.T) {
 func getEventList() []*v1.Event {
 	return []*v1.Event{
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369601},
-				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+			Event: &ir.Flow{
+				CreatedOn: time.Unix(1692369601, 0),
+				Verdict:   flowpb.Verdict_FORWARDED,
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},
@@ -497,14 +490,14 @@ func getEventList() []*v1.Event {
 			},
 		},
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369604},
-				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+			Event: &ir.Flow{
+				CreatedOn: time.Unix(1692369604, 0),
+				Verdict:   flowpb.Verdict_FORWARDED,
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},
@@ -512,14 +505,14 @@ func getEventList() []*v1.Event {
 			},
 		},
 		{
-			Event: &flowpb.Flow{
-				Time:    &timestamp.Timestamp{Seconds: 1692369604},
-				Verdict: flowpb.Verdict_FORWARDED,
-				Source: &flowpb.Endpoint{
+			Event: &ir.Flow{
+				CreatedOn: time.Unix(1692369604, 0),
+				Verdict:   flowpb.Verdict_FORWARDED,
+				Source: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "src-pod1",
 				},
-				Destination: &flowpb.Endpoint{
+				Destination: ir.Endpoint{
 					Namespace: "default",
 					PodName:   "dest-pod1",
 				},

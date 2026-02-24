@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -158,7 +159,7 @@ nextEvent:
 			continue
 		}
 
-		if flow, ok := ev.Event.(*flowpb.Flow); ok {
+		if flow, ok := ev.Event.(*ir.Flow); ok {
 			// track namespaces seen.
 			s.trackNamespaces(flow)
 			for _, f := range s.opts.OnDecodedFlow {
@@ -369,10 +370,11 @@ nextEvent:
 		var resp *observerpb.GetFlowsResponse
 
 		switch ev := e.Event.(type) {
-		case *flowpb.Flow:
+		case *ir.Flow:
+			fl := ev.ToProto()
 			eventsReader.eventCount++
 			for _, f := range s.opts.OnFlowDelivery {
-				stop, err := f.OnFlowDelivery(ctx, ev)
+				stop, err := f.OnFlowDelivery(ctx, fl)
 				switch {
 				case err != nil:
 					return err
@@ -382,16 +384,17 @@ nextEvent:
 			}
 			if mask.Active() {
 				// Copy only fields in the mask
-				mask.Copy(flow.ProtoReflect(), ev.ProtoReflect())
-				ev = flow
+				mask.Copy(flow.ProtoReflect(), fl.ProtoReflect())
+				fl = flow
 			}
 			resp = &observerpb.GetFlowsResponse{
-				Time:     ev.GetTime(),
-				NodeName: ev.GetNodeName(),
+				Time:     fl.GetTime(),
+				NodeName: fl.GetNodeName(),
 				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-					Flow: ev,
+					Flow: fl,
 				},
 			}
+
 		case *flowpb.LostEvent:
 			// Don't increment eventsReader.eventCount as a LostEvent is an
 			// event type that is never explicitly requested by the user (e.g.
@@ -701,15 +704,16 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 	}
 }
 
-func (s *LocalObserverServer) trackNamespaces(flow *flowpb.Flow) {
+func (s *LocalObserverServer) trackNamespaces(flow *ir.Flow) {
 	// track namespaces seen.
-	if srcNs := flow.GetSource().GetNamespace(); srcNs != "" {
+	if srcNs := flow.Source.Namespace; srcNs != "" {
 		s.nsManager.AddNamespace(&observerpb.Namespace{
 			Namespace: srcNs,
 			Cluster:   nodeTypes.GetClusterName(),
 		})
 	}
-	if dstNs := flow.GetDestination().GetNamespace(); dstNs != "" {
+
+	if dstNs := flow.Destination.Namespace; dstNs != "" {
 		s.nsManager.AddNamespace(&observerpb.Namespace{
 			Namespace: dstNs,
 			Cluster:   nodeTypes.GetClusterName(),

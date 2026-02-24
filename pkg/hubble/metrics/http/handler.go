@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -107,7 +108,7 @@ func (h *httpHandler) ListMetricVec() []*prometheus.MetricVec {
 	return h.registeredMetrics
 }
 
-func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *httpHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	if h.useV2 {
 		return h.processMetricsV2(flow)
 	} else {
@@ -115,13 +116,13 @@ func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	}
 }
 
-func (h *httpHandler) isHTTP(flow *flowpb.Flow) bool {
-	return flow.GetL7().GetHttp() != nil
+func (h *httpHandler) isHTTP(flow *ir.Flow) bool {
+	return !flow.L7.HTTP.IsEmpty()
 }
 
-func (h *httpHandler) reporter(flow *flowpb.Flow) string {
+func (h *httpHandler) reporter(flow *ir.Flow) string {
 	reporter := "unknown"
-	switch flow.GetTrafficDirection() {
+	switch flow.TrafficDirection {
 	case flowpb.TrafficDirection_EGRESS:
 		reporter = "client"
 	case flowpb.TrafficDirection_INGRESS:
@@ -130,15 +131,15 @@ func (h *httpHandler) reporter(flow *flowpb.Flow) string {
 	return reporter
 }
 
-func (h *httpHandler) traceID(flow *flowpb.Flow) string {
+func (h *httpHandler) traceID(flow *ir.Flow) string {
 	if h.exemplars {
-		return flow.GetTraceContext().GetParent().GetTraceId()
+		return flow.TraceContext.Parent.TraceID
 	}
 	return ""
 }
 
-func (h *httpHandler) processMetricsV2(flow *flowpb.Flow) error {
-	if !h.isHTTP(flow) || flow.GetL7().GetType() != flowpb.L7FlowType_RESPONSE {
+func (h *httpHandler) processMetricsV2(flow *ir.Flow) error {
+	if !h.isHTTP(flow) || flow.L7.Type != flowpb.L7FlowType_RESPONSE {
 		return nil
 	}
 	reporter := h.reporter(flow)
@@ -153,22 +154,20 @@ func (h *httpHandler) processMetricsV2(flow *flowpb.Flow) error {
 		return err
 	}
 
-	http := flow.GetL7().GetHttp()
-	status := strconv.Itoa(int(http.GetCode()))
-	requestsCounter := h.requests.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), status, reporter)...)
-	requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, http.GetMethod(), reporter)...)
+	status := strconv.Itoa(int(flow.L7.HTTP.Code))
+	requestsCounter := h.requests.WithLabelValues(append(labelValues, flow.L7.HTTP.Method, flow.L7.HTTP.Protocol, status, reporter)...)
+	requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, flow.L7.HTTP.Method, reporter)...)
 
 	incrementCounter(requestsCounter, traceID)
-	observerObserve(requestDurationHistogram, float64(flow.GetL7().GetLatencyNs())/float64(time.Second), traceID)
-
+	observerObserve(requestDurationHistogram, float64(flow.L7.LatencyNs)/float64(time.Second), traceID)
 	return nil
 }
 
-func (h *httpHandler) processMetricsV1(flow *flowpb.Flow) error {
+func (h *httpHandler) processMetricsV1(flow *ir.Flow) error {
 	if !h.isHTTP(flow) {
 		return nil
 	}
-	flowType := flow.GetL7().GetType()
+	flowType := flow.L7.Type
 	if flowType != flowpb.L7FlowType_REQUEST && flowType != flowpb.L7FlowType_RESPONSE {
 		return nil
 	}
@@ -184,18 +183,18 @@ func (h *httpHandler) processMetricsV1(flow *flowpb.Flow) error {
 		return err
 	}
 
-	http := flow.GetL7().GetHttp()
+	http := flow.L7.HTTP
 	var requestsCounter, responsesCounter prometheus.Counter
-	switch flow.GetL7().GetType() {
+	switch flow.L7.Type {
 	case flowpb.L7FlowType_REQUEST:
-		requestsCounter = h.requests.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), reporter)...)
+		requestsCounter = h.requests.WithLabelValues(append(labelValues, http.Method, http.Protocol, reporter)...)
 		incrementCounter(requestsCounter, traceID)
 	case flowpb.L7FlowType_RESPONSE:
-		status := strconv.Itoa(int(http.GetCode()))
-		responsesCounter = h.responses.WithLabelValues(append(labelValues, http.GetMethod(), http.GetProtocol(), status, reporter)...)
-		requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, http.GetMethod(), reporter)...)
+		status := strconv.Itoa(int(http.Code))
+		responsesCounter = h.responses.WithLabelValues(append(labelValues, http.Method, http.Protocol, status, reporter)...)
+		requestDurationHistogram := h.duration.WithLabelValues(append(labelValues, http.Method, reporter)...)
 		incrementCounter(responsesCounter, traceID)
-		observerObserve(requestDurationHistogram, float64(flow.GetL7().GetLatencyNs())/float64(time.Second), traceID)
+		observerObserve(requestDurationHistogram, float64(flow.L7.LatencyNs)/float64(time.Second), traceID)
 	}
 	return nil
 }

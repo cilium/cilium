@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestPortFilter(t *testing.T) {
@@ -28,11 +29,11 @@ func TestPortFilter(t *testing.T) {
 					SourcePort:      []string{"12345"},
 					DestinationPort: []string{"53"},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{UDP: ir.UDP{
 						SourcePort:      12345,
 						DestinationPort: 53,
-					}}},
+					}},
 				}},
 			},
 			want: true,
@@ -44,11 +45,11 @@ func TestPortFilter(t *testing.T) {
 					SourcePort:      []string{"32320"},
 					DestinationPort: []string{"80"},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{TCP: ir.TCP{
 						SourcePort:      32320,
 						DestinationPort: 80,
-					}}},
+					}},
 				}},
 			},
 			want: true,
@@ -59,11 +60,11 @@ func TestPortFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{{
 					DestinationPort: []string{"80"},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{TCP: ir.TCP{
 						SourcePort:      80,
 						DestinationPort: 32320,
-					}}},
+					}},
 				}},
 			},
 			want: false,
@@ -74,8 +75,8 @@ func TestPortFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{{
 					DestinationPort: []string{"0"},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv4{ICMPv4: &flowpb.ICMPv4{}}},
+				ev: &v1.Event{Event: &ir.Flow{
+					L4: ir.Layer4{ICMPv4: ir.ICMP{}},
 				}},
 			},
 			want: false,

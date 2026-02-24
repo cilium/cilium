@@ -14,9 +14,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/identity"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -65,25 +65,25 @@ func (h *policyHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.verdicts.MetricVec}
 }
 
-func (h *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *policyHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
 		return nil
 	}
 
-	if flow.GetEventType().GetType() == monitorAPI.MessageTypePolicyVerdict {
+	if flow.EventType.Type == monitorAPI.MessageTypePolicyVerdict {
 		return h.ProcessFlowL3L4(ctx, flow)
 	}
 
-	if flow.GetEventType().GetType() == monitorAPI.MessageTypeAccessLog {
+	if flow.EventType.Type == monitorAPI.MessageTypeAccessLog {
 		return h.ProcessFlowL7(ctx, flow)
 	}
 
 	return nil
 }
 
-func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) error {
+func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *ir.Flow) error {
 	// ignore verdict if the source is host since host is allowed to connect to any local endpoints.
-	if flow.GetSource().GetIdentity() == uint32(identity.ReservedIdentityHost) {
+	if flow.Source.Identity == uint32(identity.ReservedIdentityHost) {
 		return nil
 	}
 	labelValues, err := h.context.GetLabelValues(flow)
@@ -91,8 +91,8 @@ func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) 
 		return err
 	}
 
-	direction := strings.ToLower(flow.GetTrafficDirection().String())
-	match := strings.ToLower(monitorAPI.PolicyMatchType(flow.GetPolicyMatchType()).String())
+	direction := strings.ToLower(flow.TrafficDirection.String())
+	match := strings.ToLower(monitorAPI.PolicyMatchType(flow.PolicyMatchType).String())
 	action := strings.ToLower(flow.Verdict.String())
 	labels := []string{direction, match, action}
 	labels = append(labels, labelValues...)
@@ -101,21 +101,21 @@ func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) 
 	return nil
 }
 
-func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) error {
+func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *ir.Flow) error {
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
 
-	direction := strings.ToLower(flow.GetTrafficDirection().String())
+	direction := strings.ToLower(flow.TrafficDirection.String())
 	var subType string
-	if l7 := flow.GetL7(); l7 != nil {
+	if l7 := flow.L7; !l7.IsEmpty() {
 		switch {
-		case l7.GetDns() != nil:
+		case !l7.DNS.IsEmpty():
 			subType = "dns"
-		case l7.GetHttp() != nil:
+		case !l7.HTTP.IsEmpty():
 			subType = "http"
-		case l7.GetKafka() != nil:
+		case !l7.Kafka.IsEmpty():
 			subType = "kafka"
 		}
 	}

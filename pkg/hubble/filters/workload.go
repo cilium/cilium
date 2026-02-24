@@ -9,14 +9,15 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
-func filterByWorkload(wf []*flowpb.Workload, getEndpoint func(*v1.Event) *flowpb.Endpoint) FilterFunc {
+func filterByWorkload(wf []ir.Workload, getEndpoint func(*v1.Event) ir.Endpoint) FilterFunc {
 	return func(ev *v1.Event) bool {
-		for _, w := range getEndpoint(ev).GetWorkloads() {
-			if slices.ContainsFunc(wf, func(f *flowpb.Workload) bool {
-				return (f.GetName() == "" || f.GetName() == w.GetName()) &&
-					(f.GetKind() == "" || f.GetKind() == w.GetKind())
+		for _, w := range getEndpoint(ev).Workloads {
+			if slices.ContainsFunc(wf, func(f ir.Workload) bool {
+				return (f.Name == "" || f.Name == w.Name) &&
+					(f.Kind == "" || f.Kind == w.Kind)
 			}) {
 				return true
 			}
@@ -33,11 +34,11 @@ func (*WorkloadFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter)
 	var fs []FilterFunc
 
 	if wf := ff.GetSourceWorkload(); len(wf) > 0 {
-		fs = append(fs, filterByWorkload(wf, sourceEndpoint))
+		fs = append(fs, filterByWorkload(ir.ProtoToWorkloads(wf), sourceEndpoint))
 	}
 
 	if wf := ff.GetDestinationWorkload(); len(wf) > 0 {
-		fs = append(fs, filterByWorkload(wf, destinationEndpoint))
+		fs = append(fs, filterByWorkload(ir.ProtoToWorkloads(wf), destinationEndpoint))
 	}
 
 	return fs, nil

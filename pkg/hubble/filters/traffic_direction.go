@@ -13,11 +13,15 @@ import (
 
 func filterByTrafficDirection(directions []flowpb.TrafficDirection) FilterFunc {
 	return func(ev *v1.Event) bool {
+		if ev == nil {
+			return false
+		}
 		flow := ev.GetFlow()
 		if flow == nil {
 			return false
 		}
-		return slices.Contains(directions, flow.GetTrafficDirection())
+
+		return slices.Contains(directions, flow.TrafficDirection)
 	}
 }
 

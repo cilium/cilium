@@ -13,7 +13,11 @@ import (
 
 func filterByIPTraceID(tids []uint64) FilterFunc {
 	return func(ev *v1.Event) bool {
-		trace := ev.GetFlow().GetIpTraceId().GetTraceId()
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+		trace := ev.GetFlow().IPTraceID.TraceID
+
 		return slices.Contains(tids, trace)
 	}
 }

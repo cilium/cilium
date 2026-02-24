@@ -14,29 +14,37 @@ import (
 )
 
 func sourcePort(ev *v1.Event) (port uint16, ok bool) {
-	l4 := ev.GetFlow().GetL4()
-	if tcp := l4.GetTCP(); tcp != nil {
-		return uint16(tcp.SourcePort), true
+	if ev == nil || ev.GetFlow() == nil {
+		return 0, false
 	}
-	if udp := l4.GetUDP(); udp != nil {
-		return uint16(udp.SourcePort), true
+
+	l4 := ev.GetFlow().L4
+	if !l4.TCP.IsEmpty() {
+		return uint16(l4.TCP.SourcePort), true
 	}
-	if sctp := l4.GetSCTP(); sctp != nil {
-		return uint16(sctp.SourcePort), true
+	if !l4.UDP.IsEmpty() {
+		return uint16(l4.UDP.SourcePort), true
+	}
+	if !l4.SCTP.IsEmpty() {
+		return uint16(l4.SCTP.SourcePort), true
 	}
 	return 0, false
 }
 
 func destinationPort(ev *v1.Event) (port uint16, ok bool) {
-	l4 := ev.GetFlow().GetL4()
-	if tcp := l4.GetTCP(); tcp != nil {
-		return uint16(tcp.DestinationPort), true
+	if ev == nil || ev.GetFlow() == nil {
+		return 0, false
 	}
-	if udp := l4.GetUDP(); udp != nil {
-		return uint16(udp.DestinationPort), true
+
+	l4 := ev.GetFlow().L4
+	if !l4.TCP.IsEmpty() {
+		return uint16(l4.TCP.DestinationPort), true
 	}
-	if sctp := l4.GetSCTP(); sctp != nil {
-		return uint16(sctp.DestinationPort), true
+	if !l4.UDP.IsEmpty() {
+		return uint16(l4.UDP.DestinationPort), true
+	}
+	if !l4.SCTP.IsEmpty() {
+		return uint16(l4.SCTP.DestinationPort), true
 	}
 	return 0, false
 }

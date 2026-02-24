@@ -12,11 +12,29 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 var (
-	matchingEvent    = &v1.Event{Event: &flowpb.Flow{L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{SourcePort: 20222, DestinationPort: 80}}}}}
-	nonMatchingEvent = &v1.Event{Event: &flowpb.Flow{L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{SourcePort: 30222, DestinationPort: 53}}}}}
+	matchingEvent = &v1.Event{
+		Event: &ir.Flow{
+			L4: ir.Layer4{
+				TCP: ir.TCP{
+					SourcePort:      20222,
+					DestinationPort: 80},
+			},
+		},
+	}
+	nonMatchingEvent = &v1.Event{
+		Event: &ir.Flow{
+			L4: ir.Layer4{
+				UDP: ir.UDP{
+					SourcePort:      30222,
+					DestinationPort: 53,
+				},
+			},
+		},
+	}
 )
 
 func runFilterBenchmark(b *testing.B, ff *flowpb.FlowFilter, events []*v1.Event) {

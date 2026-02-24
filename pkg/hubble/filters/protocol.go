@@ -27,57 +27,61 @@ func filterByProtocol(protocols []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		l4 := ev.GetFlow().GetL4()
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+
+		l4 := ev.GetFlow().L4
 		for _, proto := range l4Protocols {
 			switch proto {
 			case "icmp":
-				if l4.GetICMPv4() != nil || l4.GetICMPv6() != nil {
+				if !l4.ICMPv4.IsEmpty() || !l4.ICMPv6.IsEmpty() {
 					return true
 				}
 			case "icmpv4":
-				if l4.GetICMPv4() != nil {
+				if !l4.ICMPv4.IsEmpty() {
 					return true
 				}
 			case "icmpv6":
-				if l4.GetICMPv6() != nil {
+				if !l4.ICMPv6.IsEmpty() {
 					return true
 				}
 			case "tcp":
-				if l4.GetTCP() != nil {
+				if !l4.TCP.IsEmpty() {
 					return true
 				}
 			case "udp":
-				if l4.GetUDP() != nil {
+				if !l4.UDP.IsEmpty() {
 					return true
 				}
 			case "sctp":
-				if l4.GetSCTP() != nil {
+				if !l4.SCTP.IsEmpty() {
 					return true
 				}
 			case "vrrp":
-				if l4.GetVRRP() != nil {
+				if !l4.VRRP.IsEmpty() {
 					return true
 				}
 			case "igmp":
-				if l4.GetIGMP() != nil {
+				if !l4.IGMP.IsEmpty() {
 					return true
 				}
 			}
 		}
 
-		l7 := ev.GetFlow().GetL7()
+		l7 := ev.GetFlow().L7
 		for _, proto := range l7Protocols {
 			switch proto {
 			case "dns":
-				if l7.GetDns() != nil {
+				if !l7.DNS.IsEmpty() {
 					return true
 				}
 			case "http":
-				if l7.GetHttp() != nil {
+				if !l7.HTTP.IsEmpty() {
 					return true
 				}
 			case "kafka":
-				if l7.GetKafka() != nil {
+				if !l7.Kafka.IsEmpty() {
 					return true
 				}
 			}

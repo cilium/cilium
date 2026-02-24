@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestIdentityFilter(t *testing.T) {
@@ -48,8 +49,8 @@ func TestIdentityFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{{
 					SourceIdentity: []uint32{1, 2, 3},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Identity: 3},
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Identity: 3},
 				}},
 			},
 			want: true,
@@ -60,8 +61,8 @@ func TestIdentityFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{{
 					SourceIdentity: []uint32{1, 2, 3},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Identity: 4},
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Identity: 4},
 				}},
 			},
 			want: false,
@@ -72,8 +73,8 @@ func TestIdentityFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{{
 					DestinationIdentity: []uint32{1, 2, 3},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Identity: 5},
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Identity: 5},
 				}},
 			},
 			want: false,

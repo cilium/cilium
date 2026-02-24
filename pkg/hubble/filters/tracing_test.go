@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestTraceIDFilter(t *testing.T) {
@@ -30,10 +31,10 @@ func TestTraceIDFilter(t *testing.T) {
 						TraceId: []string{"4bf92f3577b34da6a3ce929d0e0e4736"},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					TraceContext: &flowpb.TraceContext{
-						Parent: &flowpb.TraceParent{
-							TraceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+				ev: &v1.Event{Event: &ir.Flow{
+					TraceContext: ir.TraceContext{
+						Parent: ir.TraceParent{
+							TraceID: "4bf92f3577b34da6a3ce929d0e0e4736",
 						},
 					},
 				}},
@@ -50,10 +51,10 @@ func TestTraceIDFilter(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					TraceContext: &flowpb.TraceContext{
-						Parent: &flowpb.TraceParent{
-							TraceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+				ev: &v1.Event{Event: &ir.Flow{
+					TraceContext: ir.TraceContext{
+						Parent: ir.TraceParent{
+							TraceID: "4bf92f3577b34da6a3ce929d0e0e4736",
 						},
 					},
 				}},
@@ -67,7 +68,7 @@ func TestTraceIDFilter(t *testing.T) {
 						TraceId: []string{""},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{}},
+				ev: &v1.Event{Event: &ir.Flow{}},
 			},
 			want: true,
 		}, {
@@ -78,10 +79,10 @@ func TestTraceIDFilter(t *testing.T) {
 						TraceId: []string{""},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					TraceContext: &flowpb.TraceContext{
-						Parent: &flowpb.TraceParent{
-							TraceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+				ev: &v1.Event{Event: &ir.Flow{
+					TraceContext: ir.TraceContext{
+						Parent: ir.TraceParent{
+							TraceID: "4bf92f3577b34da6a3ce929d0e0e4736",
 						},
 					},
 				}},
@@ -95,10 +96,10 @@ func TestTraceIDFilter(t *testing.T) {
 						TraceId: []string{"deadbeefcafe"},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					TraceContext: &flowpb.TraceContext{
-						Parent: &flowpb.TraceParent{
-							TraceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+				ev: &v1.Event{Event: &ir.Flow{
+					TraceContext: ir.TraceContext{
+						Parent: ir.TraceParent{
+							TraceID: "4bf92f3577b34da6a3ce929d0e0e4736",
 						},
 					},
 				}},
@@ -112,7 +113,7 @@ func TestTraceIDFilter(t *testing.T) {
 						TraceId: []string{"4bf92f3577b34da6a3ce929d0e0e4736"},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{}},
+				ev: &v1.Event{Event: &ir.Flow{}},
 			},
 			want: false,
 		},

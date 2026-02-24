@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -35,10 +36,10 @@ func TestEventTypeFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop}}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop, SubType: 2}}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeCapture}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeDrop}}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeDrop, SubType: 2}}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeCapture}}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.LostEvent{}},
 				},
@@ -67,10 +68,10 @@ func TestEventTypeFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop}}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeDrop, SubType: 2}}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeCapture}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeDrop}}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeDrop, SubType: 2}}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeCapture}}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.LostEvent{}},
 				},
@@ -97,8 +98,8 @@ func TestEventTypeFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{EventType: ir.EventType{}}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_ENDPOINT_CREATED}},
 					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_IPCACHE_UPSERTED}},
@@ -129,9 +130,9 @@ func TestEventTypeFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{}}},
-					{Event: &flowpb.Flow{EventType: &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{EventType: ir.EventType{}}},
+					{Event: &ir.Flow{EventType: ir.EventType{Type: monitorAPI.MessageTypeAccessLog}}},
 					{Event: &flowpb.AgentEvent{}},
 					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_ENDPOINT_CREATED}},
 					{Event: &flowpb.AgentEvent{Type: flowpb.AgentEventType_POLICY_DELETED}},

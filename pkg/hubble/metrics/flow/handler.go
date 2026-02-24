@@ -12,9 +12,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -62,7 +62,7 @@ func (h *flowHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.flows.MetricVec}
 }
 
-func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (h *flowHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
 		return nil
 	}
@@ -72,17 +72,17 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return err
 	}
 	var typeName, subType string
-	eventType := flow.GetEventType().GetType()
+	eventType := flow.EventType.Type
 	switch eventType {
 	case monitorAPI.MessageTypeAccessLog:
 		typeName = "L7"
-		if l7 := flow.GetL7(); l7 != nil {
+		if !flow.L7.IsEmpty() {
 			switch {
-			case l7.GetDns() != nil:
+			case !flow.L7.DNS.IsEmpty():
 				subType = "DNS"
-			case l7.GetHttp() != nil:
+			case !flow.L7.HTTP.IsEmpty():
 				subType = "HTTP"
-			case l7.GetKafka() != nil:
+			case !flow.L7.Kafka.IsEmpty():
 				subType = "Kafka"
 			}
 		}
@@ -92,7 +92,7 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		typeName = "Capture"
 	case monitorAPI.MessageTypeTrace:
 		typeName = "Trace"
-		subType = monitorAPI.TraceObservationPoints[uint8(flow.GetEventType().SubType)]
+		subType = monitorAPI.TraceObservationPoints[uint8(flow.EventType.SubType)]
 	case monitorAPI.MessageTypePolicyVerdict:
 		typeName = "PolicyVerdict"
 	default:
@@ -100,7 +100,7 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		subType = fmt.Sprintf("%d", eventType)
 	}
 
-	labels := []string{v1.FlowProtocol(flow), typeName, subType, flow.GetVerdict().String()}
+	labels := []string{v1.FlowProtocol(flow), typeName, subType, flow.Verdict.String()}
 	labels = append(labels, labelValues...)
 
 	h.flows.WithLabelValues(labels...).Inc()

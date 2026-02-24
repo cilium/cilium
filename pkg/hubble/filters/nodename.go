@@ -21,7 +21,10 @@ func filterByNodeNames(nodeNames []string) (FilterFunc, error) {
 	}
 
 	return func(ev *v1.Event) bool {
-		nodeName := ev.GetFlow().GetNodeName()
+		if ev == nil || ev.GetFlow() == nil {
+			return false
+		}
+		nodeName := ev.GetFlow().NodeName
 		if nodeName == "" {
 			return false
 		}

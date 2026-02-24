@@ -11,6 +11,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestIPTraceIDFilter(t *testing.T) {
@@ -27,9 +28,9 @@ func TestIPTraceIDFilter(t *testing.T) {
 				{IpTraceId: []uint64{1}},
 			},
 			ev: &v1.Event{
-				Event: &flowpb.Flow{
-					IpTraceId: &flowpb.IPTraceID{
-						TraceId: 1,
+				Event: &ir.Flow{
+					IPTraceID: ir.IPTraceID{
+						TraceID: 1,
 					},
 				},
 			},
@@ -42,9 +43,9 @@ func TestIPTraceIDFilter(t *testing.T) {
 				{IpTraceId: []uint64{2}},
 			},
 			ev: &v1.Event{
-				Event: &flowpb.Flow{
-					IpTraceId: &flowpb.IPTraceID{
-						TraceId: 2,
+				Event: &ir.Flow{
+					IPTraceID: ir.IPTraceID{
+						TraceID: 2,
 					},
 				},
 			},
@@ -53,9 +54,9 @@ func TestIPTraceIDFilter(t *testing.T) {
 		{
 			name: "no_filter",
 			ev: &v1.Event{
-				Event: &flowpb.Flow{
-					IpTraceId: &flowpb.IPTraceID{
-						TraceId: 1,
+				Event: &ir.Flow{
+					IPTraceID: ir.IPTraceID{
+						TraceID: 1,
 					},
 				},
 			},
@@ -67,9 +68,9 @@ func TestIPTraceIDFilter(t *testing.T) {
 				{IpTraceId: []uint64{1}},
 			},
 			ev: &v1.Event{
-				Event: &flowpb.Flow{
-					IpTraceId: &flowpb.IPTraceID{
-						TraceId: 2,
+				Event: &ir.Flow{
+					IPTraceID: ir.IPTraceID{
+						TraceID: 2,
 					},
 				},
 			},
@@ -81,7 +82,7 @@ func TestIPTraceIDFilter(t *testing.T) {
 				{IpTraceId: []uint64{1}},
 			},
 			ev: &v1.Event{
-				Event: &flowpb.Flow{},
+				Event: &ir.Flow{},
 			},
 			want: false,
 		},

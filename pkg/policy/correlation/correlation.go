@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -21,8 +22,8 @@ import (
 
 // CorrelatePolicy updates the IngressAllowedBy/EgressAllowedBy fields on the
 // provided flow.
-func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
-	if f.GetEventType().GetType() != int32(monitorAPI.MessageTypePolicyVerdict) {
+func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter, f *ir.Flow) {
+	if f.EventType.Type != int32(monitorAPI.MessageTypePolicyVerdict) {
 		// If it's not a policy verdict, we don't care.
 		return
 	}
@@ -31,9 +32,9 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	// FORWARDED or REDIRECTED) or explicitly denied (i.e. DROPPED, and matched by a deny policy),
 	// since we cannot usefully annotate the verdict otherwise. (Put differently, which policy
 	// should be listed in {in|e}gress_denied_by for an unmatched flow?)
-	verdict := f.GetVerdict()
+	verdict := f.Verdict
 	allowed := verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
-	denied := verdict == flowpb.Verdict_DROPPED && f.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+	denied := verdict == flowpb.Verdict_DROPPED && f.DropReasonDesc == flowpb.DropReason_POLICY_DENY
 	if !(allowed || denied) {
 		return
 	}
@@ -60,7 +61,7 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 
 	info, ok := lookupPolicyForKey(epInfo,
 		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
-		f.GetPolicyMatchType())
+		f.PolicyMatchType)
 	if !ok {
 		logger.Debug(
 			"unable to find policy for policy verdict notification",
@@ -87,48 +88,48 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	f.PolicyLog = info.Log
 }
 
-func extractFlowKey(f *flowpb.Flow) (
+func extractFlowKey(f *ir.Flow) (
 	direction trafficdirection.TrafficDirection,
 	endpointID uint16,
 	remoteIdentity identity.NumericIdentity,
 	proto u8proto.U8proto,
 	dport uint16) {
 
-	switch f.GetTrafficDirection() {
+	switch f.TrafficDirection {
 	case flowpb.TrafficDirection_EGRESS:
 		direction = trafficdirection.Egress
 		// We only get a uint32 because proto has no 16-bit types.
-		endpointID = uint16(f.GetSource().GetID())
-		remoteIdentity = identity.NumericIdentity(f.GetDestination().GetIdentity())
+		endpointID = uint16(f.Source.ID)
+		remoteIdentity = identity.NumericIdentity(f.Destination.Identity)
 	case flowpb.TrafficDirection_INGRESS:
 		direction = trafficdirection.Ingress
-		endpointID = uint16(f.GetDestination().GetID())
-		remoteIdentity = identity.NumericIdentity(f.GetSource().GetIdentity())
+		endpointID = uint16(f.Destination.ID)
+		remoteIdentity = identity.NumericIdentity(f.Source.Identity)
 	default:
 		direction = trafficdirection.Invalid
 		endpointID = 0
 		remoteIdentity = identity.IdentityUnknown
 	}
 
-	if tcp := f.GetL4().GetTCP(); tcp != nil {
+	if tcp := f.L4.TCP; !tcp.IsEmpty() {
 		proto = u8proto.TCP
-		dport = uint16(tcp.GetDestinationPort())
-	} else if udp := f.GetL4().GetUDP(); udp != nil {
+		dport = uint16(tcp.DestinationPort)
+	} else if udp := f.L4.UDP; !udp.IsEmpty() {
 		proto = u8proto.UDP
-		dport = uint16(udp.GetDestinationPort())
-	} else if icmpv4 := f.GetL4().GetICMPv4(); icmpv4 != nil {
+		dport = uint16(udp.DestinationPort)
+	} else if icmpv4 := f.L4.ICMPv4; !icmpv4.IsEmpty() {
 		proto = u8proto.ICMP
 		dport = uint16(icmpv4.Type)
-	} else if icmpv6 := f.GetL4().GetICMPv6(); icmpv6 != nil {
+	} else if icmpv6 := f.L4.ICMPv6; !icmpv6.IsEmpty() {
 		proto = u8proto.ICMPv6
 		dport = uint16(icmpv6.Type)
-	} else if sctp := f.GetL4().GetSCTP(); sctp != nil {
+	} else if sctp := f.L4.SCTP; !sctp.IsEmpty() {
 		proto = u8proto.SCTP
-		dport = uint16(sctp.GetDestinationPort())
-	} else if vrrp := f.GetL4().GetVRRP(); vrrp != nil {
+		dport = uint16(sctp.DestinationPort)
+	} else if vrrp := f.L4.VRRP; !vrrp.IsEmpty() {
 		proto = u8proto.VRRP
 		dport = 0
-	} else if igmp := f.GetL4().GetIGMP(); igmp != nil {
+	} else if igmp := f.L4.IGMP; !igmp.IsEmpty() {
 		proto = u8proto.IGMP
 		dport = 0
 	} else {
@@ -219,9 +220,9 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 	return ep.GetPolicyCorrelationInfoForKey(key)
 }
 
-func toProto(info policyTypes.PolicyCorrelationInfo) (policies []*flowpb.Policy) {
+func toProto(info policyTypes.PolicyCorrelationInfo) (policies []ir.Policy) {
 	for model := range labels.ModelsFromLabelArrayListString(info.RuleLabels) {
-		policies = append(policies, utils.GetPolicyFromLabels(model, info.Revision))
+		policies = append(policies, ir.ProtoToPolicy(utils.GetPolicyFromLabels(model, info.Revision)))
 	}
 	return policies
 }

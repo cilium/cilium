@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func Test_filterByEncrypted(t *testing.T) {
@@ -33,7 +34,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "empty-param",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: true}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: true}}},
 			},
 			want: true,
 		},
@@ -41,7 +42,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "empty-param-unencrypted",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: false}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: false}}},
 			},
 			want: true,
 		},
@@ -49,7 +50,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "encrypted-flow-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: true}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: true}}},
 			},
 			want: true,
 		},
@@ -57,7 +58,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "encrypted-flow-no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: false}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: false}}},
 			},
 			want: false,
 		},
@@ -65,7 +66,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "unencrypted-flow-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: false}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: false}}},
 			},
 			want: true,
 		},
@@ -73,7 +74,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "unencrypted-flow-no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: true}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: true}}},
 			},
 			want: false,
 		},
@@ -81,7 +82,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "multiple-values-match-encrypted",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{true, false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: true}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: true}}},
 			},
 			want: true,
 		},
@@ -89,7 +90,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "multiple-values-match-unencrypted",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{true, false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{Encrypted: false}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: false}}},
 			},
 			want: true,
 		},
@@ -97,7 +98,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "nil-ip-field",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{true}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: nil}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{Encrypted: false}}},
 			},
 			want: false,
 		},
@@ -105,7 +106,7 @@ func Test_filterByEncrypted(t *testing.T) {
 			name: "default-unencrypted",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Encrypted: []bool{false}}},
-				ev: &v1.Event{Event: &flowpb.Flow{IP: &flowpb.IP{}}},
+				ev: &v1.Event{Event: &ir.Flow{IP: ir.IP{}}},
 			},
 			want: true,
 		},

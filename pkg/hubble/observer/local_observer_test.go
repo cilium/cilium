@@ -24,6 +24,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	hubv1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -247,7 +248,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 		m <- event
 		ev, err := pp.Decode(event)
 		require.NoError(t, err)
-		input[i] = ev.GetFlow()
+		input[i] = ev.GetFlow().ToProto()
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()
@@ -493,7 +494,7 @@ func TestHooks(t *testing.T) {
 		}
 		return false, nil
 	}
-	onDecodedFlow := func(ctx context.Context, f *flowpb.Flow) (bool, error) {
+	onDecodedFlow := func(ctx context.Context, f *ir.Flow) (bool, error) {
 		if seenFlows%skipEveryNFlows == 0 {
 			assert.Fail(t, "server did not stop decoding after onMonitorEventFirst")
 		}
@@ -773,14 +774,14 @@ func Benchmark_TrackNamespaces(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	f := &flowpb.Flow{
-		Source:      &flowpb.Endpoint{Namespace: "foo"},
-		Destination: &flowpb.Endpoint{Namespace: "bar"},
+	f := ir.Flow{
+		Source:      ir.Endpoint{Namespace: "foo"},
+		Destination: ir.Endpoint{Namespace: "bar"},
 	}
 
 	b.ReportAllocs()
 
 	for b.Loop() {
-		s.trackNamespaces(f)
+		s.trackNamespaces(&f)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	client "github.com/cilium/cilium/pkg/k8s/client"
@@ -81,7 +82,7 @@ func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicie
 	}
 }
 
-func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	if e.rateLimiter != nil && !e.rateLimiter.Allow() {
 		return nil
 	}
@@ -94,7 +95,7 @@ func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 
 	// Only handle packet drops due to policy related to a Pod
 	if flow.Verdict != flowpb.Verdict_DROPPED ||
-		!slices.Contains(e.reasons, flow.GetDropReasonDesc()) ||
+		!slices.Contains(e.reasons, flow.DropReasonDesc) ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_INGRESS && flow.Destination.PodName == "") ||
 		(flow.TrafficDirection == flowpb.TrafficDirection_EGRESS && flow.Source.PodName == "") {
 		return nil
@@ -109,7 +110,7 @@ func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 
 	if flow.TrafficDirection == flowpb.TrafficDirection_INGRESS {
 		message := "Incoming packet dropped (" + reason + ") from " +
-			endpointToString(flow.IP.Source, flow.Source) + " " +
+			endpointToString(flow.IP.Source.String(), flow.Source) + " " +
 			l4protocolToString(flow.L4) + "."
 
 		if e.showPolicies {
@@ -131,7 +132,7 @@ func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) e
 		}, v1.EventTypeWarning, "PacketDrop", message)
 	} else {
 		message := "Outgoing packet dropped (" + reason + ") to " +
-			endpointToString(flow.IP.Destination, flow.Destination) + " " +
+			endpointToString(flow.IP.Destination.String(), flow.Destination) + " " +
 			l4protocolToString(flow.L4) + "."
 
 		if e.showPolicies {
@@ -168,7 +169,7 @@ func (e *dropEventEmitter) Shutdown() {
 	e.broadcaster.Shutdown()
 }
 
-func endpointToString(ip string, endpoint *flowpb.Endpoint) string {
+func endpointToString(ip string, endpoint ir.Endpoint) string {
 	if endpoint.PodName != "" {
 		return endpoint.Namespace + "/" + endpoint.PodName + " (" + ip + ")"
 	}
@@ -178,27 +179,28 @@ func endpointToString(ip string, endpoint *flowpb.Endpoint) string {
 	return ip
 }
 
-func l4protocolToString(l4 *flowpb.Layer4) string {
-	switch l4.Protocol.(type) {
-	case *flowpb.Layer4_TCP:
-		return "TCP/" + strconv.Itoa(int(l4.GetTCP().DestinationPort))
-	case *flowpb.Layer4_UDP:
-		return "UDP/" + strconv.Itoa(int(l4.GetUDP().DestinationPort))
-	case *flowpb.Layer4_ICMPv4:
+func l4protocolToString(l4 ir.Layer4) string {
+	switch {
+	case !l4.TCP.IsEmpty():
+		return "TCP/" + strconv.Itoa(int(l4.TCP.DestinationPort))
+	case !l4.UDP.IsEmpty():
+		return "UDP/" + strconv.Itoa(int(l4.UDP.DestinationPort))
+	case !l4.ICMPv4.IsEmpty():
 		return "ICMPv4"
-	case *flowpb.Layer4_ICMPv6:
+	case !l4.ICMPv6.IsEmpty():
 		return "ICMPv6"
-	case *flowpb.Layer4_SCTP:
+	case !l4.SCTP.IsEmpty():
 		return "SCTP"
-	case *flowpb.Layer4_IGMP:
+	case !l4.IGMP.IsEmpty():
 		return "IGMP"
-	case *flowpb.Layer4_VRRP:
+	case !l4.VRRP.IsEmpty():
 		return "VRRP"
 	}
+
 	return ""
 }
 
-func (e *dropEventEmitter) getLocalEndpoint(flow *flowpb.Flow) *endpoint.Endpoint {
+func (e *dropEventEmitter) getLocalEndpoint(flow *ir.Flow) *endpoint.Endpoint {
 	var endpointID uint16
 	if flow.TrafficDirection == flowpb.TrafficDirection_INGRESS {
 		endpointID = uint16(flow.Destination.ID)
@@ -242,8 +244,8 @@ func parsePolicyRules(l4Rules []*models.PolicyRule, policyRevision uint64) (netw
 	return
 }
 
-func parsePolicyCorrelation(direction flowpb.TrafficDirection, ingressDeniedBy []*flowpb.Policy, egressDeniedBy []*flowpb.Policy) (networkPolicies set.Set[string], clusterwideNetworkPolicies set.Set[string]) {
-	var policies []*flowpb.Policy
+func parsePolicyCorrelation(direction flowpb.TrafficDirection, ingressDeniedBy []ir.Policy, egressDeniedBy []ir.Policy) (networkPolicies set.Set[string], clusterwideNetworkPolicies set.Set[string]) {
+	var policies []ir.Policy
 	if direction == flowpb.TrafficDirection_INGRESS {
 		policies = ingressDeniedBy
 	} else {
@@ -259,7 +261,7 @@ func parsePolicyCorrelation(direction flowpb.TrafficDirection, ingressDeniedBy [
 	return
 }
 
-func (e *dropEventEmitter) dropEventPoliciesToString(flow *flowpb.Flow) (string, error) {
+func (e *dropEventEmitter) dropEventPoliciesToString(flow *ir.Flow) (string, error) {
 	var parts []string
 	prefix := "Denied by"
 	var networkPolicies, clusterwideNetworkPolicies set.Set[string]

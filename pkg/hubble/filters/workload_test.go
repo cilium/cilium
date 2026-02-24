@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestWorkloadFilterInclude(t *testing.T) {
@@ -64,8 +65,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						SourceWorkload: nil,
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -83,8 +84,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						DestinationWorkload: nil,
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -102,8 +103,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						SourceWorkload: []*flowpb.Workload{},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -121,8 +122,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						DestinationWorkload: []*flowpb.Workload{},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -146,8 +147,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -170,8 +171,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -194,8 +195,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{}},
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{}},
 				}},
 			},
 			want: false,
@@ -213,8 +214,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{}},
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{}},
 				}},
 			},
 			want: false,
@@ -232,8 +233,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -256,8 +257,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -280,8 +281,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -304,8 +305,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -328,8 +329,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -352,8 +353,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -376,8 +377,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -400,8 +401,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -424,8 +425,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -448,8 +449,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -472,8 +473,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -496,8 +497,8 @@ func TestWorkloadFilterInclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -542,8 +543,8 @@ func TestWorkloadFilterExclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{}},
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{}},
 				}},
 			},
 			want: true,
@@ -561,8 +562,8 @@ func TestWorkloadFilterExclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{}},
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{}},
 				}},
 			},
 			want: true,
@@ -580,8 +581,8 @@ func TestWorkloadFilterExclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Source: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Source: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
@@ -604,8 +605,8 @@ func TestWorkloadFilterExclude(t *testing.T) {
 						},
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Destination: &flowpb.Endpoint{Workloads: []*flowpb.Workload{
+				ev: &v1.Event{Event: &ir.Flow{
+					Destination: ir.Endpoint{Workloads: []ir.Workload{
 						{
 							Kind: "Deployment",
 							Name: "hubble-relay",
