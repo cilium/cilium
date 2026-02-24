@@ -103,8 +103,8 @@ func pruneAryNulls(ary *partialArray, options *ApplyOptions) *partialArray {
 	return ary
 }
 
-var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
-var errBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
+var ErrBadJSONDoc = fmt.Errorf("Invalid JSON Document")
+var ErrBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
 var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
 
 // MergeMergePatches merges two merge patches together, such that
@@ -121,11 +121,11 @@ func MergePatch(docData, patchData []byte) ([]byte, error) {
 
 func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	if !json.Valid(docData) {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	if !json.Valid(patchData) {
-		return nil, errBadJSONPatch
+		return nil, ErrBadJSONPatch
 	}
 
 	options := NewApplyOptions()
@@ -143,7 +143,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	patchErr := patch.UnmarshalJSON(patchData)
 
 	if isSyntaxError(docErr) {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	if isSyntaxError(patchErr) {
@@ -151,7 +151,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	}
 
 	if docErr == nil && doc.obj == nil {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	if patchErr == nil && patch.obj == nil {
@@ -175,7 +175,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 				if json.Valid(patchData) {
 					return patchData, nil
 				}
-				return nil, errBadJSONPatch
+				return nil, ErrBadJSONPatch
 			}
 
 			pruneAryNulls(patchAry, options)
@@ -183,7 +183,7 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 			out, patchErr := json.Marshal(patchAry.nodes)
 
 			if patchErr != nil {
-				return nil, errBadJSONPatch
+				return nil, ErrBadJSONPatch
 			}
 
 			return out, nil
@@ -256,12 +256,12 @@ func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 
 	err := unmarshal(originalJSON, &originalDoc)
 	if err != nil {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	err = unmarshal(modifiedJSON, &modifiedDoc)
 	if err != nil {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	dest, err := getDiff(originalDoc, modifiedDoc)
@@ -286,17 +286,17 @@ func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
 
 	err := unmarshal(originalJSON, &originalDocs)
 	if err != nil {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	err = unmarshal(modifiedJSON, &modifiedDocs)
 	if err != nil {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	total := len(originalDocs)
 	if len(modifiedDocs) != total {
-		return nil, errBadJSONDoc
+		return nil, ErrBadJSONDoc
 	}
 
 	result := []json.RawMessage{}

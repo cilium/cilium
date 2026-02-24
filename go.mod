@@ -74,7 +74,7 @@ require (
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.35.1
+	github.com/onsi/gomega v1.36.1
 	github.com/osrg/gobgp/v3 v3.35.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus-community/pro-bing v0.5.0
@@ -119,18 +119,18 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.32.0
-	k8s.io/apiextensions-apiserver v0.32.0
-	k8s.io/apimachinery v0.32.0
-	k8s.io/cli-runtime v0.32.0
-	k8s.io/client-go v0.32.0
-	k8s.io/code-generator v0.32.0
-	k8s.io/component-base v0.32.0
-	k8s.io/endpointslice v0.32.0
+	k8s.io/api v0.32.12
+	k8s.io/apiextensions-apiserver v0.32.12
+	k8s.io/apimachinery v0.32.12
+	k8s.io/cli-runtime v0.32.12
+	k8s.io/client-go v0.32.12
+	k8s.io/code-generator v0.32.12
+	k8s.io/component-base v0.32.12
+	k8s.io/endpointslice v0.32.12
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.32.0
+	k8s.io/kubectl v0.32.12
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	sigs.k8s.io/controller-runtime v0.20.1
+	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/gateway-api v1.2.1
 	sigs.k8s.io/mcs-api v0.1.1-0.20250116162235-62ede9a032dc
@@ -174,7 +174,7 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -271,7 +271,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.32.0 // indirect
+	k8s.io/apiserver v0.32.12 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
