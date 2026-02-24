@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -16,6 +17,11 @@ func Overlay(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 	cfg := NewBPFOverlay(NodeConfig(lnc))
 
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
+
+	em := mac.MAC(link.Attrs().HardwareAddr)
+	if len(em) == 6 {
+		cfg.InterfaceMAC = em.As8()
+	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
