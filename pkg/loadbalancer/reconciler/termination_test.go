@@ -138,15 +138,14 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 
 	// Add a backends and wait for the job to pick it up
 	wtxn := db.WriteTxn(backends)
-	be := &loadbalancer.Backend{Address: beAddr}
-	be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
-		ServiceName:    loadbalancer.NewServiceName("bar", "foo"),
-		SourcePriority: 0,
-	}, loadbalancer.BackendParams{
-		Address:   beAddr,
-		State:     loadbalancer.BackendStateActive,
-		Unhealthy: false,
-	})
+	be := &loadbalancer.Backend{
+		ServiceName: loadbalancer.NewServiceName("bar", "foo"),
+		Address:     beAddr,
+		State:       loadbalancer.BackendStateActive,
+		Unhealthy:   false,
+		Source:      source.Kubernetes,
+	}
+	be.SetSourcePriority(0)
 	backends.Insert(wtxn, be)
 	wtxn.Commit()
 
@@ -436,23 +435,20 @@ func benchmarkChangeIteration(b *testing.B, proto loadbalancer.L4Type) {
 	wtxn := db.WriteTxn(backends)
 	for i := range numBackends {
 		addr := [4]byte{1, byte(i / (256 * 256)), byte(i / 256), byte(i % 256)}
-		be := loadbalancer.Backend{}
-		be.Address = loadbalancer.NewL3n4Addr(
+		addrL3n4 := loadbalancer.NewL3n4Addr(
 			proto,
 			cmtypes.AddrClusterFrom(netip.AddrFrom4(addr), 0),
 			1,
 			loadbalancer.ScopeExternal,
 		)
-		be.Instances = be.Instances.Set(
-			loadbalancer.BackendInstanceKey{
-				ServiceName:    loadbalancer.NewServiceName("foo", "bar"),
-				SourcePriority: 0,
-			}, loadbalancer.BackendParams{
-				Address:   be.Address,
-				Source:    source.Kubernetes,
-				State:     loadbalancer.BackendStateActive,
-				Unhealthy: false,
-			})
+		be := loadbalancer.Backend{
+			ServiceName: loadbalancer.NewServiceName("foo", "bar"),
+			Address:     addrL3n4,
+			Source:      source.Kubernetes,
+			State:       loadbalancer.BackendStateActive,
+			Unhealthy:   false,
+		}
+		be.SetSourcePriority(0)
 		backends.Insert(wtxn, &be)
 	}
 	wtxn.Commit()

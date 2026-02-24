@@ -71,13 +71,13 @@ Address                Type           ServiceName   PortName   Backends   Redire
 172.16.1.1:443/UDP     LoadBalancer   test/echo     dtls                               Done
 
 -- backends.table --
-Address              Instances           Shadows   NodeName
-10.244.1.1:80/TCP    test/echo (http)              nodeport-worker1
-10.244.1.1:443/TCP   test/echo (https)             nodeport-worker1
-10.244.1.1:443/UDP   test/echo (dtls)              nodeport-worker1
-10.244.1.2:80/TCP    test/echo (http)              nodeport-worker2
-10.244.1.2:443/TCP   test/echo (https)             nodeport-worker2
-10.244.1.2:443/UDP   test/echo (dtls)              nodeport-worker2
+Service    Address             NodeName
+test/echo  10.244.1.1:80/TCP   nodeport-worker1
+test/echo  10.244.1.1:443/TCP  nodeport-worker1
+test/echo  10.244.1.1:443/UDP  nodeport-worker1
+test/echo  10.244.1.2:80/TCP   nodeport-worker2
+test/echo  10.244.1.2:443/TCP  nodeport-worker2
+test/echo  10.244.1.2:443/UDP  nodeport-worker2
 
 -- lbmaps.expected --
 BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active

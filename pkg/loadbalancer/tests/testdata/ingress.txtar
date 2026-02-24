@@ -28,7 +28,7 @@ Address               Type      ServiceName                           PortName S
 10.96.171.236:443/TCP ClusterIP default/cilium-ingress-basic-ingress  https    Done
 
 -- backends.table --
-Address Instances NodeName
+Service  Address  NodeName
 
 -- svc-ingress.yaml --
 apiVersion: v1

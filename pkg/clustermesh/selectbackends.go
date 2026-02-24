@@ -28,7 +28,7 @@ type ClusterMeshSelectBackends struct {
 	w *writer.Writer
 }
 
-func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadbalancer.BackendParams, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[loadbalancer.BackendParams, statedb.Revision] {
+func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
 	defaultBackends := sb.w.DefaultSelectBackends(txn, bes, svc, optionalFrontend)
 	affinity := annotation.GetAnnotationServiceAffinity(svc)
 
@@ -74,7 +74,7 @@ func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter
 		}
 	}
 
-	return func(yield func(loadbalancer.BackendParams, statedb.Revision) bool) {
+	return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
 		for be, rev := range defaultBackends {
 			if be.Source == source.ClusterMesh {
 				if !useRemote {

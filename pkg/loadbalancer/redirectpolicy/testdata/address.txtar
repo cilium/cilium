@@ -94,9 +94,11 @@ Address                    Type          ServiceName                       Backe
 169.254.169.253:8080/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:80/TCP               Done
 
 -- backends.table --
-Address             Instances
-10.244.2.1:80/TCP   test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
-[2002::2]:80/TCP    test/lrp-addr-ipv6:local-redirect (tcp), test/lrp-addr:local-redirect (tcp)
+Service                            Address
+test/lrp-addr-ipv6:local-redirect  10.244.2.1:80/TCP
+test/lrp-addr-ipv6:local-redirect  [2002::2]:80/TCP
+test/lrp-addr:local-redirect       10.244.2.1:80/TCP
+test/lrp-addr:local-redirect       [2002::2]:80/TCP
 
 -- lrp-addr.yaml --
 apiVersion: "cilium.io/v2"

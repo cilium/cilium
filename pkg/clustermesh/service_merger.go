@@ -90,7 +90,7 @@ func (sm *serviceMerger) MergeExternalServiceUpdate(service *serviceStore.Cluste
 	)
 }
 
-func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.BackendParams) {
+func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps []loadbalancer.Backend) {
 	for ipString, portConfig := range service.Backends {
 		addrCluster := cmtypes.MustParseAddrCluster(ipString)
 		var backendZone *loadbalancer.BackendZone
@@ -103,7 +103,7 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 			if name != "" {
 				portNames = []string{name}
 			}
-			bep := loadbalancer.BackendParams{
+			bep := loadbalancer.Backend{
 				Address: loadbalancer.NewL3n4Addr(
 					l4.Protocol,
 					addrCluster,

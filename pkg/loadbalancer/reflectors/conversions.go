@@ -376,8 +376,8 @@ func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
 	return svc.Spec.IPFamilies
 }
 
-func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) iter.Seq[loadbalancer.BackendParams] {
-	return func(yield func(be loadbalancer.BackendParams) bool) {
+func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcName loadbalancer.ServiceName, bes iter.Seq2[cmtypes.AddrCluster, *k8s.Backend]) iter.Seq[loadbalancer.Backend] {
+	return func(yield func(be loadbalancer.Backend) bool) {
 		// Lazily construct the augmented logger as we very rarely log here.
 		log := sync.OnceValue(func() *slog.Logger {
 			return rawlog.With(
@@ -440,7 +440,7 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					// to existing connections when a backend readiness is flapping.
 					state = loadbalancer.BackendStateMaintenance
 				}
-				bep := loadbalancer.BackendParams{
+				bep := loadbalancer.Backend{
 					Address:   l3n4Addr,
 					NodeName:  be.NodeName,
 					PortNames: portNames,

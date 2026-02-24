@@ -1151,6 +1151,10 @@ func (l L3n4Addr) Bytes() []byte {
 		}).bytes
 }
 
+func (l L3n4Addr) Key() index.Key {
+	return l.Bytes()
+}
+
 func (l L3n4Addr) MarshalYAML() (any, error) {
 	return l.StringWithProtocol(), nil
 }
