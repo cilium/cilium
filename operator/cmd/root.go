@@ -602,9 +602,6 @@ type params struct {
 	Lifecycle                cell.Lifecycle
 	Clientset                k8sClient.Clientset
 	Resources                operatorK8s.Resources
-	SvcResolver              dial.Resolver
-	CfgClusterMeshPolicy     cmtypes.PolicyConfig
-	MetricsRegistry          *metrics.Registry
 	Logger                   *slog.Logger
 	WorkQueueMetricsProvider workqueue.MetricsProvider
 }
@@ -616,9 +613,7 @@ func registerLegacyOnLeader(p params) {
 		cancel:                   cancel,
 		clientset:                p.Clientset,
 		resources:                p.Resources,
-		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
 		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
-		metricsRegistry:          p.MetricsRegistry,
 		logger:                   p.Logger,
 	}
 	p.Lifecycle.Append(cell.Hook{
@@ -633,8 +628,6 @@ type legacyOnLeader struct {
 	clientset                k8sClient.Clientset
 	wg                       sync.WaitGroup
 	resources                operatorK8s.Resources
-	cfgClusterMeshPolicy     cmtypes.PolicyConfig
-	metricsRegistry          *metrics.Registry
 	workqueueMetricsProvider workqueue.MetricsProvider
 	logger                   *slog.Logger
 }
