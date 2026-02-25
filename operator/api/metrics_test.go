@@ -57,11 +57,6 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 		cell.Provide(func() (*option.DaemonConfig, ciliumMetrics.RegistryConfig) {
 			return option.Config, ciliumMetrics.RegistryConfig{}
 		}),
-		cell.Provide(func() operatorMetrics.SharedConfig {
-			return operatorMetrics.SharedConfig{
-				EnableMetrics: false,
-			}
-		}),
 
 		MetricsHandlerCell,
 
@@ -120,11 +115,6 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 
 	hive := hive.New(
 		operatorMetrics.Cell,
-		cell.Provide(func() operatorMetrics.SharedConfig {
-			return operatorMetrics.SharedConfig{
-				EnableMetrics: true,
-			}
-		}),
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
 		}),
@@ -215,11 +205,6 @@ func TestMetricsHandlermTLS(t *testing.T) {
 
 	hive := hive.New(
 		operatorMetrics.Cell,
-		cell.Provide(func() operatorMetrics.SharedConfig {
-			return operatorMetrics.SharedConfig{
-				EnableMetrics: true,
-			}
-		}),
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
 		}),

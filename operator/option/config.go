@@ -34,9 +34,6 @@ const (
 )
 
 const (
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics = "enable-metrics"
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
@@ -211,9 +208,6 @@ type OperatorConfig struct {
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
-	// EnableMetrics enables prometheus metrics.
-	EnableMetrics bool
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
@@ -314,7 +308,6 @@ type OperatorConfig struct {
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
-	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)

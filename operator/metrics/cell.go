@@ -40,20 +40,16 @@ var Cell = cell.Module(
 // Config contains the configuration for the operator-metrics cell.
 type Config struct {
 	OperatorPrometheusServeAddr string
+	EnableMetrics               bool
 }
 
 var defaultConfig = Config{
 	// default server address for operator metrics
 	OperatorPrometheusServeAddr: ":9963",
+	EnableMetrics:               false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(OperatorPrometheusServeAddr, def.OperatorPrometheusServeAddr, "Address to serve Prometheus metrics")
-}
-
-// SharedConfig contains the configuration that is shared between
-// this module and others.
-type SharedConfig struct {
-	// EnableMetrics is set to true if operator metrics are enabled
-	EnableMetrics bool
+	flags.Bool("enable-metrics", def.EnableMetrics, "Enable Prometheus metrics")
 }
