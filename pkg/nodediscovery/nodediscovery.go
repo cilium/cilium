@@ -13,7 +13,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cilium/stream"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
 
@@ -266,25 +265,19 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		performGet = true
 		if performUpdate {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
-				if k8serrors.IsConflict(err) {
-					n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
-					// Backoff before retrying
-					time.Sleep(backoffDuration)
-					continue
-				}
-				logging.Fatal(n.logger, "Unable to update CiliumNode resource", logfields.Error, err)
+				n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
+				// Backoff before retrying
+				time.Sleep(backoffDuration)
+				continue
 			} else {
 				return
 			}
 		} else {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
-				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
-					n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
-					// Backoff before retrying
-					time.Sleep(backoffDuration)
-					continue
-				}
-				logging.Fatal(n.logger, "Unable to create CiliumNode resource", logfields.Error, err)
+				n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
+				// Backoff before retrying
+				time.Sleep(backoffDuration)
+				continue
 			} else {
 				n.logger.Info("Successfully created CiliumNode resource")
 				return
