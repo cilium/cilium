@@ -38,6 +38,12 @@ const (
 	// TraceNotifyFlagIsGeneve is set in TraceNotify.Flags when the
 	// notification refers to an overlay Geneve packet.
 	TraceNotifyFlagIsGeneve
+	// TraceNotifyFlagIsWireGuard is set in TraceNotify.Flags when the
+	// notification refers to an encrypt WireGuard packet.
+	TraceNotifyFlagIsWireGuard
+	// TraceNotifyFlagIsIPSec is set in TraceNotify.Flags when the
+	// notification refers to an encrypt IPSec packet.
+	TraceNotifyFlagIsIPSec
 )
 
 const (
@@ -140,13 +146,13 @@ func (tn *TraceNotify) Decode(data []byte) error {
 // IsEncrypted returns true when the notification has the encrypt flag set,
 // false otherwise.
 func (n *TraceNotify) IsEncrypted() bool {
-	return (n.Reason & TraceReasonEncryptMask) != 0
+	return (n.Flags&TraceNotifyFlagIsWireGuard) != 0 || (n.Flags&TraceNotifyFlagIsIPSec) != 0
 }
 
 // TraceReason returns the trace reason for this notification, see the
 // TraceReason* constants.
 func (n *TraceNotify) TraceReason() uint8 {
-	return n.Reason & ^TraceReasonEncryptMask
+	return n.Reason
 }
 
 // TraceReasonIsKnown returns false when the trace reason is unknown, true
@@ -313,6 +319,14 @@ func (n *TraceNotify) IsVXLAN() bool {
 // IsGeneve returns true if the trace refers to an overlay Geneve packet.
 func (n *TraceNotify) IsGeneve() bool {
 	return n.Flags&TraceNotifyFlagIsGeneve != 0
+}
+
+func (n *TraceNotify) IsWireGuard() bool {
+	return n.Flags&TraceNotifyFlagIsWireGuard != 0
+}
+
+func (n *TraceNotify) IsIPSec() bool {
+	return n.Flags&TraceNotifyFlagIsIPSec != 0
 }
 
 // OriginalIP returns the original source IP if reverse NAT was performed on

@@ -77,9 +77,6 @@ int cil_from_network(struct __ctx_buff *ctx)
  * because it doesn't matter for the non-IPSec mode.
  */
 #ifdef ENABLE_IPSEC
-	if (ctx_is_decrypt(ctx))
-		trace.reason = TRACE_REASON_ENCRYPTED;
-
 	/* Only possible redirect in here is the one in the do_decrypt
 	 * which redirects to cilium_host.
 	 */
