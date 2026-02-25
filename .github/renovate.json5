@@ -770,7 +770,8 @@
         "quay.io/cilium/startup-script",
         "quay.io/cilium/image-tester",
       ],
-      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$"
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
+      "maxMajorIncrement": 0
     },
     {
       // Images from the image-tools repository that have a semantic + timestamp-based versioning scheme
