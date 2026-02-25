@@ -121,17 +121,6 @@ var (
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
-		cell.Provide(func(
-			operatorCfg *operatorOption.OperatorConfig,
-		) operatorMetrics.SharedConfig {
-			return operatorMetrics.SharedConfig{
-				// Cloud provider specific allocators needs to read operatorCfg.EnableMetrics
-				// to add their metrics when it's set to true. Therefore, we leave the flag as global
-				// instead of declaring it as part of the metrics cell.
-				// This should be changed once the IPAM allocator is modularized.
-				EnableMetrics: operatorCfg.EnableMetrics,
-			}
-		}),
 
 		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
 		shell.ServerCell(defaults.ShellSockPath),

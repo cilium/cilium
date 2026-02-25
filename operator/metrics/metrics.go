@@ -27,8 +27,7 @@ type params struct {
 	Lifecycle  cell.Lifecycle
 	Shutdowner hive.Shutdowner
 
-	Cfg       Config
-	SharedCfg SharedConfig
+	Cfg Config
 
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 
