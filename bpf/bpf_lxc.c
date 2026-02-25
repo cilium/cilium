@@ -2550,7 +2550,7 @@ out:
 
 	return ret;
 #else
-	return 0;
+	return CTX_ACT_OK;
 #endif
 }
 
