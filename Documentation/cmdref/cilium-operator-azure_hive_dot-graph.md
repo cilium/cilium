@@ -51,6 +51,7 @@ cilium-operator-azure hive dot-graph [flags]
       --enable-k8s                                                 Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                   Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-lb-ipam                                             Enable LB IPAM (default true)
+      --enable-metrics                                             Enable Prometheus metrics
       --enable-node-ipam                                           Enable Node IPAM
       --enable-policy-secrets-sync                                 Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enable-wireguard                                           Enable WireGuard
