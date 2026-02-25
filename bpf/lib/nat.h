@@ -1685,12 +1685,14 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 
 static __always_inline int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-			 struct ipv6hdr *ip6, fraginfo_t fraginfo, int l4_off,
+			 fraginfo_t fraginfo, int l4_off,
 			 struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr = CONFIG(nat_ipv6_masquerade);
 	const struct remote_endpoint_info *remote_ep;
 	const struct endpoint_info *local_ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
@@ -1698,6 +1700,9 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		return NAT_NEEDED;
 	}
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
 	local_ep = __lookup_ip6_endpoint(&tuple->saddr);
 
