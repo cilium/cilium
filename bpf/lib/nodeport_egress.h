@@ -85,7 +85,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		goto apply_snat;
 
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
-	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple, fraginfo, l4_off, &target);
 #endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 	if (IS_ERR(ret))
 		goto out;
