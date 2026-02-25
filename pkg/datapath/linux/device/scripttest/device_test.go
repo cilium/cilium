@@ -5,7 +5,6 @@ package scripttest
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -24,9 +23,9 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/device"
 	linuxdevice "github.com/cilium/cilium/pkg/datapath/linux/device"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -39,48 +38,6 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
-
-type desiredVlanDevice struct {
-	Name         string `yaml:"name"`
-	ParentDevice string `yaml:"parentDevice"`
-	VlanID       int    `yaml:"vlanID"`
-	MTU          int    `yaml:"mtu"`
-
-	parentIdx int
-}
-
-func (d desiredVlanDevice) ToNetlink() (netlink.Link, error) {
-	return &netlink.Vlan{
-		LinkAttrs: netlink.LinkAttrs{
-			Name:        d.Name,
-			MTU:         d.MTU,
-			ParentIndex: d.parentIdx,
-		},
-		VlanId: d.VlanID,
-	}, nil
-}
-
-func (d desiredVlanDevice) Properties() string {
-	return fmt.Sprintf("Type=vlan, ParentDevice=%s, VlanID=%d", d.ParentDevice, d.VlanID)
-}
-
-func (d desiredVlanDevice) MarshalYAML() (any, error) {
-	return map[string]any{
-		"name":         d.Name,
-		"parentDevice": d.ParentDevice,
-		"vlanID":       d.VlanID,
-		"mtu":          d.MTU,
-	}, nil
-}
-
-func (d desiredVlanDevice) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"name":         d.Name,
-		"parentDevice": d.ParentDevice,
-		"vlanID":       d.VlanID,
-		"mtu":          d.MTU,
-	})
-}
 
 func TestMain(m *testing.M) {
 	testutils.GoleakVerifyTestMain(m)
@@ -211,16 +168,16 @@ func testDesiredDevicesCmds(db *statedb.DB, dm linuxdevice.ManagerOperations, de
 				return nil, fmt.Errorf("failed to read device file %q: %w", args[1], err)
 			}
 
-			var device desiredVlanDevice
+			var device *device.DesiredVLANDeviceSpec
 			if err := yaml.Unmarshal(deviceFile, &device); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal device file %q: %w", args[1], err)
 			}
 
-			dev, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceNameIndex.Query(device.ParentDevice))
+			dev, _, found := devTbl.Get(db.ReadTxn(), tables.DeviceNameIndex.Query(device.ParentName))
 			if !found {
-				return nil, fmt.Errorf("parent device %q not found for VLAN device %q", device.ParentDevice, device.Name)
+				return nil, fmt.Errorf("parent device %q not found for VLAN device %q", device.ParentName, device.Name)
 			}
-			device.parentIdx = dev.Index
+			device.ParentIndex = dev.Index
 
 			if err := dm.UpsertDevice(linuxdevice.DesiredDevice{
 				Owner:      owner,

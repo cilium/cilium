@@ -35,18 +35,18 @@ hive/stop
 
 -- eth0.10.yaml --
 name: eth0.10
-parentDevice: eth0
+parentName: eth0
 vlanID: 10
 
 -- eth0.20.yaml --
 name: eth0.20
-parentDevice: eth0
+parentName: eth0
 vlanID: 20
 
 -- desired-device.1.table --
 Owner  Name      Properties
-owner1 eth0.10   Type=vlan, ParentDevice=eth0, VlanID=10
-owner1 eth0.20   Type=vlan, ParentDevice=eth0, VlanID=20
+owner1 eth0.10   Type=vlan, ParentDevice=eth0, VLAN=10
+owner1 eth0.20   Type=vlan, ParentDevice=eth0, VLAN=20
 
 -- devices.1.table --
 Name      Type     MTU     OperStatus
@@ -57,7 +57,7 @@ eth0.20   vlan     1500    up
 
 -- desired-device.2.table --
 Owner  Name      Properties
-owner1 eth0.10   Type=vlan, ParentDevice=eth0, VlanID=10
+owner1 eth0.10   Type=vlan, ParentDevice=eth0, VLAN=10
 
 -- devices.2.table --
 Name      Type     MTU     OperStatus
