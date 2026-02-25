@@ -1072,15 +1072,22 @@ func (a L3n4Addr) String() string {
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
 // format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
 func (a L3n4Addr) StringWithProtocol() string {
+	return a.StringWithProtocolDelimited("/")
+}
+
+// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
+// format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6, where /
+// represents the provided delimiter.
+func (a L3n4Addr) StringWithProtocolDelimited(delim string) string {
 	rep := a.rep()
 	var scope string
 	if rep.scope == ScopeInternal {
-		scope = "/i"
+		scope = delim + "i"
 	}
 	if a.IsIPv6() {
-		return "[" + rep.addrCluster.String() + "]:" + strconv.FormatUint(uint64(rep.Port), 10) + "/" + rep.Protocol + scope
+		return "[" + rep.addrCluster.String() + "]:" + strconv.FormatUint(uint64(rep.Port), 10) + delim + rep.Protocol + scope
 	}
-	return rep.addrCluster.String() + ":" + strconv.FormatUint(uint64(rep.Port), 10) + "/" + rep.Protocol + scope
+	return rep.addrCluster.String() + ":" + strconv.FormatUint(uint64(rep.Port), 10) + delim + rep.Protocol + scope
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification
