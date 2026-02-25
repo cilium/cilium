@@ -40,9 +40,6 @@ const (
 	// will simply return.
 	EndpointGCInterval = "cilium-endpoint-gc-interval"
 
-	// NodesGCInterval is the duration for which the cilium nodes are GC.
-	NodesGCInterval = "nodes-gc-interval"
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
@@ -205,9 +202,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-	// NodesGCInterval is the GC interval for CiliumNodes
-	NodesGCInterval time.Duration
-
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
 	// Note that only one node per cluster should run this, and most iterations
@@ -307,7 +301,6 @@ type OperatorConfig struct {
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
-	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)

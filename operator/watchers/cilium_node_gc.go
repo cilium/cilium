@@ -8,27 +8,16 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	ciliumNodeGCControllerGroup = controller.NewGroup("cilium-node-gc")
-
-	ctrlMgr = controller.NewManager()
 )
 
 // skipGCAnnotationKey is the key of the annotation to prevent garbage collecting
@@ -65,60 +54,6 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	delete(c.nodesToRemove, nodeName)
-}
-
-// RunCiliumNodeGC performs garbage collector for cilium node resource
-func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodes resource.Resource[*cilium_v2.CiliumNode], interval time.Duration, logger *slog.Logger,
-	mp workqueue.MetricsProvider) {
-	var candidateStore *ciliumNodeGCCandidate
-	var ciliumNodeStore resource.Store[*cilium_v2.CiliumNode]
-	var err error
-	var shouldGC func(ctx context.Context, nodeName string, ciliumNodeStore resource.Store[*cilium_v2.CiliumNode],
-		nodeGetter slimNodeGetter, interval time.Duration, candidateStore *ciliumNodeGCCandidate, scopedLog *slog.Logger) (bool, error)
-
-	if !option.Config.EnableCiliumNodeCRD {
-		logger.InfoContext(ctx, "Running one-off GC of CiliumNode CRD when disabled")
-		interval = 0
-		shouldGC = shouldGCNodeCRDDisabled
-	} else {
-		nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
-
-		// wait for k8s nodes synced is done
-		select {
-		case <-slimNodeStoreSynced:
-		case <-ctx.Done():
-			return
-		}
-
-		logger.InfoContext(ctx, "Starting to garbage collect stale CiliumNode custom resources")
-		candidateStore = newCiliumNodeGCCandidate()
-		shouldGC = shouldGCNode
-	}
-
-	ciliumNodeStore, err = ciliumNodes.Store(ctx)
-	if err != nil {
-		return
-	}
-
-	// create the controller to perform mark and sweep operation for cilium nodes
-	ctrlMgr.UpdateController("cilium-node-gc",
-		controller.ControllerParams{
-			Group:   ciliumNodeGCControllerGroup,
-			Context: ctx,
-			DoFunc: func(ctx context.Context) error {
-				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,
-					nodeGetter{}, interval, candidateStore, logger, shouldGC)
-			},
-			RunInterval: interval,
-		},
-	)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		<-ctx.Done()
-		ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
-	}()
 }
 
 // Runs the garbage collection for CiliumNode resources, for both CiliumNode CRD enabled and disabled modes.

@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"k8s.io/client-go/util/workqueue"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
@@ -234,6 +233,10 @@ var (
 		endpointslicesync.Cell,
 		mcsapi.Cell,
 		locksweeper.Cell,
+
+		// Garbage collects stale CiliumNode custom resources.
+		operatorWatchers.CiliumNodeGCCell,
+
 		legacyCell,
 
 		// When running in kvstore mode, the start hook of the identity GC
@@ -599,22 +602,18 @@ var legacyCell = cell.Module(
 
 type params struct {
 	cell.In
-	Lifecycle                cell.Lifecycle
-	Clientset                k8sClient.Clientset
-	Resources                operatorK8s.Resources
-	Logger                   *slog.Logger
-	WorkQueueMetricsProvider workqueue.MetricsProvider
+	Lifecycle cell.Lifecycle
+	Clientset k8sClient.Clientset
+	Logger    *slog.Logger
 }
 
 func registerLegacyOnLeader(p params) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		clientset:                p.Clientset,
-		resources:                p.Resources,
-		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
-		logger:                   p.Logger,
+		ctx:       ctx,
+		cancel:    cancel,
+		clientset: p.Clientset,
+		logger:    p.Logger,
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -623,13 +622,11 @@ func registerLegacyOnLeader(p params) {
 }
 
 type legacyOnLeader struct {
-	ctx                      context.Context
-	cancel                   context.CancelFunc
-	clientset                k8sClient.Clientset
-	wg                       sync.WaitGroup
-	resources                operatorK8s.Resources
-	workqueueMetricsProvider workqueue.MetricsProvider
-	logger                   *slog.Logger
+	ctx       context.Context
+	cancel    context.CancelFunc
+	clientset k8sClient.Clientset
+	wg        sync.WaitGroup
+	logger    *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -661,13 +658,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 
 		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
 			watcherLogger)
-	}
-
-	if legacy.clientset.IsEnabled() {
-		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.CiliumNodes,
-				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
-		}
 	}
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
