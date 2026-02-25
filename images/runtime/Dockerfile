@@ -8,11 +8,9 @@ ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1770907749-ed0b9a5@sha256:9fefa10c2025d45cfdec989f3ec3291834b027c019a6f05f9420e825c376588c
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:7.6.0-1770907749-ed0b9a5@sha256:76b314265584da09ef7faa62470d4ee426fd65e8b73c2833afa10a8508100ab0
-ARG CILIUM_IPTABLES_IMAGE=quay.io/cilium/iptables:1.8.8-1-1770907749-ed0b9a5@sha256:f3a0d995bda9488b49e4bb3d915f00140263c1d76c076b25751126c1bb7f46ff
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
-FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
 FROM ${GOLANG_IMAGE} AS go-builder
 
@@ -42,9 +40,6 @@ RUN apt-get update && \
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./install-runtime-deps.sh
-
-COPY --from=iptables-dist /iptables /iptables
-RUN dpkg -i /iptables/*\.deb && rm -rf /iptables
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./iptables-wrapper-installer.sh --no-sanity-check
