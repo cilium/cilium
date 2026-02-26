@@ -33,10 +33,6 @@ import (
 var (
 	// withDefaults will set enable all default metrics in the agent.
 	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
-
-	// withoutEnvVersion can be used to disable any metric that expresses
-	// host-specific data, such as kernel version.
-	withoutEnvVersion = os.Getenv("CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION")
 )
 
 // Cell will retrieve information from all other cells /
@@ -71,9 +67,10 @@ var Cell = cell.Module(
 		},
 	),
 	metrics.Metric(func() Metrics {
-		showDefaults := withDefaults != ""
-		showEnvVersion := withoutEnvVersion == ""
-		return NewMetrics(showDefaults, showEnvVersion)
+		if withDefaults != "" {
+			return NewMetrics(true)
+		}
+		return NewMetrics(false)
 	}),
 )
 

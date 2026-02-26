@@ -22,10 +22,6 @@ import (
 var (
 	// withDefaults will set enable all default metrics in the operator.
 	withDefaults = os.Getenv("CILIUM_FEATURE_METRICS_WITH_DEFAULTS")
-
-	// withoutEnvVersion can be used to disable metrics that express environment
-	// version info from the host, such as Kubernetes version.
-	withoutEnvVersion = os.Getenv("CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION")
 )
 
 // Cell will retrieve information from all other cells /
@@ -42,9 +38,10 @@ var Cell = cell.Module(
 		},
 	),
 	metrics.Metric(func() Metrics {
-		showDefaults := withDefaults != ""
-		showEnvVersion := withoutEnvVersion == ""
-		return NewMetrics(showDefaults, showEnvVersion)
+		if withDefaults != "" {
+			return NewMetrics(true)
+		}
+		return NewMetrics(false)
 	}),
 )
 
