@@ -1463,15 +1463,15 @@ func TestExtractMsgDetails(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, _, ttl, cnames, _, _, _, err := ExtractMsgDetails(tc.msg)
+		details, err := ExtractMsgDetails(tc.msg)
 		if tc.wantErr {
 			require.Error(t, err)
 		} else {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, tc.ttl, ttl)
-		require.Equal(t, tc.cnames, cnames)
+		require.Equal(t, tc.ttl, details.TTL)
+		require.Equal(t, tc.cnames, details.CNAMEs)
 	}
 }
 

@@ -28,13 +28,13 @@ type messageHandler struct {
 // NotifyOnDNSMsg implements messagehandler.DNSMessageHandler.
 // It is used by the standalone DNS proxy to notify the gRPC client about the DNS message.
 func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddrPort netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-	qname, responseIPs, TTL, _, rcode, _, _, err := dnsproxy.ExtractMsgDetails(msg)
+	details, err := dnsproxy.ExtractMsgDetails(msg)
 	if err != nil {
 		m.Logger.Error("Cannot extract DNS message details", logfields.Error, err)
 		return err
 	}
 	var ips [][]byte
-	for _, i := range responseIPs {
+	for _, i := range details.ResponseIPs {
 		ips = append(ips, []byte(i.String()))
 	}
 
@@ -50,12 +50,12 @@ func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpo
 		return err
 	}
 	message := &pb.FQDNMapping{
-		Fqdn:           qname,
+		Fqdn:           details.QName,
 		RecordIp:       ips,
-		Ttl:            TTL,
+		Ttl:            details.TTL,
 		SourceIp:       []byte(sourceIp),
 		SourceIdentity: uint32(sourceIdentity.ID),
-		ResponseCode:   uint32(rcode),
+		ResponseCode:   uint32(details.RCode),
 	}
 	return m.ConnHandler.NotifyOnMsg(message)
 }
