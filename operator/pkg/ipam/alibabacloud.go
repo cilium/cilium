@@ -15,6 +15,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam/allocator/alibabacloud"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -28,6 +29,7 @@ func init() {
 
 		cell.Config(defaultAlibabaCloudConfig),
 		cell.Invoke(startAlibabaAllocator),
+		metrics.Metric(alibabacloud.NewMetrics),
 	))
 }
 
@@ -53,7 +55,8 @@ type alibabaParams struct {
 	Lifecycle          cell.Lifecycle
 	JobGroup           job.Group
 	Clientset          k8sClient.Clientset
-	MetricsRegistry    *metrics.Registry
+	AlibabaMetrics     *alibabacloud.Metrics
+	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
 	NodeWatcherFactory nodeWatcherJobFactory
 
@@ -77,11 +80,11 @@ func startAlibabaAllocator(p alibabaParams) {
 	p.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger, p.MetricsRegistry); err != nil {
+				if err := allocator.Init(ctx, p.Logger, p.AlibabaMetrics); err != nil {
 					return fmt.Errorf("unable to init AlibabaCloud allocator: %w", err)
 				}
 
-				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.MetricsRegistry)
+				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.IPAMMetrics)
 				if err != nil {
 					return fmt.Errorf("unable to start AlibabaCloud allocator: %w", err)
 				}

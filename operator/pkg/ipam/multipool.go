@@ -27,7 +27,6 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -62,7 +61,6 @@ type multiPoolParams struct {
 	Lifecycle          cell.Lifecycle
 	JobGroup           job.Group
 	Clientset          k8sClient.Clientset
-	MetricsRegistry    *metrics.Registry
 	DaemonCfg          *option.DaemonConfig
 	CiliumPodIPPools   resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 	NodeWatcherFactory nodeWatcherJobFactory
