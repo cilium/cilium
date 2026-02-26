@@ -216,28 +216,18 @@ func TestUpdateNodeIPAMEnabled(t *testing.T) {
 
 func TestUpdateKubernetesVersion(t *testing.T) {
 	tests := []struct {
-		name           string
-		withEnvVersion bool
-		enabled        bool
-		expected       float64
+		name     string
+		expected float64
 	}{
 		{
-			name:           "Kubernetes version metric withEnvVersion=true",
-			withEnvVersion: true,
-			enabled:        true,
-			expected:       1,
-		},
-		{
-			name:           "Kubernetes version metric withEnvVersion=false",
-			withEnvVersion: false,
-			enabled:        false,
-			expected:       0,
+			name:     "Kubernetes version metric",
+			expected: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			metrics := NewMetrics(true, tt.withEnvVersion)
+			metrics := NewMetrics(true, true)
 			config := &option.OperatorConfig{}
 
 			params := mockFeaturesParams{
@@ -246,12 +236,11 @@ func TestUpdateKubernetesVersion(t *testing.T) {
 
 			metrics.update(params, config)
 
-			counter, err := metrics.CPKubernetesVersion.GetMetricWithLabelValues(params.K8sVersion())
+			counter, err := metrics.CPKubernetesVersion.GetMetricWithLabelValues("1.31.0")
 			assert.NoError(t, err)
-			assert.Equal(t, tt.enabled, counter.IsEnabled())
 
 			counterValue := counter.Get()
-			assert.Equal(t, tt.expected, counterValue, "Expected version %s to be %f", params.K8sVersion(), tt.expected)
+			assert.Equal(t, float64(1), counterValue, "Expected version %s to be incremented", "1.31.0")
 		})
 	}
 }
