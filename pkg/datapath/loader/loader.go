@@ -70,9 +70,8 @@ type Params struct {
 	EPRestorer         promise.Promise[endpointstate.Restorer]
 	BIGTCPConfig       *bigtcp.Configuration
 
-	// Force map initialisation before loader. You should not use these otherwise.
-	// Some of the entries in this slice may be nil.
-	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
+	// Force map initialisation before loader.
+	bpf.MapGroup
 }
 
 // newLoader returns a new loader.
