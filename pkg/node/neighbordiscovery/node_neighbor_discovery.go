@@ -84,10 +84,10 @@ func (nnh *nodeNeighborHandler) NodeAdd(newNode nodeTypes.Node) error {
 	}
 
 	if newNode.GetNodeIP(true).To16() != nil {
-		ipv4, ok := netip.AddrFromSlice(newNode.GetNodeIP(true).To16())
+		ipv6, ok := netip.AddrFromSlice(newNode.GetNodeIP(true).To16())
 		if ok {
 			err := nnh.forwardableIPManager.Insert(
-				ipv4,
+				ipv6,
 				neighbor.ForwardableIPOwner{
 					Type: neighbor.ForwardableIPOwnerNode,
 					ID:   newNode.Identity().String(),
@@ -114,7 +114,7 @@ func (nnh *nodeNeighborHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) erro
 	// We only care if the node name or IP address has changed.
 	if oldNode.Identity().String() != newNode.Identity().String() ||
 		!oldNode.GetNodeIP(false).To4().Equal(newNode.GetNodeIP(false).To4()) ||
-		!oldNode.GetNodeIP(false).To16().Equal(newNode.GetNodeIP(false).To16()) {
+		!oldNode.GetNodeIP(true).To16().Equal(newNode.GetNodeIP(true).To16()) {
 
 		if err := nnh.NodeDelete(oldNode); err != nil {
 			return fmt.Errorf("failed to delete old node %s: %w", oldNode.Name, err)
@@ -151,11 +151,11 @@ func (nnh *nodeNeighborHandler) NodeDelete(node nodeTypes.Node) error {
 		}
 	}
 
-	if node.GetNodeIP(false).To16() != nil {
-		ipv4, ok := netip.AddrFromSlice(node.GetNodeIP(false).To16())
+	if node.GetNodeIP(true).To16() != nil {
+		ipv6, ok := netip.AddrFromSlice(node.GetNodeIP(true).To16())
 		if ok {
-			err := nnh.forwardableIPManager.Insert(
-				ipv4,
+			err := nnh.forwardableIPManager.Delete(
+				ipv6,
 				neighbor.ForwardableIPOwner{
 					Type: neighbor.ForwardableIPOwnerNode,
 					ID:   node.Name,
