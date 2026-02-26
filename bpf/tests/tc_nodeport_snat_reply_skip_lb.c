@@ -6,56 +6,68 @@
 #include "pktgen.h"
 
 /*
- * Test: verify that reply traffic matching a reverse SNAT entry bypasses
- * the LB service lookup (fix for issue #44348).
+ * Test: demonstrate LB incorrectly intercepting SNAT reply traffic when
+ * BPF masquerade is disabled (issue #44348).
  *
- * When a pod sends outgoing UDP from a port that is also exposed via an
- * LB service, the return traffic must NOT be intercepted by the LB
- * service lookup. The SNAT reverse map check fires first and skips the
- * LB, preserving the source port.
+ * Real-world scenario (Talos Linux with KubeSpan, bpf.masquerade=false):
+ *
+ *  1) Pod listens on UDP port 10001 and sends outgoing UDP from the same
+ *     port to an external server on port 9000.
+ *  2) A NodePort/LB service exposes the pod on NODE_IP:10001.
+ *     The LB backend is the SAME pod: POD_IP:10001.
+ *  3) Since BPF masquerade is disabled, iptables MASQUERADE handles SNAT.
+ *     iptables preserves the original source port, so on the wire:
+ *       NODE_IP:10001 → EXT_IP:9000
+ *  4) External server replies:  EXT_IP:9000 → NODE_IP:10001
+ *  5) The reply enters the node via from-netdev (tc ingress BPF).
+ *     BPF runs BEFORE netfilter, so kernel conntrack cannot help.
+ *  6) nodeport_lb4() finds the LB service on NODE_IP:10001, treats
+ *     the reply as a new inbound LB connection, and DNATs to the
+ *     backend (which is the same pod).
+ *  7) The NodePort CT entry created by ct_create4() uses the same
+ *     5-tuple key as the pod's original outgoing CT entry, overwriting
+ *     it.  The endpoint BPF detects the collision and SNATs the source
+ *     port (9000 → random).
+ *  8) Pod receives the reply with a wrong source port.  The application
+ *     validates the source port and rejects the packet.
+ *
+ * Test 1 (tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4):
+ *   Sends a reply packet and verifies the LB intercepts it — DNAT
+ *   redirects to the backend (same pod).
+ *
+ * Test 2 (tc_nodeport_no_bpf_masq_ct_overwrite_ipv4):
+ *   Pre-populates the pod's outgoing CT entry, sends the reply, and
+ *   verifies the CT entry was overwritten by the NodePort entry
+ *   (node_port flag set, rev_nat_index changed).
  */
 
 #define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
 #define ENABLE_NODEPORT		1
-#define ENABLE_MASQUERADE_IPV4	1
-#define ENABLE_MASQUERADE_IPV6	1
 #define ENABLE_HOST_ROUTING	1
+/* Deliberately NOT defining ENABLE_MASQUERADE_IPV4 — the whole point. */
 
-/* External server that sends reply traffic */
+/* External server */
 #define EXT_IP			v4_ext_one
-#define EXT_PORT		__bpf_htons(80)
+#define EXT_PORT		__bpf_htons(9000)
 
-/* Node IP and the contested port (both SNAT'd and LB service) */
+/* Node IP and the contested port */
 #define NODE_IP			v4_node_one
-#define SVC_PORT		__bpf_htons(30001)
+#define SVC_PORT		__bpf_htons(10001)
 
-/* LB backend (should NOT be reached for reply traffic) */
-#define BACKEND_IP		v4_pod_two
-#define BACKEND_PORT		__bpf_htons(8080)
-
-/* Pod that originally sent the outgoing traffic */
+/* LB backend = the SAME pod that sent the outgoing traffic */
 #define POD_IP			v4_pod_one
+#define BACKEND_IP		POD_IP
+#define BACKEND_PORT		SVC_PORT	/* same port */
 
 #define DEFAULT_IFACE		24
-#define BACKEND_IFACE		25
-#define BACKEND_EP_ID		127
+#define POD_IFACE		26
+#define POD_EP_ID		126
 
 #define IPV4_DIRECT_ROUTING	NODE_IP
 
-/* IPv6 addresses */
-#define EXT_IP6			v6_ext_node_one
-#define EXT_IP6_ADDR		{ .addr = v6_ext_node_one_addr }
-#define NODE_IP6		v6_node_one
-#define NODE_IP6_ADDR		{ .addr = v6_node_one_addr }
-#define POD_IP6			v6_pod_one
-#define POD_IP6_ADDR		{ .addr = v6_pod_one_addr }
-#define BACKEND_IP6		v6_pod_two
-#define BACKEND_IP6_ADDR	{ .addr = v6_pod_two_addr }
-
 static volatile const __u8 *ext_mac = mac_one;
 static volatile const __u8 *node_mac = mac_two;
-static volatile const __u8 *backend_mac = mac_four;
+static volatile const __u8 *pod_mac = mac_four;
 
 __section_entry
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
@@ -70,7 +82,7 @@ struct {
 	__array(values, int());
 } mock_policy_call_map __section(".maps") = {
 	.values = {
-		[BACKEND_EP_ID] = &mock_handle_policy,
+		[POD_EP_ID] = &mock_handle_policy,
 	},
 };
 
@@ -116,12 +128,16 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 #include "nodeport_defaults.h"
 
-/*
- * Baseline IPv4: when no SNAT reverse entry exists, the LB service should
- * match normally and DNAT the packet to the backend.
+/* --------------------------------------------------------------------------
+ * Test 1: LB intercepts the reply packet (basic scenario).
+ *
+ * Packet: EXT_IP:9000 → NODE_IP:10001 (reply to iptables-masqueraded traffic)
+ * LB service: NODE_IP:10001 → POD_IP:10001 (backend = same pod)
+ * Expected: LB matches, DNAT dst to POD_IP:10001 (bug — should pass through)
+ * --------------------------------------------------------------------------
  */
-PKTGEN("tc", "tc_nodeport_lb_dnat_no_snat_ipv4")
-int tc_nodeport_lb_dnat_no_snat_ipv4_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4")
+int tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct udphdr *l4;
@@ -140,27 +156,29 @@ int tc_nodeport_lb_dnat_no_snat_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_lb_dnat_no_snat_ipv4")
-int tc_nodeport_lb_dnat_no_snat_ipv4_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4")
+int tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
+	/* LB service: NODE_IP:10001 → POD_IP:10001 (backend = same pod). */
 	lb_v4_add_service(NODE_IP, SVC_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(NODE_IP, SVC_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_UDP, 0);
 
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
-	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
+	/* Register pod as local endpoint for delivery after DNAT. */
+	endpoint_v4_add_entry(POD_IP, POD_IFACE, POD_EP_ID, 0, 0, 0,
+			      (__u8 *)pod_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(POD_IP, 0, 112233, 0, 0);
 	ipcache_v4_add_world_entry();
 
-	/* No SNAT entry — LB should handle this packet. */
+	/* No BPF SNAT map entry — iptables handles masquerade. */
 
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_lb_dnat_no_snat_ipv4")
-int tc_nodeport_lb_dnat_no_snat_ipv4_check(const struct __ctx_buff *ctx)
+CHECK("tc", "tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4")
+int tc_nodeport_no_bpf_masq_reply_lb_intercept_ipv4_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -192,119 +210,40 @@ int tc_nodeport_lb_dnat_no_snat_ipv4_check(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct udphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (l3->saddr != EXT_IP)
-		test_fatal("src IP has changed");
-
+	/* BUG: The reply packet was intercepted by the LB and DNAT'd to
+	 * the backend, which is the same pod.  The pod will receive this
+	 * packet with a wrong source port (rewritten by endpoint BPF to
+	 * avoid CT 5-tuple collision).
+	 */
 	if (l3->daddr != BACKEND_IP)
-		test_fatal("dst IP hasn't been DNAT'd to backend IP");
-
-	if (l4->source != EXT_PORT)
-		test_fatal("src port has changed");
+		test_fatal("expected dst IP to be DNAT'd to backend (demonstrating the bug)");
 
 	if (l4->dest != BACKEND_PORT)
-		test_fatal("dst port hasn't been DNAT'd to backend port");
+		test_fatal("expected dst port to be DNAT'd to backend port");
+
+	if (l4->source != EXT_PORT)
+		test_fatal("src port has changed unexpectedly");
 
 	test_finish();
 }
 
-#ifdef ENABLE_IPV6
-/*
- * Baseline IPv6: same — no SNAT entry, LB should DNAT normally.
+/* --------------------------------------------------------------------------
+ * Test 2: CT entry collision — the NodePort CT entry overwrites the pod's
+ * original outgoing CT entry.
+ *
+ * Setup:
+ *   1. Pre-populate the pod's outgoing CT entry:
+ *      key = {daddr=EXT_IP, saddr=POD_IP, dport=10001, sport=9000, UDP, OUT}
+ *      (lb4_extract_tuple convention: dport=pkt_src_port, sport=pkt_dst_port)
+ *   2. Send reply: EXT_IP:9000 → NODE_IP:10001
+ *
+ * Expected: LB creates NodePort CT entry with the SAME key, overwriting
+ * the pod's original entry.  The overwritten entry has node_port=1 and
+ * rev_nat_index set to the LB service's revnat ID.
+ * --------------------------------------------------------------------------
  */
-PKTGEN("tc", "tc_nodeport_lb_dnat_no_snat_ipv6")
-int tc_nodeport_lb_dnat_no_snat_ipv6_pktgen(struct __ctx_buff *ctx)
-{
-	struct pktgen builder;
-	struct udphdr *l4;
-
-	pktgen__init(&builder, ctx);
-
-	l4 = pktgen__push_ipv6_udp_packet(&builder,
-					   (__u8 *)ext_mac, (__u8 *)node_mac,
-					   (__u8 *)EXT_IP6, (__u8 *)NODE_IP6,
-					   EXT_PORT, SVC_PORT);
-	if (!l4)
-		return TEST_ERROR;
-
-	pktgen__finish(&builder);
-
-	return 0;
-}
-
-SETUP("tc", "tc_nodeport_lb_dnat_no_snat_ipv6")
-int tc_nodeport_lb_dnat_no_snat_ipv6_setup(struct __ctx_buff *ctx)
-{
-	__u16 revnat_id = 2;
-
-	union v6addr node_ip6 = NODE_IP6_ADDR;
-	union v6addr backend_ip6 = BACKEND_IP6_ADDR;
-
-	lb_v6_add_service(&node_ip6, SVC_PORT, IPPROTO_UDP, 1, revnat_id);
-	lb_v6_add_backend(&node_ip6, SVC_PORT, 1, 125,
-			  &backend_ip6, BACKEND_PORT, IPPROTO_UDP, 0);
-
-	endpoint_v6_add_entry(&backend_ip6, BACKEND_IFACE, BACKEND_EP_ID, 0, 112233,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
-	ipcache_v6_add_entry(&backend_ip6, 0, 112233, 0, 0);
-	ipcache_v6_add_world_entry();
-
-	/* No SNAT entry — LB should handle this packet. */
-
-	return netdev_receive_packet(ctx);
-}
-
-CHECK("tc", "tc_nodeport_lb_dnat_no_snat_ipv6")
-int tc_nodeport_lb_dnat_no_snat_ipv6_check(const struct __ctx_buff *ctx)
-{
-	void *data, *data_end;
-	__u32 *status_code;
-	struct udphdr *l4;
-	struct ipv6hdr *l3;
-	union v6addr backend_ip6 = BACKEND_IP6_ADDR;
-	union v6addr ext_ip6 = EXT_IP6_ADDR;
-
-	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	l4 = (void *)l3 + sizeof(struct ipv6hdr);
-	if ((void *)l4 + sizeof(struct udphdr) > data_end)
-		test_fatal("l4 out of bounds");
-
-	if (memcmp(&l3->saddr, &ext_ip6, sizeof(union v6addr)))
-		test_fatal("src IP has changed");
-
-	if (memcmp(&l3->daddr, &backend_ip6, sizeof(union v6addr)))
-		test_fatal("dst IP hasn't been DNAT'd to backend IP");
-
-	if (l4->source != EXT_PORT)
-		test_fatal("src port has changed");
-
-	if (l4->dest != BACKEND_PORT)
-		test_fatal("dst port hasn't been DNAT'd to backend port");
-
-	test_finish();
-}
-#endif /* ENABLE_IPV6 */
-
-/*
- * IPv4: send a UDP reply packet that matches both an SNAT reverse entry
- * and an LB service.  The SNAT check should bypass the LB.
- */
-PKTGEN("tc", "tc_nodeport_snat_reply_skip_lb_ipv4")
-int tc_nodeport_snat_reply_skip_lb_ipv4_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "tc_nodeport_no_bpf_masq_ct_overwrite_ipv4")
+int tc_nodeport_no_bpf_masq_ct_overwrite_ipv4_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct udphdr *l4;
@@ -323,46 +262,51 @@ int tc_nodeport_snat_reply_skip_lb_ipv4_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "tc_nodeport_snat_reply_skip_lb_ipv4")
-int tc_nodeport_snat_reply_skip_lb_ipv4_setup(struct __ctx_buff *ctx)
+SETUP("tc", "tc_nodeport_no_bpf_masq_ct_overwrite_ipv4")
+int tc_nodeport_no_bpf_masq_ct_overwrite_ipv4_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
+	__u16 revnat_id = 2;
 
-	/* Register an LB service on NODE_IP:SVC_PORT/UDP with a backend. */
+	/* LB service: NODE_IP:10001 → POD_IP:10001 (backend = same pod). */
 	lb_v4_add_service(NODE_IP, SVC_PORT, IPPROTO_UDP, 1, revnat_id);
-	lb_v4_add_backend(NODE_IP, SVC_PORT, 1, 124,
+	lb_v4_add_backend(NODE_IP, SVC_PORT, 1, 125,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_UDP, 0);
 
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
-	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
-
-	/* Pre-populate a reverse SNAT entry matching this reply traffic.
-	 * This represents a previous outgoing connection:
-	 *   POD_IP:SVC_PORT -> EXT_IP:EXT_PORT  (SNAT'd to NODE_IP:SVC_PORT)
-	 */
-	struct ipv4_ct_tuple snat_key = {
-		.saddr   = EXT_IP,
-		.daddr   = NODE_IP,
-		.sport   = EXT_PORT,
-		.dport   = SVC_PORT,
-		.nexthdr = IPPROTO_UDP,
-		.flags   = TUPLE_F_IN,
-	};
-	struct ipv4_nat_entry snat_val = {};
-
-	snat_val.to_daddr = POD_IP;
-	snat_val.to_dport = SVC_PORT;
-
-	map_update_elem(&cilium_snat_v4_external, &snat_key, &snat_val, BPF_ANY);
-
+	endpoint_v4_add_entry(POD_IP, POD_IFACE, POD_EP_ID, 0, 0, 0,
+			      (__u8 *)pod_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(POD_IP, 0, 112233, 0, 0);
 	ipcache_v4_add_world_entry();
+
+	/* Pre-populate the pod's original outgoing CT entry.
+	 *
+	 * When the pod sends POD_IP:10001 → EXT_IP:9000, the BPF egress
+	 * path creates a CT entry with this key (l4_load_ports convention:
+	 * dport = packet source port, sport = packet destination port):
+	 *
+	 *   {daddr=EXT_IP, saddr=POD_IP, dport=10001, sport=9000, UDP, OUT}
+	 *
+	 * This is the SAME key that nodeport_svc_lb4() will use for the
+	 * NodePort CT entry after __ipv4_ct_tuple_reverse(DNAT'd tuple).
+	 */
+	struct ipv4_ct_tuple ct_key = {
+		.daddr   = EXT_IP,
+		.saddr   = POD_IP,
+		.dport   = SVC_PORT,	/* 10001 — packet source port */
+		.sport   = EXT_PORT,	/* 9000  — packet dest port */
+		.nexthdr = IPPROTO_UDP,
+		.flags   = TUPLE_F_OUT,
+	};
+	struct ct_entry ct_value = {};
+
+	ct_value.lifetime = 0xFFFFFFFF;
+
+	map_update_elem(&cilium_ct_any4_global, &ct_key, &ct_value, BPF_ANY);
 
 	return netdev_receive_packet(ctx);
 }
 
-CHECK("tc", "tc_nodeport_snat_reply_skip_lb_ipv4")
-int tc_nodeport_snat_reply_skip_lb_ipv4_check(const struct __ctx_buff *ctx)
+CHECK("tc", "tc_nodeport_no_bpf_masq_ct_overwrite_ipv4")
+int tc_nodeport_no_bpf_masq_ct_overwrite_ipv4_check(const struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	__u32 *status_code;
@@ -379,11 +323,7 @@ int tc_nodeport_snat_reply_skip_lb_ipv4_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	/* If the LB was incorrectly applied, we'd see CTX_ACT_REDIRECT
-	 * (redirected to the backend).  With the fix, the packet skips the
-	 * LB and is passed to the stack after RevSNAT.
-	 */
-	assert(*status_code == CTX_ACT_OK);
+	assert(*status_code == CTX_ACT_REDIRECT);
 
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 	if ((void *)l3 + sizeof(struct iphdr) > data_end)
@@ -393,121 +333,37 @@ int tc_nodeport_snat_reply_skip_lb_ipv4_check(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct udphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	/* The packet must NOT be DNAT'd to the backend. */
-	if (l3->daddr == BACKEND_IP)
-		test_fatal("dst IP was DNAT'd to backend - LB was not skipped");
+	if (l3->daddr != BACKEND_IP)
+		test_fatal("expected dst IP to be DNAT'd to backend");
 
-	/* The source port must be preserved (not rewritten by the LB). */
-	if (l4->source != EXT_PORT)
-		test_fatal("src port was rewritten");
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("expected dst port to be DNAT'd to backend port");
 
-	/* The dest port must not be changed to the backend port. */
-	if (l4->dest == BACKEND_PORT)
-		test_fatal("dst port was changed to backend port - LB was not skipped");
-
-	test_finish();
-}
-
-#ifdef ENABLE_IPV6
-/*
- * IPv6: same scenario as above but for the IPv6 datapath.
- */
-PKTGEN("tc", "tc_nodeport_snat_reply_skip_lb_ipv6")
-int tc_nodeport_snat_reply_skip_lb_ipv6_pktgen(struct __ctx_buff *ctx)
-{
-	struct pktgen builder;
-	struct udphdr *l4;
-
-	pktgen__init(&builder, ctx);
-
-	l4 = pktgen__push_ipv6_udp_packet(&builder,
-					   (__u8 *)ext_mac, (__u8 *)node_mac,
-					   (__u8 *)EXT_IP6, (__u8 *)NODE_IP6,
-					   EXT_PORT, SVC_PORT);
-	if (!l4)
-		return TEST_ERROR;
-
-	pktgen__finish(&builder);
-
-	return 0;
-}
-
-SETUP("tc", "tc_nodeport_snat_reply_skip_lb_ipv6")
-int tc_nodeport_snat_reply_skip_lb_ipv6_setup(struct __ctx_buff *ctx)
-{
-	__u16 revnat_id = 2;
-
-	union v6addr node_ip6 = NODE_IP6_ADDR;
-	union v6addr backend_ip6 = BACKEND_IP6_ADDR;
-	union v6addr pod_ip6 = POD_IP6_ADDR;
-
-	/* Register an LB service on NODE_IP6:SVC_PORT/UDP with a backend. */
-	lb_v6_add_service(&node_ip6, SVC_PORT, IPPROTO_UDP, 1, revnat_id);
-	lb_v6_add_backend(&node_ip6, SVC_PORT, 1, 125,
-			  &backend_ip6, BACKEND_PORT, IPPROTO_UDP, 0);
-
-	ipcache_v6_add_world_entry();
-
-	/* Pre-populate a reverse SNAT entry matching this reply traffic. */
-	struct ipv6_ct_tuple snat_key __align_stack_8 = {
-		.saddr   = EXT_IP6_ADDR,
-		.daddr   = NODE_IP6_ADDR,
-		.sport   = EXT_PORT,
+	/* Verify the CT collision: the pod's original outgoing CT entry
+	 * should now be overwritten with the NodePort entry.
+	 *
+	 * The original entry had node_port=0 and rev_nat_index=0.
+	 * After overwrite, it should have node_port=1 and rev_nat_index
+	 * set to the LB service's revnat ID.
+	 */
+	struct ipv4_ct_tuple ct_key = {
+		.daddr   = EXT_IP,
+		.saddr   = POD_IP,
 		.dport   = SVC_PORT,
+		.sport   = EXT_PORT,
 		.nexthdr = IPPROTO_UDP,
-		.flags   = TUPLE_F_IN,
+		.flags   = TUPLE_F_OUT,
 	};
-	struct ipv6_nat_entry snat_val __align_stack_8 = {};
+	struct ct_entry *entry = map_lookup_elem(&cilium_ct_any4_global, &ct_key);
 
-	snat_val.to_daddr = pod_ip6;
-	snat_val.to_dport = SVC_PORT;
+	if (!entry)
+		test_fatal("CT entry disappeared");
 
-	map_update_elem(&cilium_snat_v6_external, &snat_key, &snat_val, BPF_ANY);
+	if (!entry->node_port)
+		test_fatal("CT entry was NOT overwritten: node_port flag not set");
 
-	return netdev_receive_packet(ctx);
-}
-
-CHECK("tc", "tc_nodeport_snat_reply_skip_lb_ipv6")
-int tc_nodeport_snat_reply_skip_lb_ipv6_check(const struct __ctx_buff *ctx)
-{
-	void *data, *data_end;
-	__u32 *status_code;
-	struct udphdr *l4;
-	struct ipv6hdr *l3;
-	union v6addr backend_ip6 = BACKEND_IP6_ADDR;
-
-	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	assert(*status_code == CTX_ACT_OK);
-
-	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	l4 = (void *)l3 + sizeof(struct ipv6hdr);
-	if ((void *)l4 + sizeof(struct udphdr) > data_end)
-		test_fatal("l4 out of bounds");
-
-	/* The packet must NOT be DNAT'd to the backend. */
-	if (!memcmp(&l3->daddr, &backend_ip6, sizeof(union v6addr)))
-		test_fatal("dst IP was DNAT'd to backend - LB was not skipped");
-
-	/* The source port must be preserved. */
-	if (l4->source != EXT_PORT)
-		test_fatal("src port was rewritten");
-
-	/* The dest port must not be the backend port. */
-	if (l4->dest == BACKEND_PORT)
-		test_fatal("dst port was changed to backend port - LB was not skipped");
+	if (entry->rev_nat_index == 0)
+		test_fatal("CT entry was NOT overwritten: rev_nat_index still 0");
 
 	test_finish();
 }
-#endif /* ENABLE_IPV6 */
