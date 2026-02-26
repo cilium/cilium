@@ -27,7 +27,6 @@ import (
 	k8s2 "github.com/cilium/cilium/pkg/policy/k8s"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/version"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -138,14 +137,6 @@ func (fp *featuresParams) DatapathOperationalMode() string {
 	return fp.ConnectorConfig.GetOperationalMode().String()
 }
 
-func (fp *featuresParams) KernelVersion() string {
-	kernelVersion, err := version.GetKernelVersion()
-	if err != nil {
-		return kernelVersionUnknown
-	}
-	return kernelVersion.String()
-}
-
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.EncapProtocol
 	GetChainingMode() string
@@ -156,5 +147,4 @@ type enabledFeatures interface {
 	IsDynamicConfigSourceKindNodeConfig() bool
 	DatapathConfiguredMode() string
 	DatapathOperationalMode() string
-	KernelVersion() string
 }

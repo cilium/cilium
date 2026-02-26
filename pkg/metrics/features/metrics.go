@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/version"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -378,7 +379,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystemDP,
 			Name:      "kernel_version",
-			Disabled:  !withEnvVersion,
 		}, metric.Labels{
 			{
 				Name: "version",
@@ -1035,10 +1035,11 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.DPEndpointRoutes.Set(1)
 	}
 
-	if m.DPKernelVersion.IsEnabled() {
-		if kernelVersion := params.KernelVersion(); kernelVersion != "" {
-			m.DPKernelVersion.WithLabelValues(kernelVersion).Set(1)
-		}
+	kernelVersion, err := version.GetKernelVersion()
+	if err != nil || kernelVersion.String() == "" {
+		m.DPKernelVersion.WithLabelValues(kernelVersionUnknown).Set(1)
+	} else if kernelVersion.String() != "" {
+		m.DPKernelVersion.WithLabelValues(kernelVersion.String()).Set(1)
 	}
 
 	if config.EnableHostFirewall {

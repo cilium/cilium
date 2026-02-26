@@ -69,7 +69,6 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 			Subsystem: subsystemCP,
 			Help:      "Kubernetes version detected by the operator",
 			Name:      "kubernetes_version",
-			Disabled:  !withEnvVersion,
 		}, metric.Labels{
 			{
 				Name: "version",
@@ -98,9 +97,7 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 	if params.IsNodeIPAMEnabled() {
 		m.ACLBNodeIPAMEnabled.Set(1)
 	}
-	if m.CPKubernetesVersion.IsEnabled() {
-		if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
-			m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Set(1)
-		}
+	if k8sVersionStr := params.K8sVersion(); k8sVersionStr != "" {
+		m.CPKubernetesVersion.WithLabelValues(k8sVersionStr).Set(1)
 	}
 }

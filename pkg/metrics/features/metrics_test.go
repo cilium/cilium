@@ -27,7 +27,6 @@ type mockFeaturesParams struct {
 	L2PodAnnouncement                   bool
 	isDynamicConfigSourceKindNodeConfig bool
 	ConnectorConfig                     types.ConnectorConfig
-	KernelVersionString                 string
 }
 
 func (m mockFeaturesParams) TunnelProtocol() tunnel.EncapProtocol {
@@ -70,10 +69,6 @@ func (m mockFeaturesParams) DatapathOperationalMode() string {
 		return m.ConnectorConfig.GetOperationalMode().String()
 	}
 	return "mocked"
-}
-
-func (m mockFeaturesParams) KernelVersion() string {
-	return m.KernelVersionString
 }
 
 type bigTCPMock struct {
