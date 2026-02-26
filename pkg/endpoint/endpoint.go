@@ -2608,20 +2608,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 
 	// If dry mode is enabled, no changes to system state are made.
 	if !e.isProperty(PropertyFakeEndpoint) {
-		// Set the Endpoint's interface down to prevent it from passing any traffic
-		// after its tc filters are removed.
-		if err := e.setDown(); err != nil {
-			errs = append(errs, err)
-		}
-
-		// Detach the endpoint program from any tc(x) hooks.
-		e.orchestrator.Unload(e.createEpInfoCache(""))
-
-		// Delete the endpoint's entries from the global cilium_(egress)call_policy
-		// maps and remove per-endpoint cilium_calls_ and cilium_policy_v2_ map pins.
-		if err := e.deleteMaps(); err != nil {
-			errs = append(errs, err...)
-		}
+		errs = append(errs, e.disconnect()...)
 	}
 
 	errs = append(errs, e.leaveLocked(conf)...)
@@ -2630,26 +2617,47 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	return errs
 }
 
-// setDown sets the Endpoint's underlying interface down. If the interface
-// cannot be retrieved, returns nil.
-func (e *Endpoint) setDown() error {
+// disconnect performs the necessary operations to disconnect the endpoint from
+// the network, such as setting the interface down and detaching any BPF
+// programs.
+//
+// This is a no-op if the endpoint's interface was recreated with the same name
+// (typically by CNI chaining), since that means we're racing with the creation
+// of an identical endpoint.
+func (e *Endpoint) disconnect() []error {
 	link, err := safenetlink.LinkByName(e.HostInterface())
 	if errors.As(err, &netlink.LinkNotFoundError{}) {
 		// No interface, nothing to do.
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("setting interface %s down: %w", e.HostInterface(), err)
+		return []error{fmt.Errorf("retrieving endpoint interface: %w", err)}
 	}
 	if link.Attrs().Index != e.GetIfIndex() {
-		// Interface with an index different from the one we were expecting.
-		// This can occur if the endpoint was deleted and recreated while the
-		// old endpoint's setDown() was executing. In this case, we should not
-		// set the new interface down.
+		// Interface with an ifindex different from the one we were expecting. This
+		// can occur if the endpoint was recreated with the same name during
+		// teardown of the old interface.
 		return nil
 	}
 
-	return netlink.LinkSetDown(link)
+	var errs []error
+
+	// Set the Endpoint's interface down to prevent it from passing any traffic
+	// after its tc filters are removed.
+	if err := netlink.LinkSetDown(link); err != nil {
+		errs = append(errs, err)
+	}
+
+	// Detach the endpoint program from any tc(x) hooks.
+	e.orchestrator.Unload(e.createEpInfoCache(""))
+
+	// Delete the endpoint's entries from the global cilium_(egress)call_policy
+	// maps and remove per-endpoint cilium_calls_ and cilium_policy_v2_ map pins.
+	if err := e.deleteMaps(); err != nil {
+		errs = append(errs, err...)
+	}
+
+	return errs
 }
 
 // WaitForFirstRegeneration waits for the endpoint to complete its first full regeneration.
