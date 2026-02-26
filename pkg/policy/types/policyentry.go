@@ -11,10 +11,11 @@ import (
 type Tier uint8
 
 const (
-	TierUnspec Tier = 0
-	Admin      Tier = 100
-	Normal     Tier = 200
-	Baseline   Tier = 250
+	TierUnspec    Tier = 0
+	Admin         Tier = 100
+	Normal        Tier = 200
+	Baseline      Tier = 250
+	DefaultPolicy Tier = 255 // reserved for Cilium internal use
 )
 
 type Verdict uint8

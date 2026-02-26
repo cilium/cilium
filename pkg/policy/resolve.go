@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -26,10 +25,6 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
-	// AllowLocalhost returns true if policy should allow ingress from local host.
-	// Always returns false for egress.
-	AllowLocalhost() bool
-
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
 
@@ -89,10 +84,6 @@ type policyContext struct {
 }
 
 var _ PolicyContext = &policyContext{}
-
-func (p *policyContext) AllowLocalhost() bool {
-	return option.Config.AlwaysAllowLocalhost()
-}
 
 // GetNamespace() returns the namespace for the policy rule being resolved
 func (p *policyContext) GetNamespace() string {
@@ -360,10 +351,6 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	// after the computation of PolicyMapState has started.
 	p.L4Policy.Ingress.toMapState(logger, calculatedPolicy)
 	p.L4Policy.Egress.toMapState(logger, calculatedPolicy)
-
-	if !policyOwner.IsHost() {
-		calculatedPolicy.policyMapState.determineAllowLocalhostIngress(p.L4Policy.Ingress.features)
-	}
 
 	return calculatedPolicy
 }

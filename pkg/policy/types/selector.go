@@ -33,6 +33,8 @@ type APISelector interface {
 var (
 	WildcardSelector  = NewLabelSelectorFromLabels()
 	WildcardSelectors = Selectors{WildcardSelector}
+	HostSelector      = NewLabelSelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+	HostSelectors     = Selectors{HostSelector}
 )
 
 // Selectors is a slice of Selectors.
