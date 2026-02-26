@@ -838,14 +838,6 @@ func (l4 *L4Filter) GetRuleLabels(cs CachedSelector) labels.LabelArrayList {
 	return nil
 }
 
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelectorForTest(l4, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, verdict types.Verdict, sni []string, listener string, listenerPriority ListenerPriority, priority types.Priority) {
 	for epsel := range l7 {
@@ -1114,16 +1106,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
-			// Allow localhost if requested and this is a redirect that selects the host
-			if ctx.AllowLocalhost() && l4.Ingress && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
-				// Make sure host selector is in the selector cache.
-				host := api.ReservedEndpointSelectors[labels.IDNameHost]
-				// Add the cached host selector to the PerSelectorPolicies, if not
-				// already there. Use empty string labels due to this selector being
-				// added due to agent config rather than any specific rule.
-				l4.cacheIdentitySelector(host, ctx.GetSelectorCache())
-			}
-
 			// collect redirect types (if any)
 			redirectTypes |= sp.redirectType()
 
@@ -1271,6 +1253,7 @@ func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
 
 // NewL4PolicyMapWithValues creates an new L4PolicMap, with an initial
 // set of values. The initMap argument does not support port ranges.
+// Only used for testing but from multiple packages.
 func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
 	l4M := L4PolicyMaps{makeL4PolicyMap()}
 	for k, v := range initMap {

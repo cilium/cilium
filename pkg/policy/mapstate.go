@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -50,8 +49,6 @@ func KeyForDirection(direction trafficdirection.TrafficDirection) Key {
 }
 
 var (
-	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = IngressKey().WithIdentity(identity.ReservedIdentityHost)
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	// We have one for each traffic direction
 	allKey = [2]Key{
@@ -1578,17 +1575,6 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry mapStateEntry) b
 		}
 	}
 	return false
-}
-
-// determineAllowLocalhostIngress determines whether communication should be allowed
-// from the localhost. It inserts the Key corresponding to the localhost in
-// the desiredPolicyKeys if the localhost is allowed to communicate with the
-// endpoint. Authentication for localhost traffic is not required.
-func (ms *mapState) determineAllowLocalhostIngress(features policyFeatures) {
-	if option.Config.AlwaysAllowLocalhost() {
-		entry := newAllowEntryWithLabels(LabelsLocalHostIngress)
-		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), localHostKey, entry, features, ChangeState{})
-	}
 }
 
 // allowAllIdentities translates all identities in selectorCache to their
