@@ -31,7 +31,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0},
-			expectedPriorities: []int{1},
+			expectedPriorities: []int{0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -41,7 +41,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 1},
-			expectedPriorities: []int{2, 1},
+			expectedPriorities: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -96,7 +96,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 3},
-			expectedPriorities: []int{5, 2},
+			expectedPriorities: []int{2, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -111,7 +111,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 2},
-			expectedPriorities: []int{3, 1},
+			expectedPriorities: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -129,7 +129,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 1},
-			expectedPriorities: []int{2, 1},
+			expectedPriorities: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -147,7 +147,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 1, 2},
-			expectedPriorities: []int{3, 2, 1},
+			expectedPriorities: []int{2, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -167,7 +167,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 4, 6},
-			expectedPriorities: []int{7, 3, 1},
+			expectedPriorities: []int{3, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -182,7 +182,7 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 2, 2},
-			expectedPriorities: []int{3, 1, 1},
+			expectedPriorities: []int{1, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -196,7 +196,17 @@ func TestComputeTierPriorities(t *testing.T) {
 				},
 			},
 			expectedTiers:      []types.Priority{0, 1, 1},
-			expectedPriorities: []int{2, 1, 1},
+			expectedPriorities: []int{1, 1, 0},
+		},
+		{
+			rules: []types.PolicyEntry{
+				{
+					Tier:     2,
+					Priority: 0,
+				},
+			},
+			expectedTiers:      []types.Priority{0, 1, 1},
+			expectedPriorities: []int{1, 1, 0},
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
@@ -213,10 +223,10 @@ func TestComputeTierPriorities(t *testing.T) {
 				tc.expectedPriorities[i] *= perTierRoundUp
 			}
 
-			actualPriorities, actualTiers, err := rs.computeTierPriorities()
+			actualBasePriorities, actualPassPriorities, err := rs.computeTierPriorities()
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedTiers, actualTiers)
-			require.Equal(t, tc.expectedPriorities, actualPriorities)
+			require.Equal(t, tc.expectedTiers, actualBasePriorities)
+			require.Equal(t, tc.expectedPriorities, actualPassPriorities)
 		})
 	}
 }
