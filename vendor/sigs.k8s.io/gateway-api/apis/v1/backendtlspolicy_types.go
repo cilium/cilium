@@ -37,7 +37,7 @@ type BackendTLSPolicy struct {
 
 	// Spec defines the desired state of BackendTLSPolicy.
 	// +required
-	Spec BackendTLSPolicySpec `json:"spec"`
+	Spec BackendTLSPolicySpec `json:"spec,omitzero"`
 
 	// Status defines the current state of BackendTLSPolicy.
 	// +optional
@@ -57,8 +57,6 @@ type BackendTLSPolicyList struct {
 // Support: Extended
 type BackendTLSPolicySpec struct {
 	// TargetRefs identifies an API object to apply the policy to.
-	// Only Services have Extended support. Implementations MAY support
-	// additional objects, with Implementation Specific support.
 	// Note that this config applies to the entire referenced resource
 	// by default, but this default may change in the future to provide
 	// a more granular application of the policy.
@@ -71,7 +69,6 @@ type BackendTLSPolicySpec struct {
 	//   be unique across all targetRef entries in the BackendTLSPolicy.
 	// * They select different sectionNames in the same target.
 	//
-	//
 	// When more than one BackendTLSPolicy selects the same target and
 	// sectionName, implementations MUST determine precedence using the
 	// following criteria, continuing on ties:
@@ -80,9 +77,9 @@ type BackendTLSPolicySpec struct {
 	//   example, a policy with a creation timestamp of "2021-07-15
 	//   01:02:03" MUST be given precedence over a policy with a
 	//   creation timestamp of "2021-07-15 01:02:04".
-	// * The policy appearing first in alphabetical order by {name}.
-	//   For example, a policy named `bar` is given precedence over a
-	//   policy named `baz`.
+	// * The policy appearing first in alphabetical order by {namespace}/{name}.
+	//   For example, a policy named `foo/bar` is given precedence over a
+	//   policy named `foo/baz`.
 	//
 	// For any BackendTLSPolicy that does not take precedence, the
 	// implementation MUST ensure the `Accepted` Condition is set to
@@ -94,9 +91,28 @@ type BackendTLSPolicySpec struct {
 	// clarified in a future release, the safest approach is to support a single
 	// targetRef.
 	//
-	// Support: Extended for Kubernetes Service
+	// Support Levels:
 	//
-	// Support: Implementation-specific for any other resource
+	// * Extended: Kubernetes Service referenced by HTTPRoute backendRefs.
+	//
+	// * Implementation-Specific: Services not connected via HTTPRoute, and any
+	//   other kind of backend. Implementations MAY use BackendTLSPolicy for:
+	//   - Services not referenced by any Route (e.g., infrastructure services)
+	//   - Gateway feature backends (e.g., ExternalAuth, rate-limiting services)
+	//   - Service mesh workload-to-service communication
+	//   - Other resource types beyond Service
+	//
+	// Implementations SHOULD aim to ensure that BackendTLSPolicy behavior is consistent,
+	// even outside of the extended HTTPRoute -(backendRef) -> Service path.
+	// They SHOULD clearly document how BackendTLSPolicy is interpreted in these
+	// scenarios, including:
+	//   - Which resources beyond Service are supported
+	//   - How the policy is discovered and applied
+	//   - Any implementation-specific semantics or restrictions
+	//
+	// Note that this config applies to the entire referenced resource
+	// by default, but this default may change in the future to provide
+	// a more granular application of the policy.
 	//
 	// +required
 	// +listType=atomic
@@ -104,7 +120,7 @@ type BackendTLSPolicySpec struct {
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:XValidation:message="sectionName must be specified when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name ? ((!has(p1.sectionName) || p1.sectionName == '') == (!has(p2.sectionName) || p2.sectionName == '')) : true))"
 	// +kubebuilder:validation:XValidation:message="sectionName must be unique when targetRefs includes 2 or more references to the same target",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))"
-	TargetRefs []LocalPolicyTargetReferenceWithSectionName `json:"targetRefs"`
+	TargetRefs []LocalPolicyTargetReferenceWithSectionName `json:"targetRefs,omitempty"`
 
 	// Validation contains backend TLS validation configuration.
 	// +required
@@ -181,8 +197,8 @@ type BackendTLSPolicyValidation struct {
 	// +kubebuilder:validation:MaxItems=8
 	CACertificateRefs []LocalObjectReference `json:"caCertificateRefs,omitempty"`
 
-	// WellKnownCACertificates specifies whether system CA certificates may be used in
-	// the TLS handshake between the gateway and backend pod.
+	// WellKnownCACertificates specifies whether a well-known set of CA certificates
+	// may be used in the TLS handshake between the gateway and backend pod.
 	//
 	// If WellKnownCACertificates is unspecified or empty (""), then CACertificateRefs
 	// must be specified with at least one entry for a valid configuration. Only one of
@@ -192,10 +208,16 @@ type BackendTLSPolicyValidation struct {
 	// `Accepted` Condition on the BackendTLSPolicy is set to `status: False`, with
 	// a Reason `Invalid`.
 	//
+	// Valid values include:
+	// * "System" - indicates that well-known system CA certificates should be used.
+	//
+	// Implementations MAY define their own sets of CA certificates. Such definitions
+	// MUST use an implementation-specific, prefixed name, such as
+	// `mycompany.com/my-custom-ca-certificates`.
+	//
 	// Support: Implementation-specific
 	//
 	// +optional
-	// +listType=atomic
 	WellKnownCACertificates *WellKnownCACertificatesType `json:"wellKnownCACertificates,omitempty"`
 
 	// Hostname is used for two purposes in the connection between Gateways and
@@ -259,7 +281,9 @@ type SubjectAltName struct {
 
 // WellKnownCACertificatesType is the type of CA certificate that will be used
 // when the caCertificateRefs field is unspecified.
-// +kubebuilder:validation:Enum=System
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(System|([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]))$`
 type WellKnownCACertificatesType string
 
 const (

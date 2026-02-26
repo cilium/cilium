@@ -74,7 +74,7 @@ var (
 
 // Response represents a response to a single echo request.
 type Response struct {
-	// RequestURL is the requested URL. This differs from URL, which is the just the path.
+	// RequestURL is the requested URL. This differs from URL, which is just the path.
 	// For example, RequestURL=http://foo/bar, URL=/bar
 	RequestURL string
 	// Method used (for HTTP).
@@ -87,7 +87,7 @@ type Response struct {
 	RawContent string
 	// ID is a unique identifier of the resource in the response
 	ID string
-	// URL is the url the request is sent to
+	// URL is the url to which the request is sent
 	URL string
 	// Version is the version of the resource in the response
 	Version string

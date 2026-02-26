@@ -52,6 +52,15 @@ type TimeoutConfig struct {
 	// Max value for conformant implementation: None
 	GatewayListenersMustHaveConditions time.Duration
 
+	// ListenerSetMustHaveCondition represents the maximum amount of time for a
+	// ListenerSet to have the supplied Condition.
+	// Max value for conformant implementation: None
+	ListenerSetMustHaveCondition time.Duration
+
+	// ListenerSetListenersMustHaveConditions represents the maximum time for a ListenerSet to have all listeners with a specific condition.
+	// Max value for conformant implementation: None
+	ListenerSetListenersMustHaveConditions time.Duration
+
 	// GWCMustBeAccepted represents the maximum time for a GatewayClass to have an Accepted condition set to true.
 	// Max value for conformant implementation: None
 	GWCMustBeAccepted time.Duration
@@ -98,6 +107,9 @@ type TimeoutConfig struct {
 	// DefaultTestTimeout is the default amount of time to wait for a test to complete
 	DefaultTestTimeout time.Duration
 
+	// DefaultPollInterval is the default amount of time to poll for status checks.
+	DefaultPollInterval time.Duration
+
 	// RequiredConsecutiveSuccesses is the number of requests that must succeed in a row
 	// to consider a response "consistent" before making additional assertions on the response body.
 	// If this number is not reached within MaxTimeToConsistency, the test will fail.
@@ -107,25 +119,28 @@ type TimeoutConfig struct {
 // DefaultTimeoutConfig populates a TimeoutConfig with the default values.
 func DefaultTimeoutConfig() TimeoutConfig {
 	return TimeoutConfig{
-		CreateTimeout:                      60 * time.Second,
-		DeleteTimeout:                      10 * time.Second,
-		GetTimeout:                         10 * time.Second,
-		GatewayMustHaveAddress:             180 * time.Second,
-		GatewayMustHaveCondition:           180 * time.Second,
-		GatewayStatusMustHaveListeners:     60 * time.Second,
-		GatewayListenersMustHaveConditions: 60 * time.Second,
-		GWCMustBeAccepted:                  180 * time.Second,
-		HTTPRouteMustNotHaveParents:        60 * time.Second,
-		HTTPRouteMustHaveCondition:         60 * time.Second,
-		TLSRouteMustHaveCondition:          60 * time.Second,
-		RouteMustHaveParents:               60 * time.Second,
-		ManifestFetchTimeout:               10 * time.Second,
-		MaxTimeToConsistency:               30 * time.Second,
-		NamespacesMustBeReady:              300 * time.Second,
-		RequestTimeout:                     10 * time.Second,
-		LatestObservedGenerationSet:        60 * time.Second,
-		DefaultTestTimeout:                 60 * time.Second,
-		RequiredConsecutiveSuccesses:       3,
+		CreateTimeout:                          60 * time.Second,
+		DeleteTimeout:                          10 * time.Second,
+		GetTimeout:                             10 * time.Second,
+		GatewayMustHaveAddress:                 180 * time.Second,
+		GatewayMustHaveCondition:               180 * time.Second,
+		GatewayStatusMustHaveListeners:         60 * time.Second,
+		GatewayListenersMustHaveConditions:     60 * time.Second,
+		ListenerSetMustHaveCondition:           180 * time.Second,
+		ListenerSetListenersMustHaveConditions: 60 * time.Second,
+		GWCMustBeAccepted:                      180 * time.Second,
+		HTTPRouteMustNotHaveParents:            60 * time.Second,
+		HTTPRouteMustHaveCondition:             60 * time.Second,
+		TLSRouteMustHaveCondition:              60 * time.Second,
+		RouteMustHaveParents:                   60 * time.Second,
+		ManifestFetchTimeout:                   10 * time.Second,
+		MaxTimeToConsistency:                   30 * time.Second,
+		NamespacesMustBeReady:                  300 * time.Second,
+		RequestTimeout:                         10 * time.Second,
+		LatestObservedGenerationSet:            60 * time.Second,
+		DefaultTestTimeout:                     60 * time.Second,
+		DefaultPollInterval:                    time.Millisecond * 100,
+		RequiredConsecutiveSuccesses:           3,
 	}
 }
 
@@ -184,5 +199,8 @@ func SetupTimeoutConfig(timeoutConfig *TimeoutConfig) {
 	}
 	if timeoutConfig.DefaultTestTimeout == 0 {
 		timeoutConfig.DefaultTestTimeout = defaultTimeoutConfig.DefaultTestTimeout
+	}
+	if timeoutConfig.DefaultPollInterval == 0 {
+		timeoutConfig.DefaultPollInterval = defaultTimeoutConfig.DefaultPollInterval
 	}
 }

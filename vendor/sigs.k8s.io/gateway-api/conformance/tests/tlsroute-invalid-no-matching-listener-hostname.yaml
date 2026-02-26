@@ -1,0 +1,72 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-exact-hostname
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: tls
+      port: 443
+      protocol: TLS
+      hostname: "www.example.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-wildcard-hostname
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: tls
+      port: 443
+      protocol: TLS
+      hostname: "*.example.com"
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tlsroute-hostname-mismatch-1
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tls-exact-hostname
+  hostnames:
+    - "www.nomatch.com"
+    - "*.nomatch.com"
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tlsroute-hostname-mismatch-2
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tls-wildcard-hostname
+  hostnames:
+    - "www.different.com"
+    - "*.different.com"
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443

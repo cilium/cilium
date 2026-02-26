@@ -18,6 +18,8 @@ package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +genclient
@@ -25,13 +27,11 @@ import (
 // +kubebuilder:resource:categories=gateway-api
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of TLSRoute has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 
 // The TLSRoute resource is similar to TCPRoute, but can be configured
 // to match against TLS-specific metadata. This allows more flexibility
 // in matching streams for a given TLS listener.
-//
-// If you need to forward traffic to a single target for a TLS listener, you
-// could choose to use a TCPRoute with a TLS listener.
 type TLSRoute struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -100,42 +100,10 @@ type TLSRouteSpec struct {
 }
 
 // TLSRouteStatus defines the observed state of TLSRoute
-type TLSRouteStatus struct {
-	RouteStatus `json:",inline"`
-}
+type TLSRouteStatus v1.TLSRouteStatus
 
 // TLSRouteRule is the configuration for a given rule.
-type TLSRouteRule struct {
-	// Name is the name of the route rule. This name MUST be unique within a Route if it is set.
-	//
-	// Support: Extended
-	// +optional
-	Name *SectionName `json:"name,omitempty"`
-
-	// BackendRefs defines the backend(s) where matching requests should be
-	// sent. If unspecified or invalid (refers to a nonexistent resource or
-	// a Service with no endpoints), the rule performs no forwarding; if no
-	// filters are specified that would result in a response being sent, the
-	// underlying implementation must actively reject request attempts to this
-	// backend, by rejecting the connection or returning a 500 status code.
-	// Request rejections must respect weight; if an invalid backend is
-	// requested to have 80% of requests, then 80% of requests must be rejected
-	// instead.
-	//
-	// Support: Core for Kubernetes Service
-	//
-	// Support: Extended for Kubernetes ServiceImport
-	//
-	// Support: Implementation-specific for any other resource
-	//
-	// Support for weight: Extended
-	//
-	// +required
-	// +listType=atomic
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
-	BackendRefs []BackendRef `json:"backendRefs,omitempty"`
-}
+type TLSRouteRule v1.TLSRouteRule
 
 // +kubebuilder:object:root=true
 

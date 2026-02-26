@@ -243,6 +243,74 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 			}
 		})
 
+		t.Run("HTTPRoutes have to be counted in AttachedRoutes only if they are Accepted", func(t *testing.T) {
+			// HTTPRoute no-intersecting-hosts should not be attached to any of the listeners.
+			listeners := []v1.ListenerStatus{
+				{
+					Name: v1.SectionName("listener-1"),
+					SupportedKinds: []v1.RouteGroupKind{{
+						Group: (*v1.Group)(&v1.GroupVersion.Group),
+						Kind:  v1.Kind("HTTPRoute"),
+					}},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(v1.ListenerConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+						{
+							Type:   string(v1.ListenerConditionResolvedRefs),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+					},
+					AttachedRoutes: 2, // HTTPRoute specific-host-matches-listener-specific-host and wildcard-host-matches-listener-specific-host
+				},
+				{
+					Name: v1.SectionName("listener-2"),
+					SupportedKinds: []v1.RouteGroupKind{{
+						Group: (*v1.Group)(&v1.GroupVersion.Group),
+						Kind:  v1.Kind("HTTPRoute"),
+					}},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(v1.ListenerConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+						{
+							Type:   string(v1.ListenerConditionResolvedRefs),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+					},
+					AttachedRoutes: 1, // HTTPRoute wildcard-host-matches-listener-wildcard-host
+				},
+				{
+					Name: v1.SectionName("listener-3"),
+					SupportedKinds: []v1.RouteGroupKind{{
+						Group: (*v1.Group)(&v1.GroupVersion.Group),
+						Kind:  v1.Kind("HTTPRoute"),
+					}},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(v1.ListenerConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+						{
+							Type:   string(v1.ListenerConditionResolvedRefs),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+					},
+					AttachedRoutes: 1, // HTTPRoute wildcard-host-matches-listener-wildcard-host
+				},
+			}
+
+			kubernetes.GatewayStatusMustHaveListeners(t, suite.Client, suite.TimeoutConfig, gwNN, listeners)
+		})
+
 		t.Run("HTTPRoutes intersects with an unspecified hostname listener", func(t *testing.T) {
 			routes := []types.NamespacedName{
 				{Namespace: ns, Name: "httproute-hostname-intersection-all"},

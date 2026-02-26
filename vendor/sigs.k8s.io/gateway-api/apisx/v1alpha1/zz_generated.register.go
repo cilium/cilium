@@ -34,6 +34,7 @@ const GroupName = "gateway.networking.x-k8s.io"
 var GroupVersion = v1.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
 // SchemeGroupVersion is group version used to register these objects
+//
 // Deprecated: use GroupVersion instead.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
 
@@ -63,8 +64,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&XBackendTrafficPolicy{},
 		&XBackendTrafficPolicyList{},
-		&XListenerSet{},
-		&XListenerSetList{},
 		&XMesh{},
 		&XMeshList{},
 	)

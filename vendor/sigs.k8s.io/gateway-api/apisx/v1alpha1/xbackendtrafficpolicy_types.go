@@ -66,7 +66,7 @@ type BackendTrafficPolicySpec struct {
 	// ServiceImport, or any implementation-specific backendRef) are the only
 	// valid API target references.
 	//
-	// Currently, a TargetRef can not be scoped to a specific port on a
+	// Currently, a TargetRef cannot be scoped to a specific port on a
 	// Service.
 	//
 	// +listType=map
@@ -169,6 +169,6 @@ type BudgetDetails struct {
 	//
 	// +optional
 	// +kubebuilder:default="10s"
-	// +kubebuilder:validation:XValidation:message="interval can not be greater than one hour or less than one second",rule="!(duration(self) < duration('1s') || duration(self) > duration('1h'))"
+	// +kubebuilder:validation:XValidation:message="interval cannot be greater than one hour or less than one second",rule="!(duration(self) < duration('1s') || duration(self) > duration('1h'))"
 	Interval *Duration `json:"interval,omitempty"`
 }

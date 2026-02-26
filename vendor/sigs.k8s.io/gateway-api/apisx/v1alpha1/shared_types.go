@@ -21,49 +21,11 @@ import (
 )
 
 type (
-	AllowedRoutes              = v1.AllowedRoutes
-	ListenerTLSConfig          = v1.ListenerTLSConfig
-	Group                      = v1.Group
-	Hostname                   = v1.Hostname
-	Kind                       = v1.Kind
-	ObjectName                 = v1.ObjectName
-	PortNumber                 = v1.PortNumber
-	ProtocolType               = v1.ProtocolType
-	RouteGroupKind             = v1.RouteGroupKind
-	SectionName                = v1.SectionName
-	Namespace                  = v1.Namespace
 	Duration                   = v1.Duration
 	PolicyStatus               = v1.PolicyStatus
 	LocalPolicyTargetReference = v1.LocalPolicyTargetReference
 	SessionPersistence         = v1.SessionPersistence
 )
-
-// ParentGatewayReference identifies an API object including its namespace,
-// defaulting to Gateway.
-type ParentGatewayReference struct {
-	// Group is the group of the referent.
-	//
-	// +optional
-	// +kubebuilder:default="gateway.networking.k8s.io"
-	Group *Group `json:"group"`
-
-	// Kind is kind of the referent. For example "Gateway".
-	//
-	// +optional
-	// +kubebuilder:default=Gateway
-	Kind *Kind `json:"kind"`
-
-	// Name is the name of the referent.
-	// +required
-	Name ObjectName `json:"name"`
-
-	// Namespace is the namespace of the referent.  If not present,
-	// the namespace of the referent is assumed to be the same as
-	// the namespace of the referring object.
-	//
-	// +optional
-	Namespace *Namespace `json:"namespace,omitempty"`
-}
 
 // RequestRate expresses a rate of requests over a given period of time.
 type RequestRate struct {
@@ -79,7 +41,7 @@ type RequestRate struct {
 	// time during which the given count of requests occur.
 	//
 	// Support: Extended
-	// +kubebuilder:validation:XValidation:message="interval can not be greater than one hour",rule="!(duration(self) == duration('0s') || duration(self) > duration('1h'))"
+	// +kubebuilder:validation:XValidation:message="interval cannot be greater than one hour",rule="!(duration(self) == duration('0s') || duration(self) > duration('1h'))"
 	// +optional
 	Interval *Duration `json:"interval,omitempty"`
 }

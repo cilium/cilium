@@ -51,7 +51,7 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNoHostNN, gwNN)
 
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		cPem, keyPem, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
 		}
@@ -74,7 +74,7 @@ var HTTPRouteHTTPSListener = suite.ConformanceTest{
 				Namespace: "gateway-conformance-infra",
 			}
 			t.Run(expected.GetTestCaseName(i), func(t *testing.T) {
-				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, cPem, keyPem, tc.host, expected)
+				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, serverCertPem, nil, nil, tc.host, expected)
 			})
 		}
 	},

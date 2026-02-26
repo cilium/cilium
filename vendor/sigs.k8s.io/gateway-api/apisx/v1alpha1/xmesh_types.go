@@ -39,7 +39,7 @@ type XMesh struct {
 
 	// Spec defines the desired state of XMesh.
 	// +required
-	Spec MeshSpec `json:"spec"`
+	Spec MeshSpec `json:"spec,omitzero"`
 
 	// Status defines the current state of XMesh.
 	//
@@ -50,7 +50,7 @@ type XMesh struct {
 	//
 	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	// +optional
-	Status MeshStatus `json:"status,omitempty"`
+	Status MeshStatus `json:"status,omitempty,omitzero"`
 }
 
 // MeshSpec defines the desired state of an XMesh.
@@ -67,7 +67,7 @@ type MeshSpec struct {
 	//
 	// +kubebuilder:validation:XValidation:message="Value is immutable",rule="self == oldSelf"
 	// +required
-	ControllerName gatewayapiv1.GatewayController `json:"controllerName"`
+	ControllerName gatewayapiv1.GatewayController `json:"controllerName,omitempty"`
 
 	// ParametersRef is an optional reference to a resource that contains
 	// implementation-specific configuration for this Mesh. If no

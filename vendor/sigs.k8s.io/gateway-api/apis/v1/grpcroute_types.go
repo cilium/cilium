@@ -306,8 +306,8 @@ type GRPCRouteRule struct {
 //   - method:
 //     type: Exact
 //     service: "foo"
-//     headers:
-//   - name: "version"
+//   - headers:
+//     name: "version"
 //     value "v1"
 //
 // ```

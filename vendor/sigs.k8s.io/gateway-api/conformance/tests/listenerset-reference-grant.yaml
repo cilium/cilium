@@ -1,0 +1,109 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-with-listener-sets-test-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gateway-listener
+    port: 443
+    protocol: HTTPS
+    hostname: "gateway-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: certificate
+        namespace: gateway-conformance-web-backend
+  allowedListeners:
+    namespaces:
+      from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-for-gateway
+  namespace: gateway-conformance-web-backend
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: gateway-conformance-infra
+  to:
+  - group: ""
+    kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-with-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listener-sets-test-reference-grant
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-with-reference-grant-listener
+    port: 443
+    protocol: HTTPS
+    hostname: "listenerset-with-reference-grant-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: certificate
+        namespace: gateway-conformance-web-backend
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: reference-grant-for-listener-set
+  namespace: gateway-conformance-web-backend
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: ListenerSet
+    namespace: gateway-conformance-infra
+  to:
+  - group: ""
+    kind: Secret
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-listener-sets-test-reference-grant-ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-without-reference-grant
+  namespace: gateway-api-listener-sets-test-reference-grant-ns
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listener-sets-test-reference-grant
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-without-reference-grant-listener
+    port: 443
+    protocol: HTTPS
+    hostname: "listenerset-without-reference-grant-listener-1.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: certificate
+        namespace: gateway-conformance-web-backend

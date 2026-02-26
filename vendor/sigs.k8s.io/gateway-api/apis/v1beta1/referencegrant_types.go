@@ -16,7 +16,11 @@ limitations under the License.
 
 package v1beta1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
+)
 
 // +genclient
 // +kubebuilder:object:root=true
@@ -40,19 +44,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // support ReferenceGrant MUST NOT permit cross-namespace references which have
 // no grant, and MUST respond to the removal of a grant by revoking the access
 // that the grant allowed.
-type ReferenceGrant struct {
-	metav1.TypeMeta `json:",inline"`
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec defines the desired state of ReferenceGrant.
-	// +optional
-	Spec ReferenceGrantSpec `json:"spec,omitempty"`
-
-	// Note that `Status` sub-resource has been excluded at the
-	// moment as it was difficult to work out the design.
-	// `Status` sub-resource may be added in future.
-}
+type ReferenceGrant v1.ReferenceGrant
 
 // +kubebuilder:object:root=true
 // ReferenceGrantList contains a list of ReferenceGrant.
@@ -62,97 +54,8 @@ type ReferenceGrantList struct {
 	Items           []ReferenceGrant `json:"items"`
 }
 
-// ReferenceGrantSpec identifies a cross namespace relationship that is trusted
-// for Gateway API.
-type ReferenceGrantSpec struct {
-	// From describes the trusted namespaces and kinds that can reference the
-	// resources described in "To". Each entry in this list MUST be considered
-	// to be an additional place that references can be valid from, or to put
-	// this another way, entries MUST be combined using OR.
-	//
-	// Support: Core
-	//
-	// +required
-	// +listType=atomic
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
-	From []ReferenceGrantFrom `json:"from"`
+type ReferenceGrantSpec = v1.ReferenceGrantSpec
 
-	// To describes the resources that may be referenced by the resources
-	// described in "From". Each entry in this list MUST be considered to be an
-	// additional place that references can be valid to, or to put this another
-	// way, entries MUST be combined using OR.
-	//
-	// Support: Core
-	//
-	// +required
-	// +listType=atomic
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
-	To []ReferenceGrantTo `json:"to"`
-}
+type ReferenceGrantFrom = v1.ReferenceGrantFrom
 
-// ReferenceGrantFrom describes trusted namespaces and kinds.
-type ReferenceGrantFrom struct {
-	// Group is the group of the referent.
-	// When empty, the Kubernetes core API group is inferred.
-	//
-	// Support: Core
-	//
-	// +required
-	Group Group `json:"group"`
-
-	// Kind is the kind of the referent. Although implementations may support
-	// additional resources, the following types are part of the "Core"
-	// support level for this field.
-	//
-	// When used to permit a SecretObjectReference:
-	//
-	// * Gateway
-	//
-	// When used to permit a BackendObjectReference:
-	//
-	// * GRPCRoute
-	// * HTTPRoute
-	// * TCPRoute
-	// * TLSRoute
-	// * UDPRoute
-	// +required
-	Kind Kind `json:"kind"`
-
-	// Namespace is the namespace of the referent.
-	//
-	// Support: Core
-	//
-	// +required
-	Namespace Namespace `json:"namespace"`
-}
-
-// ReferenceGrantTo describes what Kinds are allowed as targets of the
-// references.
-type ReferenceGrantTo struct {
-	// Group is the group of the referent.
-	// When empty, the Kubernetes core API group is inferred.
-	//
-	// Support: Core
-	//
-	// +required
-	Group Group `json:"group"`
-
-	// Kind is the kind of the referent. Although implementations may support
-	// additional resources, the following types are part of the "Core"
-	// support level for this field:
-	//
-	// * Secret when used to permit a SecretObjectReference
-	// * Service when used to permit a BackendObjectReference
-	//
-	// +required
-	Kind Kind `json:"kind"`
-
-	// Name is the name of the referent. When unspecified, this policy
-	// refers to all resources of the specified Group and Kind in the local
-	// namespace.
-	//
-	// +optional
-	Name *ObjectName `json:"name,omitempty"`
-}
+type ReferenceGrantTo = v1.ReferenceGrantTo

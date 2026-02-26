@@ -49,7 +49,7 @@ func extractBackendName(podName string) string {
 	// We need to remove the last two dash-separated components
 	parts := strings.Split(podName, "-")
 	if len(parts) < 3 {
-		return podName // fallback to original name if pattern doesn't match
+		return podName // fall back to original name if pattern doesn't match
 	}
 	// Remove last two components (deployment hash and pod hash)
 	return strings.Join(parts[:len(parts)-2], "-")

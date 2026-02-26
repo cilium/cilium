@@ -45,7 +45,7 @@ type Gateway struct {
 	//
 	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	// +optional
-	Status GatewayStatus `json:"status,omitempty"`
+	Status GatewayStatus `json:"status,omitempty,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -237,6 +237,7 @@ type GatewaySpec struct {
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:XValidation:message="tls must not be specified for protocols ['HTTP', 'TCP', 'UDP']",rule="self.all(l, l.protocol in ['HTTP', 'TCP', 'UDP'] ? !has(l.tls) : true)"
 	// +kubebuilder:validation:XValidation:message="tls mode must be Terminate for protocol HTTPS",rule="self.all(l, (l.protocol == 'HTTPS' && has(l.tls)) ? (l.tls.mode == '' || l.tls.mode == 'Terminate') : true)"
+	// +kubebuilder:validation:XValidation:message="tls mode must be set for protocol TLS",rule="self.all(l, (l.protocol == 'TLS' ? has(l.tls) && has(l.tls.mode) && l.tls.mode != '' : true))"
 	// +kubebuilder:validation:XValidation:message="hostname must not be specified for protocols ['TCP', 'UDP']",rule="self.all(l, l.protocol in ['TCP', 'UDP']  ? (!has(l.hostname) || l.hostname == '') : true)"
 	// +kubebuilder:validation:XValidation:message="Listener name must be unique within the Gateway",rule="self.all(l1, self.exists_one(l2, l1.name == l2.name))"
 	// +kubebuilder:validation:XValidation:message="Combination of port, protocol and hostname must be unique for each listener",rule="self.all(l1, self.exists_one(l2, l1.port == l2.port && l1.protocol == l2.protocol && (has(l1.hostname) && has(l2.hostname) ? l1.hostname == l2.hostname : !has(l1.hostname) && !has(l2.hostname))))"
@@ -280,9 +281,7 @@ type GatewaySpec struct {
 	Infrastructure *GatewayInfrastructure `json:"infrastructure,omitempty"`
 
 	// AllowedListeners defines which ListenerSets can be attached to this Gateway.
-	// While this feature is experimental, the default value is to allow no ListenerSets.
-	//
-	// <gateway:experimental>
+	// The default value is to allow no ListenerSets.
 	//
 	// +optional
 	AllowedListeners *AllowedListeners `json:"allowedListeners,omitempty"`
@@ -292,7 +291,6 @@ type GatewaySpec struct {
 	// Support: Extended
 	//
 	// +optional
-	// <gateway:experimental>
 	TLS *GatewayTLSConfig `json:"tls,omitempty"`
 
 	// DefaultScope, when set, configures the Gateway as a default Gateway,
@@ -321,7 +319,7 @@ type GatewaySpec struct {
 // AllowedListeners defines which ListenerSets can be attached to this Gateway.
 type AllowedListeners struct {
 	// Namespaces defines which namespaces ListenerSets can be attached to this Gateway.
-	// While this feature is experimental, the default value is to allow no ListenerSets.
+	// The default value is to allow no ListenerSets.
 	//
 	// +optional
 	// +kubebuilder:default={from: None}
@@ -338,7 +336,7 @@ type ListenerNamespaces struct {
 	// * All: ListenerSets in all namespaces may be attached to this Gateway.
 	// * None: Only listeners defined in the Gateway's spec are allowed
 	//
-	// While this feature is experimental, the default value None
+	// The default value None
 	//
 	// +optional
 	// +kubebuilder:default=None
@@ -394,7 +392,7 @@ type Listener struct {
 	//   the Gateway SHOULD return a 421.
 	// * If the current Listener (selected by SNI matching during ClientHello)
 	//   does not match the Host:
-	//     * If another Listener does match the Host the Gateway SHOULD return a
+	//     * If another Listener does match the Host, the Gateway SHOULD return a
 	//       421.
 	//     * If no other Listener matches the Host, the Gateway MUST return a
 	//       404.
@@ -526,22 +524,31 @@ const (
 
 // GatewayBackendTLS describes backend TLS configuration for gateway.
 type GatewayBackendTLS struct {
-	// ClientCertificateRef is a reference to an object that contains a Client
-	// Certificate and the associated private key.
+	// ClientCertificateRef references an object that contains a client certificate
+	// and its associated private key. It can reference standard Kubernetes resources,
+	// i.e., Secret, or implementation-specific custom resources.
 	//
-	// References to a resource in different namespace are invalid UNLESS there
-	// is a ReferenceGrant in the target namespace that allows the certificate
-	// to be attached. If a ReferenceGrant does not allow this reference, the
-	// "ResolvedRefs" condition MUST be set to False for this listener with the
-	// "RefNotPermitted" reason.
+	// A ClientCertificateRef is considered invalid if:
 	//
-	// ClientCertificateRef can reference to standard Kubernetes resources, i.e.
-	// Secret, or implementation-specific custom resources.
+	// * It refers to a resource that cannot be resolved (e.g., the referenced resource
+	//   does not exist) or is misconfigured (e.g., a Secret does not contain the keys
+	//   named `tls.crt` and `tls.key`). In this case, the `ResolvedRefs` condition
+	//   on the Gateway MUST be set to False with the Reason `InvalidClientCertificateRef`
+	//   and the Message of the Condition MUST indicate why the reference is invalid.
 	//
-	// Support: Core
+	// * It refers to a resource in another namespace UNLESS there is a ReferenceGrant
+	//   in the target namespace that allows the certificate to be attached.
+	//   If a ReferenceGrant does not allow this reference, the `ResolvedRefs` condition
+	//   on the Gateway MUST be set to False with the Reason `RefNotPermitted`.
 	//
+	// Implementations MAY choose to perform further validation of the certificate
+	// content (e.g., checking expiry or enforcing specific formats). In such cases,
+	// an implementation-specific Reason and Message MUST be set.
+	//
+	// Support: Core - Reference to a Kubernetes TLS Secret (with the type `kubernetes.io/tls`).
+	// Support: Implementation-specific - Other resource kinds or Secrets with a
+	// different type (e.g., `Opaque`).
 	// +optional
-	// <gateway:experimental>
 	ClientCertificateRef *SecretObjectReference `json:"clientCertificateRef,omitempty"`
 }
 
@@ -625,14 +632,12 @@ type GatewayTLSConfig struct {
 	// Support: Core
 	//
 	// +optional
-	// <gateway:experimental>
 	Backend *GatewayBackendTLS `json:"backend,omitempty"`
 
 	// Frontend describes TLS config when client connects to Gateway.
 	// Support: Core
 	//
 	// +optional
-	// <gateway:experimental>
 	Frontend *FrontendTLSConfig `json:"frontend,omitempty"`
 }
 
@@ -645,7 +650,6 @@ type FrontendTLSConfig struct {
 	// support: Core
 	//
 	// +required
-	// <gateway:experimental>
 	Default TLSConfig `json:"default"`
 
 	// PerPort specifies tls configuration assigned per port.
@@ -661,7 +665,6 @@ type FrontendTLSConfig struct {
 	// +listMapKey=port
 	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:validation:XValidation:message="Port for TLS configuration must be unique within the Gateway",rule="self.all(t1, self.exists_one(t2, t1.port == t2.port))"
-	// <gateway:experimental>
 	PerPort []TLSPortConfig `json:"perPort,omitempty"`
 }
 
@@ -696,7 +699,6 @@ type TLSConfig struct {
 	// Support: Core
 	//
 	// +optional
-	// <gateway:experimental>
 	Validation *FrontendTLSValidation `json:"validation,omitempty"`
 }
 
@@ -710,7 +712,6 @@ type TLSPortConfig struct {
 	// +required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	// <gateway:experimental>
 	Port PortNumber `json:"port"`
 
 	// TLS store the configuration that will be applied to all Listeners handling
@@ -719,34 +720,55 @@ type TLSPortConfig struct {
 	// Support: Core
 	//
 	// +required
-	// <gateway:experimental>
 	TLS TLSConfig `json:"tls"`
 }
 
 // FrontendTLSValidation holds configuration information that can be used to validate
 // the frontend initiating the TLS connection
 type FrontendTLSValidation struct {
-	// CACertificateRefs contains one or more references to
-	// Kubernetes objects that contain TLS certificates of
-	// the Certificate Authorities that can be used
-	// as a trust anchor to validate the certificates presented by the client.
+	// CACertificateRefs contains one or more references to Kubernetes
+	// objects that contain a PEM-encoded TLS CA certificate bundle, which
+	// is used as a trust anchor to validate the certificates presented by
+	// the client.
 	//
-	// A single CA certificate reference to a Kubernetes ConfigMap
-	// has "Core" support.
-	// Implementations MAY choose to support attaching multiple CA certificates to
-	// a Listener, but this behavior is implementation-specific.
+	// A CACertificateRef is invalid if:
 	//
-	// Support: Core - A single reference to a Kubernetes ConfigMap
-	// with the CA certificate in a key named `ca.crt`.
+	// * It refers to a resource that cannot be resolved (e.g., the
+	//   referenced resource does not exist) or is misconfigured (e.g., a
+	//   ConfigMap does not contain a key named `ca.crt`). In this case, the
+	//   Reason on all matching HTTPS listeners must be set to `InvalidCACertificateRef`
+	//   and the Message of the Condition must indicate which reference is invalid and why.
 	//
-	// Support: Implementation-specific (More than one certificate in a ConfigMap
-	// with different keys or more than one reference, or other kinds of resources).
+	// * It refers to an unknown or unsupported kind of resource. In this
+	//   case, the Reason on all matching HTTPS listeners must be set to
+	//   `InvalidCACertificateKind` and the Message of the Condition must explain
+	//   which kind of resource is unknown or unsupported.
 	//
-	// References to a resource in a different namespace are invalid UNLESS there
-	// is a ReferenceGrant in the target namespace that allows the certificate
-	// to be attached. If a ReferenceGrant does not allow this reference, the
-	// "ResolvedRefs" condition MUST be set to False for this listener with the
-	// "RefNotPermitted" reason.
+	// * It refers to a resource in another namespace UNLESS there is a
+	//   ReferenceGrant in the target namespace that allows the CA
+	//   certificate to be attached. If a ReferenceGrant does not allow this
+	//   reference, the `ResolvedRefs` on all matching HTTPS listeners condition
+	//   MUST be set with the Reason `RefNotPermitted`.
+	//
+	// Implementations MAY choose to perform further validation of the
+	// certificate content (e.g., checking expiry or enforcing specific formats).
+	// In such cases, an implementation-specific Reason and Message MUST be set.
+	//
+	// In all cases, the implementation MUST ensure that the `ResolvedRefs`
+	// condition is set to `status: False` on all targeted listeners (i.e.,
+	// listeners serving HTTPS on a matching port). The condition MUST
+	// include a Reason and Message that indicate the cause of the error. If
+	// ALL CACertificateRefs are invalid, the implementation MUST also ensure
+	// the `Accepted` condition on the listener is set to `status: False`, with
+	// the Reason `NoValidCACertificate`.
+	// Implementations MAY choose to support attaching multiple CA certificates
+	// to a listener, but this behavior is implementation-specific.
+	//
+	// Support: Core - A single reference to a Kubernetes ConfigMap, with the
+	// CA certificate in a key named `ca.crt`.
+	//
+	// Support: Implementation-specific - More than one reference, other kinds
+	// of resources, or a single reference that includes multiple certificates.
 	//
 	// +required
 	// +listType=atomic
@@ -803,7 +825,6 @@ type AllowedRoutes struct {
 	// Support: Core
 	//
 	// +optional
-	// +listType=atomic
 	// +kubebuilder:default={from: Same}
 	Namespaces *RouteNamespaces `json:"namespaces,omitempty"`
 
@@ -999,6 +1020,19 @@ type GatewayStatus struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:MaxItems=64
 	Listeners []ListenerStatus `json:"listeners,omitempty"`
+
+	// AttachedListenerSets represents the total number of ListenerSets that have been
+	// successfully attached to this Gateway.
+	//
+	// A ListenerSet is successfully attached to a Gateway when all the following conditions are met:
+	// - The ListenerSet is selected by the Gateway's AllowedListeners field
+	// - The ListenerSet has a valid ParentRef selecting the Gateway
+	// - The ListenerSet's status has the condition "Accepted: true"
+	//
+	// Uses for this field include troubleshooting AttachedListenerSets attachment and
+	// measuring blast radius/impact of changes to a Gateway.
+	// +optional
+	AttachedListenerSets *int32 `json:"attachedListenerSets,omitempty"`
 }
 
 // GatewayInfrastructure defines infrastructure level attributes about a Gateway instance.
@@ -1160,12 +1194,22 @@ const (
 	// information on which address is causing the problem and how to resolve it
 	// in the condition message.
 	GatewayReasonAddressNotUsable GatewayConditionReason = "AddressNotUsable"
-	// This condition indicates `FrontendValidationModeType` changed from
-	// `AllowValidOnly` to `AllowInsecureFallback`.
-	GatewayConditionInsecureFrontendValidationMode GatewayConditionReason = "InsecureFrontendValidationMode"
-	// This reason MUST be set for GatewayConditionInsecureFrontendValidationMode
-	// when client change FrontendValidationModeType for a Gateway or per port override
-	// to `AllowInsecureFallback`.
+)
+
+const (
+	// This condition is true when the Gateway FrontendValidationModeType is
+	// configured to allow insecure fallback behavior.
+	//
+	// Possible reasons for this condition to be True are:
+	//
+	// * "ConfigurationChanged"
+	//
+	// This condition is removed as soon as FrontendValidationModeType is changed back to `AllowValidOnly`.
+	GatewayConditionInsecureFrontendValidationMode GatewayConditionType = "InsecureFrontendValidationMode"
+
+	// This reason is used with the "InsecureFrontendValidationMode" condition when
+	// the FrontendValidationModeType has been changed from `AllowValidOnly` to
+	// `AllowInsecureFallback`, either at the Gateway level or via a per-port override.
 	GatewayReasonConfigurationChanged GatewayConditionReason = "ConfigurationChanged"
 )
 
@@ -1239,6 +1283,57 @@ const (
 )
 
 const (
+	// This condition indicates whether the controller was able to resolve all
+	// the object references for the Gateway that are not part of a specific
+	// Listener configuration, and also provides a positive-polarity summary of
+	// Listener's "ResolvedRefs" condition. This condition does not directly
+	// impact the Gateway's Accepted or Programmed conditions.
+	//
+	// Possible reasons for this condition to be True are:
+	//
+	// * "ResolvedRefs"
+	//
+	// Possible reasons for this condition to be False are:
+	//
+	// * "RefNotPermitted"
+	// * "InvalidClientCertificateRef"
+	// * "ListenersNotResolved"
+	//
+	// Controllers may raise this condition with other reasons, but should
+	// prefer to use the reasons listed above to improve interoperability.
+	//
+	// Note: This condition is considered Experimental and may change in future
+	// releases of the API.
+	GatewayConditionResolvedRefs GatewayConditionType = "ResolvedRefs"
+
+	// This reason is used with the "ResolvedRefs" condition when the condition
+	// is true.
+	GatewayReasonResolvedRefs GatewayConditionReason = "ResolvedRefs"
+
+	// This reason is used with the "ResolvedRefs" condition when the Gateway
+	// has an invalid ClientCertificateRef in its backend TLS configuration.
+	// A ClientCertificateRef is considered invalid when it refers to a
+	// nonexistent or unsupported resource or kind, or when the data within
+	// that resource is malformed.
+	// This reason must be used only when the reference is allowed, either by
+	// referencing an object in the same namespace as the Gateway, or when
+	// a cross-namespace reference has been explicitly allowed by a ReferenceGrant.
+	// If the reference is not allowed, the reason RefNotPermitted must be used
+	// instead.
+	GatewayReasonInvalidClientCertificateRef GatewayConditionReason = "InvalidClientCertificateRef"
+
+	// This reason is used with the "ResolvedRefs" condition when the Gateway
+	// has a top-level backend TLS configuration that references an object in
+	// another namespace, where the object in the other namespace does not have
+	// a ReferenceGrant explicitly allowing the reference.
+	GatewayReasonRefNotPermitted GatewayConditionReason = "RefNotPermitted"
+
+	// This reason is used with the "ResolvedRefs" condition when one or more
+	// Listeners have their "ResolvedRefs" condition set to false in their status.
+	GatewayReasonListenersNotResolved GatewayConditionReason = "ListenersNotResolved"
+)
+
+const (
 	// "Ready" is a condition type reserved for future use. It should not be used by implementations.
 	//
 	// If used in the future, "Ready" will represent the final state where all configuration is confirmed good
@@ -1250,6 +1345,7 @@ const (
 	//
 	// Note: This condition is not really "deprecated", but rather "reserved"; however, deprecated triggers Go linters
 	// to alert about usage.
+	//
 	// Deprecated: Ready is reserved for future use
 	GatewayConditionReady GatewayConditionType = "Ready"
 
@@ -1260,37 +1356,6 @@ const (
 	GatewayReasonListenersNotReady GatewayConditionReason = "ListenersNotReady"
 )
 
-const (
-	// AttachedListenerSets is a condition that is true when the Gateway has
-	// at least one ListenerSet attached to it.
-	//
-	// Possible reasons for this condition to be True are:
-	//
-	// * "ListenerSetsAttached"
-	//
-	// Possible reasons for this condition to be False are:
-	//
-	// * "NoListenerSetsAttached"
-	// * "ListenerSetsNotAllowed"
-	//
-	// Controllers may raise this condition with other reasons,
-	// but should prefer to use the reasons listed above to improve
-	// interoperability.
-	GatewayConditionAttachedListenerSets GatewayConditionType = "AttachedListenerSets"
-
-	// This reason is used with the "AttachedListenerSets" condition when the
-	// Gateway has at least one ListenerSet attached to it.
-	GatewayReasonListenerSetsAttached GatewayConditionReason = "ListenerSetsAttached"
-
-	// This reason is used with the "AttachedListenerSets" condition when the
-	// Gateway has no ListenerSets attached to it.
-	GatewayReasonNoListenerSetsAttached GatewayConditionReason = "NoListenerSetsAttached"
-
-	// This reason is used with the "AttachedListenerSets" condition when the
-	// Gateway has ListenerSets attached to it, but the ListenerSets are not allowed.
-	GatewayReasonListenerSetsNotAllowed GatewayConditionReason = "ListenerSetsNotAllowed"
-)
-
 // ListenerStatus is the status associated with a Listener.
 type ListenerStatus struct {
 	// Name is the name of the Listener that this status corresponds to.
@@ -1298,7 +1363,7 @@ type ListenerStatus struct {
 	Name SectionName `json:"name"`
 
 	// SupportedKinds is the list indicating the Kinds supported by this
-	// listener. This MUST represent the kinds an implementation supports for
+	// listener. This MUST represent the kinds supported by an implementation for
 	// that Listener configuration.
 	//
 	// If kinds are specified in Spec that are not supported, they MUST NOT
@@ -1307,10 +1372,10 @@ type ListenerStatus struct {
 	// and invalid Route kinds are specified, the implementation MUST
 	// reference the valid Route kinds that have been specified.
 	//
-	// +required
+	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=8
-	SupportedKinds []RouteGroupKind `json:"supportedKinds"`
+	SupportedKinds []RouteGroupKind `json:"supportedKinds,omitzero"`
 
 	// AttachedRoutes represents the total number of Routes that have been
 	// successfully attached to this Listener.
@@ -1324,8 +1389,11 @@ type ListenerStatus struct {
 	// attachment semantics can be found in the documentation on the various
 	// Route kinds ParentRefs fields). Listener or Route status does not impact
 	// successful attachment, i.e. the AttachedRoutes field count MUST be set
-	// for Listeners with condition Accepted: false and MUST count successfully
-	// attached Routes that may themselves have Accepted: false conditions.
+	// for Listeners, even if the Accepted condition of an individual Listener is set
+	// to "False". The AttachedRoutes number represents the number of Routes with
+	// the Accepted condition set to "True" that have been attached to this Listener.
+	// Routes with any other value for the Accepted condition MUST NOT be included
+	// in this count.
 	//
 	// Uses for this field include troubleshooting Route attachment and
 	// measuring blast radius/impact of changes to a Listener.
@@ -1398,6 +1466,7 @@ const (
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
 	// interoperability.
+	// If this condition is not set, it is assumed that there are no conflicts.
 	ListenerConditionConflicted ListenerConditionType = "Conflicted"
 
 	// This reason is used with the "Conflicted" condition when
@@ -1437,6 +1506,8 @@ const (
 	//
 	// * "PortUnavailable"
 	// * "UnsupportedProtocol"
+	// * "NoValidCACertificate"
+	// * "UnsupportedValue"
 	//
 	// Possible reasons for this condition to be Unknown are:
 	//
@@ -1472,6 +1543,16 @@ const (
 	// Listener could not be attached to be Gateway because its
 	// protocol type is not supported.
 	ListenerReasonUnsupportedProtocol ListenerConditionReason = "UnsupportedProtocol"
+
+	// This reason is used with the "Accepted" condition when the
+	// Listener could not resolve the references to any CACertificate used
+	// to configure Gateway's Client Certificate Validation
+	ListenerReasonNoValidCACertificate ListenerConditionReason = "NoValidCACertificate"
+
+	// This reason is used with the "Accepted" condition when the
+	// Listener uses a value for a field that is not supported by the
+	// implementation
+	ListenerReasonUnsupportedValue ListenerConditionReason = "UnsupportedValue"
 )
 
 const (
@@ -1487,6 +1568,8 @@ const (
 	// * "InvalidCertificateRef"
 	// * "InvalidRouteKinds"
 	// * "RefNotPermitted"
+	// * "InvalidCACertificateRef"
+	// * "InvalidCACertificateKind"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
@@ -1519,6 +1602,16 @@ const (
 	// namespace, where the object in the other namespace does not have a
 	// ReferenceGrant explicitly allowing the reference.
 	ListenerReasonRefNotPermitted ListenerConditionReason = "RefNotPermitted"
+
+	// This reason is used with the "ResolvedRefs" condition when one or more
+	// CACertificate References used to configure Client Certificate
+	// validation for Gateway are invalid.
+	ListenerReasonInvalidCACertificateRef ListenerConditionReason = "InvalidCACertificateRef"
+
+	// This reason is used with the "ResolvedRefs" condition when one or more
+	// CACertificate References used to configure Client Certificate
+	// validation for Gateway has unknown or unsupported kind.
+	ListenerReasonInvalidCACertificateKind ListenerConditionReason = "InvalidCACertificateKind"
 )
 
 const (

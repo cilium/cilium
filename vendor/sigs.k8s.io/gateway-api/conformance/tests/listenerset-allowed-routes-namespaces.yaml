@@ -1,0 +1,148 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-with-listener-sets-test-allowed-routes
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gateway-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+  allowedListeners:
+    namespaces:
+      from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-test-allowed-routes-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listener-sets-test-allowed-routes
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listener-set-listener-allowed-routes-all
+    port: 80
+    protocol: HTTP
+    hostname: "listener-set-listener-allowed-routes-all.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: listener-set-listener-allowed-routes-same
+    port: 80
+    protocol: HTTP
+    hostname: "listener-set-listener-allowed-routes-same.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: listener-set-listener-allowed-routes-selector
+    port: 80
+    protocol: HTTP
+    hostname: "listener-set-listener-allowed-routes-selector.com"
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            allowed: ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-in-same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset-test-allowed-routes-namespaces
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /route-in-same-namespace
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+# This namespace matches the label selector defined in `allowedListeners`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-routes-allowed-ns
+  labels:
+    allowed: ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-in-selected-namespace
+  namespace: gateway-api-routes-allowed-ns
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset-test-allowed-routes-namespaces
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /route-in-selected-namespace
+    backendRefs:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      port: 8080
+---
+# This namespace does not match the label selector defined in `allowedListeners`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-routes-not-allowed-ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-not-in-selected-namespace
+  namespace: gateway-api-routes-not-allowed-ns
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset-test-allowed-routes-namespaces
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /route-not-in-selected-namespace
+    backendRefs:
+    - name: infra-backend-v3
+      namespace: gateway-conformance-infra
+      port: 8080
+---
+kind: ReferenceGrant
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: listenerset-test-allowed-routes-namespaces-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: gateway-api-routes-allowed-ns
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: gateway-api-routes-not-allowed-ns
+  to:
+  - group: ""
+    kind: "Service"

@@ -57,13 +57,36 @@ const (
 	// of HTTP listeners.
 	SupportGatewayHTTPListenerIsolation FeatureName = "GatewayHTTPListenerIsolation"
 
-	// SupportGatewayInfrastructureAnnotations option indicates support for
+	// SupportGatewayHTTPSListenerDetectMisdirectedRequests option indicates
+	// support for detecting and rejecting misdirected HTTPS requests, returning
+	// HTTP 421 (Misdirected Request) when appropriate.
+	SupportGatewayHTTPSListenerDetectMisdirectedRequests = "GatewayHTTPSListenerDetectMisdirectedRequests"
+
+	// SupportGatewayInfrastructurePropagation option indicates support for
 	// spec.infrastructure.annotations and spec.infrastructure.labels
 	SupportGatewayInfrastructurePropagation FeatureName = "GatewayInfrastructurePropagation"
 
-	//  SupportGatewayAddressEmpty option indicates support for an empty
-	//  spec.addresses.value field
+	// SupportGatewayAddressEmpty option indicates support for an empty
+	// spec.addresses.value field
 	SupportGatewayAddressEmpty FeatureName = "GatewayAddressEmpty"
+
+	// SupportListenerSet option indicates support for a Gateway
+	// with ListenerSets
+	SupportListenerSet FeatureName = "ListenerSet"
+
+	// SupportGatewayBackendClientCertificate option indicates support for
+	// specifying client certificates when the Gateway originates the connection
+	// to the backend.
+	SupportGatewayBackendClientCertificate = "GatewayBackendClientCertificate"
+
+	// SupportGatewayFrontendClientCertificateValidation option indicates support
+	// for client certificate validation when the Gateway terminates the connection
+	// from the client.
+	SupportGatewayFrontendClientCertificateValidation FeatureName = "GatewayFrontendClientCertificateValidation"
+
+	// SupportGatewayFrontendClientCertificateValidationInsecureFallback option indicates support
+	// for the `AllowInsecureFallback` client certificate validation mode.
+	SupportGatewayFrontendClientCertificateValidationInsecureFallback FeatureName = "GatewayFrontendClientCertificateValidationInsecureFallback"
 )
 
 var (
@@ -82,14 +105,42 @@ var (
 		Name:    SupportGatewayHTTPListenerIsolation,
 		Channel: FeatureChannelStandard,
 	}
+	// GatewayHTTPSListenerDetectMisdirectedRequestsFeature contains metadata for the SupportGatewayHTTPSListenerDetectMisdirectedRequests feature.
+	GatewayHTTPSListenerDetectMisdirectedRequestsFeature = Feature{
+		Name:    SupportGatewayHTTPSListenerDetectMisdirectedRequests,
+		Channel: FeatureChannelStandard,
+	}
 	// GatewayInfrastructurePropagationFeature contains metadata for the GatewayInfrastructurePropagation feature.
 	GatewayInfrastructurePropagationFeature = Feature{
 		Name:    SupportGatewayInfrastructurePropagation,
 		Channel: FeatureChannelStandard,
 	}
-	// GatewayAddressEmptyFeature contains metadata for the SupportGatewayAddressEmpty feature.
+	// GatewayEmptyAddressFeature contains metadata for the SupportGatewayAddressEmpty feature.
 	GatewayEmptyAddressFeature = Feature{
 		Name:    SupportGatewayAddressEmpty,
+		Channel: FeatureChannelStandard,
+	}
+
+	// ListenerSetFeature contains metadata for the SupportListenerSet feature.
+	ListenerSetFeature = Feature{
+		Name:    SupportListenerSet,
+		Channel: FeatureChannelStandard,
+	}
+
+	// GatewayBackendClientCertificateFeature contains metadata for the SupportGatewayBackendClientCertificate feature.
+	GatewayBackendClientCertificateFeature = Feature{
+		Name:    SupportGatewayBackendClientCertificate,
+		Channel: FeatureChannelStandard,
+	}
+	// GatewayFrontendClientCertificateValidationFeature contains metadata for the GatewayFrontendClientCertificateValidation feature.
+	GatewayFrontendClientCertificateValidationFeature = Feature{
+		Name:    SupportGatewayFrontendClientCertificateValidation,
+		Channel: FeatureChannelStandard,
+	}
+
+	// GatewayFrontendClientCertificateValidationInsecureFallbackFeature contains metadata for the GatewayFrontendClientCertificateValidationInsecureFallback feature.
+	GatewayFrontendClientCertificateValidationInsecureFallbackFeature = Feature{
+		Name:    SupportGatewayFrontendClientCertificateValidationInsecureFallback,
 		Channel: FeatureChannelStandard,
 	}
 )
@@ -100,6 +151,11 @@ var GatewayExtendedFeatures = sets.New(
 	GatewayPort8080Feature,
 	GatewayStaticAddressesFeature,
 	GatewayHTTPListenerIsolationFeature,
+	GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	GatewayInfrastructurePropagationFeature,
 	GatewayEmptyAddressFeature,
+	GatewayBackendClientCertificateFeature,
+	GatewayFrontendClientCertificateValidationFeature,
+	GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
+	ListenerSetFeature,
 )
