@@ -72,6 +72,11 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		emptyPRCtx = &dnsproxy.ProxyRequestContext{}
 	)
 
+	ciliumMsgDetails, err := dnsproxy.ExtractResponseMsgDetails(ciliumMsg)
+	require.NoError(b, err)
+	ebpfMsgDetails, err := dnsproxy.ExtractResponseMsgDetails(ebpfMsg)
+	require.NoError(b, err)
+
 	var (
 		ciliumIOSel             = api.FQDNSelector{MatchName: "cilium.io"}
 		ciliumIOSelMatchPattern = api.FQDNSelector{MatchPattern: "*cilium.io."}
@@ -139,8 +144,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
-				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
-				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
+				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsgDetails, "udp", true, emptyPRCtx))
+				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsgDetails, "udp", true, emptyPRCtx))
 			})
 		}
 		wg.Wait()
