@@ -55,7 +55,7 @@ type TCPRouteSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
 	// <gateway:experimental:validation:XValidation:message="Rule name must be unique within the route",rule="self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name) && l1.name == l2.name))">
-	Rules []TCPRouteRule `json:"rules"`
+	Rules []TCPRouteRule `json:"rules,omitempty"`
 }
 
 // TCPRouteStatus defines the observed state of TCPRoute

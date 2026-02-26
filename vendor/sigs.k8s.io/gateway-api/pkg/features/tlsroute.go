@@ -25,16 +25,43 @@ import "k8s.io/apimachinery/pkg/util/sets"
 const (
 	// This option indicates support for TLSRoute
 	SupportTLSRoute FeatureName = "TLSRoute"
+
+	// This option indicates support for TLSRoute mode Terminate (extended conformance)
+	SupportTLSRouteModeTerminate FeatureName = "TLSRouteModeTerminate"
+
+	// This option indicates support for TLSRoute mode Mixed (extended conformance)
+	SupportTLSRouteModeMixed FeatureName = "TLSRouteModeMixed"
 )
 
-// TLSRouteFeature contains metadata for the TLSRoute feature.
-var TLSRouteFeature = Feature{
-	Name:    SupportTLSRoute,
-	Channel: FeatureChannelExperimental,
-}
+var (
+	// TLSRouteFeature contains metadata for the TLSRoute feature.
+	TLSRouteFeature = Feature{
+		Name:    SupportTLSRoute,
+		Channel: FeatureChannelStandard,
+	}
+	// TLSRouteModeTerminate contains metadata for the TLSRouteModeTerminate feature.
+	TLSRouteModeTerminateFeature = Feature{
+		Name:    SupportTLSRouteModeTerminate,
+		Channel: FeatureChannelStandard,
+	}
+
+	// TLSRouteModeTerminate contains metadata for the TLSRouteModeTerminate feature.
+	TLSRouteModeMixedFeature = Feature{
+		Name:    SupportTLSRouteModeMixed,
+		Channel: FeatureChannelExperimental,
+	}
+)
 
 // TLSCoreFeatures includes all the supported features for the TLSRoute API at
 // a Core level of support.
 var TLSRouteCoreFeatures = sets.New(
 	TLSRouteFeature,
+)
+
+// TLSRouteExtendedFeatures includes all extended features for TLSRoute
+// conformance and can be used to opt-in to run all TLSRoute extended features tests.
+// This does not include any Core Features.
+var TLSRouteExtendedFeatures = sets.New(
+	TLSRouteModeTerminateFeature,
+	TLSRouteModeMixedFeature,
 )

@@ -1226,8 +1226,8 @@ github.com/mdlayher/packet
 # github.com/mdlayher/socket v0.5.1
 ## explicit; go 1.20
 github.com/mdlayher/socket
-# github.com/miekg/dns v1.1.68
-## explicit; go 1.23.0
+# github.com/miekg/dns v1.1.72
+## explicit; go 1.24.0
 github.com/miekg/dns
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
@@ -1334,8 +1334,8 @@ github.com/onsi/ginkgo/v2/internal/reporters
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.39.0
-## explicit; go 1.23.0
+# github.com/onsi/gomega v1.39.1
+## explicit; go 1.24.0
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal
@@ -2885,16 +2885,21 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.4.1
-## explicit; go 1.24.0
+# sigs.k8s.io/gateway-api v1.5.1
+## explicit; go 1.25.0
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1alpha3
 sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/apisx/v1alpha1
+sigs.k8s.io/gateway-api/pkg/consts
+sigs.k8s.io/gateway-api/pkg/features
+# sigs.k8s.io/gateway-api/conformance v1.5.1
+## explicit; go 1.25.0
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/apis/v1
 sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver
+sigs.k8s.io/gateway-api/conformance/echo-basic/tcpserver
 sigs.k8s.io/gateway-api/conformance/tests
 sigs.k8s.io/gateway-api/conformance/tests/mesh
 sigs.k8s.io/gateway-api/conformance/utils/config
@@ -2905,11 +2910,10 @@ sigs.k8s.io/gateway-api/conformance/utils/http
 sigs.k8s.io/gateway-api/conformance/utils/kubernetes
 sigs.k8s.io/gateway-api/conformance/utils/roundtripper
 sigs.k8s.io/gateway-api/conformance/utils/suite
+sigs.k8s.io/gateway-api/conformance/utils/tcp
 sigs.k8s.io/gateway-api/conformance/utils/tlog
 sigs.k8s.io/gateway-api/conformance/utils/tls
 sigs.k8s.io/gateway-api/conformance/utils/weight
-sigs.k8s.io/gateway-api/pkg/consts
-sigs.k8s.io/gateway-api/pkg/features
 # sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
 ## explicit; go 1.23
 sigs.k8s.io/json
@@ -3026,7 +3030,7 @@ sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha
 ## explicit; go 1.18
 sigs.k8s.io/randfill
 sigs.k8s.io/randfill/bytesource
-# sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482
+# sigs.k8s.io/structured-merge-diff/v6 v6.3.2
 ## explicit; go 1.23
 sigs.k8s.io/structured-merge-diff/v6/fieldpath
 sigs.k8s.io/structured-merge-diff/v6/merge

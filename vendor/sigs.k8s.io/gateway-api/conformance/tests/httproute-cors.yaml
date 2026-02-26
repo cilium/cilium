@@ -1,0 +1,123 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cors-multiple-origins-methods-headers
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "https://www.foo.com"
+        - "https://*.bar.com"
+        allowMethods:
+        - GET
+        - OPTIONS
+        allowHeaders:
+        - "x-header-1"
+        - "x-header-2"
+        exposeHeaders:
+        - "x-header-3"
+        - "x-header-4"
+        allowCredentials: true
+        maxAge: 3600
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-1
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cors-wildcard-methods 
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "https://www.foo.com"
+        allowMethods: ["*"]
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-2
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cors-wildcard-origin   # test CORS with origin *.foo.com and expect the exact answer to come on the header
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "*"
+        allowMethods: ["PUT"]
+        allowCredentials: false
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-wildcard-origin
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+# Test the usage of wildcards on authenticated and unauthenticated requests and the proper response
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cors-wildcard-methods-headers 
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "*"
+        allowMethods: ["*"]
+        allowHeaders: ["*"]
+        allowCredentials: true
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-wildcard-methods-headers
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  - filters:
+    - type: CORS
+      cors:
+        allowOrigins:
+        - "*"
+        allowMethods: ["*"]
+        allowHeaders: ["*"]
+        allowCredentials: false
+    matches:
+    - path:
+        type: PathPrefix
+        value: /cors-wildcard-methods-headers-unauth
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+
+---

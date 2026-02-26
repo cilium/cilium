@@ -1,0 +1,33 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tlsroute-mixed-termination-not-supported
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+    - name: tls-terminate
+      port: 8443
+      protocol: TLS
+      hostname: terminate.example.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tls-terminate-checks-certificate
+    - name: tls-passthrough
+      port: 8443
+      protocol: TLS
+      hostname: passthrough.example.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Passthrough

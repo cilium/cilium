@@ -27,9 +27,9 @@ const (
 
 	// BundleVersion is the value used for the "gateway.networking.k8s.io/bundle-version" annotation.
 	// These value must be updated during the release process.
-	BundleVersion = "v1.4.1"
+	BundleVersion = "v1.5.1"
 
 	// ApprovalLink is the value used for the "api-approved.kubernetes.io" annotation.
 	// These value must be updated during the release process.
-	ApprovalLink = "https://github.com/kubernetes-sigs/gateway-api/pull/3328"
+	ApprovalLink = "https://github.com/kubernetes-sigs/gateway-api/pull/4530"
 )

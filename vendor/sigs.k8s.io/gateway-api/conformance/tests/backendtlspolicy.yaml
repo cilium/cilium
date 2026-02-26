@@ -37,6 +37,16 @@ spec:
     - path:
         type: Exact
         value: /backendtlspolicy-cert-mismatch
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: backendtlspolicy-reconcile-test
+      port: 443
+    matches:
+    - path:
+        type: Exact
+        value: /backendtlspolicy-reconcile-test
+
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -104,6 +114,20 @@ spec:
     port: 443
     targetPort: 8443
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backendtlspolicy-reconcile-test
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+  - name: "btls"
+    protocol: TCP
+    port: 443
+    targetPort: 8443
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
@@ -163,3 +187,23 @@ spec:
       # It contains a random, unused CA certificate to force validation to fail.
       name: "mismatch-ca-certificate"
     hostname: "abc.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: reconcile-test
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: "backendtlspolicy-reconcile-test"
+    sectionName: "btls"
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      # This will point to a test-specific ConfigMap
+      name: "tls-checks-ca-certificate"
+    hostname: "abc.example.com"
+

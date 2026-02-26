@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,8 +32,10 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -46,6 +49,8 @@ import (
 // Accepted or Provisioned in its default state. This is generally helpful for
 // tests which validate fixing broken Gateways, e.t.c.
 const GatewayExcludedFromReadinessChecks = "gateway-api/skip-this-for-readiness"
+
+const GatewayKind = gatewayv1.Kind("Gateway")
 
 // GatewayRef is a tiny type for specifying an HTTP Route ParentRef without
 // relying on a specific api version.
@@ -63,12 +68,37 @@ func NewGatewayRef(nn types.NamespacedName, listenerNames ...string) GatewayRef 
 	}
 
 	for _, listener := range listenerNames {
-		sectionName := gatewayv1.SectionName(listener)
-		listeners = append(listeners, &sectionName)
+		listeners = append(listeners, ptr.To(gatewayv1.SectionName(listener)))
 	}
 	return GatewayRef{
 		NamespacedName: nn,
 		listenerNames:  listeners,
+	}
+}
+
+// ResourceRef is a tiny type for specifying an HTTP Route ParentRef without
+// relying on a specific api version.
+type ResourceRef struct {
+	types.NamespacedName
+	ListenerNames []*gatewayv1.SectionName
+	GroupKind     schema.GroupKind
+}
+
+// NewResourceRef creates a ResourceRef resource. ListenerNames are optional.
+func NewResourceRef(gk schema.GroupKind, nn types.NamespacedName, listenerNames ...string) ResourceRef {
+	ref := NewGatewayRef(nn, listenerNames...)
+	return ResourceRef{
+		NamespacedName: ref.NamespacedName,
+		GroupKind:      gk,
+		ListenerNames:  ref.listenerNames,
+	}
+}
+
+func resourceRefFromGatewayRef(gwRef GatewayRef, gk schema.GroupKind) ResourceRef {
+	return ResourceRef{
+		NamespacedName: gwRef.NamespacedName,
+		GroupKind:      gk,
+		ListenerNames:  gwRef.listenerNames,
 	}
 }
 
@@ -90,7 +120,7 @@ func gwcMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.Timeo
 	t.Helper()
 
 	var controllerName string
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GWCMustBeAccepted, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GWCMustBeAccepted, true, func(ctx context.Context) (bool, error) {
 		gwc := &gatewayv1.GatewayClass{}
 		err := c.Get(ctx, types.NamespacedName{Name: gwcName}, gwc)
 		if err != nil {
@@ -117,7 +147,7 @@ func gwcMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.Timeo
 func GatewayMustHaveLatestConditions(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, gwNN types.NamespacedName) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.LatestObservedGenerationSet, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(t.Context(), timeoutConfig.DefaultPollInterval, timeoutConfig.LatestObservedGenerationSet, true, func(ctx context.Context) (bool, error) {
 		gw := &gatewayv1.Gateway{}
 		err := c.Get(ctx, gwNN, gw)
 		if err != nil {
@@ -125,7 +155,7 @@ func GatewayMustHaveLatestConditions(t *testing.T, c client.Client, timeoutConfi
 		}
 
 		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
-			tlog.Logf(t, "Gateway %s latest conditions not set yet: %v", gwNN.String(), err)
+			tlog.Logf(t, "Gateway %s latest conditions not set yet: %v", gwNN, err)
 			return false, nil
 		}
 
@@ -135,26 +165,52 @@ func GatewayMustHaveLatestConditions(t *testing.T, c client.Client, timeoutConfi
 	require.NoErrorf(t, waitErr, "error waiting for Gateway %s to have Latest ObservedGeneration to be set: %v", gwNN.String(), waitErr)
 }
 
-// GatewayClassMustHaveLatestConditions will fail the test if there are
-// conditions that were not updated
-func GatewayClassMustHaveLatestConditions(t *testing.T, gwc *gatewayv1.GatewayClass) {
+// GatewayClassMustHaveLatestConditions waits until the specified GatewayClass has
+// all conditions updated with the latest observed generation.
+func GatewayClassMustHaveLatestConditions(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, gwcNN types.NamespacedName) {
 	t.Helper()
 
-	if err := ConditionsHaveLatestObservedGeneration(gwc, gwc.Status.Conditions); err != nil {
-		tlog.Fatalf(t, "GatewayClass %v", err)
-	}
+	waitErr := wait.PollUntilContextTimeout(t.Context(), timeoutConfig.DefaultPollInterval, timeoutConfig.LatestObservedGenerationSet, true, func(ctx context.Context) (bool, error) {
+		gwc := &gatewayv1.GatewayClass{}
+		err := c.Get(ctx, gwcNN, gwc)
+		if err != nil {
+			return false, fmt.Errorf("error fetching GatewayClass: %w", err)
+		}
+
+		if err := ConditionsHaveLatestObservedGeneration(gwc, gwc.Status.Conditions); err != nil {
+			tlog.Logf(t, "GatewayClass %s latest conditions not set yet: %v", gwcNN, err)
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for GatewayClass %s to have Latest ObservedGeneration to be set: %v", gwcNN, waitErr)
 }
 
-// HTTPRouteMustHaveLatestConditions will fail the test if there are
-// conditions that were not updated
-func HTTPRouteMustHaveLatestConditions(t *testing.T, r *gatewayv1.HTTPRoute) {
+// HTTPRouteMustHaveLatestConditions waits until the specified HTTPRoute has
+// all conditions updated with the latest observed generation.
+func HTTPRouteMustHaveLatestConditions(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, rNN types.NamespacedName) {
 	t.Helper()
 
-	for _, parent := range r.Status.Parents {
-		if err := ConditionsHaveLatestObservedGeneration(r, parent.Conditions); err != nil {
-			tlog.Fatalf(t, "HTTPRoute(controller=%v, parentRef=%#v) %v", parent.ControllerName, parent, err)
+	waitErr := wait.PollUntilContextTimeout(t.Context(), timeoutConfig.DefaultPollInterval, timeoutConfig.LatestObservedGenerationSet, true, func(ctx context.Context) (bool, error) {
+		r := &gatewayv1.HTTPRoute{}
+		err := c.Get(ctx, rNN, r)
+		if err != nil {
+			return false, fmt.Errorf("error fetching HTTPRoute: %w", err)
 		}
-	}
+
+		for _, parent := range r.Status.Parents {
+			if err := ConditionsHaveLatestObservedGeneration(r, parent.Conditions); err != nil {
+				tlog.Logf(t, "HTTPRoute(controller=%v, parentRef=%#v) %v", parent.ControllerName, parent, err)
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for HTTPRoute %s to have Latest ObservedGeneration to be set: %v", rNN, waitErr)
 }
 
 func ConditionsHaveLatestObservedGeneration(obj metav1.Object, conditions []metav1.Condition) error {
@@ -198,7 +254,7 @@ func FilterStaleConditions(obj metav1.Object, conditions []metav1.Condition) []m
 func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, namespaces []string) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.NamespacesMustBeReady, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.NamespacesMustBeReady, true, func(ctx context.Context) (bool, error) {
 		for _, ns := range namespaces {
 			gwList := &gatewayv1.GatewayList{}
 			err := c.List(ctx, gwList, client.InNamespace(ns))
@@ -264,7 +320,7 @@ func GatewayMustHaveCondition(
 
 	waitErr := wait.PollUntilContextTimeout(
 		context.Background(),
-		1*time.Second,
+		timeoutConfig.DefaultPollInterval,
 		timeoutConfig.GatewayMustHaveCondition,
 		true,
 		func(ctx context.Context) (bool, error) {
@@ -294,13 +350,90 @@ func GatewayMustHaveCondition(
 	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have a Condition matching expectations")
 }
 
+// GatewayMustHaveAttachedListeners validates that the gateway has the specified number of attachedListeners.
+func GatewayMustHaveAttachedListeners(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName, expectedCount int32) {
+	var gotStatus *gatewayv1.GatewayStatus
+
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
+		gw := &gatewayv1.Gateway{}
+
+		err := client.Get(ctx, gwName, gw)
+		if err != nil {
+			tlog.Log(t, "failed to get gateway ", err)
+			return false, nil
+		}
+
+		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
+			tlog.Log(t, "Gateway ", err)
+			return false, nil
+		}
+
+		gotStatus = &gw.Status
+		attachedListenerSets := ptr.Deref(gw.Status.AttachedListenerSets, 0)
+		ret := attachedListenerSets == expectedCount
+		if !ret {
+			tlog.Logf(t, "gateway %s got %d listeners, want %d", gwName.String(), attachedListenerSets, expectedCount)
+		}
+
+		return ret, nil
+	})
+	if waitErr != nil {
+		tlog.Errorf(t, "Error waiting for gateway, got Gateway Status %v, want %d listeners", gotStatus, expectedCount)
+	}
+}
+
+// ListenerSetMustHaveCondition checks that the supplied ListenerSet has the supplied Condition,
+// halting after the specified timeout is exceeded.
+func ListenerSetMustHaveCondition(
+	t *testing.T,
+	client client.Client,
+	timeoutConfig config.TimeoutConfig,
+	lsNN types.NamespacedName,
+	expectedCondition metav1.Condition,
+) {
+	t.Helper()
+
+	waitErr := wait.PollUntilContextTimeout(
+		context.Background(),
+		timeoutConfig.DefaultPollInterval,
+		timeoutConfig.ListenerSetMustHaveCondition,
+		true,
+		func(ctx context.Context) (bool, error) {
+			ls := &gatewayv1.ListenerSet{}
+			err := client.Get(ctx, lsNN, ls)
+			if err != nil {
+				t.Logf("error fetching ListenerSet: %v", err)
+				return false, nil
+			}
+
+			if err := ConditionsHaveLatestObservedGeneration(ls, ls.Status.Conditions); err != nil {
+				t.Logf("not ready: %v", err)
+				return false, nil
+			}
+
+			if findConditionInList(t,
+				ls.Status.Conditions,
+				expectedCondition.Type,
+				string(expectedCondition.Status),
+				expectedCondition.Reason,
+			) {
+				return true, nil
+			}
+
+			return false, nil
+		},
+	)
+
+	require.NoErrorf(t, waitErr, "error waiting for ListenerSet %s status to have a Condition matching expectations", lsNN.String())
+}
+
 // MeshNamespacesMustBeReady waits until all Pods are marked Ready. This is
 // intended to be used for mesh tests and does not require any Gateways to
 // exist. This will cause the test to halt if the specified timeout is exceeded.
 func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, namespaces []string) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.NamespacesMustBeReady, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.NamespacesMustBeReady, true, func(ctx context.Context) (bool, error) {
 		for _, ns := range namespaces {
 			podList := &v1.PodList{}
 			err := c.List(ctx, podList, client.InNamespace(ns))
@@ -337,7 +470,6 @@ func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig conf
 func GatewayAndRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, gw GatewayRef, routeType any, usePort bool, routeNNs ...types.NamespacedName) string {
 	t.Helper()
 
-	RouteTypeMustHaveParentsField(t, routeType)
 	gwAddr, err := WaitForGatewayAddress(t, c, timeoutConfig, gw)
 	require.NoErrorf(t, err, "timed out waiting for Gateway address to be assigned")
 
@@ -347,55 +479,12 @@ func GatewayAndRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutConfig
 		gwAddr, _, _ = net.SplitHostPort(gwAddr)
 	}
 
-	ns := gatewayv1.Namespace(gw.Namespace)
-	kind := gatewayv1.Kind("Gateway")
-
-	for _, routeNN := range routeNNs {
-		namespaceRequired := true
-		if routeNN.Namespace == gw.Namespace {
-			namespaceRequired = false
-		}
-
-		var parents []gatewayv1.RouteParentStatus
-		for _, listener := range gw.listenerNames {
-			parents = append(parents, gatewayv1.RouteParentStatus{
-				ParentRef: gatewayv1.ParentReference{
-					Group:       (*gatewayv1.Group)(&gatewayv1.GroupVersion.Group),
-					Kind:        &kind,
-					Name:        gatewayv1.ObjectName(gw.Name),
-					Namespace:   &ns,
-					SectionName: listener,
-				},
-				ControllerName: gatewayv1.GatewayController(controllerName),
-				Conditions: []metav1.Condition{{
-					Type:   string(gatewayv1.RouteConditionAccepted),
-					Status: metav1.ConditionTrue,
-					Reason: string(gatewayv1.RouteReasonAccepted),
-				}},
-			})
-		}
-		RouteMustHaveParents(t, c, timeoutConfig, routeNN, parents, namespaceRequired, routeType)
-	}
-
-	requiredListenerConditions := []metav1.Condition{
-		{
-			Type:   string(gatewayv1.ListenerConditionResolvedRefs),
-			Status: metav1.ConditionTrue,
-			Reason: "", // any reason
-		},
-		{
-			Type:   string(gatewayv1.ListenerConditionAccepted),
-			Status: metav1.ConditionTrue,
-			Reason: "", // any reason
-		},
-		{
-			Type:   string(gatewayv1.ListenerConditionProgrammed),
-			Status: metav1.ConditionTrue,
-			Reason: "", // any reason
-		},
-	}
-	GatewayListenersMustHaveConditions(t, c, timeoutConfig, gw.NamespacedName, requiredListenerConditions)
-
+	resourceRef := resourceRefFromGatewayRef(gw,
+		schema.GroupKind{
+			Group: gatewayv1.GroupVersion.Group,
+			Kind:  "Gateway",
+		})
+	RoutesAndParentMustBeAccepted(t, c, timeoutConfig, controllerName, resourceRef, routeType, routeNNs...)
 	return gwAddr
 }
 
@@ -426,7 +515,7 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
 	t.Helper()
 
 	var ipAddr, port string
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayMustHaveAddress, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayMustHaveAddress, true, func(ctx context.Context) (bool, error) {
 		gw, err := getGatewayStatus(ctx, t, client, gwRef)
 		if gw == nil {
 			// The returned error is nil if the Gateway conditions don't have the latest observed generation.
@@ -472,12 +561,20 @@ func getGatewayStatus(ctx context.Context, t *testing.T, client client.Client, g
 	return gw, nil
 }
 
-// GatewayListenersMustHaveConditions checks if every listener of the specified gateway has all
-// the specified conditions.
-func GatewayListenersMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName, conditions []metav1.Condition) {
+// GatewayListenersMustHaveConditions checks if the specified listeners on the specified gateway have all
+// the specified conditions. If no listener is specified, it checks all listeners on the gateway.
+func GatewayListenersMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName, conditions []metav1.Condition, listenerNames ...gatewayv1.SectionName) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
+	matchListenerSubset := len(listenerNames) != 0
+	matchedListeners := make(map[gatewayv1.SectionName]struct{})
+	if matchListenerSubset {
+		for _, listenerName := range listenerNames {
+			matchedListeners[listenerName] = struct{}{}
+		}
+	}
+
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
 		var gw gatewayv1.Gateway
 		if err := client.Get(ctx, gwName, &gw); err != nil {
 			return false, fmt.Errorf("error fetching Gateway: %w", err)
@@ -485,17 +582,58 @@ func GatewayListenersMustHaveConditions(t *testing.T, client client.Client, time
 
 		for _, condition := range conditions {
 			for _, listener := range gw.Status.Listeners {
+				// Skip if the listener is not in listenerNames
+				if matchListenerSubset && !slices.Contains(listenerNames, listener.Name) {
+					continue
+				}
+
 				if !findConditionInList(t, listener.Conditions, condition.Type, string(condition.Status), condition.Reason) {
 					tlog.Logf(t, "gateway %s doesn't have %s condition set to %s on %s listener", gwName, condition.Type, condition.Status, listener.Name)
 					return false, nil
 				}
+
+				delete(matchedListeners, listener.Name)
 			}
+		}
+
+		if len(matchedListeners) != 0 {
+			return false, nil
 		}
 
 		return true, nil
 	})
 
-	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have conditions matching expectations on all listeners")
+	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have conditions matching expectations on the listeners")
+}
+
+// GatewayListenerMustHaveConditions checks if listener of the given name in a given gateway
+// has all the specified conditions.
+func GatewayListenerMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName, lName string, conditions []metav1.Condition) {
+	t.Helper()
+
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
+		var gw gatewayv1.Gateway
+		if err := client.Get(ctx, gwName, &gw); err != nil {
+			return false, fmt.Errorf("error fetching Gateway: %w", err)
+		}
+
+		for _, listener := range gw.Status.Listeners {
+			if string(listener.Name) != lName {
+				continue
+			}
+			for _, condition := range conditions {
+				if !findConditionInList(t, listener.Conditions, condition.Type, string(condition.Status), condition.Reason) {
+					tlog.Logf(t, "gateway %s doesn't have %s condition with reason %s set to %s on %s listener", gwName, condition.Type, condition.Reason, condition.Status, listener.Name)
+					return false, nil
+				}
+			}
+			return true, nil
+		}
+		tlog.Logf(t, "Listener %s not found in Gateway %s Status", lName, gwName)
+		return false, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have conditions matching expectations on listener %s", lName)
 }
 
 // GatewayMustHaveZeroRoutes validates that the gateway has zero routes attached.  The status
@@ -503,7 +641,7 @@ func GatewayListenersMustHaveConditions(t *testing.T, client client.Client, time
 func GatewayMustHaveZeroRoutes(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwName types.NamespacedName) {
 	var gotStatus *gatewayv1.GatewayStatus
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
 		gw := &gatewayv1.Gateway{}
 
 		err := client.Get(ctx, gwName, gw)
@@ -540,6 +678,7 @@ func HTTPRouteMustHaveNoAcceptedParents(t *testing.T, client client.Client, time
 
 	var actual []gatewayv1.RouteParentStatus
 	emptyChecked := false
+	// Note: explicitly do not use timeoutConfig.DefaultPollInterval here as we are doing a negative test
 	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.HTTPRouteMustNotHaveParents, true, func(ctx context.Context) (bool, error) {
 		route := &gatewayv1.HTTPRoute{}
 		err := client.Get(ctx, routeName, route)
@@ -551,7 +690,7 @@ func HTTPRouteMustHaveNoAcceptedParents(t *testing.T, client client.Client, time
 
 		if len(actual) == 0 {
 			// For empty status, we need to distinguish between "correctly did not set" and "hasn't set yet"
-			// Ensure we iterate at least two times (taking advantage of the 1s poll delay) to give it some time.
+			// Ensure we iterate at least two times to give it some time.
 			if !emptyChecked {
 				emptyChecked = true
 				return false, nil
@@ -576,6 +715,52 @@ func HTTPRouteMustHaveNoAcceptedParents(t *testing.T, client client.Client, time
 		}}, actual[0].Conditions), nil
 	})
 	require.NoErrorf(t, waitErr, "error waiting for HTTPRoute to have no accepted parents")
+}
+
+// TLSRouteMustHaveNoAcceptedParents waits for the specified TLSRoute to have either no parents
+// or a single parent that is not accepted. This is used to validate TLSRoute errors.
+func TLSRouteMustHaveNoAcceptedParents(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeName types.NamespacedName) {
+	t.Helper()
+
+	var actual []gatewayv1.RouteParentStatus
+	emptyChecked := false
+	// We explicitly do not use timeoutConfig.DefaultPollInterval here since we are doing negative testing
+	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.HTTPRouteMustNotHaveParents, true, func(ctx context.Context) (bool, error) {
+		route := &gatewayv1.TLSRoute{}
+		err := client.Get(ctx, routeName, route)
+		if err != nil {
+			return false, fmt.Errorf("error fetching TLSRoute: %w", err)
+		}
+
+		actual = route.Status.Parents
+
+		if len(actual) == 0 {
+			// For empty status, we need to distinguish between "correctly did not set" and "hasn't set yet"
+			// Ensure we iterate at least two times to give it some time.
+			if !emptyChecked {
+				emptyChecked = true
+				return false, nil
+			}
+			return true, nil
+		}
+		if len(actual) > 1 {
+			// Only expect one parent
+			return false, nil
+		}
+
+		for _, parent := range actual {
+			if err := ConditionsHaveLatestObservedGeneration(route, parent.Conditions); err != nil {
+				tlog.Logf(t, "TLSRoute %s (controller=%v,ref=%#v) %v", routeName, parent.ControllerName, parent, err)
+				return false, nil
+			}
+		}
+
+		return conditionsMatch(t, []metav1.Condition{{
+			Type:   string(gatewayv1.RouteConditionAccepted),
+			Status: "False",
+		}}, actual[0].Conditions), nil
+	})
+	require.NoErrorf(t, waitErr, "error waiting for TLSRoute to have no accepted parents")
 }
 
 // RouteTypeMustHaveParentsField ensures the provided routeType has a
@@ -610,7 +795,7 @@ func RouteMustHaveParents(t *testing.T, cli client.Client, timeoutConfig config.
 	require.True(t, ok, "error converting %v to metav1.Object", routeType)
 
 	var actual []gatewayv1.RouteParentStatus
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.RouteMustHaveParents, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.RouteMustHaveParents, true, func(ctx context.Context) (bool, error) {
 		err := cli.Get(ctx, routeName, cliObj)
 		if err != nil {
 			return false, fmt.Errorf("error fetching %s: %w", routeTypeName, err)
@@ -646,13 +831,13 @@ func UDPRouteMustHaveParents(t *testing.T, client client.Client, timeoutConfig c
 // TLSRouteMustHaveParents waits for the specified TLSRoute to have parents
 // in status that match the expected parents, and also returns the TLSRoute.
 // This will cause the test to halt if the specified timeout is exceeded.
-func TLSRouteMustHaveParents(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeName types.NamespacedName, parents []v1alpha2.RouteParentStatus, namespaceRequired bool) v1alpha2.TLSRoute {
+func TLSRouteMustHaveParents(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeName types.NamespacedName, parents []gatewayv1.RouteParentStatus, namespaceRequired bool) gatewayv1.TLSRoute {
 	t.Helper()
 
 	var actual []gatewayv1.RouteParentStatus
-	var route v1alpha2.TLSRoute
+	var route gatewayv1.TLSRoute
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.RouteMustHaveParents, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.RouteMustHaveParents, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, routeName, &route)
 		if err != nil {
 			return false, fmt.Errorf("error fetching TLSRoute: %w", err)
@@ -670,37 +855,37 @@ func TLSRouteMustHaveParents(t *testing.T, client client.Client, timeoutConfig c
 func parentsForRouteMatch(t *testing.T, routeName types.NamespacedName, expected, actual []gatewayv1.RouteParentStatus, namespaceRequired bool) bool {
 	t.Helper()
 
-	if len(expected) != len(actual) {
-		tlog.Logf(t, "Route %s expected %d Parents got %d", routeName, len(expected), len(actual))
-		return false
-	}
-
-	// TODO(robscott): Allow for arbitrarily ordered parents
-	for i, eParent := range expected {
-		aParent := actual[i]
-		if aParent.ControllerName != eParent.ControllerName {
-			tlog.Logf(t, "Route %s ControllerName doesn't match", routeName)
-			return false
-		}
-		if !reflect.DeepEqual(aParent.ParentRef.Group, eParent.ParentRef.Group) {
-			tlog.Logf(t, "Route %s expected ParentReference.Group to be %v, got %v", routeName, eParent.ParentRef.Group, aParent.ParentRef.Group)
-			return false
-		}
-		if !reflect.DeepEqual(aParent.ParentRef.Kind, eParent.ParentRef.Kind) {
-			tlog.Logf(t, "Route %s expected ParentReference.Kind to be %v, got %v", routeName, eParent.ParentRef.Kind, aParent.ParentRef.Kind)
-			return false
-		}
-		if aParent.ParentRef.Name != eParent.ParentRef.Name {
-			tlog.Logf(t, "Route %s ParentReference.Name doesn't match", routeName)
-			return false
-		}
-		if !reflect.DeepEqual(aParent.ParentRef.Namespace, eParent.ParentRef.Namespace) {
-			if namespaceRequired || aParent.ParentRef.Namespace != nil {
-				tlog.Logf(t, "Route %s expected ParentReference.Namespace to be %v, got %v", routeName, eParent.ParentRef.Namespace, aParent.ParentRef.Namespace)
-				return false
+	for _, eParent := range expected {
+		parentMatched := false
+		for _, aParent := range actual {
+			if aParent.ControllerName != eParent.ControllerName {
+				tlog.Logf(t, "Route %s ControllerName doesn't match", routeName)
+				continue
 			}
+			if !reflect.DeepEqual(aParent.ParentRef.Group, eParent.ParentRef.Group) {
+				tlog.Logf(t, "Route %s expected ParentReference.Group to be %v, got %v", routeName, ptr.Deref(eParent.ParentRef.Group, gatewayv1.Group(gatewayv1.GroupVersion.Group)), ptr.Deref(aParent.ParentRef.Group, gatewayv1.Group(gatewayv1.GroupVersion.Group)))
+				continue
+			}
+			if !reflect.DeepEqual(aParent.ParentRef.Kind, eParent.ParentRef.Kind) {
+				tlog.Logf(t, "Route %s expected ParentReference.Kind to be %v, got %v", routeName, ptr.Deref(eParent.ParentRef.Kind, GatewayKind), ptr.Deref(aParent.ParentRef.Kind, GatewayKind))
+				continue
+			}
+			if aParent.ParentRef.Name != eParent.ParentRef.Name {
+				tlog.Logf(t, "Route %s ParentReference.Name doesn't match", routeName)
+				continue
+			}
+			if !reflect.DeepEqual(aParent.ParentRef.Namespace, eParent.ParentRef.Namespace) {
+				if namespaceRequired || aParent.ParentRef.Namespace != nil {
+					tlog.Logf(t, "Route %s expected ParentReference.Namespace to be %v, got %v", routeName, eParent.ParentRef.Namespace, aParent.ParentRef.Namespace)
+					continue
+				}
+			}
+			if !conditionsMatch(t, eParent.Conditions, aParent.Conditions) {
+				continue
+			}
+			parentMatched = true
 		}
-		if !conditionsMatch(t, eParent.Conditions, aParent.Conditions) {
+		if !parentMatched {
 			return false
 		}
 	}
@@ -716,7 +901,7 @@ func GatewayStatusMustHaveListeners(t *testing.T, cl client.Client, timeoutConfi
 	t.Helper()
 
 	var actual []gatewayv1.ListenerStatus
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
 		gw := &gatewayv1.Gateway{}
 		err := cl.Get(ctx, gwNN, gw)
 		if err != nil {
@@ -729,9 +914,34 @@ func GatewayStatusMustHaveListeners(t *testing.T, cl client.Client, timeoutConfi
 		}
 
 		actual = gw.Status.Listeners
-		return listenersMatch(t, listeners, actual), nil
+		return gatewayListenersMatch(t, listeners, actual), nil
 	})
 	require.NoErrorf(t, waitErr, "error waiting for Gateway status to have listeners matching expectations")
+}
+
+// ListenerSetStatusMustHaveListeners waits for the specified ListenerSet to have listeners
+// in status that match the expected listeners. This will cause the test to halt
+// if the specified timeout is exceeded.
+func ListenerSetStatusMustHaveListeners(t *testing.T, cl client.Client, timeoutConfig config.TimeoutConfig, lsNN types.NamespacedName, listeners []gatewayv1.ListenerEntryStatus) {
+	t.Helper()
+
+	var actual []gatewayv1.ListenerEntryStatus
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.ListenerSetListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
+		gw := &gatewayv1.ListenerSet{}
+		err := cl.Get(ctx, lsNN, gw)
+		if err != nil {
+			return false, fmt.Errorf("error fetching ListenerSet: %w", err)
+		}
+
+		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
+			tlog.Logf(t, "ListenerSet %s %v", client.ObjectKeyFromObject(gw), err)
+			return false, nil
+		}
+
+		actual = gw.Status.Listeners
+		return listenerSetListenersMatch(t, listeners, actual), nil
+	})
+	require.NoErrorf(t, waitErr, "error waiting for ListenerSet status to have listeners matching expectations")
 }
 
 // HTTPRouteMustHaveCondition checks that the supplied HTTPRoute has the supplied Condition,
@@ -739,7 +949,7 @@ func GatewayStatusMustHaveListeners(t *testing.T, cl client.Client, timeoutConfi
 func HTTPRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeNN types.NamespacedName, gwNN types.NamespacedName, condition metav1.Condition) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.HTTPRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.HTTPRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
 		route := &gatewayv1.HTTPRoute{}
 		err := client.Get(ctx, routeNN, route)
 		if err != nil {
@@ -799,7 +1009,7 @@ func GatewayAndTLSRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutCon
 	require.NoErrorf(t, err, "timed out waiting for Gateway address to be assigned")
 
 	ns := gatewayv1.Namespace(gw.Namespace)
-	kind := gatewayv1.Kind("Gateway")
+	kind := GatewayKind
 
 	for _, routeNN := range routeNNs {
 		namespaceRequired := true
@@ -839,8 +1049,8 @@ func GatewayAndTLSRoutesMustBeAccepted(t *testing.T, c client.Client, timeoutCon
 func TLSRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeNN types.NamespacedName, gwNN types.NamespacedName, condition metav1.Condition) {
 	t.Helper()
 
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.TLSRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
-		route := &v1alpha2.TLSRoute{}
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.TLSRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
+		route := &gatewayv1.TLSRoute{}
 		err := client.Get(ctx, routeNN, route)
 		if err != nil {
 			return false, fmt.Errorf("error fetching TLSRoute: %w", err)
@@ -869,8 +1079,144 @@ func TLSRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfig
 	require.NoErrorf(t, waitErr, "error waiting for TLSRoute status to have a Condition matching expectations")
 }
 
+// RoutesAndParentMustBeAccepted waits until:
+//  1. The route has a ParentRef referring to the parent.
+//  2. All the parent's listeners have the following conditions set to true:
+//     - ListenerConditionResolvedRefs
+//     - ListenerConditionAccepted
+//     - ListenerConditionProgrammed
+//
+// The test will fail if these conditions are not met before the timeouts.
+func RoutesAndParentMustBeAccepted(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, controllerName string, resource ResourceRef, routeType any, routeNNs ...types.NamespacedName) {
+	t.Helper()
+
+	RouteTypeMustHaveParentsField(t, routeType)
+
+	ns := gatewayv1.Namespace(resource.Namespace)
+
+	for _, routeNN := range routeNNs {
+		namespaceRequired := true
+		if routeNN.Namespace == resource.Namespace {
+			namespaceRequired = false
+		}
+
+		var parents []gatewayv1.RouteParentStatus
+		for _, listener := range resource.ListenerNames {
+			parents = append(parents, gatewayv1.RouteParentStatus{
+				ParentRef: gatewayv1.ParentReference{
+					Group:       (*gatewayv1.Group)(&resource.GroupKind.Group),
+					Kind:        (*gatewayv1.Kind)(&resource.GroupKind.Kind),
+					Name:        gatewayv1.ObjectName(resource.Name),
+					Namespace:   &ns,
+					SectionName: listener,
+				},
+				ControllerName: gatewayv1.GatewayController(controllerName),
+				Conditions: []metav1.Condition{{
+					Type:   string(gatewayv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: string(gatewayv1.RouteReasonAccepted),
+				}},
+			})
+		}
+		RouteMustHaveParents(t, c, timeoutConfig, routeNN, parents, namespaceRequired, routeType)
+	}
+
+	requiredListenerConditions := []metav1.Condition{
+		{
+			Type:   string(gatewayv1.ListenerConditionResolvedRefs),
+			Status: metav1.ConditionTrue,
+			Reason: "", // any reason
+		},
+		{
+			Type:   string(gatewayv1.ListenerConditionAccepted),
+			Status: metav1.ConditionTrue,
+			Reason: "", // any reason
+		},
+		{
+			Type:   string(gatewayv1.ListenerConditionProgrammed),
+			Status: metav1.ConditionTrue,
+			Reason: "", // any reason
+		},
+	}
+	ResourceListenersMustHaveConditions(t, c, timeoutConfig, resource, requiredListenerConditions)
+}
+
+// ResourceListenersMustHaveConditions checks if every listener of the specified resource has all
+// the specified conditions.
+func ResourceListenersMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, resource ResourceRef, conditions []metav1.Condition) {
+	t.Helper()
+
+	switch resource.GroupKind.Kind {
+	case "Gateway":
+		GatewayListenersMustHaveConditions(t, client, timeoutConfig, resource.NamespacedName, conditions)
+	case "ListenerSet":
+		ListenerSetListenersMustHaveConditions(t, client, timeoutConfig, resource.NamespacedName, conditions)
+	default:
+		tlog.Errorf(t, "received unsupported resource kind %s. Supported kinds are `Gateway` and `ListenerSet`", resource.GroupKind.Kind)
+	}
+}
+
+// ListenerSetListenersMustHaveConditions checks if the specified listeners on the specified listenerSet have all
+// the specified conditions. If no listener is specified, it checks all listeners on the listenerSet.
+func ListenerSetListenersMustHaveConditions(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, lsName types.NamespacedName, conditions []metav1.Condition, listenerNames ...gatewayv1.SectionName) {
+	t.Helper()
+
+	matchListenerSubset := len(listenerNames) != 0
+	matchedListeners := make(map[gatewayv1.SectionName]struct{})
+	if matchListenerSubset {
+		for _, listenerName := range listenerNames {
+			matchedListeners[listenerName] = struct{}{}
+		}
+	}
+
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.ListenerSetListenersMustHaveConditions, true, func(ctx context.Context) (bool, error) {
+		var parent gatewayv1.ListenerSet
+		if err := client.Get(ctx, lsName, &parent); err != nil {
+			return false, fmt.Errorf("error fetching Gateway: %w", err)
+		}
+
+		if err := ConditionsHaveLatestObservedGeneration(&parent, parent.Status.Conditions); err != nil {
+			return false, err
+		}
+
+		for _, condition := range conditions {
+			for _, listener := range parent.Status.Listeners {
+				// Skip if the listener is not in listenerNames
+				if matchListenerSubset && !slices.Contains(listenerNames, listener.Name) {
+					continue
+				}
+
+				if !findConditionInList(t, listener.Conditions, condition.Type, string(condition.Status), condition.Reason) {
+					tlog.Logf(t, "listener set %s doesn't have %s condition set to %s on %s listener", lsName.Name, condition.Type, condition.Status, listener.Name)
+					return false, nil
+				}
+
+				delete(matchedListeners, listener.Name)
+			}
+		}
+
+		if len(matchedListeners) != 0 {
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	require.NoErrorf(t, waitErr, "error waiting for ListenerSet status to have conditions matching expectations on the listeners")
+}
+
+// TLSRouteMustHaveResolvedRefsConditionsTrue checks that the supplied TLSRoute has the resolvedRefsCondition
+// set to true.
+func TLSRouteMustHaveResolvedRefsConditionsTrue(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, routeNN types.NamespacedName, gwNN types.NamespacedName) {
+	TLSRouteMustHaveCondition(t, client, timeoutConfig, routeNN, gwNN, metav1.Condition{
+		Type:   string(gatewayv1.RouteConditionResolvedRefs),
+		Status: metav1.ConditionTrue,
+		Reason: string(gatewayv1.RouteReasonResolvedRefs),
+	})
+}
+
 // TODO(mikemorris): this and parentsMatch could possibly be rewritten as a generic function?
-func listenersMatch(t *testing.T, expected, actual []gatewayv1.ListenerStatus) bool {
+func gatewayListenersMatch(t *testing.T, expected, actual []gatewayv1.ListenerStatus) bool {
 	t.Helper()
 
 	if len(expected) != len(actual) {
@@ -978,6 +1324,73 @@ func findConditionInList(t *testing.T, conditions []metav1.Condition, condName, 
 	return false
 }
 
+// TODO(mikemorris): this and parentsMatch could possibly be rewritten as a generic function?
+func listenerSetListenersMatch(t *testing.T, expected, actual []gatewayv1.ListenerEntryStatus) bool {
+	t.Helper()
+
+	if len(expected) != len(actual) {
+		tlog.Logf(t, "Expected %d Gateway status listeners, got %d", len(expected), len(actual))
+		return false
+	}
+
+	for _, eListener := range expected {
+		var aListener *gatewayv1.ListenerEntryStatus
+		for i := range actual {
+			if actual[i].Name == eListener.Name {
+				aListener = &actual[i]
+				break
+			}
+		}
+		if aListener == nil {
+			tlog.Logf(t, "Expected status for listener %s to be present", eListener.Name)
+			return false
+		}
+
+		if len(eListener.SupportedKinds) == 0 && len(aListener.SupportedKinds) != 0 {
+			tlog.Logf(t, "Expected list of SupportedKinds was empty, but the actual list for comparison was not:  %v",
+				aListener.SupportedKinds)
+			return false
+		}
+		// Ensure that the expected Listener.SupportedKinds items are present in actual Listener.SupportedKinds
+		// Find the items instead of performing an exact match of the slice because the implementation
+		// might support more Kinds than defined in the test
+		for _, eKind := range eListener.SupportedKinds {
+			found := false
+
+			for _, aKind := range aListener.SupportedKinds {
+				if eKind.Group == nil {
+					eKind.Group = (*gatewayv1.Group)(&gatewayv1.GroupVersion.Group)
+				}
+
+				if aKind.Group == nil {
+					aKind.Group = (*gatewayv1.Group)(&gatewayv1.GroupVersion.Group)
+				}
+
+				if *eKind.Group == *aKind.Group && eKind.Kind == aKind.Kind {
+					found = true
+					break
+				}
+			}
+			if !found {
+				tlog.Logf(t, "Expected Group:%s Kind:%s to be present in SupportedKinds", *eKind.Group, eKind.Kind)
+				return false
+			}
+		}
+
+		if aListener.AttachedRoutes != eListener.AttachedRoutes {
+			tlog.Logf(t, "Expected AttachedRoutes to be %v, got %v", eListener.AttachedRoutes, aListener.AttachedRoutes)
+			return false
+		}
+		if !conditionsMatch(t, eListener.Conditions, aListener.Conditions) {
+			tlog.Logf(t, "Expected Conditions to be %v, got %v", eListener.Conditions, aListener.Conditions)
+			return false
+		}
+	}
+
+	tlog.Logf(t, "Gateway status listeners matched expectations")
+	return true
+}
+
 func findPodConditionInList(t *testing.T, conditions []v1.PodCondition, condName, condValue string) bool {
 	t.Helper()
 
@@ -994,11 +1407,11 @@ func findPodConditionInList(t *testing.T, conditions []v1.PodCondition, condName
 	return false
 }
 
-// BackendTLSPolicyMustHaveCondition checks that the created BackentTLSPolicy has the Condition,
+// BackendTLSPolicyMustHaveCondition checks that the created BackendTLSPolicy has the Condition,
 // halting after the specified timeout is exceeded.
 func BackendTLSPolicyMustHaveCondition(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, policyNN, gwNN types.NamespacedName, condition metav1.Condition) {
 	t.Helper()
-	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.HTTPRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), timeoutConfig.DefaultPollInterval, timeoutConfig.HTTPRouteMustHaveCondition, true, func(ctx context.Context) (bool, error) {
 		policy := &gatewayv1.BackendTLSPolicy{}
 		err := client.Get(ctx, policyNN, policy)
 		if err != nil {
@@ -1026,6 +1439,14 @@ func BackendTLSPolicyMustHaveCondition(t *testing.T, client client.Client, timeo
 	require.NoErrorf(t, waitErr, "error waiting for BackendTLSPolicy %v status to have a Condition %v", policyNN, condition)
 }
 
+func BackendTLSPolicyMustHaveAcceptedConditionTrue(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, policyNN, gwNN types.NamespacedName) {
+	BackendTLSPolicyMustHaveCondition(t, client, timeoutConfig, policyNN, gwNN, metav1.Condition{
+		Type:   string(gatewayv1.PolicyConditionAccepted),
+		Status: metav1.ConditionTrue,
+		Reason: string(gatewayv1.PolicyReasonAccepted),
+	})
+}
+
 // BackendTLSPolicyMustHaveLatestConditions will fail the test if there are
 // conditions that were not updated
 func BackendTLSPolicyMustHaveLatestConditions(t *testing.T, r *gatewayv1.BackendTLSPolicy) {
@@ -1036,4 +1457,18 @@ func BackendTLSPolicyMustHaveLatestConditions(t *testing.T, r *gatewayv1.Backend
 			tlog.Fatalf(t, "BackendTLSPolicy(controller=%v, ancestorRef=%#v) %v", ancestor.ControllerName, parentRefToString(ancestor.AncestorRef), err)
 		}
 	}
+}
+
+// GetConfigMapData fetches the named ConfigMap
+func GetConfigMapData(client client.Client, timeoutConfig config.TimeoutConfig, name types.NamespacedName) (map[string]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutConfig.GetTimeout)
+	defer cancel()
+
+	configMap := &v1.ConfigMap{}
+	err := client.Get(ctx, name, configMap)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching ConfigMap: %w", err)
+	}
+
+	return configMap.Data, nil
 }

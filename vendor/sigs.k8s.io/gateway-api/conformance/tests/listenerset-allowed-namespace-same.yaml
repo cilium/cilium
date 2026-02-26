@@ -1,0 +1,66 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-allows-listenerset-in-same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gateway-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+  allowedListeners:
+    namespaces:
+      from: Same
+---
+# This listenerSet should be accepted since it is in the same namespace as the gateway and the Gateway only allows ListenerSets in the same namespace.
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-in-same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-allows-listenerset-in-same-namespace
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-in-same-namespace-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-in-same-namespace-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# This namespace is created to verify that a listenerSet defined in a different namespace than the parent gateway will not be accepted
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-api-listenerset-not-allowed-ns
+---
+# This listenerSet should not be accepted since it is in a different namespace than the gateway but the Gateway only allows ListenerSets in the same namespace.
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-in-different-namespace
+  namespace: gateway-api-listenerset-not-allowed-ns
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-allows-listenerset-in-same-namespace
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-in-different-namespace-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-in-different-namespace-listener"
+    allowedRoutes:
+      namespaces:
+        from: All

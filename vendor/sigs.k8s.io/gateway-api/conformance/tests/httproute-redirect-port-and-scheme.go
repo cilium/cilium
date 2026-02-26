@@ -62,7 +62,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-		cPem, keyPem, err := GetTLSSecret(suite.Client, certNN)
+		serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
 		}
@@ -304,7 +304,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run("https-listener-on-443/"+tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr443, cPem, keyPem, "example.org", tc)
+				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr443, serverCertPem, nil, nil, "example.org", tc)
 			})
 		}
 	},

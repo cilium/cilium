@@ -1,0 +1,36 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-default-does-not-allow-listenerset
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gateway-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# This listenerSet should not be accepted since the Gateway does not allow ListenerSets by default
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-default-not-allowed
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-default-does-not-allow-listenerset
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-default-not-allowed-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-default-not-allowed-listener.com"
+    allowedRoutes:
+      namespaces:
+        from: All

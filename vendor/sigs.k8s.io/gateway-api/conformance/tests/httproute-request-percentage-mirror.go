@@ -145,8 +145,7 @@ var HTTPRouteRequestPercentageMirror = suite.ConformanceTest{
 				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, expected)
 
 				// Override to not have more requests than expected
-				var dedicatedTimeoutConfig config.TimeoutConfig
-				dedicatedTimeoutConfig = suite.TimeoutConfig
+				dedicatedTimeoutConfig := suite.TimeoutConfig
 				dedicatedTimeoutConfig.RequiredConsecutiveSuccesses = 1
 				// used to limit number of parallel go routines
 				semaphore := make(chan struct{}, concurrentRequests)
@@ -194,7 +193,7 @@ func testMirroredRequestsDistribution(t *testing.T, suite *suite.ConformanceTest
 
 			tlog.Log(t, "Searching for the mirrored request log")
 			tlog.Logf(t, `Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
-			logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, suite.Client, suite.Clientset, timeVal)
+			logs, err := kubernetes.DumpEchoLogs(t.Context(), mirrorPod.Namespace, mirrorPod.Name, suite.Client, suite.Clientset, timeVal)
 			if err != nil {
 				tlog.Logf(t, `Couldn't read "%s/%s" logs: %v`, mirrorPod.Namespace, mirrorPod.Name, err)
 				return false
@@ -225,7 +224,7 @@ func testMirroredRequestsDistribution(t *testing.T, suite *suite.ConformanceTest
 		tlog.Logf(t, "Pod: %s, Expected: %f (min: %f, max: %f), Actual: %f", mirrorPod.Name, expected, minExpected, maxExpected, actual)
 
 		if actual < minExpected || actual > maxExpected {
-			errs = append(errs, fmt.Errorf("Pod %s did not meet the mirroring percentage within tolerance. Expected between %f and %f, but got %f", mirrorPod.Name, minExpected, maxExpected, actual))
+			errs = append(errs, fmt.Errorf("pod %s did not meet the mirroring percentage within tolerance. Expected between %f and %f, but got %f", mirrorPod.Name, minExpected, maxExpected, actual))
 		}
 	}
 	if len(errs) > 0 {

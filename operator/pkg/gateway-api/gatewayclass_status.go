@@ -29,6 +29,14 @@ var exemptFeatures = []features.Feature{
 	features.MeshConsumerRouteFeature,
 	features.BackendTLSPolicySanValidationFeature,
 	features.HTTPRouteCORS,
+	features.TLSRouteModeTerminateFeature,
+	features.ListenerSetFeature,
+	features.GatewayBackendClientCertificateFeature,
+	features.GatewayFrontendClientCertificateValidationFeature,
+	features.HTTPRoute303RedirectStatusCodeFeature,
+	features.HTTPRoute307RedirectStatusCodeFeature,
+	features.HTTPRoute308RedirectStatusCodeFeature,
+	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 }
 
 // List of Gateway API features supported by Cilium.

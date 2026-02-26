@@ -30,7 +30,7 @@ const (
 	SupportBackendTLSPolicySANValidation FeatureName = "BackendTLSPolicySANValidation"
 )
 
-// TLSRouteFeature contains metadata for the TLSRoute feature.
+// BackendTLSPolicyFeature contains metadata for the BackendTLSPolicy feature.
 var BackendTLSPolicyFeature = Feature{
 	Name:    SupportBackendTLSPolicy,
 	Channel: FeatureChannelStandard,

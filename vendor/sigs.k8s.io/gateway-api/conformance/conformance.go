@@ -18,6 +18,7 @@ package conformance
 
 import (
 	"io/fs"
+	"net/netip"
 	"os"
 	"testing"
 
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1alpha3"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	xv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	conformanceconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
@@ -34,6 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -63,6 +66,7 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 	require.NoError(t, v1alpha3.Install(client.Scheme()))
 	require.NoError(t, v1alpha2.Install(client.Scheme()))
 	require.NoError(t, v1beta1.Install(client.Scheme()))
+	require.NoError(t, xv1alpha1.Install(client.Scheme()))
 	require.NoError(t, v1.Install(client.Scheme()))
 	require.NoError(t, apiextensionsv1.AddToScheme(client.Scheme()))
 
@@ -80,6 +84,13 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 		*flags.ImplementationVersion,
 		*flags.ImplementationContact,
 	)
+	var usable, unusable []v1beta1.GatewaySpecAddress
+	if v := *flags.UsableAddress; v != "" {
+		usable = append(usable, parseAddress(v))
+	}
+	if v := *flags.UnusableAddress; v != "" {
+		unusable = append(unusable, parseAddress(v))
+	}
 
 	return suite.ConformanceOptions{
 		AllowCRDsMismatch:          *flags.AllowCRDsMismatch,
@@ -93,6 +104,8 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 		ExemptFeatures:             exemptFeatures,
 		ManifestFS:                 []fs.FS{&Manifests},
 		GatewayClassName:           *flags.GatewayClassName,
+		UsableNetworkAddresses:     usable,
+		UnusableNetworkAddresses:   unusable,
 		MeshName:                   *flags.MeshName,
 		Implementation:             implementation,
 		Mode:                       *flags.Mode,
@@ -105,6 +118,21 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 		SupportedFeatures:          supportedFeatures,
 		TimeoutConfig:              conformanceconfig.DefaultTimeoutConfig(),
 		SkipProvisionalTests:       *flags.SkipProvisionalTests,
+		FailFast:                   *flags.FailFast,
+	}
+}
+
+func parseAddress(v string) v1beta1.GatewaySpecAddress {
+	_, err := netip.ParseAddr(v)
+	if err == nil {
+		return v1beta1.GatewaySpecAddress{
+			Type:  ptr.To(v1beta1.IPAddressType),
+			Value: v,
+		}
+	}
+	return v1beta1.GatewaySpecAddress{
+		Type:  ptr.To(v1beta1.HostnameAddressType),
+		Value: v,
 	}
 }
 

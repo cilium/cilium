@@ -91,6 +91,15 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 			}}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
+
+			hrouteNA := types.NamespacedName{Name: "http-route-not-accepted", Namespace: "gateway-conformance-infra"}
+			notaccepted := metav1.Condition{
+				Type:   string(v1.RouteConditionAccepted),
+				Status: metav1.ConditionFalse,
+				Reason: string(v1.RouteReasonNoMatchingListenerHostname),
+			}
+
+			kubernetes.HTTPRouteMustHaveCondition(t, s.Client, s.TimeoutConfig, hrouteNA, gwNN, notaccepted)
 		})
 
 		t.Run("Gateway listener should have AttachedRoutes set even when Gateway has unresolved refs", func(t *testing.T) {

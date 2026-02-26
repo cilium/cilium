@@ -104,7 +104,7 @@ spec:
       kind: Service
       name: not-the-service-youre-looking-for
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: gateway-conformance-infra-test

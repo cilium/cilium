@@ -42,20 +42,20 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 	Description: "A GatewayClass should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
 	Manifests:   []string{"tests/gatewayclass-observed-generation-bump.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		gwc := types.NamespacedName{Name: "gatewayclass-observed-generation-bump"}
+		gwcNN := types.NamespacedName{Name: "gatewayclass-observed-generation-bump"}
 
 		t.Run("observedGeneration should increment", func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutConfig.LatestObservedGenerationSet)
 			defer cancel()
 
-			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
+			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwcNN.Name)
 
 			original := &v1.GatewayClass{}
-			err := s.Client.Get(ctx, gwc, original)
+			err := s.Client.Get(ctx, gwcNN, original)
 			require.NoErrorf(t, err, "error getting GatewayClass: %v", err)
 
 			// Sanity check
-			kubernetes.GatewayClassMustHaveLatestConditions(t, original)
+			kubernetes.GatewayClassMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwcNN)
 
 			mutate := original.DeepCopy()
 			desc := "new"
@@ -65,14 +65,14 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 			require.NoErrorf(t, err, "error patching the GatewayClass: %v", err)
 
 			// Ensure the generation and observedGeneration sync up
-			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
-
-			updated := &v1.GatewayClass{}
-			err = s.Client.Get(ctx, gwc, updated)
-			require.NoErrorf(t, err, "error getting GatewayClass: %v", err)
+			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwcNN.Name)
 
 			// Sanity check
-			kubernetes.GatewayClassMustHaveLatestConditions(t, updated)
+			kubernetes.GatewayClassMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwcNN)
+
+			updated := &v1.GatewayClass{}
+			err = s.Client.Get(ctx, gwcNN, updated)
+			require.NoErrorf(t, err, "error getting GatewayClass: %v", err)
 
 			require.NotEqual(t, original.Generation, updated.Generation, "generation should change after an update")
 		})

@@ -17,10 +17,14 @@ limitations under the License.
 package tests
 
 import (
+	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	h "sigs.k8s.io/gateway-api/conformance/utils/http"
@@ -71,12 +75,12 @@ var BackendTLSPolicy = suite.ConformanceTest{
 
 			// For the re-encrypt case, we need to use the cert for the frontend tls listener.
 			certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
-			cPem, keyPem, err := GetTLSSecret(suite.Client, certNN)
+			serverCertPem, _, err := GetTLSSecret(suite.Client, certNN)
 			if err != nil {
 				t.Fatalf("unexpected error finding TLS secret: %v", err)
 			}
 			// Verify that the request to a re-encrypted call to /backendTLS should succeed.
-			tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, cPem, keyPem, "https-listener.org",
+			tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, serverCertPem, nil, nil, "https-listener.org",
 				h.ExpectedResponse{
 					Namespace: ns,
 					Request: h.Request{
@@ -152,5 +156,98 @@ var BackendTLSPolicy = suite.ConformanceTest{
 					},
 				})
 		})
+
+		// Verify that changing a ConfigMap content should be reconciled by the controller
+		t.Run("Changing the content of a ConfigMap used by BackendTLSPolicy as CA certificate should be reconciled by the controller", func(t *testing.T) {
+			ctx := t.Context()
+			gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
+			testPolicyNN := types.NamespacedName{Name: "reconcile-test", Namespace: ns}
+
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, acceptedCond)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, resolvedRefsCond)
+
+			sharedCMNN := types.NamespacedName{Name: "tls-checks-ca-certificate", Namespace: ns}
+			sharedCM := &corev1.ConfigMap{}
+			err := suite.Client.Get(ctx, sharedCMNN, sharedCM)
+			require.NoError(t, err, "failed to get shared configmap")
+			originalCAData := sharedCM.Data["ca.crt"]
+
+			// Create test specific ConfigMap with copied CA data
+			testCMName := "tls-checks-ca-certificate-reconcile-test"
+			testCM := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCMName,
+					Namespace: ns,
+				},
+				Data: map[string]string{
+					"ca.crt": originalCAData,
+				},
+			}
+
+			testCMNN := types.NamespacedName{Name: testCMName, Namespace: ns}
+
+			policy := &gatewayv1.BackendTLSPolicy{}
+			err = suite.Client.Get(ctx, testPolicyNN, policy)
+			require.NoError(t, err, "failed to get BackendTLSPolicy")
+			originalCACertRefs := policy.Spec.Validation.CACertificateRefs
+
+			updatedPolicy := policy.DeepCopy()
+			updatedPolicy.Spec.Validation.CACertificateRefs = []gatewayv1.LocalObjectReference{
+				{
+					Group: "",
+					Kind:  "ConfigMap",
+					Name:  gatewayv1.ObjectName(testCMName),
+				},
+			}
+			err = suite.Client.Patch(ctx, updatedPolicy, client.MergeFrom(policy))
+			require.NoError(t, err, "failed to update BackendTLSPolicy to use test-specific ConfigMap")
+
+			invalidAcceptedCond := metav1.Condition{
+				Type:   string(gatewayv1.PolicyConditionAccepted),
+				Status: metav1.ConditionFalse,
+				Reason: string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate),
+			}
+			invalidResolvedRefsCond := metav1.Condition{
+				Type:   string(gatewayv1.BackendTLSPolicyConditionResolvedRefs),
+				Status: metav1.ConditionFalse,
+				Reason: string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef),
+			}
+
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidAcceptedCond)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidResolvedRefsCond)
+			suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{testCM}, suite.Cleanup)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, acceptedCond)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, resolvedRefsCond)
+
+			patchConfigMapCACert(ctx, t, suite.Client, testCMNN, "")
+
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidAcceptedCond)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, invalidResolvedRefsCond)
+
+			patchConfigMapCACert(ctx, t, suite.Client, testCMNN, originalCAData)
+
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, acceptedCond)
+			kubernetes.BackendTLSPolicyMustHaveCondition(t, suite.Client, suite.TimeoutConfig, testPolicyNN, gwNN, resolvedRefsCond)
+
+			err = suite.Client.Get(ctx, testPolicyNN, policy)
+			require.NoError(t, err, "failed to get BackendTLSPolicy for cleanup")
+
+			restoredPolicy := policy.DeepCopy()
+			restoredPolicy.Spec.Validation.CACertificateRefs = originalCACertRefs
+			err = suite.Client.Patch(ctx, restoredPolicy, client.MergeFrom(policy))
+			require.NoError(t, err, "failed to restore BackendTLSPolicy to use shared ConfigMap")
+		})
 	},
+}
+
+func patchConfigMapCACert(ctx context.Context, t *testing.T, c client.Client, cmNN types.NamespacedName, caCertData string) {
+	t.Helper()
+	currentCM := &corev1.ConfigMap{}
+	err := c.Get(ctx, cmNN, currentCM)
+	require.NoError(t, err, "failed to get ConfigMap", "namespace", cmNN.Namespace, "name", cmNN.Name)
+
+	patchedCM := currentCM.DeepCopy()
+	patchedCM.Data["ca.crt"] = caCertData
+	err = c.Patch(ctx, patchedCM, client.MergeFrom(currentCM))
+	require.NoError(t, err, "failed to patch ConfigMap", "namespace", cmNN.Namespace, "name", cmNN.Name)
 }

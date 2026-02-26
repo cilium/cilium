@@ -364,7 +364,7 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 		--set=k8sClusterNetworkPolicy.enabled=$(ENABLE_CLUSTERNETWORKPOLICY) \
 		--version=
 
-GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
+GW_VERSION ?= $(shell grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
 GW_CHANNEL ?= experimental
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
@@ -383,7 +383,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -411,7 +411,7 @@ kind-servicemesh-prereqs: check_deps kind-ready
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
-	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)
 

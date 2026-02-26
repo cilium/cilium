@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package http
+package http //nolint:revive
 
 import (
 	"fmt"
@@ -27,11 +27,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 )
 
-func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, mirrorPods []MirroredBackend, path string) {
+func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, mirrorPods []MirroredBackend, path string, timeoutConfig config.TimeoutConfig) {
 	for i, mirrorPod := range mirrorPods {
 		if mirrorPod.Name == "" {
 			tlog.Fatalf(t, "Mirrored BackendRef[%d].Name wasn't provided in the testcase, this test should only check http request mirror.", i)
@@ -52,7 +53,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 
 				tlog.Log(t, "Searching for the mirrored request log")
 				tlog.Logf(t, `Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
-				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset, assertionStart)
+				logs, err := kubernetes.DumpEchoLogs(t.Context(), mirrorPod.Namespace, mirrorPod.Name, client, clientset, assertionStart)
 				if err != nil {
 					tlog.Logf(t, `Couldn't read "%s/%s" logs: %v`, mirrorPod.Namespace, mirrorPod.Name, err)
 					return false
@@ -64,7 +65,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 					}
 				}
 				return false
-			}, 60*time.Second, time.Millisecond*100, `Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
+			}, timeoutConfig.RequestTimeout, time.Second, `Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
 		}(mirrorPod)
 	}
 

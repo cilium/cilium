@@ -433,12 +433,12 @@ func (in *TLSRouteRule) DeepCopyInto(out *TLSRouteRule) {
 	*out = *in
 	if in.Name != nil {
 		in, out := &in.Name, &out.Name
-		*out = new(SectionName)
+		*out = new(v1.SectionName)
 		**out = **in
 	}
 	if in.BackendRefs != nil {
 		in, out := &in.BackendRefs, &out.BackendRefs
-		*out = make([]BackendRef, len(*in))
+		*out = make([]v1.BackendRef, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
