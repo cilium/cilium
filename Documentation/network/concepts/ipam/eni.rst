@@ -61,7 +61,10 @@ Configuration
 
 * The Cilium agent and operator must be run with the option ``--ipam=eni`` or
   the option ``ipam: eni``  must be set in the ConfigMap. This will enable ENI
-  allocation in both the node agent and operator.
+  allocation in both the node agent and operator. When installing via Helm, the 
+  flag ``eni.enabled=true`` must also be set. This flag configures all
+  requirements for AWS ENI environments, such as operator image selection,
+  enabling endpoint routes, CiliumNode management, and IPv4 masquerade defaults.
 
 * In most scenarios, it makes sense to automatically create the
   ``ciliumnodes.cilium.io`` custom resource when the agent starts up on a node
