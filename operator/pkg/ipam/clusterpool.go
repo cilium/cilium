@@ -13,9 +13,9 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -35,7 +35,7 @@ type clusterPoolParams struct {
 	Lifecycle          cell.Lifecycle
 	JobGroup           job.Group
 	Clientset          k8sClient.Clientset
-	MetricsRegistry    *metrics.Registry
+	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
 	NodeWatcherFactory nodeWatcherJobFactory
 }
@@ -50,13 +50,13 @@ func startClusterPoolAllocator(p clusterPoolParams) {
 	p.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger, p.MetricsRegistry); err != nil {
-					return fmt.Errorf("unable to init AWS allocator: %w", err)
+				if err := allocator.Init(ctx, p.Logger); err != nil {
+					return fmt.Errorf("unable to init ClusterPool allocator: %w", err)
 				}
 
-				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.MetricsRegistry)
+				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.IPAMMetrics.K8sSyncTrigger())
 				if err != nil {
-					return fmt.Errorf("unable to start AWS allocator: %w", err)
+					return fmt.Errorf("unable to start ClusterPool allocator: %w", err)
 				}
 
 				p.JobGroup.Add(p.NodeWatcherFactory(nm))

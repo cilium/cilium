@@ -13,9 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/allocator/podcidr"
-	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -31,7 +29,7 @@ type AllocatorOperator struct {
 }
 
 // Init sets up Cilium allocator based on given options
-func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger, reg *metrics.Registry) error {
+func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger) error {
 	a.rootLogger = logger
 	a.logger = logger.With(subsysLogAttr...)
 	if option.Config.EnableIPv4 {
@@ -66,24 +64,12 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger, reg *
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
+func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, iMetrics trigger.MetricsObserver) (allocator.NodeEventHandler, error) {
 	a.logger.Info(
 		"Starting ClusterPool IP allocator",
 		logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR,
 		logfields.IPv6CIDRs, operatorOption.Config.ClusterPoolIPv6CIDR,
 	)
-
-	var (
-		iMetrics trigger.MetricsObserver
-	)
-
-	if operatorOption.Config.EnableMetrics {
-		triggerMetrics := ipamMetrics.NewTriggerMetrics(metrics.Namespace, "k8s_sync")
-		triggerMetrics.Register(reg)
-		iMetrics = triggerMetrics
-	} else {
-		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
-	}
 
 	nodeManager := podcidr.NewNodesPodCIDRManager(a.logger, a.v4CIDRSet, a.v6CIDRSet, updater, iMetrics)
 
