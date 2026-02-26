@@ -316,7 +316,7 @@ func Test_NodeLabels(t *testing.T) {
 			upsertNode(req, ctx, f, tt.node)
 
 			// upsert BGP cluster config
-			upsertBGPCC(req, ctx, f, tt.clusterConfig)
+			req.NoError(upsertBGPCC(ctx, f, tt.clusterConfig))
 
 			// validate node configs
 			assert.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -636,7 +636,7 @@ func Test_ClusterConfigSteps(t *testing.T) {
 			}
 
 			// upsert BGP cluster config
-			upsertBGPCC(req, ctx, f, step.clusterConfig)
+			req.NoError(upsertBGPCC(ctx, f, step.clusterConfig))
 
 			// upsert node overrides
 			for _, nodeOverride := range step.nodeOverrides {
@@ -851,7 +851,8 @@ func TestClusterConfigConditions(t *testing.T) {
 
 			// Setup resources
 			upsertNode(req, ctx, f, &node)
-			upsertBGPCC(req, ctx, f, tt.clusterConfig)
+			req.NoError(upsertBGPCC(ctx, f, tt.clusterConfig))
+
 			upsertBGPPC(req, ctx, f, &peerConfig)
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
@@ -1108,7 +1109,7 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 						},
 					},
 				}
-				upsertBGPCC(req, ctx, f, clusterConfig)
+				req.NoError(upsertBGPCC(ctx, f, clusterConfig))
 			}
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
@@ -1219,7 +1220,7 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	}
 
 	// Setup resourses with status
-	upsertBGPCC(req, ctx, f, clusterConfig)
+	req.NoError(upsertBGPCC(ctx, f, clusterConfig))
 
 	// Wait for status to be cleared
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
@@ -1532,7 +1533,7 @@ func TestRouterIDAllocation(t *testing.T) {
 			}
 			for _, clusterConfig := range tt.InitClusterConfigs {
 				config := clusterConfig
-				upsertBGPCC(req, ctx, f, config)
+				req.NoError(upsertBGPCC(ctx, f, config))
 			}
 
 			if tt.nodeOverrides != nil {
@@ -1574,7 +1575,9 @@ func TestRouterIDAllocation(t *testing.T) {
 				// version even after receiving an event for the new version.
 				if tt.FinalClusterConfigs != nil {
 					for _, clusterConfig := range tt.FinalClusterConfigs {
-						upsertBGPCC(req, ctx, f, clusterConfig)
+						if err := upsertBGPCC(ctx, f, clusterConfig); !assert.NoError(c, err) {
+							return
+						}
 					}
 				}
 				NodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
@@ -1619,22 +1622,22 @@ func upsertNode(req *require.Assertions, ctx context.Context, f *fixture, node *
 	req.NoError(err)
 }
 
-func upsertBGPCC(req *require.Assertions, ctx context.Context, f *fixture, bgpcc *v2.CiliumBGPClusterConfig) {
+func upsertBGPCC(ctx context.Context, f *fixture, bgpcc *v2.CiliumBGPClusterConfig) error {
 	if bgpcc == nil {
-		return
+		return nil
 	}
 
 	existing, err := f.bgpcClient.Get(ctx, bgpcc.Name, meta_v1.GetOptions{})
 	if err != nil && k8sErrors.IsNotFound(err) {
 		_, err = f.bgpcClient.Create(ctx, bgpcc, meta_v1.CreateOptions{})
 	} else if err != nil {
-		req.Fail(err.Error())
+		return err
 	} else {
 		bgpcc.SetUID(existing.GetUID())
 		bgpcc.SetResourceVersion(existing.GetResourceVersion())
 		_, err = f.bgpcClient.Update(ctx, bgpcc, meta_v1.UpdateOptions{})
 	}
-	req.NoError(err)
+	return err
 }
 
 func upsertBGPPC(req *require.Assertions, ctx context.Context, f *fixture, bgppc *v2.CiliumBGPPeerConfig) {
