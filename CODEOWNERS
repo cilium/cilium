@@ -726,7 +726,6 @@ Makefile* @cilium/build
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/k8s/config.go @cilium/sig-k8s
-/test/k8s/pod_mac_address.go @cilium/sig-k8s
 /tools/ @cilium/contributing
 /tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader

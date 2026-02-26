@@ -22,6 +22,68 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+func TestApplyPodAnnotationMAC(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantMAC     string
+		wantErr     bool
+	}{
+		{
+			name:        "valid MAC annotation",
+			annotations: map[string]string{"cni.cilium.io/mac-address": "e2:9c:30:38:52:61"},
+			wantMAC:     "e2:9c:30:38:52:61",
+		},
+		{
+			name:        "no MAC annotation",
+			annotations: map[string]string{},
+			wantMAC:     "",
+		},
+		{
+			name:        "nil annotations",
+			annotations: nil,
+			wantMAC:     "",
+		},
+		{
+			name:        "invalid MAC annotation",
+			annotations: map[string]string{"cni.cilium.io/mac-address": "invalid"},
+			wantErr:     true,
+		},
+		{
+			name:        "valid MAC with different format",
+			annotations: map[string]string{"cni.cilium.io/mac-address": "00:00:5e:00:53:01"},
+			wantMAC:     "00:00:5e:00:53:01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := &slim_corev1.Pod{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        "test-pod",
+					Namespace:   "default",
+					Annotations: tt.annotations,
+				},
+			}
+			ep := &endpoint.Endpoint{}
+
+			err := applyPodAnnotationMAC(pod, ep)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			if tt.wantMAC == "" {
+				assert.Nil(t, ep.LXCMac())
+			} else {
+				assert.Equal(t, tt.wantMAC, ep.LXCMac().String())
+			}
+		})
+	}
+}
+
 func TestHandleOutdatedPodInformer(t *testing.T) {
 	defer func(current time.Duration) { handleOutdatedPodInformerRetryPeriod = current }(handleOutdatedPodInformerRetryPeriod)
 	handleOutdatedPodInformerRetryPeriod = 1 * time.Millisecond
