@@ -38,6 +38,9 @@ type CiliumNetworkDriverClusterConfig struct {
 
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverClusterConfigSpec `json:"spec"`
+
+	// +kubebuilder:validation:Optional
+	Status CiliumNetworkDriverClusterConfigStatus `json:"status,omitempty"`
 }
 
 type CiliumNetworkDriverClusterConfigSpec struct {
@@ -51,6 +54,24 @@ type CiliumNetworkDriverClusterConfigSpec struct {
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
 }
+
+type CiliumNetworkDriverClusterConfigStatus struct {
+	// The current conditions of the CiliumNetworkDriverClusterConfig
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=type
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+const (
+	// ClusterConfig with conflicting nodeSelector condition
+	NetworkDriverClusterConfigConditionConflict = "cilium.io/ConflictingClusterConfiguration"
+
+	// ClusterConfig with conflicting nodeSelector reason
+	NetworkDriverClusterConfigReasonConflict = "configurationConflict"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
