@@ -47,28 +47,15 @@ func ensureSlice[E any, S ~[]E, I ~uint | ~uint8](s *S, index I) {
 
 var perTierRoundUp = 1000
 
-// computeTierPriorities determines how many priority levels are needed for each tier, considering
-// that PASS verdicts require priority space after them for all the rules in the lower tiers. Two
-// slices are returned: one with the number of priority levels needed for the tier, and other with
-// the base priority for each tier.
+// computeTierPriorities determines the base priority for each tier, and the number of priority
+// levels to reserve after each pass verdict on each tier. Two slices are returned: one with the
+// base priority for each tier, and other with the number of priority levels to reserve after each
+// pass verdict on each tier.
 //
-// The returned slices has the needed priority range for each tier (0, 1, ...), including the full
-// range for all the remaining tiers in the policy.  Policy tiers are not compressed, but used 1:1,
-// i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int it.
-//
-// Full range of the remaining tiers must be included so that we know to leave sufficient space
-// after each pass verdict for the rules promoted from the remaining tiers.
-//
-// Note that since the the full range of remaining tiers is included, the returned range for
-// tiers without any rules is the same as the next tier.
-//
-// Since the full range of the remaining tiers is included, the base priority of each tier can be
-// calculated as follows (range is the returned slice):
-//
-//	basePriority[tier] = range[0] - range[tier]
-//
-// 'rules' is already sorted by tier/priority
-func (rules ruleSlice) computeTierPriorities() ([]int, []types.Priority, error) {
+// The returned slices have the values for each tier (0, 1, ...) in the policy. Policy tiers are not
+// compressed, but used 1:1, i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int
+// it.
+func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) {
 	lastTier := types.Tier(0)
 	nTiers := int(rules[len(rules)-1].Tier) + 1
 	tierPriorityLevels := make([]int, nTiers)
@@ -131,7 +118,10 @@ func (rules ruleSlice) computeTierPriorities() ([]int, []types.Priority, error) 
 		tierBasePriorities[tier] = basePriority
 	}
 
-	return tierPriorityLevels, tierBasePriorities, nil
+	// transform tierPriority levels to the number of priority levels needed after each pass
+	// verdict on any given tier by shifting up by one.
+	tierPriorityLevels = append(tierPriorityLevels[1:], 0)
+	return tierBasePriorities, tierPriorityLevels, nil
 }
 
 func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPolicy, error) {
@@ -146,14 +136,14 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		return result, nil
 	}
 
-	// compute how many priotity levels are needed for each tier.
-	tierPriorityLevels, tierBasePriorities, err := rules.computeTierPriorities()
+	// compute how many priority levels are needed for each tier.
+	tierBasePriorities, tierPassPriorities, err := rules.computeTierPriorities()
 	if err != nil {
 		return result, err
 	}
 
 	result.tierBasePriority = tierBasePriorities
-	lastTier := types.Tier(len(tierPriorityLevels) - 1)
+	lastTier := types.Tier(len(tierBasePriorities) - 1)
 
 	// add rules, computing the absolute priority for each rule,
 	// making sufficient gaps after each pass verdict, but keeping entries with the same
@@ -191,7 +181,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		// + 1 for the pass verdict itself so that there is space for all passed to entries
 		// after the pass entry itself.
 		if r.Verdict == types.Pass && tier < lastTier {
-			increment = types.Priority(tierPriorityLevels[tier+1]) + 1
+			increment = types.Priority(tierPassPriorities[tier]) + 1
 		}
 	}
 
