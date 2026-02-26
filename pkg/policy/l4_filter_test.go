@@ -397,10 +397,6 @@ type testPolicyContextType struct {
 	logger             *slog.Logger
 }
 
-func (p *testPolicyContextType) AllowLocalhost() bool {
-	return option.Config.AlwaysAllowLocalhost()
-}
-
 func (p *testPolicyContextType) GetNamespace() string {
 	return p.ns
 }
@@ -2321,25 +2317,34 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 		},
 	}
 
-	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: &PerSelectorPolicy{
-				Verdict:          types.Allow,
-				L7Parser:         ParserTypeHTTP,
-				ListenerPriority: ListenerPriorityHTTP,
-				L7Rules: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		api.PortProtocolAny: {
+			Tier:     types.DefaultPolicy,
+			Protocol: api.ProtoAny,
+			Ingress:  true,
+			PerSelectorPolicies: L7DataMap{
+				td.cachedSelectorHost: &PerSelectorPolicy{Priority: 10},
+			},
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorHost: {LabelsLocalHostIngress}}),
+		},
+		"80/TCP": {
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  6,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: &PerSelectorPolicy{
+					Verdict:          types.Allow,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+					},
 				},
 			},
-			td.cachedSelectorHost: nil, // no proxy redirect
-		},
-		Ingress:    true,
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
-	}})
+			Ingress:    true,
+			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		}})
 
 	td.policyMapEquals(t, expected, nil, &rule)
 }
@@ -2451,12 +2456,11 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 		},
 		// L3 wildcard rule is also added
 		"0/ANY": {
-			Port:     0,
+			Tier:     types.DefaultPolicy,
 			Protocol: api.ProtoAny,
-			U8Proto:  0,
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
-				td.wildcardCachedSelector: nil,
+				td.wildcardCachedSelector: &PerSelectorPolicy{Priority: 10},
 			},
 			Ingress:    false,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
@@ -2521,12 +2525,11 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 		},
 		// L3 wildcard rule is also added
 		"0/ANY": {
-			Port:     0,
+			Tier:     types.DefaultPolicy,
 			Protocol: api.ProtoAny,
-			U8Proto:  0,
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
-				td.wildcardCachedSelector: nil,
+				td.wildcardCachedSelector: &PerSelectorPolicy{Priority: 10},
 			},
 			Ingress:    true,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyIngress}}),
@@ -2590,12 +2593,11 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 		},
 		// L3 wildcard rule is also added
 		"0/ANY": {
-			Port:     0,
+			Tier:     types.DefaultPolicy,
 			Protocol: api.ProtoAny,
-			U8Proto:  0,
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
-				td.wildcardCachedSelector: nil,
+				td.wildcardCachedSelector: &PerSelectorPolicy{Priority: 10},
 			},
 			Ingress:    false,
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {LabelsAllowAnyEgress}}),
