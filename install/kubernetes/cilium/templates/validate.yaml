@@ -239,3 +239,8 @@
     {{- end }}
   {{- end }}
 {{- end }}
+
+{{/* validate IPAM ENI */}}
+{{- if and (eq .Values.ipam.mode "eni") (not .Values.eni.enabled) }}
+  {{ fail "ipam.mode=eni requires eni.enabled=true" }}
+{{- end }}
