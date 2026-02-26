@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -65,8 +64,8 @@ type Client struct {
 
 // MetricsAPI represents the metrics maintained by the Azure API client
 type MetricsAPI interface {
+	helpers.MetricsAPI
 	ObserveAPICall(call, status string, duration float64)
-	ObserveRateLimit(operation string, duration time.Duration)
 }
 
 // net/http Client with a custom cilium user agent

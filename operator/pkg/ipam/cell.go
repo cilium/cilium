@@ -10,6 +10,8 @@ import (
 
 	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var allocators []cell.Cell
@@ -21,6 +23,7 @@ func Cell() cell.Cell {
 
 		cell.Config(defaultConfig),
 		cell.ProvidePrivate(newNodeWatcherJobFactory),
+		metrics.Metric(ipamMetrics.NewMetrics),
 
 		cell.Group(allocators...),
 	)

@@ -15,6 +15,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam/allocator/azure"
+	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -28,6 +29,7 @@ func init() {
 
 		cell.Config(azureDefaultConfig),
 		cell.Invoke(startAzureAllocator),
+		metrics.Metric(azure.NewMetrics),
 	))
 }
 
@@ -59,7 +61,8 @@ type azureParams struct {
 	Lifecycle          cell.Lifecycle
 	JobGroup           job.Group
 	Clientset          k8sClient.Clientset
-	MetricsRegistry    *metrics.Registry
+	AzureMetrics       *azure.Metrics
+	IPAMMetrics        *ipamMetrics.Metrics
 	DaemonCfg          *option.DaemonConfig
 	NodeWatcherFactory nodeWatcherJobFactory
 
@@ -85,13 +88,13 @@ func startAzureAllocator(p azureParams) {
 	p.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger, p.MetricsRegistry); err != nil {
-					return fmt.Errorf("unable to init AWS allocator: %w", err)
+				if err := allocator.Init(ctx, p.Logger); err != nil {
+					return fmt.Errorf("unable to init Azure allocator: %w", err)
 				}
 
-				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.MetricsRegistry)
+				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.AzureMetrics, p.IPAMMetrics)
 				if err != nil {
-					return fmt.Errorf("unable to start AWS allocator: %w", err)
+					return fmt.Errorf("unable to start Azure allocator: %w", err)
 				}
 
 				p.JobGroup.Add(p.NodeWatcherFactory(nm))
