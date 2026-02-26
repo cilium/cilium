@@ -177,7 +177,7 @@ generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
 	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
 
-$(BPF_SIMPLE): %.o: %.c
+$(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
