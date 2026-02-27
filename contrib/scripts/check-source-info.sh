@@ -2,13 +2,16 @@
 
 set -euo pipefail
 
+bpf_source_info=$(grep --exclude-dir=vendor/ --include='*.h' -Rl "@@ source files list begin" | tr '\n' ' ')
+go_source_info=$(grep --exclude-dir=vendor/ --include='*.go' -Rl "@@ source files list begin" | tr '\n' ' ')
+
 #
 # This simple awk command extracts file names from the definition of the
 # __id_for_file function. This is the list of file names which
 # are currently assigned a numerical ID.
 #
 defined_files=$(
-	echo ${BPF_SOURCE_INFO} |
+	echo ${bpf_source_info} |
 	xargs -n1 awk -F: '/@@ source files list begin/{found=1; next}
 	/@@ source files list end/{exit}
 	{if (!found || !/_strcase_/) next}
@@ -23,7 +26,7 @@ defined_files=$(
 # Now let's find all the names defined inside the go source file
 #
 defined_files_go=$(
-	echo ${GO_SOURCE_INFO} |
+	echo ${go_source_info} |
 	xargs -n1 awk '/@@ source files list begin/{found=1; next}
 	{if (!found) next}
 	/@@ source files list end/{exit}
@@ -33,7 +36,7 @@ defined_files_go=$(
 	sort -u
 )
 if [ "$defined_files" != "$defined_files_go" ]; then
-	echo "File lists in ${BPF_SOURCE_INFO} and ${GO_SOURCE_INFO} aren't same, please sync" >&2
+	echo "File lists in ${bpf_source_info} and ${go_source_info} aren't same, please sync" >&2
 	exit 1
 fi
 
@@ -60,7 +63,7 @@ required_files=$(
 retval=0
 for f in $required_files; do
 	if ! grep --silent -w "$f" <<<"$defined_files"; then
-		echo "$0: $f is not defined, please add its mapping to ${BPF_SOURCE_INFO}" >&2
+		echo "$0: $f is not defined, please add its mapping to ${bpf_source_info}" >&2
 		retval=1
 	fi
 done
@@ -70,7 +73,7 @@ done
 #
 for f in $defined_files; do
 	if ! grep --silent -w "$f" <<<"$required_files"; then
-		echo "$0: $f is not using send_drop_notify*, update_(trace_)metrics or send_trace_notify, please remove it from ${BPF_SOURCE_INFO}" >&2
+		echo "$0: $f is not using send_drop_notify*, update_(trace_)metrics or send_trace_notify, please remove it from ${bpf_source_info}" >&2
 		retval=1
 	fi
 done
