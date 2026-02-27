@@ -35,6 +35,9 @@ NODE_CONFIG(__u32, direct_routing_dev_ifindex, "Index of the interface used to c
 NODE_CONFIG(bool, supports_fib_lookup_skip_neigh,
 	    "Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.")
 
+NODE_CONFIG(bool, supports_fib_lookup_src,
+	    "Whether or not BPF_FIB_LOOKUP_SRC is supported.")
+
 NODE_CONFIG(bool, enable_nodeport_source_lookup,
 	    "Enable dynamic source IP resolution for SNAT via linux's routing table.")
 
