@@ -272,8 +272,9 @@ jobs:
              --metrics-prefix cilium_operator_feature \
              --metrics-separators adv_connect_and_lb \
              > Documentation/observability/feature-metrics-operator.txt
-          if ! git diff --quiet; then
+          if ! git diff --exit-code; then
             echo "Feature metrics documentation out-of-sync"
+            echo "HINT: to fix this, install via 'make kind-install-cilium-metrics' and run 'make -C Documentation update-metrics'."
             exit 1
           fi
 
