@@ -149,7 +149,7 @@ jobs:
         run: |
           CHANNEL=$(echo ${{ inputs.extra-args }} | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
           if [ "$CHANNEL" == "" ];then
-            FILTER="channels.channel=REGULAR"
+            FILTER="channels.channel=EXTENDED"
           elif [ "$CHANNEL" == "NONE" ];then
             FILTER=""
           else
