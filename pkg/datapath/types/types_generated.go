@@ -998,6 +998,11 @@ type V6Addr struct {
 // VTEPKey is generated from the BPF C type vtep_key.
 type VTEPKey struct {
 	_      structs.HostLayout
+	LPMKey struct {
+		_         structs.HostLayout
+		Prefixlen uint32
+		Data      [0]uint8
+	}
 	VTEPIP uint32
 }
 

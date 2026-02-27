@@ -4,7 +4,6 @@
 package config
 
 import (
-	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -41,10 +40,6 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
-	}
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules

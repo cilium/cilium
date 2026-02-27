@@ -1,0 +1,36 @@
+name: VTEP Responder Containers
+description: Start VXLAN tunnel endpoint responder containers for VTEP integration testing
+
+inputs:
+  kind_network:
+    description: Docker network name (Kind nodes must be on this network)
+    required: true
+  vtep_a_ip:
+    description: Docker IP for vtep-responder-a
+    default: "172.20.1.10"
+  vtep_b_ip:
+    description: Docker IP for vtep-responder-b
+    default: "172.20.1.11"
+  inner_ip:
+    description: Inner IP assigned to VXLAN interface on each responder
+    default: "10.1.5.1"
+
+outputs:
+  vtep_a_mac:
+    description: MAC address of vtep-responder-a VXLAN interface
+    value: ${{ steps.setup.outputs.vtep_a_mac }}
+  vtep_b_mac:
+    description: MAC address of vtep-responder-b VXLAN interface
+    value: ${{ steps.setup.outputs.vtep_b_mac }}
+
+runs:
+  using: composite
+  steps:
+    - id: setup
+      shell: bash
+      run: >
+        ${{ github.action_path }}/action.sh
+        "${{ inputs.kind_network }}"
+        "${{ inputs.vtep_a_ip }}"
+        "${{ inputs.vtep_b_ip }}"
+        "${{ inputs.inner_ip }}"

@@ -110,6 +110,7 @@ rules:
   - ciliumcidrgroups
   - ciliuml2announcementpolicies
   - ciliumpodippools
+  - ciliumvtepconfigs
   verbs:
   - list
   - watch
@@ -143,6 +144,21 @@ rules:
   verbs:
   - get
   - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepconfigs
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumvtepconfigs/status
+  verbs:
+  - get
+  - update
+  - patch
 - apiGroups:
   - cilium.io
   resources:

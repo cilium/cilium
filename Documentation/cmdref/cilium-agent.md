@@ -446,11 +446,6 @@ cilium-agent [flags]
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
       --version                                                   Print version information
       --vlan-bpf-bypass strings                                   List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs
-      --vtep-cidr strings                                         List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress
-      --vtep-endpoint strings                                     List of VTEP IP addresses
-      --vtep-mac strings                                          List of VTEP MAC addresses for forwarding traffic outside the cluster
-      --vtep-mask string                                          VTEP CIDR Mask for all VTEP CIDRs (default "255.255.255.0")
-      --vtep-sync-interval duration                               Interval for VTEP sync (default 1m0s)
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
 ```

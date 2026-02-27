@@ -4,10 +4,9 @@
 package vtep
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -17,51 +16,20 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 type vtepManagerConfig struct {
-	vtepEndpoints []net.IP
-	vtepCIDRs     []*cidr.CIDR
-	vtepMACs      []mac.MAC
+	vtepCIDRs []*cidr.CIDR
 }
 
+// vtepManager handles Linux route/rule management for VTEP CIDRs.
+// Its config field is only accessed from VTEPReconciler.syncDesiredStateLocked,
+// which is serialized by VTEPReconciler.mu. Do not access config from other goroutines.
 type vtepManager struct {
-	logger  *slog.Logger
-	vtepMap vtep.Map
-	config  vtepManagerConfig
-}
-
-func (r *vtepManager) syncVTEP(ctx context.Context) error {
-	r.logger.Debug("Syncing VTEP")
-
-	if err := r.setupVTEPMapping(); err != nil {
-		return err
-	}
-
-	if err := r.setupRouteToVTEPCidr(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *vtepManager) setupVTEPMapping() error {
-	for i, ep := range r.config.vtepEndpoints {
-		r.logger.Debug(
-			"Updating vtep map entry for VTEP",
-			logfields.IPAddr, ep,
-		)
-
-		err := r.vtepMap.Update(r.config.vtepCIDRs[i], ep, r.config.vtepMACs[i])
-		if err != nil {
-			return fmt.Errorf("Unable to set up VTEP ipcache mappings: %w", err)
-		}
-	}
-	return nil
+	logger *slog.Logger
+	config vtepManagerConfig
 }
 
 func (r *vtepManager) setupRouteToVTEPCidr() error {
@@ -86,11 +54,14 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 	addedVtepRoutes, removedVtepRoutes := cidr.DiffCIDRLists(routeCidrs, r.config.vtepCIDRs)
 	vtepMTU := mtu.EthernetMTU - mtu.TunnelOverheadIPv4
 
+	var errs []error
+
 	if option.Config.EnableL7Proxy {
 		for _, prefix := range addedVtepRoutes {
 			ip4 := prefix.IP.To4()
 			if ip4 == nil {
-				return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+				errs = append(errs, fmt.Errorf("invalid VTEP CIDR IPv4 address: %v", prefix.IP))
+				continue
 			}
 			rt := route.Route{
 				Device: defaults.HostDevice,
@@ -100,7 +71,8 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 				Table:  linux_defaults.RouteTableVtep,
 			}
 			if err := route.Upsert(r.logger, rt); err != nil {
-				return fmt.Errorf("Update VTEP CIDR route error: %w", err)
+				errs = append(errs, fmt.Errorf("update VTEP CIDR route error: %w", err))
+				continue
 			}
 			r.logger.Info(
 				"VTEP route added",
@@ -113,7 +85,7 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 				Table:    linux_defaults.RouteTableVtep,
 			}
 			if err := route.ReplaceRule(rule); err != nil {
-				return fmt.Errorf("Update VTEP CIDR rule error: %w", err)
+				errs = append(errs, fmt.Errorf("update VTEP CIDR rule error: %w", err))
 			}
 		}
 	} else {
@@ -123,7 +95,8 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 	for _, prefix := range removedVtepRoutes {
 		ip4 := prefix.IP.To4()
 		if ip4 == nil {
-			return fmt.Errorf("Invalid VTEP CIDR IPv4 address: %v", ip4)
+			errs = append(errs, fmt.Errorf("invalid VTEP CIDR IPv4 address: %v", prefix.IP))
+			continue
 		}
 		rt := route.Route{
 			Device: defaults.HostDevice,
@@ -133,7 +106,8 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 			Table:  linux_defaults.RouteTableVtep,
 		}
 		if err := route.Delete(rt); err != nil {
-			return fmt.Errorf("Delete VTEP CIDR route error: %w", err)
+			errs = append(errs, fmt.Errorf("delete VTEP CIDR route error: %w", err))
+			continue
 		}
 		r.logger.Info(
 			"VTEP route removed",
@@ -146,9 +120,9 @@ func (r *vtepManager) setupRouteToVTEPCidr() error {
 			Table:    linux_defaults.RouteTableVtep,
 		}
 		if err := route.DeleteRule(netlink.FAMILY_V4, rule); err != nil {
-			return fmt.Errorf("Delete VTEP CIDR rule error: %w", err)
+			errs = append(errs, fmt.Errorf("delete VTEP CIDR rule error: %w", err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }

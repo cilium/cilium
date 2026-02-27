@@ -832,6 +832,7 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+trie
 tsne
 tunables
 tunings

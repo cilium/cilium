@@ -87,6 +87,10 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2.BGPNCOName))
 	}
 
+	if option.Config.EnableVTEP {
+		result = append(result, CRDResourceName(v2.CVTEPName))
+	}
+
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
 		CRDResourceName(v2alpha1.L2AnnouncementName),
