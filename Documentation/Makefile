@@ -18,7 +18,7 @@ default: html
 define build_image
   $(ECHO_DOCKER) $(3)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
-  grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
+  grep --color=never -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
   $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
     | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) \
                           --build-arg READTHEDOCS_VERSION \
@@ -153,7 +153,7 @@ live-preview: builder-image ## Build and serve the documentation locally.
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):$(DOCS_PORT) \
 			$(DOCS_BUILDER_IMG) \
-		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore *.swp -Q . _preview
+		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore "*.swp" -Q . _preview
 
 update-redirects: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Writing redirects$$(tput sgr0)"
