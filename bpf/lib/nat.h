@@ -1669,19 +1669,14 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 struct ipv6_ct_tuple *tuple __maybe_unused,
-			 struct ipv6hdr *ip6 __maybe_unused,
-			 fraginfo_t fraginfo __maybe_unused,
-			 int l4_off __maybe_unused,
-			 struct ipv6_nat_target *target __maybe_unused)
+snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
+			 struct ipv6hdr *ip6, fraginfo_t fraginfo, int l4_off,
+			 struct ipv6_nat_target *target)
 {
-	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
-	const struct remote_endpoint_info *remote_ep __maybe_unused;
-	const struct endpoint_info *local_ep __maybe_unused;
+	union v6addr masq_addr = CONFIG(nat_ipv6_masquerade);
+	const struct remote_endpoint_info *remote_ep;
+	const struct endpoint_info *local_ep;
 
-	/* See comments in snat_v4_needs_masquerade(). */
-#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		target->needs_ct = true;
@@ -1783,7 +1778,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		return NAT_NEEDED;
 	}
-#endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 
 	return NAT_PUNT_TO_STACK;
 }

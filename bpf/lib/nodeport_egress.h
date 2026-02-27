@@ -59,12 +59,12 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
+	int hdrlen, l4_off, ret = NAT_PUNT_TO_STACK;
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
 	struct ipv6_ct_tuple tuple = {};
-	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
@@ -84,7 +84,9 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ctx, ip6, &target))
 		goto apply_snat;
 
+#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
+#endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 	if (IS_ERR(ret))
 		goto out;
 
