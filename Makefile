@@ -64,9 +64,6 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=
 
 TEST_UNITTEST_LDFLAGS=
 
-BPF_SOURCE_INFO ?= "bpf/lib/source_info.h"
-GO_SOURCE_INFO ?= "pkg/monitor/api/files.go"
-
 build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
 build-container: ## Builds components required for cilium-agent container.
@@ -510,7 +507,7 @@ endif
 	@$(ECHO_CHECK) contrib/scripts/check-go-testdata.sh
 	$(QUIET) contrib/scripts/check-go-testdata.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
-	$(QUIET) BPF_SOURCE_INFO=$(BPF_SOURCE_INFO) GO_SOURCE_INFO=$(GO_SOURCE_INFO) contrib/scripts/check-source-info.sh
+	$(QUIET) contrib/scripts/check-source-info.sh
 	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
 	$(QUIET) contrib/scripts/check-xfrmstate.sh
 	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
