@@ -1,0 +1,38 @@
+name: Ariane Config linter
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  lint-ariane-config:
+    name: Lint Ariane Config
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Install Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version: 1.26.0
+
+      - name: Install Ariane linter
+        shell: bash
+        run: |
+          go install github.com/cilium/ariane/linter@586e65bab2ac5b5a66bd87adf22c10677f7d4a97
+
+      - name: Lint Ariane config
+        shell: bash
+        run: |
+          linter src/github.com/cilium/cilium/.github/ariane-config.yaml
