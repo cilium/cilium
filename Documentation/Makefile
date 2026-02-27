@@ -65,7 +65,49 @@ DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env INCREMENTAL=$(INCREMENTAL)
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
+PROMTOOL_IMG ?= quay.io/prometheus/prometheus:latest
+PROMTOOL := $(DOCKER_CTR) --entrypoint /bin/promtool $(PROMTOOL_IMG)
+
 ##@ Auto-generated Contents Updates and Validation
+
+.PHONY: update-metrics
+update-metrics: AGENT_METRICS_PROM := agent-metrics.prom
+update-metrics: AGENT_METRICS_DOC := ./observability/feature-metrics-agent.txt
+update-metrics: AGENT_METRICS_PREFIX := cilium_feature
+update-metrics: AGENT_METRICS_SEPARATORS := adv_connect_and_lb,controlplane,datapath,network_policies
+update-metrics: OPERATOR_METRICS_PROM := operator-metrics.prom
+update-metrics: OPERATOR_METRICS_DOC := ./observability/feature-metrics-operator.txt
+update-metrics: OPERATOR_METRICS_PREFIX := cilium_operator_feature
+update-metrics: OPERATOR_METRICS_SEPARATORS := adv_connect_and_lb
+update-metrics:
+	@$(ECHO_GEN)metrics
+	$(QUIET)set -eu; \
+		AGENT_IP="$$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].status.podIP}')"; \
+		OPERATOR_IP="$$(kubectl get pods -n kube-system -l io.cilium/app=operator -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')"; \
+		echo "Fetching agent metrics from http://$${AGENT_IP}:9962/metrics"; \
+		curl -fsS --connect-timeout 5 --max-time 20 "http://$${AGENT_IP}:9962/metrics" -o $(AGENT_METRICS_PROM).tmp; \
+		echo "Fetching operator metrics from http://$${OPERATOR_IP}:9963/metrics"; \
+		curl -fsS --connect-timeout 5 --max-time 20 "http://$${OPERATOR_IP}:9963/metrics" -o $(OPERATOR_METRICS_PROM).tmp
+	@$(ECHO_CHECK) $(AGENT_METRICS_PROM).tmp
+	$(QUIET)$(PROMTOOL) check metrics < $(AGENT_METRICS_PROM).tmp
+	@$(ECHO_CHECK) $(OPERATOR_METRICS_PROM).tmp
+	$(QUIET)$(PROMTOOL) check metrics < $(OPERATOR_METRICS_PROM).tmp
+	$(QUIET)grep '$(AGENT_METRICS_PREFIX)' $(AGENT_METRICS_PROM).tmp > $(AGENT_METRICS_PROM)
+	$(QUIET)grep '$(OPERATOR_METRICS_PREFIX)' $(OPERATOR_METRICS_PROM).tmp > $(OPERATOR_METRICS_PROM)
+	@$(ECHO_GEN) $(AGENT_METRICS_DOC)
+	$(QUIET)$(GO) run $(ROOT_DIR)/tools/feature-helm-generator \
+		--prom-file $(AGENT_METRICS_PROM) \
+		--metrics-prefix $(AGENT_METRICS_PREFIX) \
+		--metrics-separators $(AGENT_METRICS_SEPARATORS) \
+		> $(AGENT_METRICS_DOC)
+	@$(ECHO_GEN) $(OPERATOR_METRICS_DOC)
+	$(QUIET)$(GO) run $(ROOT_DIR)/tools/feature-helm-generator \
+		--prom-file $(OPERATOR_METRICS_PROM) \
+		--metrics-prefix $(OPERATOR_METRICS_PREFIX) \
+		--metrics-separators $(OPERATOR_METRICS_SEPARATORS) \
+		> $(OPERATOR_METRICS_DOC)
+	$(QUIET)$(RM) -- $(AGENT_METRICS_PROM).tmp $(OPERATOR_METRICS_PROM).tmp \
+		$(AGENT_METRICS_PROM) $(OPERATOR_METRICS_PROM)
 
 .PHONY: api-flaggen
 api-flaggen: ## Update the table of API flags restrictions.
@@ -131,6 +173,8 @@ check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values
 	$(QUIET) ./check-crdlist.sh
 	@$(ECHO_CHECK) redirects.txt
 	$(QUIET) ./check-redirects.sh
+	@$(ECHO_CHECK) metrics
+	$(QUIET) ./check-metrics.sh
 
 ##@ Build
 
