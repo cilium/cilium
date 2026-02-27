@@ -486,7 +486,7 @@ DNS requests themselves, see :ref:`l7_policy`.
 	In order to associate domain names with IP addresses, Cilium intercepts
 	DNS responses per-Endpoint using a `DNS Proxy`. This requires Cilium
 	to be configured with ``--enable-l7-proxy=true`` and an L7 policy allowing
-	DNS requests. For more details, see :ref:`DNS Obtaining Data`.
+	DNS requests (``rules.dns`` YAML block). For more details, see :ref:`DNS Obtaining Data`.
 
 An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
 rule and applies to the same endpoints. The IP information is selected for
