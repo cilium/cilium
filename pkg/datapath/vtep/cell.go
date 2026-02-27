@@ -4,17 +4,17 @@
 package vtep
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
-	"net"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/mac"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -25,108 +25,125 @@ var Cell = cell.Module(
 	"VXLAN Tunnel Endpoint Integration",
 
 	cell.Config(config{
-		VTEPSyncInterval: 1 * time.Minute,
-		VTEPEndpoint:     []string{},
-		VTEPCIDR:         []string{},
-		VTEPMAC:          []string{},
+		VTEPProbeInterval:       defaultProbeInterval,
+		VTEPProbeTimeout:        defaultProbeTimeout,
+		VTEPFailureThreshold:    defaultFailureThreshold,
+		VTEPMinFailoverInterval: defaultMinFailoverInterval,
 	}),
-	cell.Invoke(newVTEPManager),
+	cell.Invoke(newVTEPController),
 )
 
-type vtepManagerParams struct {
+type vtepControllerParams struct {
 	cell.In
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 
-	VTEPMap vtep.Map
-	Config  config
+	VTEPMap   vtep.Map
+	Config    config
+	Clientset client.Clientset
+
+	// VTEPConfigResource is optional - only available when k8s is enabled
+	VTEPConfigResource resource.Resource[*cilium_api_v2.CiliumVTEPConfig] `optional:"true"`
 }
 
-func newVTEPManager(params vtepManagerParams) error {
+func newVTEPController(params vtepControllerParams) error {
 	if !option.Config.EnableVTEP {
 		return nil
 	}
 
-	validatedConfig, err := params.Config.validatedConfig()
-	if err != nil {
-		return fmt.Errorf("invalid vtep config: %w", err)
+	if params.VTEPConfigResource == nil {
+		return fmt.Errorf("VTEP is enabled but Kubernetes is not available. " +
+			"CiliumVTEPConfig CRD requires a Kubernetes cluster")
 	}
 
+	// Create the manager for route management
 	mgr := &vtepManager{
 		logger:  params.Logger,
 		vtepMap: params.VTEPMap,
-		config:  *validatedConfig,
+		config:  vtepManagerConfig{},
 	}
 
-	// Start job to setup and periodically verify VTEP endpoints and routes.
+	failoverCh := make(chan failoverEvent, 16)
 
-	// use trigger to enforce first execution immediately when the timer job starts
-	tr := job.NewTrigger()
-	tr.Trigger()
-	params.JobGroup.Add(job.Timer("sync-vtep", mgr.syncVTEP, 1*time.Minute, job.WithTrigger(tr)))
+	healthMonitor := newVTEPHealthMonitor(params.Logger, failoverCh)
+	healthMonitor.probeInterval = params.Config.VTEPProbeInterval
+	healthMonitor.probeTimeout = params.Config.VTEPProbeTimeout
+	healthMonitor.failureThreshold = params.Config.VTEPFailureThreshold
+	healthMonitor.minFailoverInterval = params.Config.VTEPMinFailoverInterval
+
+	reconciler := newVTEPReconciler(vtepReconcilerParams{
+		Logger:        params.Logger,
+		VTEPMap:       params.VTEPMap,
+		Clientset:     params.Clientset,
+		Resource:      params.VTEPConfigResource,
+		Manager:       mgr,
+		HealthMonitor: healthMonitor,
+		FailoverCh:    failoverCh,
+	})
+
+	ctrl := &vtepController{
+		logger:        params.Logger,
+		manager:       mgr,
+		reconciler:    reconciler,
+		healthMonitor: healthMonitor,
+		jobGroup:      params.JobGroup,
+	}
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			return ctrl.start(ctx)
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			return nil
+		},
+	})
+
+	return nil
+}
+
+// vtepController manages VTEP configuration from CiliumVTEPConfig CRD.
+type vtepController struct {
+	logger        *slog.Logger
+	manager       *vtepManager
+	reconciler    *VTEPReconciler
+	healthMonitor *vtepHealthMonitor
+	jobGroup      job.Group
+}
+
+// start initializes the VTEP controller.
+func (c *vtepController) start(ctx context.Context) error {
+	c.logger.Info("Starting VTEP controller with CiliumVTEPConfig CRD")
+
+	// Do initial sync from CRD
+	if err := c.reconciler.SyncFromCRD(ctx); err != nil {
+		c.logger.Error("Initial VTEP CRD sync failed", "error", err)
+		// Continue anyway, reconciler will retry
+	}
+
+	// Start the reconciler job to watch for CRD changes and failover events
+	c.jobGroup.Add(job.OneShot("vtep-crd-reconciler", func(ctx context.Context, _ cell.Health) error {
+		return c.reconciler.Run(ctx)
+	}))
+
+	// Start the health monitor as a periodic timer.
+	// The monitor only probes endpoints that have standby configured.
+	c.jobGroup.Add(job.Timer("vtep-health-monitor", c.healthMonitor.probe, c.healthMonitor.probeInterval))
 
 	return nil
 }
 
 type config struct {
-	VTEPSyncInterval time.Duration
-	VTEPEndpoint     []string
-	VTEPCIDR         []string
-	VTEPMAC          []string
+	VTEPProbeInterval       time.Duration
+	VTEPProbeTimeout        time.Duration
+	VTEPFailureThreshold    int
+	VTEPMinFailoverInterval time.Duration
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
-	flags.Duration("vtep-sync-interval", r.VTEPSyncInterval, "Interval for VTEP sync")
-	flags.StringSlice("vtep-endpoint", r.VTEPEndpoint, "List of VTEP IP addresses")
-	flags.StringSlice("vtep-cidr", r.VTEPCIDR, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
-	flags.StringSlice("vtep-mac", r.VTEPMAC, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
-}
-
-func (r config) validatedConfig() (*vtepManagerConfig, error) {
-	config := vtepManagerConfig{}
-
-	if len(r.VTEPEndpoint) < 1 {
-		return nil, fmt.Errorf("If VTEP is enabled, at least one VTEP device must be configured")
-	}
-
-	if len(r.VTEPEndpoint) > defaults.MaxVTEPDevices {
-		return nil, fmt.Errorf("VTEP must not exceed %d VTEP devices (Found %d VTEPs)", defaults.MaxVTEPDevices, len(r.VTEPEndpoint))
-	}
-
-	if len(r.VTEPEndpoint) != len(r.VTEPCIDR) ||
-		len(r.VTEPEndpoint) != len(r.VTEPMAC) {
-		return nil, fmt.Errorf("VTEP configuration must have the same number of Endpoint, VTEP and MAC configurations (Found %d endpoints, %d MACs, %d CIDR ranges)", len(r.VTEPEndpoint), len(r.VTEPMAC), len(r.VTEPCIDR))
-	}
-
-	for _, ep := range r.VTEPEndpoint {
-		endpoint := net.ParseIP(ep)
-		if endpoint == nil {
-			return nil, fmt.Errorf("Invalid VTEP IP: %v", ep)
-		}
-		ip4 := endpoint.To4()
-		if ip4 == nil {
-			return nil, fmt.Errorf("Invalid VTEP IPv4 address %v", ip4)
-		}
-		config.vtepEndpoints = append(config.vtepEndpoints, endpoint)
-	}
-
-	for _, v := range r.VTEPCIDR {
-		externalCIDR, err := cidr.ParseCIDR(v)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid VTEP CIDR: %v", v)
-		}
-		config.vtepCIDRs = append(config.vtepCIDRs, externalCIDR)
-	}
-
-	for _, m := range r.VTEPMAC {
-		externalMAC, err := mac.ParseMAC(m)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid VTEP MAC: %v", m)
-		}
-		config.vtepMACs = append(config.vtepMACs, externalMAC)
-	}
-
-	return &config, nil
+	flags.Duration("vtep-probe-interval", r.VTEPProbeInterval, "Interval between ICMP health probes for VTEP endpoints with standby")
+	flags.Duration("vtep-probe-timeout", r.VTEPProbeTimeout, "Timeout for ICMP health probes")
+	flags.Int("vtep-failure-threshold", r.VTEPFailureThreshold, "Number of consecutive probe failures before triggering failover")
+	flags.Duration("vtep-min-failover-interval", r.VTEPMinFailoverInterval, "Minimum time between failovers for the same endpoint")
 }
