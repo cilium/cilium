@@ -364,6 +364,19 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 		--set=k8sClusterNetworkPolicy.enabled=$(ENABLE_CLUSTERNETWORKPOLICY) \
 		--version=
 
+.PHONY: kind-install-cilium-metrics
+kind-install-cilium-metrics: check_deps kind-ready
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-metrics.yaml \
+		--set=k8sClusterNetworkPolicy.enabled=$(ENABLE_CLUSTERNETWORKPOLICY) \
+		--version=
+
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
 GW_CHANNEL ?= experimental
