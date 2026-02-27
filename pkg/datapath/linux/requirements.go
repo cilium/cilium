@@ -141,6 +141,13 @@ func CheckRequirements(log *slog.Logger) error {
 			}
 			log.Info("BPF_FIB_LOOKUP_SKIP_NEIGH is not supported; it will not be used")
 		}
+
+		if err := probes.HaveFibLookupSrc(); err != nil {
+			if !errors.Is(err, probes.ErrNotSupported) {
+				return errors.New("Unable to determine if BPF_FIB_LOOKUP_SRC is supported")
+			}
+			log.Info("BPF_FIB_LOOKUP_SRC is not supported; it will not be used")
+		}
 	}
 	return nil
 }
