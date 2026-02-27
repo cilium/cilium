@@ -5,7 +5,7 @@
 .. list-table::
   :header-rows: 1
 
-  * - Name
+  * - Labels
     - Labels
     - Possible Label Values
     - Description
