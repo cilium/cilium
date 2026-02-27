@@ -1,0 +1,38 @@
+nodeinit:
+  enabled: true
+kubeProxyReplacement: true
+ipam:
+  mode: kubernetes
+prometheus:
+  enabled: true
+hubble:
+  enabled: true
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - http
+ingressController:
+  enabled: true
+extraEnv:
+  - name: CILIUM_FEATURE_METRICS_WITH_DEFAULTS
+    value: "true"
+  - name: CILIUM_INVALID_METRIC_VALUE_DETECTOR
+    value: "true"
+  - name: CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION
+    value: "true"
+
+operator:
+  prometheus:
+    enabled: true
+  extraEnv:
+    - name: CILIUM_FEATURE_METRICS_WITH_DEFAULTS
+      value: "true"
+    - name: CILIUM_INVALID_METRIC_VALUE_DETECTOR
+      value: "true"
+    - name: CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION
+      value: "true"
