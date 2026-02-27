@@ -139,3 +139,9 @@ func TestPrivilegedHaveFibLookupTBID(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "6.5", "BPF_FIB_LOOKUP_TBID")
 	assert.NoError(t, HaveFibLookupTbid())
 }
+
+func TestPrivilegedHaveFibLookupSrc(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.7", "BPF_FIB_LOOKUP_SRC")
+	assert.NoError(t, HaveFibLookupSrc())
+}
