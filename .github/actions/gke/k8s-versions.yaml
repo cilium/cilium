@@ -4,13 +4,14 @@ k8s:
   - version: "1.30"
     zone: us-west2-c
     vmIndex: 1
+    default: true
   - version: "1.31"
     zone: us-west3-a
     vmIndex: 2
+    default: true
   - version: "1.32"
     zone: us-east4-b
     vmIndex: 3
   - version: "1.33"
     zone: us-west1-c
     vmIndex: 4
-    default: true
