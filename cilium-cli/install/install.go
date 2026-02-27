@@ -265,6 +265,7 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Clien
 		return err
 	}
 	helmClient := action.NewInstall(k8sClient.HelmActionConfig)
+	helmClient.ServerSideApply = false
 	helmClient.ReleaseName = k.params.HelmReleaseName
 	helmClient.Namespace = k.params.Namespace
 	if k.params.Wait {

@@ -336,6 +336,7 @@ func Upgrade(
 	}
 
 	helmClient := action.NewUpgrade(actionConfig)
+	helmClient.ServerSideApply = "false"
 	helmClient.Namespace = params.Namespace
 	helmClient.ResetThenReuseValues = params.ResetThenReuseValues
 	helmClient.ResetValues = params.ResetValues
