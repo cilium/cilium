@@ -82,9 +82,6 @@ daemon
 plugins/cilium-cni
   The CNI plugin to integrate with Kubernetes
 
-plugins/cilium-docker
-  The Docker integration plugin
-
 Hubble
 ------
 

@@ -121,10 +121,6 @@ func (e *Endpoint) Identifiers() id.Identifiers {
 		refs[id.ContainerIdPrefix] = e.GetContainerID()
 	}
 
-	if e.dockerEndpointID != "" {
-		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
-	}
-
 	if e.IPv4.IsValid() {
 		refs[id.IPv4Prefix] = e.IPv4.String()
 	}

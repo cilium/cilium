@@ -1991,9 +1991,7 @@ func (e *Endpoint) ModifyIdentityLabels(source string, addLabels, delLabels labe
 
 	// If the client made a request to modify labels, even if there was
 	// no new labels added or deleted then we can safely remove the init
-	// label. This is a workaround to allow the cilium-docker plugin
-	// to remove endpoints in 'init' state if the containers were not
-	// started with any label.
+	// label.
 	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
 		idLabls := e.labels.IdentityLabels()
 		delete(idLabls, labels.IDNameInit)

@@ -26,10 +26,6 @@ SUBDIR_RELAY_CONTAINER := hubble-relay
 SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver
 SUBDIR_STANDALONE_DNS_PROXY_CONTAINER := standalone-dns-proxy
 
-ifdef LIBNETWORK_PLUGIN
-SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
-endif
-
 # Add the ability to override variables
 -include Makefile.override
 
@@ -404,10 +400,10 @@ check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterro
 	./contrib/scripts/check-preflight-clusterrole.sh
 
 ##@ Development
-reload: ## Reload cilium-agent and cilium-docker systemd service after installing built binaries.
-	sudo systemctl stop cilium cilium-docker
+reload: ## Reload cilium-agent and systemd service after installing built binaries.
+	sudo systemctl stop cilium
 	sudo $(MAKE) install
-	sudo systemctl start cilium cilium-docker
+	sudo systemctl start cilium
 	sleep 6
 	cilium status
 
@@ -578,7 +574,6 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-cilium-image","Build cilium-agent docker image")
 	$(call print_help_line,"dev-docker-image","Build cilium-agent development docker image")
 	$(call print_help_line,"dev-docker-image-debug","Build cilium-agent development docker debug image")
-	$(call print_help_line,"docker-plugin-image","Build cilium-docker plugin image")
 	$(call print_help_line,"docker-hubble-relay-image","Build hubble-relay docker image")
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")

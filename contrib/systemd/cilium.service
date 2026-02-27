@@ -1,7 +1,6 @@
 [Unit]
 Description=cilium
 Documentation=http://docs.cilium.io
-Requires=docker.service cilium-docker.service
 
 [Service]
 Type=simple

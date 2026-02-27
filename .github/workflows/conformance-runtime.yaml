@@ -348,7 +348,6 @@ jobs:
             cp -r /host/test/provision /tmp
             git config --global --add safe.directory /host
             export CILIUM_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-            export CILIUM_DOCKER_PLUGIN_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
             export PROVISION_EXTERNAL_WORKLOAD=false
             export VMUSER=root
             echo '127.0.0.1 localhost' >> /etc/hosts

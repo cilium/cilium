@@ -138,10 +138,9 @@ const (
 	RunDir          = "/var/run/cilium"
 	LibDir          = "/var/lib/cilium"
 
-	DaemonName             = "cilium"
-	CiliumBugtool          = "cilium-bugtool"
-	CiliumBugtoolArgs      = "--exclude-object-files"
-	CiliumDockerDaemonName = "cilium-docker"
+	DaemonName        = "cilium"
+	CiliumBugtool     = "cilium-bugtool"
+	CiliumBugtoolArgs = "--exclude-object-files"
 
 	KubectlDelete = ResourceLifeCycleAction("delete")
 	KubectlApply  = ResourceLifeCycleAction("apply")

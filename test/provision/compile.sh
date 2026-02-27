@@ -11,14 +11,6 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 cd ${GOPATH}/src/github.com/cilium/cilium
 
-echo "Installing docker-plugin..."
-if [[ "${CILIUM_DOCKER_PLUGIN_IMAGE}" == "" ]]; then
-    make -C plugins/cilium-docker
-    sudo make -C plugins/cilium-docker install
-else
-    ${PROVISIONSRC}/docker-run-cilium-docker-plugin.sh
-fi
-
 if [[ "${CILIUM_IMAGE}" == "" ]]; then
     export CILIUM_IMAGE=cilium/cilium:latest
     echo "Building Cilium..."
@@ -32,8 +24,6 @@ sed -e "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" \
     -e "s|CILIUM_EXTRA_OPTS=.*|CILIUM_EXTRA_OPTS=${CILIUM_EXTRA_OPTS}|" contrib/systemd/cilium | sudo tee /etc/sysconfig/cilium
 
 sudo cp -f contrib/systemd/*.* /etc/systemd/system/
-# Use dockerized Cilium with runtime tests
-sudo cp -f contrib/systemd/cilium.service-with-docker /etc/systemd/system/cilium.service
 
 services_pattern="cilium*.service"
 if ! mount | grep /sys/fs/bpf; then

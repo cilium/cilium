@@ -88,10 +88,6 @@ jobs:
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
             platforms: linux/amd64,linux/arm64
 
-          - name: docker-plugin
-            dockerfile: ./images/cilium-docker-plugin/Dockerfile
-            platforms: linux/amd64,linux/arm64
-
     steps:
       - name: Checkout base or default branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
