@@ -801,6 +801,48 @@ Troubleshooting steps:
 
 #. Verify that the firewall on each node permits to route the endpoint IPs.
 
+Traffic to Service Endpoints is unbalanced
+------------------------------------------
+
+Symptom
+~~~~~~~
+
+Service endpoint communication is successful, but unbalanced traffic is
+observed in the following situations:
+
+  * A ``NodePort``, ``LoadBalancer`` or ``externalIP`` service is accessed from
+    outside a cluster when NodePort BPF is enabled
+  * A ``ClusterIP`` service is accessed within a cluster when the
+    :ref:`Host-reachable services<kubeproxy-free>` is disabled
+
+This problem typically manifests as an imbalance of connections or requests to
+a subset of endpoints for a Service.
+
+Troubleshooting steps:
+~~~~~~~~~~~~~~~~~~~~~~
+
+Consider whether running without ``kube-proxy`` is an option for your cluster.
+More details can be found in :ref:`kubeproxy-free`, along with the
+requirements, and steps for enabling.
+
+If running without ``kube-proxy`` is not an option for the cluster, or traffic
+is generated outside the cluster, the following parameters can provide more
+fine-grained control over traffic imbalances to Service endpoints:
+
+  * ``bpf-ct-timeout-service-tcp`` and ``bpf-ct-timeout-service-any`` controls
+    the amount of time endpoints are tracked via conntrack becoming eligible
+    for garbage collection.
+  * ``conntrack-gc-interval`` controls the garbage collection period for
+    conntrack.
+
+One common approach to tuning these parameters is to lower the conntrack
+timeouts while increasing the garbage connection interval.
+
+It is important to note that tuning the above can have an adverse impact on
+performance. Specifically, tuning the ``bpf-ct-timeout-service-*`` parameters
+can result in long-lived connections being reset if the timeouts are too short.
+More frequent GCs require extra CPU usage.
+
 
 Useful Scripts
 ==============
