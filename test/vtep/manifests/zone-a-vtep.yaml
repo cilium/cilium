@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
+#
+# CiliumVTEPConfig for zone-a nodes.
+# The MAC "PLACEHOLDER" is replaced at runtime with the actual VXLAN interface MAC
+# of the vtep-responder-a container.
+apiVersion: cilium.io/v2
+kind: CiliumVTEPConfig
+metadata:
+  name: zone-a
+spec:
+  nodeSelector:
+    matchLabels:
+      topology.kubernetes.io/zone: "zone-a"
+  endpoints:
+    - name: router-a
+      cidr: "10.1.5.0/24"
+      tunnelEndpoint: "172.20.1.10"
+      mac: "PLACEHOLDER"

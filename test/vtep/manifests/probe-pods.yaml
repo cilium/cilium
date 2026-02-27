@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
+#
+# Probe pods for VTEP connectivity testing.
+# Each pod is scheduled on a specific zone worker via nodeSelector.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-zone-a
+  labels:
+    app: vtep-probe
+    zone: zone-a
+spec:
+  nodeSelector:
+    topology.kubernetes.io/zone: "zone-a"
+  containers:
+    - name: probe
+      image: alpine:latest
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c', 'sleep infinity']
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-zone-b
+  labels:
+    app: vtep-probe
+    zone: zone-b
+spec:
+  nodeSelector:
+    topology.kubernetes.io/zone: "zone-b"
+  containers:
+    - name: probe
+      image: alpine:latest
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c', 'sleep infinity']

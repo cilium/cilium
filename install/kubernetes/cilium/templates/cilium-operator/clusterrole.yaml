@@ -271,6 +271,7 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
+  - ciliumvtepconfigs.cilium.io
 {{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io

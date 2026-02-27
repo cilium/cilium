@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
+#
+# CiliumVTEPConfig for zone-b nodes.
+# The MAC "PLACEHOLDER" is replaced at runtime with the actual VXLAN interface MAC
+# of the vtep-responder-b container.
+apiVersion: cilium.io/v2
+kind: CiliumVTEPConfig
+metadata:
+  name: zone-b
+spec:
+  nodeSelector:
+    matchLabels:
+      topology.kubernetes.io/zone: "zone-b"
+  endpoints:
+    - name: router-b
+      cidr: "10.1.5.0/24"
+      tunnelEndpoint: "172.20.1.11"
+      mac: "PLACEHOLDER"

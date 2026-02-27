@@ -1259,7 +1259,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
+		vkey.lpm_key.prefixlen = 32;
+		vkey.vtep_ip = ip4->daddr;
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;

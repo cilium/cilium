@@ -309,7 +309,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		struct vtep_key vkey = {};
 		const struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
+		vkey.lpm_key.prefixlen = 32;
+		vkey.vtep_ip = ip4->saddr;
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
@@ -447,7 +448,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
-	vkey.vtep_ip = sip & CONFIG(vtep_mask);
+	vkey.lpm_key.prefixlen = 32;
+	vkey.vtep_ip = sip;
 	info = map_lookup_elem(&cilium_vtep_map, &vkey);
 	if (!info)
 		goto pass_to_stack;

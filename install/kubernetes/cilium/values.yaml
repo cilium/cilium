@@ -2443,14 +2443,18 @@ vtep:
   # -- Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow
   # Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel.
   enabled: false
-  # -- A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
-  endpoint: ""
-  # -- A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
-  cidr: ""
-  # -- VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
-  mask: ""
-  # -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
-  mac: ""
+  # -- (string) A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
+  # DEPRECATED: Use CiliumVTEPConfig CRD instead.
+  # endpoint: ""
+  # -- (string) A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
+  # DEPRECATED: Use CiliumVTEPConfig CRD instead.
+  # cidr: ""
+  # -- (string) VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
+  # DEPRECATED: Use CiliumVTEPConfig CRD instead.
+  # mask: ""
+  # -- (string) A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
+  # DEPRECATED: Use CiliumVTEPConfig CRD instead.
+  # mac: ""
 # -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without

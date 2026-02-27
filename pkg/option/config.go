@@ -911,9 +911,6 @@ const (
 	// EnableVTEP enables cilium VXLAN VTEP integration
 	EnableVTEP = "enable-vtep"
 
-	// VTEP CIDR Mask applies to all VtepCIDR
-	VtepMask = "vtep-mask"
-
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority = "bpf-filter-priority"
@@ -1754,9 +1751,6 @@ type DaemonConfig struct {
 	// EnableVTEP enable Cilium VXLAN VTEP integration
 	EnableVTEP bool
 
-	// VtepMask VTEP Mask
-	VtepCidrMask netip.Addr
-
 	// TCFilterPriority sets the priority of the cilium tc filter, enabling other
 	// filters to be inserted prior to the cilium filter.
 	TCFilterPriority uint16
@@ -2244,13 +2238,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 
 	if err := c.checkIPAMDelegatedPlugin(); err != nil {
 		return err
-	}
-
-	if c.EnableVTEP {
-		err := c.validateVTEP(vp)
-		if err != nil {
-			return fmt.Errorf("Failed to validate VTEP configuration: %w", err)
-		}
 	}
 
 	if err := c.validatePolicyCIDRMatchMode(); err != nil {
@@ -3259,19 +3246,6 @@ func getPossibleCPUs(logger *slog.Logger) int {
 		logging.Fatal(logger, "Failed to get number of possible CPUs")
 	}
 	return cpus
-}
-
-// Validate VTEP integration configuration
-func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
-	vtepCidrMask := vp.GetString(VtepMask)
-
-	mask, err := netip.ParseAddr(vtepCidrMask)
-	if err != nil {
-		return fmt.Errorf("invalid VTEP CIDR Mask: %w", err)
-	}
-	c.VtepCidrMask = mask
-
-	return nil
 }
 
 var backupFileNames []string = []string{
