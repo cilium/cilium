@@ -150,9 +150,9 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
                      f"{width}", va="center", ha="left", fontsize=8)
 
         plt.tight_layout()
-        build_dir = os.path.join(outdir, collection, f"build{build}")
-        os.makedirs(build_dir, exist_ok=True)
-        outfile = os.path.join(build_dir, f"states-load{load}.png")
+        collect_dir = os.path.join(outdir, collection)
+        os.makedirs(collect_dir, exist_ok=True)
+        outfile = os.path.join(collect_dir, f"states-build{build}-load{load}.png")
         plt.savefig(outfile)
         plt.close()
         logging.info(f"Saved plot: {outfile}")
