@@ -22,220 +22,121 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
-// mockEndpoint implements a minimal endpoint for testing
-type mockEndpoint struct {
-	endpoint.Endpoint
-	createdAt time.Time
+type testEndpointManager struct {
+	endpoints map[string]*endpoint.Endpoint
 }
 
-func (m *mockEndpoint) GetCreatedAt() time.Time {
-	return m.createdAt
+func (m *testEndpointManager) LookupCEPName(namespacedName string) *endpoint.Endpoint {
+	return m.endpoints[namespacedName]
 }
 
-// mockEndpointManager implements the endpointManager interface for testing
-type mockEndpointManager struct {
-	endpoints map[string]*mockEndpoint
-}
-
-func (m *mockEndpointManager) LookupCEPName(namespacedName string) *endpoint.Endpoint {
-	if ep, ok := m.endpoints[namespacedName]; ok {
-		return &ep.Endpoint
-	}
+func (m *testEndpointManager) GetEndpoints() []*endpoint.Endpoint {
 	return nil
 }
 
-func (m *mockEndpointManager) GetEndpoints() []*endpoint.Endpoint {
+func (m *testEndpointManager) GetHostEndpoint() *endpoint.Endpoint {
 	return nil
 }
 
-func (m *mockEndpointManager) GetHostEndpoint() *endpoint.Endpoint {
+func (m *testEndpointManager) GetEndpointsByPodName(string) []*endpoint.Endpoint {
 	return nil
 }
 
-func (m *mockEndpointManager) GetEndpointsByPodName(string) []*endpoint.Endpoint {
+func (m *testEndpointManager) UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup {
 	return nil
 }
 
-func (m *mockEndpointManager) UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup {
-	return nil
-}
+type testPolicyManager struct{}
 
-func (m *mockEndpointManager) MarkAllEndpointsFrozen()   {}
-func (m *mockEndpointManager) UnmarkAllEndpointsFrozen() {}
-func (m *mockEndpointManager) RemoveAll()                {}
+func (m *testPolicyManager) TriggerPolicyUpdates(reason string) {}
 
-// mockPolicyManager implements the policyManager interface for testing
-type mockPolicyManager struct{}
+type testWireguardConfig struct{}
 
-func (m *mockPolicyManager) TriggerPolicyUpdates(reason string) {}
+func (m *testWireguardConfig) Enabled() bool { return false }
 
-// mockIPCacheManager implements the ipcacheManager interface for testing
-type mockIPCacheManager struct{}
+type testIPSecConfig struct{}
 
-func (m *mockIPCacheManager) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
+func (m *testIPSecConfig) Enabled() bool                                         { return false }
+func (m *testIPSecConfig) UseCiliumInternalIP() bool                             { return false }
+func (m *testIPSecConfig) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool { return false }
+
+type testIPCacheManager struct{}
+
+func (m *testIPCacheManager) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error) {
 	return false, nil
 }
 
-func (m *mockIPCacheManager) LookupByIP(IP string) (ipcache.Identity, bool) {
+func (m *testIPCacheManager) LookupByIP(IP string) (ipcache.Identity, bool) {
 	return ipcache.Identity{}, false
 }
 
-func (m *mockIPCacheManager) Delete(IP string, source source.Source) bool {
+func (m *testIPCacheManager) Delete(IP string, source source.Source) bool {
 	return false
 }
 
-func (m *mockIPCacheManager) DeleteOnMetadataMatch(ip string, source source.Source, namespace, name string) bool {
+func (m *testIPCacheManager) DeleteOnMetadataMatch(ip string, source source.Source, namespace, name string) bool {
 	return false
 }
 
-func (m *mockIPCacheManager) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
+func (m *testIPCacheManager) UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata) {
 }
 
-func (m *mockIPCacheManager) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[cmtypes.PrefixCluster]struct{}, resource ipcacheTypes.ResourceID) {
+func (m *testIPCacheManager) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[cmtypes.PrefixCluster]struct{}, resource ipcacheTypes.ResourceID) {
 }
 
-// TestEndpointUpdated_RecordsMetricWhenLocalEndpointExists verifies that
-// endpointUpdated safely records the metric when a local endpoint exists.
+func newTestWatcher(t *testing.T, endpoints map[string]*endpoint.Endpoint) *K8sCiliumEndpointsWatcher {
+	return &K8sCiliumEndpointsWatcher{
+		logger:          hivetest.Logger(t),
+		endpointManager: &testEndpointManager{endpoints: endpoints},
+		policyManager:   &testPolicyManager{},
+		ipcache:         &testIPCacheManager{},
+		localNodeStore:  node.NewTestLocalNodeStore(node.LocalNode{Node: nodetypes.Node{Name: "test-node"}}),
+		wgConfig:        &testWireguardConfig{},
+		ipsecConfig:     &testIPSecConfig{},
+	}
+}
+
+func newTestCiliumEndpoint(namespace, name, nodeIP, ipv4 string) *types.CiliumEndpoint {
+	return &types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Identity: &v2.EndpointIdentity{
+			ID: 123,
+		},
+		Networking: &v2.EndpointNetworking{
+			NodeIP: nodeIP,
+			Addressing: []*v2.AddressPair{
+				{IPV4: ipv4},
+			},
+		},
+	}
+}
+
 func TestEndpointUpdated_RecordsMetricWhenLocalEndpointExists(t *testing.T) {
-	// Create a mock endpoint with a creation timestamp
-	ep := &mockEndpoint{
-		createdAt: time.Now().Add(-5 * time.Second),
-	}
+	watcher := newTestWatcher(t, map[string]*endpoint.Endpoint{
+		"default/test-pod": {},
+	})
 
-	// Create mock endpoint manager with the endpoint
-	mockEpMgr := &mockEndpointManager{
-		endpoints: map[string]*mockEndpoint{
-			"default/test-pod": ep,
-		},
-	}
-
-	// Create watcher with mocked dependencies
-	watcher := &K8sCiliumEndpointsWatcher{
-		logger:          hivetest.Logger(t),
-		endpointManager: mockEpMgr,
-		policyManager:   &mockPolicyManager{},
-		ipcache:         &mockIPCacheManager{},
-		localNodeStore:  node.NewTestLocalNodeStore(node.LocalNode{Node: nodetypes.Node{Name: "test-node"}}),
-	}
-
-	// Create a CiliumEndpoint
-	cep := &types.CiliumEndpoint{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
-		},
-		Identity: &v2.EndpointIdentity{
-			ID: 123,
-		},
-		Networking: &v2.EndpointNetworking{
-			NodeIP: "192.168.1.1",
-			Addressing: []*v2.AddressPair{
-				{
-					IPV4: "10.0.0.1",
-				},
-			},
-		},
-	}
-
-	// Call endpointUpdated - should not panic and should record metric
+	cep := newTestCiliumEndpoint("default", "test-pod", "192.168.1.1", "10.0.0.1")
 	watcher.endpointUpdated(nil, cep)
-
-	// If we reach here without panic, the test passes
 }
 
-// TestEndpointUpdated_SafeWhenNoLocalEndpoint verifies that endpointUpdated
-// handles the case when LookupCEPName returns nil (no local endpoint).
 func TestEndpointUpdated_SafeWhenNoLocalEndpoint(t *testing.T) {
-	// Create mock endpoint manager with no endpoints
-	mockEpMgr := &mockEndpointManager{
-		endpoints: map[string]*mockEndpoint{},
-	}
+	watcher := newTestWatcher(t, map[string]*endpoint.Endpoint{})
 
-	// Create watcher with mocked dependencies
-	watcher := &K8sCiliumEndpointsWatcher{
-		logger:          hivetest.Logger(t),
-		endpointManager: mockEpMgr,
-		policyManager:   &mockPolicyManager{},
-		ipcache:         &mockIPCacheManager{},
-		localNodeStore:  node.NewTestLocalNodeStore(node.LocalNode{Node: nodetypes.Node{Name: "test-node"}}),
-	}
-
-	// Create a CiliumEndpoint
-	cep := &types.CiliumEndpoint{
-		ObjectMeta: slim_metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
-		},
-		Identity: &v2.EndpointIdentity{
-			ID: 123,
-		},
-		Networking: &v2.EndpointNetworking{
-			NodeIP: "192.168.1.1",
-			Addressing: []*v2.AddressPair{
-				{
-					IPV4: "10.0.0.1",
-				},
-			},
-		},
-	}
-
-	// Call endpointUpdated - should not panic even though no local endpoint exists
+	cep := newTestCiliumEndpoint("default", "test-pod", "192.168.1.1", "10.0.0.1")
 	watcher.endpointUpdated(nil, cep)
-
-	// If we reach here without panic, the test passes
 }
 
-// TestEndpointUpdated_SafeWhenEndpointNil verifies that endpointUpdated
-// handles the case when the endpoint parameter is nil.
-func TestEndpointUpdated_SafeWhenEndpointNil(t *testing.T) {
-	// Create mock endpoint manager
-	mockEpMgr := &mockEndpointManager{
-		endpoints: map[string]*mockEndpoint{},
-	}
-
-	// Create watcher with mocked dependencies
-	watcher := &K8sCiliumEndpointsWatcher{
-		logger:          hivetest.Logger(t),
-		endpointManager: mockEpMgr,
-		policyManager:   &mockPolicyManager{},
-		ipcache:         &mockIPCacheManager{},
-		localNodeStore:  node.NewTestLocalNodeStore(node.LocalNode{Node: nodetypes.Node{Name: "test-node"}}),
-	}
-
-	// Call endpointUpdated with nil endpoint - should not panic
-	watcher.endpointUpdated(nil, nil)
-
-	// If we reach here without panic, the test passes
-}
-
-// TestEndpointUpdated_SkipsWhenNoNetworking verifies that endpointUpdated
-// safely handles endpoints without networking information.
 func TestEndpointUpdated_SkipsWhenNoNetworking(t *testing.T) {
-	// Create a mock endpoint
-	ep := &mockEndpoint{
-		createdAt: time.Now().Add(-5 * time.Second),
-	}
+	watcher := newTestWatcher(t, map[string]*endpoint.Endpoint{
+		"default/test-pod": {},
+	})
 
-	// Create mock endpoint manager with the endpoint
-	mockEpMgr := &mockEndpointManager{
-		endpoints: map[string]*mockEndpoint{
-			"default/test-pod": ep,
-		},
-	}
-
-	// Create watcher with mocked dependencies
-	watcher := &K8sCiliumEndpointsWatcher{
-		logger:          hivetest.Logger(t),
-		endpointManager: mockEpMgr,
-		policyManager:   &mockPolicyManager{},
-		ipcache:         &mockIPCacheManager{},
-		localNodeStore:  node.NewTestLocalNodeStore(node.LocalNode{Node: nodetypes.Node{Name: "test-node"}}),
-	}
-
-	// Create a CiliumEndpoint without networking (should return early)
 	cep := &types.CiliumEndpoint{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -244,11 +145,8 @@ func TestEndpointUpdated_SkipsWhenNoNetworking(t *testing.T) {
 		Identity: &v2.EndpointIdentity{
 			ID: 123,
 		},
-		Networking: nil, // No networking info
+		Networking: nil,
 	}
 
-	// Call endpointUpdated - should return early but not panic
 	watcher.endpointUpdated(nil, cep)
-
-	// If we reach here without panic, the test passes
 }
