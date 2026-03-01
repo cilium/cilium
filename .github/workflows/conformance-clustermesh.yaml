@@ -68,7 +68,7 @@ env:
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.19.3
+  CERT_MANAGER_VERSION: v1.19.4
 
 jobs:
   echo-inputs:
