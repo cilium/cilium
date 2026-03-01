@@ -9,7 +9,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v8"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"

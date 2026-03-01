@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.3.0
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v8 v8.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v9 v9.0.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
 	github.com/aws/aws-sdk-go-v2 v1.41.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
@@ -50,7 +50,7 @@ require (
 	github.com/go-openapi/validate v0.25.1
 	github.com/google/cel-go v0.27.0
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-github/v82 v82.0.0
+	github.com/google/go-github/v84 v84.0.0
 	github.com/google/go-licenses/v2 v2.0.1
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.2
