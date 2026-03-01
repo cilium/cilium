@@ -78494,6 +78494,19 @@ func awsEc2query_deserializeDocumentCapacityBlockExtension(v **types.CapacityBlo
 				sv.UpfrontFee = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("zoneType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ZoneType = ptr.String(xtv)
+			}
+
 		default:
 			// Do nothing and ignore the unexpected tag element
 			err = decoder.Decoder.Skip()
@@ -78704,6 +78717,19 @@ func awsEc2query_deserializeDocumentCapacityBlockExtensionOffering(v **types.Cap
 			{
 				xtv := string(val)
 				sv.UpfrontFee = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("zoneType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ZoneType = ptr.String(xtv)
 			}
 
 		default:
@@ -79069,6 +79095,19 @@ func awsEc2query_deserializeDocumentCapacityBlockOffering(v **types.CapacityBloc
 			{
 				xtv := string(val)
 				sv.UpfrontFee = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("zoneType", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ZoneType = ptr.String(xtv)
 			}
 
 		default:
@@ -107328,6 +107367,19 @@ func awsEc2query_deserializeDocumentInstanceMetadataDefaultsResponse(v **types.I
 			{
 				xtv := string(val)
 				sv.HttpTokens = types.HttpTokensState(xtv)
+			}
+
+		case strings.EqualFold("httpTokensEnforced", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.HttpTokensEnforced = types.HttpTokensEnforcedState(xtv)
 			}
 
 		case strings.EqualFold("instanceMetadataTags", t.Name.Local):
