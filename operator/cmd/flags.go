@@ -23,12 +23,6 @@ import (
 func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
-	flags.Int(operatorOption.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
-	option.BindEnv(vp, operatorOption.IPAMAPIBurst)
-
-	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
-	option.BindEnv(vp, operatorOption.IPAMAPIQPSLimit)
-
 	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMSubnetsTags),
 		operatorOption.IPAMSubnetsTags, "Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMSubnetsTags)

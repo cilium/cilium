@@ -103,6 +103,8 @@ cilium-operator hive dot-graph [flags]
       --kvstore-lease-ttl duration                                 Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                 Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                 Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
+      --limit-ipam-api-burst int                                   Upper burst limit when accessing external APIs (default 20)
+      --limit-ipam-api-qps float                                   Queries per second limit when accessing external IPAM APIs (default 4)
       --loadbalancer-l7 string                                     Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy
       --loadbalancer-l7-algorithm string                           Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                              List of service ports that will be automatically redirected to backend.
