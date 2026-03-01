@@ -101,14 +101,16 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		// Get node A from the mock APIServer
 		nodeAInt, err := fakeSet.CiliumFakeClientset.Tracker().Get(ciliumnodesResource, "", "node-a")
-		if !assert.NoError(c, err) {
+		if err != nil {
+			c.Errorf("failed to get node A: %v", err)
 			return
 		}
 		nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
 
 		// Get node B from the mock APIServer
 		nodeBInt, err := fakeSet.CiliumFakeClientset.Tracker().Get(ciliumnodesResource, "", "node-b")
-		if !assert.NoError(c, err) {
+		if err != nil {
+			c.Errorf("failed to get node B: %v", err)
 			return
 		}
 		nodeB := nodeBInt.(*cilium_api_v2.CiliumNode)
