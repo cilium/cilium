@@ -3175,7 +3175,7 @@
    * - :spelling:ignore:`nodePort`
      - Configure N-S k8s service loadbalancing
      - object
-     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false}``
+     - ``{"addresses":null,"autoProtectPortRange":true,"bindProtection":true,"enableDynamicSourceLookup":false,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false}``
    * - :spelling:ignore:`nodePort.addresses`
      - List of CIDRs for choosing which IP addresses assigned to native devices are used for NodePort load-balancing. By default this is empty and the first suitable, preferably private, IPv4 and IPv6 address assigned to each device is used.  Example:    addresses: ["192.168.1.0/24", "2001::/64"]
      - string
@@ -3188,6 +3188,10 @@
      - Set to true to prevent applications binding to service ports.
      - bool
      - ``true``
+   * - :spelling:ignore:`nodePort.enableDynamicSourceLookup`
+     - Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.
+     - bool
+     - ``false``
    * - :spelling:ignore:`nodePort.enableHealthCheck`
      - Enable healthcheck nodePort server for NodePort services
      - bool
