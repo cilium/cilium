@@ -858,10 +858,10 @@ sigs.k8s.io/kustomize/api v0.20.1 h1:iWP1Ydh3/lmldBnH/S5RXgT98vWYMaTUL1ADcr+Sv7I
 sigs.k8s.io/kustomize/api v0.20.1/go.mod h1:t6hUFxO+Ph0VxIk1sKp1WS0dOjbPCtLJ4p8aADLwqjM=
 sigs.k8s.io/kustomize/kyaml v0.20.1 h1:PCMnA2mrVbRP3NIB6v9kYCAc38uvFLVs8j/CD567A78=
 sigs.k8s.io/kustomize/kyaml v0.20.1/go.mod h1:0EmkQHRUsJxY8Ug9Niig1pUMSCGHxQ5RklbpV/Ri6po=
-sigs.k8s.io/mcs-api v0.3.1-0.20260211180202-33f6d88209e1 h1:aVTrICrITpn+gDCs4GeUnIpzRIMdwvd4NYzaG/z8SfE=
-sigs.k8s.io/mcs-api v0.3.1-0.20260211180202-33f6d88209e1/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
-sigs.k8s.io/mcs-api/controllers v0.0.0-20260211180202-33f6d88209e1 h1:VmOZymOgBbdfeRKU3+edCULMP8PdopwH5xuJ20s65ZQ=
-sigs.k8s.io/mcs-api/controllers v0.0.0-20260211180202-33f6d88209e1/go.mod h1:IEVANHiCGLNsCWuPsZCJhCVzeWavUmxpJ8XgpTt9MpM=
+sigs.k8s.io/mcs-api v0.3.1-0.20260224125735-0f775a3eff97 h1:SCB1P+SmtFETI9jkWt7bRVYXPeFPtT1zFtskvfXYetU=
+sigs.k8s.io/mcs-api v0.3.1-0.20260224125735-0f775a3eff97/go.mod h1:zZ5CK8uS6HaLkxY4HqsmcBHfzHuNMrY2uJy8T7jffK4=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20260224125735-0f775a3eff97 h1:4gAi+m+08tOvetOmLOhjLjJ8QR5/xMRsntfgTMizCjw=
+sigs.k8s.io/mcs-api/controllers v0.0.0-20260224125735-0f775a3eff97/go.mod h1:IEVANHiCGLNsCWuPsZCJhCVzeWavUmxpJ8XgpTt9MpM=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 h1:2WOzJpHUBVrrkDjU4KBT8n5LDcj824eX0I5UKcgeRUs=
