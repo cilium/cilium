@@ -3215,7 +3215,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1763560095-8f36c34","useDigest":true}``
+     - ``{"digest":"sha256:a97e8766c62e0e36f47e366f7571d561bd9c603515e94b9f4cb8e6c131843d02","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1770904355-d9c9e58","useDigest":true}``
    * - :spelling:ignore:`nodeinit.nodeSelector`
      - Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object

@@ -3,9 +3,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1764684255-8506ae2@sha256:15edd7b6d6a2433738a00b9211f3b8bf4e20fe567acd9cc47e748ea7963f0d6e
+ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1770907749-ed0b9a5@sha256:672c3883596bbf9f8d0d5609f2ffa8e994cb42641859b71902c8b76a68b9a11a
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:014506e18c1fd558b1997bf9d141ff1efbd069f9@sha256:fff6b741dee686db2093d5a1d54c3bbbee03220f93fd83b7460058e79a22c33e
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1764657220-647ebb1@sha256:97f92a53e06be6242316f1d51ed04c7f46e0ee5503c4f086fd0f3cbdf669ddb3
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:1770906593-bc584f9@sha256:f8368922907632e3cd89b4167b9fee43d9ab9ae1e19a74f5604953f6698a0396
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1770907749-ed0b9a5@sha256:9fefa10c2025d45cfdec989f3ec3291834b027c019a6f05f9420e825c376588c
 

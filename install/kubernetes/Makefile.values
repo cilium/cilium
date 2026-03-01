@@ -34,8 +34,8 @@ export CERTGEN_DIGEST:=sha256:19921f48ee7e2295ea4dca955878a6cd8d70e6d4219d08f688
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
-export CILIUM_NODEINIT_VERSION:=1763560095-8f36c34
-export CILIUM_NODEINIT_DIGEST:=sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f
+export CILIUM_NODEINIT_VERSION:=1770904355-d9c9e58
+export CILIUM_NODEINIT_DIGEST:=sha256:a97e8766c62e0e36f47e366f7571d561bd9c603515e94b9f4cb8e6c131843d02
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
