@@ -20,7 +20,7 @@ jobs:
       - name: Validate configuration
         run: |
           # renovate: datasource=docker
-          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:43.46.2@sha256:9065b369b9697b7898ef653edd492b1495a3ba0fdf941da78ef015400c6f9b3e
+          export RENOVATE_IMAGE=ghcr.io/renovatebot/renovate:43.46.5@sha256:f4c0cc245a2452b53bdcdfa772ab07373fb2189c500b6a4d671bd10b5310d49f
           docker run --rm --entrypoint "renovate-config-validator" \
             -v "${{ github.workspace }}/.github/renovate.json5":"/renovate.json5" \
             ${RENOVATE_IMAGE} "/renovate.json5"
