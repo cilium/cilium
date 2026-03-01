@@ -3355,8 +3355,8 @@ nodeinit:
     # @schema
     override: ~
     repository: "quay.io/cilium/startup-script"
-    tag: "1763560095-8f36c34"
-    digest: "sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f"
+    tag: "1770904355-d9c9e58"
+    digest: "sha256:a97e8766c62e0e36f47e366f7571d561bd9c603515e94b9f4cb8e6c131843d02"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.

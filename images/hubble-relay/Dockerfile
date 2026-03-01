@@ -5,7 +5,7 @@
 
 # distroless images are signed by cosign and can be verified using:
 # $ cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com --certificate-identity keyless@distroless.iam.gserviceaccount.com
-ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:01e550fdb7ab79ee7be5ff440a563a58f1fd000ad9e0c532e65c3d23f917f1c5
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:f512d819b8f109f2375e8b51d8cfd8aafe81034bc3e319740128b7d7f70d5036
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:237008d7ae7d87db1b6b90c6c5513396b24b6e32@sha256:82f3e54cef8e2d766839f6f33640ad9fa673d4df5eecbabc33cbac5f9d3f6233
 
