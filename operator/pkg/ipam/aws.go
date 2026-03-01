@@ -102,6 +102,8 @@ func startAWSAllocator(p awsParams) {
 		EC2APIEndpoint:               p.AwsCfg.EC2APIEndpoint,
 		AWSMaxResultsPerCall:         p.AwsCfg.AWSMaxResultsPerCall,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
+		LimitIPAMAPIBurst:            p.Cfg.LimitIPAMAPIBurst,
+		LimitIPAMAPIQPS:              p.Cfg.LimitIPAMAPIQPS,
 	}
 
 	p.Lifecycle.Append(
