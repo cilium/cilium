@@ -214,6 +214,36 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 };
 
+/* fib_lookup_src_v6 will perform a source IP resolution for the given
+ * destination address.
+ * @ ctx - context buffer
+ * @ src - output parameter to store the resolved source address
+ * @ dst - destination address to resolve the source for
+ *
+ * If the result is any value other than BPF_FIB_LKUP_RET_SUCCESS the provided
+ * src parameter will be unmodified.
+ */
+static __always_inline int
+fib_lookup_src_v6(struct __ctx_buff *ctx, struct in6_addr *src,
+		  const struct in6_addr *dst)
+{
+	struct bpf_fib_lookup_padded fib_params = {0};
+	struct in6_addr zero = {0};
+	int fib_result = 0;
+
+	if (!CONFIG(supports_fib_lookup_src))
+		return BPF_FIB_LKUP_RET_FWD_DISABLED;
+
+	fib_result = fib_lookup_v6(ctx, &fib_params, &zero, dst,
+				   BPF_FIB_LOOKUP_SRC);
+
+	if (fib_result == BPF_FIB_LKUP_RET_SUCCESS) {
+		ipv6_addr_copy((union v6addr *)src,
+			       (union v6addr *)&fib_params.l.ipv6_src);
+	}
+	return fib_result;
+}
+
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
@@ -269,6 +299,32 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	flags |= fib_lookup_skip_neigh();
 
 	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+}
+
+/* fib_lookup_src_v4 will perform a source IP resolution for the given
+ * destination address.
+ * @ ctx - context buffer
+ * @ src - output parameter to store the resolved source address
+ * @ dst - destination address to resolve the source for
+ *
+ * If the result is any value other than BPF_FIB_LKUP_RET_SUCCESS the provided
+ * src parameter will be unmodified.
+ */
+static __always_inline int
+fib_lookup_src_v4(struct __ctx_buff *ctx, __be32 *src, const __be32 dst)
+{
+	struct bpf_fib_lookup_padded fib_params = {0};
+	int fib_result = 0;
+
+	if (!CONFIG(supports_fib_lookup_src))
+		return BPF_FIB_LKUP_RET_FWD_DISABLED;
+
+	fib_result = fib_lookup_v4(ctx, &fib_params, 0, dst, BPF_FIB_LOOKUP_SRC);
+
+	if (fib_result == BPF_FIB_LKUP_RET_SUCCESS)
+		*src = fib_params.l.ipv4_src;
+
+	return fib_result;
 }
 
 static __always_inline int

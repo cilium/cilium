@@ -143,6 +143,11 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
 		src_ip = 0;
+#ifdef ENABLE_IPV4
+	else
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
+#endif /* ENABLE_IPV4 */
 
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
@@ -1272,8 +1277,29 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
 	info = lookup_ip6_remote_endpoint(dst, 0);
-	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel)
+	if (info && info->flag_has_tunnel_ep && !info->flag_skip_tunnel) {
 		target.addr = CONFIG(router_ipv6);
+		/* skip over the source SNAT lookup if we know we'll be using
+		 * the GATEWAY as source
+		 */
+		goto skip_source_lookup;
+	}
+#endif
+
+	/* If the kernel supports source IP resolution, use this to
+	 * dynamically set the SNAT target address.
+	 *
+	 * Additionally, if we entered here as nat_46x64 ip6->daddr is a
+	 * IPv4 mapped IPv6 address and fib lookup for this likely will not
+	 * succeed.
+	 */
+	if (CONFIG(enable_nodeport_source_lookup) && !nat_46x64)
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v6(ctx, (struct in6_addr *)&target.addr,
+				  &ip6->daddr);
+
+#ifdef TUNNEL_MODE
+skip_source_lookup:
 #endif
 
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
@@ -2605,11 +2631,6 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-		 * So we need to assume that the direct routing device is going to be
-		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-		 * This will change once we have resolved GH#17158.
-		 */
 		.addr = IPV4_DIRECT_ROUTING,
 	};
 	struct ipv4_ct_tuple tuple = {};
@@ -2650,7 +2671,22 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		if (cluster_id && cluster_id != CONFIG(cluster_id))
 			target.addr = IPV4_INTER_CLUSTER_SNAT;
 #endif
+		/* skip over the source SNAT lookup if we know we'll be using
+		 * the GATEWAY as source
+		 */
+		goto skip_source_lookup;
 	}
+#endif
+
+	/* If the kernel supports source IP resolution, use this to
+	 * dynamically set the SNAT target address.
+	 */
+	if (CONFIG(enable_nodeport_source_lookup))
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &target.addr, ip4->daddr);
+
+#ifdef TUNNEL_MODE
+skip_source_lookup:
 #endif
 
 	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
