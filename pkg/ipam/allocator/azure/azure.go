@@ -26,6 +26,8 @@ type AllocatorAzure struct {
 	AzureUserAssignedIdentityID string
 	AzureUsePrimaryAddress      bool
 	ParallelAllocWorkers        int64
+	LimitIPAMAPIBurst           int
+	LimitIPAMAPIQPS             float64
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
@@ -84,7 +86,7 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	azureClient, err := azureAPI.NewClient(a.rootLogger, azureCloudName, subscriptionID, resourceGroupName, a.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, a.AzureUsePrimaryAddress)
+	azureClient, err := azureAPI.NewClient(a.rootLogger, azureCloudName, subscriptionID, resourceGroupName, a.AzureUserAssignedIdentityID, azMetrics, a.LimitIPAMAPIQPS, a.LimitIPAMAPIBurst, a.AzureUsePrimaryAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}

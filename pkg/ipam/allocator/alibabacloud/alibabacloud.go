@@ -35,6 +35,8 @@ type AllocatorAlibabaCloud struct {
 	AlibabaCloudVPCID            string
 	AlibabaCloudReleaseExcessIPs bool
 	ParallelAllocWorkers         int64
+	LimitIPAMAPIBurst            int
+	LimitIPAMAPIQPS              float64
 
 	rootLogger *slog.Logger
 	logger     *slog.Logger
@@ -84,8 +86,8 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context, logger *slog.Logger, r
 	vpcClient.GetConfig().WithScheme("HTTPS")
 	ecsClient.GetConfig().WithScheme("HTTPS")
 
-	a.client = openapi.NewClient(vpcClient, ecsClient, aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
-		operatorOption.Config.IPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
+	a.client = openapi.NewClient(vpcClient, ecsClient, aMetrics, a.LimitIPAMAPIQPS,
+		a.LimitIPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
 
 	if err := limits.UpdateFromAPI(ctx, a.client); err != nil {
 		return fmt.Errorf("unable to update instance type to adapter limits from AlibabaCloud API: %w", err)

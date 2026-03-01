@@ -54,12 +54,6 @@ const (
 
 	// IPAM options
 
-	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
-	IPAMAPIBurst = "limit-ipam-api-burst"
-
-	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
-	IPAMAPIQPSLimit = "limit-ipam-api-qps"
-
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
 	IPAMSubnetsIDs = "subnet-ids-filter"
 
@@ -246,12 +240,6 @@ type OperatorConfig struct {
 
 	// IPAM options
 
-	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
-	IPAMAPIBurst int
-
-	// IPAMAPIQPSLimit is the queries per second limit when accessing external IPAM APIs
-	IPAMAPIQPSLimit float64
-
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
 	IPAMSubnetsIDs []string
 
@@ -362,11 +350,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 			c.CiliumK8sNamespace = option.Config.K8sNamespace
 		}
 	}
-
-	// IPAM options
-
-	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
-	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)

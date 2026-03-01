@@ -70,6 +70,8 @@ func startAlibabaAllocator(p alibabaParams) {
 		AlibabaCloudVPCID:            p.AlibabaCfg.AlibabaCloudVPCID,
 		AlibabaCloudReleaseExcessIPs: p.AlibabaCfg.AlibabaCloudReleaseExcessIPs,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
+		LimitIPAMAPIBurst:            p.Cfg.LimitIPAMAPIBurst,
+		LimitIPAMAPIQPS:              p.Cfg.LimitIPAMAPIQPS,
 	}
 
 	p.Lifecycle.Append(
