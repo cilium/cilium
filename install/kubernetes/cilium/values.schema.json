@@ -4791,6 +4791,9 @@
         "bindProtection": {
           "type": "boolean"
         },
+        "enableDynamicSourceLookup": {
+          "type": "boolean"
+        },
         "enableHealthCheck": {
           "type": "boolean"
         },

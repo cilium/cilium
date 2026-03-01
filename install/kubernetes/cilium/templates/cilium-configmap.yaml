@@ -879,6 +879,9 @@ data:
 {{- if hasKey .Values.nodePort "enableHealthCheck" }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
 {{- end }}
+{{- if hasKey .Values.nodePort "enableDynamicSourceLookup" }}
+  enable-dynamic-source-lookup-nodeport: {{ .Values.nodePort.enableDynamicSourceLookup | quote}}
+{{- end }}
 {{- if .Values.gke.enabled }}
   enable-health-check-loadbalancer-ip: "true"
 {{- else if hasKey .Values.nodePort "enableHealthCheckLoadBalancerIP" }}
