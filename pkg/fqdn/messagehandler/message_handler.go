@@ -54,7 +54,7 @@ type DNSMessageHandler interface {
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
-		msg *dns.Msg,
+		details *dnsproxy.MsgDetails,
 		protocol string,
 		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
@@ -127,7 +127,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	dnsMsgDetails *dnsproxy.MsgDetails,
 	protocol string,
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
@@ -137,7 +137,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	metricError := metricErrorAllow
 	stat.ProcessingTime.Start()
 
-	defer func() {
+	endMetric := func() {
 		stat.ProcessingTime.End(true)
 		stat.TotalTime.End(true)
 		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
@@ -163,11 +163,12 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 			stat.PolicyCheckTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
 			stat.DataplaneTime.Total().Seconds())
-	}()
+	}
 
 	switch {
 	case stat.IsTimeout():
 		metricError = metricErrorTimeout
+		endMetric()
 		return nil
 	case stat.Err != nil:
 		metricError = metricErrorProxy
@@ -188,6 +189,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
+		endMetric()
 		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
 
@@ -200,7 +202,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		serverAddrPort: serverAddrPort,
 	}
 	serverAddrPortStr := serverAddrPort.String()
-	if msg.Response {
+	if dnsMsgDetails.Response {
 		flow.flowType = accesslog.TypeResponse
 		flow.addrInfo.DstIPPort = epIPPort
 		flow.addrInfo.DstEPID = ep.GetID()
@@ -219,18 +221,12 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		flow.addrInfo.DstIdentity = serverID
 	}
 
-	dnsMsgDetails, err := dnsproxy.ExtractMsgDetails(msg)
-	if err != nil {
-		h.logger.Error("cannot extract DNS message details",
-			logfields.Error, err,
-			logfields.DNSName, dnsMsgDetails.QName,
-		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
-	}
-
 	if dnsMsgDetails.Response && dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {
 		h.UpdateOnDNSMsg(lookupTime, ep, dnsMsgDetails.QName, dnsMsgDetails.ResponseIPs, int(dnsMsgDetails.TTL), stat)
+		endMetric()
 	}
+
+	stat.ProcessingTime.End(true)
 
 	return h.logDNSMessage(ep, flow, dnsMsgDetails, stat)
 }
