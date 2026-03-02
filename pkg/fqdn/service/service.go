@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -12,7 +13,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
@@ -32,6 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/slices"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
@@ -668,57 +671,159 @@ func (s *FQDNDataServer) deletePolicyRules(writeTxn statedb.WriteTxn, secID iden
 // UpdateMappingRequest updates the FQDN mapping with the given data
 // SDP sends the fqdn mapping to cilium agent
 // Steps to update the mapping:
-// 1. Get the endpoint from the IP
-// 2. If the endpoint is not found, return an error
-// 3. If the IPs are not empty, update the cilium agent with the mapping
-// Note: Not all metrics are reported by the standalone dns proxy yet and will be added in the future.
+// 1. Reconstruct the DNS message details and proxy request context from the gRPC message
+// 2. Best-effort resolve the endpoint from the source IP
+// 3. Call NotifyOnDNSMsg which handles metrics, access logging, and DNS cache updates
+//
+// The endpoint or source IP may be absent for error-path messages (timeouts,
+// semaphore rejections, etc.). We still forward these to NotifyOnDNSMsg so
+// that the agent emits the corresponding proxy metrics.
 func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.FQDNMapping) (*pb.UpdateMappingResponse, error) {
 	now := time.Now()
-	var ips []netip.Addr
 	stat := dnsproxy.ProxyRequestContext{DataSource: accesslog.DNSSourceStandaloneProxy}
+	populateProxyStatContextFromProto(&stat, mappings.GetMetricsData())
 
+	// Best-effort endpoint lookup. ep may be nil for error-path messages.
+	var ep *endpoint.Endpoint
 	sourceIP := mappings.GetSourceIp()
-	if sourceIP == nil {
-		s.log.Error("Source IP is nil in FQDN mapping")
+	if sourceIP != nil {
+		endpointAddr, err := netip.ParseAddr(string(sourceIP))
+		if err == nil {
+			ep = s.endpointsLookup.LookupIP(endpointAddr)
+		}
+	}
+
+	// Reconstruct the full DNS message context from the protobuf and call
+	// NotifyOnDNSMsg which handles metrics, access logging, and DNS cache updates.
+	// NotifyOnDNSMsg handles ep == nil (returns ErrDNSRequestNoEndpoint after
+	// recording metrics) so error-path messages still get their metrics emitted.
+	msgDetails, serverAddrPort, epIPPort, serverID, protocol, allowed := s.reconstructNotifyArgsFromProto(mappings, sourceIP)
+
+	if err := s.updateOnDNSMsg.NotifyOnDNSMsg(now, ep, epIPPort, serverID, serverAddrPort, msgDetails, protocol, allowed, &stat); err != nil {
+		s.log.Error("Failed to process DNS message from standalone proxy",
+			logfields.Error, err,
+			logfields.DNSName, mappings.GetFqdn(),
+		)
 		return &pb.UpdateMappingResponse{
-			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
-		}, fmt.Errorf("source IP is nil in FQDN mapping")
-	}
-
-	endpointAddr := netip.MustParseAddr(string(sourceIP))
-	ep := s.endpointsLookup.LookupIP(endpointAddr)
-	if ep == nil {
-		s.log.Error("Endpoint not found for IP", logfields.IPAddr, endpointAddr)
-		return &pb.UpdateMappingResponse{
-			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
-		}, fmt.Errorf("endpoint not found for IP: %s", mappings.SourceIp)
-	}
-
-	recordIps := mappings.GetRecordIp()
-	if len(recordIps) == 0 {
-		return &pb.UpdateMappingResponse{
-			Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
-		}, nil
-	}
-
-	for _, ip := range recordIps {
-		ips = append(ips, netip.MustParseAddr(string(ip)))
-	}
-
-	if len(mappings.GetFqdn()) == 0 {
-		s.log.Error("FQDN is nil or empty in FQDN mapping")
-		return &pb.UpdateMappingResponse{
-			Response: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
-		}, fmt.Errorf("FQDN is nil or empty in FQDN mapping")
-	}
-
-	if mappings.GetResponseCode() == dns.RcodeSuccess {
-		s.updateOnDNSMsg.UpdateOnDNSMsg(now, ep, mappings.GetFqdn(), ips, int(mappings.GetTtl()), &stat)
+			Response: responseCodeFromError(err),
+		}, fmt.Errorf("failed to process DNS message: %w", err)
 	}
 
 	return &pb.UpdateMappingResponse{
 		Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 	}, nil
+}
+
+// responseCodeFromError maps errors returned by NotifyOnDNSMsg to the
+// appropriate gRPC response code. This preserves the specific error codes
+// that the SDP client can act on (e.g. endpoint-not-found vs server failure).
+func responseCodeFromError(err error) pb.ResponseCode {
+	var noEp dnsproxy.ErrDNSRequestNoEndpoint
+	if errors.As(err, &noEp) {
+		return pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND
+	}
+	return pb.ResponseCode_RESPONSE_CODE_SERVER_FAILURE
+}
+
+// reconstructNotifyArgsFromProto reconstructs the arguments needed for
+// NotifyOnDNSMsg from the protobuf FQDNMapping and its nested MetricsData.
+// This converts the flat protobuf fields and nested MetricsData into the Go
+// types expected by the agent's DNS message handler.
+func (s *FQDNDataServer) reconstructNotifyArgsFromProto(mappings *pb.FQDNMapping, sourceIP []byte) (
+	msgDetails dnsproxy.MsgDetails,
+	serverAddrPort netip.AddrPort,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	protocol string,
+	allowed bool,
+) {
+	// Reconstruct response IPs
+	var responseIPs []netip.Addr
+	for _, ip := range mappings.GetRecordIp() {
+		responseIPs = append(responseIPs, netip.MustParseAddr(string(ip)))
+	}
+
+	md := mappings.GetMetricsData()
+
+	if md == nil {
+		s.log.Debug("MetricsData not present in FQDN mapping, using empty defaults", logfields.DNSName, mappings.GetFqdn())
+		md = &pb.MetricsData{}
+	}
+	// Reconstruct QTypes, AnswerTypes, CNAMEs and Response flag from DNSResponseData
+	var qtypes []uint16
+	var answerTypes []uint16
+	var isResponse bool
+	var cnames []string
+	if drd := md.GetDnsResponseData(); drd != nil {
+		qtypes = slices.Map(drd.GetQtypes(), func(q uint32) uint16 { return uint16(q) })
+		answerTypes = slices.Map(drd.GetAnswerTypes(), func(a uint32) uint16 { return uint16(a) })
+		isResponse = drd.GetIsResponse()
+		cnames = drd.GetCnames()
+	}
+
+	msgDetails = dnsproxy.MsgDetails{
+		QName:       mappings.GetFqdn(),
+		ResponseIPs: responseIPs,
+		TTL:         mappings.GetTtl(),
+		CNAMEs:      cnames,
+		RCode:       int(mappings.GetResponseCode()),
+		AnswerTypes: answerTypes,
+		QTypes:      qtypes,
+		Response:    isResponse,
+	}
+
+	// Reconstruct the server address:port from MetricsData.server_addr string "ip:port"
+	if md.GetServerAddr() != "" {
+		serverAddrPort = netip.MustParseAddrPort(md.GetServerAddr())
+	}
+
+	// Reconstruct the endpoint IP:port string from source_ip and MetricsData.source_port
+	epIPPort = fmt.Sprintf("%s:%d", string(sourceIP), md.GetSourcePort())
+
+	serverID = identity.NumericIdentity(md.GetServerIdentity())
+
+	protocol = md.GetProtocol()
+
+	allowed = md.GetAllowed()
+	return
+}
+
+// populateProxyStatContextFromProto populates a ProxyRequestContext with timing
+// and error data from the protobuf MetricsData message.
+func populateProxyStatContextFromProto(stat *dnsproxy.ProxyRequestContext, md *pb.MetricsData) {
+	if md == nil {
+		return
+	}
+	if ps := md.GetProcessingStats(); ps != nil {
+		populateProxyStatFromProto(stat, ps)
+	}
+	if md.GetErrorMessage() != "" {
+		stat.Err = fmt.Errorf("%s", md.GetErrorMessage())
+	}
+}
+
+// populateProxyStatFromProto populates a ProxyRequestContext with timing data
+// from the protobuf ProcessingStats message. Since SpanStat tracks durations
+// internally, we use Start/End pairs with the appropriate duration.
+func populateProxyStatFromProto(stat *dnsproxy.ProxyRequestContext, ps *pb.ProcessingStats) {
+	setSpanStatDuration(&stat.TotalTime, ps.GetTotalTimeNs())
+	setSpanStatDuration(&stat.ProcessingTime, ps.GetProcessingTimeNs())
+	setSpanStatDuration(&stat.UpstreamTime, ps.GetUpstreamTimeNs())
+	setSpanStatDuration(&stat.SemaphoreAcquireTime, ps.GetSemaphoreAcquireTimeNs())
+	setSpanStatDuration(&stat.PolicyCheckTime, ps.GetPolicyCheckTimeNs())
+	setSpanStatDuration(&stat.PolicyGenerationTime, ps.GetPolicyGenerationTimeNs())
+	setSpanStatDuration(&stat.DataplaneTime, ps.GetDataplaneTimeNs())
+	setSpanStatDuration(&stat.QnameLockTime, ps.GetQnameLockTimeNs())
+	setSpanStatDuration(&stat.UpdateEpCacheTime, ps.GetUpdateEpCacheTimeNs())
+	setSpanStatDuration(&stat.UpdateNmCacheTime, ps.GetUpdateNmCacheTimeNs())
+}
+
+// setSpanStatDuration sets the duration of a SpanStat from a nanosecond value
+// received from the standalone DNS proxy via gRPC.
+func setSpanStatDuration(s *spanstat.SpanStat, ns int64) {
+	if ns > 0 {
+		s.SetSuccessDuration(time.Duration(ns))
+	}
 }
 
 // ListenAndServe starts the Standalone DNS Proxy gRPC server on the given port

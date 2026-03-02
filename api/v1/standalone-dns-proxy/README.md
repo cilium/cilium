@@ -7,13 +7,16 @@
 
 - [standalone-dns-proxy/standalone-dns-proxy.proto](#standalone-dns-proxy_standalone-dns-proxy-proto)
     - [DNSPolicy](#standalonednsproxy-DNSPolicy)
+    - [DNSResponseData](#standalonednsproxy-DNSResponseData)
     - [DNSServer](#standalonednsproxy-DNSServer)
     - [EndpointInfo](#standalonednsproxy-EndpointInfo)
     - [FQDNMapping](#standalonednsproxy-FQDNMapping)
     - [IdentityToEndpointMapping](#standalonednsproxy-IdentityToEndpointMapping)
     - [IdentityToPrefixMapping](#standalonednsproxy-IdentityToPrefixMapping)
+    - [MetricsData](#standalonednsproxy-MetricsData)
     - [PolicyState](#standalonednsproxy-PolicyState)
     - [PolicyStateResponse](#standalonednsproxy-PolicyStateResponse)
+    - [ProcessingStats](#standalonednsproxy-ProcessingStats)
     - [UpdateMappingResponse](#standalonednsproxy-UpdateMappingResponse)
   
     - [ResponseCode](#standalonednsproxy-ResponseCode)
@@ -42,6 +45,25 @@ L7 DNS policy specifying which requests are permitted to which DNS server
 | source_endpoint_id | [uint32](#uint32) |  | Endpoint ID of the workload this L7 DNS policy should apply to |
 | dns_pattern | [string](#string) | repeated | Allowed DNS pattern this identity is allowed to resolve. |
 | dns_servers | [DNSServer](#standalonednsproxy-DNSServer) | repeated | List of DNS servers to be allowed to connect. |
+
+
+
+
+
+
+<a name="standalonednsproxy-DNSResponseData"></a>
+
+### DNSResponseData
+DNSResponseData holds the DNS message details extracted from the response
+that are needed for access logging on the agent side.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| is_response | [bool](#bool) |  | Whether this is a DNS response (true) or request (false) |
+| cnames | [string](#string) | repeated | CNAME records from the DNS response |
+| qtypes | [uint32](#uint32) | repeated | DNS question types |
+| answer_types | [uint32](#uint32) | repeated | DNS answer record types |
 
 
 
@@ -95,6 +117,7 @@ FQDN-IP mapping goalstate sent from SDP to agent
 | source_identity | [uint32](#uint32) |  | Identity of the client making the DNS request |
 | source_ip | [bytes](#bytes) |  | IP address of the client making the DNS request |
 | response_code | [uint32](#uint32) |  | DNS Response code as specified in RFC2316 |
+| metrics_data | [MetricsData](#standalonednsproxy-MetricsData) |  | Metrics and access logging data collected by the standalone DNS proxy. |
 
 
 
@@ -133,6 +156,31 @@ Cilium Identity ID to IP prefix mapping
 
 
 
+<a name="standalonednsproxy-MetricsData"></a>
+
+### MetricsData
+MetricsData carries the flow context and timing statistics that the agent
+needs to emit proxy metrics and access log records for DNS events
+originating from the standalone DNS proxy.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| processing_stats | [ProcessingStats](#standalonednsproxy-ProcessingStats) |  | Proxy request processing timing statistics |
+| dns_response_data | [DNSResponseData](#standalonednsproxy-DNSResponseData) |  | DNS response metadata extracted from the DNS message |
+| source_port | [uint32](#uint32) |  | Source port of the endpoint making the DNS request |
+| server_addr | [string](#string) |  | IP:port of the destination DNS server as &#34;ip:port&#34; string (e.g., &#34;8.8.8.8:53&#34;) |
+| server_identity | [uint32](#uint32) |  | Security identity of the destination DNS server |
+| protocol | [string](#string) |  | L4 protocol used for the DNS request (e.g., &#34;udp&#34;, &#34;tcp&#34;) |
+| allowed | [bool](#bool) |  | Whether the DNS request was allowed by policy |
+| error_message | [string](#string) |  | Error message if the DNS request encountered an error (empty if no error) |
+| is_timeout | [bool](#bool) |  | Whether the error was a network timeout |
+
+
+
+
+
+
 <a name="standalonednsproxy-PolicyState"></a>
 
 ### PolicyState
@@ -162,6 +210,31 @@ Ack sent from SDP to Agent on processing DNS policy rules
 | ----- | ---- | ----- | ----------- |
 | response | [ResponseCode](#standalonednsproxy-ResponseCode) |  |  |
 | request_id | [string](#string) |  | Request ID for which response is sent to |
+
+
+
+
+
+
+<a name="standalonednsproxy-ProcessingStats"></a>
+
+### ProcessingStats
+ProcessingStats carries proxy request timing statistics collected by the
+standalone DNS proxy. All durations are in nanoseconds.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| total_time_ns | [int64](#int64) |  |  |
+| processing_time_ns | [int64](#int64) |  |  |
+| upstream_time_ns | [int64](#int64) |  |  |
+| semaphore_acquire_time_ns | [int64](#int64) |  |  |
+| policy_check_time_ns | [int64](#int64) |  |  |
+| policy_generation_time_ns | [int64](#int64) |  |  |
+| dataplane_time_ns | [int64](#int64) |  |  |
+| qname_lock_time_ns | [int64](#int64) |  |  |
+| update_ep_cache_time_ns | [int64](#int64) |  |  |
+| update_nm_cache_time_ns | [int64](#int64) |  |  |
 
 
 
