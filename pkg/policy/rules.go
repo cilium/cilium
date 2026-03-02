@@ -31,20 +31,6 @@ func roundUp(n int, to int) int {
 	return ((n + (to - 1)) / to) * to
 }
 
-// ensureSlice makes sure slice 's' can be indexed at 'index'.
-//
-// We avoid cloning and append in a loop since:
-// - 's' may have unused capacity, and
-// - 'index' is typically the same between invocations, and
-// - 'index' usually grows by one when not the same as before.
-// This way we avoid unnecessary allocations in typical cases.
-func ensureSlice[E any, S ~[]E, I ~uint | ~uint8](s *S, index I) {
-	for len(*s) <= int(index) {
-		var e E
-		*s = append(*s, e)
-	}
-}
-
 var perTierRoundUp = 1000
 
 // computeTierPriorities determines the base priority for each tier, and the number of priority
@@ -56,14 +42,14 @@ var perTierRoundUp = 1000
 // compressed, but used 1:1, i.e., tier 3 in policy is at index 3, even if tier 2 had no rules int
 // it.
 func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) {
-	lastTier := types.Tier(0)
 	nTiers := int(rules[len(rules)-1].Tier) + 1
 	tierPriorityLevels := make([]int, nTiers)
-	numPassVerdicts := make([]int, 1)
+	numPassVerdicts := make([]int, nTiers)
 
 	lastPrio := rules[0].Priority
 	levels := 1 // each tier with any rules occupies at least one priority level
 	lastPassLevel := 0
+	lastTier := types.Tier(0)
 
 	for _, r := range rules {
 		if r.Tier != lastTier {
@@ -73,8 +59,6 @@ func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) 
 			// Keep the needed priority levels for the previous tier,
 			// rounding up to next 10 to reduce policy map churn.
 			tierPriorityLevels[lastTier] = roundUp(levels, 10)
-
-			ensureSlice(&numPassVerdicts, r.Tier)
 
 			// reset counting priority levels for the next tier
 			lastTier = r.Tier
@@ -96,7 +80,6 @@ func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) 
 		}
 	}
 	// for the last tier
-	ensureSlice(&tierPriorityLevels, lastTier)
 	tierPriorityLevels[lastTier] = roundUp(levels, perTierRoundUp)
 
 	// Compute the whole priority range needed for each tier by adding the lower tier priorities
