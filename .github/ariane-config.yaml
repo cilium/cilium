@@ -24,67 +24,105 @@ triggers:
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - hubble-cli-integration-test.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-aks:
     workflows:
     - conformance-aks.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-awscni:
     workflows:
     - conformance-aws-cni.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-conformance-race(\s+(?:all-tests=true))?:
     workflows:
     - conformance-race.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-clustermesh:
     workflows:
     - conformance-clustermesh.yaml
     - tests-clustermesh-upgrade.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-delegated-ipam:
     workflows:
     - conformance-delegated-ipam.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-ipsec:
     workflows:
     - conformance-ipsec.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-ipsec-e2e:
     workflows:
     - conformance-ipsec-e2e.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-ztunnel-e2e:
     workflows:
     - conformance-ztunnel-e2e.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-eks:
     workflows:
     - conformance-eks.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-gateway-api:
     workflows:
     - conformance-gateway-api.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
   /ci-gke(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
     workflows:
     - conformance-gke.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-ingress:
     workflows:
     - conformance-ingress.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-integration:
     workflows:
     - integration-test.yaml
   /ci-kpr:
     workflows:
     - conformance-kpr.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-kubespray:
     workflows:
     - conformance-kubespray.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-l3-l4:
     workflows:
       - conformance-l3-l4.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-l7:
     workflows:
       - conformance-l7.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-multi-pool:
     workflows:
     - conformance-multi-pool.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-runtime:
     workflows:
     - conformance-runtime.yaml
+    depends-on:
+    - /build-images-dependency
   /ci-verifier:
     workflows:
     - tests-datapath-verifier.yaml
@@ -115,6 +153,9 @@ triggers:
   /l7-perf(\s+(?:\s*version=[-+.0-9a-z]+)?(?:\s*sha=[a-f0-9]+)?)?:
     workflows:
     - l7-perf.yaml
+  /build-images-dependency:  #this trigger is not meant to be used in comments, as build workflows are not triggered by Ariane. Having this trigger allows us to have others depend on images workflow though.
+    workflows:
+    - build-images-ci.yaml
 
 # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
 schedule:
