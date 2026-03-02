@@ -40,7 +40,7 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			basePriorities: []types.Priority{0, 1},
+			basePriorities: []types.Priority{0, 0},
 			priorityLevels: []int{1, 0},
 		},
 		{
@@ -205,7 +205,7 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			basePriorities: []types.Priority{0, 1, 1},
+			basePriorities: []types.Priority{0, 0, 0},
 			priorityLevels: []int{1, 1, 0},
 		},
 	} {
