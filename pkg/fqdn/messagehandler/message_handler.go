@@ -54,7 +54,7 @@ type DNSMessageHandler interface {
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
-		msg *dns.Msg,
+		details dnsproxy.MsgDetails,
 		protocol string,
 		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
@@ -127,7 +127,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	dnsMsgDetails dnsproxy.MsgDetails,
 	protocol string,
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
@@ -200,7 +200,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		serverAddrPort: serverAddrPort,
 	}
 	serverAddrPortStr := serverAddrPort.String()
-	if msg.Response {
+	if dnsMsgDetails.Response {
 		flow.flowType = accesslog.TypeResponse
 		flow.addrInfo.DstIPPort = epIPPort
 		flow.addrInfo.DstEPID = ep.GetID()
@@ -217,15 +217,6 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		flow.addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 		flow.addrInfo.DstIPPort = serverAddrPortStr
 		flow.addrInfo.DstIdentity = serverID
-	}
-
-	dnsMsgDetails, err := dnsproxy.ExtractMsgDetails(msg)
-	if err != nil {
-		h.logger.Error("cannot extract DNS message details",
-			logfields.Error, err,
-			logfields.DNSName, dnsMsgDetails.QName,
-		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
 	}
 
 	if dnsMsgDetails.Response && dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {

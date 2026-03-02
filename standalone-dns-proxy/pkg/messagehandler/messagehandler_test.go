@@ -4,7 +4,6 @@
 package messagehandler
 
 import (
-	"net"
 	"net/netip"
 	"testing"
 
@@ -54,37 +53,22 @@ func newTestHandler(t *testing.T) (*messageHandler, *mockConnHandler, *endpoint.
 	return h, mc, ep
 }
 
-func buildResponseMsg() *dns.Msg {
-	m := new(dns.Msg)
-	m.SetQuestion("example.com.", dns.TypeA)
-	m.Response = true
-	m.Answer = append(m.Answer,
-		&dns.A{
-			Hdr: dns.RR_Header{
-				Name:   "example.com.",
-				Rrtype: dns.TypeA,
-				Class:  dns.ClassINET,
-				Ttl:    300,
-			},
-			A: net.IPv4(1, 2, 3, 4),
-		},
-		&dns.AAAA{
-			Hdr: dns.RR_Header{
-				Name:   "example.com.",
-				Rrtype: dns.TypeAAAA,
-				Class:  dns.ClassINET,
-				Ttl:    100,
-			},
-			AAAA: net.ParseIP("2001:db8::1"),
-		},
-	)
-	return m
+func buildResponseDetails() dnsproxy.MsgDetails {
+	return dnsproxy.MsgDetails{
+		QName:       "example.com.",
+		ResponseIPs: []netip.Addr{netip.MustParseAddr("1.2.3.4"), netip.MustParseAddr("2001:db8::1")},
+		TTL:         100,
+		RCode:       dns.RcodeSuccess,
+		AnswerTypes: []uint16{dns.TypeA, dns.TypeAAAA},
+		QTypes:      []uint16{dns.TypeA},
+		Response:    true,
+	}
 }
 
 func TestNotifyOnDNSMsg(t *testing.T) {
 	type testCase struct {
 		name      string
-		msg       *dns.Msg
+		details   dnsproxy.MsgDetails
 		epIPPort  string
 		server    string
 		expectErr bool
@@ -93,21 +77,14 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 	tests := []testCase{
 		{
 			name:      "success",
-			msg:       buildResponseMsg(),
+			details:   buildResponseDetails(),
 			epIPPort:  "10.1.1.10:5353",
 			server:    "8.8.8.8:53",
 			expectErr: false,
 		},
 		{
-			name:      "invalid message no question",
-			msg:       &dns.Msg{},
-			epIPPort:  "10.1.1.10:5353",
-			server:    "1.1.1.1:53",
-			expectErr: true,
-		},
-		{
 			name:      "invalid source ip:port",
-			msg:       buildResponseMsg(),
+			details:   buildResponseDetails(),
 			epIPPort:  "bad-format",
 			server:    "8.8.4.4:53",
 			expectErr: true,
@@ -118,7 +95,7 @@ func TestNotifyOnDNSMsg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h, mc, ep := newTestHandler(t)
 			serverAP := netip.MustParseAddrPort(tc.server)
-			err := h.NotifyOnDNSMsg(time.Now(), ep, tc.epIPPort, 0, serverAP, tc.msg, "udp", true, &dnsproxy.ProxyRequestContext{})
+			err := h.NotifyOnDNSMsg(time.Now(), ep, tc.epIPPort, 0, serverAP, tc.details, "udp", true, &dnsproxy.ProxyRequestContext{})
 			if tc.expectErr {
 				require.Error(t, err, "expected error")
 			} else {

@@ -8,8 +8,6 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/cilium/dns"
-
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -27,12 +25,11 @@ type messageHandler struct {
 
 // NotifyOnDNSMsg implements messagehandler.DNSMessageHandler.
 // It is used by the standalone DNS proxy to notify the gRPC client about the DNS message.
-func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddrPort netip.AddrPort, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
-	details, err := dnsproxy.ExtractMsgDetails(msg)
-	if err != nil {
-		m.Logger.Error("Cannot extract DNS message details", logfields.Error, err)
-		return err
+func (m *messageHandler) NotifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddrPort netip.AddrPort, details dnsproxy.MsgDetails, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
+	if ep == nil {
+		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
+
 	var ips [][]byte
 	for _, i := range details.ResponseIPs {
 		ips = append(ips, []byte(i.String()))
