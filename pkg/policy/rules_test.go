@@ -19,9 +19,9 @@ func TestComputeTierPriorities(t *testing.T) {
 
 	// note that expected priorities are multiplied by perTierRoundUp
 	for i, tc := range []struct {
-		rules              []types.PolicyEntry
-		expectedTiers      []types.Priority
-		expectedPriorities []int
+		rules          []types.PolicyEntry
+		basePriorities []types.Priority
+		priorityLevels []int
 	}{
 		{
 			rules: []types.PolicyEntry{
@@ -30,8 +30,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0},
-			expectedPriorities: []int{0},
+			basePriorities: []types.Priority{0},
+			priorityLevels: []int{0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -40,8 +40,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 1},
-			expectedPriorities: []int{1, 0},
+			basePriorities: []types.Priority{0, 1},
+			priorityLevels: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -95,8 +95,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 10,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 3},
-			expectedPriorities: []int{2, 0},
+			basePriorities: []types.Priority{0, 3},
+			priorityLevels: []int{2, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -110,8 +110,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 2},
-			expectedPriorities: []int{1, 0},
+			basePriorities: []types.Priority{0, 2},
+			priorityLevels: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -128,8 +128,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 1},
-			expectedPriorities: []int{1, 0},
+			basePriorities: []types.Priority{0, 1},
+			priorityLevels: []int{1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -146,8 +146,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 1, 2},
-			expectedPriorities: []int{2, 1, 0},
+			basePriorities: []types.Priority{0, 1, 2},
+			priorityLevels: []int{2, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -166,8 +166,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 4, 6},
-			expectedPriorities: []int{3, 1, 0},
+			basePriorities: []types.Priority{0, 4, 6},
+			priorityLevels: []int{3, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -181,8 +181,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 2, 2},
-			expectedPriorities: []int{1, 1, 0},
+			basePriorities: []types.Priority{0, 2, 2},
+			priorityLevels: []int{1, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -195,8 +195,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 1, 1},
-			expectedPriorities: []int{1, 1, 0},
+			basePriorities: []types.Priority{0, 1, 1},
+			priorityLevels: []int{1, 1, 0},
 		},
 		{
 			rules: []types.PolicyEntry{
@@ -205,8 +205,8 @@ func TestComputeTierPriorities(t *testing.T) {
 					Priority: 0,
 				},
 			},
-			expectedTiers:      []types.Priority{0, 1, 1},
-			expectedPriorities: []int{1, 1, 0},
+			basePriorities: []types.Priority{0, 1, 1},
+			priorityLevels: []int{1, 1, 0},
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
@@ -218,15 +218,15 @@ func TestComputeTierPriorities(t *testing.T) {
 			}
 			rs.sort()
 
-			for i := range tc.expectedPriorities {
-				tc.expectedTiers[i] *= types.Priority(perTierRoundUp)
-				tc.expectedPriorities[i] *= perTierRoundUp
+			for i := range tc.priorityLevels {
+				tc.basePriorities[i] *= types.Priority(perTierRoundUp)
+				tc.priorityLevels[i] *= perTierRoundUp
 			}
 
-			actualBasePriorities, actualPassPriorities, err := rs.computeTierPriorities()
+			actualBasePriorities, actualPriorityLevels, err := rs.computeTierPriorities()
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedTiers, actualBasePriorities)
-			require.Equal(t, tc.expectedPriorities, actualPassPriorities)
+			require.Equal(t, tc.basePriorities, actualBasePriorities, "tierBasePriorities mismatch")
+			require.Equal(t, tc.priorityLevels, actualPriorityLevels, "tierPriorityLevels mismatch")
 		})
 	}
 }
