@@ -31,7 +31,7 @@ func roundUp(n int, to int) int {
 	return ((n + (to - 1)) / to) * to
 }
 
-var perTierRoundUp = 1000
+var perTierRoundUp = 10
 
 // computeTierPriorities determines the base priority for each tier, and the number of priority
 // levels to reserve after each pass verdict on each tier. Two slices are returned: one with the

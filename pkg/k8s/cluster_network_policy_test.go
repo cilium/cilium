@@ -106,6 +106,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: subjectAppSubjectSelector,
 			L3:      l3EnvProdSelector,
@@ -140,6 +141,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{namespaceLabelPrefix + "ns": "subject-ns"},
@@ -169,6 +171,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: subjectAppTestSelector,
 			L3:      l3EnvDevSelector,
@@ -193,6 +196,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: subjectAppTestSelector,
 			L3:      l3EnvDevSelector,
@@ -215,6 +219,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: subjectAppTestSelector,
 			L3:      l3EnvDevSelector,
@@ -235,6 +240,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Verdict: types.Deny,
 			Subject: subjectAppTestSelector,
@@ -252,6 +258,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
 			L3:      l3EnvProdSelector,
@@ -273,6 +280,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		},
 		enableNodeSelectorLabels: true,
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
 			L3: types.ToSelectors(
@@ -319,6 +327,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
 			L3: types.Selectors{
@@ -342,6 +351,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 		},
 		enableL7Proxy: true,
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
 			L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("k8s-app=kube-dns"))),
@@ -359,6 +369,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			}},
 			Labels: commonPolicyLabels,
 		}, {
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: subjectAppSubjectSelector,
 			L3: types.Selectors{
@@ -395,6 +406,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: false,
 			Verdict: types.Deny,
 			Subject: subjectAppSubjectSelector,
@@ -424,6 +436,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			},
 		},
 		want: types.PolicyEntries{{
+			Tier:    types.Admin,
 			Ingress: true,
 			Subject: types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{namespaceLabelPrefix + "app": "main"},
@@ -436,6 +449,7 @@ func TestParseClusterNetworkPolicy(t *testing.T) {
 			L4:     portRule("80", api.ProtoTCP),
 			Labels: commonPolicyLabels,
 		}, {
+			Tier:    types.Admin,
 			Ingress: false,
 			Subject: types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{namespaceLabelPrefix + "app": "main"},

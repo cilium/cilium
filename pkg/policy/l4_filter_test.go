@@ -181,11 +181,33 @@ func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
 	return added
 }
 
+// tiersWithRules returns the list of non-empty tiers in a given
+// PolicyMaps. This is used for comparing equality, as a missing
+// and an empty policy map are equivalent
+func tiersWithRules(l4pms L4PolicyMaps) []int {
+	out := make([]int, 0, len(l4pms))
+	for tier, l4pm := range l4pms {
+		if l4pm.Len() > 0 {
+			out = append(out, tier)
+		}
+	}
+	return out
+}
+
 func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMaps, availableIDs ...identity.NumericIdentity) {
 	t.Helper()
 
-	require.Len(t, actual, len(expected))
+	// Validate that the set of tiers with rules is identical.
+	// This makes it more ergonomic to write policy map literals by omitting empty tiers
+	require.Equal(t, tiersWithRules(expected), tiersWithRules(actual), "set of non-empty tiers must be the same")
+
+	// Compare policy maps
 	for i := range expected {
+		// it is OK if expected[i] is empty and actual[i] doesn't exist.
+		if i >= len(actual) && expected[i].Len() == 0 {
+			continue
+		}
+
 		require.Equal(t, expected[i].Len(), actual[i].Len())
 		expected[i].ForEach(func(l4 *L4Filter) bool {
 			port := l4.PortName
