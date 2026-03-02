@@ -355,6 +355,8 @@ func (a *Allocator) start() {
 		go func() {
 			select {
 			case <-a.initialListDone:
+			case <-a.stopGC:
+				return
 			case <-time.After(option.Config.AllocatorListTimeout):
 				logging.Fatal(a.logger, "Timeout while waiting for initial allocator state")
 			}
