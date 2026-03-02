@@ -141,9 +141,14 @@ func makeFuzzEntries(input []byte) types.PolicyEntries {
 		prio := input[i*2+1]
 
 		// Take bottom two bits of prio for tier
-		tier := types.Tier(prio & 0b0000_0011)
-		if tier >= types.Baseline {
+		tier := types.TierUnspec
+		switch prio & 0b0000_0011 {
+		case 0:
+			tier = types.Admin
+		case 1, 3:
 			tier = types.Normal
+		case 2:
+			tier = types.Baseline
 		}
 		prio = prio >> 2
 

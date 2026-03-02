@@ -355,7 +355,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -432,7 +432,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 			Revision: repo.GetRevision(),
 			Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 				"80/TCP": {
-					Tier:     1,
+					Tier:     types.Normal,
 					Port:     80,
 					Protocol: api.ProtoTCP,
 					U8Proto:  0x6,
@@ -517,7 +517,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -606,7 +606,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -691,7 +691,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
@@ -836,7 +836,7 @@ func TestMapStateWithIngress(t *testing.T) {
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 					"80/TCP": {
-						Tier:     1,
+						Tier:     types.Normal,
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
