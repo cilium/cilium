@@ -24,8 +24,9 @@ import shutil
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import datetime
 import logging
+
+from pathlib import Path
 
 
 def load_json(file_path) -> dict:
@@ -161,30 +162,26 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str):
         logging.debug(f"Saved plot: {outfile}")
 
 
-def setup_output_dir(file1: str, file2: str) -> str:
+def setup_output_dir(file1: str, file2: str, output_dir: str):
     """
-    Generates a unique output directory name using input file names and current
-    timestamp. Also, stores a copy of the log files in the new directory.
+    Generates the output directory (overriding if exists) and stores a copy
+    of the log files in the new directory.
 
     Args:
         file1 (str): Path to the first JSON file.
         file2 (str): Path to the second JSON file.
-
-    Returns:
-        str: Name of the new output directory.
     """
-    base1 = os.path.basename(file1).replace('.', '_')
-    base2 = os.path.basename(file2).replace('.', '_')
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = f"insn-diff-{base2}-wrt-{base1}-{timestamp}"
+    logging.info(f"Creating output directory {output_dir} and backing up log files.")
 
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    logging.info(f"Output directory {output_dir} created.")
-
-    shutil.copy(file1, output_dir)
-    shutil.copy(file2, output_dir)
-    logging.info("Log files successfully backed up.")
-    return output_dir
+    
+    p1 = Path(file1)
+    shutil.copy(file1, os.path.join(output_dir, f"file1-{p1.stem}{p1.suffix}"))
+    
+    p2 = Path(file2)
+    shutil.copy(file2, os.path.join(output_dir, f"file2-{p2.stem}{p2.suffix}"))
 
 
 def main():
@@ -204,6 +201,8 @@ def main():
                                  "peak_states", "mark_read",  "stack_depth",
                                  "verification_time_microseconds"],
                         help="Verifier statistic to compare.")
+    parser.add_argument('--output-dir', type=str, default="verifier-diff-output",
+                        help="Specify output directory.")
 
     args = parser.parse_args()
 
@@ -213,9 +212,9 @@ def main():
     logging.basicConfig(level=log_level,
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
-    output_dir = setup_output_dir(args.file1, args.file2)
+    setup_output_dir(args.file1, args.file2, args.output_dir)
 
-    plot_comparison(args.file1, args.file2, output_dir, args.key)
+    plot_comparison(args.file1, args.file2, args.output_dir, args.key)
 
 
 if __name__ == "__main__":
