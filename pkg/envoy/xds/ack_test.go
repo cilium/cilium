@@ -171,6 +171,40 @@ func TestUseCurrent(t *testing.T) {
 	require.Empty(t, acker.pendingCompletions)
 }
 
+func TestCancelCompletions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	typeURL1 := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	typeURL2 := "type.googleapis.com/envoy.config.v3.AnotherConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache)
+	require.Empty(t, acker.ackedVersions)
+
+	// Add one pending completion for each type.
+	callback1, comp1 := newCompCallback()
+	acker.Upsert(typeURL1, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	require.Condition(t, isNotCompletedComparison(comp1))
+
+	callback2, comp2 := newCompCallback()
+	acker.Upsert(typeURL2, resources[1].Name, resources[1], []string{node0}, wg, callback2)
+	require.Condition(t, isNotCompletedComparison(comp2))
+	require.Len(t, acker.pendingCompletions, 2)
+
+	// Cancel only the first type URL.
+	acker.CancelCompletions(typeURL1)
+	require.Condition(t, completedComparison(comp1))
+	require.Condition(t, isNotCompletedComparison(comp2))
+	require.Len(t, acker.pendingCompletions, 1)
+
+	// Verify the other type still completes via ACK.
+	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[1].Name}, typeURL2, "")
+	require.Condition(t, completedComparison(comp2))
+	require.Empty(t, acker.pendingCompletions)
+}
+
 func TestUpsertMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

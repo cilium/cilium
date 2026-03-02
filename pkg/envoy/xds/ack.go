@@ -92,6 +92,12 @@ type AckingResourceMutator interface {
 	// A call to the returned revert function reverts the effects of this
 	// method call.
 	Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
+
+	// CancelCompletions completes all pending completions on the given TypeURL.
+	// Called only when it is known that the TypeURL client has stopped processing updates.
+	// Completions are completed without an error, as the resource updater can not react in
+	// any way to the resource client going away.
+	CancelCompletions(typeURL string)
 }
 
 // AckingResourceMutatorWrapper is an AckingResourceMutator which wraps a
@@ -252,6 +258,40 @@ func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
 		close(ch)
 	}
 	delete(m.ackedNodes, nodeID)
+}
+
+// CancelCompletions is called after it is known the xDS client has been terminated, so that waiting
+// for any N/ACKs is futile. Full resource sync will happen when the xDS client start again (if it
+// does). Completions are terminated without an error, as there is nothing do, even it an error
+// status was used instead. This mirrors the behavior when it is known the xDS client has not yet
+// been started, when we do not even try to wait for any N/ACKs.
+func (m *AckingResourceMutatorWrapper) CancelCompletions(typeURL string) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	for comp, pending := range m.pendingCompletions {
+		if comp.Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:         typeURL,
+				logfields.PendingCompletions: pending,
+			}).Debug("completion context was canceled")
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+
+		if pending.typeURL == typeURL {
+			clear(pending.remainingNodesResources)
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:  typeURL,
+				logfields.WaitVersion: pending.version,
+			}).Debug("completing cancel")
+			comp.Complete(nil)
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+	}
 }
 
 func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {

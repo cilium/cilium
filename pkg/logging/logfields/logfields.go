@@ -535,6 +535,10 @@ const (
 	// XDSDetail is detail string included in XDS NACKs.
 	XDSDetail = "xdsDetail"
 
+	WaitVersion = "waitVersion"
+
+	PendingCompletions = "pendingCompletions"
+
 	// K8s-specific
 
 	// K8sNodeID is the k8s ID of a K8sNode
