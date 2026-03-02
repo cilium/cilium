@@ -1029,12 +1029,24 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		if count == 0 {
 			if isProxyListener {
 				s.proxyListeners--
+				if s.proxyListeners < 0 {
+					s.logger.Error("Envoy: RemoveListener: negative proxyListener count",
+						logfields.Listener, name,
+						logfields.Count, s.proxyListeners,
+					)
+				}
 			}
 			delete(s.listenerCount, name)
 			s.logger.Info("Envoy: Deleting listener",
 				logfields.Listener, name,
 			)
 			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+
+			// cancel all pending network policy completions if this was the last
+			// listener with bpf metadata listener filter with bpf path configured.
+			if s.proxyListeners <= 0 {
+				s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
+			}
 		} else {
 			s.listenerCount[name] = count
 		}
