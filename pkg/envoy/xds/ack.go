@@ -94,6 +94,12 @@ type AckingResourceMutator interface {
 	// A call to the returned revert function reverts the effects of this
 	// method call.
 	Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
+
+	// CancelCompletions completes all pending completions on the given TypeURL.
+	// Called only when it is known that the TypeURL client has stopped processing updates.
+	// Completions are completed without an error, as the resource updater can not react in
+	// any way to the resource client going away.
+	CancelCompletions(typeURL string)
 }
 
 // AckingResourceMutatorWrapper is an AckingResourceMutator which wraps a
@@ -259,6 +265,43 @@ func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
 		close(ch)
 	}
 	delete(m.ackedNodes, nodeID)
+}
+
+func (m *AckingResourceMutatorWrapper) CancelCompletions(typeURL string) {
+	scopedLogger := m.logger.With(
+		logfields.XDSTypeURL, typeURL,
+	)
+
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	remainingCompletions := make(map[*completion.Completion]*pendingCompletion, len(m.pendingCompletions))
+
+	for comp, pending := range m.pendingCompletions {
+		if comp.Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			scopedLogger.Debug(
+				"completion context was canceled",
+				logfields.PendingCompletions, pending,
+			)
+			continue
+		}
+
+		if pending.typeURL == typeURL {
+			clear(pending.remainingNodesResources)
+			m.metrics.IncreaseCancel(typeURL)
+			scopedLogger.Debug("completing cancel",
+				logfields.WaitVersion, pending.version)
+			comp.Complete(nil)
+			continue
+		}
+
+		// Completion didn't match. Keep it in the pending list.
+		remainingCompletions[comp] = pending
+	}
+
+	m.pendingCompletions = remainingCompletions
 }
 
 func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
