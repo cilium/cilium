@@ -8,11 +8,11 @@ type mockMetrics struct {
 	nack map[string]int
 }
 
-func (m *mockMetrics) IncreaseNACK(typeURL string) {
+func (m *mockMetrics) IncreaseACK(typeURL string) {
 	m.ack[typeURL]++
 }
 
-func (m *mockMetrics) IncreaseACK(typeURL string) {
+func (m *mockMetrics) IncreaseNACK(typeURL string) {
 	m.nack[typeURL]++
 }
 
