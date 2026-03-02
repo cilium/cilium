@@ -566,6 +566,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 	for _, l := range gw.Spec.Listeners {
 		isValid := true
 		var invalidMessages []string
+		invalidReason := gatewayv1.ListenerReasonInvalid
 
 		var conds []metav1.Condition
 
@@ -646,12 +647,25 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 					break
 				}
 			}
+			// Handle terminated TLSRoute until we support it
+			if l.Protocol == gatewayv1.TLSProtocolType && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
+				// Until we support this, we need to mark this as invalid.
+				isValid = false
+				invalidMessages = append(invalidMessages, "Using TLSRoute with TLS.mode Terminate is unsupported.")
+				invalidReason = gatewayv1.ListenerReasonUnsupportedValue
+				// The specific conformance test for this expects supportedKinds to be empty.
+				// This is probably an upstream bug, but work around it for now.
+				supportedKinds = []gatewayv1.RouteGroupKind{}
+			}
+
 		}
 
 		if !isValid {
 			conds = merge(conds,
-				gatewayListenerAcceptedCondition(gw, false, "Listener not valid. "+strings.Join(invalidMessages, " ")),
+				gatewayListenerAcceptedCondition(gw, false, invalidReason, "Listener not valid. "+strings.Join(invalidMessages, " ")),
 				gatewayListenerProgrammedCondition(gw, false, "Address not ready yet"))
+			// If the Listener is not valid, then no kinds are supported
+			// supportedKinds = []gatewayv1.RouteGroupKind{}
 		} else {
 			// There's at least one Accepted listener, so the Gateway can also be Accepted.
 			oneValidListener = true
@@ -667,7 +681,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				})
 			}
 			conds = merge(conds,
-				gatewayListenerAcceptedCondition(gw, true, "Listener Accepted"),
+				gatewayListenerAcceptedCondition(gw, true, gatewayv1.ListenerReasonAccepted, "Listener Accepted"),
 				gatewayListenerProgrammedCondition(gw, false, "Address not ready yet"))
 		}
 		var attachedRoutes int32
