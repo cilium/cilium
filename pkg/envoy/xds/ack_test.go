@@ -100,6 +100,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Empty(t, acker.ackedVersions)
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
@@ -108,6 +109,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node1])
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for another resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[1].Name}, typeURL, "")
@@ -116,6 +118,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
@@ -124,6 +127,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
@@ -132,6 +136,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestUseCurrent(t *testing.T) {
@@ -155,6 +160,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
@@ -164,6 +170,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Use current version, not yet acked
 	acker.UseCurrent(typeURL, []string{node0}, wg)
@@ -178,6 +185,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack an older version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 1, node0, []string{resources[0].Name}, typeURL, "")
@@ -194,6 +202,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Empty(t, acker.pendingCompletions)
 	require.Equal(t, 2, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestUpsertMultipleNodes(t *testing.T) {
@@ -225,6 +234,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	require.True(t, acker.currentVersionAcked([]string{node2}))
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for the right resource, from one of the nodes (node0).
 	// One of the nodes (node1) still needs to ACK.
@@ -237,6 +247,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	require.True(t, acker.currentVersionAcked([]string{node0, node2}))
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for the right resource, from the last remaining node (node1).
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
@@ -247,6 +258,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	require.True(t, acker.currentVersionAcked([]string{node0, node1, node2}))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestUpsertMoreRecentVersion(t *testing.T) {
@@ -271,12 +283,14 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack a more recent version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(123, 123, node0, []string{resources[0].Name}, typeURL, "")
 	require.Condition(t, completedComparison(comp))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestUpsertMoreRecentVersionNack(t *testing.T) {
@@ -301,6 +315,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// NAck a more recent version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(1, 2, node0, []string{resources[0].Name}, typeURL, "Detail")
@@ -310,6 +325,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 1, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestDeleteSingleNode(t *testing.T) {
@@ -334,6 +350,7 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with no resources.
 	callback, comp = newCompCallback(logger)
@@ -345,6 +362,7 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for another resource, from the right node.
 	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[2].Name}, typeURL, "")
@@ -352,6 +370,7 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Equal(t, 2, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestUpsertCompletionAfterDeletedResource(t *testing.T) {
@@ -418,6 +437,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with no resources.
 	callback, comp = newCompCallback(logger)
@@ -429,6 +449,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Ack the right version, for another resource, from the remaining node.
 	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[2].Name}, typeURL, "")
@@ -436,6 +457,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Equal(t, 2, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestRevertInsert(t *testing.T) {
@@ -478,6 +500,7 @@ func TestRevertInsert(t *testing.T) {
 
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestRevertUpdate(t *testing.T) {
@@ -527,6 +550,7 @@ func TestRevertUpdate(t *testing.T) {
 
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
 func TestRevertDelete(t *testing.T) {
@@ -580,4 +604,5 @@ func TestRevertDelete(t *testing.T) {
 
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 }

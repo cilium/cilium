@@ -9,16 +9,18 @@ import (
 )
 
 const (
-	subsystem       = "xds"
-	typeURLLabel    = "type_url"
-	statusLabel     = "status"
-	statusACKValue  = "ack"
-	statusNACKValue = "nack"
+	subsystem         = "xds"
+	typeURLLabel      = "type_url"
+	statusLabel       = "status"
+	statusACKValue    = "ack"
+	statusNACKValue   = "nack"
+	statusCancelValue = "cancel"
 )
 
 type Metrics interface {
 	IncreaseNACK(string)
 	IncreaseACK(string)
+	IncreaseCancel(string)
 }
 
 var _ Metrics = (*XDSMetrics)(nil)
@@ -34,7 +36,7 @@ func NewXDSMetric() *XDSMetrics {
 			Namespace: metrics.Namespace,
 			Subsystem: subsystem,
 			Name:      "events_count",
-			Help:      "The number of ACK/NACK event responses from Envoy",
+			Help:      "The number of ACK/NACK/Cancel event responses from Envoy",
 		}, []string{typeURLLabel, statusLabel}),
 	}
 }
@@ -45,4 +47,8 @@ func (x *XDSMetrics) IncreaseNACK(typeURL string) {
 
 func (x *XDSMetrics) IncreaseACK(typeURL string) {
 	x.EventCount.WithLabelValues(typeURL, statusACKValue).Inc()
+}
+
+func (x *XDSMetrics) IncreaseCancel(typeURL string) {
+	x.EventCount.WithLabelValues(typeURL, statusCancelValue).Inc()
 }
