@@ -1423,11 +1423,11 @@ var (
 	AllowEntry = types.AllowEntry().WithPriority(0)
 	DenyEntry  = types.DenyEntry().WithPriority(0)
 
-	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
-	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
+	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
+	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
-	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry).withLabels(worldLabelArrayList).withLevel(1000)
+	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry).withLabels(worldLabelArrayList)
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
@@ -2056,12 +2056,12 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		},
 		expected: MapStateMap{
 			mapKeyAllowAll__:     AllowEntry,
-			egressL3OnlyKey(id2): AllowEntry.WithPriority(1000),
-			egressL3OnlyKey(id3): AllowEntry.WithPriority(1000),
+			egressL3OnlyKey(id2): AllowEntry,
+			egressL3OnlyKey(id3): AllowEntry,
 		},
 		fqdnIds: maps.Clone(fqdnIdentities),
 		adds: MapStateMap{
-			egressL3OnlyKey(idExample): AllowEntry.WithPriority(1000),
+			egressL3OnlyKey(idExample): AllowEntry,
 		},
 	}}
 

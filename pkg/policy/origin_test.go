@@ -101,7 +101,7 @@ func TestOriginMerge(t *testing.T) {
 		Tier: 1, Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		Ingress: false,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorB: &PerSelectorPolicy{Priority: 1000},
+			td.cachedSelectorB: nil,
 		},
 		RuleOrigin: OriginLogsForTest(map[CachedSelector]string{
 			td.cachedSelectorB: "rule2",

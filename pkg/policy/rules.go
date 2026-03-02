@@ -49,7 +49,7 @@ func (rules ruleSlice) computeTierPriorities() ([]types.Priority, []int, error) 
 	lastPrio := rules[0].Priority
 	levels := 1 // each tier with any rules occupies at least one priority level
 	lastPassLevel := 0
-	lastTier := types.Tier(0)
+	lastTier := rules[0].Tier
 
 	for _, r := range rules {
 		if r.Tier != lastTier {
