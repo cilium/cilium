@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -99,7 +100,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		DNSMessageHandlerParams{
 			Logger:            logger,
 			NameManager:       nm,
-			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}, nil),
+			ProxyAccessLogger: accesslog.NewProxyAccessLogger(logger, accesslog.ProxyAccessLoggerConfig{}, &noopNotifier{}, &dummyInfoRegistry{}, node.NewTestLocalNodeStore(node.LocalNode{})),
 		})
 
 	// Register rules (simulates applied policies).
