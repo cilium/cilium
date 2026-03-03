@@ -1846,9 +1846,8 @@ func TestL4WildcardMerge(t *testing.T) {
 						{Port: "7000", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testparser",
-						L7: []api.PortRuleL7{
-							{"Key": "Value"},
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
 						},
 					},
 				}},
@@ -1891,11 +1890,13 @@ func TestL4WildcardMerge(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorC: &PerSelectorPolicy{
 					Verdict:          types.Allow,
-					L7Parser:         "testparser",
-					ListenerPriority: ListenerPriorityNone,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
-						L7Proto: "testparser",
-						L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
+						HTTP: []api.PortRuleHTTP{
+							{},
+							{Path: "/", Method: "GET"},
+						},
 					},
 				},
 			},
@@ -1932,9 +1933,8 @@ func TestL4WildcardMerge(t *testing.T) {
 						{Port: "7000", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testparser",
-						L7: []api.PortRuleL7{
-							{"Key": "Value"},
+						HTTP: []api.PortRuleHTTP{
+							{Path: "/", Method: "GET"},
 						},
 					},
 				}},

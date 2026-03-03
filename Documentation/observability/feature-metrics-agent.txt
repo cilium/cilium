@@ -579,16 +579,6 @@
     - ``"delete"``
     -
     -
-  * - ``other_l7_policies_total``
-    - ``action``
-    - ``"add"``
-    - Other L7 Policies have been ingested since the agent started
-    - counter
-  * -
-    -
-    - ``"delete"``
-    -
-    -
   * - ``sni_allow_list_policies_total``
     - ``action``
     - ``"add"``

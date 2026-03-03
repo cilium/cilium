@@ -60,27 +60,9 @@ func (d *PortRuleDNS) Exists(rules L7Rules) bool {
 	return slices.ContainsFunc(rules.DNS, d.Equal)
 }
 
-// Exists returns true if the L7 rule already exists in the list of rules
-func (h *PortRuleL7) Exists(rules L7Rules) bool {
-	return slices.ContainsFunc(rules.L7, h.Equal)
-}
-
 // Equal returns true if both rules are equal
 func (d *PortRuleDNS) Equal(o PortRuleDNS) bool {
 	return d != nil && d.MatchName == o.MatchName && d.MatchPattern == o.MatchPattern
-}
-
-// Equal returns true if both L7 rules are equal
-func (h *PortRuleL7) Equal(o PortRuleL7) bool {
-	if len(*h) != len(o) {
-		return false
-	}
-	for k, v := range *h {
-		if v2, ok := o[k]; !ok || v2 != v {
-			return false
-		}
-	}
-	return true
 }
 
 // Validate returns an error if the layer 4 protocol is not valid

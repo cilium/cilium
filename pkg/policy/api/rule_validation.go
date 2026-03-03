@@ -507,18 +507,6 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 		}
 	}
 
-	if pr.L7 != nil && pr.L7Proto == "" {
-		return fmt.Errorf("'l7' may only be specified when a 'l7proto' is also specified")
-	}
-	if pr.L7Proto != "" {
-		nTypes++
-		for i := range pr.L7 {
-			if err := pr.L7[i].Sanitize(); err != nil {
-				return err
-			}
-		}
-	}
-
 	if nTypes > 1 {
 		return fmt.Errorf("multiple L7 protocol rule types specified in single rule")
 	}

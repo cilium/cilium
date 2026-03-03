@@ -25,7 +25,6 @@ func Test_ruleType(t *testing.T) {
 		npToFQDNsIngested           float64
 		npHTTPIngested              float64
 		npHTTPHeaderMatchesIngested float64
-		npOtherL7Ingested           float64
 		npDenyPoliciesIngested      float64
 		npIngressCIDRGroupIngested  float64
 		npMutualAuthIngested        float64
@@ -400,7 +399,7 @@ func Test_ruleType(t *testing.T) {
 			},
 		},
 		{
-			name: "HTTP matches egress rules, other L7 and SNI",
+			name: "HTTP matches egress rules and SNI",
 			args: args{
 				r: policytypes.PolicyEntry{
 					Verdict: types.Allow,
@@ -416,9 +415,6 @@ func Test_ruleType(t *testing.T) {
 										},
 									},
 								},
-								L7: []api.PortRuleL7{
-									{},
-								},
 							},
 						},
 					},
@@ -428,13 +424,11 @@ func Test_ruleType(t *testing.T) {
 				wantRF: RuleFeatures{
 					HTTP:              true,
 					HTTPHeaderMatches: true,
-					OtherL7:           true,
 					SNIAllowList:      true,
 				},
 				wantMetrics: metrics{
 					npHTTPIngested:              1,
 					npHTTPHeaderMatchesIngested: 1,
-					npOtherL7Ingested:           1,
 					npSNIAllowListIngested:      1,
 				},
 			},
@@ -483,8 +477,6 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, float64(0), metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
 			assert.Equalf(t, float64(0), metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Get(), "NPHTTPHeaderMatchesIngested different")
-			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionAdd).Get(), "NPOtherL7Ingested different")
-			assert.Equalf(t, float64(0), metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, float64(0), metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "IngressCIDRGroupIngested different")
@@ -512,8 +504,6 @@ func Test_ruleType(t *testing.T) {
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPIngested, metrics.NPHTTPIngested.WithLabelValues(actionDel).Get(), "NPHTTPIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Get(), "NPHTTPHeaderMatchesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npHTTPHeaderMatchesIngested, metrics.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Get(), "NPHTTPHeaderMatchesIngested different")
-			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionAdd).Get(), "NPOtherL7Ingested different")
-			assert.Equalf(t, tt.want.wantMetrics.npOtherL7Ingested, metrics.NPOtherL7Ingested.WithLabelValues(actionDel).Get(), "NPOtherL7Ingested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npDenyPoliciesIngested, metrics.NPDenyPoliciesIngested.WithLabelValues(actionDel).Get(), "NPDenyPoliciesIngested different")
 			assert.Equalf(t, tt.want.wantMetrics.npIngressCIDRGroupIngested, metrics.NPIngressCIDRGroupIngested.WithLabelValues(actionAdd).Get(), "NPIngressCIDRGroupIngested different")

@@ -298,8 +298,9 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 						{Port: "9090", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "tester",
-						L7:      []api.PortRuleL7{map[string]string{"method": "GET", "path": "/"}},
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/"},
+						},
 					},
 				}},
 			},
@@ -398,11 +399,10 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorBar2: &PerSelectorPolicy{
 					Verdict:          types.Allow,
-					L7Parser:         L7ParserType("tester"),
-					ListenerPriority: ListenerPriorityNone,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
-						L7Proto: "tester",
-						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
+						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
 				},
 			},

@@ -3,10 +3,6 @@
 
 package api
 
-import (
-	"github.com/cilium/proxy/pkg/policy/api/kafka"
-)
-
 // L4Proto is a layer 4 protocol name
 type L4Proto string
 
@@ -309,29 +305,11 @@ type L7Rules struct {
 	// +kubebuilder:validation:OneOf
 	HTTP PortRulesHTTP `json:"http,omitempty"`
 
-	// Kafka-specific rules.
-	// Deprecated: This beta feature is deprecated and will be removed in a future release.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:OneOf
-	Kafka []kafka.PortRule `json:"kafka,omitempty"`
-
 	// DNS-specific rules.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:OneOf
 	DNS PortRulesDNS `json:"dns,omitempty"`
-
-	// Name of the L7 protocol for which the Key-value pair rules apply.
-	//
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:OneOf
-	L7Proto string `json:"l7proto,omitempty"`
-
-	// Key-value pair rules.
-	//
-	// +kubebuilder:validation:Optional
-	L7 PortRulesL7 `json:"l7,omitempty"`
 }
 
 // Len returns the total number of rules inside `L7Rules`.
@@ -340,7 +318,7 @@ func (rules *L7Rules) Len() int {
 	if rules == nil {
 		return 0
 	}
-	return len(rules.HTTP) + len(rules.Kafka) + len(rules.DNS) + len(rules.L7)
+	return len(rules.HTTP) + len(rules.DNS)
 }
 
 // IsEmpty returns whether the `L7Rules` is nil or contains no rules.

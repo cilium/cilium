@@ -461,13 +461,6 @@ func hasWildcard(rules *api.L7Rules, parserType L7ParserType) bool {
 				return true
 			}
 		}
-	case rules.L7Proto != "":
-		// For custom L7 rules
-		for _, rule := range rules.L7 {
-			if len(rule) == 0 {
-				return true
-			}
-		}
 	default:
 		// Unsupported parser type
 	}
@@ -489,11 +482,6 @@ func addWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
 	case parserType == ParserTypeHTTP:
 		if len(rules.HTTP) > 0 {
 			result.HTTP = append(result.HTTP, api.PortRuleHTTP{})
-		}
-	case rules.L7Proto != "":
-		// For custom L7 rules with L7Proto
-		if len(rules.L7) > 0 {
-			result.L7 = append(result.L7, api.PortRuleL7{})
 		}
 	default:
 		// Unsupported parser type
@@ -1022,8 +1010,6 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 				switch {
 				case len(rules.HTTP) > 0:
 					l7Parser = ParserTypeHTTP
-				case rules.L7Proto != "":
-					l7Parser = (L7ParserType)(rules.L7Proto)
 				}
 			}
 		}
