@@ -964,27 +964,28 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
-	// Case 5A: custom L7 first, HTTP second.
+	// Case 5A: DNS first, HTTP second.
 	conflictingParsersRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1002,13 +1003,13 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersRule)
 
-	// Case 5B: HTTP first, custom L7 second.
+	// Case 5B: HTTP first, DNS second.
 	conflictingParsersRule = api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1022,16 +1023,17 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
@@ -1040,66 +1042,13 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersRule)
 
-	// Case 5B+: HTTP first, generic L7 second.
-	conflictingParsersIngressRule := api.Rule{
-		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						HTTP: []api.PortRuleHTTP{
-							{Method: "GET", Path: "/"},
-						},
-					},
-				}},
-			},
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7: []api.PortRuleL7{
-							{"method": "PUT", "path": "/Foo"},
-						},
-					},
-				}},
-			},
-		},
-	}
-
-	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingParsersIngressRule)
-
-	// Case 5B++: generic L7 without rules first, HTTP second.
+	// Case 5B+: HTTP first, DNS second.
 	conflictingParsersEgressRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-					Rules: &api.L7Rules{
-						L7Proto: "testing",
-					},
-				}},
-			},
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{endpointSelectorC},
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -1109,6 +1058,21 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 						HTTP: []api.PortRuleHTTP{
 							{Method: "GET", Path: "/"},
 						},
+					},
+				}},
+			},
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
@@ -2002,27 +1966,28 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
-	// Case 9A: custom L7 first, then HTTP.
+	// Case 9A: DNS first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -2040,13 +2005,13 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	td.policyInvalid(t, "cannot merge conflicting L7 parsers", &conflictingL7Rule)
 
-	// Case 9B: HTTP first, then custom L7.
+	// Case 9B: HTTP first, then DNS.
 	conflictingL7Rule = api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -2060,16 +2025,17 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
@@ -2085,27 +2051,28 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t))
 
-	// Case 9A: custom L7 first, then HTTP.
+	// Case 9A: DNS first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorB},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorB},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -2123,13 +2090,13 @@ func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 
 	td.policyValid(t, &conflictingL7Rule)
 
-	// Case 9B: HTTP first, then custom L7.
+	// Case 9B: HTTP first, then DNS.
 	conflictingL7Rule = api.Rule{
 		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
+		Egress: []api.EgressRule{
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
@@ -2143,16 +2110,17 @@ func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 				}},
 			},
 			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorA},
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{endpointSelectorA},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						L7Proto: "testing",
-						L7:      []api.PortRuleL7{{"key": "val"}},
+						DNS: []api.PortRuleDNS{{
+							MatchPattern: "example.com",
+						}},
 					},
 				}},
 			},
@@ -2713,28 +2681,6 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 					}
 				}
 				require.True(t, found, "HTTP wildcard rule should be added in default-allow mode")
-			},
-		},
-		{
-			name: "Custom L7 rules with default-allow",
-			l7Rules: &api.L7Rules{
-				L7Proto: "envoy.filter.protocol.dubbo",
-				L7: []api.PortRuleL7{{
-					"method": "Login",
-				}},
-			},
-			l7Parser: "envoy.filter.protocol.dubbo",
-			port:     "8080",
-			proto:    api.ProtoTCP,
-			verifyWildcard: func(t *testing.T, policy *PerSelectorPolicy) {
-				found := false
-				for _, l7Rule := range policy.L7Rules.L7 {
-					if len(l7Rule) == 0 {
-						found = true
-						break
-					}
-				}
-				require.True(t, found, "Custom L7 wildcard rule should be added in default-allow mode")
 			},
 		},
 	}

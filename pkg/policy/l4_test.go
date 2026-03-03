@@ -313,17 +313,9 @@ func TestJSONMarshal(t *testing.T) {
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
-						L7Parser: "tester",
+						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
-							L7Proto: "tester",
-							L7: []api.PortRuleL7{
-								map[string]string{
-									"method": "PUT",
-									"path":   "/"},
-								map[string]string{
-									"method": "GET",
-									"path":   "/"},
-							},
+							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
 					},
 				},
@@ -394,15 +386,10 @@ func TestJSONMarshal(t *testing.T) {
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
-        "l7proto": "tester",
-        "l7": [
+        "http": [
           {
-            "method": "PUT",
-            "path": "/"
-          },
-          {
-            "method": "GET",
-            "path": "/"
+            "path": "/",
+            "method": "GET"
           }
         ]
       }
