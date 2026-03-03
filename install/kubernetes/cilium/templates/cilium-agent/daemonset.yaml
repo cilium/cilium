@@ -559,7 +559,7 @@ spec:
           {{- toYaml .Values.initResources | trim | nindent 10 }}
         {{- end }}
         command:
-        - sh
+        - bash
         - -ec
         # The statically linked Go program binary is invoked to avoid any
         # dependency on utilities like sh and mount that can be missing on certain
@@ -605,7 +605,7 @@ spec:
         - name: BIN_PATH
           value: {{ .Values.cni.binPath }}
         command:
-        - sh
+        - bash
         - -ec
         # The statically linked Go program binary is invoked to avoid any
         # dependency on utilities like sh that can be missing on certain
@@ -673,7 +673,7 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
         command:
-        - sh
+        - bash
         - -c
         - |
           until test -s {{ (print "/tmp/cilium-bootstrap.d/" (.Values.nodeinit.bootstrapFile | base)) | quote }}; do
