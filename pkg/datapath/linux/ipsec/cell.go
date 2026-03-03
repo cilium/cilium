@@ -120,6 +120,15 @@ func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 	return c.DNSProxyInsecureSkipTransparentModeCheck
 }
 
+// MaxKeyRotationJitter returns the maximum jitter duration to apply after
+// detecting a key file change before loading new keys. Jitter is set to 1/10
+// of the key rotation duration to prevent thundering herd on the K8s API server
+// while ensuring agents have sufficient time to load new keys before the old
+// keys are removed.
+func (c Config) MaxKeyRotationJitter() time.Duration {
+	return c.IPsecKeyRotationDuration / 10
+}
+
 var defaultEnableConfig = EnableConfig{
 	EnableIPsec: false,
 }
