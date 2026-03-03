@@ -50,7 +50,8 @@ type Proxy struct {
 	// redirects is the map of all redirect configurations indexed by
 	// the redirect identifier. Redirects may be implemented by different
 	// proxies.
-	redirects map[string]RedirectImplementation
+	redirects      map[string]RedirectImplementation
+	redirectsCount map[types.ProxyType]int
 
 	envoyIntegration *envoyProxyIntegration
 	dnsIntegration   *dnsProxyIntegration
@@ -86,6 +87,7 @@ func createProxy(
 		logger:           logger,
 		localNodeStore:   localNodeStore,
 		redirects:        make(map[string]RedirectImplementation),
+		redirectsCount:   make(map[types.ProxyType]int),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
 		proxyPorts:       proxyPorts,
@@ -258,13 +260,13 @@ func (p *Proxy) createNewRedirect(
 		logfields.Object, redirect,
 		logfields.ProxyPort, pp.ProxyPort)
 
-	p.redirects[id] = impl
+	p.addRedirect(id, impl)
 	p.updateRedirectMetrics()
 
 	revertFunc := func() error {
 		// Undo what we have done above.
 		p.mutex.Lock()
-		delete(p.redirects, id)
+		p.deleteRedirect(id, impl)
 		p.updateRedirectMetrics()
 		p.proxyPorts.ReleaseProxyPort(ppName)
 		p.mutex.Unlock()
@@ -310,7 +312,7 @@ func (p *Proxy) removeRedirect(id string) {
 		return
 	}
 	r := impl.GetRedirect()
-	delete(p.redirects, id)
+	p.deleteRedirect(id, impl)
 
 	impl.Close()
 
@@ -400,12 +402,19 @@ func (p *Proxy) getProxyIP(ctx context.Context) string {
 // updateRedirectMetrics updates the redirect metrics per application protocol
 // in Prometheus. Lock needs to be held to call this function.
 func (p *Proxy) updateRedirectMetrics() {
-	result := map[string]int{}
-	for _, impl := range p.redirects {
-		redirect := impl.GetRedirect()
-		result[string(redirect.proxyPort.ProxyType)]++
+	for proto, count := range p.redirectsCount {
+		metrics.ProxyRedirects.WithLabelValues(string(proto)).Set(float64(count))
 	}
-	for proto, count := range result {
-		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
-	}
+}
+
+func (p *Proxy) addRedirect(id string, impl RedirectImplementation) {
+	proxyType := impl.GetRedirect().proxyPort.ProxyType
+	p.redirects[id] = impl
+	p.redirectsCount[proxyType]++
+}
+
+func (p *Proxy) deleteRedirect(id string, impl RedirectImplementation) {
+	proxyType := impl.GetRedirect().proxyPort.ProxyType
+	delete(p.redirects, id)
+	p.redirectsCount[proxyType]--
 }
