@@ -86,10 +86,9 @@ linters:
             - '!**/resiliency/**'
     forbidigo:
       forbid:
-        # List based on https://github.com/vishvananda/netlink/pull/1018
-        - pattern: ^netlink\.(Handle\.)?(AddrList|BridgeVlanList|ChainList|ClassList|ConntrackTableList|DevLinkGetDeviceList|DevLinkGetAllPortList|DevlinkGetDeviceParams|FilterList|FouList|GenlFamilyList|GTPPDPList|LinkByName|LinkByAlias|LinkList|LinkSubscribeWithOptions|NeighList|NeighProxyList|NeighListExecute|LinkGetProtinfo|QdiscList|RdmaLinkList|RdmaLinkByName|RdmaLinkDel|RouteList|RouteListFiltered|RouteListFilteredIter|RouteSubscribeWithOptions|RuleList|RuleListFiltered|SocketGet|SocketDiagTCPInfo|SocketDiagTCP|SocketDiagUDPInfo|SocketDiagUDP|UnixSocketDiagInfo|UnixSocketDiag|SocketXDPGetInfo|SocketDiagXDP|VDPAGetDevList|VDPAGetDevConfigList|VDPAGetMGMTDevList|XfrmPolicyList|XfrmStateList)
+        - pattern: ^netlink\.NewHandle
           pkg: ^github.com/vishvananda/netlink$
-          msg: Found netlink function which can return ErrDumpInterrupted. Use safenetlink package instead.
+          msg: Use inl.NewHandle() to create handles with appropriate defaults
         - pattern: ^netlink\.(Handle\.)?XfrmState(Add|Update|Del|Flush)$
           pkg: ^github.com/vishvananda/netlink$
           msg: Found direct XFRM state modification which would leave the cache stale. Use xfrmStateCache instead.
@@ -98,7 +97,7 @@ linters:
         # https://github.com/cilium/cilium/issues/15051
         - pattern: ^net\.(Interfaces|InterfaceAddrs|InterfaceByIndex|InterfaceByName|Interface\.Addrs)$
           pkg: ^net$
-          msg: 'Found stdlib net.Interface* function which can block forever, see https://github.com/cilium/cilium/issues/15051. Use the netlink or safenetlink package instead.'
+          msg: 'Found stdlib net.Interface* function which can block forever, see https://github.com/cilium/cilium/issues/15051. Use the netlink package instead.'
         - pattern: ^sync\.(Mutex|RWMutex|Map)$
           pkg: ^sync$
           msg: Use pkg/lock instead to improve deadlock detection.
