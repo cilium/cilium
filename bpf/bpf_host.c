@@ -798,15 +798,13 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #ifdef ENABLE_VTEP
 	{
 		struct remote_endpoint_info fake_info = {0};
-		struct vtep_key vkey = {};
+		struct vtep_key vkey = {
+			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
+		};
 		const struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (!vtep)
-			goto skip_vtep;
-
-		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
@@ -817,7 +815,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-skip_vtep:
 #endif
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);

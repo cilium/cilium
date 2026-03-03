@@ -306,19 +306,17 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_VTEP
 	{
-		struct vtep_key vkey = {};
+		struct vtep_key vkey = {
+			.vtep_ip = ip4->saddr & CONFIG(vtep_mask),
+		};
 		const struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (!vtep)
-			goto skip_vtep;
-		if (vtep->tunnel_endpoint) {
+		if (vtep && vtep->tunnel_endpoint) {
 			if (!identity_is_world_ipv4(*identity))
 				return DROP_INVALID_VNI;
 		}
 	}
-skip_vtep:
 #endif
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
