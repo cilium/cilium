@@ -38,7 +38,7 @@ var defaultCmdsToInclude = []string{
 }
 
 func registerShell(in hive.ScriptCmds, log *slog.Logger, lc cell.Lifecycle, jobs job.Registry, health cell.Health, c Config) {
-	jg := jobs.NewGroup(health, lc)
+	jg := jobs.NewGroup(health)
 
 	if c.ShellSockPath == "" {
 		log.Info("Shell socket path not set, not starting shell server")

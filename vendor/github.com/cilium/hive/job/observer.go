@@ -6,8 +6,8 @@ package job
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/cilium/stream"
@@ -55,9 +55,11 @@ type jobObserver[T any] struct {
 	shutdown hive.Shutdowner
 }
 
-func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health cell.Health, options options) {
-	defer wg.Done()
+func (jo *jobObserver[T]) info() string {
+	return fmt.Sprintf("%s (%s)", jo.name, internal.FuncNameAndLocation(jo.fn))
+}
 
+func (jo *jobObserver[T]) start(ctx context.Context, health cell.Health, options options) {
 	for _, opt := range jo.opts {
 		opt(jo)
 	}

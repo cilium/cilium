@@ -199,6 +199,10 @@ func (txn *Txn[T]) Commit() Tree[T] {
 	return t
 }
 
+// watchesReuseThreshold is the threshold at which the [txn.watches] hash
+// map is reused for next transaction.
+const watchesReuseThreshold = 64
+
 // Notify closes the watch channels of nodes that were
 // mutated as part of this transaction. Must be called before
 // Tree.Txn() is used again.
@@ -206,9 +210,14 @@ func (txn *Txn[T]) Notify() {
 	for ch := range txn.watches {
 		close(ch)
 	}
-	clear(txn.watches)
 	if !txn.dirty && len(txn.watches) > 0 {
 		panic("BUG: watch channels marked but txn not dirty")
+	}
+	// Clear or reallocate the watches hash map for the next transaction.
+	if len(txn.watches) <= watchesReuseThreshold {
+		clear(txn.watches)
+	} else {
+		txn.watches = make(map[chan struct{}]struct{})
 	}
 	if txn.dirty && txn.rootWatch != nil {
 		close(txn.rootWatch)
@@ -587,15 +596,15 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 		demoted.setKind(nodeKind48)
 		demoted.setSize(size - 1)
 		demoted.setTxnID(txn.txnID)
-		n48 := demoted.node48()
-		n48.leaf = parent.getLeaf()
-		children := n48.children[:0]
-		for k, n := range parent.node256().children[:] {
-			if k != index && n != nil {
-				n48.index[k] = int8(len(children))
-				children = append(children, n)
+			n48 := demoted.node48()
+			n48.leaf = parent.getLeaf()
+			children := n48.children[:0]
+			for k, n := range parent.node256().children[:] {
+				if k != index && n != nil {
+					n48.index[k] = uint8(len(children) + 1)
+					children = append(children, n)
+				}
 			}
-		}
 		newParent = demoted
 	case parent.kind() == nodeKind48 && size <= 17:
 		demoted := (&node16[T]{header: *parent}).self()

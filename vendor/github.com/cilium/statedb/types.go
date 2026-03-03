@@ -35,7 +35,7 @@ type Table[Obj any] interface {
 	// channel that is closed when the table changes.
 	AllWatch(ReadTxn) (iter.Seq2[Obj, Revision], <-chan struct{})
 
-	// List returns sequence of objects matching the given query.
+	// List returns a sequence of objects matching the given query.
 	List(ReadTxn, Query[Obj]) iter.Seq2[Obj, Revision]
 
 	// ListWatch returns an iterator for all objects matching the given query
@@ -46,16 +46,16 @@ type Table[Obj any] interface {
 	// Get returns the first matching object for the query.
 	Get(ReadTxn, Query[Obj]) (obj Obj, rev Revision, found bool)
 
-	// GetWatch return the first matching object and a watch channel
+	// GetWatch returns the first matching object and a watch channel
 	// that is closed if the query is invalidated.
 	GetWatch(ReadTxn, Query[Obj]) (obj Obj, rev Revision, watch <-chan struct{}, found bool)
 
 	// LowerBound returns an iterator for objects that have a key
-	// greater or equal to the query.
+	// greater than or equal to the query.
 	LowerBound(ReadTxn, Query[Obj]) iter.Seq2[Obj, Revision]
 
 	// LowerBoundWatch returns an iterator for objects that have a key
-	// greater or equal to the query. The returned watch channel is closed
+	// greater than or equal to the query. The returned watch channel is closed
 	// when anything in the table changes as more fine-grained notifications
 	// are not possible with a lower bound search.
 	LowerBoundWatch(ReadTxn, Query[Obj]) (seq iter.Seq2[Obj, Revision], watch <-chan struct{})
@@ -143,7 +143,7 @@ type RWTable[Obj any] interface {
 	//   cell.ProvidePrivate(NewMyTable), // RWTable
 	//   cell.Invoke(statedb.Register[statedb.RWTable[Foo])
 	//
-	//   // with anononymous function:
+	//   // with anonymous function:
 	//   cell.Provide(func(t statedb.RWTable[Foo]) statedb.Table[Foo] { return t })
 	//
 	//   // with ToTable:
@@ -161,7 +161,7 @@ type RWTable[Obj any] interface {
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
-	// InsertWatch an object into the table. Returns the object that was
+	// InsertWatch inserts an object into the table. Returns the object that was
 	// replaced if there was one and a watch channel that closes when the
 	// object is modified again.
 	//
@@ -197,10 +197,10 @@ type RWTable[Obj any] interface {
 	// Delete an object from the table. Returns the object that was
 	// deleted if there was one.
 	//
-	// If the table is being tracked for deletions via EventIterator()
+	// If the table is being tracked for deletions via Changes()
 	// the deleted object is inserted into a graveyard index and garbage
 	// collected when all delete trackers have consumed it. Each deleted
-	// object in the graveyard has unique revision allowing interleaved
+	// object in the graveyard has a unique revision, allowing interleaved
 	// iteration of updates and deletions.
 	//
 	// Possible errors:
@@ -217,8 +217,8 @@ type RWTable[Obj any] interface {
 	DeleteAll(WriteTxn) error
 
 	// CompareAndDelete compares the existing object's revision against the
-	// given revision and if equal it deletes the object. If object is not
-	// found 'hadOld' will be false and 'err' nil.
+	// given revision and if equal it deletes the object. If the object is
+	// not found, hadOld is false and err is nil.
 	//
 	// Possible errors:
 	// - ErrRevisionNotEqual: the object has mismatching revision
@@ -279,7 +279,7 @@ type WriteTxn interface {
 	// WriteTxn is always also a ReadTxn
 	ReadTxn
 
-	// Abort the current transaction. All changes are disgarded.
+	// Abort the current transaction. All changes are discarded.
 	// It is safe to call Abort() after calling Commit(), e.g.
 	// the following pattern is strongly encouraged to make sure
 	// write transactions are always completed:

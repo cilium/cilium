@@ -23,8 +23,7 @@ type DeriveParams[In, Out any] struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
-	Jobs      job.Registry
-	Health    cell.Health
+	JobGroup  job.Group
 	DB        *DB
 	InTable   Table[In]
 	OutTable  RWTable[Out]
@@ -52,8 +51,7 @@ type DeriveParams[In, Out any] struct {
 //	)
 func Derive[In, Out any](jobName string, transform func(obj In, deleted bool) (Out, DeriveResult)) func(DeriveParams[In, Out]) {
 	return func(p DeriveParams[In, Out]) {
-		g := p.Jobs.NewGroup(p.Health, p.Lifecycle)
-		g.Add(job.OneShot(
+		p.JobGroup.Add(job.OneShot(
 			jobName,
 			derive[In, Out]{p, jobName, transform}.loop),
 		)

@@ -30,7 +30,7 @@ func NetIPAddrString(s string) (Key, error) {
 
 func NetIPPrefix(prefix netip.Prefix) Key {
 	// Use the 16-byte form plus bits to have a constant-size key.
-	addrBytes := prefix.Addr().As16()
+	addrBytes := prefix.Masked().Addr().As16()
 	return append(addrBytes[:], uint8(prefix.Bits()))
 }
 

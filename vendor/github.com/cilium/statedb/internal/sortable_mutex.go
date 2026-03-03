@@ -55,7 +55,7 @@ func (s SortableMutexes) Lock() {
 	}
 }
 
-// Unlock locks the sorted set of mutexes locked by prior call to Lock().
+// Unlock unlocks the sorted set of mutexes locked by a prior call to Lock().
 func (s SortableMutexes) Unlock() {
 	for _, mu := range s {
 		mu.Unlock()
