@@ -343,18 +343,18 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel"
           fi
 
-          if [[ "${{ matrix.ipsec }}" == "true" ]]; then
+          if [[ "${{ matrix.config.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
-          if [[ "${{ matrix.wireguard }}" == "true" ]]; then
+          if [[ "${{ matrix.config.wireguard }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
 
-          if [[ "${{ matrix.kpr }}" == "true" ]]; then
+          if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
 
-          if [[ "${{ matrix.advanced-features }}" == "true" ]]; then
+          if [[ "${{ matrix.config.advanced-features }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
               --helm-set localRedirectPolicies.enabled=true \
@@ -404,7 +404,7 @@ jobs:
           labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
 
       - name: Create ESP allow firewall rule
-        if: ${{ matrix.config.ipsec == 'true' }}
+        if: ${{ matrix.config.ipsec == true }}
         uses: ./.github/actions/gke-create-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
@@ -442,7 +442,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Create custom IPsec secret
-        if: ${{ matrix.config.ipsec == 'true' }}
+        if: ${{ matrix.config.ipsec == true }}
         run: |
           cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
@@ -477,7 +477,7 @@ jobs:
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up ESP allow firewall rule
-        if: ${{ always() && matrix.config.ipsec == 'true' }}
+        if: ${{ always() && matrix.config.ipsec == true }}
         uses: ./.github/actions/gke-clean-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
