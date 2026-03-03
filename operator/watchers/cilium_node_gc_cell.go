@@ -67,9 +67,8 @@ func registerCiliumNodeGC(p ciliumNodeGCParams) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
 	gc := &ciliumNodeGC{
-		ctx:                      ctx,
-		cancel:                   cancel,
 		clientset:                p.Clientset,
 		ciliumNodes:              p.CiliumNodes,
 		interval:                 p.Cfg.NodesGCInterval,
@@ -79,16 +78,19 @@ func registerCiliumNodeGC(p ciliumNodeGCParams) {
 		ctrlMgr:                  controller.NewManager(),
 	}
 	p.Lifecycle.Append(cell.Hook{
-		OnStart: gc.start,
-		OnStop:  gc.stop,
+		OnStart: func(startCtx cell.HookContext) error {
+			return gc.start(startCtx, ctx, &wg)
+		},
+		OnStop: func(_ cell.HookContext) error {
+			cancel()
+			gc.ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
+			wg.Wait()
+			return nil
+		},
 	})
 }
 
 type ciliumNodeGC struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-
 	clientset                k8sClient.Clientset
 	ciliumNodes              resource.Resource[*cilium_v2.CiliumNode]
 	interval                 time.Duration
@@ -98,7 +100,7 @@ type ciliumNodeGC struct {
 	ctrlMgr                  *controller.Manager
 }
 
-func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
+func (g *ciliumNodeGC) start(startCtx cell.HookContext, ctx context.Context, wg *sync.WaitGroup) error {
 	var candidateStore *ciliumNodeGCCandidate
 	var shouldGCPred func(
 		ctx context.Context,
@@ -117,13 +119,13 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 		interval = 0
 		shouldGCPred = shouldGCNodeCRDDisabled
 	} else {
-		nodesInit(&g.wg, g.clientset.Slim(), g.ctx.Done(), g.workqueueMetricsProvider)
+		nodesInit(wg, g.clientset.Slim(), ctx.Done(), g.workqueueMetricsProvider)
 
 		// Wait for the node store to be synced before starting the GC loop
 		// so that shouldGCNode can reliably determine whether a node exists.
 		select {
 		case <-slimNodeStoreSynced:
-		case <-g.ctx.Done():
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -132,7 +134,7 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 		shouldGCPred = shouldGCNode
 	}
 
-	ciliumNodeStore, err := g.ciliumNodes.Store(g.ctx)
+	ciliumNodeStore, err := g.ciliumNodes.Store(ctx)
 	if err != nil {
 		return err
 	}
@@ -140,7 +142,7 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 	g.ctrlMgr.UpdateController("cilium-node-gc",
 		controller.ControllerParams{
 			Group:   controller.NewGroup("cilium-node-gc"),
-			Context: g.ctx,
+			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
 				return performCiliumNodeGC(
 					ctx,
@@ -157,12 +159,5 @@ func (g *ciliumNodeGC) start(startCtx cell.HookContext) error {
 		},
 	)
 
-	return nil
-}
-
-func (g *ciliumNodeGC) stop(_ cell.HookContext) error {
-	g.cancel()
-	g.ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
-	g.wg.Wait()
 	return nil
 }

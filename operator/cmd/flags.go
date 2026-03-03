@@ -221,18 +221,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(operatorOption.CiliumPodLabels, "k8s-app=cilium", "Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false")
 	option.BindEnv(vp, operatorOption.CiliumPodLabels)
 
-	flags.Int(operatorOption.TaintSyncWorkers, 10, "Number of workers used to synchronize node tains and conditions")
-	option.BindEnv(vp, operatorOption.TaintSyncWorkers)
-
-	flags.Bool(operatorOption.RemoveCiliumNodeTaints, true, fmt.Sprintf("Remove node taint %q from Kubernetes nodes once Cilium is up and running", option.Config.AgentNotReadyNodeTaintValue()))
-	option.BindEnv(vp, operatorOption.RemoveCiliumNodeTaints)
-
-	flags.Bool(operatorOption.SetCiliumNodeTaints, false, fmt.Sprintf("Set node taint %q from Kubernetes nodes if Cilium is scheduled but not up and running", option.Config.AgentNotReadyNodeTaintValue()))
-	option.BindEnv(vp, operatorOption.SetCiliumNodeTaints)
-
-	flags.Bool(operatorOption.SetCiliumIsUpCondition, true, "Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node")
-	option.BindEnv(vp, operatorOption.SetCiliumIsUpCondition)
-
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
 
