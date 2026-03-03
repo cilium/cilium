@@ -228,12 +228,14 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 
 	performGet := true
 	var nodeResource *ciliumv2.CiliumNode
+	var lastErr error
 	for retryCount := range maxRetryCount {
 		performUpdate := true
 		if performGet {
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
+				lastErr = err
 				n.logger.Info(
 					"Unable to get CiliumNode resource",
 					logfields.Error, err,
@@ -251,6 +253,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		}
 
 		if err := n.mutateNodeResource(ctx, nodeResource, ln); err != nil {
+			lastErr = err
 			n.logger.Warn(
 				"Unable to mutate nodeResource",
 				logfields.Error, err,
@@ -265,6 +268,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		performGet = true
 		if performUpdate {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
+				lastErr = err
 				n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
 				// Backoff before retrying
 				time.Sleep(backoffDuration)
@@ -274,6 +278,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			}
 		} else {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
+				lastErr = err
 				n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
 				// Backoff before retrying
 				time.Sleep(backoffDuration)
@@ -284,7 +289,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			}
 		}
 	}
-	logging.Fatal(n.logger, fmt.Sprintf("Could not create or update CiliumNode resource, despite %d retries", maxRetryCount))
+	logging.Fatal(n.logger, "Could not create or update CiliumNode resource", logfields.Error, lastErr, logfields.Retries, maxRetryCount)
 }
 
 func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ciliumv2.CiliumNode, ln *node.LocalNode) error {
