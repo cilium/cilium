@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net"
 	"os"
 	"strconv"
@@ -69,6 +70,9 @@ const (
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
 	DefaultReqID = ipsec.DefaultReqID
+
+	// logMaxJitter is the logfield key for the maximum jitter duration.
+	logMaxJitter = "maxJitter"
 )
 
 type dir string
@@ -1229,6 +1233,25 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 		case event := <-watcher.Events:
 			if event.Op&(fswatcher.Create|fswatcher.Write) == 0 {
 				continue
+			}
+
+			// Apply jitter before loading keys to prevent thundering herd on K8s API
+			// during key rotations in large clusters. Jitter is randomly selected
+			// from [0, keyRotationDuration/10]
+			if maxJitter := a.config.MaxKeyRotationJitter(); maxJitter > 0 {
+				jitter := time.Duration(rand.Int64N(int64(maxJitter)))
+				a.log.Info("Applying jitter before loading IPsec keys",
+					logfields.Duration, jitter,
+					logMaxJitter, maxJitter,
+				)
+				select {
+				case <-time.After(jitter):
+					// Jitter complete, proceed with key loading
+				case <-ctx.Done():
+					health.Stopped("Context done during jitter")
+					watcher.Close()
+					return nil
+				}
 			}
 
 			_, spi, err := a.loadIPSecKeysFile(keyfilePath)
