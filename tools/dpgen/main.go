@@ -59,8 +59,8 @@ func configCmd() *cobra.Command {
 				return fmt.Errorf("out cannot be empty")
 			}
 
-			if kind != "object" && kind != "node" {
-				return fmt.Errorf("kind needs to be 'object' or 'node'")
+			if kind == "" {
+				return fmt.Errorf("kind cannot be empty")
 			}
 			return nil
 		},
