@@ -741,6 +741,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "endpoint_regeneration_time_stats_seconds",
+			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
 			Help:      "Endpoint regeneration time stats labeled by the scope",
 		}, []string{LabelScope, LabelStatus}),
 
@@ -784,6 +785,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_implementation_delay",
+			Buckets:   prometheus.ExponentialBuckets(10e-6, 10, 8),
 			Help:      "Time between a policy change and it being fully deployed into the datapath",
 		}, metric.Labels{
 			{
