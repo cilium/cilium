@@ -343,18 +343,18 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=tunnel"
           fi
 
-          if [[ "${{ matrix.ipsec }}" == "true" ]]; then
+          if [[ "${{ matrix.config.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
-          if [[ "${{ matrix.wireguard }}" == "true" ]]; then
+          if [[ "${{ matrix.config.wireguard }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
 
-          if [[ "${{ matrix.kpr }}" == "true" ]]; then
+          if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
 
-          if [[ "${{ matrix.advanced-features }}" == "true" ]]; then
+          if [[ "${{ matrix.config.advanced-features }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
               --helm-set localRedirectPolicies.enabled=true \
