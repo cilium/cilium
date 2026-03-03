@@ -76,8 +76,8 @@ func New(cells ...cell.Cell) *Hive {
 
 			// Root job group. This is mostly provided for tests so that we don't need a cell.Module
 			// wrapper to get a job.Group.
-			func(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle) job.Group {
-				return reg.NewGroup(h, lc, job.WithLogger(l))
+			func(reg job.Registry, h cell.Health, l *slog.Logger) job.Group {
+				return reg.NewGroup(h, job.WithLogger(l))
 			},
 		),
 
@@ -155,8 +155,8 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 }
 
 // jobGroupProvider provides a (private) job group to modules, with scoped health reporting, logging and metrics.
-func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, jobsMetrics *hiveJobsCiliumMetrics, mid cell.ModuleID) job.Group {
-	return reg.NewGroup(h, lc,
+func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, jobsMetrics *hiveJobsCiliumMetrics, mid cell.ModuleID) job.Group {
+	return reg.NewGroup(h,
 		job.WithLogger(l),
 		job.WithPprofLabels(pprof.Labels("cell", string(mid))),
 		job.WithMetrics(jobMetricsFor(jobsMetrics, mid)),

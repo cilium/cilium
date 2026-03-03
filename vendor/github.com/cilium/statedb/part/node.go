@@ -6,7 +6,6 @@ package part
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"unsafe"
 )
@@ -246,7 +245,7 @@ func (n *header[T]) promote(txnID uint64) *header[T] {
 		node48.leaf = n.getLeaf()
 		copy(node48.children[:], node16.children[:node16.size()])
 		for i, k := range node16.keys[:node16.size()] {
-			node48.index[k] = int8(i)
+			node48.index[k] = uint8(i + 1)
 		}
 		if n.watch != nil {
 			node48.watch = make(chan struct{})
@@ -374,16 +373,34 @@ func (n *header[T]) findIndex(key byte) (*header[T], int) {
 		}
 		return nil, size
 	case nodeKind48:
-		children := n.children()
-		idx := sort.Search(len(children), func(i int) bool {
-			return children[i].prefix()[0] >= key
-		})
-		if idx >= n.size() || children[idx].prefix()[0] != key {
-			// No node found, return nil and the index into
-			// which it should go.
-			return nil, idx
+		n48 := n.node48()
+		// Check for exact match first
+		if idx := n48.index[key]; idx != 0 {
+			i := int(idx - 1)
+			return n48.children[i], i
 		}
-		return children[idx], idx
+		// No exact match. Binary search to find insertion point.
+		size := n48.size()
+		children := n48.children[:size]
+		// Is the key between smallest and highest?
+		switch {
+		case key < children[0].key():
+			return nil, 0
+		case key > children[size-1].key():
+			return nil, size
+		}
+		// No exact match, but key is in range. Binary search to find insertion point.
+		// We're not using sort.Search as that requires a function closure.
+		lo, hi := 0, size
+		for lo < hi {
+			mid := int(uint(lo+hi) / 2)
+			if children[mid].key() < key {
+				lo = mid + 1
+			} else {
+				hi = mid
+			}
+		}
+		return nil, lo
 	case nodeKind256:
 		return n.node256().children[key], int(key)
 	default:
@@ -418,10 +435,10 @@ func (n *header[T]) find(key byte) *header[T] {
 	case nodeKind48:
 		n48 := n.node48()
 		idx := n48.index[key]
-		if idx < 0 {
+		if idx == 0 {
 			return nil
 		}
-		return n48.children[idx]
+		return n48.children[idx-1]
 	case nodeKind256:
 		return n.node256().children[key]
 	default:
@@ -452,11 +469,11 @@ func (n *header[T]) insert(idx int, child *header[T]) {
 		n48 := n.node48()
 		for i := size - 1; i >= idx; i-- {
 			c := n48.children[i]
-			n48.index[c.key()] = int8(i + 1)
+			n48.index[c.key()] = uint8(i + 2)
 			n48.children[i+1] = c
 		}
 		n48.children[idx] = child
-		n48.index[child.key()] = int8(idx)
+		n48.index[child.key()] = uint8(idx + 1)
 	case nodeKind256:
 		n.node256().children[child.key()] = child
 	default:
@@ -489,9 +506,9 @@ func (n *header[T]) remove(idx int) {
 		for i := idx; i < newSize; i++ {
 			child := children[i+1]
 			children[i] = child
-			n48.index[child.key()] = int8(i)
+			n48.index[child.key()] = uint8(i + 1)
 		}
-		n48.index[key] = -1
+		n48.index[key] = 0
 		children[newSize] = nil
 	case nodeKind256:
 		n.node256().children[idx] = nil
@@ -547,8 +564,8 @@ type node48[T any] struct {
 	header[T]
 	txnID    uint64 // transaction ID that last mutated this node
 	children [48]*header[T]
-	leaf     *leaf[T] // non-nil if this node contains a value
-	index    [256]int8
+	leaf     *leaf[T]   // non-nil if this node contains a value
+	index    [256]uint8 // 1-based index for key in [children] (0 is absent, 1 is children[0])
 }
 
 type node256[T any] struct {

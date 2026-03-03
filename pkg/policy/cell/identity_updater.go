@@ -41,7 +41,6 @@ type identityAllocatorParams struct {
 
 	Log              *slog.Logger
 	Registry         job.Registry
-	Lifecycle        cell.Lifecycle
 	PolicyRepository policy.PolicyRepository
 	EPManager        endpointmanager.EndpointManager
 	Health           cell.Health
@@ -95,7 +94,7 @@ func newIdentityUpdater(params identityAllocatorParams) IdentityUpdater {
 	close(i.inFlightDone)
 
 	i.updatePolicyMaps = job.NewTrigger()
-	jg := params.Registry.NewGroup(params.Health, params.Lifecycle, job.WithMetrics(params.Metrics), job.WithLogger(params.Log))
+	jg := params.Registry.NewGroup(params.Health, job.WithMetrics(params.Metrics), job.WithLogger(params.Log))
 	jg.Add(job.Timer("id-alloc-update-policy-maps", i.doUpdatePolicyMaps,
 		/* no interval, only on trigger */ 0, job.WithTrigger(i.updatePolicyMaps)))
 
