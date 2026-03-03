@@ -21,6 +21,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"go4.org/netipx"
 
+	"github.com/cilium/cilium/pkg/datapath/inl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -74,7 +75,7 @@ func newOps(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			var err error
-			ops.handle, err = netlink.NewHandle()
+			ops.handle, err = inl.NewHandle(nil)
 			if err != nil {
 				return err
 			}

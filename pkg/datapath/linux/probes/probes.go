@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
+	"github.com/cilium/cilium/pkg/datapath/inl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
@@ -740,7 +741,7 @@ var HaveBIGTCPTunnel = sync.OnceValue(func() error {
 
 	var h *netlink.Handle
 	if err := ns.Do(func() (err error) {
-		h, err = netlink.NewHandle()
+		h, err = inl.NewHandle(nil)
 		return err
 	}); err != nil {
 		return fmt.Errorf("create netlink handle: %w", err)

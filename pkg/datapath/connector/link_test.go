@@ -4,7 +4,6 @@
 package connector
 
 import (
-	"fmt"
 	"net"
 	"testing"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/inl"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -261,17 +261,10 @@ func TestPrivilegedConfigureLinkPair(t *testing.T) {
 		GSOIPv6MaxSize: TestGSOMaxSize,
 	}
 
-	var h *netlink.Handle
 	ns := netns.NewNetNS(t)
+	h := inl.NetNSHandle(t, ns)
 
 	require.NoError(t, ns.Do(func() error {
-		var err error
-
-		h, err = netlink.NewHandle()
-		if err != nil {
-			return fmt.Errorf("bad netlink handle: %w", err)
-		}
-
 		// For the purposes of this test, we will operate on a dummy veth pair.
 		createFakePair(t, h, TestHostIfName, TestPeerIfName)
 

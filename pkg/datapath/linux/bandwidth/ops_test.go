@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/inl"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -26,10 +27,7 @@ func TestPrivilegedOps(t *testing.T) {
 	var err error
 
 	ns := netns.NewNetNS(t)
-	require.NoError(t, ns.Do(func() error {
-		nlh, err = netlink.NewHandle()
-		return err
-	}))
+	nlh = inl.NetNSHandle(t, ns)
 
 	// Create a dummy device to test with
 	err = nlh.LinkAdd(

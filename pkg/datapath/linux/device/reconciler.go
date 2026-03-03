@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/datapath/inl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -84,7 +85,7 @@ func newOps(
 
 func (ops *ops) Start(_ cell.HookContext) error {
 	var err error
-	ops.handle, err = netlink.NewHandle()
+	ops.handle, err = inl.NewHandle(nil)
 	if err != nil {
 		return err
 	}
