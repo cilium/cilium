@@ -240,6 +240,9 @@ var (
 		// Garbage collects stale CiliumNode custom resources.
 		operatorWatchers.CiliumNodeGCCell,
 
+		// Manages node taints and conditions based on Cilium pod readiness.
+		operatorWatchers.NodeTaintSyncCell,
+
 		legacyCell,
 
 		// When running in kvstore mode, the start hook of the identity GC
@@ -638,16 +641,11 @@ type legacyOnLeader struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	clientset k8sClient.Clientset
-	wg        sync.WaitGroup
 	logger    *slog.Logger
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 	legacy.cancel()
-
-	// Wait for background goroutines to finish.
-	legacy.wg.Wait()
-
 	return nil
 }
 
@@ -655,23 +653,6 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 // in HA mode.
 func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 	isLeader.Store(true)
-
-	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
-
-	if legacy.clientset.IsEnabled() &&
-		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
-		legacy.logger.InfoContext(ctx,
-			"Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes",
-			logfields.K8sNamespace, operatorOption.Config.CiliumK8sNamespace,
-			logfields.LabelSelectorFlagOption, operatorOption.Config.CiliumPodLabels,
-			logfields.RemoveCiliumNodeTaintsFlagOption, operatorOption.Config.RemoveCiliumNodeTaints,
-			logfields.SetCiliumNodeTaintsFlagOption, operatorOption.Config.SetCiliumNodeTaints,
-			logfields.SetCiliumIsUpConditionFlagOption, operatorOption.Config.SetCiliumIsUpCondition,
-		)
-
-		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
-			watcherLogger)
-	}
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
 		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||

@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -147,14 +146,14 @@ func ciliumPodHandler(obj any, queue workqueue.TypedRateLimitingInterface[string
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, queue workqueue.TypedRateLimitingInterface[string], stopCh <-chan struct{}, logger *slog.Logger) {
+func ciliumPodsWatcher(wg *sync.WaitGroup, slimClient slimclientset.Interface, queue workqueue.TypedRateLimitingInterface[string], stopCh <-chan struct{}, logger *slog.Logger, namespace, labelSelector string) {
 	ciliumPodInformer := informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](
-				slimClient.CoreV1().Pods(option.Config.CiliumK8sNamespace),
+				slimClient.CoreV1().Pods(namespace),
 			),
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = option.Config.CiliumPodLabels
+				options.LabelSelector = labelSelector
 			}),
 		&slim_corev1.Pod{},
 		0,
@@ -500,11 +499,11 @@ func markNode(ctx context.Context, c kubernetes.Interface, nodeGetter slimNodeGe
 }
 
 // HandleNodeTolerationAndTaints remove node
-func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}, logger *slog.Logger) {
+func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}, logger *slog.Logger, cfg NodeTaintSyncConfig, ciliumNamespace, ciliumPodLabels string) {
 	mno = markNodeOptions{
-		RemoveNodeTaint:        option.Config.RemoveCiliumNodeTaints,
-		SetNodeTaint:           option.Config.SetCiliumNodeTaints,
-		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
+		RemoveNodeTaint:        cfg.RemoveCiliumNodeTaints,
+		SetNodeTaint:           cfg.SetCiliumNodeTaints,
+		SetCiliumIsUpCondition: cfg.SetCiliumIsUpCondition,
 	}
 
 	nodesInit(wg, clientset.Slim(), stopCh, nil)
@@ -513,9 +512,9 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 	// so checkAndMarkNode has cilium-pod information.
 	// Additionally, we pass nodeQueue to ciliumPodWatcher.
 	// that was initialized in nodesInit.
-	ciliumPodsWatcher(wg, clientset.Slim(), nodeQueue, stopCh, logger)
+	ciliumPodsWatcher(wg, clientset.Slim(), nodeQueue, stopCh, logger, ciliumNamespace, ciliumPodLabels)
 
-	for i := 1; i <= option.Config.TaintSyncWorkers; i++ {
+	for range cfg.TaintSyncWorkers {
 		wg.Go(func() {
 			// Do not use the k8sClient provided by the nodesInit function since we
 			// need a k8s client that can update node structures and not simply
