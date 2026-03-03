@@ -25,8 +25,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
+	"github.com/cilium/cilium/pkg/datapath/inl"
 	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -357,7 +357,7 @@ var HaveNetkitScrub = sync.OnceValue(func() error {
 		if err != nil {
 			return fmt.Errorf("create link: %w", err)
 		}
-		hostLink, err := safenetlink.LinkByName(hostIfName)
+		hostLink, err := netlink.LinkByName(hostIfName)
 		if err != nil {
 			return fmt.Errorf("query link: %w", err)
 		}
@@ -822,7 +822,7 @@ var HaveBIGTCPTunnel = sync.OnceValue(func() error {
 
 	var h *netlink.Handle
 	if err := ns.Do(func() (err error) {
-		h, err = netlink.NewHandle()
+		h, err = inl.NewHandle()
 		return err
 	}); err != nil {
 		return fmt.Errorf("create netlink handle: %w", err)
