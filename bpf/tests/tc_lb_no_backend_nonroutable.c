@@ -19,7 +19,6 @@
 
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
-ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, false)
 
 #include "lib/endpoint.h"

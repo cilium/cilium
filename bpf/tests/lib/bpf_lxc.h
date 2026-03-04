@@ -3,6 +3,14 @@
 
 #include <bpf_lxc.c>
 
+#ifdef ENABLE_IPV4
+ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+ASSIGN_CONFIG(union v6addr, service_loopback_ipv6, { .addr = v6_svc_loopback })
+#endif /* ENABLE_IPV6 */
+
 #define FROM_CONTAINER		0
 #define TO_CONTAINER		1
 #define TO_CONTAINER_TAILCALL	2
