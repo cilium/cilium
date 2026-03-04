@@ -182,7 +182,7 @@ var (
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityTestEchoImage": "gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd",
+		"ConnectivityTestEchoImage": "gcr.io/k8s-staging-gateway-api/echo-advanced:v20251204-v1.4.1",
 	}
 
 	ConnectivityCheckImagesPerf = map[string]string{
