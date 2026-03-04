@@ -802,6 +802,14 @@ func TestPrivilegedCtNetworkID(t *testing.T) {
 	setupCTMap(t)
 
 	ctMap := NewGlobalMap("cilium_ct_network_10_test", MapConfig{TCP: true, IPv6: false}, WithNetworkID(10))
+
+	ctMapSpec := NewGlobalMapSpec(MapConfig{TCP: true, IPv6: false})
+	require.Equal(t, ctMap.Map.Type(), ctMapSpec.Type)
+	require.Equal(t, ctMap.Map.KeySize(), ctMapSpec.KeySize)
+	require.Equal(t, ctMap.Map.ValueSize(), ctMapSpec.ValueSize)
+	require.Equal(t, ctMap.Map.MaxEntries(), ctMapSpec.MaxEntries)
+	require.Equal(t, ctMap.Map.Flags(), ctMapSpec.Flags)
+
 	err := ctMap.OpenOrCreate()
 	require.NoError(t, err)
 	defer ctMap.Map.Unpin()
