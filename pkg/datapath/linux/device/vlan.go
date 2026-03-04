@@ -16,7 +16,7 @@ type DesiredVLANDeviceSpec struct {
 	VLANID      int    `json:"vlanID" yaml:"vlanID"`
 	MTU         int    `json:"mtu" yaml:"mtu"`
 	ParentName  string `json:"parentName" yaml:"parentName"`
-	ParentIndex int
+	ParentIndex int    `json:"parentIndex" yaml:"parentIndex"`
 }
 
 var _ DesiredDeviceSpec = (*DesiredVLANDeviceSpec)(nil)
