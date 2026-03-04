@@ -423,8 +423,8 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	for _, getMapPairs := range gc.additionalCTMapsFns {
 		for _, mapPair := range getMapPairs() {
 			maps = append(maps,
-				&gcMap{m: mapPair.TCP, openCloseRequired: true},
-				&gcMap{m: mapPair.Any, openCloseRequired: true})
+				&gcMap{m: mapPair.TCP, openCloseRequired: !mapPair.IsOpen},
+				&gcMap{m: mapPair.Any, openCloseRequired: !mapPair.IsOpen})
 		}
 	}
 
