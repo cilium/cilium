@@ -95,7 +95,7 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 	}
 
 	f.hive = hive.New(
-		daemon_k8s.LocalNodeCell,
+		daemon_k8s.ResourcesCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
@@ -351,7 +351,7 @@ func TestDisableStatusReport(t *testing.T) {
 
 	var cs k8sClient.Clientset
 	hive := hive.New(
-		daemon_k8s.LocalNodeCell,
+		daemon_k8s.ResourcesCell,
 		cell.Provide(
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{

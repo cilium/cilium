@@ -30,7 +30,6 @@ var (
 
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(provideK8sWatchConfig),
-		LocalNodeCell,
 		cell.Provide(
 			k8s.NetworkPolicyResource,
 			k8s.ClusterNetworkPolicyResource,
@@ -41,9 +40,10 @@ var (
 			k8s.CiliumSlimEndpointResource,
 			k8s.CiliumEndpointSliceResource,
 		),
+		localNodeCell,
 	)
 
-	LocalNodeCell = cell.Module(
+	localNodeCell = cell.Module(
 		"k8s-local-node-resources",
 		"Agent Kubernetes local node resources",
 
@@ -56,11 +56,11 @@ var (
 					},
 				)
 			},
-			func(params k8s.CiliumResourceParams) (LocalCiliumNodeResource, error) {
-				return k8s.CiliumNodeResource(
-					params,
-					func(opts *metav1.ListOptions) {
-						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+			func(ciliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]) LocalCiliumNodeResource {
+				return resource.NewFilteringResource(
+					ciliumNodeResource,
+					func(cn *cilium_api_v2.CiliumNode) bool {
+						return cn.GetName() == nodeTypes.GetName()
 					},
 				)
 			},
@@ -86,4 +86,4 @@ type LocalNodeResource resource.Resource[*slim_corev1.Node]
 
 // LocalCiliumNodeResource is a resource.Resource[*cilium_api_v2.CiliumNode] but one which will only stream updates for the
 // CiliumNode object associated with the node we are currently running on.
-type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
+type LocalCiliumNodeResource resource.FilteredResource[*cilium_api_v2.CiliumNode]

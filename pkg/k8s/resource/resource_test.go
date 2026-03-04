@@ -1096,3 +1096,11 @@ var nodesResource = cell.Provide(
 		return resource.New[*corev1.Node](lc, lw, nil)
 	},
 )
+
+var nodesFilteredResource = cell.Provide(
+	func(r resource.Resource[*corev1.Node]) resource.FilteredResource[*corev1.Node] {
+		return resource.NewFilteringResource[*corev1.Node](r, func(obj *corev1.Node) bool {
+			return obj != nil && obj.Name == "some-node"
+		})
+	},
+)
