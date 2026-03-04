@@ -36,6 +36,7 @@ var (
 	ResourceKindNetpol    = ResourceKind("netpol")
 	ResourceKindKCNP      = ResourceKind("kcnp")
 	ResourceKindNode      = ResourceKind("node")
+	ResourceKindService   = ResourceKind("svc")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for

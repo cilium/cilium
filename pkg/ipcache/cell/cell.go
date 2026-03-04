@@ -19,6 +19,7 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipcache/api"
+	"github.com/cilium/cilium/pkg/ipcache/nullroute"
 	restoration "github.com/cilium/cilium/pkg/ipcache/restore"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -44,6 +45,9 @@ var Cell = cell.Module(
 
 	// LocalIdentityRestorer restores the identities at startup
 	restoration.Cell,
+
+	// Null route reconciler
+	nullroute.Cell,
 
 	cell.Invoke(
 		// Register the watcher to the fence to ensure that we wait for ipcache
