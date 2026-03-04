@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net/netip"
+	"reflect"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -331,26 +332,47 @@ func WithClusterID(clusterID uint32) MapOption {
 	}
 }
 
+// MapConfig defines what kind of CT map type should be used
 type MapConfig struct {
 	IPv6 bool
 	TCP  bool
 }
 
+func (c MapConfig) mapType() mapType {
+	switch {
+	case c.IPv6 && c.TCP:
+		return mapTypeIPv6TCPGlobal
+	case c.IPv6 && !c.TCP:
+		return mapTypeIPv6AnyGlobal
+	case !c.IPv6 && c.TCP:
+		return mapTypeIPv4TCPGlobal
+	case !c.IPv6 && !c.TCP:
+		return mapTypeIPv4AnyGlobal
+	default:
+		panic("unreachable: invalid map type")
+	}
+}
+
 // NewGlobalMap allows the creation of additional global CT map.
 // This is intended to be used to register additional CT maps for GC with gc.AdditionalCTMapsFunc.
 func NewGlobalMap(name string, cfg MapConfig, opts ...MapOption) *Map {
-	var newMapType mapType
-	switch {
-	case cfg.IPv6 && cfg.TCP:
-		newMapType = mapTypeIPv6TCPGlobal
-	case cfg.IPv6 && !cfg.TCP:
-		newMapType = mapTypeIPv6AnyGlobal
-	case !cfg.IPv6 && cfg.TCP:
-		newMapType = mapTypeIPv4TCPGlobal
-	case !cfg.IPv6 && !cfg.TCP:
-		newMapType = mapTypeIPv4AnyGlobal
+	return newMap(name, cfg.mapType(), opts...)
+}
+
+// NewGlobalMapSpec allows you to obtain the map spec for a given map configuration.
+// This is intended to be used for the same purpose as NewGlobalMap.
+func NewGlobalMapSpec(cfg MapConfig) *ebpf.MapSpec {
+	m := cfg.mapType()
+	keySize := reflect.TypeOf(m.key()).Elem().Size()
+	valueSize := reflect.TypeOf(m.value()).Elem().Size()
+
+	return &ebpf.MapSpec{
+		Type:       ebpf.LRUHash,
+		KeySize:    uint32(keySize),
+		ValueSize:  uint32(valueSize),
+		MaxEntries: uint32(m.maxEntries()),
+		Flags:      0,
 	}
-	return newMap(name, newMapType, opts...)
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
