@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -49,7 +50,7 @@ func newWireguardConfig(c Config) types.Config {
 }
 
 // buildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
-func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
+func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig, tunnelConfig tunnel.Config) Config {
 	return Config{
 		UserConfig: uc,
 
@@ -58,6 +59,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 		EnableIPv6:       dc.EnableIPv6,
 		TunnelingEnabled: dc.TunnelingEnabled(),
 		EncryptNode:      dc.EncryptNode,
+		UnderlayProtocol: tunnelConfig.UnderlayProtocol(),
 	}
 }
 
@@ -93,6 +95,7 @@ type Config struct {
 	EnableIPv6       bool
 	TunnelingEnabled bool
 	EncryptNode      bool
+	UnderlayProtocol tunnel.UnderlayProtocol
 }
 
 var defaultEnableConfig = EnableConfig{
