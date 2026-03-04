@@ -200,6 +200,9 @@ type GCEvent struct {
 type MapPair struct {
 	TCP *Map
 	Any *Map
+
+	// IsOpen indicates that the above map pair is already open and must not be opened/closed by GC
+	IsOpen bool
 }
 
 type natDeleteFunc func(natMap *nat.Map, key tuple.TupleKey) error
