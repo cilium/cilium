@@ -40,6 +40,7 @@ var Cell = cell.Module(
 		ipcache.NewLocalIPIdentityWatcher,
 		ipcache.NewIPIdentitySynchronizer,
 		newIPCacheAPIHandler,
+		ipcache.NewLoadBalancerFrontendWatcher,
 	),
 
 	// LocalIdentityRestorer restores the identities at startup
@@ -56,6 +57,10 @@ var Cell = cell.Module(
 		// Register a job to associate default/kubernetes backend IPs with the
 		// 'reserved:kube-apiserver' label.
 		registerAPIServerBackendWatcher,
+
+		// Register an instance of LoadBalanceFrontendWatcher so that the IPCache
+		// can track LoadBalancer VIPs that need an IPCache entry.
+		ipcache.RegisterLoadBalanceFrontendWatcher,
 	),
 )
 
