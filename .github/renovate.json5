@@ -795,6 +795,13 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)-[a-f0-9]{7}$",
     },
     {
+      // echo-advanced uses a date + semver versioning scheme: v20251204-v1.4.1
+      "matchDepNames": [
+        "gcr.io/k8s-staging-gateway-api/echo-advanced"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)-v(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
+    },
+    {
       // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
       // as we need to update cilium-envoy accordingly.
       "matchPackageNames": [
