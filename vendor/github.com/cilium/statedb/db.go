@@ -205,12 +205,7 @@ func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 	txn.smus.Lock()
 	acquiredAt := time.Now()
 
-	txn.oldRoot = db.root.Load()
-
-	// Clone the root. This new allocation will become the new root when
-	// we commit.
-	txn.tableEntries = slices.Clone(*txn.oldRoot)
-
+	txn.tableEntries = slices.Clone(*db.root.Load())
 	txn.handle = db.handleName
 	txn.acquiredAt = acquiredAt
 
