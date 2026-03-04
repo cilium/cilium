@@ -62,7 +62,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 
 /* Set the LXC source address to be the address of the client pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP })
-ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

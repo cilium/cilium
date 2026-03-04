@@ -62,7 +62,6 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 
 /* Set the LXC source address to be the address of the client pod */
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
-ASSIGN_CONFIG(union v6addr, service_loopback_ipv6, { .addr = v6_svc_loopback })
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
