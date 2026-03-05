@@ -988,10 +988,9 @@ static __always_inline int nodeport_rev_dnat_ipv6(
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-		ret = lb6_rev_nat(ctx, l4_off,
-				  ct_state.rev_nat_index, NULL, 0,
-				  false, &tuple, ipfrag_has_l4_header(fraginfo),
-				  dir);
+		ret = lb6_rev_nat(
+			ctx, l4_off, ct_state.rev_nat_index, NULL, 0, false,
+			&tuple, ipfrag_has_l4_header(fraginfo), dir);
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1183,7 +1182,7 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS) static __always_inline
 #   endif
 
 	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (is_defined(ENABLE_IPV6_FRAGMENTS) && is_defined(IS_BPF_XDP)))
+	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
 		ret = tail_call_internal(
 			ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
 	else
@@ -1418,8 +1417,8 @@ static __always_inline int nodeport_svc_lb6(
 	}
 
 	if (!nodeport_skip_xlate6(svc)) {
-		ret = lb6_dnat_request(ctx, backend, l3_off, fraginfo,
-				       l4_off, tuple, false);
+		ret = lb6_dnat_request(
+			ctx, backend, l3_off, fraginfo, l4_off, tuple, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -2338,9 +2337,9 @@ static __always_inline int nodeport_rev_dnat_ipv4(
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off,
-				  ct_state.rev_nat_index, 0, 0,
-				  false, &tuple, ipfrag_has_l4_header(fraginfo));
+		ret = lb4_rev_nat(
+			ctx, l3_off, l4_off, ct_state.rev_nat_index, 0, 0,
+			false, &tuple, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2804,8 +2803,9 @@ static __always_inline int nodeport_svc_lb4(
 #  endif
 
 		if (!nodeport_skip_xlate4(svc))
-			ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo,
-					       l4_off, tuple, false);
+			ret = lb4_dnat_request(
+				ctx, backend, l3_off, fraginfo, l4_off, tuple,
+				false);
 	}
 
 	if (IS_ERR(ret))

@@ -6,12 +6,12 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4
-#define ENABLE_IPV4_FRAGMENTS
 #define ENABLE_NODEPORT
 
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 
 #include "lib/endpoint.h"
 #include "lib/lb.h"
