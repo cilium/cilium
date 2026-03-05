@@ -62,6 +62,8 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv6_frag_datagrams __section_maps_btf;
 
+DECLARE_CONFIG(bool, enable_ipv6_fragments, "Enable IPv6 fragments tracking")
+
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
@@ -390,7 +392,6 @@ ipv6_get_fraginfo(struct __ctx_buff *ctx, const struct ipv6hdr *ip6)
 	return DROP_INVALID_EXTHDR;
 }
 
-#ifdef ENABLE_IPV6_FRAGMENTS
 static __always_inline int
 ipv6_frag_get_l4ports(const struct ipv6_frag_id *frag_id,
 		      struct ipv6_frag_l4ports *ports)
@@ -449,22 +450,19 @@ out:
 	u->diff = backup;
 	return ret;
 }
-#endif
 
 static __always_inline int
 ipv6_load_l4_ports(struct __ctx_buff *ctx, struct ipv6hdr *ip6 __maybe_unused,
 		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
 		   __be16 *ports)
 {
-#ifdef ENABLE_IPV6_FRAGMENTS
-	return ipv6_handle_fragmentation(ctx, ip6, fraginfo, l4_off, dir,
-					 (struct ipv6_frag_l4ports *)ports);
-#else
+	if (CONFIG(enable_ipv6_fragments))
+		return ipv6_handle_fragmentation(ctx, ip6, fraginfo, l4_off, dir,
+						 (struct ipv6_frag_l4ports *)ports);
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
 		return DROP_FRAG_NOSUPPORT;
 	if (l4_load_ports(ctx, l4_off, ports) < 0)
 		return DROP_CT_INVALID_HDR;
-#endif
 
 	return 0;
 }
