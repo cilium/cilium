@@ -5,6 +5,7 @@ package policyderivative
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -13,7 +14,27 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/option"
 )
+
+type labelPrefixParams struct {
+	cell.In
+
+	SharedCfg SharedConfig
+	DaemonCfg *option.DaemonConfig
+	Logger    *slog.Logger
+}
+
+func registerLabelPrefixConfig(p labelPrefixParams) error {
+	if !p.SharedCfg.K8sEnabled {
+		return nil
+	}
+	if err := labelsfilter.ParseLabelPrefixCfg(p.Logger, p.DaemonCfg.Labels, p.DaemonCfg.NodeLabels, p.DaemonCfg.LabelPrefixFile); err != nil {
+		return fmt.Errorf("unable to parse label prefix configuration: %w", err)
+	}
+	return nil
+}
 
 type params struct {
 	cell.In

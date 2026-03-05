@@ -75,7 +75,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -662,12 +661,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 		}
 		if operatorOption.Config.EndpointGCInterval == 0 {
 			logging.Fatal(legacy.logger, "Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
-		}
-	}
-
-	if legacy.clientset.IsEnabled() {
-		if err := labelsfilter.ParseLabelPrefixCfg(legacy.logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
-			logging.Fatal(legacy.logger, "Unable to parse Label prefix configuration", logfields.Error, err)
 		}
 	}
 
