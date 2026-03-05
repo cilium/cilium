@@ -680,6 +680,7 @@ Kubernetes
 =========================================== ================================================== ========== ========================================================
 Name                                        Labels                                             Default    Description
 =========================================== ================================================== ========== ========================================================
+``kubernetes_resource_sync_duration``       ``scope``                                          Enabled    Duration in seconds of a specific Kubernetes resource sync
 ``kubernetes_events_received_total``        ``scope``, ``action``, ``validity``, ``equal``     Enabled    Number of Kubernetes events received
 ``kubernetes_events_total``                 ``scope``, ``action``, ``outcome``                 Enabled    Number of Kubernetes events processed
 ``k8s_cnp_status_completion_seconds``       ``attempts``, ``outcome``                          Enabled    Duration in seconds in how long it took to complete a CNP status update
