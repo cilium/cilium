@@ -33,6 +33,8 @@ lb6_clusterip_post_dnat = (
     Raw("S"*1)
 )
 
+# Replica of the above, but with UDP instead
+
 lb4_clusterip_udp = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_svc_one) /
@@ -45,6 +47,37 @@ lb6_clusterip_udp = (
     IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
     UDP(sport=tcp_src_one, dport=tcp_svc_one) /
     Raw("S"*1)
+)
+
+# Replicate of lbX_clusterip, but source is local pod IP for
+# hair-pin SNAT
+
+lb4_clusterip_hairpin_tcp_prenat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_svc_one, ttl=64) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(default_data)
+)
+
+lb4_clusterip_hairpin_tcp_postnat = (
+    Ether(src=mac_three, dst=mac_four) /
+    IP(src=v4_svc_loopback, dst=v4_pod_one, ttl=63) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+lb6_clusterip_hairpin_tcp_prenat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_svc_one, hlim=64) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(default_data)
+)
+
+lb6_clusterip_hairpin_tcp_postnat = (
+    Ether(src=mac_three, dst=mac_four) /
+    IPv6(src=v6_svc_loopback, dst=v6_pod_one, hlim=63) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(default_data)
 )
 
 # Create two TCP fragments over IPv4:
