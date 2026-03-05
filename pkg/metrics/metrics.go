@@ -436,6 +436,9 @@ var (
 
 	// Kubernetes Events
 
+	// KubernetesResourceSyncDuration is the Kubernetes resource sync duration labeled by scope.
+	KubernetesResourceSyncDuration = NoOpGaugeVec
+
 	// KubernetesEventProcessed is the number of Kubernetes events
 	// processed labeled by scope, action and execution result
 	KubernetesEventProcessed = NoOpCounterVec
@@ -673,6 +676,7 @@ type LegacyMetrics struct {
 	ControllerRuns                          metric.Vec[metric.Counter]
 	ControllerRunsDuration                  metric.Vec[metric.Observer]
 	SubprocessStart                         metric.Vec[metric.Counter]
+	KubernetesResourceSyncDuration          metric.Vec[metric.Gauge]
 	KubernetesEventProcessed                metric.Vec[metric.Counter]
 	KubernetesEventReceived                 metric.Vec[metric.Counter]
 	KubernetesAPIInteractions               metric.Vec[metric.Observer]
@@ -1022,6 +1026,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of times that Cilium has started a subprocess, labeled by subsystem",
 		}, []string{LabelSubsystem}),
 
+		KubernetesResourceSyncDuration: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_kubernetes_resource_sync_duration",
+			Namespace:  Namespace,
+			Name:       "kubernetes_resource_sync_duration",
+			Help:       "Duration in seconds of a specific Kubernetes resource sync",
+		}, []string{LabelScope}),
+
 		KubernetesEventProcessed: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_kubernetes_events_total",
 			Namespace:  Namespace,
@@ -1348,6 +1359,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ControllerRuns = lm.ControllerRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration
 	SubprocessStart = lm.SubprocessStart
+	KubernetesResourceSyncDuration = lm.KubernetesResourceSyncDuration
 	KubernetesEventProcessed = lm.KubernetesEventProcessed
 	KubernetesEventReceived = lm.KubernetesEventReceived
 	KubernetesAPIInteractions = lm.KubernetesAPIInteractions

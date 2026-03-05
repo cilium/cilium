@@ -370,6 +370,8 @@ Added Metrics
   proxy redirects that were missing during endpoint policy calculation.
 * ``cilium_endpoint_component_status`` was added and reports the number of endpoints
   tagged by the status (``OK``, ``Warning``, ``Failure``) of each component (``BPF``, ``Policy``).
+* ``cilium_kubernetes_resource_sync_duration`` was added and reports duration in seconds
+  of a specific Kubernetes resource sync.
 
 Changed Metrics
 ###############
