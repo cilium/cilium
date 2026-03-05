@@ -35,6 +35,20 @@ lb6_clusterip_post_dnat = (
     Raw("S"*1)
 )
 
+lb4_clusterip_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
+lb6_clusterip_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    UDP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
 # Packets for testing N/S LB path with ExternalIPs.
 
 lb4_ns_external_ip = (

@@ -67,6 +67,15 @@ ipcache_v4_add_world_entry()
 }
 
 static __always_inline void
+ipcache_v4_add_null_route_entry(__be32 addr, __u8 cluster_id)
+{
+	union v6addr tunnel_ep = {0};
+
+	__ipcache_v4_add_entry(addr, cluster_id, WORLD_IPV4_ID, &tunnel_ep, 0, false, false,
+			       true, V4_CACHE_KEY_LEN);
+}
+
+static __always_inline void
 ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 		     __u32 tunnel_ep, __u8 spi)
 {
@@ -126,6 +135,15 @@ ipcache_v6_add_world_entry()
 
 	__ipcache_v6_add_entry((union v6addr *)v6_all, 0, WORLD_IPV6_ID,
 			       &tunnel_ep, 0, false, false, false, 0);
+}
+
+static __always_inline void
+ipcache_v6_add_null_route_entry(const union v6addr *addr, __u8 cluster_id)
+{
+	union v6addr tunnel_ep = {0};
+
+	__ipcache_v6_add_entry(addr, cluster_id, WORLD_IPV6_ID, &tunnel_ep, 0, false, false,
+			       true, V6_CACHE_KEY_LEN);
 }
 
 static __always_inline void
