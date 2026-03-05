@@ -10,71 +10,72 @@ import (
 )
 
 const (
-	BPF_F_NO_PREALLOC         = linux.BPF_F_NO_PREALLOC
-	BPF_F_NUMA_NODE           = linux.BPF_F_NUMA_NODE
-	BPF_F_RDONLY              = linux.BPF_F_RDONLY
-	BPF_F_WRONLY              = linux.BPF_F_WRONLY
-	BPF_F_RDONLY_PROG         = linux.BPF_F_RDONLY_PROG
-	BPF_F_WRONLY_PROG         = linux.BPF_F_WRONLY_PROG
-	BPF_F_SLEEPABLE           = linux.BPF_F_SLEEPABLE
-	BPF_F_XDP_HAS_FRAGS       = linux.BPF_F_XDP_HAS_FRAGS
-	BPF_F_MMAPABLE            = linux.BPF_F_MMAPABLE
-	BPF_F_INNER_MAP           = linux.BPF_F_INNER_MAP
-	BPF_F_KPROBE_MULTI_RETURN = linux.BPF_F_KPROBE_MULTI_RETURN
-	BPF_F_UPROBE_MULTI_RETURN = linux.BPF_F_UPROBE_MULTI_RETURN
-	BPF_F_LOCK                = linux.BPF_F_LOCK
-	BPF_OBJ_NAME_LEN          = linux.BPF_OBJ_NAME_LEN
-	BPF_TAG_SIZE              = linux.BPF_TAG_SIZE
-	BPF_RINGBUF_BUSY_BIT      = linux.BPF_RINGBUF_BUSY_BIT
-	BPF_RINGBUF_DISCARD_BIT   = linux.BPF_RINGBUF_DISCARD_BIT
-	BPF_RINGBUF_HDR_SZ        = linux.BPF_RINGBUF_HDR_SZ
-	SYS_BPF                   = linux.SYS_BPF
-	F_DUPFD_CLOEXEC           = linux.F_DUPFD_CLOEXEC
-	EPOLL_CTL_ADD             = linux.EPOLL_CTL_ADD
-	EPOLL_CLOEXEC             = linux.EPOLL_CLOEXEC
-	O_RDONLY                  = linux.O_RDONLY
-	O_CLOEXEC                 = linux.O_CLOEXEC
-	O_NONBLOCK                = linux.O_NONBLOCK
-	PROT_NONE                 = linux.PROT_NONE
-	PROT_READ                 = linux.PROT_READ
-	PROT_WRITE                = linux.PROT_WRITE
-	MAP_ANON                  = linux.MAP_ANON
-	MAP_SHARED                = linux.MAP_SHARED
-	MAP_FIXED                 = linux.MAP_FIXED
-	MAP_PRIVATE               = linux.MAP_PRIVATE
-	PERF_ATTR_SIZE_VER1       = linux.PERF_ATTR_SIZE_VER1
-	PERF_TYPE_SOFTWARE        = linux.PERF_TYPE_SOFTWARE
-	PERF_TYPE_TRACEPOINT      = linux.PERF_TYPE_TRACEPOINT
-	PERF_COUNT_SW_BPF_OUTPUT  = linux.PERF_COUNT_SW_BPF_OUTPUT
-	PERF_EVENT_IOC_DISABLE    = linux.PERF_EVENT_IOC_DISABLE
-	PERF_EVENT_IOC_ENABLE     = linux.PERF_EVENT_IOC_ENABLE
-	PERF_EVENT_IOC_SET_BPF    = linux.PERF_EVENT_IOC_SET_BPF
-	PerfBitWatermark          = linux.PerfBitWatermark
-	PerfBitWriteBackward      = linux.PerfBitWriteBackward
-	PERF_SAMPLE_RAW           = linux.PERF_SAMPLE_RAW
-	PERF_FLAG_FD_CLOEXEC      = linux.PERF_FLAG_FD_CLOEXEC
-	RLIM_INFINITY             = linux.RLIM_INFINITY
-	RLIMIT_MEMLOCK            = linux.RLIMIT_MEMLOCK
-	BPF_STATS_RUN_TIME        = linux.BPF_STATS_RUN_TIME
-	PERF_RECORD_LOST          = linux.PERF_RECORD_LOST
-	PERF_RECORD_SAMPLE        = linux.PERF_RECORD_SAMPLE
-	AT_FDCWD                  = linux.AT_FDCWD
-	RENAME_NOREPLACE          = linux.RENAME_NOREPLACE
-	SO_ATTACH_BPF             = linux.SO_ATTACH_BPF
-	SO_DETACH_BPF             = linux.SO_DETACH_BPF
-	SOL_SOCKET                = linux.SOL_SOCKET
-	SIGPROF                   = linux.SIGPROF
-	SIGUSR1                   = linux.SIGUSR1
-	SIG_BLOCK                 = linux.SIG_BLOCK
-	SIG_UNBLOCK               = linux.SIG_UNBLOCK
-	BPF_FS_MAGIC              = linux.BPF_FS_MAGIC
-	TRACEFS_MAGIC             = linux.TRACEFS_MAGIC
-	DEBUGFS_MAGIC             = linux.DEBUGFS_MAGIC
-	BPF_RB_NO_WAKEUP          = linux.BPF_RB_NO_WAKEUP
-	BPF_RB_FORCE_WAKEUP       = linux.BPF_RB_FORCE_WAKEUP
-	AF_UNSPEC                 = linux.AF_UNSPEC
-	IFF_UP                    = linux.IFF_UP
-	CLONE_NEWNET              = linux.CLONE_NEWNET
+	BPF_F_NO_PREALLOC          = linux.BPF_F_NO_PREALLOC
+	BPF_F_NUMA_NODE            = linux.BPF_F_NUMA_NODE
+	BPF_F_RDONLY               = linux.BPF_F_RDONLY
+	BPF_F_WRONLY               = linux.BPF_F_WRONLY
+	BPF_F_RDONLY_PROG          = linux.BPF_F_RDONLY_PROG
+	BPF_F_WRONLY_PROG          = linux.BPF_F_WRONLY_PROG
+	BPF_F_SLEEPABLE            = linux.BPF_F_SLEEPABLE
+	BPF_F_XDP_HAS_FRAGS        = linux.BPF_F_XDP_HAS_FRAGS
+	BPF_F_MMAPABLE             = linux.BPF_F_MMAPABLE
+	BPF_F_INNER_MAP            = linux.BPF_F_INNER_MAP
+	BPF_F_KPROBE_MULTI_RETURN  = linux.BPF_F_KPROBE_MULTI_RETURN
+	BPF_F_UPROBE_MULTI_RETURN  = linux.BPF_F_UPROBE_MULTI_RETURN
+	BPF_F_LOCK                 = linux.BPF_F_LOCK
+	BPF_OBJ_NAME_LEN           = linux.BPF_OBJ_NAME_LEN
+	BPF_TAG_SIZE               = linux.BPF_TAG_SIZE
+	BPF_RINGBUF_BUSY_BIT       = linux.BPF_RINGBUF_BUSY_BIT
+	BPF_RINGBUF_DISCARD_BIT    = linux.BPF_RINGBUF_DISCARD_BIT
+	BPF_RINGBUF_HDR_SZ         = linux.BPF_RINGBUF_HDR_SZ
+	SYS_BPF                    = linux.SYS_BPF
+	F_DUPFD_CLOEXEC            = linux.F_DUPFD_CLOEXEC
+	EPOLL_CTL_ADD              = linux.EPOLL_CTL_ADD
+	EPOLL_CLOEXEC              = linux.EPOLL_CLOEXEC
+	O_RDONLY                   = linux.O_RDONLY
+	O_CLOEXEC                  = linux.O_CLOEXEC
+	O_NONBLOCK                 = linux.O_NONBLOCK
+	PROT_NONE                  = linux.PROT_NONE
+	PROT_READ                  = linux.PROT_READ
+	PROT_WRITE                 = linux.PROT_WRITE
+	MAP_ANON                   = linux.MAP_ANON
+	MAP_SHARED                 = linux.MAP_SHARED
+	MAP_FIXED                  = linux.MAP_FIXED
+	MAP_PRIVATE                = linux.MAP_PRIVATE
+	PERF_ATTR_SIZE_VER1        = linux.PERF_ATTR_SIZE_VER1
+	PERF_TYPE_SOFTWARE         = linux.PERF_TYPE_SOFTWARE
+	PERF_TYPE_TRACEPOINT       = linux.PERF_TYPE_TRACEPOINT
+	PERF_COUNT_SW_BPF_OUTPUT   = linux.PERF_COUNT_SW_BPF_OUTPUT
+	PERF_EVENT_IOC_DISABLE     = linux.PERF_EVENT_IOC_DISABLE
+	PERF_EVENT_IOC_ENABLE      = linux.PERF_EVENT_IOC_ENABLE
+	PERF_EVENT_IOC_SET_BPF     = linux.PERF_EVENT_IOC_SET_BPF
+	PerfBitWatermark           = linux.PerfBitWatermark
+	PerfBitWriteBackward       = linux.PerfBitWriteBackward
+	PERF_SAMPLE_RAW            = linux.PERF_SAMPLE_RAW
+	PERF_FLAG_FD_CLOEXEC       = linux.PERF_FLAG_FD_CLOEXEC
+	RLIM_INFINITY              = linux.RLIM_INFINITY
+	RLIMIT_MEMLOCK             = linux.RLIMIT_MEMLOCK
+	BPF_STATS_RUN_TIME         = linux.BPF_STATS_RUN_TIME
+	PERF_RECORD_LOST           = linux.PERF_RECORD_LOST
+	PERF_RECORD_SAMPLE         = linux.PERF_RECORD_SAMPLE
+	AT_FDCWD                   = linux.AT_FDCWD
+	RENAME_NOREPLACE           = linux.RENAME_NOREPLACE
+	SO_ATTACH_BPF              = linux.SO_ATTACH_BPF
+	SO_DETACH_BPF              = linux.SO_DETACH_BPF
+	SOL_SOCKET                 = linux.SOL_SOCKET
+	SIGPROF                    = linux.SIGPROF
+	SIGUSR1                    = linux.SIGUSR1
+	SIG_BLOCK                  = linux.SIG_BLOCK
+	SIG_UNBLOCK                = linux.SIG_UNBLOCK
+	BPF_FS_MAGIC               = linux.BPF_FS_MAGIC
+	TRACEFS_MAGIC              = linux.TRACEFS_MAGIC
+	DEBUGFS_MAGIC              = linux.DEBUGFS_MAGIC
+	BPF_RB_NO_WAKEUP           = linux.BPF_RB_NO_WAKEUP
+	BPF_RB_FORCE_WAKEUP        = linux.BPF_RB_FORCE_WAKEUP
+	AF_UNSPEC                  = linux.AF_UNSPEC
+	IFF_UP                     = linux.IFF_UP
+	CLONE_NEWNET               = linux.CLONE_NEWNET
+	LINUX_CAPABILITY_VERSION_3 = linux.LINUX_CAPABILITY_VERSION_3
 )
 
 type Statfs_t = linux.Statfs_t
@@ -87,6 +88,8 @@ type EpollEvent = linux.EpollEvent
 type PerfEventAttr = linux.PerfEventAttr
 type Utsname = linux.Utsname
 type CPUSet = linux.CPUSet
+type CapUserData = linux.CapUserData
+type CapUserHeader = linux.CapUserHeader
 
 func Syscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno) {
 	return linux.Syscall(trap, a1, a2, a3)
@@ -219,4 +222,12 @@ func Unshare(flag int) error {
 
 func Setns(fd int, nstype int) error {
 	return linux.Setns(fd, nstype)
+}
+
+func Capget(hdr *CapUserHeader, data *CapUserData) (err error) {
+	return linux.Capget(hdr, data)
+}
+
+func Capset(hdr *CapUserHeader, data *CapUserData) (err error) {
+	return linux.Capset(hdr, data)
 }
