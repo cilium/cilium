@@ -79,6 +79,36 @@ lb6_ns_external_ip_post_dnat = (
     Raw("S"*1)
 )
 
+# Packets for testing E/W LB path with ClusterIPs.
+
+lb4_ew_clusterip_hairpin_tcp_prenat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_svc_one, ttl=64) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(default_data)
+)
+
+lb4_ew_clusterip_hairpin_tcp_postnat = (
+    Ether(src=mac_three, dst=mac_four) /
+    IP(src=v4_svc_loopback, dst=v4_pod_one, ttl=63) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
+lb6_ew_clusterip_hairpin_tcp_prenat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_svc_one, hlim=64) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(default_data)
+)
+
+lb6_ew_clusterip_hairpin_tcp_postnat = (
+    Ether(src=mac_three, dst=mac_four) /
+    IPv6(src=v6_svc_loopback, dst=v6_pod_one, hlim=63) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(default_data)
+)
+
 # Packets for testing E/W LB path with ExternalIPs.
 
 lb4_ew_external_ip = (
