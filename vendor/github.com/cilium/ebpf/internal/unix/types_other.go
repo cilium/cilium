@@ -73,6 +73,7 @@ const (
 	BPF_F_LOCK
 	AF_UNSPEC
 	IFF_UP
+	LINUX_CAPABILITY_VERSION_3
 )
 
 type Statfs_t struct {
@@ -113,6 +114,17 @@ type Signal int
 
 type Sigset_t struct {
 	Val [4]uint64
+}
+
+type CapUserHeader struct {
+	Version uint32
+	Pid     int32
+}
+
+type CapUserData struct {
+	Effective   uint32
+	Permitted   uint32
+	Inheritable uint32
 }
 
 func Syscall(trap, a1, a2, a3 uintptr) (r1, r2 uintptr, err Errno) {
@@ -287,4 +299,12 @@ func SchedGetaffinity(pid int, set *CPUSet) error {
 
 func Auxv() ([][2]uintptr, error) {
 	return nil, errNonLinux()
+}
+
+func Capget(hdr *CapUserHeader, data *CapUserData) (err error) {
+	return errNonLinux()
+}
+
+func Capset(hdr *CapUserHeader, data *CapUserData) (err error) {
+	return errNonLinux()
 }

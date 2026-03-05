@@ -82,17 +82,30 @@ type Builder struct {
 	deduper *deduper
 }
 
+type BuilderOptions struct {
+	// Deduplicate enables type deduplication.
+	Deduplicate bool
+}
+
 // NewBuilder creates a Builder from a list of types.
 //
 // It is more efficient than calling [Add] individually.
 //
 // Returns an error if adding any of the types fails.
-func NewBuilder(types []Type) (*Builder, error) {
+func NewBuilder(types []Type, opts *BuilderOptions) (*Builder, error) {
+	if opts == nil {
+		opts = &BuilderOptions{}
+	}
+
 	b := &Builder{
 		make([]Type, 0, len(types)),
 		make(map[Type]TypeID, len(types)),
 		nil,
 		nil,
+	}
+
+	if opts.Deduplicate {
+		b.deduper = newDeduper()
 	}
 
 	for _, typ := range types {
@@ -108,22 +121,6 @@ func NewBuilder(types []Type) (*Builder, error) {
 // Empty returns true if neither types nor strings have been added.
 func (b *Builder) Empty() bool {
 	return len(b.types) == 0 && (b.strings == nil || b.strings.Length() == 0)
-}
-
-// EnableDeduplication enables type deduplication for subsequently added types.
-// Type deduplication cannot be enabled after types have been added and cannot
-// be disabled once enabled.
-func (b *Builder) EnableDeduplication() error {
-	if b.deduper != nil {
-		return errors.New("deduplication already enabled")
-	}
-
-	if len(b.stableIDs) > 0 {
-		return errors.New("cannot enable deduplication after adding types")
-	}
-
-	b.deduper = newDeduper()
-	return nil
 }
 
 // Add a Type and allocate a stable ID for it.
@@ -169,6 +166,19 @@ func (b *Builder) Add(typ Type) (TypeID, error) {
 
 	b.stableIDs[typ] = id
 	return id, nil
+}
+
+// Spec marshals the Builder's types and returns a new Spec to query them.
+//
+// The resulting Spec does not share any state with the Builder, subsequent
+// additions to the Builder will not affect the Spec.
+func (b *Builder) Spec() (*Spec, error) {
+	buf, err := b.Marshal(make([]byte, 0), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return loadRawSpec(buf, nil)
 }
 
 // Marshal encodes all types in the Marshaler into BTF wire format.

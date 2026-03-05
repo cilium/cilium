@@ -37,13 +37,9 @@ func runMaps(cmd *cobra.Command, args []string) error {
 	// They are instantiated to serve as templates for MapSpec.InnerMap.
 	inner := make(map[string]*ebpf.MapSpec)
 
-	bb, err := btf.NewBuilder(nil)
+	bb, err := btf.NewBuilder(nil, &btf.BuilderOptions{Deduplicate: true})
 	if err != nil {
 		return fmt.Errorf("creating BTF builder: %w", err)
-	}
-
-	if err = bb.EnableDeduplication(); err != nil {
-		return fmt.Errorf("enabling BTF deduplication: %w", err)
 	}
 
 	for p := range glob(args) {
