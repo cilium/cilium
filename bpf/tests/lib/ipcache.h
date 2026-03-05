@@ -75,6 +75,14 @@ ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 }
 
 static __always_inline void
+ipcache_v4_add_entry_unroutable(__be32 addr, __u8 cluster_id, __u32 sec_identity,
+				__u32 tunnel_ep, __u8 spi)
+{
+	__ipcache_v4_add_entry(addr, cluster_id, sec_identity, (union v6addr *)&tunnel_ep, spi,
+			       false, false, true, V4_CACHE_KEY_LEN);
+}
+
+static __always_inline void
 ipcache_v4_add_entry_ipv6_underlay(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 				   const union v6addr *tunnel_ep, __u8 spi)
 {
@@ -134,6 +142,14 @@ ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_identi
 {
 	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, (union v6addr *)&tunnel_ep, spi,
 			       false, false, false, V6_CACHE_KEY_LEN);
+}
+
+static __always_inline void
+ipcache_v6_add_entry_unroutable(const union v6addr *addr, __u8 cluster_id, __u32 sec_identity,
+				__u32 tunnel_ep, __u8 spi)
+{
+	__ipcache_v6_add_entry(addr, cluster_id, sec_identity, (union v6addr *)&tunnel_ep, spi,
+			       false, false, true, V6_CACHE_KEY_LEN);
 }
 
 static __always_inline void
