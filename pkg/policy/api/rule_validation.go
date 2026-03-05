@@ -724,7 +724,7 @@ func (c *CIDRRule) sanitize() error {
 
 		// Note: this also checks that the allow CIDR prefix and the exception
 		// CIDR prefixes are part of the same address family.
-		if !prefix.Contains(except.Addr()) {
+		if prefix.Bits() > except.Bits() || !prefix.Contains(except.Addr()) {
 			return fmt.Errorf("allow CIDR prefix %s does not contain "+
 				"exclude CIDR prefix %s", c.Cidr, p)
 		}

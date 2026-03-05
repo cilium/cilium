@@ -626,6 +626,30 @@ func TestCIDRsanitize(t *testing.T) {
 	cidr = CIDRRule{Cidr: "10.0.0.0/254.0.0.255"}
 	err = cidr.sanitize()
 	require.Error(t, err)
+
+	// Valid ExceptCIDRs
+	cidr = CIDRRule{
+		Cidr:        "10.0.0.0/24",
+		ExceptCIDRs: []CIDR{"10.0.0.1/32", "10.0.0.128/25"},
+	}
+	err = cidr.sanitize()
+	require.NoError(t, err)
+
+	// Invalid ExceptCIDRs: Broader than main CIDR
+	cidr = CIDRRule{
+		Cidr:        "10.0.0.0/24",
+		ExceptCIDRs: []CIDR{"10.0.0.0/16"},
+	}
+	err = cidr.sanitize()
+	require.Error(t, err)
+
+	// Invalid ExceptCIDRs: Outside main CIDR
+	cidr = CIDRRule{
+		Cidr:        "10.0.0.0/24",
+		ExceptCIDRs: []CIDR{"10.1.0.0/24"},
+	}
+	err = cidr.sanitize()
+	require.Error(t, err)
 }
 
 func TestToServicesSanitize(t *testing.T) {
