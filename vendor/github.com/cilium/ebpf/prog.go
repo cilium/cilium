@@ -1186,6 +1186,12 @@ func findTargetInKernel(typeName string, target *btf.Type, cache *btf.Cache) (*b
 	if errors.Is(err, btf.ErrNotFound) {
 		spec, module, err := findTargetInModule(typeName, target, cache)
 		if err != nil {
+			// EPERM may be returned when we do not have CAP_SYS_ADMIN.
+			// Wrap error with btf.ErrNotFound so callers can handle it accordingly.
+			if errors.Is(err, unix.EPERM) {
+				return spec, nil, fmt.Errorf("find target in modules: %w (%w)", btf.ErrNotFound, err)
+			}
+
 			return nil, nil, fmt.Errorf("find target in modules: %w", err)
 		}
 		return spec, module, nil
