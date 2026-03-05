@@ -7,6 +7,9 @@ set -o pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 redirect_txt="${script_dir}/redirects.txt"
 
+# Ensure new files are also considered in the diff
+git add --intent-to-add -- "${redirect_txt}"
+
 if ! git diff --quiet -- "${redirect_txt}" ; then
     git --no-pager diff "${redirect_txt}"
     echo "HINT: to fix this, run 'make -C Documentation update-redirects'"
