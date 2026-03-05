@@ -35,7 +35,7 @@
                 return body.replace(/\'/g, '')
                   .replace(/"/g, '')
                   .replace(/`/g, '')
-                  .replace(/$/g, '')
+                  .replace(/\$/g, '')
               result-encoding: string
 
           - name: Update labels
