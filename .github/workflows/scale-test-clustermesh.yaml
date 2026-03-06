@@ -60,8 +60,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=golang-version depName=go
-  go_version: 1.26.0
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 558.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
@@ -129,7 +127,8 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.go_version }}
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.0
 
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@8535f579142fa598c3b2a895cfb248cd492d7c5a # main

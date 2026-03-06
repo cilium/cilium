@@ -23,8 +23,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=golang-version depName=go
-  go_version: 1.26.0
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 558.0.0
 
