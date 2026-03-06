@@ -253,7 +253,10 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		return err
 	}
 
-	selectorPolicy.AddHold()
+	if !selectorPolicy.AddHold() {
+		e.runlock()
+		return fmt.Errorf("selector policy was detached, aborting regeneration")
+	}
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
