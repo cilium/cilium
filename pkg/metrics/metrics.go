@@ -247,6 +247,9 @@ const (
 	LabelReachable          = "reachable"
 	LabelUnreachable        = "unreachable"
 	LabelUnknown            = "unknown"
+
+	// LabelCIDR is the label for IPAM CIDR assigned to a node.
+	LabelCIDR = "cidr"
 )
 
 var (
@@ -1041,7 +1044,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Name:       "ipam_capacity",
 			Help:       "Total number of IPs in the IPAM pool labeled by family",
-		}, []string{LabelDatapathFamily}),
+		}, []string{LabelDatapathFamily, LabelCIDR}),
 
 		KVStoreOperationsDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds",

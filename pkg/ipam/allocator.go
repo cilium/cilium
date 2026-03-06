@@ -90,7 +90,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 				return
 			}
 		}
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
+		}
 	} else {
 		family = IPv6
 		if ipam.ipv6Allocator == nil {
@@ -107,7 +111,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 				return
 			}
 		}
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
+		}
 	}
 
 	// If the allocator did not populate the pool, we assume it does not
@@ -133,10 +141,18 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 	switch family {
 	case IPv6:
 		allocator = ipam.ipv6Allocator
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
+		}
 	case IPv4:
 		allocator = ipam.ipv4Allocator
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
+		}
 
 	default:
 		err = fmt.Errorf("unknown address \"%s\" family requested", family)
@@ -278,7 +294,11 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		}
 
 		ipam.ipv4Allocator.Release(ip, pool)
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv4Allocator.Capacity()))
+		}
 	} else {
 		family = IPv6
 		if ipam.ipv6Allocator == nil {
@@ -286,7 +306,11 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		}
 
 		ipam.ipv6Allocator.Release(ip, pool)
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
+		if ipam.config.IPAMMode() == "cluster-pool" || ipam.config.IPAMMode() == "kubernetes" {
+			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
+		} else {
+			metrics.IPAMCapacity.WithLabelValues(string(family), "").Set(float64(ipam.ipv6Allocator.Capacity()))
+		}
 	}
 
 	owner := ipam.releaseIPOwner(ip, pool)
