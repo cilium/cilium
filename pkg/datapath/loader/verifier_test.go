@@ -337,6 +337,13 @@ func loadAndRecordComplexity(
 				t.Fatalf("Failed to parse verification time for program %s: %v", n, err)
 			}
 
+			progInfo, err := p.Info()
+			if err != nil {
+				t.Fatalf("Failed to get program info for program %s: %v", n, err)
+			}
+			mapIds, _ := progInfo.MapIDs()
+			r.MapCount = len(mapIds)
+
 			records.Add(r)
 		}
 	}
@@ -358,6 +365,8 @@ type verifierComplexityRecord struct {
 
 	VerificationTimeMicroseconds int `json:"verification_time_microseconds"`
 	StackDepth                   int `json:"stack_depth"`
+
+	MapCount int `json:"map_count"`
 }
 
 type verifierComplexityRecords struct {
