@@ -62,8 +62,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # renovate: datasource=golang-version depName=go
-  go_version: 1.26.0
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.223.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -243,7 +241,8 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ env.go_version }}
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.0
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
