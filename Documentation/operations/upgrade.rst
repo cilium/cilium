@@ -359,8 +359,7 @@ Changes to Metrics
 
 Added Metrics
 #############
-
-* TODO
+* ``kubernetes_resource_sync_duration``
 
 Changed Metrics
 ###############

@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // Resource provides access to a Kubernetes resource through either
@@ -143,6 +144,7 @@ func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, mp work
 		needed:          make(chan struct{}, 1),
 		lw:              lw,
 		metricsProvider: mp,
+		duration:        spanstat.Start(),
 	}
 	r.opts.sourceObj = func() k8sRuntime.Object {
 		var obj T
@@ -242,6 +244,8 @@ type resource[T k8sRuntime.Object] struct {
 	storeResolver promise.Resolver[Store[T]]
 
 	metricsProvider workqueue.MetricsProvider
+
+	duration *spanstat.SpanStat
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
@@ -276,6 +280,7 @@ func (r *resource[T]) metricEventProcessed(eventKind EventKind, status bool) {
 	var action string
 	switch eventKind {
 	case Sync:
+		metrics.KubernetesResourceSyncDuration.WithLabelValues(r.opts.metricScope).Set(r.duration.End(status).Total().Seconds())
 		return
 	case Upsert:
 		action = "update"
