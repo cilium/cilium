@@ -836,6 +836,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	};
 	struct nodeport_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
+	bool is_unroutable = false;
 	bool hairpin_flow = false;
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -868,11 +869,14 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		if (info) {
 			*dst_sec_identity = info->sec_identity;
 			skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
+			is_unroutable = info->flag_unroutable;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   daddr->p4, *dst_sec_identity);
+		if (is_unroutable)
+			return DROP_UNROUTABLE;
 	}
 
 #ifdef ENABLE_PER_PACKET_LB
@@ -1377,6 +1381,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	};
 	struct nodeport_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
+	bool __maybe_unused is_unroutable = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	struct ct_buffer4 *ct_buffer;
@@ -1424,12 +1429,14 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (info) {
 		*dst_sec_identity = info->sec_identity;
 		skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
+		is_unroutable = info->flag_unroutable;
 	} else {
 		*dst_sec_identity = WORLD_IPV4_ID;
 	}
-
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 		   ip4->daddr, *dst_sec_identity);
+	if (is_unroutable)
+		return DROP_UNROUTABLE;
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
