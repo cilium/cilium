@@ -241,10 +241,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	if option.Config.EnableBPFTProxy {
-		cDefinesMap["ENABLE_TPROXY"] = "1"
-	}
-
 	if option.Config.EnableEndpointRoutes {
 		cDefinesMap["ENABLE_ENDPOINT_ROUTES"] = "1"
 	}

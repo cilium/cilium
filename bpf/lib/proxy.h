@@ -9,7 +9,6 @@
 #error "Proxy redirection is only supported from skb context"
 #endif
 
-#ifdef ENABLE_TPROXY
 static __always_inline int
 assign_socket_tcp(struct __ctx_buff *ctx,
 		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
@@ -168,7 +167,6 @@ CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
 		DBG_SK_LOOKUP6, daddr[3], saddr[3])
 #endif
 #undef CTX_REDIRECT_FN
-#endif /* ENABLE_TPROXY */
 
 /**
  * __ctx_redirect_to_proxy configures the ctx with the proxy mark and proxy
@@ -206,17 +204,14 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 {
 	int result __maybe_unused = CTX_ACT_OK;
 
-#ifdef ENABLE_TPROXY
-	if (!from_host)
+	if (CONFIG(enable_tproxy) && !from_host)
 		ctx->mark |= MARK_MAGIC_TO_PROXY;
 	else
-#endif
 		ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 
-#ifdef ENABLE_TPROXY
-	if (proxy_port && !from_host) {
+	if (CONFIG(enable_tproxy) && proxy_port && !from_host) {
 #ifdef ENABLE_IPV4
 		if (ipv4) {
 			__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
@@ -234,7 +229,6 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		}
 #endif /* ENABLE_IPV6 */
 	}
-#endif /* ENABLE_TPROXY */
 	return result;
 }
 
@@ -256,7 +250,6 @@ ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_TPROXY
 #define IP_TUPLE_EXTRACT_FN(NAME, PREFIX)				\
 /**									\
  * extract_tuple4 / extract_tuple6					\
@@ -340,7 +333,6 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 
 	return ret;
 }
-#endif /* ENABLE_TPROXY */
 
 /**
  * ctx_redirect_to_proxy_first() applies changes to the context to forward
@@ -352,11 +344,11 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	int ret = CTX_ACT_OK;
 
-#if defined(ENABLE_TPROXY)
-	ret = ctx_redirect_to_proxy_first_tproxy(ctx, proxy_port);
-	if (IS_ERR(ret))
-		return ret;
-#endif /* ENABLE_TPROXY */
+	if (CONFIG(enable_tproxy)) {
+		ret = ctx_redirect_to_proxy_first_tproxy(ctx, proxy_port);
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
