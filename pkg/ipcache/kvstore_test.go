@@ -113,12 +113,10 @@ func TestIPIdentityWatcher(t *testing.T) {
 				wg.Wait()
 			}()
 
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				watcher.Watch(ctx, backend, opts...)
 				close(ipcache.events)
-				wg.Done()
-			}()
+			})
 
 			body(t, ipcache)
 

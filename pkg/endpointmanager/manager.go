@@ -205,10 +205,9 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 
 	eps := mgr.GetEndpoints()
 	epWG.Add(len(eps))
-	wg.Add(1)
 
 	// This is in a goroutine to allow the caller to proceed with other tasks before waiting for the ACKs to complete
-	go func() {
+	wg.Go(func() {
 		// Wait for all the eps to have applied policy map
 		// changes before waiting for the changes to be ACKed
 		epWG.Wait()
@@ -220,8 +219,7 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 		// This should not block the main flow for Endpoint.
 		mgr.policyUpdateCallback(&sync.WaitGroup{}, nil, true)
 
-		wg.Done()
-	}()
+	})
 
 	// TODO: bound by number of CPUs?
 	for _, ep := range eps {

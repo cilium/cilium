@@ -309,8 +309,7 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 	var allocators sync.WaitGroup
 
 	for range nGoRoutines {
-		allocators.Add(1)
-		go func() {
+		allocators.Go(func() {
 			for i := 1; i <= maxID; i++ {
 				id := p.AllocateID()
 				if id == NoID {
@@ -318,8 +317,7 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 				}
 				allocated <- id
 			}
-			allocators.Done()
-		}()
+		})
 	}
 
 	go func() {
