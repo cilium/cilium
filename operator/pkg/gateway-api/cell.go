@@ -98,6 +98,9 @@ type preconditionParams struct {
 	GatewayApiConfig gatewayApiConfig
 }
 
+// crdDiscoveryTimeout is the maximum duration to retry CRD discovery on transient errors.
+const crdDiscoveryTimeout = 30 * time.Second
+
 // newGatewayAPIPreconditions checks all Gateway API preconditions and returns
 // the result. This includes config checks, kube-proxy-replacement check,
 // external traffic policy validation, and CRD discovery with retry logic.
@@ -115,7 +118,18 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 		return nil, err
 	}
 
-	params.Logger.Info(
+	ctx, cancel := context.WithTimeout(context.Background(), crdDiscoveryTimeout)
+	defer cancel()
+
+	return discoverCRDsWithRetry(ctx, params.K8sClient, params.Logger, params.Health)
+}
+
+// discoverCRDsWithRetry attempts to discover required Gateway API CRDs, retrying
+// on transient errors until the context expires. Returns a fatal error if the
+// context expires (causing operator restart) or disables Gateway API gracefully
+// if CRDs are permanently missing.
+func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logger *slog.Logger, health cell.Health) (*gatewayAPIPreconditions, error) {
+	logger.Info(
 		"Checking for required and optional GatewayAPI resources",
 		logfields.RequiredGVK, requiredGVKs,
 		logfields.OptionalGVK, optionalGVKs,
@@ -124,7 +138,7 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 	// Configure exponential backoff for CRD discovery.
 	// This allows the operator to recover if API server is temporarily unavailable at startup.
 	bo := backoff.Exponential{
-		Logger: params.Logger,
+		Logger: logger,
 		Min:    200 * time.Millisecond,
 		Max:    5 * time.Second,
 		Factor: 2.0,
@@ -132,36 +146,50 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 		Name:   "gateway-api-crd-discovery",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	for {
-		installedKinds, err := checkCRDs(ctx, params.K8sClient, params.Logger, requiredGVKs, optionalGVKs)
+		installedKinds, err := checkCRDs(ctx, client, logger, requiredGVKs, optionalGVKs)
 		if err == nil {
-			params.Health.OK("Gateway API CRDs discovered")
+			health.OK("Gateway API CRDs discovered")
 			return &gatewayAPIPreconditions{
 				Enabled:        true,
 				InstalledKinds: installedKinds,
 			}, nil
 		}
 
+		// Context expiry errors from checkCRDs bypass isTransientError, silently
+		// disabling Gateway API. Catch them here to trigger an operator restart.
+		if ctx.Err() != nil {
+			logger.Error(
+				"Gateway API CRD discovery timed out after retrying transient errors, operator will restart",
+				logfields.Error, err,
+			)
+			health.Stopped("Gateway API CRD discovery timed out after transient errors")
+			return nil, fmt.Errorf("gateway API CRD discovery timed out: %w", err)
+		}
+
 		if !isTransientError(err) {
-			params.Logger.Error(
+			logger.Error(
 				"Required GatewayAPI resources are not found, please refer to docs for installation instructions",
 				logfields.Error, err,
 			)
-			params.Health.Degraded("Gateway API CRDs not installed", err)
+			health.Degraded("Gateway API CRDs not installed", err)
 			return &gatewayAPIPreconditions{Enabled: false}, nil
 		}
 
-		params.Logger.Warn(
+		logger.Warn(
 			"Failed to check GatewayAPI CRDs due to transient error, will retry",
 			logfields.Error, err,
 		)
-		params.Health.Degraded("Gateway API initialization pending - API server unreachable", err)
+		health.Degraded("Gateway API initialization pending - API server unreachable", err)
 
 		if err := bo.Wait(ctx); err != nil {
-			return nil, err
+			// Context expired during backoff wait - same handling as above.
+			logger.Error(
+				"Gateway API CRD discovery timed out after retrying transient errors, operator will restart",
+				logfields.Error, err,
+			)
+			health.Stopped("Gateway API CRD discovery timed out after transient errors")
+			return nil, fmt.Errorf("gateway API CRD discovery timed out: %w", err)
 		}
 	}
 }
