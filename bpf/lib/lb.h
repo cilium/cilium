@@ -329,7 +329,7 @@ struct {
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
+	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_lb_affinity_match __section_maps_btf;
 
 /* Lookup scope for externalTrafficPolicy=Local */
