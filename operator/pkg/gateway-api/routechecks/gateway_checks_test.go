@@ -118,6 +118,42 @@ var gatewayFixtures = []client.Object{
 			},
 		},
 	},
+	// Gateway fixture for testing HTTP wildcard listener with HTTPS specific hostname overlap.
+	// This tests the scenario where an HTTP wildcard listener should still work when
+	// HTTPS listeners have specific hostnames that match the wildcard.
+	&gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "wildcard-http-gateway",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "catchall-http",
+					Port:     80,
+					Protocol: gatewayv1.HTTPProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.example.org"),
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromAll),
+						},
+					},
+				},
+				{
+					Name:     "specific-https",
+					Port:     443,
+					Protocol: gatewayv1.HTTPSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("specific.example.org"),
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromAll),
+						},
+					},
+				},
+			},
+		},
+	},
 }
 
 var namespaceFixture = []client.Object{
@@ -538,6 +574,33 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			// This test verifies the fix for https://github.com/cilium/cilium/issues/44123
+			// HTTP wildcard listener should allow routes with specific hostnames even when
+			// HTTPS listeners have more specific hostnames that match the wildcard.
+			name: "http wildcard listener allows route with specific hostname matching HTTPS listener",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "another-ns",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							Hostnames: []gatewayv1.Hostname{
+								"specific.example.org",
+							},
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:        "wildcard-http-gateway",
+					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
+					SectionName: ptr.To[gatewayv1.SectionName]("catchall-http"),
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -548,6 +611,90 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("CheckGatewayAllowedForNamespace() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetListenerHostNamesByProtocol(t *testing.T) {
+	tests := []struct {
+		name      string
+		listeners []gatewayv1.Listener
+		protocols []gatewayv1.ProtocolType
+		want      []gatewayv1.Hostname
+	}{
+		{
+			name: "filter by HTTP protocol only",
+			listeners: []gatewayv1.Listener{
+				{
+					Protocol: gatewayv1.HTTPProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.http.example.org"),
+				},
+				{
+					Protocol: gatewayv1.HTTPSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.https.example.org"),
+				},
+			},
+			protocols: []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType},
+			want:      []gatewayv1.Hostname{"*.http.example.org"},
+		},
+		{
+			name: "filter by HTTP and HTTPS protocols",
+			listeners: []gatewayv1.Listener{
+				{
+					Protocol: gatewayv1.HTTPProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.http.example.org"),
+				},
+				{
+					Protocol: gatewayv1.HTTPSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.https.example.org"),
+				},
+				{
+					Protocol: gatewayv1.TLSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.tls.example.org"),
+				},
+			},
+			protocols: []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType},
+			want:      []gatewayv1.Hostname{"*.http.example.org", "*.https.example.org"},
+		},
+		{
+			name: "listener with nil hostname is skipped",
+			listeners: []gatewayv1.Listener{
+				{
+					Protocol: gatewayv1.HTTPProtocolType,
+					Hostname: nil,
+				},
+				{
+					Protocol: gatewayv1.HTTPSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.https.example.org"),
+				},
+			},
+			protocols: []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType},
+			want:      []gatewayv1.Hostname{"*.https.example.org"},
+		},
+		{
+			name: "no matching protocols returns empty",
+			listeners: []gatewayv1.Listener{
+				{
+					Protocol: gatewayv1.TLSProtocolType,
+					Hostname: ptr.To[gatewayv1.Hostname]("*.tls.example.org"),
+				},
+			},
+			protocols: []gatewayv1.ProtocolType{gatewayv1.HTTPProtocolType},
+			want:      nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetListenerHostNamesByProtocol(tt.listeners, tt.protocols)
+			if len(got) != len(tt.want) {
+				t.Errorf("GetListenerHostNamesByProtocol() got = %v, want %v", got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("GetListenerHostNamesByProtocol() got[%d] = %v, want[%d] = %v", i, got[i], i, tt.want[i])
+				}
 			}
 		})
 	}

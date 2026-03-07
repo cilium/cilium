@@ -323,7 +323,13 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 
 func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
-	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
+	// Only consider hostnames from HTTP/HTTPS listeners for hostname isolation.
+	// This prevents HTTPS listener hostnames from incorrectly filtering out routes
+	// that should attach to HTTP wildcard listeners.
+	allListenerHostNames := routechecks.GetListenerHostNamesByProtocol(gw.Spec.Listeners, []gatewayv1.ProtocolType{
+		gatewayv1.HTTPProtocolType,
+		gatewayv1.HTTPSProtocolType,
+	})
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route, r.logger) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
 			filtered = append(filtered, route)
@@ -334,7 +340,13 @@ func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *g
 
 func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
-	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
+	// Only consider hostnames from HTTP/HTTPS listeners for hostname isolation.
+	// This prevents HTTPS listener hostnames from incorrectly filtering out routes
+	// that should attach to HTTP wildcard listeners.
+	allListenerHostNames := routechecks.GetListenerHostNamesByProtocol(gw.Spec.Listeners, []gatewayv1.ProtocolType{
+		gatewayv1.HTTPProtocolType,
+		gatewayv1.HTTPSProtocolType,
+	})
 
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route, r.logger) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
