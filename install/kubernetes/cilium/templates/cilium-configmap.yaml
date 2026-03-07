@@ -1382,7 +1382,7 @@ data:
 
 {{- if .Values.operator.unmanagedPodWatcher.restart }}
   {{- $interval := .Values.operator.unmanagedPodWatcher.intervalSeconds }}
-  unmanaged-pod-watcher-interval: {{ printf "%ds" (int $interval) | quote }}
+  unmanaged-pod-watcher-interval: {{ int $interval | quote }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
