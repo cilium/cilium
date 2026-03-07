@@ -59,7 +59,7 @@
  */
 static __always_inline int
 trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
-		  const struct iphdr *ip4,
+		  __u8 ihl,
 		  __u8 trace_ip_opt_type)
 {
 	__u8 opt_type;
@@ -68,11 +68,13 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 	__u32 end;
 	int i;
 
-	if (ip4->ihl <= IHL_WITH_NO_OPTS)
+	if (ihl <= IHL_WITH_NO_OPTS)
 		return TRACE_ID_NOT_FOUND;
 
+	// IHL includes the header length, so we need to multiply by 4 to get the
+	// actual end of the header.
 	offset = ETH_HLEN + sizeof(struct iphdr);
-	end = offset + (ip4->ihl << 2);
+	end = ETH_HLEN + (ihl << 2);
 
 #pragma unroll(MAX_IPV4_OPTS)
 	for (i = 0; i < MAX_IPV4_OPTS && offset < end; i++) {
@@ -101,6 +103,11 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 			return TRACE_ID_ERROR;
 
 		if (opt_type != trace_ip_opt_type) {
+			// The length field represents the entire option length (including
+			// the type and length fields).
+			if (optlen < 2) {
+				return TRACE_ID_INVALID;
+			}
 			offset += optlen;
 			continue;
 		}
@@ -163,10 +170,9 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 static __always_inline int
 trace_id_from_ctx(struct __ctx_buff *ctx, __s64 *value, __u8 ip_opt_type_value)
 {
-	void *data, *data_end;
 	__s64 trace_id = 0;
-	struct iphdr *ip4;
 	__be16 proto;
+	__u8 ihl;
 	int ret;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -178,10 +184,11 @@ trace_id_from_ctx(struct __ctx_buff *ctx, __s64 *value, __u8 ip_opt_type_value)
 	if (proto != bpf_htons(ETH_P_IP))
 		return TRACE_ID_NO_FAMILY;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+	if (ctx_load_bytes(ctx, ETH_HLEN, &ihl, 1) < 0)
 		return TRACE_ID_ERROR;
+	ihl &= 0x0F;
 
-	ret = trace_id_from_ip4(ctx, &trace_id, ip4, ip_opt_type_value);
+	ret = trace_id_from_ip4(ctx, &trace_id, ihl, ip_opt_type_value);
 	if (IS_ERR(ret))
 		return ret;
 
