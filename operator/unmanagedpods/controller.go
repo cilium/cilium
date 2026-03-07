@@ -86,11 +86,9 @@ type unmanagedPodsController struct {
 func (c *unmanagedPodsController) onStart(ctx cell.HookContext) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 		c.enableUnmanagedController()
-	}()
+	})
 
 	return nil
 }
@@ -108,12 +106,10 @@ func (c *unmanagedPodsController) enableUnmanagedController() {
 
 	mgr := controller.NewManager()
 
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 		<-c.ctx.Done()
 		mgr.RemoveAllAndWait()
-	}()
+	})
 
 	mgr.UpdateController("restart-unmanaged-pods",
 		controller.ControllerParams{

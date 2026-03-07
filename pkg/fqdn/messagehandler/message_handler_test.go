@@ -134,16 +134,14 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	// ebpf.io, done by every endpoint.
 	for b.Loop() {
 		for _, ep := range endpoints {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				// Using a hardcoded string representing endpoint IP:port as this
 				// parameter is only used in logging. Not using the endpoint's IP
 				// so we don't spend any time in the benchmark on converting from
 				// net.IP to string.
 				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.8:12345", 0, srvAddr, ciliumMsg, "udp", true, emptyPRCtx))
 				require.NoError(b, handler.NotifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, srvAddr, ebpfMsg, "udp", true, emptyPRCtx))
-			}()
+			})
 		}
 		wg.Wait()
 	}

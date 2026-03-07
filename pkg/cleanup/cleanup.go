@@ -13,10 +13,8 @@ import (
 // `f` returns from its execution that same waitGroup will signalize function
 // `f` is completed.
 func DeferTerminationCleanupFunction(wg *sync.WaitGroup, ch <-chan struct{}, f func()) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-ch
 		f()
-	}()
+	})
 }

@@ -264,11 +264,9 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				manager.processEvents(ctx)
-			}()
+			})
 
 			return nil
 		},

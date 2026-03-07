@@ -224,11 +224,9 @@ func newZDSServer(p serverParams) serverOut {
 				return fmt.Errorf("failed to listen on ztunnel unix addr: %w", err)
 			}
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				server.Serve(ctx)
-			}()
+			})
 
 			return nil
 		},
@@ -282,13 +280,11 @@ func (s *Server) Serve(ctx context.Context) {
 		connCtx, cancel := context.WithCancel(ctx)
 		cancelPrevConn = cancel
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := s.handleConn(connCtx, zc); err != nil {
 				s.logger.Error("failed to handle connection", logfields.Error, err)
 			}
-		}()
+		})
 	}
 }
 

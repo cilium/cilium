@@ -267,12 +267,9 @@ func (c *cache) start() waitChan {
 	c.nextKeyCache = keyMap{}
 	c.mutex.Unlock()
 
-	c.stopWatchWg.Add(1)
-
-	go func() {
+	c.stopWatchWg.Go(func() {
 		c.allocator.backend.ListAndWatch(c.ctx, c)
-		c.stopWatchWg.Done()
-	}()
+	})
 
 	return c.listDone
 }
