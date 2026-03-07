@@ -132,7 +132,7 @@ func newCiliumAuthMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "auth_info"),
 		MaxEntries: 524288,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -298,7 +298,7 @@ func newCiliumEgressGwPolicyV4Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "egress_gw_policy_entry"),
 		MaxEntries: 16384,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -312,7 +312,7 @@ func newCiliumEgressGwPolicyV6Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  40,
 		Value:      anyTypeByName(btf, "egress_gw_policy_entry6"),
 		MaxEntries: 16384,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -728,7 +728,7 @@ func newCiliumLBAffinityMatchSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  1,
 		Value:      anyTypeByName(btf, "__u8"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -742,7 +742,7 @@ func newCiliumLXCSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  48,
 		Value:      anyTypeByName(btf, "endpoint_info"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC,
+		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1083,7 +1083,7 @@ func newCiliumRuntimeConfigSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "__u64"),
 		MaxEntries: 256,
-		Flags:      0,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }
