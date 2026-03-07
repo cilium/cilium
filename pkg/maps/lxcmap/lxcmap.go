@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/ebpf"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
@@ -60,7 +61,7 @@ func newMap(registry *metrics.Registry) *lxcMap {
 			&EndpointKey{},
 			&EndpointInfo{},
 			MaxEntries,
-			0,
+			unix.BPF_F_RDONLY_PROG,
 		).
 			WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(mapName)),
