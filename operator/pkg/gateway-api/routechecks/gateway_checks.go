@@ -26,11 +26,6 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 		return false, nil
 	}
 
-	// Only consider hostnames from listeners of protocols this route can attach to.
-	// This prevents hostnames from different protocol types (e.g., HTTPS) from
-	// incorrectly filtering out routes that should attach to wildcard listeners
-	// of another protocol type (e.g., HTTP).
-	allListenerHostNames := GetListenerHostNamesByProtocol(gw.Spec.Listeners, input.GetValidProtocols())
 	hasNamespaceRestriction := false
 	for _, listener := range gw.Spec.Listeners {
 		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
@@ -40,7 +35,12 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 			continue
 		}
 
-		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) == 0 {
+		// Only consider hostnames from listeners with the same protocol for hostname isolation.
+		// This prevents hostnames from different protocol types (e.g., HTTPS) from
+		// incorrectly filtering out routes that should attach to wildcard listeners
+		// of another protocol type (e.g., HTTP).
+		protocolListenerHostNames := GetListenerHostNamesByProtocol(gw.Spec.Listeners, []gatewayv1.ProtocolType{listener.Protocol})
+		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), protocolListenerHostNames)) == 0 {
 			continue
 		}
 
