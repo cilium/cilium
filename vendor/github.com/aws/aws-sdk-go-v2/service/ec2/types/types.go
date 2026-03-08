@@ -1363,6 +1363,10 @@ type CancelSpotFleetRequestsSuccessItem struct {
 // Information about instance capacity usage for a Capacity Reservation.
 type CapacityAllocation struct {
 
+	// Additional metadata associated with the capacity allocation. Each entry
+	// contains a key-value pair providing context about the allocation.
+	AllocationMetadata []CapacityAllocationMetadataEntry
+
 	// The usage type. used indicates that the instance capacity is in use by
 	// instances that are running in the Capacity Reservation.
 	AllocationType AllocationType
@@ -1370,6 +1374,18 @@ type CapacityAllocation struct {
 	// The amount of instance capacity associated with the usage. For example a value
 	// of 4 indicates that instance capacity for 4 instances is currently in use.
 	Count *int32
+
+	noSmithyDocumentSerde
+}
+
+// A key-value pair that provides additional metadata about a capacity allocation.
+type CapacityAllocationMetadataEntry struct {
+
+	// The key of the metadata entry.
+	Key *string
+
+	// The value of the metadata entry.
+	Value *string
 
 	noSmithyDocumentSerde
 }

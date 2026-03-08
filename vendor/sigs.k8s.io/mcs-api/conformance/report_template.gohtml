@@ -15,6 +15,10 @@
 <body>
 <h2>MCS Conformance Report</h2>
 
+{{if and .DNSDomain (ne .DNSDomain "clusterset.local")}}
+    <p>DNS domain suffix: <strong>{{.DNSDomain}}</strong></p>
+{{end}}
+
 {{if .SuiteFailure }}
     <p style="color: red">{{.SuiteFailure}}</p>
 {{end}}

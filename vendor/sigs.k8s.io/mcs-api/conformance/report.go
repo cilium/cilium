@@ -226,9 +226,11 @@ var _ = ReportAfterSuite("MCS conformance report", func(report Report) {
 	data := struct {
 		Groups       []testGrouping
 		SuiteFailure string
+		DNSDomain    string
 	}{
 		Groups:       testGroups,
 		SuiteFailure: suiteFailure,
+		DNSDomain:    dnsDomain,
 	}
 
 	out, err := os.Create("report.html")

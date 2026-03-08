@@ -1,3 +1,12 @@
+# v1.294.0 (2026-03-05)
+
+* **Feature**: Added metadata field to CapacityAllocation.
+
+# v1.293.1 (2026-03-03)
+
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.293.0 (2026-02-26)
 
 * **Feature**: Add c8id, m8id and hpc8a instance types.

@@ -37,8 +37,8 @@ var _ = Describe("", func() {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services")
 			By("attempting to access the remote service", func() {
 				By("issuing a request from all clusters", func() {
-					command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.clusterset.local 42",
-						t.helloService.Name, t.namespace)}
+					command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.%s 42",
+						t.helloService.Name, t.namespace, dnsDomain)}
 
 					// Run on all clusters
 					for _, client := range clients {

@@ -56,6 +56,7 @@ var (
 	clients                          []clusterClients
 	loadingRules                     *clientcmd.ClientConfigLoadingRules
 	skipVerifyEndpointSliceManagedBy bool
+	dnsDomain                        string
 	ctx                              = context.TODO()
 )
 
@@ -76,6 +77,8 @@ func init() {
 			"However with some implementations, MCS EndpointSlices may be created and managed by K8s. If this flag is set to true, "+
 			"the test only verifies the presence of the label.",
 			discoveryv1.LabelManagedBy, K8sEndpointSliceManagedByName))
+	flag.StringVar(&dnsDomain, "dns-domain", "clusterset.local", "The DNS domain suffix used for multi-cluster services. "+
+		"The default is \"clusterset.local\" as specified by the MCS spec, but some implementations may use a custom domain.")
 }
 
 var _ = BeforeSuite(func() {
@@ -370,8 +373,8 @@ func (t *testDriver) awaitServicePodIP(c *clusterClients) string {
 }
 
 func (t *testDriver) execPortConnectivityCommand(port int, matchStr string, nIter int) {
-	command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.clusterset.local %d",
-		t.helloService.Name, t.namespace, port)}
+	command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.%s %d",
+		t.helloService.Name, t.namespace, dnsDomain, port)}
 
 	for _, client := range clients {
 		By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))

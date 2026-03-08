@@ -1,3 +1,4 @@
+//go:build go1.18
 // +build go1.18
 
 package deadlock
@@ -34,6 +35,6 @@ func trylock(lockFn func() bool, ptr interface{}) bool {
 		postLock(stack, ptr)
 	} else {
 		postUnlock(ptr)
-	}		
+	}
 	return ret
 }

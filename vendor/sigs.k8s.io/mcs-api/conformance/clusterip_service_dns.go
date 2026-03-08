@@ -32,7 +32,7 @@ import (
 var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 	t := newTestDriver()
 
-	Specify("A DNS lookup of the <service>.<ns>.svc.clusterset.local domain for a ClusterIP service should resolve to the "+
+	Specify("A DNS lookup of the <service>.<ns>.svc."+dnsDomain+" domain for a ClusterIP service should resolve to the "+
 		"clusterset IP", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
@@ -47,7 +47,7 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 			serviceImports = append(serviceImports, serviceImport)
 		}
 
-		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.clusterset.local", t.helloService.Name, t.namespace)}
+		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)}
 		for i, client := range clients {
 			clusterSetIP := serviceImports[i].Spec.IPs[0]
 			By(fmt.Sprintf("Found ServiceImport on cluster %q with clusterset IP %q", client.name, clusterSetIP))
@@ -57,11 +57,11 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 		}
 	})
 
-	Specify("A DNS SRV query of the <service>.<ns>.svc.clusterset.local domain for a ClusterIP service should return valid SRV "+
+	Specify("A DNS SRV query of the <service>.<ns>.svc."+dnsDomain+" domain for a ClusterIP service should return valid SRV "+
 		"records", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
-		domainName := fmt.Sprintf("%s.%s.svc.clusterset.local", t.helloService.Name, t.namespace)
+		domainName := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
 
 		for _, client := range clients {
 			srvRecs := t.expectSRVRecords(&client, domainName)
