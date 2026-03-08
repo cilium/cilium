@@ -45,11 +45,11 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 		t.helloDeployment.Spec.Replicas = ptr.To(int32(replicas))
 	})
 
-	Specify("A DNS query of the <service>.<ns>.svc.clusterset.local domain for a headless service should return the "+
+	Specify("A DNS query of the <service>.<ns>.svc."+dnsDomain+" domain for a headless service should return the "+
 		"ready endpoint addresses of all the backing pods", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
-		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.clusterset.local", t.helloService.Name, t.namespace)}
+		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)}
 
 		endpoints := t.awaitK8sEndpoints(&clients[0], discovery.AddressTypeIPv4)
 
@@ -75,7 +75,7 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Specify("A DNS query of the <hostname>.<clusterid>.<service>.<ns>.svc.clusterset.local domain for a headless StatefulSet "+
+		Specify("A DNS query of the <hostname>.<clusterid>.<service>.<ns>.svc."+dnsDomain+" domain for a headless StatefulSet "+
 			"service should return the requested pod's endpoint address", Label(EndpointSliceLabel), func() {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
@@ -103,8 +103,8 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 				for i := range eps.Endpoints {
 					ep := &eps.Endpoints[i]
 
-					command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.%s.%s.svc.clusterset.local",
-						ptr.Deref(ep.Hostname, ""), clusterID, t.helloService.Name, t.namespace)}
+					command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.%s.%s.svc.%s",
+						ptr.Deref(ep.Hostname, ""), clusterID, t.helloService.Name, t.namespace, dnsDomain)}
 
 					By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
 
@@ -114,13 +114,13 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 		})
 	})
 
-	Specify("A DNS SRV query of the <service>.<ns>.svc.clusterset.local domain for a headless service should return valid SRV "+
+	Specify("A DNS SRV query of the <service>.<ns>.svc."+dnsDomain+" domain for a headless service should return valid SRV "+
 		"records", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 		endpoints := t.awaitK8sEndpoints(&clients[0], discovery.AddressTypeIPv4)
 
-		domainName := fmt.Sprintf("%s.%s.svc.clusterset.local", t.helloService.Name, t.namespace)
+		domainName := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
 
 		for _, client := range clients {
 			srvRecs := t.expectSRVRecords(&client, domainName)
