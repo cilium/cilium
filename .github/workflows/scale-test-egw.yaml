@@ -71,16 +71,16 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.223.0
+  eksctl_version: v0.224.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.35.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 558.0.0
+  gcloud_version: 559.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 3fade09d39e06553962f46e0e5dc4d0bd29931e4
+  egw_utils_ref: 35760e90020f58d81ff956f081470a4f68150e9e
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
