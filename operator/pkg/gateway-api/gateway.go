@@ -47,18 +47,20 @@ type gatewayReconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	translator translation.Translator
+	cfg        translation.Config
 
 	logger        *slog.Logger
 	installedCRDs []schema.GroupVersionKind
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, cfg translation.Config, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		translator:    translator,
+		cfg:           cfg,
 		logger:        scopedLog,
 		installedCRDs: installedCRDs,
 	}
@@ -156,6 +158,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to BackendTLSPolicy
 		Watches(&gatewayv1.BackendTLSPolicy{}, r.enqueueRequestForBackendTLSPolicy()).
 		Watches(&corev1.ConfigMap{}, r.enqueueRequestForBackendTLSPolicyConfigMap()).
+		// Watch Node changes for hostNetwork/NodePort address resolution
+		Watches(&corev1.Node{}, r.enqueueRequestForNode()).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{})
@@ -200,6 +204,43 @@ func (r *gatewayReconciler) enqueueRequestForOwningGatewayClass() handler.EventH
 			reqs = append(reqs, req)
 			scopedLog.InfoContext(ctx,
 				"Queueing gateway",
+				logfields.K8sNamespace, gw.GetNamespace(),
+				gateway, gw.GetName(),
+			)
+		}
+		return reqs
+	})
+}
+
+// enqueueRequestForNode returns an event handler that, when a Node changes,
+// enqueues all Cilium-managed Gateways for reconciliation so that address
+// status can be updated for non-LoadBalancer services (hostNetwork/NodePort).
+func (r *gatewayReconciler) enqueueRequestForNode() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		scopedLog := r.logger.With(
+			logfields.LogSubsys, "queue-gw-from-node",
+			logfields.Resource, client.ObjectKeyFromObject(a).String(),
+		)
+
+		gwList := &gatewayv1.GatewayList{}
+		if err := r.Client.List(ctx, gwList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.ImplementationGatewayIndex, "cilium"),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list Gateways", logfields.Error, err)
+			return nil
+		}
+
+		reqs := make([]reconcile.Request, 0, len(gwList.Items))
+		for _, gw := range gwList.Items {
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: gw.Namespace,
+					Name:      gw.Name,
+				},
+			}
+			reqs = append(reqs, req)
+			scopedLog.InfoContext(ctx,
+				"Enqueued gateway for Node event",
 				logfields.K8sNamespace, gw.GetNamespace(),
 				gateway, gw.GetName(),
 			)

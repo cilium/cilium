@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	utilsnet "k8s.io/utils/net"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -468,24 +471,38 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	}
 
 	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
 
 	var addresses []gatewayv1.GatewayStatusAddress
-	for _, s := range svc.Status.LoadBalancer.Ingress {
-		if len(s.IP) != 0 {
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeLoadBalancer:
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			// LoadBalancer service isn't ready yet. No need to report as an error, because
+			// reconciliation should be triggered when the loadbalancer service gets updated.
+			return nil
+		}
+		for _, s := range svc.Status.LoadBalancer.Ingress {
+			if len(s.IP) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+					Value: s.IP,
+				})
+			}
+			if len(s.Hostname) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
+					Value: s.Hostname,
+				})
+			}
+		}
+	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
+		nodeAddresses, err := r.getNodeAddressesForGateway(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get node addresses: %w", err)
+		}
+		for _, addr := range nodeAddresses {
 			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: s.IP,
-			})
-		}
-		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
-				Value: s.Hostname,
+				Value: addr,
 			})
 		}
 	}
@@ -518,6 +535,76 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	}
 	gw.Status.Addresses = addresses
 	return nil
+}
+
+// getNodeAddressesForGateway returns a sorted list of node IP addresses suitable
+// for populating Gateway status addresses on non-LoadBalancer services (ClusterIP/NodePort).
+// When hostNetwork is enabled and a NodeLabelSelector is configured, only matching nodes are used.
+// Nodes being deleted or labeled with LabelNodeExcludeBalancers are skipped.
+// External IPs are preferred; internal IPs are used as fallback.
+// IPs are filtered by the configured IP families (IPv4/IPv6).
+func (r *gatewayReconciler) getNodeAddressesForGateway(ctx context.Context) ([]string, error) {
+	listOpts := []client.ListOption{}
+
+	// Apply node label selector filter when hostNetwork is enabled with a selector
+	if r.cfg.HostNetworkConfig.Enabled && r.cfg.HostNetworkConfig.NodeLabelSelector != nil {
+		if len(r.cfg.HostNetworkConfig.NodeLabelSelector.MatchLabels) > 0 {
+			listOpts = append(listOpts, client.MatchingLabels(r.cfg.HostNetworkConfig.NodeLabelSelector.MatchLabels))
+		}
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := r.Client.List(ctx, nodeList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	extIPs := sets.Set[string]{}
+	intIPs := sets.Set[string]{}
+
+	for _, node := range nodeList.Items {
+		// Skip nodes being deleted
+		if node.DeletionTimestamp != nil && !node.DeletionTimestamp.IsZero() {
+			continue
+		}
+		// Skip nodes excluded from load balancers
+		if _, excluded := node.Labels[corev1.LabelNodeExcludeBalancers]; excluded {
+			continue
+		}
+
+		for _, addr := range node.Status.Addresses {
+			switch addr.Type {
+			case corev1.NodeExternalIP:
+				if r.isAllowedIPFamily(addr.Address) {
+					extIPs.Insert(addr.Address)
+				}
+			case corev1.NodeInternalIP:
+				if r.isAllowedIPFamily(addr.Address) {
+					intIPs.Insert(addr.Address)
+				}
+			}
+		}
+	}
+
+	// Prefer external IPs; fall back to internal IPs
+	var ips []string
+	if extIPs.Len() > 0 {
+		ips = extIPs.UnsortedList()
+	} else {
+		ips = intIPs.UnsortedList()
+	}
+	slices.Sort(ips)
+	return ips, nil
+}
+
+// isAllowedIPFamily returns true if the given IP address matches the configured IP families.
+func (r *gatewayReconciler) isAllowedIPFamily(addr string) bool {
+	if r.cfg.IPConfig.IPv4Enabled && utilsnet.IsIPv4String(addr) {
+		return true
+	}
+	if r.cfg.IPConfig.IPv6Enabled && utilsnet.IsIPv6String(addr) {
+		return true
+	}
+	return false
 }
 
 func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {

@@ -264,6 +264,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
+		cfg,
 		params.Logger,
 		installedKinds,
 	); err != nil {
@@ -403,12 +404,12 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, cfg translation.Config, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger),
-		newGatewayReconciler(mgr, translator, logger, installedCRDs),
+		newGatewayReconciler(mgr, translator, cfg, logger, installedCRDs),
 		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}
