@@ -5,7 +5,6 @@ package translation
 
 import (
 	"fmt"
-	"maps"
 	goslices "slices"
 	"syscall"
 
