@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -195,4 +196,136 @@ func computePolicyForEPAndWait(t *testing.T, ep *Endpoint, fetcher compute.Polic
 	assert.NoError(t, err)
 	assert.NotNil(t, computedPolicyCh)
 	<-computedPolicyCh
+}
+
+// TestRemoveUserCausesRegenFailure reproduces the race condition from the
+// "Cilium Cluster Mesh upgrade" CI failure (run 22766154716) where:
+//
+//  1. Endpoint A with identity X has policy P computed (stored in statedb)
+//  2. Endpoint A regenerates: regeneratePolicy() → AddHold → DistillPolicy → user registered
+//  3. Endpoint B with same identity arrives (identityManager refCount 1→2)
+//  4. Endpoint A starts leaving: leaveLocked:1289 → desiredPolicy.Detach() → removeUser → P DETACHED
+//  5. Endpoint A finishes leaving: leaveLocked:1316 → identityManager.Remove → refCount 2→1 (no cleanup)
+//  6. Endpoint B calls regeneratePolicy(): reads detached P from statedb → AddHold fails
+//     → "selector policy was detached, aborting regeneration" (appeared 1,038x in CI sysdump)
+//
+// Without fix: test FAILS at step 6 — regeneratePolicy returns the detached error
+// With fix: test PASSES — removeUser keeps P idle, B's AddHold succeeds
+func TestRemoveUserCausesRegenFailure(t *testing.T) {
+	pe := policy.GetPolicyEnabled()
+	policy.SetPolicyEnabled("always")
+	defer policy.SetPolicyEnabled(pe)
+
+	logger := hivetest.Logger(t)
+	idcache := make(identity.IdentityMap)
+	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
+	idManager := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", "TestRemoveUserCausesRegenFailure", repo, idManager)
+
+	// Create identity for our pod
+	podLbls := labels.Labels{"pod": labels.NewLabel("k8s:pod", "", "")}
+	podID, _, err := fakeAllocator.AllocateIdentity(context.Background(), podLbls, false, 0)
+	require.NoError(t, err)
+	wg := &sync.WaitGroup{}
+	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{podID.ID: podID.LabelArray}, nil, wg)
+	wg.Wait()
+
+	// --- Step 1: Endpoint A arrives ---
+	idManager.Add(podID)
+
+	// Create endpoint A with real policy infrastructure
+	epA := Endpoint{
+		policyRepo:       repo,
+		policyFetcher:    polComputer,
+		desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
+		labels:           labels.NewOpLabels(),
+		SecurityIdentity: podID,
+		identityManager:  idManager,
+	}
+	epA.UpdateLogger(nil)
+
+	// Add a policy rule so there's actual policy to compute
+	podSelectLabel := labels.ParseSelectLabel("pod")
+	egressSelectLabel := labels.ParseSelectLabel("peer")
+	rule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(podSelectLabel),
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(egressSelectLabel),
+					},
+				},
+				ToPorts: []api.PortDenyRule{
+					{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: "TCP"},
+						},
+					},
+				},
+			},
+		},
+		Labels: labels.LabelArray{
+			labels.NewLabel(k8sConst.PolicyLabelName, "testRule", labels.LabelSourceAny),
+		},
+	}
+	_, rev := repo.MustAddList(api.Rules{rule})
+	computePolicyForEPAndWait(t, &epA, polComputer, rev)
+
+	// --- Step 2: Endpoint A regenerates (real regeneratePolicy call) ---
+	statsA := new(regenerationStatistics)
+	regenCtxA := &datapathRegenerationContext{policyRevisionToWaitFor: rev}
+	err = epA.regeneratePolicy(statsA, regenCtxA)
+	require.NoError(t, err, "endpoint A regeneration must succeed")
+	require.NotNil(t, regenCtxA.policyResult.endpointPolicy)
+
+	// Update desiredPolicy to the computed EndpointPolicy (what setDesiredPolicy does)
+	// so that Detach() will call removeUser on the correct selectorPolicy
+	epA.desiredPolicy = regenCtxA.policyResult.endpointPolicy
+
+	// --- Step 3: Endpoint B arrives BEFORE A finishes leaving ---
+	// identityManager.Add → refCount 1→2, no observer notification (already present)
+	idManager.Add(podID)
+
+	// --- Step 4: Endpoint A starts leaving (leaveLocked line 1289) ---
+	// Production: e.desiredPolicy.Ready(); e.desiredPolicy.Detach()
+	//   → removeUser → maybeDetachLocked → P DETACHED (the bug)
+	epA.desiredPolicy.Ready()
+	epA.desiredPolicy.Detach(logger)
+
+	// --- Step 5: Endpoint A finishes leaving (leaveLocked line 1316) ---
+	// identityManager.Remove → refCount 2→1, policyCache.delete does NOT fire
+	idManager.Remove(podID)
+
+	// --- Step 6: Endpoint B regenerates (real regeneratePolicy call) ---
+	// This is the EXACT CI failure path: regeneratePolicy reads the detached P from
+	// statedb via waitForPolicyComputationResult, then calls AddHold() which fails,
+	// returning: "selector policy was detached, aborting regeneration"
+	epB := Endpoint{
+		policyRepo:       repo,
+		policyFetcher:    polComputer,
+		desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
+		labels:           labels.NewOpLabels(),
+		SecurityIdentity: podID,
+		identityManager:  idManager,
+	}
+	epB.UpdateLogger(nil)
+
+	statsB := new(regenerationStatistics)
+	regenCtxB := &datapathRegenerationContext{policyRevisionToWaitFor: rev}
+	err = epB.regeneratePolicy(statsB, regenCtxB)
+
+	// WITHOUT FIX: err = "selector policy was detached, aborting regeneration"
+	// WITH FIX: err = nil — P stayed idle, B's AddHold succeeded
+	require.NoError(t, err,
+		"endpoint B must not get 'selector policy was detached, aborting regeneration' (the CI failure)")
+	require.NotNil(t, regenCtxB.policyResult.endpointPolicy,
+		"endpoint B must get a valid EndpointPolicy")
+
+	// --- Step 7: Cleanup — both endpoints gone ---
+	regenCtxB.policyResult.endpointPolicy.Ready()
+	regenCtxB.policyResult.endpointPolicy.Detach(logger)
+	// refCount 1→0 → observer → policyCache.delete → detach(true, 0) → full cleanup
+	idManager.Remove(podID)
 }

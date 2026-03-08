@@ -1552,6 +1552,17 @@ type L4Policy struct {
 	mutex lock.RWMutex
 	users map[*EndpointPolicy]struct{}
 
+	// holdCount tracks references to this policy that have been obtained
+	// but haven't yet called insertUser(). This prevents premature detachment
+	// when the last current user removes itself while a new endpoint is
+	// in the process of adopting this policy.
+	holdCount int
+
+	// superseded is set when this policy has been replaced by a newer one.
+	// maybeDetachLocked only performs full detachment for superseded policies,
+	// preventing premature detachment of policies still current in statedb.
+	superseded bool
+
 	// detachedTime can be used for users that don't need to grab the lock.
 	detachedTime atomic.Pointer[time.Time]
 }
@@ -1566,11 +1577,62 @@ func NewL4Policy(revision uint64) L4Policy {
 	}
 }
 
+// addHold increments the hold count for this policy. A hold represents
+// an endpoint that has obtained this policy but hasn't yet called insertUser.
+// This prevents premature detachment during the window between policy computation
+// and user registration.
+// Returns false if the policy has already been detached (users == nil),
+// in which case the caller should not proceed with this policy.
+func (l4 *L4Policy) addHold() bool {
+	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+	if l4.users == nil {
+		return false
+	}
+	l4.holdCount++
+	return true
+}
+
+// releaseHoldLocked decrements the hold count and potentially detaches the policy
+// if both the hold count and user count reach zero. Must be called with l4.mutex held.
+func (l4 *L4Policy) releaseHoldLocked(selectorCache *SelectorCache) {
+	if l4.holdCount > 0 {
+		l4.holdCount--
+	}
+	l4.maybeDetachLocked(selectorCache)
+}
+
+// maybeDetachLocked detaches the policy if all conditions are met:
+// 1. The policy is still live (users != nil; nil means already detached)
+// 2. No users are registered (len(users) == 0)
+// 3. No holds are outstanding (holdCount == 0)
+// 4. The policy has been superseded by a newer one
+//
+// The superseded check prevents premature detachment when removeUser or
+// releaseHoldLocked drain users from a policy that is still the current
+// statedb entry. Without it, removeUser would detach the live policy,
+// creating a permanently stale entry that traps all endpoints sharing that
+// identity in an infinite regeneration loop.
+//
+// The users != nil check prevents re-detaching an already-detached policy,
+// which would deadlock when called from insertUser inside SelectorCache.WithRLock,
+// as Detach needs the SelectorCache write lock.
+// Must be called with l4.mutex held.
+func (l4 *L4Policy) maybeDetachLocked(selectorCache *SelectorCache) {
+	if l4.holdCount == 0 && l4.users != nil && len(l4.users) == 0 && l4.superseded {
+		l4.Ingress.Detach(selectorCache)
+		l4.Egress.Detach(selectorCache)
+		l4.users = nil
+		l4.detachedTime.Store(ptr.To(time.Now()))
+	}
+}
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+func (l4 *L4Policy) insertUser(user *EndpointPolicy, selectorCache *SelectorCache) {
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
 
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
@@ -1593,21 +1655,25 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 		})
 	}
 
-	l4.mutex.Unlock()
+	// Release the hold that was taken when this policy was computed/reused
+	l4.releaseHoldLocked(selectorCache)
 }
 
 // removeUser removes a user that no longer needs incremental updates
-// from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+// from the L4Policy. It detaches the policy if this was the last user
+// and there are no outstanding holds.
+func (l4 *L4Policy) removeUser(user *EndpointPolicy, selectorCache *SelectorCache) {
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is
 	// removed.
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+
 	if l4.users != nil {
 		delete(l4.users, user)
 	}
-	l4.mutex.Unlock()
+	l4.maybeDetachLocked(selectorCache)
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.
@@ -1737,26 +1803,32 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorSnapshot) {
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
 func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
-	l4.Ingress.Detach(selectorCache)
-	l4.Egress.Detach(selectorCache)
+	if isDelete {
+		l4.Ingress.Detach(selectorCache)
+		l4.Egress.Detach(selectorCache)
+		l4.mutex.Lock()
+		defer l4.mutex.Unlock()
+		l4.users = nil
+		l4.detachedTime.Store(ptr.To(time.Now()))
+		return
+	}
 
+	// Policy replacement: notify existing users to regenerate so they
+	// migrate to the new policy. The actual detach is deferred to
+	// maybeDetachLocked, which waits for all users and holds to drain.
 	l4.mutex.Lock()
 	defer l4.mutex.Unlock()
-	// If this detach is a delete there is no reason to initiate
-	// a regenerate.
-	if !isDelete {
-		for ePolicy := range l4.users {
-			if endpointID != ePolicy.PolicyOwner.GetID() {
-				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            regeneration.ReasonSelectorPolicyStale,
-					Message:           "selector policy has changed because of another endpoint with the same identity",
-					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-				})
-			}
+	for ePolicy := range l4.users {
+		if endpointID != ePolicy.PolicyOwner.GetID() {
+			go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+				Reason:            regeneration.ReasonSelectorPolicyStale,
+				Message:           "selector policy has changed because of another endpoint with the same identity",
+				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+			})
 		}
 	}
-	l4.users = nil
-	l4.detachedTime.Store(ptr.To(time.Now()))
+	l4.superseded = true
+	l4.maybeDetachLocked(selectorCache)
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.

@@ -163,7 +163,13 @@ type SelectorPolicy interface {
 
 	// GetSelectorSnapshot returns a selector snapshot if available and valid
 	GetSelectorSnapshot() SelectorSnapshot
+	// AddHold increments the hold count to prevent detachment while
+	// the endpoint is preparing to use this policy. Returns false if
+	// the policy has already been detached, meaning the caller should
+	// not proceed with this policy.
+	AddHold() bool
 	Detach()
+	MaybeDetach()
 	GetRevision() uint64
 }
 
@@ -287,16 +293,23 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 	}
 }
 
+// AddHold increments the hold count to prevent detachment while
+// the endpoint is preparing to use this policy. Returns false if
+// the policy has already been detached.
+func (p *selectorPolicy) AddHold() bool {
+	return p.L4Policy.addHold()
+}
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	p.L4Policy.insertUser(user)
+	p.L4Policy.insertUser(user, p.SelectorCache)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	p.L4Policy.removeUser(user, p.SelectorCache)
 }
 
 func (p *selectorPolicy) Detach() {
@@ -314,6 +327,16 @@ func (p *selectorPolicy) Detach() {
 // the same endpoint that initiated a selector policy update.
 func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
 	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
+}
+
+func (p *selectorPolicy) MaybeDetach() {
+	if p == nil {
+		return
+	}
+	p.L4Policy.mutex.Lock()
+	defer p.L4Policy.mutex.Unlock()
+	p.L4Policy.superseded = true
+	p.L4Policy.maybeDetachLocked(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
