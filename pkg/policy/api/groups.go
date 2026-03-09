@@ -12,6 +12,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -69,6 +70,21 @@ func (g *Groups) Hash() string {
 // if the same IP is referenced by multiple groups.
 func (g *Groups) LabelKey() string {
 	return LabelGroupKeyPrefix + g.Hash()
+}
+
+// Implementation of APISelector type
+
+// SelectorKey is a string representation of this selector.
+func (g Groups) SelectorKey() string {
+	return labels.LabelSourceCIDRGroup + ":" + g.LabelKey()
+}
+
+// GetAsEndpointSelector converts this Group in to the underlying label selector
+// for CIDRGroups.
+//
+// A separate controller resolves external groups and upserts them to a CiliumCIDRGroup.
+func (g *Groups) GetAsEndpointSelector() EndpointSelector {
+	return NewESFromLabels(labels.NewLabel(g.LabelKey(), "", labels.LabelSourceCIDRGroup))
 }
 
 // RegisterToGroupsProvider it will register a new callback that will be used
