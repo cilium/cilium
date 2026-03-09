@@ -420,6 +420,8 @@ jobs:
           mkdir -p ../cilium-base-branch/.github/actions
           cp -a .github/actions/generic-external-targets ../cilium-base-branch/.github/actions/
           cp -a .github/actions/cli-test-config ../cilium-base-branch/.github/actions/
+          cp -a .github/actions/post-logic ../cilium-base-branch/.github/actions/
+          cp -a .github/actions/gke-clean-esp-rule ../cilium-base-branch/.github/actions/
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -500,7 +502,7 @@ jobs:
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
-        uses: ./.github/actions/post-logic
+        uses: ./../cilium-base-branch/.github/actions/post-logic
         with:
           artifacts_suffix: "gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})"
           job_status: "${{ job.status }}"
@@ -508,7 +510,7 @@ jobs:
 
       - name: Clean up ESP allow firewall rule
         if: ${{ always() && matrix.config.ipsec == true }}
-        uses: ./.github/actions/gke-clean-esp-rule
+        uses: ./../cilium-base-branch/.github/actions/gke-clean-esp-rule
         with:
           cluster_name: ${{ env.clusterName }}-${{ matrix.config.index }}
           cluster_zone: ${{ matrix.k8s.zone }}
