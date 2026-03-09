@@ -1714,6 +1714,21 @@
         "object"
       ]
     },
+    "configDriftDetection": {
+      "properties": {
+        "driftChecker": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "ignoredKeys": {
+          "items": {},
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "connectivityProbeFrequencyRatio": {
       "type": [
         "null",
