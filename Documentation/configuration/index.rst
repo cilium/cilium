@@ -60,6 +60,16 @@ You may change the configuration of a running installation in three ways:
    :ref:`per-node-configuration` page for more details. This requires
    that pods be manually deleted for changes to take effect.
 
+.. _config-drift-detection:
+
+Detecting unapplied ConfigMap changes
+-------------------------------------
+
+Because many Cilium configuration changes require an agent restart to take
+effect, there is a window after updating the ``cilium-config`` ConfigMap where
+the running agent's settings no longer match the desired state. Cilium exposes
+a Prometheus metric to make this drift visible. See
+:ref:`configmap-drift-detection` for details.
 
 Core Agent
 ----------
@@ -69,6 +79,7 @@ Core Agent
 
    api-rate-limiting
    api-restrictions
+   configmap-drift-detection
    per-node-config
    sctp
    vlan-802.1q
