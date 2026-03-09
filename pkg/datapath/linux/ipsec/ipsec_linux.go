@@ -136,8 +136,9 @@ var (
 	}
 )
 
-// Upon starting, the agent will load the ipsec key, set the SPI accordingly,
-// and update the EncryptionKey in the local node object to the SPI.
+// Upon starting, the agent will load the ipsec key. The SPI is published to
+// the eBPF map and CiliumNode separately via PublishKeyIdentity(), which
+// should be called after XFRM states are configured.
 type Agent struct {
 	ipSecLock lock.RWMutex
 
@@ -198,18 +199,24 @@ func (a *Agent) Start(cell.HookContext) error {
 	}
 
 	var err error
+	// Load keys from file ONLY. Do NOT update eBPF map or CiliumNode yet.
+	// The eBPF map will be updated in PublishKeyIdentity() AFTER XFRM states
+	// are created to ensure synchronization between XFRM and eBPF state.
 	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
 		return err
 	}
-	if err := a.setIPSecSPI(a.spi); err != nil {
-		return err
-	}
+	return nil
+}
 
+// PublishKeyIdentity updates the eBPF map and CiliumNode resource with the current SPI. This should be called after XFRM states are created to avoid race conditions.
+func (a *Agent) PublishKeyIdentity() error {
 	a.localNode.Update(func(n *node.LocalNode) {
 		n.EncryptionKey = a.spi
 	})
-
+	if err := a.setIPSecSPI(a.spi); err != nil {
+		return err
+	}
 	return nil
 }
 

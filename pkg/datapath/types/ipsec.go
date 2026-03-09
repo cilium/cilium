@@ -16,6 +16,7 @@ type IPsecAgent interface {
 	DeleteIPsecEndpoint(nodeID uint16) error
 	DeleteXFRM(reqID int) error
 	DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error
+	PublishKeyIdentity() error
 }
 
 type IPsecConfig interface {
