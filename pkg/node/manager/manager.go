@@ -86,6 +86,8 @@ type IPCache interface {
 	RemoveIdentityOverride(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	UpsertTunnelEndpointMapping(from, to net.IP)
+	DeleteTunnelEndpointMapping(from net.IP)
 }
 
 // IPSetFilterFn is a function allowing to optionally filter out the insertion
@@ -177,6 +179,8 @@ type manager struct {
 	wgConfig types.Config
 
 	localNodeStore *node.LocalNodeStore
+
+	tepMappingInitializer ipcache.TEPMappingInitializer
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -275,6 +279,7 @@ func New(
 	devices statedb.Table[*tables.Device],
 	wgCfg types.Config,
 	localNodeStore *node.LocalNodeStore,
+	tepMappingInitializer ipcache.TEPMappingInitializer,
 ) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
@@ -300,6 +305,7 @@ func New(
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		wgConfig:               wgCfg,
 		localNodeStore:         localNodeStore,
+		tepMappingInitializer:  tepMappingInitializer,
 	}
 
 	return m, nil
@@ -786,6 +792,18 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	// the nodeIP as the tunnel endpoint (no tunnel endpoint fallback is needed
 	// for the local node).
 	if !n.IsLocal() {
+		if m.conf.EnableFloatingTunnelEndpoint {
+			if nodeIP.Is6() {
+				if internalIPv6 := n.GetCiliumInternalIP(true); internalIPv6 != nil {
+					m.ipcache.UpsertTunnelEndpointMapping(nodeIP.AsSlice(), internalIPv6)
+				}
+			} else {
+				if internalIPv4 := n.GetCiliumInternalIP(false); internalIPv4 != nil {
+					m.ipcache.UpsertTunnelEndpointMapping(nodeIP.AsSlice(), internalIPv4)
+				}
+			}
+		}
+
 		ipv4PodCIDRs := n.GetIPv4AllocCIDRs()
 		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
 
@@ -1080,6 +1098,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
 			m.endpointEncryptionKey(&oldNode))
 	}
+
+	m.ipcache.DeleteTunnelEndpointMapping(oldNodeIP.AsSlice())
 }
 
 // NodeDeleted is called after a node has been deleted. It removes the node
@@ -1151,6 +1171,27 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 		m.metrics.NumNodes.Dec()
 	}
 
+	if !n.IsLocal() {
+		var nodeIP netip.Addr
+		if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP != nil {
+			// GH-24829: Support IPv6-only nodes.
+
+			// Skip returning the error here because at this level, we assume that
+			// the IP is valid as long as it's coming from nodeTypes.Node. This
+			// object is created either from the node discovery (K8s) or from an
+			// event from the kvstore.
+			nodeIP, _ = netipx.FromStdIP(nIP)
+		}
+
+		if m.conf.EnableFloatingTunnelEndpoint {
+			if nodeIP.Is6() {
+				m.ipcache.DeleteTunnelEndpointMapping(nodeIP.AsSlice())
+			} else {
+				m.ipcache.DeleteTunnelEndpointMapping(nodeIP.AsSlice())
+			}
+		}
+	}
+
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	if m.nodeCheckpointer != nil {
@@ -1188,6 +1229,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 // deletion of possible stale nodes.
 func (m *manager) NodeSync() {
 	m.ipsetInitializer.InitDone()
+	m.tepMappingInitializer.Initialize()
 
 	// Due to the complexity around kvstore vs k8s as node sources, it may occur
 	// that both sources call NodeSync at some point. Ensure we only run this

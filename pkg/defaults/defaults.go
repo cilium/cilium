@@ -539,6 +539,9 @@ const (
 
 	// PolicyAccouting is the default value for option.PolicyAccounting
 	PolicyAccounting = true
+
+	// EnableFloatingTunnelEndpoint is the default value for option.EnableFloatingTunnelEndpoint
+	EnableFloatingTunnelEndpoint = false
 )
 
 var (

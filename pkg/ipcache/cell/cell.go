@@ -40,6 +40,7 @@ var Cell = cell.Module(
 		ipcache.NewLocalIPIdentityWatcher,
 		ipcache.NewIPIdentitySynchronizer,
 		newIPCacheAPIHandler,
+		ipcache.NewTEPMappingInitializer,
 	),
 
 	// LocalIdentityRestorer restores the identities at startup
@@ -56,6 +57,10 @@ var Cell = cell.Module(
 		// Register a job to associate default/kubernetes backend IPs with the
 		// 'reserved:kube-apiserver' label.
 		registerAPIServerBackendWatcher,
+
+		// Register a job to reconcile IPCache entries on tunnel endpoint mapping
+		// changes.
+		ipcache.RegisterReconcileTunnelEndpointsJob,
 	),
 )
 
@@ -82,11 +87,12 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	// local identities. Generates incremental updates, pushes
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		Logger:            params.Logger,
-		IdentityAllocator: params.CacheIdentityAllocator,
-		IdentityUpdater:   params.IdentityUpdater,
-		CacheStatus:       params.CacheStatus,
+		Context:                      ctx,
+		Logger:                       params.Logger,
+		IdentityAllocator:            params.CacheIdentityAllocator,
+		IdentityUpdater:              params.IdentityUpdater,
+		CacheStatus:                  params.CacheStatus,
+		EnableFloatingTunnelEndpoint: params.DaemonConfig.EnableFloatingTunnelEndpoint,
 	})
 
 	params.Lifecycle.Append(cell.Hook{

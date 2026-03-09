@@ -16,6 +16,7 @@ import (
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -26,12 +27,18 @@ import (
 //
 // The actual implementation of this logic down to the datapath is handled
 // asynchronously by IPCache.
-func registerAPIServerBackendWatcher(jobs job.Group, db *statedb.DB, backends statedb.Table[*loadbalancer.Backend], ipc *ipcache.IPCache) {
+func registerAPIServerBackendWatcher(jobs job.Group, db *statedb.DB, backends statedb.Table[*loadbalancer.Backend], ipc *ipcache.IPCache, conf *option.DaemonConfig, TEPMappingInitializer ipcache.TEPMappingInitializer) {
 	jobs.Add(
 		job.OneShot(
 			"api-server-backend-watcher",
 			func(ctx context.Context, health cell.Health) error {
 				for {
+					// If floating tunnel endpoints are enabled, then we need to wait for the mappings in the ipcache
+					// to be initialized before we start inserting endpoints.
+					if conf.EnableFloatingTunnelEndpoint {
+						TEPMappingInitializer.Wait()
+					}
+
 					// Get all backend IPs associated to the api-server
 					bes, watch := loadbalancer.ListBackendsByServiceName(
 						db.ReadTxn(),

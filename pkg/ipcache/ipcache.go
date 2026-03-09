@@ -10,6 +10,9 @@ import (
 	"net/netip"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/cilium/hive/job"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -108,6 +111,8 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.IdentityUpdater
 	synced.CacheStatus
+	EnableFloatingTunnelEndpoint bool
+	TEPMappingInitializer        TEPMappingInitializer
 }
 
 // IPCache is a collection of mappings:
@@ -115,15 +120,17 @@ type Configuration struct {
 //     which are part of the same cluster, and vice-versa
 //   - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
-	logger            *slog.Logger
-	mutex             lock.SemaphoredMutex
-	ipToIdentityCache map[string]Identity
-	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
-	ipToHostIPCache   map[string]IPKeyPair
-	ipToK8sMetadata   map[string]K8sMetadata
-	ipToEndpointFlags map[string]uint8
+	logger             *slog.Logger
+	mutex              lock.SemaphoredMutex
+	ipToIdentityCache  map[string]Identity
+	identityToIPCache  map[identity.NumericIdentity]map[string]struct{}
+	ipToHostIPCache    map[string]IPKeyPair
+	ipToK8sMetadata    map[string]K8sMetadata
+	ipToEndpointFlags  map[string]uint8
+	ipToTunnelEndpoint map[string]net.IP
 
-	listeners []IPIdentityMappingListener
+	listeners               []IPIdentityMappingListener
+	tunnelEndpointListeners []TunnelEndpointMappingListener
 
 	// controllers manages the async controllers for this IPCache
 	controllers *controller.Manager
@@ -155,24 +162,33 @@ type IPCache struct {
 	// injectionStarted is a sync.Once so we can lazily start the prefix injection controller,
 	// but only once
 	injectionStarted sync.Once
+
+	// tunnelMappingsTrigger for reconciling changed tunnel mappings
+	tunnelMappingsTrigger job.Trigger
 }
+
+const (
+	tunnelMappingsMinInterval = 5 * time.Second
+)
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
 func NewIPCache(c *Configuration) *IPCache {
 	ipc := &IPCache{
-		logger:            c.Logger,
-		mutex:             lock.NewSemaphoredMutex(),
-		ipToIdentityCache: map[string]Identity{},
-		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
-		ipToHostIPCache:   map[string]IPKeyPair{},
-		ipToK8sMetadata:   map[string]K8sMetadata{},
-		ipToEndpointFlags: map[string]uint8{},
-		controllers:       controller.NewManager(),
-		namedPorts:        types.NewNamedPortMultiMap(),
-		metadata:          newMetadata(c.Logger),
-		prefixLengths:     counter.DefaultPrefixLengthCounter(),
-		Configuration:     c,
+		logger:                c.Logger,
+		mutex:                 lock.NewSemaphoredMutex(),
+		ipToIdentityCache:     map[string]Identity{},
+		identityToIPCache:     map[identity.NumericIdentity]map[string]struct{}{},
+		ipToHostIPCache:       map[string]IPKeyPair{},
+		ipToK8sMetadata:       map[string]K8sMetadata{},
+		ipToEndpointFlags:     map[string]uint8{},
+		ipToTunnelEndpoint:    map[string]net.IP{},
+		controllers:           controller.NewManager(),
+		namedPorts:            types.NewNamedPortMultiMap(),
+		metadata:              newMetadata(c.Logger),
+		prefixLengths:         counter.DefaultPrefixLengthCounter(),
+		Configuration:         c,
+		tunnelMappingsTrigger: job.NewTrigger(job.WithDebounce(tunnelMappingsMinInterval)),
 	}
 	return ipc
 }
@@ -333,6 +349,14 @@ func (ipc *IPCache) upsertLocked(
 	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
 	metaEqual := oldK8sMeta.Equal(k8sMeta)
+
+	if ipc.Configuration.EnableFloatingTunnelEndpoint {
+		if hostIP != nil {
+			if tunnelIP, found := ipc.ipToTunnelEndpoint[hostIP.String()]; found {
+				hostIP = tunnelIP
+			}
+		}
+	}
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
@@ -635,6 +659,11 @@ func (ipc *IPCache) dumpToListenerLocked(listener IPIdentityMappingListener) {
 			continue
 		}
 		hostIP, encryptKey := ipc.getHostIPCacheRLocked(ip)
+		if option.Config.EnableFloatingTunnelEndpoint && hostIP != nil {
+			if mappedIP, ok := ipc.ipToTunnelEndpoint[hostIP.String()]; ok {
+				hostIP = mappedIP
+			}
+		}
 		k8sMeta := ipc.getK8sMetadata(ip)
 		endpointFlags := ipc.getEndpointFlagsRLocked(ip)
 		cidrCluster, err := cmtypes.ParsePrefixCluster(ip)
@@ -911,6 +940,127 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 		}
 	}
 	return cidrs
+}
+
+type TEPMappingInitializer chan struct{}
+
+// TunnelEndpointMappingListener represents a component that is interested in
+// floating tunnel endpoint mapping changes.
+type TunnelEndpointMappingListener interface {
+	OnTunnelEndpointMappingUpsert(from, to net.IP)
+	OnTunnelEndpointMappingDelete(from net.IP)
+}
+
+func NewTEPMappingInitializer() TEPMappingInitializer {
+	return make(chan struct{})
+}
+
+func (tepm TEPMappingInitializer) Initialize() {
+	close(tepm)
+}
+
+func (tepm TEPMappingInitializer) Wait() {
+	<-tepm
+}
+
+// AddTunnelEndpointMappingListener adds a listener for tunnel endpoint mapping changes.
+func (ipc *IPCache) AddTunnelEndpointMappingListener(listener TunnelEndpointMappingListener) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.RUnlock()
+	ipc.tunnelEndpointListeners = append(ipc.tunnelEndpointListeners, listener)
+	ipc.mutex.UnlockToRLock()
+
+	for from, to := range ipc.ipToTunnelEndpoint {
+		listener.OnTunnelEndpointMappingUpsert(net.ParseIP(from), to)
+	}
+}
+
+func (ipc *IPCache) UpsertTunnelEndpointMapping(from, to net.IP) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.RUnlock()
+	ipc.ipToTunnelEndpoint[from.String()] = to
+	ipc.mutex.UnlockToRLock()
+
+	for _, listener := range ipc.tunnelEndpointListeners {
+		listener.OnTunnelEndpointMappingUpsert(from, to)
+	}
+}
+
+func (ipc *IPCache) GetTunnelEndpointMapping(from net.IP) (to net.IP, ok bool) {
+	ipc.mutex.RLock()
+	to, ok = ipc.ipToTunnelEndpoint[from.String()]
+	ipc.mutex.RUnlock()
+	return
+}
+
+func (ipc *IPCache) DeleteTunnelEndpointMapping(from net.IP) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	delete(ipc.ipToTunnelEndpoint, from.String())
+
+	for _, listener := range ipc.tunnelEndpointListeners {
+		listener.OnTunnelEndpointMappingDelete(from)
+	}
+}
+
+func RegisterReconcileTunnelEndpointsJob(jg job.Group, ipc *IPCache) {
+	jg.Add(
+		job.Timer(
+			"reconcile-tunnel-endpoints",
+			ipc.reconcileTunnelEndpoints,
+			0, // only runs when triggered
+			job.WithTrigger(ipc.tunnelMappingsTrigger),
+		),
+	)
+}
+
+// reconcileTunnelEndpoints is triggered when tunnel mappings are updated to fix entries
+// that point to the old endpoint.
+func (ipc *IPCache) reconcileTunnelEndpoints(_ context.Context) error {
+	// Find entries that need to be re-upserted in order to pick up the new tunnel
+	// endpoint. As we don't expect in steady state for there to be anything to
+	// update we find the entries first with RLock() and then promote to Lock()
+	// when needed.
+	var outOfDate []string
+	ipc.mutex.RLock()
+	for ip, host := range ipc.ipToHostIPCache {
+		tunnelIP, found := ipc.ipToTunnelEndpoint[host.IP.String()]
+		if !found || host.IP.Equal(tunnelIP) {
+			continue
+		}
+		outOfDate = append(outOfDate, ip)
+	}
+	ipc.mutex.RUnlock()
+
+	if len(outOfDate) == 0 {
+		return nil
+	}
+
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	for _, ip := range outOfDate {
+		// As the entry might've changed after acquiring the write lock, recheck
+		// it.
+		host, found := ipc.ipToHostIPCache[ip]
+		if !found {
+			continue
+		}
+		tunnelIP, found := ipc.ipToTunnelEndpoint[host.IP.String()]
+		if !found || host.IP.Equal(tunnelIP) {
+			continue
+		}
+		_, _ = ipc.upsertLocked(
+			ip,
+			host.IP,
+			host.Key,
+			ipc.getK8sMetadata(ip),
+			ipc.ipToIdentityCache[ip],
+			ipc.ipToEndpointFlags[ip],
+			false,
+			false,
+		)
+	}
+	return nil
 }
 
 // Equal returns true if two K8sMetadata pointers contain the same data or are

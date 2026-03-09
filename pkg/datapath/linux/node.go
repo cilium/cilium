@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"regexp"
 	"sync"
 	"syscall"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -25,10 +27,13 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -77,7 +82,11 @@ type linuxNodeHandler struct {
 
 	kprCfg kpr.KPRConfig
 
-	ipsecCfg ipsecTypes.Config
+	ipsecCfg                         ipsecTypes.Config
+	db                               *statedb.DB
+	deviceTable                      statedb.Table[*tables.Device]
+	tunnelRoutingDeviceRegexes       []*regexp.Regexp
+	tunnelEndpointMappingInitialized ipcache.TEPMappingInitializer
 }
 
 var (
@@ -98,13 +107,17 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
+	db *statedb.DB,
+	deviceTable statedb.Table[*tables.Device],
+	tunnelEndpointMappingInitialized ipcache.TEPMappingInitializer,
+	sysctl sysctl.Sysctl,
 ) (node.Handler, node.IDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore, db, deviceTable, tunnelEndpointMappingInitialized)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -112,6 +125,7 @@ func NewNodeHandler(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
 			handler.RestoreNodeIDs()
+			handler.setMultipathDeviceRPFilter(sysctl)
 			return nil
 		},
 	})
@@ -129,22 +143,43 @@ func newNodeHandler(
 	ipsecAgent ipsecTypes.Agent,
 	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
+	db *statedb.DB,
+	deviceTable statedb.Table[*tables.Device],
+	tunnelEndpointMappingInitialized ipcache.TEPMappingInitializer,
 ) *linuxNodeHandler {
+	var patterns []*regexp.Regexp
+	for _, device := range option.Config.TunnelMultipathDevices {
+		pattern, err := regexp.Compile(fmt.Sprintf("^%s$", device))
+		if err != nil {
+			log.Error("failed to compile regex pattern for tunnel multipath device",
+				logfields.Device, device,
+				logfields.Error, err,
+			)
+			continue
+		}
+
+		patterns = append(patterns, pattern)
+	}
+
 	return &linuxNodeHandler{
-		log:                  log,
-		datapathConfig:       datapathConfig,
-		nodeConfig:           config.Config{},
-		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
-		localNodeStore:       localNodeStore,
-		nodeMap:              nodeMap,
-		nodeIDs:              idpool.NewIDPool(minNodeID, maxNodeID),
-		nodeIDsByIPs:         map[string]uint16{},
-		nodeIPsByIDs:         map[uint16]sets.Set[string]{},
-		ipsecMetricCollector: ipsec.NewXFRMCollector(log),
-		ipsecUpdateNeeded:    map[nodeTypes.Identity]bool{},
-		kprCfg:               kprCfg,
-		ipsecAgent:           ipsecAgent,
-		ipsecCfg:             ipsecCfg,
+		log:                              log,
+		datapathConfig:                   datapathConfig,
+		nodeConfig:                       config.Config{},
+		nodes:                            map[nodeTypes.Identity]*nodeTypes.Node{},
+		localNodeStore:                   localNodeStore,
+		nodeMap:                          nodeMap,
+		nodeIDs:                          idpool.NewIDPool(minNodeID, maxNodeID),
+		nodeIDsByIPs:                     map[string]uint16{},
+		nodeIPsByIDs:                     map[uint16]sets.Set[string]{},
+		ipsecMetricCollector:             ipsec.NewXFRMCollector(log),
+		ipsecUpdateNeeded:                map[nodeTypes.Identity]bool{},
+		kprCfg:                           kprCfg,
+		ipsecAgent:                       ipsecAgent,
+		ipsecCfg:                         ipsecCfg,
+		deviceTable:                      deviceTable,
+		db:                               db,
+		tunnelRoutingDeviceRegexes:       patterns,
+		tunnelEndpointMappingInitialized: tunnelEndpointMappingInitialized,
 	}
 }
 
@@ -459,6 +494,65 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []*cidr.CIDR, isLoc
 	return errs
 }
 
+func (n *linuxNodeHandler) updateMultipathTunnelRoute(newNode *nodeTypes.Node) error {
+	rxn := n.db.ReadTxn()
+	for _, ipv6 := range []bool{false, true} {
+		bits := 32
+		if ipv6 {
+			bits = 128
+		}
+
+		dst := newNode.GetCiliumInternalIP(ipv6)
+		if dst == nil {
+			continue
+		}
+
+		r := netlink.Route{
+			Dst:      &net.IPNet{IP: dst, Mask: net.CIDRMask(bits, bits)},
+			Protocol: linux_defaults.RTProto,
+		}
+
+		for link := range n.deviceTable.All(rxn) {
+			for _, pattern := range n.tunnelRoutingDeviceRegexes {
+				if pattern.MatchString(link.Name) {
+					r.MultiPath = append(r.MultiPath, &netlink.NexthopInfo{
+						LinkIndex: link.Index,
+					})
+					break
+				}
+			}
+		}
+		if len(r.MultiPath) > 0 {
+			if err := netlink.RouteReplace(&r); err != nil {
+				return fmt.Errorf("failed to replace multipath route for node %s: %w", newNode.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (n *linuxNodeHandler) deleteMultipathTunnelRoute(oldNode *nodeTypes.Node) error {
+	for _, ipv6 := range []bool{false, true} {
+		dst := oldNode.GetCiliumInternalIP(ipv6)
+		if dst == nil {
+			continue
+		}
+
+		bits := 32
+		if ipv6 {
+			bits = 128
+		}
+
+		if err := netlink.RouteDel(&netlink.Route{
+			Dst:      &net.IPNet{IP: dst, Mask: net.CIDRMask(bits, bits)},
+			Protocol: linux_defaults.RTProto,
+		}); err != nil {
+			return fmt.Errorf("failed to delete multipath route for node %s: %w", oldNode.Name, err)
+		}
+	}
+	return nil
+}
+
 func (n *linuxNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -539,6 +633,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			n.registerIpsecMetricOnce()
 		}
 		return errs
+	}
+
+	if option.Config.EnableFloatingTunnelEndpoint && len(option.Config.TunnelMultipathDevices) > 0 {
+		if err := n.updateMultipathTunnelRoute(newNode); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to update multipath tunnel route: %w", err))
+		}
 	}
 
 	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(newNode) {
@@ -655,6 +755,12 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 
 	if err := n.deallocateIDForNode(oldNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to deallocate old node ID: %w", err))
+	}
+
+	if option.Config.EnableFloatingTunnelEndpoint && len(option.Config.TunnelMultipathDevices) > 0 {
+		if err := n.deleteMultipathTunnelRoute(oldNode); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to update multipath tunnel route: %w", err))
+		}
 	}
 
 	return errs
@@ -851,4 +957,25 @@ func deleteDefaultLocalRule(family int) error {
 
 func (n *linuxNodeHandler) OverrideEnableEncapsulation(fn func(*nodeTypes.Node) bool) {
 	n.enableEncapsulation = fn
+}
+
+func (n *linuxNodeHandler) setMultipathDeviceRPFilter(sysctl sysctl.Sysctl) {
+	// Set rp_filter=0 on each of the multipath devices. This is needed as otherwise
+	// packets are dropped as martians since we might not have an IP address on the
+	// devices that would match the incoming traffic.
+
+	settings := []tables.Sysctl{}
+	for link := range n.deviceTable.All(n.db.ReadTxn()) {
+		for _, pattern := range n.tunnelRoutingDeviceRegexes {
+			if pattern.MatchString(link.Name) {
+				settings = append(settings, tables.Sysctl{
+					Name:      []string{"net", "ipv4", "conf", link.Name, "rp_filter"},
+					Val:       "0",
+					IgnoreErr: true,
+				})
+				break
+			}
+		}
+	}
+	sysctl.ApplySettings(settings)
 }

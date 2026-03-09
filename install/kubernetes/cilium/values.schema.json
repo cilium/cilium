@@ -1883,6 +1883,9 @@
     "enableCriticalPriorityClass": {
       "type": "boolean"
     },
+    "enableFloatingTunnelEndpoint": {
+      "type": "boolean"
+    },
     "enableIPv4BIGTCP": {
       "type": "boolean"
     },
@@ -6506,6 +6509,10 @@
     },
     "tunnelProtocol": {
       "type": "string"
+    },
+    "tunnelRoutingDevices": {
+      "items": {},
+      "type": "array"
     },
     "tunnelSourcePortRange": {
       "type": "string"
