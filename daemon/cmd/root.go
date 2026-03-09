@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	agentFeatures "github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -63,6 +64,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	rootCmd.AddCommand(
 		cmdref.NewCmd(rootCmd),
+		agentFeatures.NewDumpCmd(rootCmd),
 		hive.CiliumShellCmd,
 		h.Command(),
 	)
