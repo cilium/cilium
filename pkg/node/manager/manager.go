@@ -87,6 +87,8 @@ type IPCache interface {
 	RemoveIdentityOverride(prefix cmtypes.PrefixCluster, identityLabels labels.Labels, resource ipcacheTypes.ResourceID)
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	UpsertTunnelEndpointMapping(from, to net.IP)
+	DeleteTunnelEndpointMapping(from net.IP)
 }
 
 // IPSetFilterFn is a function allowing to optionally filter out the insertion
@@ -785,6 +787,18 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	// the nodeIP as the tunnel endpoint (no tunnel endpoint fallback is needed
 	// for the local node).
 	if !n.IsLocal() {
+		if m.conf.EnableFloatingTunnelEndpoint {
+			if nodeIP.Is6() {
+				if internalIPv6 := n.GetCiliumInternalIP(true); internalIPv6 != nil {
+					m.ipcache.UpsertTunnelEndpointMapping(nodeIP.AsSlice(), internalIPv6)
+				}
+			} else {
+				if internalIPv4 := n.GetCiliumInternalIP(false); internalIPv4 != nil {
+					m.ipcache.UpsertTunnelEndpointMapping(nodeIP.AsSlice(), internalIPv4)
+				}
+			}
+		}
+
 		ipv4PodCIDRs := n.GetIPv4AllocCIDRs()
 		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
 
@@ -1079,6 +1093,8 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			ipcacheTypes.TunnelPeer{Addr: oldNodeIP},
 			m.endpointEncryptionKey(&oldNode))
 	}
+
+	m.ipcache.DeleteTunnelEndpointMapping(oldNodeIP.AsSlice())
 }
 
 // NodeDeleted is called after a node has been deleted. It removes the node
@@ -1148,6 +1164,27 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 		// We only need to decrement for nodes we've accounted for.
 		m.metrics.NumNodes.Dec()
+	}
+
+	if !n.IsLocal() {
+		var nodeIP netip.Addr
+		if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP != nil {
+			// GH-24829: Support IPv6-only nodes.
+
+			// Skip returning the error here because at this level, we assume that
+			// the IP is valid as long as it's coming from nodeTypes.Node. This
+			// object is created either from the node discovery (K8s) or from an
+			// event from the kvstore.
+			nodeIP, _ = netipx.FromStdIP(nIP)
+		}
+
+		if m.conf.EnableFloatingTunnelEndpoint {
+			if nodeIP.Is6() {
+				m.ipcache.DeleteTunnelEndpointMapping(nodeIP.AsSlice())
+			} else {
+				m.ipcache.DeleteTunnelEndpointMapping(nodeIP.AsSlice())
+			}
+		}
 	}
 
 	entry.mutex.Lock()

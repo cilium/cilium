@@ -824,6 +824,12 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableCiliumNodeCRDName)
 	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
 
+	flags.Bool(option.EnableFloatingTunnelEndpoint, defaults.EnableTunnelMultipathRouting, "Enable floating tunnel endpoints")
+	option.BindEnv(vp, option.EnableFloatingTunnelEndpoint)
+
+	flags.StringSlice(option.TunnelRoutingDevices, nil, "A list of devices used to route tunnel traffic when floating tunnel endpoints are enabled")
+	option.BindEnv(vp, option.TunnelRoutingDevices)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}

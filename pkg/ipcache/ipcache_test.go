@@ -654,3 +654,29 @@ func TestIPCacheShadowing(t *testing.T) {
 	_, exists := ipc.LookupByPrefix(cidrOverlap)
 	require.False(t, exists)
 }
+
+func TestIPCacheTunnelEndpointMapping(t *testing.T) {
+	t.Parallel()
+	s := setupIPCacheTestSuite(t)
+	s.IPIdentityCache.Configuration.EnableTunnelMultipathRouting = true
+
+	endpointIP := "10.0.0.15"
+	hostIP := net.ParseIP("20.0.1.2")
+	mappedIP := net.ParseIP("30.0.1.2")
+	identity := (identityPkg.NumericIdentity(68))
+
+	// Assure sane state at start.
+	require.Empty(t, s.IPIdentityCache.ipToIdentityCache)
+	require.Empty(t, s.IPIdentityCache.identityToIPCache)
+
+	// Deletion of key that doesn't exist doesn't cause panic.
+	s.IPIdentityCache.Delete(endpointIP, source.KVStore)
+
+	s.IPIdentityCache.UpsertTunnelEndpointMapping(hostIP, mappedIP)
+	s.IPIdentityCache.Upsert(endpointIP, hostIP, 0, nil, Identity{
+		ID:     identity,
+		Source: source.KVStore,
+	})
+
+	require.Equal(t, s.IPIdentityCache.ipToHostIPCache[endpointIP].IP, mappedIP)
+}

@@ -82,11 +82,12 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	// local identities. Generates incremental updates, pushes
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		Logger:            params.Logger,
-		IdentityAllocator: params.CacheIdentityAllocator,
-		IdentityUpdater:   params.IdentityUpdater,
-		CacheStatus:       params.CacheStatus,
+		Context:                      ctx,
+		Logger:                       params.Logger,
+		IdentityAllocator:            params.CacheIdentityAllocator,
+		IdentityUpdater:              params.IdentityUpdater,
+		CacheStatus:                  params.CacheStatus,
+		EnableTunnelMultipathRouting: params.DaemonConfig.EnableFloatingTunnelEndpoint,
 	})
 
 	params.Lifecycle.Append(cell.Hook{

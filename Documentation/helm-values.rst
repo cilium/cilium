@@ -1284,6 +1284,10 @@
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
      - ``true``
+   * - :spelling:ignore:`enableFloatingTunnelEndpoint`
+     - Make Cilium use floating tunnel endpoints. When enabled, Cilium will use the router IPs of remote nodes     as the tunnel endpoint instead of the node IP, which allows that traffic to be routed over multiple interfaces.
+     - bool
+     - ``false``
    * - :spelling:ignore:`enableIPv4BIGTCP`
      - Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
      - bool
@@ -3980,6 +3984,10 @@
      - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve
      - string
      - ``"vxlan"``
+   * - :spelling:ignore:`tunnelRoutingDevices`
+     - List of devices to be used for multipath routing when not empty, Cilium will create multipath routes for the    router IPs via the specified devices.
+     - list
+     - ``[]``
    * - :spelling:ignore:`tunnelSourcePortRange`
      - Configure VXLAN and Geneve tunnel source port range hint.
      - string

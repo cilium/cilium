@@ -995,6 +995,12 @@ const (
 
 	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
 	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
+
+	// EnableFloatingTunnelEndpoint enables floating tunnel endpoints.
+	EnableFloatingTunnelEndpoint = "enable-floating-tunnel-endpoint"
+
+	// TunnelRoutingDevices is a list of devices to use for floating tunnel endpoints.
+	TunnelRoutingDevices = "tunnel-routing-devices"
 )
 
 // Default string arguments
@@ -1860,6 +1866,12 @@ type DaemonConfig struct {
 
 	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
 	EnableCiliumNodeCRD bool
+
+	// EnableFloatingTunnelEndpoint enables multipath routing for tunnel traffic.
+	EnableFloatingTunnelEndpoint bool
+
+	// TunnelMultipathDevices is the list of devices to use for tunnel multipath routing.
+	TunnelMultipathDevices []string
 }
 
 var (
@@ -1920,6 +1932,8 @@ var (
 		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 
 		PolicyAccounting: defaults.PolicyAccounting,
+
+		EnableFloatingTunnelEndpoint: defaults.EnableTunnelMultipathRouting,
 	}
 )
 
@@ -2261,6 +2275,11 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		return err
 	}
 
+	if c.EnableFloatingTunnelEndpoint && c.RoutingMode == RoutingModeTunnel && len(c.TunnelMultipathDevices) == 0 {
+		return fmt.Errorf("at least one device pattern must be specified in %q when %s is enabled with %s routing mode",
+			TunnelRoutingDevices, EnableFloatingTunnelEndpoint, RoutingModeTunnel)
+	}
+
 	return nil
 }
 
@@ -2519,6 +2538,8 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
+	c.EnableFloatingTunnelEndpoint = vp.GetBool(EnableFloatingTunnelEndpoint)
+	c.TunnelMultipathDevices = vp.GetStringSlice(TunnelRoutingDevices)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:

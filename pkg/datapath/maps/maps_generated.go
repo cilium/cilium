@@ -797,7 +797,7 @@ func newCiliumNodeMapV2Spec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  4,
 		Value:      anyTypeByName(btf, "node_value"),
 		MaxEntries: 16384,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
