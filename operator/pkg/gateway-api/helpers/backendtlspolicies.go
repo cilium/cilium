@@ -41,6 +41,9 @@ type BackendTLSPolicyTargetServiceCollection struct {
 	// target this Service, with the map key being the object's full name.
 	// This avoids traversing a slice to find a match all the time.
 	Conflicted map[types.NamespacedName]*gatewayv1.BackendTLSPolicy
+	// Invalid holds the BackendTLSPolicies that target this Service but
+	// failed validation checks. Key is the section name on the Service.
+	Invalid map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy
 }
 
 func (b *BackendTLSPolicyTargetServiceCollection) UpsertValidPolicy(sectionName gatewayv1.SectionName, btlsp *gatewayv1.BackendTLSPolicy) {

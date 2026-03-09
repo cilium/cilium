@@ -1135,7 +1135,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 		// the sectionName here.
 
 		validBTLSPs := collection.Valid
-		for _, original := range validBTLSPs {
+		for sectionName, original := range validBTLSPs {
 
 			btlsp := original.DeepCopy()
 
@@ -1178,6 +1178,12 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 					Name:      btlsp.GetName(),
 					Namespace: btlsp.GetNamespace(),
 				}] = struct{}{}
+			} else {
+				if collection.Invalid == nil {
+					collection.Invalid = make(map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy)
+				}
+				collection.Invalid[sectionName] = original
+				delete(collection.Valid, sectionName)
 			}
 
 			// Checks finished, apply the status to the actual objects.

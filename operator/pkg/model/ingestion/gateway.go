@@ -277,7 +277,10 @@ func extractRoutes(logger *slog.Logger,
 			svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, hr.Namespace), services)
 			if svc != nil {
 				toAppend := backendToModelBackend(*svc, be.BackendRef, hr.Namespace)
-				toAppend = addBackendTLSDetails(logger, toAppend, svc, btlspMap)
+				toAppend, err := addBackendTLSDetails(logger, toAppend, svc, btlspMap)
+				if err != nil {
+					continue
+				}
 				bes = append(bes, toAppend)
 				for _, f := range be.Filters {
 					switch f.Type {
@@ -382,7 +385,7 @@ func extractRoutes(logger *slog.Logger,
 	return httpRoutes
 }
 
-func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) model.Backend {
+func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) (model.Backend, error) {
 	svcFullName := types.NamespacedName{Name: svc.GetName(), Namespace: svc.GetNamespace()}
 
 	log = log.With(logfields.Service, svcFullName)
@@ -398,6 +401,14 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 			if port.Port != int32(be.Port.Port) {
 				continue
 			}
+
+			// Before checking valid sections, ensure the policy isn't known to be invalid for this proxy
+			for sectionName := range collection.Invalid {
+				if port.Name == string(sectionName) || sectionName == "" {
+					return be, fmt.Errorf("backend has an invalid BackendTLSPolicy")
+				}
+			}
+
 			// Port matches, so now we need to check the sections that are valid.
 			// There are two possibilities here:
 			// * Specific section name, matches only that Service port.
@@ -436,38 +447,50 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 							Namespace: btlsp.GetNamespace(),
 						}
 					}
+
+					return be, nil
+				}
+			}
+
+			// If we got here, we've checked all the specific section names inside the Valid map,
+			// and haven't found a match.
+			// Next, we check if there's an all port match.
+			if btlsp, ok := collection.Valid[""]; ok {
+				scopedLog := log.With(
+					logfields.BackendTLSPolicyName, btlsp.Name,
+					logfields.Port, port.Name,
+					logfields.Section, "")
+
+				scopedLog.Debug("Got a match for valid BTLSP on all ports, adding")
+
+				if be.TLS != nil {
+					// We've already set the TLS for this backend, so we don't need to do it again.
+					return be, nil
 				}
 
-				if sectionName == "" {
-					scopedLog.Debug("Got a match for valid BTLSP on all ports, adding")
-					// If the TLS is already set, then a specific target reference has already claimed this port, and
-					// we need to skip it.
-					if be.TLS == nil {
-						be.TLS = &model.BackendTLSOrigination{
-							SNI: string(btlsp.Spec.Validation.Hostname),
-						}
-						if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
-							// Cilium only supports ConfigMap currently
-							be.TLS.CACertRef = &model.FullyQualifiedResource{
-								Group:     "",
-								Kind:      "ConfigMap",
-								Version:   "v1",
-								Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
-								Namespace: btlsp.GetNamespace(),
-							}
-						}
+				// We need to add the BackendTLSPolicy details into the backend, then eject
+				be.TLS = &model.BackendTLSOrigination{
+					SNI: string(btlsp.Spec.Validation.Hostname),
+				}
+
+				if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
+					// Cilium only supports ConfigMap currently
+					be.TLS.CACertRef = &model.FullyQualifiedResource{
+						Group:     "",
+						Kind:      "ConfigMap",
+						Version:   "v1",
+						Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
+						Namespace: btlsp.GetNamespace(),
 					}
 				}
 
+				return be, nil
 			}
-			if be.TLS != nil {
-				return be
-			}
-
 		}
+
 	}
-	// There was no relevant BackendTLSPolicy, no changes.
-	return be
+
+	return be, nil
 }
 
 func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
