@@ -310,6 +310,12 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
+* The ``configDriftDetection`` Helm value group has been introduced to control
+  ConfigMap drift detection, which is enabled by default. Cilium exposes a
+  Prometheus metric that reports how many configuration keys the agent has not
+  yet applied, making it easy to detect when an agent restart is needed after
+  a ConfigMap change. See :ref:`configmap-drift-detection` for details.
+
 * ``bpf.datapathMode=auto`` config option has been introduced. If set, Cilium will probe
   the underlying host for netkit support and, if found, netkit mode will be selected at
   runtime. Otherwise, Cilium will default back to the standard veth mode. This has the
