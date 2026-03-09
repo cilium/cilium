@@ -53,10 +53,6 @@ func (p *policyWatcher) onUpsert(
 		)
 	}
 
-	if cnp.RequiresDerivative() {
-		return nil
-	}
-
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
 	if hasToServices(cnp) {
 		p.toServicesPolicies[key] = struct{}{}

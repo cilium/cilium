@@ -4,8 +4,6 @@
 package api
 
 import (
-	"context"
-
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -219,42 +217,4 @@ func (in *IngressCommonRule) IsL3() bool {
 		len(in.FromEntities) > 0 ||
 		len(in.FromGroups) > 0 ||
 		len(in.FromNodes) > 0
-}
-
-// CreateDerivative will return a new rule based on the data gathered by the
-// rules that creates a new derivative policy.
-// In the case of FromGroups will call outside using the groups callback and this
-// function can take a bit of time.
-func (e *IngressRule) CreateDerivative(ctx context.Context) (*IngressRule, error) {
-	newRule := e.DeepCopy()
-	if !e.RequiresDerivative() {
-		return newRule, nil
-	}
-	newRule.FromCIDRSet = make(CIDRRuleSlice, 0, len(e.FromGroups))
-	cidrSet, err := ExtractCidrSet(ctx, e.FromGroups)
-	if err != nil {
-		return &IngressRule{}, err
-	}
-	newRule.FromCIDRSet = append(newRule.FromCIDRSet, cidrSet...)
-	newRule.FromGroups = nil
-	return newRule, nil
-}
-
-// CreateDerivative will return a new rule based on the data gathered by the
-// rules that creates a new derivative policy.
-// In the case of FromGroups will call outside using the groups callback and this
-// function can take a bit of time.
-func (e *IngressDenyRule) CreateDerivative(ctx context.Context) (*IngressDenyRule, error) {
-	newRule := e.DeepCopy()
-	if !e.RequiresDerivative() {
-		return newRule, nil
-	}
-	newRule.FromCIDRSet = make(CIDRRuleSlice, 0, len(e.FromGroups))
-	cidrSet, err := ExtractCidrSet(ctx, e.FromGroups)
-	if err != nil {
-		return &IngressDenyRule{}, err
-	}
-	newRule.FromCIDRSet = append(newRule.FromCIDRSet, cidrSet...)
-	newRule.FromGroups = nil
-	return newRule, nil
 }
