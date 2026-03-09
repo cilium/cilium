@@ -329,3 +329,169 @@ func TestRemoveUserCausesRegenFailure(t *testing.T) {
 	// refCount 1→0 → observer → policyCache.delete → detach(true, 0) → full cleanup
 	idManager.Remove(podID)
 }
+
+// TestStaleStatedbEntryAfterIdentityDeleteReAdd reproduces the race condition
+// from the "Cilium Cluster Mesh upgrade" CI failure (run 22842680257) where:
+//
+//  1. Endpoint A with identity X has policy computed (stored in statedb) and regenerates
+//  2. Endpoint A leaves: desiredPolicy.Detach() then idManager.Remove() → refcount 1→0
+//     → observer fires → policyCache.delete() → force detach + PolicyChangeDelete emitted
+//     → handlePolicyCacheEvent: idmanager.Get() returns nil → SKIPS statedb deletion
+//  3. Endpoint B arrives with same identity X: idManager.Add() → refcount 0→1
+//     → policyCache.insert() → PolicyChangeInsert → handlePolicyCacheEvent
+//     → RecomputeIdentityPolicy skips (stale entry still exists with sufficient revision)
+//  4. Endpoint B regenerates: reads stale detached policy from statedb → AddHold() fails
+//     → "selector policy was detached, aborting regeneration"
+//
+// Key difference from TestRemoveUserCausesRegenFailure: only ONE endpoint at a time
+// (identity refcount drops to 0, triggering observer callbacks). The bug is in
+// handlePolicyCacheEvent's DELETE handler not cleaning up statedb when the identity
+// has already been removed from the identity manager.
+//
+// Without fix: test FAILS — stale statedb entry persists after identity removal,
+// and endpoint B reads the detached policy from statedb.
+// With fix: test PASSES — statedb entry properly deleted, fresh policy computed on re-add.
+func TestStaleStatedbEntryAfterIdentityDeleteReAdd(t *testing.T) {
+	pe := policy.GetPolicyEnabled()
+	policy.SetPolicyEnabled("always")
+	defer policy.SetPolicyEnabled(pe)
+
+	logger := hivetest.Logger(t)
+	idcache := make(identity.IdentityMap)
+	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
+	idManager := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", "TestStaleStatedbEntryAfterIdentityDeleteReAdd", repo, idManager)
+
+	// Create identity for our pod
+	podLbls := labels.Labels{"pod": labels.NewLabel("k8s:pod", "", "")}
+	podID, _, err := fakeAllocator.AllocateIdentity(context.Background(), podLbls, false, 0)
+	require.NoError(t, err)
+	wg := &sync.WaitGroup{}
+	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{podID.ID: podID.LabelArray}, nil, wg)
+	wg.Wait()
+
+	// --- Step 1: Endpoint A arrives, compute policy ---
+	idManager.Add(podID)
+
+	epA := Endpoint{
+		policyRepo:       repo,
+		policyFetcher:    polComputer,
+		desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
+		labels:           labels.NewOpLabels(),
+		SecurityIdentity: podID,
+		identityManager:  idManager,
+	}
+	epA.UpdateLogger(nil)
+
+	// Add a policy rule so there's actual policy to compute
+	podSelectLabel := labels.ParseSelectLabel("pod")
+	egressSelectLabel := labels.ParseSelectLabel("peer")
+	rule := &api.Rule{
+		EndpointSelector: api.NewESFromLabels(podSelectLabel),
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(egressSelectLabel),
+					},
+				},
+				ToPorts: []api.PortDenyRule{
+					{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: "TCP"},
+						},
+					},
+				},
+			},
+		},
+		Labels: labels.LabelArray{
+			labels.NewLabel(k8sConst.PolicyLabelName, "testRule", labels.LabelSourceAny),
+		},
+	}
+	_, rev := repo.MustAddList(api.Rules{rule})
+
+	// Wait for the observer to be subscribed and process the INSERT event.
+	// The observer subscribes asynchronously after h.Start(). Without this wait,
+	// idManager.Remove() might fire before the observer subscribes, causing
+	// the DELETE event to be lost (Multicast has no subscribers).
+	require.Eventually(t, func() bool {
+		_, _, _, found := polComputer.GetIdentityPolicyByNumericIdentity(podID.ID)
+		return found
+	}, 5*time.Second, 10*time.Millisecond,
+		"observer must create statedb entry for identity")
+
+	computePolicyForEPAndWait(t, &epA, polComputer, rev)
+
+	// Verify: statedb entry exists with valid (non-detached) policy
+	res, _, _, found := polComputer.GetIdentityPolicyByNumericIdentity(podID.ID)
+	require.True(t, found, "statedb entry must exist after policy computation")
+	require.NotNil(t, res.NewPolicy, "computed policy must not be nil")
+	require.True(t, res.NewPolicy.AddHold(), "initial policy must not be detached")
+	res.NewPolicy.MaybeDetach() // release the hold we just took
+
+	// --- Step 2: Endpoint A regenerates successfully ---
+	statsA := new(regenerationStatistics)
+	regenCtxA := &datapathRegenerationContext{policyRevisionToWaitFor: rev}
+	err = epA.regeneratePolicy(statsA, regenCtxA)
+	require.NoError(t, err, "endpoint A regeneration must succeed")
+	require.NotNil(t, regenCtxA.policyResult.endpointPolicy)
+	epA.desiredPolicy = regenCtxA.policyResult.endpointPolicy
+
+	// --- Step 3: Endpoint A leaves completely (refcount drops to 0) ---
+	// This triggers the full observer chain synchronously via Multicast emit:
+	//   idManager.Remove() → policyCache.delete() → selPolicy.detach(true, 0)
+	//   → emitChange(DELETE) → handlePolicyCacheEvent(DELETE) runs inline
+	//   With fix: statedb entry is deleted.
+	//   Without fix: idmanager.Get() returns nil → early return → stale entry remains.
+	epA.desiredPolicy.Ready()
+	epA.desiredPolicy.Detach(logger)
+	idManager.Remove(podID) // refcount 1→0, observer fires synchronously
+
+	// Verify: statedb entry must be GONE after identity removal.
+	// This is the core assertion — without the fix, the DELETE handler in
+	// handlePolicyCacheEvent skips cleanup because idmanager.Get() returns nil
+	// (identity already removed from the manager), leaving a stale entry.
+	_, _, _, found = polComputer.GetIdentityPolicyByNumericIdentity(podID.ID)
+	require.False(t, found, "statedb entry must be deleted after identity removal (refcount→0)")
+
+	// --- Step 4: Endpoint B arrives with same identity ---
+	// idManager.Add → refcount 0→1 → policyCache.insert() → emitChange(INSERT)
+	// → handlePolicyCacheEvent(INSERT) calls RecomputeIdentityPolicy(identity, 0)
+	//   which launches an async goroutine to compute fresh policy.
+	idManager.Add(podID)
+
+	epB := Endpoint{
+		policyRepo:       repo,
+		policyFetcher:    polComputer,
+		desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
+		labels:           labels.NewOpLabels(),
+		SecurityIdentity: podID,
+		identityManager:  idManager,
+	}
+	epB.UpdateLogger(nil)
+
+	// Wait for the INSERT handler's recomputation goroutine to complete.
+	computePolicyForEPAndWait(t, &epB, polComputer, rev)
+
+	// Verify: statedb entry must exist with a fresh, non-detached policy.
+	res, _, _, found = polComputer.GetIdentityPolicyByNumericIdentity(podID.ID)
+	require.True(t, found, "statedb entry must exist after identity re-add")
+	require.NotNil(t, res.NewPolicy, "recomputed policy must not be nil")
+	require.True(t, res.NewPolicy.AddHold(), "recomputed policy must not be detached")
+	res.NewPolicy.MaybeDetach() // release the hold we just took
+
+	// --- Step 5: Endpoint B regenerates ---
+	statsB := new(regenerationStatistics)
+	regenCtxB := &datapathRegenerationContext{policyRevisionToWaitFor: rev}
+	err = epB.regeneratePolicy(statsB, regenCtxB)
+	require.NoError(t, err,
+		"endpoint B must not get 'selector policy was detached' error after identity delete/re-add")
+	require.NotNil(t, regenCtxB.policyResult.endpointPolicy,
+		"endpoint B must get a valid EndpointPolicy")
+
+	// --- Cleanup ---
+	regenCtxB.policyResult.endpointPolicy.Ready()
+	regenCtxB.policyResult.endpointPolicy.Detach(logger)
+	idManager.Remove(podID)
+}
