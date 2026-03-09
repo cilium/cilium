@@ -25,7 +25,8 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				iRule.FromEntities,
 				iRule.FromCIDR,
 				iRule.FromCIDRSet,
-				nil)
+				nil,
+				iRule.FromGroups)
 
 			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
 			l4 = append(l4, iRule.ToPorts...)
@@ -56,7 +57,8 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				iRule.FromEntities,
 				iRule.FromCIDR,
 				iRule.FromCIDRSet,
-				nil)
+				nil,
+				iRule.FromGroups)
 
 			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
 			l4 = append(l4, portDenyRulesToPortRules(iRule.ToPorts)...)
@@ -86,7 +88,8 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				eRule.ToEntities,
 				eRule.ToCIDR,
 				eRule.ToCIDRSet,
-				eRule.ToFQDNs)
+				eRule.ToFQDNs,
+				eRule.ToGroups)
 
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, eRule.ToPorts...)
@@ -117,7 +120,8 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				eRule.ToEntities,
 				eRule.ToCIDR,
 				eRule.ToCIDRSet,
-				nil)
+				nil,
+				eRule.ToGroups)
 
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, portDenyRulesToPortRules(eRule.ToPorts)...)
@@ -141,7 +145,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	return entries
 }
 
-func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.Selectors {
+func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice, groups []api.Groups) types.Selectors {
 	// Explicitly check for empty non-nil slices, it should not result in any identity being selected.
 	// Note that this works due to only one selector type being allowed in a single API rule.
 	if (endpoints != nil && len(endpoints) == 0) ||
@@ -158,6 +162,7 @@ func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities
 	l3 = append(l3, types.ToSelectors(cidrSlice...)...)
 	l3 = append(l3, types.ToSelectors(cidrRuleSlice...)...)
 	l3 = append(l3, types.ToSelectors(fqdns...)...)
+	l3 = append(l3, types.ToSelectors(groups...)...)
 	return l3
 }
 
