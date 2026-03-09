@@ -53,7 +53,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/operator/pkg/ztunnel"
-	"github.com/cilium/cilium/operator/policyderivative"
 	"github.com/cilium/cilium/operator/unmanagedpods"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
@@ -183,18 +182,6 @@ var (
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
-			clientset k8sClient.Clientset,
-		) policyderivative.SharedConfig {
-			return policyderivative.SharedConfig{
-				EnableCiliumNetworkPolicy:            daemonCfg.EnableCiliumNetworkPolicy,
-				EnableCiliumClusterwideNetworkPolicy: daemonCfg.EnableCiliumClusterwideNetworkPolicy,
-				ClusterName:                          daemonCfg.ClusterName,
-				K8sEnabled:                           clientset.IsEnabled(),
-			}
-		}),
-
-		cell.Provide(func(
-			daemonCfg *option.DaemonConfig,
 		) ciliumidentity.SharedConfig {
 			return ciliumidentity.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
@@ -299,11 +286,6 @@ var (
 		// CiliumEndpoint object. This is primarily used to restart kube-dns pods
 		// that may have started before Cilium was ready.
 		unmanagedpods.Cell,
-
-		// Policy Derivative Watchers manage derivative policies for CNP and CCNP
-		// resources. They watch for policy CRD events and update policy-to-groups
-		// mappings periodically.
-		policyderivative.Cell,
 
 		// Cilium Endpoint Slice Garbage Collector. One-off GC that deletes all CES
 		// present in a cluster when CES feature is disabled.

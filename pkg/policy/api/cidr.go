@@ -4,7 +4,6 @@
 package api
 
 import (
-	"net/netip"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -119,23 +118,6 @@ func (s CIDRSlice) String() string {
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
 type CIDRRuleSlice []CIDRRule
-
-// addrsToCIDRRules generates CIDRRules for the IPs passed in.
-// This function will mark the rule to Generated true by default.
-func addrsToCIDRRules(addrs []netip.Addr) []CIDRRule {
-	cidrRules := make([]CIDRRule, 0, len(addrs))
-	for _, addr := range addrs {
-		rule := CIDRRule{ExceptCIDRs: make([]CIDR, 0)}
-		rule.Generated = true
-		if addr.Is4() {
-			rule.Cidr = CIDR(addr.String() + "/32")
-		} else {
-			rule.Cidr = CIDR(addr.String() + "/128")
-		}
-		cidrRules = append(cidrRules, rule)
-	}
-	return cidrRules
-}
 
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`

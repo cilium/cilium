@@ -4,111 +4,11 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
-
-func TestRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
-	eg := EgressRule{}
-	require.False(t, eg.RequiresDerivative())
-}
-
-func TestRequiresDerivativeRuleWithToGroups(t *testing.T) {
-	eg := EgressRule{}
-	eg.ToGroups = []Groups{
-		GetGroupsRule(),
-	}
-	require.True(t, eg.RequiresDerivative())
-}
-
-func TestCreateDerivativeRuleWithoutToGroups(t *testing.T) {
-	eg := &EgressRule{
-		EgressCommonRule: EgressCommonRule{
-			ToEndpoints: []EndpointSelector{
-				{
-					LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
-						"test": "true",
-					},
-					},
-				},
-			},
-		},
-	}
-	newRule, err := eg.CreateDerivative(context.TODO())
-	require.Equal(t, newRule, eg)
-	require.NoError(t, err)
-}
-
-func TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(t *testing.T) {
-	cb := func(ctx context.Context, group *Groups) ([]netip.Addr, error) {
-		return []netip.Addr{}, fmt.Errorf("Invalid error")
-	}
-	RegisterToGroupsProvider(AWSProvider, cb)
-
-	eg := &EgressRule{
-		EgressCommonRule: EgressCommonRule{
-			ToGroups: []Groups{
-				GetGroupsRule(),
-			},
-		},
-	}
-	_, err := eg.CreateDerivative(context.TODO())
-	require.Error(t, err)
-}
-
-func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
-	cb := GetCallBackWithRule("192.168.1.1")
-	RegisterToGroupsProvider(AWSProvider, cb)
-
-	eg := &EgressRule{
-		EgressCommonRule: EgressCommonRule{
-			ToGroups: []Groups{
-				GetGroupsRule(),
-			},
-		},
-	}
-
-	// Checking that the derivative rule is working correctly
-	require.True(t, eg.RequiresDerivative())
-
-	newRule, err := eg.CreateDerivative(context.TODO())
-	require.NoError(t, err)
-	require.Empty(t, newRule.ToGroups)
-	require.Len(t, newRule.ToCIDRSet, 1)
-}
-
-func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
-	// Testing that if the len of the Ips returned by provider is 0 to block
-	// all the IPS outside.
-	cb := GetCallBackWithRule()
-	RegisterToGroupsProvider(AWSProvider, cb)
-
-	eg := &EgressRule{
-		EgressCommonRule: EgressCommonRule{
-			ToGroups: []Groups{
-				GetGroupsRule(),
-			},
-		},
-	}
-
-	// Checking that the derivative rule is working correctly
-	require.True(t, eg.RequiresDerivative())
-
-	newRule, err := eg.CreateDerivative(context.TODO())
-	require.NoError(t, err)
-	require.Equal(t, &EgressRule{
-		EgressCommonRule: EgressCommonRule{
-			ToCIDRSet: CIDRRuleSlice{},
-		},
-	}, newRule)
-}
 
 func TestEgressCommonRuleDeepEqual(t *testing.T) {
 	testCases := []struct {
