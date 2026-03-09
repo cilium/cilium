@@ -138,6 +138,24 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 func (r *IdentityPolicyComputer) handlePolicyCacheEvent(ctx context.Context, event policy.PolicyCacheChange) error {
 	r.logger.Debug("Handle policy cache event", logfields.Identity, event.ID)
 
+	// Handle DELETE first — the identity may already be removed from the manager
+	// by the time we process this event, but we still need to clean up statedb.
+	if event.Kind == policy.PolicyChangeDelete {
+		wtxn := r.db.WriteTxn(r.tbl)
+		obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(event.ID))
+		if !found {
+			wtxn.Abort()
+			return nil
+		}
+		_, _, err := r.tbl.Delete(wtxn, obj)
+		if err != nil {
+			wtxn.Abort()
+			return fmt.Errorf("failed to delete from statedb policy computation table: %w", err)
+		}
+		wtxn.Commit()
+		return nil
+	}
+
 	identity := r.idmanager.Get(&event.ID)
 	if identity == nil {
 		return nil
@@ -148,21 +166,6 @@ func (r *IdentityPolicyComputer) handlePolicyCacheEvent(ctx context.Context, eve
 		if err != nil {
 			return err
 		}
-	} else if event.Kind == policy.PolicyChangeDelete {
-		wtxn := r.db.WriteTxn(r.tbl)
-		defer wtxn.Commit()
-
-		obj, _, found := r.tbl.Get(wtxn, PolicyComputationByIdentity(identity.ID))
-		if !found {
-			wtxn.Abort()
-			return nil
-		}
-		_, _, err := r.tbl.Delete(wtxn, obj)
-		if err != nil {
-			wtxn.Abort()
-			return fmt.Errorf("failed to delete from statedb policy computation table: %w", err)
-		}
 	}
-
 	return nil
 }
