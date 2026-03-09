@@ -67,12 +67,25 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- include "envoy.initContainers" . | nindent 6 }}
+      {{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+      initContainers:
+      {{- include "envoy.initContainers.nodeLocality" . | nindent 6 }}
+      {{- end }}
       containers:
       - name: cilium-envoy
         image: {{ include "cilium.image" .Values.envoy.image | quote }}
         imagePullPolicy: {{ .Values.envoy.image.pullPolicy }}
         command:
-        - /usr/bin/cilium-envoy-starter
+        - /bin/sh
+        - -ec
+        - |
+          {{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+          zone_file='/var/run/cilium/envoy-locality-config/service-zone'
+          zone="$(cat "$zone_file" 2>/dev/null || true)"
+          set -- "$@" --service-zone "$zone"
+          {{- end }}
+          exec /usr/bin/cilium-envoy-starter "$@"
+        - --
         args:
         {{- if .Values.envoy.securityContext.capabilities.keepCapNetBindService }}
         - '--keep-cap-net-bind-service'
@@ -198,6 +211,7 @@ spec:
           mountPropagation: HostToContainer
         {{- end }}
         {{- include "envoy.volumeMounts.extra" . | nindent 8 }}
+        {{- include "envoy.volumeMounts.nodeLocality" . | nindent 8 }}
         {{- range .Values.envoy.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -259,6 +273,7 @@ spec:
           type: DirectoryOrCreate
       {{- end }}
       {{- include "envoy.hostPathMounts.extra" . | nindent 4 }}
+      {{- include "envoy.hostPathMounts.nodeLocality" . | nindent 4 }}
       {{- range .Values.envoy.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:

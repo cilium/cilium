@@ -2771,6 +2771,10 @@ envoy:
   # type: [null, string]
   # @schema
   bootstrapConfigMap: ~
+  # -- Enable node locality lookup and pass resolved zone to cilium-envoy via `--service-zone`.
+  nodeLocality:
+    # -- Enable node-locality support for cilium-envoy.
+    enabled: false
   # -- Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
   annotations: {}
   # -- Security Context for cilium-envoy pods.

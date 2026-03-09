@@ -1,0 +1,24 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- if and $envoyDS (not .Values.preflight.enabled) .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-envoy-node-locality
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium-envoy-node-locality
+subjects:
+- kind: ServiceAccount
+  name: cilium-envoy
+  namespace: {{ include "cilium.namespace" . }}
+{{- end }}
