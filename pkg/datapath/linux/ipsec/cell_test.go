@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -133,15 +134,18 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			source.Cell,
 			watchers.Cell,
 			dial.ServiceResolverCell,
+			reflectors.K8sReflectorCell,
 			clustermesh.Cell,
 			writer.Cell,
 			ipset.Cell,
 			k8s.ResourcesCell,
+			k8s.PodTableCell,
 			node.LocalNodeStoreTestCell,
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
 
 			cell.Provide(
+				reflectors.NetnsCookieSupportFunc,
 				newIPsecAgent,
 				newIPsecConfig,
 

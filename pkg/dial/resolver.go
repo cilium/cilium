@@ -131,7 +131,7 @@ type lbServiceResolver struct {
 	frontends statedb.Table[*loadbalancer.Frontend]
 }
 
-func newLBServiceResolver(jg job.Group, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend]) Resolver {
+func newLBServiceResolver(_ reflectors.K8sReflectorRegistered, jg job.Group, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend]) Resolver {
 	return &lbServiceResolver{
 		db:        db,
 		frontends: frontends,

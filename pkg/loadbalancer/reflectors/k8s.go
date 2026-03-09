@@ -65,8 +65,9 @@ var K8sReflectorCell = cell.Module(
 	"k8s-reflector",
 	"Reflects load-balancing state from Kubernetes",
 
+	cell.Provide(provideK8sReflector),
 	cell.ProvidePrivate(newEventStream),
-	cell.Invoke(RegisterK8sReflector),
+	cell.Invoke(func(_ K8sReflectorRegistered) {}),
 )
 
 type reflectorParams struct {
@@ -86,6 +87,13 @@ type reflectorParams struct {
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 	Nodes                  statedb.Table[*node.LocalNode]
 	SVCMetrics             SVCMetrics `optional:"true"`
+}
+
+type K8sReflectorRegistered struct{}
+
+func provideK8sReflector(p reflectorParams) K8sReflectorRegistered {
+	RegisterK8sReflector(p)
+	return K8sReflectorRegistered{}
 }
 
 func (p reflectorParams) waitTime() time.Duration {

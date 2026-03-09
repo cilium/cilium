@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -119,16 +120,19 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 			source.Cell,
 			watchers.Cell,
 			dial.ServiceResolverCell,
+			reflectors.K8sReflectorCell,
 			clustermesh.Cell,
 			writer.Cell,
 			ipset.Cell,
 			k8s.ResourcesCell,
+			k8s.PodTableCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
 			node.LocalNodeStoreTestCell,
 
 			cell.Provide(
+				reflectors.NetnsCookieSupportFunc,
 				newWireguardAgent,
 				newWireguardConfig,
 
