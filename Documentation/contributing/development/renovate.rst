@@ -39,7 +39,7 @@ errors in the configuration.
                     -e GITHUB_COM_TOKEN="$(gh auth token)" \
                     -v /tmp:/tmp \
                     -v $(pwd):/usr/src/app \
-                    docker.io/renovate/renovate:slim \
+                    docker.io/renovate/renovate:latest \
                     renovate --platform=local \
          | tee renovate.log
 

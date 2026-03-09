@@ -641,5 +641,5 @@ renovate-local: ## Run a local linter for the renovate configuration
 		-e GITHUB_COM_TOKEN="$(RENOVATE_GITHUB_COM_TOKEN)" \
 		-v /tmp:/tmp \
 		-v $(ROOT_DIR):/usr/src/app \
-		docker.io/renovate/renovate:slim \
+		docker.io/renovate/renovate:latest \
 			renovate --platform=local
