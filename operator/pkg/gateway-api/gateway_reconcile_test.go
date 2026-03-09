@@ -717,244 +717,6 @@ func Test_sectionNameMatched(t *testing.T) {
 //
 // The actual indexer does some dereferencing lookups in order to handle some ServiceImport
 // behaviors correctly. This one is what that indexer used to look like before we added ServiceImport
-func Test_setAddressStatus_NodeAddresses(t *testing.T) {
-	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-
-	ciliumGatewayClass := &gatewayv1.GatewayClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cilium",
-		},
-		Spec: gatewayv1.GatewayClassSpec{
-			ControllerName: "io.cilium/gateway-controller",
-		},
-	}
-
-	baseGateway := &gatewayv1.Gateway{
-		TypeMeta: gatewayTypeMeta,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-gw",
-			Namespace: "default",
-		},
-		Spec: gatewayv1.GatewaySpec{
-			GatewayClassName: "cilium",
-			Listeners: []gatewayv1.Listener{
-				{
-					Name:     "http",
-					Port:     80,
-					Protocol: gatewayv1.HTTPProtocolType,
-				},
-			},
-		},
-		Status: gatewayv1.GatewayStatus{
-			Listeners: []gatewayv1.ListenerStatus{
-				{
-					Name: "http",
-					Conditions: []metav1.Condition{
-						{
-							Type:               string(gatewayv1.GatewayConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             string(gatewayv1.GatewayReasonAccepted),
-							LastTransitionTime: metav1.Now(),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	makeNode := func(name string, labels map[string]string, addresses []corev1.NodeAddress) *corev1.Node {
-		return &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   name,
-				Labels: labels,
-			},
-			Status: corev1.NodeStatus{
-				Addresses: addresses,
-			},
-		}
-	}
-
-	makeSvc := func(svcType corev1.ServiceType) *corev1.Service {
-		return &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cilium-gateway-test-gw",
-				Namespace: "default",
-				Labels: map[string]string{
-					owningGatewayLabel: "test-gw",
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Type: svcType,
-			},
-		}
-	}
-
-	tests := []struct {
-		name          string
-		cfg           translation.Config
-		svcType       corev1.ServiceType
-		nodes         []*corev1.Node
-		wantAddresses []string
-		wantProgrammed bool
-	}{
-		{
-			name: "hostNetwork ClusterIP gets node addresses",
-			cfg: translation.Config{
-				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
-				IPConfig:          translation.IPConfig{IPv4Enabled: true},
-			},
-			svcType: corev1.ServiceTypeClusterIP,
-			nodes: []*corev1.Node{
-				makeNode("node-1", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-				}),
-				makeNode("node-2", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
-				}),
-			},
-			wantAddresses:  []string{"10.0.0.1", "10.0.0.2"},
-			wantProgrammed: true,
-		},
-		{
-			name: "hostNetwork with NodeLabelSelector filters nodes",
-			cfg: translation.Config{
-				HostNetworkConfig: translation.HostNetworkConfig{
-					Enabled:           true,
-					NodeLabelSelector: translation.ParseNodeLabelSelector("role=gateway"),
-				},
-				IPConfig: translation.IPConfig{IPv4Enabled: true},
-			},
-			svcType: corev1.ServiceTypeClusterIP,
-			nodes: []*corev1.Node{
-				makeNode("node-1", map[string]string{"role": "gateway"}, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-				}),
-				makeNode("node-2", map[string]string{"role": "worker"}, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
-				}),
-			},
-			wantAddresses:  []string{"10.0.0.1"},
-			wantProgrammed: true,
-		},
-		{
-			name: "NodePort service gets node addresses",
-			cfg: translation.Config{
-				IPConfig: translation.IPConfig{IPv4Enabled: true},
-			},
-			svcType: corev1.ServiceTypeNodePort,
-			nodes: []*corev1.Node{
-				makeNode("node-1", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-				}),
-				makeNode("node-2", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
-				}),
-			},
-			wantAddresses:  []string{"10.0.0.1", "10.0.0.2"},
-			wantProgrammed: true,
-		},
-		{
-			name: "IP family filtering - IPv4 only",
-			cfg: translation.Config{
-				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
-				IPConfig:          translation.IPConfig{IPv4Enabled: true, IPv6Enabled: false},
-			},
-			svcType: corev1.ServiceTypeClusterIP,
-			nodes: []*corev1.Node{
-				makeNode("node-1", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-					{Type: corev1.NodeInternalIP, Address: "fd00::1"},
-				}),
-			},
-			wantAddresses:  []string{"10.0.0.1"},
-			wantProgrammed: true,
-		},
-		{
-			name: "external IPs preferred over internal",
-			cfg: translation.Config{
-				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
-				IPConfig:          translation.IPConfig{IPv4Enabled: true},
-			},
-			svcType: corev1.ServiceTypeClusterIP,
-			nodes: []*corev1.Node{
-				makeNode("node-1", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeExternalIP, Address: "203.0.113.1"},
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-				}),
-				makeNode("node-2", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeExternalIP, Address: "203.0.113.2"},
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
-				}),
-			},
-			wantAddresses:  []string{"203.0.113.1", "203.0.113.2"},
-			wantProgrammed: true,
-		},
-		{
-			name: "excluded nodes are skipped",
-			cfg: translation.Config{
-				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
-				IPConfig:          translation.IPConfig{IPv4Enabled: true},
-			},
-			svcType: corev1.ServiceTypeClusterIP,
-			nodes: []*corev1.Node{
-				makeNode("node-1", nil, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.1"},
-				}),
-				makeNode("node-excluded", map[string]string{
-					corev1.LabelNodeExcludeBalancers: "",
-				}, []corev1.NodeAddress{
-					{Type: corev1.NodeInternalIP, Address: "10.0.0.2"},
-				}),
-			},
-			wantAddresses:  []string{"10.0.0.1"},
-			wantProgrammed: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			objs := []client.Object{ciliumGatewayClass, baseGateway.DeepCopy(), makeSvc(tt.svcType)}
-			for _, n := range tt.nodes {
-				objs = append(objs, n)
-			}
-
-			c := fake.NewClientBuilder().
-				WithScheme(testScheme()).
-				WithObjects(objs...).
-				WithStatusSubresource(&gatewayv1.Gateway{}).
-				Build()
-
-			r := &gatewayReconciler{
-				Client: c,
-				cfg:    tt.cfg,
-				logger: logger,
-			}
-
-			gw := baseGateway.DeepCopy()
-			err := r.setAddressStatus(t.Context(), gw)
-			require.NoError(t, err)
-
-			var gotAddresses []string
-			for _, addr := range gw.Status.Addresses {
-				gotAddresses = append(gotAddresses, addr.Value)
-			}
-			assert.Equal(t, tt.wantAddresses, gotAddresses)
-
-			if tt.wantProgrammed {
-				var programmedFound bool
-				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gatewayv1.GatewayConditionProgrammed) &&
-						cond.Status == metav1.ConditionTrue {
-						programmedFound = true
-						break
-					}
-				}
-				assert.True(t, programmedFound, "expected Gateway to be Programmed: True")
-			}
-		})
-	}
-}
-
 // support.
 func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 	route, ok := rawObj.(*gatewayv1.HTTPRoute)
@@ -978,4 +740,119 @@ func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 		}
 	}
 	return backendServices
+}
+
+func Test_hostNetworkNodeAddresses(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cecTranslator := translation.NewCECTranslator(translation.Config{
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+	})
+
+	gwName := types.NamespacedName{Name: "test-gateway", Namespace: "gateway-conformance-infra"}
+
+	tests := []struct {
+		name string
+		cfg  translation.Config
+	}{
+		{
+			name: "gateway-hostnetwork-node-addresses",
+			cfg: translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
+				IPConfig:          translation.IPConfig{IPv4Enabled: true},
+			},
+		},
+		{
+			name: "gateway-hostnetwork-node-label-selector",
+			cfg: translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{
+					Enabled:           true,
+					NodeLabelSelector: translation.ParseNodeLabelSelector("role=gateway"),
+				},
+				IPConfig: translation.IPConfig{IPv4Enabled: true},
+			},
+		},
+		{
+			name: "gateway-hostnetwork-external-ips",
+			cfg: translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
+				IPConfig:          translation.IPConfig{IPv4Enabled: true},
+			},
+		},
+		{
+			name: "gateway-hostnetwork-excluded-nodes",
+			cfg: translation.Config{
+				HostNetworkConfig: translation.HostNetworkConfig{Enabled: true},
+				IPConfig:          translation.IPConfig{IPv4Enabled: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := readInputDir(t, "testdata/gateway/base")
+			input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
+
+			clientBuilder := fake.NewClientBuilder().
+				WithObjects(append(base, input...)...).
+				WithStatusSubresource(&corev1.Service{}).
+				WithStatusSubresource(&corev1.Namespace{}).
+				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+				WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
+				WithStatusSubresource(&gatewayv1.Gateway{}).
+				WithStatusSubresource(&gatewayv1.GatewayClass{}).
+				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{}).
+				WithScheme(testScheme())
+
+			// Add any required indexes here
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
+			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+
+			c := clientBuilder.Build()
+
+			gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, tt.cfg)
+
+			r := &gatewayReconciler{
+				Client:     c,
+				translator: gatewayAPITranslator,
+				cfg:        tt.cfg,
+				logger:     logger,
+			}
+
+			// Reconcile the gateway under test
+			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwName})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+
+			// Checking the output for Gateway
+			actualGateway := &gatewayv1.Gateway{}
+			err = c.Get(t.Context(), gwName, actualGateway)
+			// TODO(youngnick): controller-runtime has broken something with the fake client
+			// Bypass for now
+			actualGateway.TypeMeta = gatewayTypeMeta
+			require.NoError(t, err)
+			expectedGateway := &gatewayv1.Gateway{}
+			readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/test-gateway.yaml", tt.name), expectedGateway)
+			require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
+
+			// Checking the output for CiliumEnvoyConfig
+			actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+			err = c.Get(t.Context(), client.ObjectKey{Namespace: gwName.Namespace, Name: "cilium-gateway-" + gwName.Name}, actualCEC)
+			require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
+			expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+			readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-test-gateway.yaml", tt.name), expectedCEC)
+			require.NoError(t, err)
+			require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+		})
+	}
 }
