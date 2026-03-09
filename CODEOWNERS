@@ -531,7 +531,6 @@ Makefile* @cilium/build
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/workqueuemetrics @cilium/metrics
 /operator/pkg/ztunnel @cilium/ztunnel
-/operator/policyderivative @cilium/sig-policy
 /operator/watchers @cilium/sig-k8s
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s

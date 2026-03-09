@@ -4,66 +4,11 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
-
-func TestIngressRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
-	ig := IngressRule{}
-	require.False(t, ig.RequiresDerivative())
-}
-
-func TestRequiresDerivativeRuleWithFromGroups(t *testing.T) {
-	ig := IngressRule{}
-	ig.FromGroups = []Groups{
-		GetGroupsRule(),
-	}
-	require.True(t, ig.RequiresDerivative())
-}
-
-func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
-	ig := &IngressRule{
-		IngressCommonRule: IngressCommonRule{
-			FromEndpoints: []EndpointSelector{
-				{
-					LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
-						"test": "true",
-					},
-					},
-				},
-			},
-		},
-	}
-	newRule, err := ig.CreateDerivative(context.TODO())
-	require.Equal(t, newRule, ig)
-	require.NoError(t, err)
-}
-
-func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
-	cb := GetCallBackWithRule("192.168.1.1")
-	RegisterToGroupsProvider(AWSProvider, cb)
-
-	ig := &IngressRule{
-		IngressCommonRule: IngressCommonRule{
-			FromGroups: []Groups{
-				GetGroupsRule(),
-			},
-		},
-	}
-
-	// Checking that the derivative rule is working correctly
-	require.True(t, ig.RequiresDerivative())
-
-	newRule, err := ig.CreateDerivative(context.TODO())
-	require.NoError(t, err)
-	require.Empty(t, newRule.FromGroups)
-	require.Len(t, newRule.FromCIDRSet, 1)
-}
 
 func TestIngressCommonRuleDeepEqual(t *testing.T) {
 	testCases := []struct {

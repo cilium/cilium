@@ -4,7 +4,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -146,19 +145,4 @@ func ParseQualifiedName(qualifiedName string) (namespace, name, resourceName str
 		return "", "", qualifiedName
 	}
 	return parts[0], parts[1], parts[2]
-}
-
-// ExtractCidrSet abstracts away some of the logic from the CreateDerivative methods
-func ExtractCidrSet(ctx context.Context, groups []Groups) ([]CIDRRule, error) {
-	var cidrSet []CIDRRule
-	for _, group := range groups {
-		c, err := group.GetCidrSet(ctx)
-		if err != nil {
-			return cidrSet, err
-		}
-		if len(c) > 0 {
-			cidrSet = append(cidrSet, c...)
-		}
-	}
-	return cidrSet, nil
 }

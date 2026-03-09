@@ -234,24 +234,6 @@ func (r *CiliumNetworkPolicy) GetIdentityLabels() labels.LabelArray {
 	return k8sCiliumUtils.GetPolicyLabels(namespace, name, uid, derivedFrom)
 }
 
-// RequiresDerivative return true if the CNP has any rule that will create a new
-// derivative rule.
-func (r *CiliumNetworkPolicy) RequiresDerivative() bool {
-	if r.Spec != nil {
-		if r.Spec.RequiresDerivative() {
-			return true
-		}
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if rule.RequiresDerivative() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
 // +deepequal-gen=false

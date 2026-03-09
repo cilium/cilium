@@ -22,10 +22,6 @@ var (
 	policyEC2Labelskey       = "tag"
 )
 
-func init() {
-	api.RegisterToGroupsProvider(api.AWSProvider, GetIPsFromGroup)
-}
-
 // GetIPsFromGroup will return the list of the IPs for the given group filter
 func GetIPsFromGroup(ctx context.Context, group *api.Groups) ([]netip.Addr, error) {
 	result := []netip.Addr{}
