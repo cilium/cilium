@@ -18,6 +18,11 @@ struct device_state {
 	__u32 pad3;
 };
 
+/* Could be read-only from datapath, but bpf_xdp_store_bytes (unlike
+ * bpf_skb_store_bytes) does not accept MEM_RDONLY pointers, so map values
+ * passed to eth_store_saddr_aligned in XDP programs would be rejected by the
+ * verifier.
+ */
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, __u32);

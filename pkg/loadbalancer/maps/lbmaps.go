@@ -223,7 +223,7 @@ func NewAffinityMatchMap(maxEntries int) *bpf.Map {
 		&AffinityMatchKey{},
 		&AffinityMatchValue{},
 		maxEntries,
-		0,
+		unix.BPF_F_RDONLY_PROG,
 	)
 }
 
