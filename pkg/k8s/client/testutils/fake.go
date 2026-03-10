@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -20,6 +21,7 @@ import (
 	apiext_fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	versionapi "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
@@ -234,10 +236,7 @@ func prependReactors(cs prepender, ot *statedbObjectTracker) {
 		gvr := action.GetResource()
 		ns := action.GetNamespace()
 		watch, err := ot.Watch(gvr, ns, opts)
-		if err != nil {
-			return false, nil, err
-		}
-		return true, watch, nil
+		return true, watch, err
 	})
 
 	// Switch out the tracker to our version.
@@ -251,16 +250,81 @@ func showGVR(gvr schema.GroupVersionResource) string {
 	return fmt.Sprintf("%s.%s.%s", gvr.Group, gvr.Version, gvr.Resource)
 }
 
+func resolveGVR(resource string, gvrks []gvrk) (schema.GroupVersionResource, schema.GroupVersionKind, string, bool) {
+	for _, gvrk := range gvrks {
+		res := showGVR(gvrk.GroupVersionResource)
+		if res == resource {
+			return gvrk.GroupVersionResource, gvrk.groupVersionKind(), "", true
+		}
+		if strings.Contains(res, resource) {
+			return gvrk.GroupVersionResource, gvrk.groupVersionKind(), res, true
+		}
+	}
+	return schema.GroupVersionResource{}, schema.GroupVersionKind{}, "", false
+}
+
 func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
+	readInputFile := func(s *script.State, file string) ([]byte, error) {
+		b, err := os.ReadFile(s.Path(file))
+		if err == nil {
+			return b, nil
+		}
+		// Try relative to current directory, e.g. to allow reading "testdata/foo.yaml"
+		b, err = os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", file, err)
+		}
+		return b, nil
+	}
+
+	decodeTrackerObjects := func(s *script.State, file string) ([]object, schema.GroupVersionResource, error) {
+		b, err := readInputFile(s, file)
+		if err != nil {
+			return nil, schema.GroupVersionResource{}, err
+		}
+
+		obj, gvk, err := testutils.DecodeObjectGVK(b)
+		if err != nil {
+			return nil, schema.GroupVersionResource{}, fmt.Errorf("decode: %w", err)
+		}
+		kobj, _, _ := testutils.DecodeKubernetesObject(b)
+		gvr, _ := meta.UnsafeGuessKindToResource(*gvk)
+
+		toObject := func(domain string, obj runtime.Object) (object, error) {
+			objMeta, err := meta.Accessor(obj)
+			if err != nil {
+				return object{}, fmt.Errorf("accessor: %w", err)
+			}
+			return object{
+				objectId: newObjectId(domain, gvr, objMeta.GetNamespace(), objMeta.GetName()),
+				kind:     gvk.Kind,
+				o:        obj,
+			}, nil
+		}
+
+		objs := make([]object, 0, 2)
+		o, err := toObject("*", obj)
+		if err != nil {
+			return nil, schema.GroupVersionResource{}, err
+		}
+		objs = append(objs, o)
+
+		if kobj != nil {
+			o, err := toObject("k8s", kobj)
+			if err != nil {
+				return nil, schema.GroupVersionResource{}, err
+			}
+			objs = append(objs, o)
+		}
+
+		return objs, gvr, nil
+	}
+
 	addUpdateOrDelete := func(s *script.State, action string, files []string) error {
 		for _, file := range files {
-			b, err := os.ReadFile(s.Path(file))
+			b, err := readInputFile(s, file)
 			if err != nil {
-				// Try relative to current directory, e.g. to allow reading "testdata/foo.yaml"
-				b, err = os.ReadFile(file)
-			}
-			if err != nil {
-				return fmt.Errorf("failed to read %s: %w", file, err)
+				return err
 			}
 			obj, gvk, err := testutils.DecodeObjectGVK(b)
 			if err != nil {
@@ -393,20 +457,13 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					return nil, script.ErrUsage
 				}
 
-				var gvr schema.GroupVersionResource
-				for gvrk := range fc.ot.getGVRKs() {
-					res := showGVR(gvrk.GroupVersionResource)
-					if res == args[0] {
-						gvr = gvrk.GroupVersionResource
-						break
-					} else if strings.Contains(res, args[0]) {
-						s.Logf("Using closest match %q\n", res)
-						gvr = gvrk.GroupVersionResource
-						break
-					}
-				}
-				if gvr.Resource == "" {
+				gvrks := slices.Collect(fc.ot.getGVRKs())
+				gvr, _, match, ok := resolveGVR(args[0], gvrks)
+				if !ok {
 					return nil, fmt.Errorf("%q not a known resource, see 'k8s/resources' for full list", args[0])
+				}
+				if match != "" {
+					s.Logf("Using closest match %q\n", match)
 				}
 
 				ns, name, found := strings.Cut(args[1], "/")
@@ -454,23 +511,13 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					return nil, fmt.Errorf("%w: expected resource and namespace", script.ErrUsage)
 				}
 
-				var gvr schema.GroupVersionResource
-				var gvk schema.GroupVersionKind
-				for gvrk := range fc.ot.getGVRKs() {
-					res := showGVR(gvrk.GroupVersionResource)
-					if res == args[0] {
-						gvr = gvrk.GroupVersionResource
-						gvk = gvrk.groupVersionKind()
-						break
-					} else if strings.Contains(res, args[0]) {
-						s.Logf("Using closest match %q\n", res)
-						gvr = gvrk.GroupVersionResource
-						gvk = gvrk.groupVersionKind()
-						break
-					}
-				}
-				if gvr.Resource == "" {
+				gvrks := slices.Collect(fc.ot.getGVRKs())
+				gvr, gvk, match, ok := resolveGVR(args[0], gvrks)
+				if !ok {
 					return nil, fmt.Errorf("%q not a known resource, see 'k8s/resources' for full list", args[0])
+				}
+				if match != "" {
+					s.Logf("Using closest match %q\n", match)
 				}
 
 				return func(s *script.State) (stdout string, stderr string, err error) {
@@ -488,6 +535,57 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					}
 					return "", "", fmt.Errorf("%w: no tracker recognized %s", trackerErr, gvr)
 				}, nil
+			},
+		),
+
+		"k8s/resync": script.Command(
+			script.CmdUsage{
+				Summary: "Atomically replace tracked objects for a resource and restart watches",
+				Detail: []string{
+					"This closes matching watch streams, deletes the existing tracked",
+					"objects for the resource, and inserts the optional new objects.",
+				},
+				Args: "resource (files...)",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) == 0 {
+					return nil, fmt.Errorf("%w: expected resource and optional files", script.ErrUsage)
+				}
+
+				gvrks := slices.Collect(fc.ot.getGVRKs())
+				gvr, _, match, ok := resolveGVR(args[0], gvrks)
+				if !ok {
+					return nil, fmt.Errorf("%q not a known resource, see 'k8s/resources' for full list", args[0])
+				}
+				if match != "" {
+					s.Logf("Using closest match %q\n", match)
+				}
+
+				files := args[1:]
+
+				replacements := make([]object, 0, len(files)*2)
+				for _, file := range files {
+					objs, fileGVR, err := decodeTrackerObjects(s, file)
+					if err != nil {
+						return nil, err
+					}
+					if fileGVR != gvr {
+						return nil, fmt.Errorf("%s is %s, expected %s", file, showGVR(fileGVR), showGVR(gvr))
+					}
+					replacements = append(replacements, objs...)
+				}
+
+				return nil, func() error {
+					stopped, rev, err := fc.ot.Resync(gvr, replacements)
+					if err != nil {
+						return err
+					}
+					s.Logf(
+						"Restarted %d watch(es) for %s at revision %d with %d replacement object(s)\n",
+						stopped, showGVR(gvr), rev, len(replacements),
+					)
+					return nil
+				}()
 			},
 		),
 
