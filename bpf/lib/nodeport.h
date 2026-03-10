@@ -1400,7 +1400,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IPV6));
 
-		if (CONFIG(enable_tproxy))
+		/* See IPv4 codepath for comments. */
+		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net))
 			return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
@@ -2780,7 +2781,10 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IP));
 
-		if (CONFIG(enable_tproxy))
+		/* Hairpin the packet through cilium_net when BPF tproxy is enabled
+		 * or when attaching the BPF program to a bridge network device.
+		 */
+		if (CONFIG(enable_tproxy) || CONFIG(proxy_redirect_via_cilium_net))
 			return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
 
 		/* Pass the packet straight to the proxy, without redirecting via
