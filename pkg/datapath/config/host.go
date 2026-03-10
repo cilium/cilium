@@ -153,5 +153,14 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	switch link.(type) {
+	case *netlink.Bridge:
+		// When a bridge device has br_netfilter with bridge-nf-call-iptables=1,
+		// the packet must be hairpinned via cilium_net instead of punting to the
+		// stack, because ip_sabotage_in() would skip the TPROXY rule. We simplify
+		// the logic by always hairpinning to the proxy when it's a bridge.
+		cfg.ProxyRedirectViaCiliumNet = true
+	}
+
 	return cfg
 }
