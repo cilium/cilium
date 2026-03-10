@@ -57,7 +57,7 @@ Although it is not possible to run ``conformance-ginkgo.yaml`` or
 similar to the one used on GitHub.
 
 The following example will provide the steps to run one of the tests of the
-focus ``f09-datapath-misc-2`` on Kubernetes ``1.27`` with the kernel ``net-next``
+focus ``f10-agent-hubble-bandwidth`` on Kubernetes ``1.27`` with the kernel ``net-next``
 for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
 
 You can also perform these steps automatically using the script
@@ -119,7 +119,7 @@ usage information.
 
    .. code-block:: shell-session
 
-      $ zstd -d /tmp/_images/kind_*.qcow2.zst -o /tmp/_images/datapath-conformance.qcow2
+      $ zstd -d /tmp/_images/kind_*.qcow2.zst -o /tmp/_images/ginkgo-tests.qcow2
 
    * Provision the VM. **Qemu will use the current terminal to provision the VM
      and will mount the current directory into the VM under** ``/host``.
@@ -133,7 +133,7 @@ usage information.
           -m 12G \
           -enable-kvm \
           -cpu host \
-          -drive file=/tmp/_images/datapath-conformance.qcow2,if=virtio,index=0,media=disk \
+          -drive file=/tmp/_images/ginkgo-tests.qcow2,if=virtio,index=0,media=disk \
           -netdev user,id=user.0,hostfwd=tcp::2222-:22 \
           -device virtio-net-pci,netdev=user.0 \
           -fsdev local,id=host_id,path=./,security_model=none \
@@ -191,9 +191,9 @@ usage information.
 
 #. Now that Kind is provisioned, the tests can be executed inside the VM.
    Let us first retrieve the focus regex, under ``cliFocus``, of
-   ``f09-datapath-misc-2`` from ``.github/actions/ginkgo/main-focus.yaml``.
+   ``f10-agent-hubble-bandwidth`` from ``.github/actions/ginkgo/main-focus.yaml``.
 
-   * ``cliFocus="K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"``
+   * ``cliFocus="K8sAgentHubbleTest"``
 
    Run the binary ``test.test`` that was compiled in the previous step. The
    following code block is exactly the same as used on the GitHub workflow with
@@ -230,7 +230,7 @@ usage information.
       # export CILIUM_NO_IPV6_OUTSIDE=true
       #
       # commit_sha="7b368923823e63c9824ea2b5ee4dc026bc4d5cd8"
-      # cliFocus="K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+      # cliFocus="K8sAgentHubbleTest"
       # quay_org="cilium"
       #
       # ./test.test \
@@ -268,7 +268,7 @@ usage information.
 
       $ pkill qemu-system-x86
 
-   The VM state is kept in ``/tmp/_images/datapath-conformance.qcow2`` and the
+   The VM state is kept in ``/tmp/_images/ginkgo-tests.qcow2`` and the
    dependencies are installed. Thus steps up to and excluding step
    :ref:`installing kind <install_kind>` can be skipped next time and the VM
    state can be re-used from step :ref:`installing kind <install_kind>` onwards.
