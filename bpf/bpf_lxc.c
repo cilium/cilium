@@ -104,7 +104,6 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
-#if defined(ENABLE_PER_PACKET_LB) && defined(ENABLE_NODEPORT)
 struct nodeport_nat_info {
 	union v6addr nat_addr;
 	__be16 nat_port;
@@ -116,7 +115,6 @@ struct {
 	__type(value, struct nodeport_nat_info);
 	__uint(max_entries, 1);
 } cilium_nodeport_nat_buffer __section_maps_btf;
-#endif /* ENABLE_PER_PACKET_LB && ENABLE_NODEPORT */
 
 #ifdef ENABLE_IPV4
 static __always_inline void
