@@ -360,77 +360,68 @@ jobs:
       # supported during cluster creation in a cluster without VPC CNI. Cilium is
       # also required to be already installed for the step to complete successfully.
       - name: Create EKS nodegroups
-        shell: bash
-        run: |
-          cat <<EOF > eks-nodegroup.yaml
-          apiVersion: eksctl.io/v1alpha5
-          kind: ClusterConfig
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.eks_region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: "${{ steps.vars.outputs.eks_version }}"
+          timeout: "15m"
+          node_groups_override: |
+            managedNodeGroups:
+            - name: ng-amd64-client
+              instanceTypes:
+              - ${{ steps.vars.outputs.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/http-perf-client: "true"
 
-          metadata:
-            name: ${{ steps.vars.outputs.cluster_name }}
-            region: ${{ steps.vars.outputs.eks_region }}
-            version: "${{ steps.vars.outputs.eks_version }}"
-            tags:
-              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
-              owner: "${{ steps.vars.outputs.owner }}"
+            - name: ng-amd64-server
+              instanceTypes:
+              - ${{ steps.vars.outputs.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: ${{ steps.vars.outputs.num_test_nodes }}
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/http-perf-server: "true"
 
-          managedNodeGroups:
-          - name: ng-amd64-client
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/http-perf-client: "true"
-
-          - name: ng-amd64-server
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: ${{ steps.vars.outputs.num_test_nodes }}
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/http-perf-server: "true"
-
-          - name: ng-amd64-heapster
-            instanceTypes:
-            - ${{ steps.vars.outputs.node_instance_type }}
-            availabilityZones:
-            - ${{ steps.vars.outputs.eks_zone_1 }}
-            desiredCapacity: 1
-            spot: false
-            privateNetworking: true
-            volumeType: "gp3"
-            volumeSize: 20
-            maxPodsPerNode: 110
-            taints:
-            - key: "node.cilium.io/agent-not-ready"
-              value: "true"
-              effect: "NoExecute"
-            labels:
-              role.scaffolding/monitoring: "true"
-          EOF
-
-          eksctl create nodegroup -f ./eks-nodegroup.yaml --timeout=10m
+            - name: ng-amd64-monitoring
+              instanceTypes:
+              - ${{ steps.vars.outputs.node_instance_type }}
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/monitoring: "true"
 
       - name: Wait for Cilium status to be ready
         run: |
