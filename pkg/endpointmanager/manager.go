@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	envoyConfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,6 +53,9 @@ type endpointManager struct {
 	logger *slog.Logger
 
 	health cell.Health
+
+	// EnvoyConfigTimeout it the maximum time to wait for Envoy to N/ACK after policy update
+	policyUpdateTimeout time.Duration
 
 	// mutex protects endpoints and endpointsAux
 	mutex lock.RWMutex
@@ -109,10 +113,11 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(logger *slog.Logger, registry *metrics.Registry, epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent, config EndpointManagerConfig) *endpointManager {
+func New(logger *slog.Logger, registry *metrics.Registry, epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent, config EndpointManagerConfig, xdsConfig envoyConfig.XdsConfig) *endpointManager {
 	mgr := endpointManager{
 		logger:                       logger,
 		health:                       health,
+		policyUpdateTimeout:          xdsConfig.EnvoyConfigTimeout,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
 		mcastManager:                 mcastmanager.New(logger, option.Config.IPv6MCastDevice),
@@ -201,14 +206,17 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup
 
-	proxyWaitGroup := completion.NewWaitGroup(ctx)
+	proxyWaitGroup, cancel := completion.NewWaitGroup(ctx, mgr.policyUpdateTimeout)
 
 	eps := mgr.GetEndpoints()
 	epWG.Add(len(eps))
 	wg.Add(1)
 
-	// This is in a goroutine to allow the caller to proceed with other tasks before waiting for the ACKs to complete
+	// This is in a goroutine to allow the caller to proceed with other tasks before waiting for
+	// the ACKs to complete
 	go func() {
+		defer cancel()
+
 		// Wait for all the eps to have applied policy map
 		// changes before waiting for the changes to be ACKed
 		epWG.Wait()

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	envoyConfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
@@ -137,7 +138,7 @@ func TestFQDNDataServer(t *testing.T) {
 				cell.Config(DefaultConfig),
 				cell.Provide(
 					func(logger *slog.Logger) endpointmanager.EndpointsLookup {
-						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
+						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{}, envoyConfig.DefaultXdsConfig)
 					},
 
 					func(logger *slog.Logger) *ipcache.IPCache {
@@ -252,7 +253,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			cell.Config(DefaultConfig),
 			cell.Provide(
 				func(logger *slog.Logger) endpointmanager.EndpointsLookup {
-					baseEM := endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
+					baseEM := endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{}, envoyConfig.DefaultXdsConfig)
 					return &mockEndpointManager{EndpointManager: baseEM}
 				},
 

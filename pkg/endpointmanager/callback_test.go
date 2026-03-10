@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/container/set"
+	envoyConfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -20,7 +21,7 @@ const numberOfEndpointPolicies = 10
 
 func Test_PolicyUpdateCallback(t *testing.T) {
 	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	called := int32(0)
 	updateFunc := func(idsRegen *set.Set[identity.NumericIdentity], incremental bool) error {
 		atomic.AddInt32(&called, 1)

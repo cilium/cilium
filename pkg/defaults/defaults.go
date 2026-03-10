@@ -375,6 +375,9 @@ const (
 	// policy updates are invoked.
 	PolicyTriggerInterval = 1 * time.Second
 
+	// PolicyUpdateTimeout it the maximum time to wait for Envoy to N/ACK a policy update
+	PolicyUpdateTimeout = 2 * time.Minute
+
 	// K8sClientQPSLimit is the default qps for the cilium-agent k8s client.
 	K8sClientQPSLimit float32 = 10.0
 

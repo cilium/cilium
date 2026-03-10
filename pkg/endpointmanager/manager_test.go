@@ -18,6 +18,7 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	envoyConfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -388,7 +389,7 @@ func TestLookup(t *testing.T) {
 			var ep *endpoint.Endpoint
 			var err error
 			logger := hivetest.Logger(t)
-			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 			if tt.cm != nil {
 				ep, err = endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 					EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
@@ -424,7 +425,7 @@ func TestLookupCiliumID(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	model := newTestEndpointModel(2, endpoint.StateReady)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -509,7 +510,7 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 
 	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
 		NamedPortsGetter: testipcache.NewMockIPCache(),
@@ -541,7 +542,7 @@ func TestLookupIPv4(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	logger := hivetest.Logger(t)
 
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	model := newTestEndpointModel(4, endpoint.StateReady)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
@@ -624,7 +625,7 @@ func TestLookupIPv4(t *testing.T) {
 func TestLookupCEPName(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	type args struct {
 		podName string
 	}
@@ -773,7 +774,7 @@ func TestUpdateReferences(t *testing.T) {
 		}, nil, &endpoint.FakeEndpointProxy{}, &tt.cm, nil)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
 		//logger := hivetest.Logger(t)
-		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 
 		err = mgr.expose(ep)
 		require.NoErrorf(t, err, "Test Name: %s", tt.name)
@@ -804,7 +805,7 @@ func TestUpdateReferences(t *testing.T) {
 func TestRemove(t *testing.T) {
 	s := setupEndpointManagerSuite(t)
 	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	model := newTestEndpointModel(7, endpoint.StateReady)
 	ep, err := endpoint.NewEndpointFromChangeModel(endpoint.EndpointParams{
 		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
@@ -862,7 +863,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	// Initialize label filter config.
 	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 	s := setupEndpointManagerSuite(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	hostEPID := uint16(17)
 
 	// Initialize the local node watcher before the host endpoint is created.
@@ -920,7 +921,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 	// Initialize label filter config.
 	labelsfilter.ParseLabelPrefixCfg(logger, []string{"k8s:!ignore1", "k8s:!ignore2"}, nil, "")
 	s := setupEndpointManagerSuite(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig, envoyConfig.DefaultXdsConfig)
 	hostEPID := uint16(17)
 	type args struct {
 		oldLabels, newLabels map[string]string

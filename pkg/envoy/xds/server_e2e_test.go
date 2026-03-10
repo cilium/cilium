@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	TestTimeout   = 10 * time.Second
-	StreamTimeout = 4 * time.Second
+	TestTimeout       = 10 * time.Second
+	CompletionTimeout = 6 * time.Second
+	StreamTimeout     = 4 * time.Second
 )
 
 var (
@@ -226,7 +227,9 @@ func TestAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -773,7 +776,9 @@ func TestNAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(context.Background(), CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -850,8 +855,7 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create version 3 with resources 0 and 1.
-	// NACK cancelled the wg, create a new one
-	wg = completion.NewWaitGroup(ctx)
+	// NACK completed the completion, reuse wg with new completion
 	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
 	require.Condition(t, isNotCompletedComparison(comp2))
@@ -909,7 +913,9 @@ func TestNAckFromTheStart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -990,9 +996,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Error(t, comp1.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived}, comp1.Err())
 
-	// NACK canceled the WaitGroup, create new one
-	wg = completion.NewWaitGroup(ctx)
-
+	// NACK completed the completion, reuse wg with new completion
 	// Create version 3 with resources 0 and 1.
 	callback2, comp2 := newCompCallback(logger)
 	mutator.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, wg, callback2)
@@ -1046,7 +1050,9 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(context.Background(), CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -1118,13 +1124,16 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	streamCtx, closeStream := context.WithCancel(ctx)
 	stream := NewMockStream(streamCtx, 1, 1, StreamTimeout, StreamTimeout)
+	defer stream.Close()
 
 	server := NewServer(logger, map[string]*ResourceTypeConfiguration{typeURL: {Source: cache, AckObserver: mutator}}, nil, metrics)
 
@@ -1207,7 +1216,9 @@ func TestNotAckedAfterRestart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	cache := NewCache(logger)
 	mutator := NewAckingResourceMutatorWrapper(logger, cache, metrics)
@@ -1311,7 +1322,9 @@ func TestWaitForAck(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
@@ -1514,7 +1527,9 @@ func TestWaitForAckNoClusters(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	wg := completion.NewWaitGroup(ctx)
+
+	wg, cancel := completion.NewWaitGroup(ctx, CompletionTimeout)
+	defer cancel()
 
 	ldsCache := NewCache(logger)
 	ldsMutator := NewAckingResourceMutatorWrapper(logger, ldsCache, metrics)
