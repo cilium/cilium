@@ -169,6 +169,11 @@ type Agent struct {
 	// It provides XfrmStateAdd/Update/Del wrappers that ensure cache
 	// is correctly invalidate.
 	xfrmStateCache *xfrmStateListCache
+
+	// nodeHandler is stored from StartBackgroundJobs so that
+	// PublishKeyIdentity can call AllNodeValidateImplementation
+	// to ensure XFRM states exist before publishing the SPI.
+	nodeHandler types.NodeHandler
 }
 
 // newAgent creates a new IPSec agent.
@@ -211,6 +216,15 @@ func (a *Agent) Start(cell.HookContext) error {
 
 // PublishKeyIdentity updates the eBPF map and CiliumNode resource with the current SPI. This should be called after XFRM states are created to avoid race conditions.
 func (a *Agent) PublishKeyIdentity() error {
+	// Ensure XFRM states are created for all known peers before
+	// publishing the SPI. This prevents a race where remote peers
+	// see our new SPI and start sending encrypted traffic before
+	// we have XFRM IN states to decrypt it.
+	// This mirrors the pattern in keyfileWatcher.
+	if a.nodeHandler != nil {
+		a.nodeHandler.AllNodeValidateImplementation()
+	}
+
 	a.localNode.Update(func(n *node.LocalNode) {
 		n.EncryptionKey = a.spi
 	})
@@ -225,6 +239,7 @@ func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
 	if !a.Enabled() {
 		return nil
 	}
+	a.nodeHandler = handler
 	if err := a.startKeyfileWatcher(handler); err != nil {
 		return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 	}
