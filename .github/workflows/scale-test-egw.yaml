@@ -440,10 +440,81 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ steps.vars.outputs.eks_version }}
           spot: false
-          mode: "egw"
-          client_node_number: ${{ steps.vars.outputs.num_client_nodes }}
-          egw_default_zone: ${{ steps.vars.outputs.eks_zone_1 }}
-          egw_no_cilium_zone: ${{ steps.vars.outputs.eks_zone_2 }}
+          node_groups_override: |
+            managedNodeGroups:
+            - name: ng-amd64-client
+              instanceTypes:
+              - m5n.xlarge
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/egw-client: "true"
+            - name: ng-amd64-egw-node
+              instanceTypes:
+              - m5n.xlarge
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/egw-node: "true"
+            - name: ng-amd64-heapster
+              instanceTypes:
+              - m5n.xlarge
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_1 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              maxPodsPerNode: 110
+              taints:
+              - key: "node.cilium.io/agent-not-ready"
+                value: "true"
+                effect: "NoExecute"
+              labels:
+                role.scaffolding/monitoring: "true"
+            - name: ng-amd64-no-cilium
+              instanceTypes:
+              - m5n.xlarge
+              availabilityZones:
+              - ${{ steps.vars.outputs.eks_zone_2 }}
+              desiredCapacity: 1
+              spot: false
+              privateNetworking: true
+              volumeType: "gp3"
+              volumeSize: 20
+              taints:
+              - key: "cilium.io/no-schedule"
+                value: "true"
+                effect: "NoSchedule"
+              labels:
+                cilium.io/no-schedule: "true"
+              # Manually inject a dummy CNI configuration to let the Kubelet turn
+              # ready. This is necessary as otherwise the node creation would
+              # never complete. Regardless, no pods will be scheduled here given
+              # that the node is tainted.
+              preBootstrapCommands:
+              - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
 
       - name: Wait for Cilium status to be ready
         run: |
