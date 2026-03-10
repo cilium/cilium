@@ -116,7 +116,8 @@ int lxc_v6_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v6_add_entry(&remote_node_ip, 0, REMOTE_NODE_ID, 0, 0);
 
-	lb_v6_add_service(&zero_addr, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v6_add_service_with_flags(&zero_addr, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_NODEPORT, 0);
 	lb_v6_add_backend(&zero_addr, NODEPORT_PORT, 1, 125,
 			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -348,7 +349,7 @@ int lxc_v6_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry(&remote_node_ip, 0, REMOTE_NODE_ID, 0, 0);
 
 	lb_v6_add_service_with_flags(&zero_addr, NODEPORT_PORT_DSR, IPPROTO_TCP, 1, revnat_id,
-				     SVC_FLAG_ROUTABLE, SVC_FLAG_FWD_MODE_DSR);
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_NODEPORT, SVC_FLAG_FWD_MODE_DSR);
 	lb_v6_add_backend(&zero_addr, NODEPORT_PORT_DSR, 1, 125,
 			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -578,7 +579,8 @@ int lxc_v6_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 
 	ipcache_v6_add_entry(&remote_node_ip, 0, REMOTE_NODE_ID, 0, 0);
 
-	lb_v6_add_service(&zero_addr, NODEPORT_PORT_HAIRPIN, IPPROTO_TCP, 1, revnat_id);
+	lb_v6_add_service_with_flags(&zero_addr, NODEPORT_PORT_HAIRPIN, IPPROTO_TCP, 1, revnat_id,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_NODEPORT, 0);
 	lb_v6_add_backend(&zero_addr, NODEPORT_PORT_HAIRPIN, 1, 126,
 			  &client_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -914,7 +916,8 @@ int lxc_v6_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = 10;
 
 	/* NOW add the wildcard NodePort service with local backend */
-	lb_v6_add_service(&zero_addr, NODEPORT_PORT_UDP, IPPROTO_UDP, 1, revnat_id);
+	lb_v6_add_service_with_flags(&zero_addr, NODEPORT_PORT_UDP, IPPROTO_UDP, 1, revnat_id,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_NODEPORT, 0);
 	lb_v6_add_backend(&zero_addr, NODEPORT_PORT_UDP, 1, 130,
 			  (union v6addr *)BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
