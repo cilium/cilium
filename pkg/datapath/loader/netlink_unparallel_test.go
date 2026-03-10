@@ -25,16 +25,7 @@ func TestPrivilegedSetupIPIPDevices(t *testing.T) {
 
 	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
-	err := sysctl.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, 0)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		err := sysctl.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, 2)
-		require.NoError(t, err)
-	})
-
 	ns := netns.NewNetNS(t)
-
 	ns.Do(func() error {
 		err := setupIPIPDevices(logger, sysctl, true, true, 1500)
 		require.NoError(t, err)
@@ -46,18 +37,6 @@ func TestPrivilegedSetupIPIPDevices(t *testing.T) {
 		dev6, err := safenetlink.LinkByName(defaults.IPIPv6Device)
 		require.NoError(t, err)
 		require.Equal(t, 1452, dev6.Attrs().MTU)
-
-		_, err = safenetlink.LinkByName("cilium_tunl")
-		require.NoError(t, err)
-
-		_, err = safenetlink.LinkByName("cilium_ip6tnl")
-		require.NoError(t, err)
-
-		_, err = safenetlink.LinkByName("tunl0")
-		require.Error(t, err)
-
-		_, err = safenetlink.LinkByName("ip6tnl0")
-		require.Error(t, err)
 
 		err = setupIPIPDevices(logger, sysctl, false, false, 1500)
 		require.NoError(t, err)

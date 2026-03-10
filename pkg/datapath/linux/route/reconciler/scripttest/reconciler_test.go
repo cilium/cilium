@@ -17,40 +17,23 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
 	"github.com/cilium/statedb"
-	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/scriptnet"
+
+	// Side-effect import for managing fb_tunnels sysctl.
+	_ "github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func TestPrivilegedScript(t *testing.T) {
 	testutils.PrivilegedTest(t)
-
-	// When certain kernel modules are loaded, the kernel will by default try
-	// to create fallback devices in newly created network namespaces.
-	// Setting net.core.fb_tunnels_only_for_init=2 will prevent the kernel from
-	// creating fallback devices so we have a more predictable test environment.
-	sc := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	val, _ := sc.ReadInt([]string{"net", "core", "fb_tunnels_only_for_init_net"})
-	t.Log("sysctl net.core.fb_tunnels_only_for_init_net was set to ", val)
-	if val != 2 {
-		t.Log("Setting sysctl net.core.fb_tunnels_only_for_init_net to 2")
-		sc.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, 2)
-
-		// Lets be a good citizen and clean up after ourselves.
-		t.Cleanup(func() {
-			t.Log("Resetting sysctl net.core.fb_tunnels_only_for_init_net to previous value")
-			sc.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, val)
-		})
-	}
 
 	scripttest.Test(t,
 		t.Context(),
