@@ -346,9 +346,6 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 	if (!cb_ctx->ctx)
 		return 1;
 
-	if (!sub->ifindex)
-		return 1;
-
 	/* set tunnel key for remote delivery
 	 * this helper sets the tunnel metadata on the skb_buff but only
 	 * tunnel drivers will read it, therefore any local delivery will
@@ -380,6 +377,9 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 	} else {
 		ifindex = sub->ifindex;
 	}
+
+	if (ifindex == 0)
+		return 1;
 
 	ret = clone_redirect(cb_ctx->ctx, ifindex, 0);
 	if (ret != 0) {
