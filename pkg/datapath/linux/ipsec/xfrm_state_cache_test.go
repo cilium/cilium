@@ -26,7 +26,7 @@ func newTestableXfrmStateListCache(ttl time.Duration, enableCaching bool, clock 
 }
 
 func TestPrivilegedXfrmStateListCache(t *testing.T) {
-	setupIPSecSuitePrivileged(t, "ipv4")
+	setup(t, "ipv4")
 
 	fakeClock := baseclocktest.NewFakeClock(time.Now())
 	xfrmStateCache := newTestableXfrmStateListCache(
@@ -101,7 +101,7 @@ func TestPrivilegedXfrmStateListCache(t *testing.T) {
 }
 
 func TestPrivilegedXfrmStateListCacheDisabled(t *testing.T) {
-	setupIPSecSuitePrivileged(t, "ipv4")
+	setup(t, "ipv4")
 
 	xfrmStateCache := newTestableXfrmStateListCache(
 		time.Second,
