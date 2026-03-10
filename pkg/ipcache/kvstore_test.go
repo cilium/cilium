@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
@@ -52,7 +53,7 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string) kvstore.
 	}
 
 	id := func(clusterID, localID uint32) identity.NumericIdentity {
-		return identity.NumericIdentity(clusterID<<identity.GetClusterIDShift() | localID)
+		return identity.NumericIdentity(clusterID<<cmtypes.DefaultClusterInfo.GetClusterIDShift() | localID)
 	}
 
 	fb.prefix = prefix

@@ -82,7 +82,6 @@ type paramsOut struct {
 	ClusterMeshMetrics    clustermesh.ClusterMeshMetrics
 	RemoteIdentityWatcher clustermesh.RemoteIdentityWatcher
 	CacheStatus           k8sSynced.CacheStatus
-	ClusterInfo           cmtypes.ClusterInfo
 	NodeHandler           types.NodeHandler
 	SecretSyncConfig      envoy.SecretSyncConfig
 }
@@ -137,6 +136,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			writer.Cell,
 			ipset.Cell,
 			k8s.ResourcesCell,
+			cell.Config(cmtypes.DefaultClusterInfo),
 			node.LocalNodeStoreTestCell,
 			k8sClient.FakeClientCell(),
 			kvstore.Cell(kvstore.DisabledBackendName),
@@ -198,7 +198,6 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 						ClusterMeshMetrics:    nil,
 						RemoteIdentityWatcher: nil,
 						CacheStatus:           make(k8sSynced.CacheStatus),
-						ClusterInfo:           cmtypes.DefaultClusterInfo,
 						NodeHandler:           fakeTypes.NewNodeHandler(),
 						SecretSyncConfig:      envoy.SecretSyncConfig{},
 					}
