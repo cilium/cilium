@@ -47,6 +47,7 @@ jobs:
               - 'hubble-relay/cmd/**'
               - 'install/kubernetes/**'
               - 'operator/cmd/**'
+              - 'pkg/metrics/features/**'
               - README.rst
 
   # Runs only if code under Documentation or */cmd/ is changed as the docs
