@@ -156,7 +156,19 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			break
 		}
 
+		if gwc.gatewayIP == GatewayNotFoundIPv4 {
+			continue
+		}
+
 		config.gatewayConfigs = append(config.gatewayConfigs, gwc)
+	}
+
+	if len(config.gatewayConfigs) == 0 {
+		config.gatewayConfigs = append(config.gatewayConfigs, gatewayConfig{
+			egressIP4: netip.IPv4Unspecified(),
+			egressIP6: netip.IPv6Unspecified(),
+			gatewayIP: GatewayNotFoundIPv4,
+		})
 	}
 }
 
