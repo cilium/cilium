@@ -13,6 +13,8 @@
 #include "l3.h"
 #include "l4.h"
 
+DECLARE_CONFIG(bool, proxy_redirect_via_cilium_net, "Whether to redirect to the proxy via cilium_net (hairpin) or via stack")
+
 /** Redirect to the proxy by hairpinning the packet out the incoming
  *  interface.
  *

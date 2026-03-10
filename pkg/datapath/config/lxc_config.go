@@ -48,6 +48,8 @@ type BPFLXC struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
+	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
+	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// VXLAN tunnel endpoint network mask.
@@ -62,5 +64,5 @@ func NewBPFLXC(node Node) *BPFLXC {
 		0x0, 0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, node}
+		0x0, false, 0x0, 0x0, node}
 }
