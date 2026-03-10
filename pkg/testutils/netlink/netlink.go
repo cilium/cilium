@@ -73,6 +73,18 @@ func MustXfrmStateList(tb testing.TB, ns *netns.NetNS, family int) []netlink.Xfr
 	return states
 }
 
+func MustXfrmStateGet(tb testing.TB, ns *netns.NetNS, state *netlink.XfrmState) *netlink.XfrmState {
+	tb.Helper()
+
+	var result *netlink.XfrmState
+	require.NoError(tb, ns.Do(func() error {
+		var err error
+		result, err = netlink.XfrmStateGet(state)
+		return err
+	}))
+	return result
+}
+
 func MustXfrmPolicyList(tb testing.TB, ns *netns.NetNS, family int) []netlink.XfrmPolicy {
 	tb.Helper()
 
@@ -83,4 +95,16 @@ func MustXfrmPolicyList(tb testing.TB, ns *netns.NetNS, family int) []netlink.Xf
 		return err
 	}))
 	return policies
+}
+
+func MustXfrmPolicyGet(tb testing.TB, ns *netns.NetNS, policy *netlink.XfrmPolicy) *netlink.XfrmPolicy {
+	tb.Helper()
+
+	var result *netlink.XfrmPolicy
+	require.NoError(tb, ns.Do(func() error {
+		var err error
+		result, err = netlink.XfrmPolicyGet(policy)
+		return err
+	}))
+	return result
 }
