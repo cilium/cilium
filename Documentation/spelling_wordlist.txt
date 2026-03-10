@@ -131,7 +131,9 @@ Telco
 Terraform
 Tierney
 ToR
+Triager
 Triagers
+Triaging
 Twilio
 Uncompress
 Uncordon
@@ -833,6 +835,8 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+triager
+triagers
 tsne
 tunables
 tunings
