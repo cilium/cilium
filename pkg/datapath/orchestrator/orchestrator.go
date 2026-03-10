@@ -118,7 +118,6 @@ type orchestratorParams struct {
 	IPsecConfig         datapath.IPsecConfig
 	BIGTCPConfig        *bigtcp.Configuration
 	ConnectorConfig     datapath.ConnectorConfig
-	IPsecAgent          datapath.IPsecAgent
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -337,20 +336,6 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 			close(req.errChan)
 		}
 		return err
-	}
-
-	if o.params.IPsecConfig.Enabled() {
-		err = o.params.IPsecAgent.PublishKeyIdentity()
-		if err != nil {
-			if req.errChan != nil {
-				select {
-				case req.errChan <- err:
-				default:
-				}
-				close(req.errChan)
-			}
-			return err
-		}
 	}
 
 	// Store the latest local node configuration before triggering the regeneration and

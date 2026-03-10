@@ -46,10 +46,6 @@ func (a *IPsecAgent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 	return nil
 }
 
-func (a *IPsecAgent) PublishKeyIdentity() error {
-	return nil
-}
-
 func (a *IPsecAgent) Enabled() bool {
 	return a.EnableIPsec
 }

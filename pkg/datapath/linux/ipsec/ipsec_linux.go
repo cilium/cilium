@@ -137,8 +137,8 @@ var (
 )
 
 // Upon starting, the agent will load the ipsec key. The SPI is published to
-// the eBPF map and CiliumNode separately via PublishKeyIdentity(), which
-// should be called after XFRM states are configured.
+// the eBPF map and CiliumNode in StartBackgroundJobs(), after ensuring XFRM
+// states are configured for all known peers.
 type Agent struct {
 	ipSecLock lock.RWMutex
 
@@ -169,11 +169,6 @@ type Agent struct {
 	// It provides XfrmStateAdd/Update/Del wrappers that ensure cache
 	// is correctly invalidate.
 	xfrmStateCache *xfrmStateListCache
-
-	// nodeHandler is stored from StartBackgroundJobs so that
-	// PublishKeyIdentity can call AllNodeValidateImplementation
-	// to ensure XFRM states exist before publishing the SPI.
-	nodeHandler types.NodeHandler
 }
 
 // newAgent creates a new IPSec agent.
@@ -205,7 +200,7 @@ func (a *Agent) Start(cell.HookContext) error {
 
 	var err error
 	// Load keys from file ONLY. Do NOT update eBPF map or CiliumNode yet.
-	// The eBPF map will be updated in PublishKeyIdentity() AFTER XFRM states
+	// The eBPF map will be updated in StartBackgroundJobs() AFTER XFRM states
 	// are created to ensure synchronization between XFRM and eBPF state.
 	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
@@ -214,16 +209,21 @@ func (a *Agent) Start(cell.HookContext) error {
 	return nil
 }
 
-// PublishKeyIdentity updates the eBPF map and CiliumNode resource with the current SPI. This should be called after XFRM states are created to avoid race conditions.
-func (a *Agent) PublishKeyIdentity() error {
-	// Ensure XFRM states are created for all known peers before
-	// publishing the SPI. This prevents a race where remote peers
-	// see our new SPI and start sending encrypted traffic before
-	// we have XFRM IN states to decrypt it.
-	// This mirrors the pattern in keyfileWatcher.
-	if a.nodeHandler != nil {
-		a.nodeHandler.AllNodeValidateImplementation()
+// StartBackgroundJobs publishes the initial SPI and starts the keyfile
+// watcher and stale key reclaimer jobs.
+//
+// Before publishing the SPI, it calls AllNodeValidateImplementation to
+// ensure XFRM states exist for all known peers. This prevents a race
+// where remote peers see our new SPI and start sending encrypted traffic
+// before we have XFRM IN states to decrypt it. This mirrors the pattern
+// used in keyfileWatcher for key rotations.
+func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
+	if !a.Enabled() {
+		return nil
 	}
+
+	// Create XFRM states for all known peers before advertising SPI.
+	handler.AllNodeValidateImplementation()
 
 	a.localNode.Update(func(n *node.LocalNode) {
 		n.EncryptionKey = a.spi
@@ -231,15 +231,7 @@ func (a *Agent) PublishKeyIdentity() error {
 	if err := a.setIPSecSPI(a.spi); err != nil {
 		return err
 	}
-	return nil
-}
 
-// StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
-	if !a.Enabled() {
-		return nil
-	}
-	a.nodeHandler = handler
 	if err := a.startKeyfileWatcher(handler); err != nil {
 		return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 	}
