@@ -330,9 +330,13 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 
 				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, backends)
 				rh.update("eps:"+name.String(), err)
+				if err != nil {
+					continue
+				}
 
 				currentEndpoints[eps.EndpointSliceName] = endpointsEvent{
 					name:     eps.EndpointSliceName,
+					svcName:  name,
 					backends: eps.Backends,
 				}
 			}
@@ -387,11 +391,16 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 			}
 
 			err = p.Writer.UpsertAndReleaseBackends(txn, name, source.Kubernetes, backends, orphans)
+			if err != nil {
+				rh.update("eps:"+name.String(), err)
+				return
+			}
 
 			for ep := range allEps.All() {
 				if len(ep.backends) == 0 {
 					delete(currentEndpoints, ep.name)
 				} else {
+					ep.svcName = name
 					currentEndpoints[ep.name] = ep
 				}
 			}
