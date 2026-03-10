@@ -52,6 +52,11 @@ grep 'name: test' actual.yaml
 # Validate the table output of 'k8s-object-tracker'
 db/cmp k8s-object-tracker object-tracker.table
 
+# Test the resync command against services (without watchers).
+k8s/resync v1.services service-alt.yaml
+k8s/get v1.services test/echo -o actual.yaml
+grep 'clusterIP: 10.96.50.105' actual.yaml
+
 # Delete objects from each clientset
 k8s/delete service.yaml limitrange.yaml ciliumenvoyconfig.yaml apiext_crd.yaml mcs_svcexport.yaml
 k8s/summary summary.actual
@@ -112,6 +117,15 @@ metadata:
   uid: a49fe99c-3564-4754-acc4-780f2331a49b
 spec:
   clusterIP: 10.96.50.104
+
+-- service-alt.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.105
 
 -- limitrange.yaml --
 apiVersion: v1
