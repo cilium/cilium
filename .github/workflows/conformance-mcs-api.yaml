@@ -229,7 +229,7 @@ jobs:
         id: install-cilium
         run: |
           # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
-          cilium --context ${{ env.contextName1 }} install \
+          cilium --context ${{ env.contextName1 }} install --wait \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.clusterName1 }} \
             --helm-set cluster.id=1 \
@@ -243,7 +243,7 @@ jobs:
       - name: Install Cilium in cluster2
         run: |
           # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
-          cilium --context ${{ env.contextName2 }} install \
+          cilium --context ${{ env.contextName2 }} install --wait \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.clusterName2 }} \
             --helm-set cluster.id=2 \
