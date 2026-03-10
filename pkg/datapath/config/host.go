@@ -60,6 +60,8 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
+	cfg.ProxyRedirectViaCiliumNet = option.Config.EnableBPFTProxy
+
 	return cfg
 }
 
@@ -105,6 +107,8 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+
+	cfg.ProxyRedirectViaCiliumNet = option.Config.EnableBPFTProxy
 
 	return cfg
 }
@@ -172,6 +176,7 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
+	cfg.ProxyRedirectViaCiliumNet = option.Config.EnableBPFTProxy
 	switch link.(type) {
 	case *netlink.Bridge:
 		// When a bridge device has br_netfilter with bridge-nf-call-iptables=1,

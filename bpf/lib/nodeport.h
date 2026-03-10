@@ -1400,10 +1400,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IPV6));
 
-#  if defined(ENABLE_TPROXY)
-		return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
-#  else
-		/* See IPv4 codepath for comments. */
 		if (CONFIG(proxy_redirect_via_cilium_net))
 			return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 
@@ -1412,7 +1408,6 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 
 		*punt_to_stack = true;
-#  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
 		return CTX_ACT_OK;
 	}
@@ -2785,13 +2780,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IP));
 
-#  if defined(ENABLE_TPROXY)
-		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
-#  else
-		/* Even if BPF tproxy is disabled, there are cases in which we
-		 * must hairpin the packet through cilium_net (ex. when we attach
-		 * cil_from_netdev to a bridge iface).
-		 */
 		if (CONFIG(proxy_redirect_via_cilium_net))
 			return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
 
@@ -2803,7 +2791,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 
 		*punt_to_stack = true;
-#  endif /* ENABLE_TPROXY */
 # endif /* IS_BPF_XDP */
 		return CTX_ACT_OK;
 	}

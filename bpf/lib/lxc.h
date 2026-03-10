@@ -12,7 +12,6 @@
 #include "trace.h"
 #include "l4.h"
 #include "proxy.h"
-#include "proxy_hairpin.h"
 
 #ifdef ENABLE_SIP_VERIFICATION
 static __always_inline
