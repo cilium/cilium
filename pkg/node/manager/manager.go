@@ -645,7 +645,9 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 		// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
 		nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
 		hasOverride = true
-	} else if !n.IsLocal() && option.Config.PerNodeLabelsEnabled() {
+	}
+
+	if option.Config.PerNodeLabelsEnabled() {
 		lbls := labels.Map2Labels(n.Labels, labels.LabelSourceNode)
 		clusterLabel := labels.NewLabel(k8sConst.PolicyLabelCluster, n.Cluster, labels.LabelSourceK8s)
 		lbls[clusterLabel.Key] = clusterLabel
