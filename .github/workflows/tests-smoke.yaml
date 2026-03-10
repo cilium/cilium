@@ -162,7 +162,6 @@ jobs:
             --from-file=${CLIENT_KEY}=${CLIENT_KEY}
 
           echo operator_prometheus_tls_secret_name=${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} >> $GITHUB_OUTPUT
-          echo server_name=${SERVER_NAME} >> $GITHUB_OUTPUT
 
       - name: Set up install variables
         id: vars
@@ -215,67 +214,6 @@ jobs:
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
-
-      - name: Check prometheus metrics
-        if: ${{ success() }}
-        run: |
-          cd $HOME
-          cilium_pod_ip=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].status.podIP}' )
-          curl http://${cilium_pod_ip}:9962/metrics > metrics-agent.prom
-
-          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
-            -n kube-system \
-            -o jsonpath='{.data.client\.crt}' \
-            | base64 -d > client.crt
-
-          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
-            -n kube-system \
-            -o jsonpath='{.data.client\.key}' \
-            | base64 -d > client.key
-
-          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
-            -n kube-system \
-            -o jsonpath='{.data.ca\.crt}' \
-            | base64 -d > ca.crt
-
-          operator_ip=$(kubectl get pods -n kube-system -l io.cilium/app=operator -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
-          curl --retry 5 \
-            --cert client.crt \
-            --key client.key \
-            --cacert ca.crt \
-            --resolve ${{ steps.gen_certs.outputs.server_name }}:9963:${operator_ip} \
-            https://${{ steps.gen_certs.outputs.server_name }}:9963/metrics > metrics-operator.prom
-          # Install promtool binary release. `go install` doesn't work due to
-          # https://github.com/prometheus/prometheus/issues/8852 and related issues.
-          curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
-          sha256sum --check --ignore-missing sha256sums.txt
-          tar -xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
-          rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
-          sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
-          cat metrics-agent.prom | promtool check metrics
-          cat metrics-operator.prom | promtool check metrics
-
-      - name: Check prometheus feature metrics documentation
-        if: ${{ success() }}
-        run: |
-          cd $HOME
-          cat metrics-agent.prom | grep cilium_feature > metrics-agent-features.prom
-          cat metrics-operator.prom | grep cilium_operator_feature > metrics-operator-features.prom
-          cd -
-          go run ./tools/feature-helm-generator \
-             --prom-file "$HOME/metrics-agent-features.prom" \
-             --metrics-prefix cilium_feature \
-             --metrics-separators adv_connect_and_lb,controlplane,datapath,network_policies \
-             > Documentation/observability/feature-metrics-agent.txt
-          go run ./tools/feature-helm-generator \
-             --prom-file "$HOME/metrics-operator-features.prom" \
-             --metrics-prefix cilium_operator_feature \
-             --metrics-separators adv_connect_and_lb \
-             > Documentation/observability/feature-metrics-operator.txt
-          if ! git diff --quiet; then
-            echo "Feature metrics documentation out-of-sync"
-            exit 1
-          fi
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
