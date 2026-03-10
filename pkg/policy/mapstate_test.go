@@ -306,7 +306,7 @@ func TestPolicyKeyTrafficDirection(t *testing.T) {
 func (ms *mapState) validatePortProto(t *testing.T) {
 	ms.forEach(func(k Key, _ mapStateEntry) bool {
 		if k.Nexthdr == 0 {
-			require.Equal(t, uint16(0), k.DestPort)
+			require.EqualValues(t, 0, k.DestPort)
 		}
 		return true
 	})

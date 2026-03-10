@@ -408,7 +408,7 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 // 'key' must not have a wildcard identity or port.
 func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	// Validate that the search key has no wildcards
-	if key.Identity == 0 || key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
+	if key.Identity == 0 || key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.StartPort() {
 		ms.logger.Error(
 			"invalid key for Lookup",
 			logfields.Stacktrace, hclog.Stacktrace(),
