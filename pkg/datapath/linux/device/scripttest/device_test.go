@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/hive/script"
 	"github.com/cilium/hive/script/scripttest"
 	"github.com/cilium/statedb"
-	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/device"
 	linuxdevice "github.com/cilium/cilium/pkg/datapath/linux/device"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	ciliumhive "github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
@@ -35,6 +33,9 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/scriptnet"
 	"github.com/cilium/cilium/pkg/time"
+
+	// Side-effect import for managing fb_tunnels sysctl.
+	_ "github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
@@ -48,26 +49,6 @@ func TestPrivilegedScript(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)
-
-	// When certain kernel modules are loaded, the kernel will by default try
-	// to create fallback devices in newly created network namespaces.
-	// For eg, in CI runs, sit0 interface gets created in all namespaces, which
-	// is not in the expected devices table.
-	// Setting net.core.fb_tunnels_only_for_init=2 will prevent the kernel from
-	// creating fallback devices so we have a more predictable test environment.
-	sc := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	val, _ := sc.ReadInt([]string{"net", "core", "fb_tunnels_only_for_init_net"})
-	t.Log("sysctl net.core.fb_tunnels_only_for_init_net was set to ", val)
-	if val != 2 {
-		t.Log("Setting sysctl net.core.fb_tunnels_only_for_init_net to 2")
-		sc.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, 2)
-
-		// Lets be a good citizen and clean up after ourselves.
-		t.Cleanup(func() {
-			t.Log("Resetting sysctl net.core.fb_tunnels_only_for_init_net to previous value", val)
-			sc.WriteInt([]string{"net", "core", "fb_tunnels_only_for_init_net"}, val)
-		})
-	}
 
 	scripttest.Test(
 		t,
