@@ -109,7 +109,7 @@ int lxc_v4_remote_nodeport_local_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
-	lb_v4_add_service(0, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id, 0);
 	lb_v4_add_backend(0, NODEPORT_PORT, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -318,8 +318,8 @@ int lxc_v4_remote_nodeport_dsr_local_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
-	lb_v4_add_service_with_flags(0, NODEPORT_PORT_DSR, IPPROTO_TCP, 1, revnat_id,
-				     SVC_FLAG_ROUTABLE, SVC_FLAG_FWD_MODE_DSR);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT_DSR, IPPROTO_TCP, 1, revnat_id,
+				   SVC_FLAG_FWD_MODE_DSR);
 	lb_v4_add_backend(0, NODEPORT_PORT_DSR, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -527,7 +527,7 @@ int lxc_v4_remote_nodeport_hairpin_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
-	lb_v4_add_service(0, NODEPORT_PORT_HAIRPIN, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT_HAIRPIN, IPPROTO_TCP, 1, revnat_id, 0);
 	lb_v4_add_backend(0, NODEPORT_PORT_HAIRPIN, 1, 126,
 			  CLIENT_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -836,7 +836,7 @@ int lxc_v4_existing_conn_udp_second_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 10;
 
-	lb_v4_add_service(0, NODEPORT_PORT_UDP, IPPROTO_UDP, 1, revnat_id);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT_UDP, IPPROTO_UDP, 1, revnat_id, 0);
 	lb_v4_add_backend(0, NODEPORT_PORT_UDP, 1, 130,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
