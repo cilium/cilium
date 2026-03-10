@@ -73,12 +73,14 @@ type IngressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
-	// FromGroups is a directive that allows the integration with multiple outside
-	// providers. Currently, only AWS is supported, and the rule can select by
-	// multiple sub directives:
+	// FromGroups allows policies to reference CIDRs provided by external integrations.
+	// Currently, only AWS is supported, and the rule can select by multiple sub directives.
+	// FromGroups entries are functionally equivalent to FromCIDR, and have the same
+	// limitiations. They cannot select traffic originating from within the cluster.
+	//
 	//
 	// Example:
-	// FromGroups:
+	// fromGroups:
 	// - aws:
 	//     securityGroupsIds:
 	//     - 'sg-XXXXXXXXXXXXX'
