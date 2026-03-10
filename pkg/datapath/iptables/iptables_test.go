@@ -1164,3 +1164,70 @@ func TestEncryptionRules(t *testing.T) {
 		assert.NoError(t, mockIp6tables.checkExpectations())
 	})
 }
+
+// TestAddNoTrackPodTrafficRules verifies that when InstallNoConntrackIptRules
+// is enabled, addNoTrackPodTrafficRules generates the correct iptables rules
+// to skip conntrack for pod traffic in both CILIUM_PRE_raw and
+// CILIUM_OUTPUT_raw chains. This covers the "Skip conntrack for pod traffic"
+// scenario previously tested by K8sDatapathConfig.
+func TestAddNoTrackPodTrafficRules(t *testing.T) {
+	podsCIDR := "10.0.0.0/16"
+
+	mockIp4 := &mockIptables{
+		t:    t,
+		prog: "iptables",
+		expectations: []expectation{
+			// CILIUM_PRE_raw -s podsCIDR
+			{args: "-t raw -I CILIUM_PRE_raw -s 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_PRE_raw -d podsCIDR
+			{args: "-t raw -I CILIUM_PRE_raw -d 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_OUTPUT_raw -s podsCIDR
+			{args: "-t raw -I CILIUM_OUTPUT_raw -s 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+			// CILIUM_OUTPUT_raw -d podsCIDR
+			{args: "-t raw -I CILIUM_OUTPUT_raw -d 10.0.0.0/16 -m comment --comment cilium: NOTRACK for pod traffic -j CT --notrack"},
+		},
+	}
+
+	testMgr := &Manager{
+		sharedCfg: SharedConfig{
+			InstallNoConntrackIptRules: true,
+			EnableIPv4:                 true,
+		},
+		ip4tables: mockIp4,
+	}
+
+	err := testMgr.addNoTrackPodTrafficRules(mockIp4, podsCIDR)
+	assert.NoError(t, err)
+	assert.NoError(t, mockIp4.checkExpectations())
+}
+
+// TestAllEgressMasqueradeCmdsRandomFully specifically tests the --random-fully
+// flag in masquerade rules, covering the iptables masquerading scenario
+// previously tested by K8sDatapathConfig Encapsulation context.
+func TestAllEgressMasqueradeCmdsRandomFully(t *testing.T) {
+	allocRange := "10.0.0.0/16"
+	snatDstExclusionCIDR := "192.168.0.0/16"
+
+	// Without --random-fully
+	cmdsWithout := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, nil, false)
+	for _, cmd := range cmdsWithout {
+		assert.NotContains(t, cmd, "--random-fully",
+			"Expected no --random-fully when disabled")
+	}
+
+	// With --random-fully
+	cmdsWith := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, nil, true)
+	for _, cmd := range cmdsWith {
+		assert.Contains(t, cmd, "--random-fully",
+			"Expected --random-fully when enabled")
+	}
+
+	// With --random-fully and specific masquerade interfaces
+	cmdsMultiIface := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR,
+		[]string{"eth0", "ens5"}, true)
+	assert.Len(t, cmdsMultiIface, 2, "Expected one rule per masquerade interface")
+	for _, cmd := range cmdsMultiIface {
+		assert.Contains(t, cmd, "--random-fully",
+			"Expected --random-fully when enabled with multiple interfaces")
+	}
+}
