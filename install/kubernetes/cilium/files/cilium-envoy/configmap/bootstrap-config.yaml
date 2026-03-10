@@ -1,6 +1,12 @@
 node:
   id: "host~127.0.0.1~no-id~localdomain"
   cluster: "ingress-cluster"
+{{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+clusterManager:
+  # Zone-aware load balancing depends on Envoy's local cluster wiring.
+  # Keep this aligned with a statically defined cluster name in this bootstrap.
+  localClusterName: "/cilium-locality-cluster"
+{{- end }}
 staticResources:
   listeners:
   {{- if .Values.envoy.prometheus.enabled }}
@@ -259,6 +265,23 @@ staticResources:
         "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
         explicitHttpConfig:
           http2ProtocolOptions: {}
+  {{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+  - name: "/cilium-locality-cluster"
+    type: "EDS"
+    connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    edsClusterConfig:
+      edsConfig:
+        apiConfigSource:
+          apiType: "GRPC"
+          transportApiVersion: "V3"
+          grpcServices:
+          - envoyGrpc:
+              clusterName: "xds-grpc-cilium"
+          setNodeOnFirstMessageOnly: true
+        resourceApiVersion: "V3"
+      serviceName: "/cilium-locality-cluster"
+    lbPolicy: "ROUND_ROBIN"
+  {{- end }}
   - name: "/envoy-admin"
     type: "STATIC"
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
