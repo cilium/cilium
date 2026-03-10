@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"regexp"
 	"strings"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -706,4 +707,22 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 			}
 		}
 	}
+}
+
+// prepareHostPolicyEnforcement applies host policies briefly and then removes
+// them to force termination of stale connections that were established before
+// Cilium started tracking host namespace connections. This prevents conntrack
+// entries from being created in the wrong direction.
+func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl, policy string) {
+	By(fmt.Sprintf("Applying policies %s for 1min", policy))
+	_, err := kubectl.CiliumClusterwidePolicyAction(policy, helpers.KubectlApply, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policy, err))
+
+	time.Sleep(1 * time.Minute)
+
+	_, err = kubectl.CiliumClusterwidePolicyAction(policy, helpers.KubectlDelete, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policy, err))
+
+	By("Deleted the policies, waiting for connection terminations")
+	time.Sleep(30 * time.Second)
 }
