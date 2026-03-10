@@ -17,18 +17,33 @@ const (
 	LabelGroupKeyPrefix = "extgrp.cilium.io/"
 )
 
-// Groups structure to store all kinds of new integrations that needs a new
-// derivative policy.
+// Groups allows referencing CIDRs that are resolved from an external integration.
 type Groups struct {
 	AWS *AWSGroup `json:"aws,omitempty"`
 }
 
 // AWSGroup is an structure that can be used to whitelisting information from AWS integration
 type AWSGroup struct {
-	Labels              map[string]string `json:"labels,omitempty"`
-	SecurityGroupsIds   []string          `json:"securityGroupsIds,omitempty"`
-	SecurityGroupsNames []string          `json:"securityGroupsNames,omitempty"`
-	Region              string            `json:"region,omitempty"`
+	// Labels selects AWS ENIs by labels.
+	// Multiple labels are AND-ed together.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// SecurityGroupsIds selects VPC SecurityGroups by IDs.
+	// If multiple IDs are specified, they are OR-ed together.
+	//
+	// Note that this may be AND-ed with any Names specified. Specifying both
+	// IDs and Names is not recommended.
+	SecurityGroupsIds []string `json:"securityGroupsIds,omitempty"`
+
+	// SecurityGroupsNames selects VPC SecurityGroups by name.
+	// If multiple names are specified, they are OR-ed together.
+	//
+	// Note that this may be AND-ed with any IDs specified. Specifying both
+	// IDs and Names is not recommended.
+	SecurityGroupsNames []string `json:"securityGroupsNames,omitempty"`
+
+	// Deprecated: Region is unused.
+	Region string `json:"region,omitempty"`
 }
 
 // Hash hashes this group to a standard key. This is used to reference the group
