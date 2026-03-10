@@ -61,3 +61,5 @@ NODE_CONFIG(__u32, hash_init4_seed, "Cluster-wide IPv4 tuple hash seed sourced")
 NODE_CONFIG(__u32, hash_init6_seed, "Cluster-wide IPv6 tuple hash seed sourced")
 
 NODE_CONFIG(union v4addr, nat_46x64_prefix, "NAT 46x64 prefix")
+
+NODE_CONFIG(bool, enable_host_firewall, "Enable host network policies")
