@@ -447,6 +447,13 @@ type Endpoint struct {
 	// skipped regeneration levels.
 	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
 
+	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor from any regeneration
+	// event that was skipped because the endpoint was already in StateWaitingToRegenerate.
+	// The pending regeneration must wait for at least this policy revision in statedb before
+	// completing. This prevents a race where a PolicyUpdate is dropped as a duplicate while
+	// the running regen's policyRevisionToWaitFor is already satisfied by an older revision.
+	skippedPolicyRevision uint64
+
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
 	// plugin which performed the plumbing will enable certain datapath

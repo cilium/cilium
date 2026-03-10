@@ -537,6 +537,8 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// reset to the default lowest level
 	e.skippedRegenerationLevel = regeneration.Invalid
 
+	e.consumeSkippedPolicyRevision(ctx.datapathRegenerationContext)
+
 	e.unlock()
 
 	stats.prepareBuild.Start()
@@ -785,11 +787,28 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		} else {
 			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.GetRegenerationReason()))
 		}
+		// Track the highest PolicyRevisionToWaitFor from skipped events so the
+		// pending regeneration waits for the correct policy revision in statedb.
+		// Without this, the queued regen may complete at an older revision when a
+		// newer policy arrives concurrently (see skippedPolicyRevision field comment).
+		if regenMetadata.PolicyRevisionToWaitFor > e.skippedPolicyRevision {
+			e.skippedPolicyRevision = regenMetadata.PolicyRevisionToWaitFor
+		}
 		regen = false
 	default:
 		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.GetRegenerationReason()))
 	}
 	return regen
+}
+
+// consumeSkippedPolicyRevision bumps ctx.policyRevisionToWaitFor to
+// e.skippedPolicyRevision if higher, then resets skippedPolicyRevision to 0.
+// Must be called with e.mutex held.
+func (e *Endpoint) consumeSkippedPolicyRevision(ctx *datapathRegenerationContext) {
+	if e.skippedPolicyRevision > ctx.policyRevisionToWaitFor {
+		ctx.policyRevisionToWaitFor = e.skippedPolicyRevision
+	}
+	e.skippedPolicyRevision = 0
 }
 
 // UpdatePolicy updates the endpoint's policy.

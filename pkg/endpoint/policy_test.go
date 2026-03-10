@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -494,4 +495,246 @@ func TestStaleStatedbEntryAfterIdentityDeleteReAdd(t *testing.T) {
 	regenCtxB.policyResult.endpointPolicy.Ready()
 	regenCtxB.policyResult.endpointPolicy.Detach(logger)
 	idManager.Remove(podID)
+}
+
+// TestSkippedPolicyRevisionPropagatedThroughDuplicateRegen reproduces the race seen in
+// Conformance Delegated IPAM CI failure (run 22909093096): endpoint 1477 got stuck at
+// datapathPolicyRevision=198 while the current policy revision was 199, because:
+//
+//  1. PeriodicRegeneration fires, endpoint enters StateWaitingToRegenerate (queued at rev=198)
+//  2. New policy arrives → PolicyUpdate fires with rev=199
+//  3. PolicyUpdate is SKIPPED (endpoint already waiting-to-regenerate) — rev=199 dropped
+//  4. The queued regen runs with policyRevisionToWaitFor=198; statedb returns 198 → done
+//  5. Endpoint finishes at datapathPolicyRevision=198; no regen triggered for rev=199 → stuck
+//
+// The fix mirrors the existing skippedRegenerationLevel mechanism: store the highest
+// skipped PolicyRevisionToWaitFor in ep.skippedPolicyRevision, then apply it to the
+// datapathRegenerationContext just before regeneratePolicy is called in regenerate().
+func TestSkippedPolicyRevisionPropagatedThroughDuplicateRegen(t *testing.T) {
+	pe := policy.GetPolicyEnabled()
+	policy.SetPolicyEnabled("always")
+	defer policy.SetPolicyEnabled(pe)
+
+	logger := hivetest.Logger(t)
+	idcache := make(identity.IdentityMap)
+	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
+	idManager := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", "TestSkippedPolicyRevisionPropagatedThroughDuplicateRegen", repo, idManager)
+
+	podLbls := labels.Labels{"pod": labels.NewLabel("k8s:pod", "", "")}
+	podID, _, err := fakeAllocator.AllocateIdentity(context.Background(), podLbls, false, 0)
+	require.NoError(t, err)
+	wg := &sync.WaitGroup{}
+	repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{podID.ID: podID.LabelArray}, nil, wg)
+	wg.Wait()
+
+	// IMPORTANT: Add podID to idManager BEFORE adding any policy rules.
+	// This ensures the observer fires with an empty repo (rev=0), so statedb starts at rev0
+	// and doesn't jump to the latest repo revision. Per-subtest explicit
+	// computePolicyForEPAndWait calls then control exactly what revision is in statedb.
+	idManager.Add(podID)
+	// Wait for the observer to complete its initial computation (at rev=0, no rules).
+	require.Eventually(t, func() bool {
+		_, _, _, found := polComputer.GetIdentityPolicyByNumericIdentity(podID.ID)
+		return found
+	}, 5*time.Second, 1*time.Millisecond, "observer must compute initial statedb entry")
+
+	podSelectLabel := labels.ParseSelectLabel("pod")
+	egressSelectLabel := labels.ParseSelectLabel("peer")
+
+	makeRule := func(name string) *api.Rule {
+		return &api.Rule{
+			EndpointSelector: api.NewESFromLabels(podSelectLabel),
+			EgressDeny: []api.EgressDenyRule{{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{api.NewESFromLabels(egressSelectLabel)},
+				},
+				ToPorts: []api.PortDenyRule{{Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}}}},
+			}},
+			Labels: labels.LabelArray{
+				labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceAny),
+			},
+		}
+	}
+
+	// Add rules AFTER idManager.Add so the observer does NOT auto-recompute statedb at these revisions.
+	// Each subtest controls statedb explicitly via computePolicyForEPAndWait.
+	_, rev198 := repo.MustAddList(api.Rules{makeRule("rule-198")})
+	_, rev199 := repo.MustAddList(api.Rules{makeRule("rule-199")})
+	_, rev200 := repo.MustAddList(api.Rules{makeRule("rule-200")})
+
+	newEP := func() *Endpoint {
+		ep := &Endpoint{
+			policyRepo:       repo,
+			policyFetcher:    polComputer,
+			desiredPolicy:    policy.NewEndpointPolicy(logger, repo),
+			labels:           labels.NewOpLabels(),
+			SecurityIdentity: podID,
+			identityManager:  idManager,
+			status:           NewEndpointStatus(),
+		}
+		ep.UpdateLogger(nil)
+		return ep
+	}
+
+	// triggerDuplicateSkip calls setRegenerateStateLocked under ep.mutex and returns
+	// whether the trigger was skipped (i.e., setRegenerateStateLocked returned false).
+	triggerDuplicateSkip := func(ep *Endpoint, rev uint64) (skipped bool) {
+		meta := &regeneration.ExternalRegenerationMetadata{
+			Reason:                  regeneration.ReasonPolicyUpdate,
+			RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
+			PolicyRevisionToWaitFor: rev,
+		}
+		ep.unconditionalLock()
+		regen := ep.setRegenerateStateLocked(meta)
+		ep.unlock()
+		return !regen // skipped = regen was NOT triggered
+	}
+
+	// consumeSkipped calls the real production method (consumeSkippedPolicyRevision)
+	// under the endpoint mutex, exactly as regenerate() does.
+	consumeSkipped := func(ep *Endpoint, ctx *datapathRegenerationContext) {
+		ep.unconditionalLock()
+		ep.consumeSkippedPolicyRevision(ctx)
+		ep.unlock()
+	}
+
+	t.Run("BasicCaptureAndPropagate", func(t *testing.T) {
+		// Reproduces the exact CI failure: PolicyUpdate for rev199 is skipped while
+		// the endpoint is in StateWaitingToRegenerate. Statedb is at rev198 only (simulating
+		// the race window where the identity-policy-computer hasn't yet written rev199).
+		//
+		// WITHOUT fix: regen uses policyRevisionToWaitFor=rev198; statedb returns rev198 →
+		//              completes at rev198; rev199 policy is never applied → endpoint stuck.
+		// WITH fix:    skippedPolicyRevision=rev199 bumps policyRevisionToWaitFor to rev199;
+		//              regen blocks until statedb has rev199 → completes at rev199 ✓
+		ep := newEP()
+
+		// Compute statedb at rev198 ONLY (statedb was at rev0; now it's rev198).
+		computePolicyForEPAndWait(t, ep, polComputer, rev198)
+
+		// Endpoint enters StateWaitingToRegenerate (e.g., from PeriodicRegeneration at rev198).
+		ep.state = StateWaitingToRegenerate
+
+		// PolicyUpdate for rev199 fires — SKIPPED (duplicate).
+		require.True(t, triggerDuplicateSkip(ep, rev199))
+
+		// Fix: skippedPolicyRevision must capture the dropped revision.
+		require.Equal(t, rev199, ep.skippedPolicyRevision,
+			"skippedPolicyRevision must be set on duplicate PolicyUpdate skip [BUG: field never set without fix]")
+
+		// The queued regen event carries the OLD policyRevisionToWaitFor (rev198).
+		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev198}
+		consumeSkipped(ep, ctx)
+
+		require.Equal(t, rev199, ctx.policyRevisionToWaitFor,
+			"policyRevisionToWaitFor must be bumped to rev199 [BUG: stays at rev198 without fix]")
+
+		// Compute statedb at rev199 so waitForPolicyComputationResult can satisfy the wait.
+		// Note: ComputeSelectorPolicy returns the current repo revision (rev200=4 since all
+		// three rules are already added to the repo), so statedb will have rev200 here.
+		// The important behavioral guarantees are already tested above via the
+		// skippedPolicyRevision and ctx.policyRevisionToWaitFor assertions.
+		computePolicyForEPAndWait(t, ep, polComputer, rev199)
+
+		// Smoke-test: run regeneratePolicy to confirm the bumped context works end-to-end.
+		// Note: ComputeSelectorPolicy always returns the current repo revision (rev200),
+		// so policyResult.policyRevision will be rev200 regardless of the fix. The real
+		// bug-vs-fix distinction is tested by the assertions above on skippedPolicyRevision
+		// and ctx.policyRevisionToWaitFor.
+		ep.state = StateRegenerating
+		require.NoError(t, ep.regeneratePolicy(new(regenerationStatistics), ctx))
+	})
+
+	t.Run("LowerRevisionNotDecremented", func(t *testing.T) {
+		// A skipped PolicyUpdate with a LOWER revision must NOT decrease skippedPolicyRevision.
+		ep := newEP()
+		ep.state = StateWaitingToRegenerate
+		ep.skippedPolicyRevision = rev199 // pre-set from a prior higher-rev skip
+
+		require.True(t, triggerDuplicateSkip(ep, rev198)) // lower revision
+		require.Equal(t, rev199, ep.skippedPolicyRevision,
+			"skippedPolicyRevision must not decrease when a lower revision is skipped")
+	})
+
+	t.Run("MultipleSkipsTracksMax", func(t *testing.T) {
+		// Multiple duplicate skips accumulate to the highest seen revision.
+		ep := newEP()
+		ep.state = StateWaitingToRegenerate
+
+		triggerDuplicateSkip(ep, rev199)
+		require.Equal(t, rev199, ep.skippedPolicyRevision)
+
+		triggerDuplicateSkip(ep, rev200)
+		require.Equal(t, rev200, ep.skippedPolicyRevision, "must track the higher revision")
+
+		triggerDuplicateSkip(ep, rev199)
+		require.Equal(t, rev200, ep.skippedPolicyRevision, "must not decrease from rev200")
+
+		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev198}
+		consumeSkipped(ep, ctx)
+		require.Equal(t, rev200, ctx.policyRevisionToWaitFor)
+
+		// Smoke-test: confirm regeneratePolicy completes without error.
+		// policyResult.policyRevision == rev200 here because ComputeSelectorPolicy
+		// returns the current repo revision; the real assertion is the
+		// policyRevisionToWaitFor == rev200 check above.
+		computePolicyForEPAndWait(t, ep, polComputer, rev200)
+		ep.state = StateRegenerating
+		require.NoError(t, ep.regeneratePolicy(new(regenerationStatistics), ctx))
+	})
+
+	t.Run("ResetAfterConsume", func(t *testing.T) {
+		// skippedPolicyRevision must be cleared to 0 after regenerate() consumes it,
+		// so the next regen cycle starts fresh.
+		ep := newEP()
+		ep.state = StateWaitingToRegenerate
+		triggerDuplicateSkip(ep, rev199)
+		require.Equal(t, rev199, ep.skippedPolicyRevision)
+
+		// Simulate consume (what regenerate() does with the fix):
+		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev198}
+		consumeSkipped(ep, ctx)
+		require.Equal(t, uint64(0), ep.skippedPolicyRevision, "must be cleared after consume")
+
+		// After reset, a subsequent skip at rev198 is tracked from zero.
+		ep.state = StateWaitingToRegenerate
+		triggerDuplicateSkip(ep, rev198)
+		require.Equal(t, rev198, ep.skippedPolicyRevision,
+			"after reset, new skips are tracked from zero")
+	})
+
+	t.Run("ContextAlreadyHigher", func(t *testing.T) {
+		// If the context's policyRevisionToWaitFor is already HIGHER than
+		// skippedPolicyRevision, consumeSkippedPolicyRevision must be a no-op.
+		ep := newEP()
+		ep.state = StateWaitingToRegenerate
+		triggerDuplicateSkip(ep, rev199) // skippedPolicyRevision = rev199
+
+		ctx := &datapathRegenerationContext{policyRevisionToWaitFor: rev200} // higher
+		consumeSkipped(ep, ctx)
+		require.Equal(t, rev200, ctx.policyRevisionToWaitFor,
+			"context revision must not be lowered when skippedPolicyRevision < ctx revision")
+	})
+
+	t.Run("FreshRegenDoesNotSetSkippedRevision", func(t *testing.T) {
+		// When setRegenerateStateLocked transitions an endpoint to
+		// StateWaitingToRegenerate for the FIRST TIME (not a duplicate),
+		// skippedPolicyRevision must NOT be updated.
+		ep := newEP()
+		// ep.state is the zero value (not StateWaitingToRegenerate), so this
+		// is a fresh trigger, not a duplicate.
+		meta := &regeneration.ExternalRegenerationMetadata{
+			Reason:                  regeneration.ReasonPolicyUpdate,
+			RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
+			PolicyRevisionToWaitFor: rev199,
+		}
+		ep.unconditionalLock()
+		ep.setRegenerateStateLocked(meta) // ignore return; only testing side-effect on skippedPolicyRevision
+		ep.unlock()
+
+		require.Equal(t, uint64(0), ep.skippedPolicyRevision,
+			"fresh regen trigger must not set skippedPolicyRevision")
+	})
 }
