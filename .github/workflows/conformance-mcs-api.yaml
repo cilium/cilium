@@ -293,6 +293,9 @@ jobs:
             --exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS} \
             --test 'allow-all-except-world,encryption,packet-drops'
 
+      - name: Force failure for debug
+        run: exit 1
+
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
@@ -327,7 +330,6 @@ jobs:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
           capture_features_tested: false
-          always_capture_sysdump: true
 
   merge-upload-and-status:
     name: Merge Upload and Status
