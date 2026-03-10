@@ -79,9 +79,10 @@ type EgressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	ToServices []Service `json:"toServices,omitempty"`
 
-	// ToGroups is a directive that allows the integration with multiple outside
-	// providers. Currently, only AWS is supported, and the rule can select by
-	// multiple sub directives:
+	// ToGroups allows policies to reference CIDRs provided by external integrations.
+	// Currently, only AWS is supported, and the rule can select by multiple sub directives.
+	// ToGroups entries are functionally equivalent to toCIDR, and have the same
+	// limitiations. They cannot select traffic originating from within the cluster.
 	//
 	// Example:
 	// toGroups:
