@@ -16,9 +16,10 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
+	tnl "github.com/cilium/cilium/pkg/testutils/netlink"
+	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
 func mustParseCIDR(tb testing.TB, s string) *net.IPNet {
@@ -72,6 +73,15 @@ func testWithFamilies(t *testing.T, f func(t *testing.T, family string)) {
 			f(t, family)
 		})
 	}
+}
+
+func mustUpsertIPSecEndpoint(tb testing.TB, ns *netns.NetNS, a *Agent, params *types.IPSecParameters) {
+	tb.Helper()
+
+	require.NoError(tb, ns.Do(func() error {
+		_, err := a.UpsertIPsecEndpoint(params)
+		return err
+	}))
 }
 
 func TestLoadKeysNoFile(t *testing.T) {
@@ -209,16 +219,12 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	ns := netns.NewNetNS(t)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
-	require.NoError(t, err)
+	result := tnl.MustXfrmStateList(t, ns, netlink.FAMILY_ALL)
 	require.Empty(t, result)
-
-	err = a.DeleteXFRM(AllReqID)
-	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	require.NoError(t, err)
@@ -233,12 +239,10 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	// Let's check that state was not added as source and destination are the same
-	result, err = safenetlink.XfrmStateList(netlink.FAMILY_ALL)
-	require.NoError(t, err)
+	result = tnl.MustXfrmStateList(t, ns, netlink.FAMILY_ALL)
 	require.Empty(t, result)
 }
 
@@ -295,8 +299,8 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	ns := netns.NewNetNS(t)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	encryptionMark := generateEncryptMark(key.Spi, params.RemoteNodeID)
 
@@ -308,9 +312,9 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 		Spi:   int(key.Spi),
 		Mark:  encryptionMark}
 
-	state, err := netlink.XfrmStateGet(getState)
-	require.NoError(t, err)
+	state := tnl.MustXfrmStateGet(t, ns, getState)
 	require.NotNil(t, state)
+
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
@@ -333,14 +337,13 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 			Mode:  netlink.XFRM_MODE_TUNNEL,
 		},
 	}
-	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+	policy := tnl.MustXfrmPolicyGet(t, ns, &netlink.XfrmPolicy{
 		Src:   local,
 		Dst:   remote,
 		Dir:   netlink.XFRM_DIR_OUT,
 		Mark:  generateEncryptMark(key.Spi, params.RemoteNodeID),
 		Tmpls: tmpls,
 	})
-	require.NoError(t, err)
 	require.NotNil(t, policy)
 
 	// ensure XFRM policy is as we want it...
@@ -418,8 +421,8 @@ func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	ns := netns.NewNetNS(t)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	tmpls := []netlink.XfrmPolicyTmpl{
 		{
@@ -431,13 +434,13 @@ func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
 			Optional: 1,
 		},
 	}
-	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+
+	policy := tnl.MustXfrmPolicyGet(t, ns, &netlink.XfrmPolicy{
 		Src:   wildcardCIDRv4,
 		Dst:   wildcardCIDRv4,
 		Dir:   netlink.XFRM_DIR_FWD,
 		Tmpls: tmpls,
 	})
-	require.NoError(t, err)
 	require.NotNil(t, policy)
 
 	// ensure XFRM policy is as we want it...
@@ -520,8 +523,8 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	ns := netns.NewNetNS(t)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	// Confirm state was created with correct marks.
 	getState := &netlink.XfrmState{
@@ -531,9 +534,9 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 		Spi:   int(key.Spi),
 		Mark:  generateDecryptMark(linux_defaults.RouteMarkDecrypt, params.RemoteNodeID)}
 
-	state, err := netlink.XfrmStateGet(getState)
-	require.NoError(t, err)
+	state := tnl.MustXfrmStateGet(t, ns, getState)
 	require.NotNil(t, state)
+
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
@@ -555,13 +558,12 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 			Mode:  netlink.XFRM_MODE_TUNNEL,
 		},
 	}
-	policy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
+	policy := tnl.MustXfrmPolicyGet(t, ns, &netlink.XfrmPolicy{
 		Src:   wildcardCIDRv4,
 		Dst:   wildcardCIDRv4,
 		Dir:   netlink.XFRM_DIR_IN,
 		Tmpls: tmpls,
 	})
-	require.NoError(t, err)
 	require.NotNil(t, policy)
 
 	// ensure XFRM policy is as we want it...
@@ -612,7 +614,11 @@ func testUpsertIPSecKeyMissing(t *testing.T, family string) {
 	}
 
 	a := NewTestIPsecAgent(t)
-	_, err := a.UpsertIPsecEndpoint(params)
+	ns := netns.NewNetNS(t)
+	err := ns.Do(func() error {
+		_, err := a.UpsertIPsecEndpoint(params)
+		return err
+	})
 	require.ErrorContains(t, err, "unable to replace local state: global IPsec key missing")
 }
 
@@ -655,15 +661,14 @@ func testUpdateExistingIPSecEndpoint(t *testing.T, family string) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	ns := netns.NewNetNS(t)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = a.UpsertIPsecEndpoint(params)
-	require.NoError(t, err)
+	mustUpsertIPSecEndpoint(t, ns, a, params)
 }
 
-func Test_getDirFromXfrmMark(t *testing.T) {
+func TestGetDirFromXfrmMark(t *testing.T) {
 	tests := []struct {
 		name string
 		mark *netlink.XfrmMark
