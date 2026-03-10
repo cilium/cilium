@@ -1,0 +1,89 @@
+# Preload the fake apiserver so the reflector initializes from Replace() and
+# thus rebuilds currentEndpoints from the sync path.
+k8s/add service.yaml endpointslice.yaml
+
+# Start and wait for initialization.
+hive/start
+db/cmp services services.table
+db/cmp backends backends.table
+db/cmp frontends frontends.table
+
+# Force a resync of the endpoint slices with empty set of endpoint slices.
+# The reflector will re-list and should remove all the now orphaned backends.
+k8s/resync discovery.k8s.io.v1.endpointslices
+
+# The backend should be gone after the resync
+* db/empty backends
+
+# Restore the EndpointSlice so the next resync starts from the same state.
+k8s/add endpointslice.yaml
+db/cmp frontends frontends.table
+
+# Force a resync of the services with empty set of services.
+# The reflector will re-list and should remove the service and frontends.
+k8s/resync v1.services
+
+# Services and frontends should now be empty and backends should be unaffected.
+* db/empty services
+* db/empty frontends
+db/cmp backends backends.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster         
+
+-- backends.table --
+Address            Instances
+10.244.1.1:80/TCP  test/echo (http)
+
+-- frontends.table --
+Address               Type        ServiceName   PortName   Backends           Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP  Done
+
+-- frontends_no_backends.table --
+Address               Type        ServiceName   PortName   Backends  Status
+10.96.50.104:80/TCP   ClusterIP   test/echo     http                 Done
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
