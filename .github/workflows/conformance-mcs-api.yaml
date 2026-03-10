@@ -327,6 +327,7 @@ jobs:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+          always_capture_sysdump: true
 
   merge-upload-and-status:
     name: Merge Upload and Status
