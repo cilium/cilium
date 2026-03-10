@@ -75,6 +75,12 @@ var (
 		EnableIPv6:      true,
 		EnableBPFTProxy: true,
 	}
+	daemonConfigNetkitHostLegacyRouting = option.DaemonConfig{
+		DatapathMode:             datapathOption.DatapathModeNetkit,
+		EnableIPv4:               true,
+		EnableIPv6:               true,
+		UnsafeDaemonConfigOption: option.UnsafeDaemonConfig{EnableHostLegacyRouting: true},
+	}
 	daemonConfigNetkitL2 = option.DaemonConfig{
 		DatapathMode:    datapathOption.DatapathModeNetkitL2,
 		EnableIPv4:      true,
@@ -87,6 +93,12 @@ var (
 		EnableIPv6:      true,
 		EnableBPFTProxy: true,
 	}
+	daemonConfigNetkitL2HostLegacyRouting = option.DaemonConfig{
+		DatapathMode:             datapathOption.DatapathModeNetkitL2,
+		EnableIPv4:               true,
+		EnableIPv6:               true,
+		UnsafeDaemonConfigOption: option.UnsafeDaemonConfig{EnableHostLegacyRouting: true},
+	}
 	daemonConfigAuto = option.DaemonConfig{
 		DatapathMode:    datapathOption.DatapathModeAuto,
 		EnableIPv4:      true,
@@ -98,6 +110,12 @@ var (
 		EnableIPv4:      true,
 		EnableIPv6:      true,
 		EnableBPFTProxy: true,
+	}
+	daemonConfigAutoHostLegacyRouting = option.DaemonConfig{
+		DatapathMode:             datapathOption.DatapathModeAuto,
+		EnableIPv4:               true,
+		EnableIPv6:               true,
+		UnsafeDaemonConfigOption: option.UnsafeDaemonConfig{EnableHostLegacyRouting: true},
 	}
 
 	// WireguardConfigs
@@ -200,6 +218,15 @@ func TestNewConfig(t *testing.T) {
 			shouldSkip:     false,
 		},
 		{
+			name:           "datapath-netkit+legacy-host-routing",
+			daemonConfig:   &daemonConfigNetkitHostLegacyRouting,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkit,
+			shouldError:    true,
+			shouldSkip:     false,
+		},
+		{
 			name:           "datapath-netkit-l2",
 			daemonConfig:   &daemonConfigNetkitL2,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
@@ -217,7 +244,15 @@ func TestNewConfig(t *testing.T) {
 			shouldError:    true,
 			shouldSkip:     false,
 		},
-
+		{
+			name:           "datapath-netkit-l2+legacy-host-routing",
+			daemonConfig:   &daemonConfigNetkitL2HostLegacyRouting,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkitL2,
+			shouldError:    true,
+			shouldSkip:     false,
+		},
 		{
 			name:           "datapath-auto(!netkit)+oper-veth",
 			daemonConfig:   &daemonConfigAuto,
@@ -237,6 +272,15 @@ func TestNewConfig(t *testing.T) {
 			shouldSkip:     hostSupportsNetkit(),
 		},
 		{
+			name:           "datapath-auto(!netkit)+legacy-host-routing+oper-veth",
+			daemonConfig:   &daemonConfigAutoHostLegacyRouting,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Veth,
+			shouldError:    false,
+			shouldSkip:     hostSupportsNetkit(),
+		},
+		{
 			name:           "datapath-auto(netkit)+oper-netkit",
 			daemonConfig:   &daemonConfigAuto,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
@@ -248,6 +292,15 @@ func TestNewConfig(t *testing.T) {
 		{
 			name:           "datapath-auto(netkit)+tproxy+oper-veth",
 			daemonConfig:   &daemonConfigAutoTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigAuto_Veth,
+			shouldError:    false,
+			shouldSkip:     !hostSupportsNetkit(),
+		},
+		{
+			name:           "datapath-auto(netkit)+host-legacy-routing+oper-veth",
+			daemonConfig:   &daemonConfigAutoHostLegacyRouting,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigAuto_Veth,

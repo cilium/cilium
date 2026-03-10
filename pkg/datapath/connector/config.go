@@ -114,6 +114,11 @@ func canUseNetkit(p connectorParams) error {
 		return fmt.Errorf("netkit device probe failed, requires kernel 6.7.0+ and CONFIG_NETKIT")
 	}
 
+	// We should only run netkit with BPF Host Routing.
+	if p.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
+		return fmt.Errorf("netkit devices cannot be used with --%s=true", option.EnableHostLegacyRouting)
+	}
+
 	// bpf.tproxy requires use of bpf_sk_assign() helper, which at the time of
 	// writing can only be called from TC ingress. However, netkit programs
 	// run at TC egress, so the helper returns -ENOTSUPP and tproxy cannot
