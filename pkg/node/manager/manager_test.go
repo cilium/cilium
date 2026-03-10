@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -328,6 +329,96 @@ func TestNodeLifecycle(t *testing.T) {
 
 	err = mngr.Stop(context.TODO())
 	require.NoError(t, err)
+}
+
+func TestNodeLabels(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	dp := newSignalNodeHandler()
+	ipcacheMock := newIPcacheMock()
+	h, _ := cell.NewSimpleHealth()
+
+	nodeLabels := map[string]string{
+		"test-label":  "test-value",
+		"other-label": "other-value",
+	}
+	nodeTypes.SetName("localNode")
+	nLocal := nodeTypes.Node{
+		Name:    "localNode",
+		Cluster: "default",
+		Labels:  nodeLabels,
+		Source:  source.Local,
+	}
+	nRemote := nodeTypes.Node{
+		Name:    "remoteNode",
+		Cluster: "default",
+		Labels:  nodeLabels,
+		Source:  source.Unspec,
+	}
+
+	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, node.NewTestLocalNodeStore(node.LocalNode{Node: nLocal}))
+	mngr.Subscribe(dp)
+	require.NoError(t, err)
+	mngr.NodeUpdated(nRemote)
+
+	if err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""); err != nil {
+		t.Fatal("ParseLabelPrefixCfg() failed")
+	}
+
+	tests := []struct {
+		name               string
+		node               nodeTypes.Node
+		nodeSelectorLabels bool
+		setupWanted        func() labels.Labels
+	}{{
+		name:               "Local node with node selector labels enabled",
+		node:               nLocal,
+		nodeSelectorLabels: true,
+		setupWanted: func() labels.Labels {
+			want := labels.NewFrom(labels.LabelHost)
+			want.MergeLabels(labels.Map2Labels(nodeLabels, labels.LabelSourceNode))
+			want.MergeLabels(labels.Map2Labels(map[string]string{
+				"io.cilium.k8s.policy.cluster": "default",
+			}, labels.LabelSourceK8s))
+			return want
+		},
+	}, {
+		name:               "Local node with node selector labels disabled",
+		node:               nLocal,
+		nodeSelectorLabels: false,
+		setupWanted: func() labels.Labels {
+			return labels.NewFrom(labels.LabelHost)
+		},
+	}, {
+		name:               "Remote node with node selector labels enabled",
+		node:               nRemote,
+		nodeSelectorLabels: true,
+		setupWanted: func() labels.Labels {
+			want := labels.NewFrom(labels.LabelRemoteNode)
+			want.MergeLabels(labels.Map2Labels(nodeLabels, labels.LabelSourceNode))
+			want.MergeLabels(labels.Map2Labels(map[string]string{
+				"io.cilium.k8s.policy.cluster": "default",
+			}, labels.LabelSourceK8s))
+			return want
+		},
+	}, {
+		name:               "Remote node with node selector labels disabled",
+		node:               nRemote,
+		nodeSelectorLabels: false,
+		setupWanted: func() labels.Labels {
+			return labels.NewFrom(labels.LabelRemoteNode)
+		},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			option.Config.EnableNodeSelectorLabels = tt.nodeSelectorLabels
+			option.Config.ClusterName = "default"
+			got, _ := mngr.nodeIdentityLabels(tt.node)
+			want := tt.setupWanted()
+			assert.True(t, want.Equals(got), "Mismatched labels: want=%v got=%v", want, got)
+		})
+	}
 }
 
 func TestMultipleSources(t *testing.T) {
