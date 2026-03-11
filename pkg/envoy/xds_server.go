@@ -1598,8 +1598,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 
 		var havePassRules bool
 		var wildcardSelectorPrecedence policyTypes.Precedence
-		for _, protocol := range []string{u8proto.ANY.String(), u8proto.TCP.String()} {
-			l4 := l4Policy[tier].ExactLookup("0", 0, protocol)
+		for _, protocol := range []u8proto.U8proto{u8proto.ANY, u8proto.TCP} {
+			l4 := l4Policy[tier].ExactLookupPortNum(0, 0, protocol)
 			if l4 != nil {
 				havePasses, wildcardPrecedence := addWildcardPortRules(l4, tierBasePriority, tierLastPriority)
 				if wildcardSelectorPrecedence < wildcardPrecedence {

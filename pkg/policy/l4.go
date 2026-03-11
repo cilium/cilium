@@ -13,7 +13,6 @@ import (
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1222,12 +1220,10 @@ func (l4 *L4Filter) String() string {
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
-func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext,
-	p api.PortProtocol, filterToMerge *L4Filter,
-) error {
-	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(p.Protocol))
+func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext, filterToMerge *L4Filter) error {
+	existingFilter := resMap.exactLookupFilter(filterToMerge)
 	if existingFilter == nil {
-		resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), filterToMerge)
+		resMap.upsert(filterToMerge)
 		return nil
 	}
 
@@ -1236,16 +1232,15 @@ func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext,
 		return err
 	}
 
-	resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), existingFilter)
+	resMap.upsert(existingFilter)
 	return nil
 }
 
 // makeL4PolicyMap creates an new L4PolicMap.
 func makeL4PolicyMap() L4PolicyMap {
 	return L4PolicyMap{
-		NamedPortMap:   make(map[string]*L4Filter),
-		RangePortMap:   make(map[portProtoKey]*L4Filter),
-		RangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
+		NamedPortMap: make(map[string]*L4Filter),
+		RangePortMap: make(map[portProtoKey]*L4Filter),
 	}
 }
 
@@ -1279,24 +1274,27 @@ func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
 }
 
 // NewL4PolicyMapWithValues creates an new L4PolicMap, with an initial
-// set of values. The initMap argument does not support port ranges.
-// Only used for testing but from multiple packages.
+// set of values. The initMap keys are no longer used, but kept for
+// convenience reasons (who wants to rewrite hundreds of tests? not me.)
+// Only used for testing but from multiple packages. May panic.
 func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
 	l4M := L4PolicyMaps{makeL4PolicyMap()}
-	for k, v := range initMap {
+	for _, v := range initMap {
 		l4M.ensureTier(v.Tier)
-		portProtoSlice := strings.Split(k, "/")
-		if len(portProtoSlice) < 2 {
-			continue
+		if v.Protocol == api.ProtoAny && (v.Port != 0 || v.PortName != "") {
+			panic("proto ANY is not allowed with a specified port")
 		}
-		l4M[v.Tier].Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
+		if u8p, err := u8proto.ParseProtocol(string(v.Protocol)); err != nil || u8p != v.U8Proto {
+			panic(fmt.Sprintf("protocol %s does not match u8protocol %d, should be %d", v.Protocol, v.U8Proto, u8p))
+		}
+		l4M[v.Tier].upsert(v)
 	}
 	return l4M
 }
 
 type portProtoKey struct {
 	Port, EndPort uint16
-	Proto         uint8
+	Proto         u8proto.U8proto
 }
 
 // L4PolicyMap is the implementation of L4PolicyMap
@@ -1309,101 +1307,44 @@ type L4PolicyMap struct {
 	// RangePortMap is a map of all L4Filters indexed by their port-
 	// protocol.
 	RangePortMap map[portProtoKey]*L4Filter
-	// RangePortIndex is an index of all L4Filters so that
-	// L4Filters that have overlapping port ranges can be looked up
-	// by with a single port.
-	RangePortIndex *bitlpm.UintTrie[uint32, map[portProtoKey]struct{}]
 }
 
-func parsePortProtocol(port, protocol string) (uint16, uint8) {
-	// These string values have been validated many times
-	// over at this point.
-	prt, _ := strconv.ParseUint(port, 10, 16)
-	proto, _ := u8proto.ParseProtocol(protocol)
-	return uint16(prt), uint8(proto)
-}
-
-// makePolicyMapKey creates a protocol-port uint32 with the
-// upper 16 bits containing the protocol and the lower 16
-// bits containing the port.
-func makePolicyMapKey(port, mask uint16, proto uint8) uint32 {
-	return (uint32(proto) << 16) | uint32(port&mask)
-}
-
-// Upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
-func (l4M *L4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 *L4Filter) {
-	if iana.IsSvcName(port) {
-		l4M.NamedPortMap[port+"/"+protocol] = l4
+// upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
+func (l4M *L4PolicyMap) upsert(l4 *L4Filter) {
+	if l4.PortName != "" {
+		l4M.NamedPortMap[l4.PortName+"/"+string(l4.Protocol)] = l4
 		return
 	}
 
-	portU, protoU := parsePortProtocol(port, protocol)
 	ppK := portProtoKey{
-		Port:    portU,
-		EndPort: endPort,
-		Proto:   protoU,
+		Port:    l4.Port,
+		EndPort: l4.EndPort,
+		Proto:   l4.U8Proto,
 	}
-	_, indexExists := l4M.RangePortMap[ppK]
 	l4M.RangePortMap[ppK] = l4
-	// We do not need to reindex a key that already exists,
-	// even if the filter changed.
-	if !indexExists {
-		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
-			k := makePolicyMapKey(mp.port, mp.mask, protoU)
-			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
-			portProtoSet, ok := l4M.RangePortIndex.ExactLookup(prefix, k)
-			if !ok {
-				portProtoSet = make(map[portProtoKey]struct{})
-				l4M.RangePortIndex.Upsert(prefix, k, portProtoSet)
-			}
-			portProtoSet[ppK] = struct{}{}
-		}
+}
+
+// exactLookupFilter looks to see if there is an exact match for the
+// supplied filter
+func (l4M *L4PolicyMap) exactLookupFilter(l4 *L4Filter) *L4Filter {
+	if l4.PortName != "" {
+		return l4M.ExactLookupPortName(l4.PortName, l4.U8Proto)
+	} else {
+		return l4M.ExactLookupPortNum(l4.Port, l4.EndPort, l4.U8Proto)
 	}
 }
 
-// Delete an L4Filter from the index by protocol/port-endPort
-func (l4M *L4PolicyMap) Delete(port string, endPort uint16, protocol string) {
-	if iana.IsSvcName(port) {
-		delete(l4M.NamedPortMap, port+"/"+protocol)
-		return
-	}
-
-	portU, protoU := parsePortProtocol(port, protocol)
-	ppK := portProtoKey{
-		Port:    portU,
-		EndPort: endPort,
-		Proto:   protoU,
-	}
-	_, indexExists := l4M.RangePortMap[ppK]
-	delete(l4M.RangePortMap, ppK)
-	// Only delete the index if the key exists.
-	if indexExists {
-		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
-			k := makePolicyMapKey(mp.port, mp.mask, protoU)
-			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
-			portProtoSet, ok := l4M.RangePortIndex.ExactLookup(prefix, k)
-			if !ok {
-				return
-			}
-			delete(portProtoSet, ppK)
-			if len(portProtoSet) == 0 {
-				l4M.RangePortIndex.Delete(prefix, k)
-			}
-		}
-	}
+// ExactLookupPortName looks up an L4Filter by protocol and named port.
+func (l4M *L4PolicyMap) ExactLookupPortName(portName string, protocol u8proto.U8proto) *L4Filter {
+	return l4M.NamedPortMap[portName+"/"+protocol.String()]
 }
 
-// ExactLookup looks up an L4Filter by protocol/port-endPort and looks for an exact match.
-func (l4M *L4PolicyMap) ExactLookup(port string, endPort uint16, protocol string) *L4Filter {
-	if iana.IsSvcName(port) {
-		return l4M.NamedPortMap[port+"/"+protocol]
-	}
-
-	portU, protoU := parsePortProtocol(port, protocol)
+// ExactLookupPortNum looks up an L4Filter by protocol/port-endPort and looks for an exact match.
+func (l4M *L4PolicyMap) ExactLookupPortNum(port uint16, endPort uint16, protocol u8proto.U8proto) *L4Filter {
 	ppK := portProtoKey{
-		Port:    portU,
+		Port:    port,
 		EndPort: endPort,
-		Proto:   protoU,
+		Proto:   protocol,
 	}
 	return l4M.RangePortMap[ppK]
 }
