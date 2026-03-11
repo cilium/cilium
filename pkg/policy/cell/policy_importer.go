@@ -152,8 +152,8 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 			delete(i.prefixesByResource, resource)
 			if len(oldPrefixes) > 0 {
 				toPrune[resource] = oldPrefixes
-				continue
 			}
+			continue
 		}
 
 		// Otherwise, update bookkeeping, upsert any net-new prefixes.
