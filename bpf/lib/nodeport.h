@@ -1513,8 +1513,8 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		 * IPv4-in-IPv6 converted addresses.
 		 */
 		ctx_store_meta(ctx, CB_NAT_46X64,
-			       !is_v4_in_v6(&key->address) &&
-			       lb6_to_lb4_service(svc));
+			       !is_v4_in_v6(&key->address) && lb6_to_lb4_service(svc) ?
+			       NAT46x64_MODE_XLATE : 0);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
 					  ext_err);
 	}
