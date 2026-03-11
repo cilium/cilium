@@ -1260,6 +1260,8 @@ encryption:
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true
+# -- Max duration to wait for envoy to respond to configuration changes. Default "10s".
+endpointPolicyUpdateTimeoutDuration: null
 endpointRoutes:
   # @schema
   # type: [boolean, string]

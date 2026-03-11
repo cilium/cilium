@@ -2189,6 +2189,9 @@
     "endpointLockdownOnMapOverflow": {
       "type": "boolean"
     },
+    "endpointPolicyUpdateTimeoutDuration": {
+      "type": "null"
+    },
     "endpointRoutes": {
       "properties": {
         "enabled": {
