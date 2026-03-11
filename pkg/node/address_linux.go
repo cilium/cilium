@@ -13,7 +13,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/ip"
 )
 
@@ -31,7 +30,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 	}
 
 	if intf != "" && intf != "undefined" {
-		link, err = safenetlink.LinkByName(intf)
+		link, err = netlink.LinkByName(intf)
 		if err != nil {
 			link = nil
 		} else {
@@ -40,7 +39,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 	}
 
 retryInterface:
-	addr, err := safenetlink.AddrList(link, family)
+	addr, err := netlink.AddrList(link, family)
 	if err != nil {
 		return nil, err
 	}

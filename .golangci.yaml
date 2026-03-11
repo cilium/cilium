@@ -43,10 +43,9 @@ linters:
         - .+translation\.Config
     forbidigo:
       forbid:
-        # List based on https://github.com/vishvananda/netlink/pull/1018
-        - pattern: ^netlink\.(Handle\.)?("AddrList|BridgeVlanList|ChainList|ClassList|ConntrackTableList|DevLinkGetDeviceList|DevLinkGetAllPortList|DevlinkGetDeviceParams|FilterList|FouList|GenlFamilyList|GTPPDPList|LinkByName|LinkByAlias|LinkList|LinkSubscribeWithOptions|NeighList|NeighProxyList|NeighListExecute|LinkGetProtinfo|QdiscList|RdmaLinkList|RdmaLinkByName|RdmaLinkDel|RouteList|RouteListFiltered|RouteListFilteredIter|RouteSubscribeWithOptions|RuleList|RuleListFiltered|SocketGet|SocketDiagTCPInfo|SocketDiagTCP|SocketDiagUDPInfo|SocketDiagUDP|UnixSocketDiagInfo|UnixSocketDiag|SocketXDPGetInfo|SocketDiagXDP|VDPAGetDevList|VDPAGetDevConfigList|VDPAGetMGMTDevList|XfrmPolicyList|XfrmStateList)
+        - pattern: ^netlink\.NewHandle$
           pkg: ^github.com/vishvananda/netlink$
-          msg: Found netlink function which can return ErrDumpInterrupted. Use safenetlink package instead.
+          msg: Use inl.NewHandle() to create handles with appropriate defaults
       analyze-types: true
     goheader:
       values:

@@ -21,7 +21,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 )
 
@@ -300,7 +299,7 @@ func linkListCmd(nsm *NetNSManager) script.Cmd {
 
 			var sb strings.Builder
 			err = nsm.exec(nsName, func() error {
-				links, err := safenetlink.LinkList()
+				links, err := netlink.LinkList()
 				if err != nil {
 					return err
 				}
@@ -313,7 +312,7 @@ func linkListCmd(nsm *NetNSManager) script.Cmd {
 						fmt.Fprintf(&sb, "      hwaddr: %s\n", attr.HardwareAddr.String())
 					}
 
-					addrs, err := safenetlink.AddrList(link, netlink.FAMILY_ALL)
+					addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
 					if err != nil {
 						return fmt.Errorf("failed to list addresses for link %s: %w", attr.Name, err)
 					}
@@ -465,7 +464,7 @@ func linkSetCmd(nsm *NetNSManager) script.Cmd {
 			var sb strings.Builder
 			err = nsm.exec(nsName, func() error {
 				for _, arg := range args[1:] {
-					link, err := safenetlink.LinkByName(name)
+					link, err := netlink.LinkByName(name)
 					if err != nil {
 						return fmt.Errorf("failed to find link %q: %w", name, err)
 					}
@@ -520,7 +519,7 @@ func linkDelCmd(nsm *NetNSManager) script.Cmd {
 			}
 
 			err = nsm.exec(nsName, func() error {
-				link, err := safenetlink.LinkByName(name)
+				link, err := netlink.LinkByName(name)
 				if err != nil {
 					return fmt.Errorf("failed to find link %q: %w", name, err)
 				}
@@ -570,7 +569,7 @@ func addAddCmd(nsm *NetNSManager) script.Cmd {
 					return fmt.Errorf("failed to parse address %q: %w", address, err)
 				}
 
-				link, err := safenetlink.LinkByName(ifaceName)
+				link, err := netlink.LinkByName(ifaceName)
 				if err != nil {
 					return fmt.Errorf("failed to find interface %q: %w", ifaceName, err)
 				}
@@ -653,7 +652,7 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 
 			var sb strings.Builder
 			err = nsm.exec(nsName, func() error {
-				routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_ALL, filter, filterMask)
+				routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, filter, filterMask)
 				if err != nil {
 					return fmt.Errorf("failed to list routes: %w", err)
 				}
@@ -764,7 +763,7 @@ func routeFromFlags(destination string, fs *pflag.FlagSet) (*netlink.Route, erro
 		return nil, fmt.Errorf("failed to get dev flag: %w", err)
 	}
 	if devName != "" {
-		link, err := safenetlink.LinkByName(devName)
+		link, err := netlink.LinkByName(devName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find device %q: %w", devName, err)
 		}
@@ -954,7 +953,7 @@ func routeDelCmd(nsm *NetNSManager) script.Cmd {
 				return nil, fmt.Errorf("failed to get dev flag: %w", err)
 			}
 			if devName != "" {
-				link, err := safenetlink.LinkByName(devName)
+				link, err := netlink.LinkByName(devName)
 				if err != nil {
 					return nil, fmt.Errorf("failed to find device %q: %w", devName, err)
 				}
@@ -992,7 +991,7 @@ func routeDelCmd(nsm *NetNSManager) script.Cmd {
 			}
 
 			err = nsm.exec(nsName, func() error {
-				routes, err := safenetlink.RouteListFiltered(netlink.FAMILY_ALL, filter, filterMask)
+				routes, err := netlink.RouteListFiltered(netlink.FAMILY_ALL, filter, filterMask)
 				if err != nil {
 					return fmt.Errorf("failed to list routes: %w", err)
 				}

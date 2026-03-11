@@ -13,9 +13,9 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb/reconciler"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/inl"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -27,10 +27,7 @@ func TestPrivilegedOps(t *testing.T) {
 	var err error
 
 	ns := netns.NewNetNS(t)
-	require.NoError(t, ns.Do(func() error {
-		nlh, err = safenetlink.NewHandle(nil)
-		return err
-	}))
+	nlh = inl.NetNSHandle(t, ns)
 
 	// Create a dummy device to test with
 	err = nlh.LinkAdd(
@@ -41,10 +38,7 @@ func TestPrivilegedOps(t *testing.T) {
 		},
 	)
 	require.NoError(t, err, "LinkAdd")
-	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return nlh.LinkByName("dummy0")
-	})
+	link, err := nlh.LinkByName("dummy0")
 	require.NoError(t, err, "LinkByName")
 	require.NoError(t, nlh.LinkSetUp(link))
 	index := link.Attrs().Index
@@ -53,10 +47,7 @@ func TestPrivilegedOps(t *testing.T) {
 	t.Logf("created %s (index %d)", name, index)
 
 	// Check that the default qdisc is
-	qdiscs, err := safenetlink.WithRetryResult(func() ([]netlink.Qdisc, error) {
-		//nolint:forbidigo
-		return nlh.QdiscList(link)
-	})
+	qdiscs, err := nlh.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
 	require.Len(t, qdiscs, 1)
 	t.Logf("qdiscs before: %+v", qdiscs)
@@ -81,10 +72,7 @@ func TestPrivilegedOps(t *testing.T) {
 	require.NoError(t, err, "expected no error from initial update")
 
 	// qdisc should now have changed from "noqueue" to mq (or fq if mq not supported)
-	qdiscs, err = safenetlink.WithRetryResult(func() ([]netlink.Qdisc, error) {
-		//nolint:forbidigo
-		return nlh.QdiscList(link)
-	})
+	qdiscs, err = nlh.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
 	require.NotEmpty(t, qdiscs)
 	t.Logf("qdiscs after: %+v", qdiscs)

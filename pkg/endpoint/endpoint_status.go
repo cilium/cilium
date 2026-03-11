@@ -5,7 +5,6 @@ package endpoint
 
 import (
 	"context"
-	"log/slog"
 	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -30,7 +29,7 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.Endp
 	return
 }
 
-func (e *Endpoint) getEndpointNetworking(logger *slog.Logger, mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
+func (e *Endpoint) getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
 	if mdlNetworking == nil {
 		return nil
 	}
@@ -89,7 +88,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		ID:                  int64(e.ID),
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
-		Networking:          e.getEndpointNetworking(logger, e.getModelNetworkingRLocked()),
+		Networking:          e.getEndpointNetworking(e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled()))},
 		NamedPorts:          e.getNamedPortsModel(),

@@ -519,15 +519,36 @@ func (req *NetlinkRequest) AddRawData(data []byte) {
 // If the returned error is [ErrDumpInterrupted], results may be inconsistent
 // or incomplete.
 func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, error) {
-	var res [][]byte
-	err := req.ExecuteIter(sockType, resType, func(msg []byte) bool {
-		res = append(res, msg)
-		return true
-	})
-	if err != nil && !errors.Is(err, ErrDumpInterrupted) {
-		return nil, err
+	const attempts = 10
+	var (
+		err     error
+		lastRes [][]byte
+	)
+	for range attempts {
+		var res [][]byte
+		err = req.ExecuteIter(sockType, resType, func(msg []byte) bool {
+			res = append(res, msg)
+			return true
+		})
+		if errors.Is(err, ErrDumpInterrupted) {
+			// Hang on to the last result, callers can use partial results even if the
+			// dump was interrupted.
+			lastRes = res
+			continue
+		}
+		if err == nil {
+			return res, nil
+		}
+		break
 	}
-	return res, err
+
+	if errors.Is(err, ErrDumpInterrupted) {
+		return lastRes, fmt.Errorf("execute netlink request (%d attempts): %w", attempts, err)
+	}
+
+	// Do not wrap the error from ExecuteIter. It gets type-asserted and replaced
+	// with sentinels in some callers, and wrapping breaks that.
+	return nil, err
 }
 
 // ExecuteIter executes the request against the given sockType.

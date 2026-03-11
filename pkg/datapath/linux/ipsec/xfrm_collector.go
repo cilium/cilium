@@ -11,7 +11,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/common/ipsec"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -128,7 +127,7 @@ func (x *xfrmCollector) collectErrors(ch chan<- prometheus.Metric) {
 }
 
 func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
-	states, err := safenetlink.XfrmStateList(netlink.FAMILY_ALL)
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		x.log.Error("Failed to retrieve XFRM states to compute Prometheus metrics", logfields.Error, err)
 		return
@@ -143,7 +142,7 @@ func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesIn), labelDirIn)
 	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesOut), labelDirOut)
 
-	policies, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		x.log.Error("Failed to retrieve XFRM policies to compute Prometheus metrics", logfields.Error, err)
 		return

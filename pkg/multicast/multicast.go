@@ -10,7 +10,8 @@ import (
 
 	"golang.org/x/net/ipv6"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/vishvananda/netlink"
+
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -175,7 +176,7 @@ func SolicitedNodeMACAddr(addr netip.Addr) mac.MAC {
 // The reason not to use net.InterfaceByName directly is to avoid potential
 // deadlocks (#15051).
 func interfaceByName(name string) (*net.Interface, error) {
-	link, err := safenetlink.LinkByName(name)
+	link, err := netlink.LinkByName(name)
 	if err != nil {
 		return nil, err
 	}

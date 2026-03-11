@@ -11,8 +11,8 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -210,7 +210,7 @@ func TestPrivilegedCleanupStaleTCFilters(t *testing.T) {
 		require.NoError(t, upsertTCProgram(logger, lo, prog, "cil_test_1", directionToParent(dirEgress), 1))
 		require.NoError(t, upsertTCProgram(logger, lo, prog, "cil_test_2", directionToParent(dirEgress), 2))
 
-		filters, err := safenetlink.FilterList(lo, directionToParent(dirEgress))
+		filters, err := netlink.FilterList(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
 		require.Len(t, filters, 1)
 

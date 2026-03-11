@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
@@ -307,7 +306,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 	createTestInterface(t, k.sysctl, testInterface2, []string{egressCIDR2, egressCIDR2v6})
 
-	link, err := safenetlink.LinkByName(testInterface1)
+	link, err := netlink.LinkByName(testInterface1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -590,7 +589,7 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 
-	link, err := safenetlink.LinkByName(testInterface1)
+	link, err := netlink.LinkByName(testInterface1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +666,7 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 
-	link, err := safenetlink.LinkByName(testInterface1)
+	link, err := netlink.LinkByName(testInterface1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -749,7 +748,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 
-	link, err := safenetlink.LinkByName(testInterface1)
+	link, err := netlink.LinkByName(testInterface1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -944,7 +943,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 		tb.Fatal(err)
 	}
 
-	link, err := safenetlink.LinkByName(iface)
+	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		tb.Fatal(err)
 	}

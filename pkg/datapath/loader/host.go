@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -97,7 +96,7 @@ func defaultCiliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapat
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
 func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
 	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
-	host, err := safenetlink.LinkByName(ep.InterfaceName())
+	host, err := netlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
 	}
@@ -176,7 +175,7 @@ func defaultCiliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
 func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
 	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
-	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+	net, err := netlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
@@ -265,7 +264,7 @@ func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep dat
 
 	// Replace programs on physical devices, ignoring devices that don't exist.
 	for _, device := range devices {
-		iface, err := safenetlink.LinkByName(device)
+		iface, err := netlink.LinkByName(device)
 		if err != nil {
 			logger.Warn(
 				"Link does not exist",

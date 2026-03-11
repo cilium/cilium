@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/inl"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -71,21 +71,17 @@ func TestPrivilegedSetupNetkitPair(t *testing.T) {
 				t.Skip()
 			}
 
-			var h *netlink.Handle
 			var hostLink *netlink.Netkit
 			var peerLink netlink.Link
 
 			ns := netns.NewNetNS(t)
+			h := inl.NetNSHandle(t, ns)
+
 			require.NoError(t, ns.Do(func() error {
-				var err error
-
 				ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-				hostLink, peerLink, err = setupNetkitPair(logger, tt.cfg, tt.l2mode, ctl)
-				if err != nil {
-					return err
-				}
 
-				h, err = safenetlink.NewHandle(nil)
+				var err error
+				hostLink, peerLink, err = setupNetkitPair(logger, tt.cfg, tt.l2mode, ctl)
 				return err
 			}))
 

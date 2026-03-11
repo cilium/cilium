@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
@@ -256,7 +255,7 @@ func listRulesAndRoutes(t *testing.T, family int) ([]netlink.Rule, []netlink.Rou
 	// those tables.
 	var routes []netlink.Route
 	for _, r := range rules {
-		rr, err := safenetlink.RouteListFiltered(family, &netlink.Route{
+		rr, err := netlink.RouteListFiltered(family, &netlink.Route{
 			Table: r.Table,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
@@ -336,7 +335,7 @@ func getFakes(t *testing.T, ipamMode string, masquerade bool, withZeroCIDR bool)
 }
 
 func linkExistsWithMAC(t *testing.T, macAddr mac.MAC) bool {
-	links, err := safenetlink.LinkList()
+	links, err := netlink.LinkList()
 	require.NoError(t, err)
 
 	for _, link := range links {

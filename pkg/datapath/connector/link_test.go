@@ -4,7 +4,6 @@
 package connector
 
 import (
-	"fmt"
 	"net"
 	"testing"
 
@@ -14,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/inl"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -100,10 +99,7 @@ func queryLinkSafe(tb testing.TB, h *netlink.Handle, ifName string) netlink.Link
 		tb.Fatalf("bad netlink handle")
 	}
 
-	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
-		//nolint:forbidigo
-		return h.LinkByName(ifName)
-	})
+	link, err := h.LinkByName(ifName)
 	if err != nil {
 		tb.Fatalf("LinkByName failed: %v", err)
 	}
@@ -265,17 +261,10 @@ func TestPrivilegedConfigureLinkPair(t *testing.T) {
 		GSOIPv6MaxSize: TestGSOMaxSize,
 	}
 
-	var h *netlink.Handle
 	ns := netns.NewNetNS(t)
+	h := inl.NetNSHandle(t, ns)
 
 	require.NoError(t, ns.Do(func() error {
-		var err error
-
-		h, err = safenetlink.NewHandle(nil)
-		if err != nil {
-			return fmt.Errorf("bad netlink handle: %w", err)
-		}
-
 		// For the purposes of this test, we will operate on a dummy veth pair.
 		createFakePair(t, h, TestHostIfName, TestPeerIfName)
 
