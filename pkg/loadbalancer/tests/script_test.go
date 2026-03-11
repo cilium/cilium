@@ -54,7 +54,24 @@ import (
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
+// TestPrivilegedScript runs script tests when privileged.
+// This exists solely to satisfy 'tests-privileged-only' make target and to not
+// run the tests twice when privileged.
+func TestPrivilegedScript(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testScript(t)
+}
+
+// TestScript runs script tests when non-privileged.
 func TestScript(t *testing.T) {
+	if testutils.IsPrivileged() {
+		t.Skip("Skipping in favour of TestPrivilegedScript")
+	} else {
+		testScript(t)
+	}
+}
+
+func testScript(t *testing.T) {
 	// version/capabilities are unfortunately a global variable, so we're forcing it here.
 	// This makes it difficult to have different k8s version/capabilities (e.g. use Endpoints
 	// not EndpointSlice) in the tests here, which is why we're currently only testing against
