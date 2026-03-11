@@ -23,13 +23,18 @@ import (
 )
 
 // To run the embedded_envoy_test, the following have to be met:
+//
 // - Environment variable `CILIUM_ENABLE_ENVOY_UNIT_TEST` must be set
 // - `cilium-envoy-starter` and `cilium-envoy` must exist in the PATH
 //   - if these were left running from a previous test, these must be killed
-//     - `pkill -9 cilium-envoy`
-// - `cilium-envoy-starter` must have capabilities CAP_NET_ADMIN and CAP_BPF
-//   - e.g., `sudo setcap 'cap_net_admin,cap_bpf+pe' cilium-envoy-starter`
-
+//     (`pkill -9 cilium-envoy`)
+//   - `cilium-envoy-starter` must have capabilities CAP_NET_ADMIN and CAP_BPF
+//     (`sudo setcap 'cap_net_admin,cap_bpf+pe' `which cilium-envoy-starter` `)
+//   - note that 'setcap' can fail if the binary is on a filesystem mounted from the host that
+//     does not support extended attributes. If running on a VM place the binaries to the native
+//     Linux filesystem rather than a mount.
+//
+// Run the test: 'go test -run=TestEnvoy -timeout 30s -v ./pkg/envoy/.'
 type EnvoySuite struct {
 	tb        testing.TB
 	waitGroup *completion.WaitGroup
@@ -81,14 +86,18 @@ func TestEnvoy(t *testing.T) {
 		nil)
 	require.NotNil(t, xdsServer)
 
-	err = xdsServer.start(t.Context())
-	require.NoError(t, err)
+	go func() {
+		err = xdsServer.start(t.Context())
+		require.NoError(t, err)
+	}()
 	defer xdsServer.stop()
 
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
-	err = accessLogServer.start(t.Context())
-	require.NoError(t, err)
+	go func() {
+		err = accessLogServer.start(t.Context())
+		require.NoError(t, err)
+	}()
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
@@ -140,7 +149,7 @@ func TestEnvoy(t *testing.T) {
 	t.Log("adding listener 3")
 	var cbErr error
 	cbCalled := false
-	xdsServer.AddListener("listener3", "test.headerparser", 8083, false, false, s.waitGroup,
+	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
 		func(err error) {
 			cbCalled = true
 			cbErr = err
@@ -198,14 +207,18 @@ func TestEnvoyNACK(t *testing.T) {
 		}, nil)
 	require.NotNil(t, xdsServer)
 
-	err = xdsServer.start(t.Context())
-	require.NoError(t, err)
+	go func() {
+		err = xdsServer.start(t.Context())
+		require.NoError(t, err)
+	}()
 	defer xdsServer.stop()
 
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
-	err = accessLogServer.start(t.Context())
-	require.NoError(t, err)
+	go func() {
+		err = accessLogServer.start(t.Context())
+		require.NoError(t, err)
+	}()
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
