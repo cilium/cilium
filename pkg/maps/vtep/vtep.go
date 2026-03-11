@@ -30,10 +30,19 @@ const (
 	MapName = "cilium_vtep_map"
 )
 
+// Entry represents a single VTEP map entry with key and value.
+type Entry struct {
+	CIDR           net.IP
+	TunnelEndpoint net.IP
+	MAC            mac.MAC
+}
+
 // Map provides access to the eBPF map vtep.
 type Map interface {
 	Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error
 	Delete(tunnelEndpoint net.IP) error
+	DeleteByCIDR(cidrIP net.IP) error
+	List() ([]Entry, error)
 	Dump(hash map[string][]string) error
 }
 
@@ -129,6 +138,48 @@ func (m *vtepMap) Update(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC m
 func (m *vtepMap) Delete(tunnelEndpoint net.IP) error {
 	key := newKey(tunnelEndpoint)
 	return m.bpfMap.Delete(&key)
+}
+
+// DeleteByCIDR deletes a VTEP entry by its CIDR IP address.
+func (m *vtepMap) DeleteByCIDR(cidrIP net.IP) error {
+	key := newKey(cidrIP)
+	m.logger.Debug(
+		"Deleting vtep map entry by CIDR",
+		logfields.V4Prefix, cidrIP,
+	)
+	return m.bpfMap.Delete(&key)
+}
+
+// List returns all entries currently in the VTEP BPF map.
+func (m *vtepMap) List() ([]Entry, error) {
+	entries := make([]Entry, 0, MaxEntries)
+
+	parse := func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(*Key)
+		v := value.(*VtepEndpointInfo)
+
+		// Parse MAC from the string representation of Uint64MAC
+		parsedMAC, err := mac.ParseMAC(v.VtepMAC.String())
+		if err != nil {
+			m.logger.Warn("Failed to parse MAC from VTEP entry",
+				logfields.MACAddr, v.VtepMAC.String(),
+				logfields.Error, err)
+			return
+		}
+
+		entry := Entry{
+			CIDR:           net.IP(k.IP[:]),
+			TunnelEndpoint: net.IP(v.TunnelEndpoint[:]),
+			MAC:            parsedMAC,
+		}
+		entries = append(entries, entry)
+	}
+
+	if err := m.bpfMap.DumpWithCallback(parse); err != nil {
+		return nil, fmt.Errorf("failed to list VTEP entries: %w", err)
+	}
+
+	return entries, nil
 }
 
 func (m *vtepMap) Dump(hash map[string][]string) error {
