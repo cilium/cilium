@@ -106,15 +106,17 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, nil)
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
-	writeRule := func(r *policyapi.Rule) uint64 {
+	writeRules := func(rules ...*policyapi.Rule) uint64 {
 		t.Helper()
 
-		require.NoError(t, r.Sanitize())
+		for _, r := range rules {
+			require.NoError(t, r.Sanitize())
+		}
 
 		dc := make(chan uint64, 1)
 		pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{
 			{
-				Rules:    policyutils.RulesToPolicyEntries([]*policyapi.Rule{r}),
+				Rules:    policyutils.RulesToPolicyEntries(rules),
 				Resource: resource,
 				DoneChan: dc,
 			},
@@ -122,7 +124,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		return <-dc
 	}
 
-	rev := writeRule(policyapi.NewRule().
+	rev := writeRules(policyapi.NewRule().
 		WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("",
 			&slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -146,7 +148,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 	// Update to new rule that selects id 102 and has two prefixes
 	// we should see 1 new prefix, and 2 regenerated endpoints
-	rev = writeRule(policyapi.NewRule().
+	rev = writeRules(policyapi.NewRule().
 		WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("",
 			&slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -174,7 +176,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{100, 101})
 
 	// Swap endpoints and prefixes
-	rev = writeRule(policyapi.NewRule().
+	rev = writeRules(policyapi.NewRule().
 		WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("",
 			&slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -195,5 +197,39 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	// Check that the right endpoints were updated
 	require.Equal(t, rev, epm.toRev)
 	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{101, 102})
+
+	// Remove all CIDRs
+	rev = writeRules(policyapi.NewRule().
+		WithEndpointSelector(policyapi.NewESFromK8sLabelSelector("",
+			&slim_metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"id": "102",
+				},
+			}),
+		).
+		WithEgressRules([]policyapi.EgressRule{{
+			EgressCommonRule: policyapi.EgressCommonRule{
+				ToEntities: policyapi.EntitySlice{policyapi.EntityHost},
+			}}}))
+
+	require.True(t, ipc.waited)
+
+	// We only remove 1 cidr
+	require.ElementsMatch(t, ipc.removed.AsSlice(), []string{"2.0.0.0/24"})
+	// When no new CIDRs are added the ipc.added value is not updated
+	// require.ElementsMatch(t, ipc.added.AsSlice(), []string{})
+
+	// Check that the right endpoints were updated
+	require.Equal(t, rev, epm.toRev)
+	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{102})
+
+	require.ElementsMatch(t, pi.prefixesByResource[resource], []netip.Prefix{})
+
+	rev = writeRules()
+
+	// We removed the rule, so the prefix should no longer be counted
+	_, found := pi.prefixesByResource[resource]
+	require.False(t, found)
+	require.Equal(t, rev, epm.toRev)
 
 }
