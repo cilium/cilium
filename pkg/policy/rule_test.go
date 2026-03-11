@@ -637,7 +637,7 @@ func TestICMPPolicy(t *testing.T) {
 		},
 	}
 
-	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMP/8": {
+	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{"8/ICMP": {
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -649,7 +649,7 @@ func TestICMPPolicy(t *testing.T) {
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	}})
 
-	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMP/9": {
+	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"9/ICMP": {
 		Port:     9,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -684,7 +684,7 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
-		"ICMP/8": {
+		"8/ICMP": {
 			Port:     8,
 			Protocol: api.ProtoICMP,
 			U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -695,7 +695,7 @@ func TestICMPPolicy(t *testing.T) {
 			},
 			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 		},
-		"TCP/80": {
+		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  u8proto.ProtoIDs["tcp"],
@@ -726,10 +726,10 @@ func TestICMPPolicy(t *testing.T) {
 		},
 	}
 
-	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"ICMPV6/128": {
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"128/ICMPV6": {
 		Port:     128,
 		Protocol: api.ProtoICMPv6,
-		U8Proto:  u8proto.ProtoIDs["icmp"],
+		U8Proto:  u8proto.ICMPv6,
 		Ingress:  true,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -783,7 +783,7 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 	}
 
 	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{
-		"0/vrrp": {
+		"0/VRRP": {
 			Port:     0,
 			Protocol: api.ProtoVRRP,
 			U8Proto:  u8proto.ProtoIDs["vrrp"],
@@ -811,7 +811,7 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 		},
 	})
 
-	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/egress": {
+	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/VRRP": {
 		Port:     0,
 		Protocol: api.ProtoVRRP,
 		U8Proto:  u8proto.ProtoIDs["vrrp"],

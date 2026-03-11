@@ -506,7 +506,7 @@ func TestL3Wildcarding(t *testing.T) {
 		},
 	}
 
-	expected0 := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+	expected0 := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/TCP": {
 		Port: 0, Protocol: api.ProtoTCP, U8Proto: 6,
 		Ingress: true, wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -531,7 +531,7 @@ func TestL3Wildcarding(t *testing.T) {
 		},
 	}
 
-	expectedAny := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+	expectedAny := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/ANY": {
 		Port: 0, Protocol: api.ProtoAny, U8Proto: 0,
 		Ingress: true, wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
