@@ -67,7 +67,7 @@ type ctMaps struct {
 var _ CTMaps = (*ctMaps)(nil)
 
 func (r *ctMaps) ActiveMaps() []*Map {
-	return slices.DeleteFunc([]*Map{r.v4AnyMap, r.v4TCPMap, r.v6AnyMap, r.v6TCPMap}, func(m *Map) bool { return m == nil })
+	return slices.DeleteFunc([]*Map{r.v4TCPMap, r.v4AnyMap, r.v6TCPMap, r.v6AnyMap}, func(m *Map) bool { return m == nil })
 }
 
 func (r *ctMaps) init() error {
