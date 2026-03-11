@@ -55,10 +55,6 @@ func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBala
 	return newFakeCiliumLoadBalancerIPPools(c)
 }
 
-func (c *FakeCiliumV2alpha1) CiliumNodeConfigs(namespace string) v2alpha1.CiliumNodeConfigInterface {
-	return newFakeCiliumNodeConfigs(c, namespace)
-}
-
 func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterface {
 	return newFakeCiliumPodIPPools(c)
 }
