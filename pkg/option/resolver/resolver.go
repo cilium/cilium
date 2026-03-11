@@ -24,7 +24,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -187,7 +186,7 @@ func ReadConfigSource(ctx context.Context, logger *slog.Logger, client client.Cl
 	case KindConfigMap:
 		return readConfigMap(ctx, logger, client, source)
 	case KindNodeConfig:
-		return readNodeConfigsAllVersions(ctx, logger, client, nodeName, source.Namespace, source.Name)
+		return readNodeConfigs(ctx, logger, client, nodeName, source.Namespace, source.Name)
 	}
 	return nil, nil, fmt.Errorf("invalid source kind %s", source.Kind)
 }
@@ -254,56 +253,8 @@ func readConfigMap(ctx context.Context, logger *slog.Logger, client client.Clien
 	return cm.Data, []ConfigSource{source}, nil
 }
 
-// readNodeConfigsAllVersions read node configurations for versions v2 and v2alpha1 of CiliumNodeConfig CRD.
-// TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsAllVersions(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
-	var errv2, errv2alpha1 error
-
-	nodeConfigv2, descv2, errv2 := readNodeConfigs(ctx, logger, client, nodeName, namespace, name)
-	if errv2 != nil {
-		logger.Error(
-			"CiliumNodeConfig v2 not found",
-			logfields.Error, errv2,
-			logfields.Node, nodeName,
-		)
-	}
-
-	nodeConfigv2alpha1, descv2alpha1, errv2alpha1 := readNodeConfigsv2alpha1(ctx, logger, client, nodeName, namespace, name)
-	if errv2alpha1 != nil {
-		logger.Error(
-			"CiliumNodeConfig v2alpha1 not found",
-			logfields.Error, errv2alpha1,
-			logfields.Node, nodeName,
-		)
-		// return the errors for the two versions
-		if errv2 != nil {
-			return nil, nil, fmt.Errorf("CiliumNodeConfig v2 and v2alpha1 not found: %w and %w\n", errv2, errv2alpha1)
-		}
-		return nil, nil, errv2alpha1
-	}
-
-	// Copiying values from a map into a nil map results in a panic, please refer to https://github.com/golang/go/issues/64390
-	if nodeConfigv2alpha1 == nil {
-		nodeConfigv2alpha1 = nodeConfigv2
-	} else {
-		// overwrite nodeConfigv2alpha1 with nodeConfigv2 values
-		maps.Copy(nodeConfigv2alpha1, nodeConfigv2)
-	}
-
-	addedSources := sets.New[ConfigSource](descv2...)
-	for _, source := range descv2alpha1 {
-		if !addedSources.Has(source) {
-			descv2 = append(descv2, source)
-		}
-		addedSources.Insert(source)
-	}
-
-	return nodeConfigv2alpha1, descv2, nil
-}
-
-// readNodeConfigs reads all the CiliumNodeConfig in v2 objects and returns a flattened map
+// readNodeConfigs reads all the CiliumNodeConfig v2 objects and returns a flattened map
 // of any key overrides that apply to this node.
-// TODO remove me when CiliumNodeConfig v2alpha1 is deprecated
 func readNodeConfigs(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
 	var overrides []ciliumv2.CiliumNodeConfig
 
@@ -386,105 +337,6 @@ func readNodeConfigs(ctx context.Context, logger *slog.Logger, client client.Cli
 			if _, set := out[k]; set {
 				logger.Warn(
 					"Key set in multiple CiliumNodeConfigs",
-					logfields.ConfigKey, k,
-				)
-			}
-			out[k] = v
-		}
-	}
-
-	var sourceDescriptions []ConfigSource
-	for _, name := range matchingNames {
-		sourceDescriptions = append(sourceDescriptions, ConfigSource{Kind: KindNodeConfig, Namespace: namespace, Name: name})
-	}
-
-	return out, sourceDescriptions, nil
-}
-
-// readNodeConfigsv2alpha1 reads all the CiliumNodeConfig in v2alpha1 objects and returns a flattened map
-// of any key overrides that apply to this node.
-// TODO depreciate CNC on v2alpha1 https://github.com/cilium/cilium/issues/31982
-func readNodeConfigsv2alpha1(ctx context.Context, logger *slog.Logger, client client.Clientset, nodeName, namespace, name string) (map[string]string, []ConfigSource, error) {
-	var overrides []ciliumv2alpha1.CiliumNodeConfig
-
-	// Retrieve CNCs if the name is not provided
-	if name == "" {
-		l, err := client.CiliumV2alpha1().CiliumNodeConfigs(namespace).List(ctx, metav1.ListOptions{})
-		if apierrors.IsNotFound(err) { // Tolerate the CRD not existing
-			return nil, nil, nil
-		}
-		if err != nil {
-			return nil, nil, fmt.Errorf("could not list CiliumNodeConfig v2alpha1 objects: %w", err)
-		}
-		overrides = l.Items
-	} else {
-		// Retrieve CNCs with the given name
-		o, err := client.CiliumV2alpha1().CiliumNodeConfigs(namespace).Get(ctx, name, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return nil, nil, nil
-		}
-		if err != nil {
-			return nil, nil, fmt.Errorf("could not retrieve CiliumNodeConfig v2alpha1 %s/%s: %w", namespace, name, err)
-		}
-		overrides = append(overrides, *o)
-	}
-
-	if len(overrides) == 0 {
-		return nil, nil, nil
-	}
-
-	// If there are overrides, retrieve our node.
-	// We'll need it to match label selectors
-	node, err := client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not get Node %s: %w", nodeName, err)
-	}
-
-	matching := map[string]ciliumv2alpha1.CiliumNodeConfig{}
-
-	// track names separately, since we will compute "priority" by lexicographic sort
-	var matchingNames []string
-
-	for _, override := range overrides {
-		// ignore empty overrides
-		if len(override.Spec.Defaults) == 0 {
-			continue
-		}
-
-		// if we're selecting on a list, then evaluate the node selector
-		if name == "" && override.Spec.NodeSelector != nil {
-			ls, err := metav1.LabelSelectorAsSelector(override.Spec.NodeSelector)
-			if err != nil { // unreachable
-				return nil, nil, fmt.Errorf("invalid selector in CiliumNodeConfig v2alpha1 %s: %w", override.Name, err)
-			}
-			if ls.Matches(labels.Set(node.Labels)) {
-				matching[override.Name] = override
-				matchingNames = append(matchingNames, override.Name)
-			}
-		} else if name != "" {
-			matching[override.Name] = override
-			matchingNames = append(matchingNames, override.Name)
-		}
-	}
-
-	// Within overrides, lexicographical ordering determines priority.
-	slices.Sort(matchingNames)
-
-	out := make(map[string]string)
-	for _, name := range matchingNames {
-		for k, v := range matching[name].Spec.Defaults {
-			if errs := apivalidation.IsConfigMapKey(k); len(errs) > 0 {
-				logger.Error(
-					"Invalid key in CiliumNodeConfigs v2alpha1",
-					logfields.Name, name,
-					logfields.K8sNamespace, matching[name].Namespace,
-					logfields.ConfigKey, k,
-				)
-				continue
-			}
-			if _, set := out[k]; set {
-				logger.Info(
-					"Key set in multiple CiliumNodeConfigs v2alpha1",
 					logfields.ConfigKey, k,
 				)
 			}
