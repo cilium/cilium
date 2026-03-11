@@ -81,32 +81,32 @@ func TestL4Policy(t *testing.T) {
 	}
 
 	expected := NewL4Policy(0)
-	expected.Ingress.PortRules[0].Upsert("80", 0, "TCP", &L4Filter{
+	expected.Ingress.PortRules[0].upsert(&L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard:            td.wildcardCachedSelector,
 		PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Ingress.PortRules[0].Upsert("8080", 0, "TCP", &L4Filter{
+	expected.Ingress.PortRules[0].upsert(&L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard:            td.wildcardCachedSelector,
 		PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 
-	expected.Egress.PortRules[0].Upsert("3000", 0, "TCP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		wildcard:            td.wildcardCachedSelector,
 		PerSelectorPolicies: l7mapLevelOnly,
 		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Egress.PortRules[0].Upsert("3000", 0, "UDP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		wildcard:            td.wildcardCachedSelector,
 		PerSelectorPolicies: l7mapLevelOnly,
 		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Egress.PortRules[0].Upsert("3000", 0, "SCTP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard:            td.wildcardCachedSelector,
 		PerSelectorPolicies: l7mapLevelOnly,
@@ -152,7 +152,7 @@ func TestL4Policy(t *testing.T) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress.PortRules[0].Upsert("80", 0, "TCP", &L4Filter{
+	expected.Ingress.PortRules[0].upsert(&L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -170,7 +170,7 @@ func TestL4Policy(t *testing.T) {
 		Ingress:    true,
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Egress.PortRules[0].Upsert("3000", 0, "TCP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -178,7 +178,7 @@ func TestL4Policy(t *testing.T) {
 		},
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Egress.PortRules[0].Upsert("3000", 0, "UDP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -186,7 +186,7 @@ func TestL4Policy(t *testing.T) {
 		},
 		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
-	expected.Egress.PortRules[0].Upsert("3000", 0, "SCTP", &L4Filter{
+	expected.Egress.PortRules[0].upsert(&L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -1156,7 +1156,7 @@ func TestL4RuleLabels(t *testing.T) {
 			require.Equal(t, len(test.expectedIngressLabels), ingressLen, test.description)
 			for portProto := range test.expectedIngressLabels {
 				portProtoSlice := strings.Split(portProto, "/")
-				out := finalPolicy.L4Policy.Ingress.PortRules[0].ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
+				out := finalPolicy.L4Policy.Ingress.PortRules[0].ExactLookup(portProtoSlice[0], 0, api.L4Proto(portProtoSlice[1]))
 				require.NotNil(t, out, test.description)
 				require.Len(t, out.RuleOrigin, 1, test.description)
 				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()
@@ -1170,7 +1170,7 @@ func TestL4RuleLabels(t *testing.T) {
 			require.Equal(t, len(test.expectedEgressLabels), egressLen, test.description)
 			for portProto := range test.expectedEgressLabels {
 				portProtoSlice := strings.Split(portProto, "/")
-				out := finalPolicy.L4Policy.Egress.PortRules[0].ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
+				out := finalPolicy.L4Policy.Egress.PortRules[0].ExactLookup(portProtoSlice[0], 0, api.L4Proto(portProtoSlice[1]))
 				require.NotNil(t, out, test.description)
 				require.Len(t, out.RuleOrigin, 1, test.description)
 				lbls := out.RuleOrigin[out.wildcard].GetLabelArrayList()

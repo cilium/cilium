@@ -1509,8 +1509,8 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 	}
 
 	for i := range l4Policy {
-		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.ANY.String()))
-		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.TCP.String()))
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, api.ProtoAny))
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, api.ProtoTCP))
 	}
 
 	if !wildcardDenyAll {
