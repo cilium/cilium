@@ -210,13 +210,8 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 
 		require.Equal(t, expected[i].Len(), actual[i].Len())
 		expected[i].ForEach(func(l4 *L4Filter) bool {
-			port := l4.PortName
-			if len(port) == 0 {
-				port = fmt.Sprintf("%d", l4.Port)
-			}
-
-			l4B := actual[i].ExactLookup(port, l4.EndPort, string(l4.Protocol))
-			require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
+			l4B := actual[i].exactLookupFilter(l4)
+			require.NotNil(t, l4B, "Port Protocol lookup failed: [PortName %s, Port: %s, EndPort: %d, Protocol: %s]", l4.PortName, l4.Port, l4.EndPort, string(l4.Protocol))
 
 			// If no available IDs are provided, we assume the same pointer for
 			// cached selector is used for both expected and actual L4PolicyMap,

@@ -343,7 +343,7 @@ func (resMap *L4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.Polic
 		return 0, err
 	}
 
-	err = resMap.addL4Filter(policyCtx, p, filterToMerge)
+	err = resMap.addL4Filter(policyCtx, filterToMerge)
 	if err != nil {
 		return 0, err
 	}
