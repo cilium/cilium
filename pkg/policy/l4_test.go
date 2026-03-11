@@ -291,12 +291,13 @@ func TestJSONMarshal(t *testing.T) {
 			"8080/TCP": {
 				Port:     8080,
 				Protocol: api.ProtoTCP,
+				U8Proto:  u8proto.TCP,
 				Ingress:  false,
 			},
 		})},
 		Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 			"80/TCP": {
-				Port: 80, Protocol: api.ProtoTCP,
+				Port: 80, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
@@ -309,7 +310,7 @@ func TestJSONMarshal(t *testing.T) {
 				Ingress: true,
 			},
 			"9090/TCP": {
-				Port: 9090, Protocol: api.ProtoTCP,
+				Port: 9090, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
@@ -330,7 +331,7 @@ func TestJSONMarshal(t *testing.T) {
 				Ingress: true,
 			},
 			"8080/TCP": {
-				Port: 8080, Protocol: api.ProtoTCP,
+				Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
