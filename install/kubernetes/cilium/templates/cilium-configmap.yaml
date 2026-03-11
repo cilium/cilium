@@ -443,6 +443,9 @@ data:
   # policy map (per endpoint)
   bpf-policy-map-max: "{{ .Values.bpf.policyMapMax | int }}"
 {{- end }}
+{{- if .Values.endpointPolicyUpdateTimeoutDuration }}
+  endpoint-policy-update-timeout: {{ .Values.endpointPolicyUpdateTimeoutDuration | quote }}
+{{- end }}
 {{- if hasKey .Values.bpf "lbMapMax" }}
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
