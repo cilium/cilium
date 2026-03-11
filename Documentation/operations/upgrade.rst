@@ -356,6 +356,12 @@ from Cilium.
 * Support for Envoy Go Extensions (proxylib) and Kafka-aware network policies
   has been removed. These features were deprecated in v1.18.
 
+* The ``v2alpha1`` API version of ``CiliumNodeConfig`` has been removed.
+  ``CiliumNodeConfig`` resources must now use ``apiVersion: cilium.io/v2``,
+  which has been available since Cilium 1.16. Update any existing
+  ``CiliumNodeConfig`` manifests or tooling that references
+  ``cilium.io/v2alpha1`` to use ``cilium.io/v2`` instead.
+
 * The Helm value ``hubble.redact.kafka.apiKey`` and the corresponding
   ``hubble-redact-kafka-apikey`` agent flag have been removed as part of
   dropping Kafka support.

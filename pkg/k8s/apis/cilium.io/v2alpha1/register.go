@@ -65,17 +65,6 @@ const (
 	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
 	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
 
-	// CiliumNodeConfig (CNC)
-
-	// CNCPluralName is the plural name of Cilium Node Config
-	CNCPluralName = "ciliumnodeconfigs"
-
-	// CNCKindDefinition is the kind name of Cilium Node Config
-	CNCKindDefinition = "CiliumNodeConfig"
-
-	// CNCName is the full name of Cilium Node Config
-	CNCName = CNCPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium L2 Announcement policy
 
 	// L2AnnouncementSingularName is the singular name ofCilium L2 announcement policy
@@ -151,9 +140,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
-		&CiliumNodeConfig{},
-		&CiliumNodeConfigList{},
-
 		// new BGP types
 		&CiliumBGPClusterConfig{},
 		&CiliumBGPClusterConfigList{},

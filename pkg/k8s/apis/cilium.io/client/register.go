@@ -76,10 +76,6 @@ const (
 	// LBIPPoolCRDName is the full name of the BGPPool CRD.
 	LBIPPoolCRDName = k8sconstv2.PoolKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
-	// CNCCRDNameAlpha is the full name of the CiliumNodeConfig CRD.
-	// TODO remove me when CNC CRD v2alpha1 will be deprecated.
-	CNCCRDNameAlpha = k8sconstv2alpha1.CNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
-
 	// CCGCRDName is the full name of the CiliumCIDRGroup CRD.
 	CCGCRDName = k8sconstv2.CCGKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
@@ -314,7 +310,6 @@ func GetPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	case LBIPPoolCRDName:
 		crdBytes = crdsv2Ciliumloadbalancerippools
 	case CNCCRDName:
-		// Contains both v2 and v2alpha1 versions
 		crdBytes = crdsv2CiliumNodeConfigs
 	case CCGCRDName:
 		crdBytes = crdsv2CiliumCIDRGroups
