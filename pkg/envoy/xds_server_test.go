@@ -31,6 +31,7 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/spanstat"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -364,7 +365,7 @@ var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
 var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12,
 		},
@@ -374,7 +375,7 @@ var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12HeaderMatch,
 		},
@@ -384,7 +385,7 @@ var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy
 var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1:           L7Rules1,
 			cachedRequiresV2Selector1: L7Rules12,
@@ -395,7 +396,7 @@ var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.
 var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector2: L7Rules1,
 		},
@@ -405,7 +406,7 @@ var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: denyPerSelectorPolicy,
 			cachedSelector2: L7Rules1,
@@ -416,7 +417,7 @@ var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Fil
 var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules12,
 		},
@@ -427,7 +428,7 @@ var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap4 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
@@ -438,7 +439,7 @@ var L4PolicyMap4 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
@@ -449,7 +450,7 @@ var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap5LowestPriority = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{
 				Priority: policyTypes.LowestPriority,
@@ -463,7 +464,7 @@ var L4PolicyMap5LowestPriority = policy.NewL4PolicyMapWithValues(map[string]*pol
 var L4PolicyMapSNI = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"443/TCP": {
 		Port:     443,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{
 				ServerNames: policy.NewStringSet([]string{
@@ -498,7 +499,7 @@ var L4PolicyMapPass = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filte
 	"0/TCP": {
 		Tier:     0,
 		Port:     0,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: &policy.PerSelectorPolicy{
 				Priority: 0,
@@ -513,7 +514,7 @@ var L4PolicyMapPass = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filte
 	"443/TCP": {
 		Tier:     1,
 		Port:     443,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: &policy.PerSelectorPolicy{
 				Priority: 50,
@@ -934,7 +935,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			"0/TCP": {
 				Tier:     0,
 				Port:     0,
-				Protocol: api.ProtoTCP,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					wildcardCachedSelector: {
 						Priority: policyTypes.HighestPriority,
@@ -945,7 +946,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			"443/TCP": {
 				Tier:     1,
 				Port:     443,
-				Protocol: api.ProtoTCP,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: {
 						Priority: policyTypes.Priority(0x100),
@@ -980,7 +981,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 		*l4DirectionPolicy = policy.NewL4DirectionPolicyForTest(policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"0/TCP": {
 				Port:     0,
-				Protocol: api.ProtoAny,
+				Protocol: api.ProtoAny, U8Proto: u8proto.ANY,
 				PerSelectorPolicies: policy.L7DataMap{
 					wildcardCachedSelector: {
 						Priority: passPriority,
@@ -990,7 +991,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			},
 			"80/TCP": {
 				Port:     80,
-				Protocol: api.ProtoTCP,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: {
 						Priority: passPriority,
@@ -1043,7 +1044,7 @@ func TestGetDirectionNetworkPolicyWildcardPass(t *testing.T) {
 			},
 			"80/TCP": {
 				Port:     80,
-				Protocol: api.ProtoTCP,
+				Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: {
 						Priority: passPriority + 1,
@@ -1168,18 +1169,21 @@ func TestGetDirectionNetworkPolicyWildcardRedirect(t *testing.T) {
 				ListenerPriority: policy.ListenerPriorityCRD,
 			}
 
+			u8p, err := u8proto.ParseProtocol(string(tc.redirectProtocol))
+			require.NoError(t, err)
+
 			l4DirectionPolicy := &policy.L4DirectionPolicy{
 				PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 					"0/" + string(tc.redirectProtocol): {
 						Port:     0,
-						Protocol: tc.redirectProtocol,
+						Protocol: tc.redirectProtocol, U8Proto: u8p,
 						PerSelectorPolicies: policy.L7DataMap{
 							wildcardCachedSelector: redirectPolicy,
 						},
 					},
 					"80/TCP": {
 						Port:     80,
-						Protocol: api.ProtoTCP,
+						Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 						PerSelectorPolicies: policy.L7DataMap{
 							cachedSelector1: tc.port80Policy,
 						},
@@ -1442,7 +1446,7 @@ func newL4PolicyTLSEgress(tls *policy.TLSContext) *policy.L4Policy {
 	return &policy.L4Policy{
 		Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
-				Port: 443, Protocol: api.ProtoTCP,
+				Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
 						L7Parser:       "tls",
@@ -1509,7 +1513,7 @@ func newL4PolicyTLSIngress(tls *policy.TLSContext) *policy.L4Policy {
 	return &policy.L4Policy{
 		Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
-				Port: 443, Protocol: api.ProtoTCP,
+				Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
 						L7Parser:       "tls",
@@ -1552,7 +1556,7 @@ var ExpectedPerPortPoliciesTLSIngressNoSyncUseFullContext = newIngressPortNetwor
 var L4PolicyTLSFullContext = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
-			Port: 443, Protocol: api.ProtoTCP,
+			Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					L7Parser: "tls",
