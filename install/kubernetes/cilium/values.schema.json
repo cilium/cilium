@@ -2406,6 +2406,9 @@
         "clusterMaxRequests": {
           "type": "integer"
         },
+        "configTimeoutDuration": {
+          "type": "null"
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },

@@ -1482,6 +1482,10 @@ data:
   envoy-policy-restore-timeout: {{ .Values.envoy.policyRestoreTimeoutDuration | quote }}
 {{- end }}
 
+{{- if .Values.envoy.configTimeoutDuration }}
+  envoy-config-timeout: {{ .Values.envoy.configTimeoutDuration | quote }}
+{{- end }}
+
 {{- if .Values.envoy.log.path }}
   envoy-log: {{ .Values.envoy.log.path | quote }}
 {{- end }}
