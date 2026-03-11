@@ -29,7 +29,6 @@ var ErrNotImplemented = errors.New("not implemented")
 
 // startXDSGRPCServer starts a gRPC server to serve xDS APIs using the given
 // resource watcher and network listener.
-// Returns a function that stops the GRPC server when called.
 func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*xds.ResourceTypeConfiguration) error {
 	listener, err := s.newSocketListener()
 	if err != nil {
