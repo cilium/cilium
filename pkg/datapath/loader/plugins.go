@@ -83,6 +83,16 @@ func attachmentContextWireguard(device netlink.Link) *datapathplugins.Attachment
 	}
 }
 
+func attachmentContextXDP(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Xdp{
+			Xdp: &datapathplugins.AttachmentContext_XDP{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
+
 type bpfCollectionLoader struct {
 	pluginOperationsDir string
 	pluginsEnabled      bool
