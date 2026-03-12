@@ -82,6 +82,7 @@ func TestEnvoy(t *testing.T) {
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
 		},
 		nil)
 	require.NotNil(t, xdsServer)
@@ -103,10 +104,11 @@ func TestEnvoy(t *testing.T) {
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
-		runDir:         testRunDir,
-		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
-		baseID:         15,
-		connectTimeout: 1,
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         15,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -204,6 +206,7 @@ func TestEnvoyNACK(t *testing.T) {
 			envoySocketDir:    GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
 		}, nil)
 	require.NotNil(t, xdsServer)
 
@@ -224,10 +227,11 @@ func TestEnvoyNACK(t *testing.T) {
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
-		runDir:         testRunDir,
-		logPath:        filepath.Join(testRunDir, "cilium-envoy.log"),
-		baseID:         42,
-		connectTimeout: 1,
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         42,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
 	})
 	require.NotNil(t, envoyProxy)
 	require.NoError(t, err)
