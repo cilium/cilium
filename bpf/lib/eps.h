@@ -16,12 +16,7 @@
  */
 struct endpoint_key {
 	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 	__u8 family;
@@ -62,7 +57,7 @@ struct {
 static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip6_endpoint(const union v6addr *ip6)
 {
-	struct endpoint_key key = {};
+	struct endpoint_key key __align_stack_8 = {};
 
 	key.ip6 = *ip6;
 	key.family = ENDPOINT_KEY_IPV6;
@@ -79,9 +74,9 @@ lookup_ip6_endpoint(const struct ipv6hdr *ip6)
 static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip4_endpoint(__u32 ip)
 {
-	struct endpoint_key key = {};
+	struct endpoint_key key __align_stack_8 = {};
 
-	key.ip4 = ip;
+	key.ip4.be32 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
 	return map_lookup_elem(&cilium_lxc, &key);
@@ -96,12 +91,7 @@ lookup_ip4_endpoint(const struct iphdr *ip4)
 struct remote_endpoint_info {
 	__u32		sec_identity;
 	union {
-		struct {
-			__u32	ip4;
-			__u32	pad1;
-			__u32	pad2;
-			__u32	pad3;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	} tunnel_endpoint;
 	__u16		pad;
@@ -119,12 +109,7 @@ struct ipcache_key {
 	__u8 pad1;
 	__u8 family;
 	union {
-		struct {
-			__u32		ip4;
-			__u32		pad4;
-			__u32		pad5;
-			__u32		pad6;
-		};
+		union v4addr	ip4;
 		union v6addr	ip6;
 	};
 } __packed;
@@ -151,11 +136,11 @@ static __always_inline __maybe_unused const struct remote_endpoint_info *
 ipcache_lookup6(const void *map, const union v6addr *addr,
 		__u32 prefix, __u32 cluster_id)
 {
-	struct ipcache_key key = {
-		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
-		.family = ENDPOINT_KEY_IPV6,
-		.ip6 = *addr,
-	};
+	struct ipcache_key key = {};
+
+	key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(prefix);
+	key.family = ENDPOINT_KEY_IPV6;
+	key.ip6 = *addr;
 
 	/* Check overflow */
 	if (cluster_id > UINT16_MAX)
@@ -172,11 +157,11 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 static __always_inline __maybe_unused const struct remote_endpoint_info *
 ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 {
-	struct ipcache_key key = {
-		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = addr,
-	};
+	struct ipcache_key key = {};
+
+	key.lpm_key = (struct bpf_lpm_trie_key){ IPCACHE_PREFIX_LEN(prefix), {} };
+	key.family = ENDPOINT_KEY_IPV4;
+	key.ip4.be32 = addr & GET_PREFIX(prefix);
 
 	/* Check overflow */
 	if (cluster_id > UINT16_MAX)
@@ -184,7 +169,6 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 
 	key.cluster_id = (__u16)cluster_id;
 
-	key.ip4 &= GET_PREFIX(prefix);
 	return map_lookup_elem(map, &key);
 }
 

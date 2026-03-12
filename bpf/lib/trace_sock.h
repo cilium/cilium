@@ -59,12 +59,7 @@ enum xlate_point {
 
 struct ip {
 	union {
-		struct {
-			__be32 ip4;
-			__u32 pad1;
-			__u32 pad2;
-			__u32 pad3;
-		};
+		union v4addr ip4;
 		union v6addr ip6;
 	} __packed;
 };
@@ -158,14 +153,14 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	}
 
 	msg = (typeof(msg)){
-		.type		= CILIUM_NOTIFY_TRACE_SOCK,
-		.xlate_point	= xlate_point,
-		.dst_ip.ip4	= dst_ip,
-		.dst_port	= dst_port,
-		.sock_cookie	= sock_local_cookie(ctx),
-		.cgroup_id	= get_current_cgroup_id(),
-		.l4_proto	= parse_protocol(ctx->protocol),
-		.ipv6		= 0,
+		.type		 = CILIUM_NOTIFY_TRACE_SOCK,
+		.xlate_point	 = xlate_point,
+		.dst_ip.ip4.be32 = dst_ip,
+		.dst_port	 = dst_port,
+		.sock_cookie	 = sock_local_cookie(ctx),
+		.cgroup_id	 = get_current_cgroup_id(),
+		.l4_proto	 = parse_protocol(ctx->protocol),
+		.ipv6		 = 0,
 	};
 
 	trace_sock_extension_hook(ctx, msg);

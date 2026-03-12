@@ -221,7 +221,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * set_ipsec_encrypt to obtain the correct node ID and spi.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			fake_info.tunnel_endpoint.ip4 = ip4->daddr;
+			fake_info.tunnel_endpoint.ip4.be32 = ip4->daddr;
 			fake_info.flag_has_tunnel_ep = true;
 
 			dst = &fake_info;

@@ -14,7 +14,7 @@ ipcache_add_entry(struct ipcache_key *key, __u32 sec_identity,
 		__bpf_memcpy_builtin(&value.tunnel_endpoint.ip6, tunnel_ep, sizeof(*tunnel_ep));
 		value.flag_ipv6_tunnel_ep = true;
 	} else {
-		value.tunnel_endpoint.ip4 = tunnel_ep->p1;
+		value.tunnel_endpoint.ip4.be32 = tunnel_ep->p1;
 	}
 	value.key = spi;
 	value.flag_skip_tunnel = flag_skip_tunnel;
@@ -29,12 +29,12 @@ __ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 		       const union v6addr *tunnel_ep, __u8 spi, bool flag_skip_tunnel,
 		       bool ipv6_underlay, __u32 mask_size)
 {
-	struct ipcache_key key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(mask_size),
-		.cluster_id = cluster_id,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = addr,
-	};
+	struct ipcache_key key = {};
+
+	key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(mask_size);
+	key.cluster_id = cluster_id;
+	key.family = ENDPOINT_KEY_IPV4;
+	key.ip4.be32 = addr;
 
 	ipcache_add_entry(&key, sec_identity, tunnel_ep, spi,
 			  flag_skip_tunnel, ipv6_underlay);
