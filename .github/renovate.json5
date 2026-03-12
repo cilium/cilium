@@ -50,6 +50,7 @@
     "cilium-cli/**",
     "pkg/azure/**",
     "images/**",
+    "examples/datapath-plugin/*",
     "examples/hubble/*",
     "go.mod",
     "go.sum",

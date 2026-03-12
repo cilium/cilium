@@ -141,6 +141,9 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfi
 $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
 $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image-debug,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),debug))
 
+# dev-docker-datapath-plugin-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-datapath-plugin-image,examples/datapath-plugin/Dockerfile,datapath-plugin,$(DOCKER_IMAGE_TAG),release))
+
 #
 # docker-*-all targets are mainly used from the CI
 #

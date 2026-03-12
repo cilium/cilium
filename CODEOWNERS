@@ -498,6 +498,7 @@ Makefile* @cilium/build
 /Documentation/update-spelling_wordlist.sh @cilium/docs-structure
 /Documentation/yaml.config @cilium/docs-structure
 /examples/ @cilium/docs-structure
+/examples/datapath-plugin/ @cilium/sig-datapath @cilium/loader
 /examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes-egress-gateway/ @cilium/egress-gateway
 /examples/kubernetes/ @cilium/sig-k8s
