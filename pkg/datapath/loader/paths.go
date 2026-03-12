@@ -75,6 +75,13 @@ func bpffsEndpointLinksDir(base string, ep endpoint.Endpoint) string {
 	return filepath.Join(bpffsEndpointDir(base, ep), "links")
 }
 
+// Keep this separate from bpffsEndpointLinksDir to ensure that when Unload()
+// runs and calls bpf.Remove() we don't accidentally unpin plugin hook programs
+// before the main attachment, since this would lead to undefined behavior.
+func bpffsEndpointPluginPinsDir(base string, ep endpoint.Endpoint) string {
+	return filepath.Join(bpffsEndpointDir(base, ep), "plugin_pins")
+}
+
 func bpffsPluginsOperationsDir(base string) string {
 	return filepath.Join(base, "plugins")
 }

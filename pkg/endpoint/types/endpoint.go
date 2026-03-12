@@ -14,4 +14,6 @@ type Endpoint interface {
 	InterfaceName() string
 	Logger(subsystem string) *slog.Logger
 	StateDir() string
+	GetK8sNamespace() string
+	GetK8sPodName() string
 }
