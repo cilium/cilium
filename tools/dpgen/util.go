@@ -101,19 +101,19 @@ func mapSpecByName(a, b *ebpf.MapSpec) int { return strings.Compare(a.Name, b.Na
 // ValueSize, and MaxEntries. It returns an error if they are not compatible.
 func mapSpecCompatible(a, b *ebpf.MapSpec) error {
 	if a.Type != b.Type {
-		return fmt.Errorf("map %s: type mismatch: %s != %s", a.Name, a.Type, b.Type)
+		return fmt.Errorf("type mismatch: %s != %s", a.Type, b.Type)
 	}
 
 	if a.KeySize != b.KeySize {
-		return fmt.Errorf("map %s: key size mismatch: %d != %d", a.Name, a.KeySize, b.KeySize)
+		return fmt.Errorf("key size mismatch: %d != %d", a.KeySize, b.KeySize)
 	}
 
 	if a.ValueSize != b.ValueSize {
-		return fmt.Errorf("map %s: value size mismatch: %d != %d", a.Name, a.ValueSize, b.ValueSize)
+		return fmt.Errorf("value size mismatch: %d != %d", a.ValueSize, b.ValueSize)
 	}
 
 	if a.MaxEntries != b.MaxEntries {
-		return fmt.Errorf("map %s: max entries mismatch: %d != %d", a.Name, a.MaxEntries, b.MaxEntries)
+		return fmt.Errorf("max entries mismatch: %d != %d", a.MaxEntries, b.MaxEntries)
 	}
 
 	return nil
