@@ -50,13 +50,13 @@
 /* Hardcode config values at compile time, e.g. from per-endpoint headers.
  * Can be used only once per config variable within a single compilation unit.
  */
-#define ASSIGN_CONFIG(type, name, value) \
+#define ASSIGN_CONFIG(type, name, ...) \
 	/* Emit a reference to the variable before assigning a value. Without
 	 * this, we risk silently declaring and defining a variable that didn't
 	 * exist before. */ \
 	void __check_##name(void) \
 	{ CONFIG(name); /* Error: variable was assigned before declaring. */ }; \
-	volatile const type __config_##name = value;
+	volatile const type __config_##name = __VA_ARGS__;
 
 /* Access a global configuration variable declared using DECLARE_CONFIG(). All
  * accesses must be done through this macro to ensure the loader's dead code

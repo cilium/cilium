@@ -78,7 +78,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 					   trace->monitor, &ifindex, proto);
 	else
 		ret = __encap_with_nodeid4(ctx, 0, 0,
-					   info->tunnel_endpoint.ip4, seclabel,
+					   info->tunnel_endpoint.ip4.be32, seclabel,
 					   dstid, vni, trace->reason,
 					   trace->monitor, &ifindex, proto);
 	if (ret != CTX_ACT_REDIRECT)

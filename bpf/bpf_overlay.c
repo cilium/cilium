@@ -453,7 +453,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
-		fake_info.tunnel_endpoint.ip4 = info->tunnel_endpoint;
+		fake_info.tunnel_endpoint.ip4.be32 = info->tunnel_endpoint;
 		fake_info.flag_has_tunnel_ep = true;
 		ret = __encap_and_redirect_with_nodeid(ctx, &fake_info,
 						       LOCAL_NODE_ID, WORLD_IPV4_ID,
