@@ -127,6 +127,15 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 }
 
 /**
+ * identity_is_ingress is used to determine whether an identity is
+ * reserved ingress identity (used by L7 LB).
+ */
+static __always_inline bool identity_is_ingress(__u32 identity)
+{
+	return identity == INGRESS_ID;
+}
+
+/**
  * identity_is_reserved is used to determine whether an identity is one of the
  * reserved identities that are not handed out to endpoints.
  *
