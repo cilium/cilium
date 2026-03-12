@@ -376,6 +376,28 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	var revert ResourceMutatorRevertFunc
 	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
 
+	// remove any possible pending completions for the deleted resourceName
+	for comp, pending := range m.pendingCompletions {
+		if comp.Err() != nil {
+			// Completion was canceled or timed out.
+			// Remove from pending list.
+			log.WithFields(logrus.Fields{
+				logfields.XDSTypeURL:      typeURL,
+				logfields.XDSResourceName: resourceName,
+			}).Debugf("completion context was canceled: %v", pending)
+			delete(m.pendingCompletions, comp)
+			continue
+		}
+		if pending.typeURL == typeURL {
+			for _, resourceNames := range pending.remainingNodesResources {
+				// resourceNames map is left in place even if empty, so that
+				// it can be found by HandleResourceVersionAck to complete
+				// the pending completion when an N/ACK is received
+				delete(resourceNames, resourceName)
+			}
+		}
+	}
+
 	if !updated {
 		if wait {
 			m.useCurrent(typeURL, nodeIDs, wg, callback)
