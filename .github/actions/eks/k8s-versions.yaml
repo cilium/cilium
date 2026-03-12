@@ -7,7 +7,7 @@ include:
     region: us-east-2
     ipsec: true
   - version: "1.32"
-    region: ca-central-1
+    region: us-west-2
     default: true
     ipsec: true
     kpr: true
