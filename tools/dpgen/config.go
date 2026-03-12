@@ -15,7 +15,7 @@ import (
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/config/types"
 )
 
 func runConfig(cmd *cobra.Command, args []string) error {
@@ -63,13 +63,13 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	for n, v := range spec.Variables {
 		// Only consider variables in a specific config section to avoid interfering
 		// with unrelated objects.
-		if v.SectionName != config.Section {
+		if v.SectionName != types.ConstantSection {
 			continue
 		}
 
 		// DECLARE_CONFIG prefixes the variable name with a well-known prefix to
 		// avoid collisions with other variables with common names.
-		n = strings.TrimPrefix(n, config.ConstantPrefix)
+		n = strings.TrimPrefix(n, types.ConstantPrefix)
 
 		if v.Type == nil {
 			return "", fmt.Errorf("variable %s has no type information, was the ELF built without BTF?", n)
@@ -121,7 +121,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 
 	for _, f := range fields {
 		b.WriteString(f.comment)
-		b.WriteString(fmt.Sprintf("\t%s %s `%s:\"%s\"`\n", f.goName, f.typ, config.TagName, f.cName))
+		fmt.Fprintf(&b, "\t%s %s `%s:\"%s\"`\n", f.goName, f.typ, types.ConstantTag, f.cName)
 	}
 
 	if len(embeds) > 0 {

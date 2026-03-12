@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/config/types"
 )
 
 func TestPrintConstants(t *testing.T) {
@@ -41,12 +41,12 @@ func TestDumpConstants(t *testing.T) {
 		Variables: map[string]*ebpf.VariableSpec{
 			"__config_device_mtu": {
 				Name:        "__config_device_mtu",
-				SectionName: config.Section,
+				SectionName: types.ConstantSection,
 				Value:       []byte{0xdc, 0x05}, // 1500
 			},
 			"__config_enable_foo": {
 				Name:        "__config_enable_foo",
-				SectionName: config.Section,
+				SectionName: types.ConstantSection,
 				Value:       []byte{0x01}, // true
 			},
 			// Variable in a different section should be excluded.
