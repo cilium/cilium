@@ -1,0 +1,4 @@
+# Include generated BPF .o files.
+!*.o
+
+vendor/
