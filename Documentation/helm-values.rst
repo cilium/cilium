@@ -1379,7 +1379,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:b45c5d9e839d2b91a269c93ef9c5424c0ae2f481b64cedfc7bed2be20ff7f786","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1771585526-532310e626e42c7086de4ef3ea913736125bbd31","useDigest":true}``
+     - ``{"digest":"sha256:97240e8d7df8b4be2661495d171abe53b994006f1e781f725862bd6ea628617e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1773220507-ffc0948a7ec4868e6b552a71cf4d3860e78b53cc","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
@@ -3183,7 +3183,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:b45c5d9e839d2b91a269c93ef9c5424c0ae2f481b64cedfc7bed2be20ff7f786","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1771585526-532310e626e42c7086de4ef3ea913736125bbd31","useDigest":true}``
+     - ``{"digest":"sha256:97240e8d7df8b4be2661495d171abe53b994006f1e781f725862bd6ea628617e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1773220507-ffc0948a7ec4868e6b552a71cf4d3860e78b53cc","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
