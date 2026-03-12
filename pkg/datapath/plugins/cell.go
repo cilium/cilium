@@ -4,7 +4,10 @@
 package plugins
 
 import (
+	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 )
 
@@ -25,4 +28,14 @@ var Cell = cell.Module(
 	"Controller for Cilium Datapath Plugins",
 
 	cell.Config(defaultDatapathPluginsConfig),
+	cell.Provide(
+		statedb.RWTable[*api_v2alpha1.CiliumDatapathPlugin].ToTable,
+	),
+	cell.ProvidePrivate(
+		newDPPListerWatcher,
+		NewDPPTable,
+	),
+	cell.Invoke(
+		registerDPPReflector,
+	),
 )
