@@ -228,7 +228,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 }
 
 func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *datapath.LocalNodeConfiguration, devices []string) error {
+	collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, devices []string) error {
 	xdpConfig := lnc.XDPConfig
 	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
@@ -243,7 +243,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, reg *regist
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, reg, lnc, dev, xdpConfig.Mode()); err != nil {
+		if err := compileAndLoadXDPProg(ctx, logger, reg, collLoader, lnc, dev, xdpConfig.Mode()); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
@@ -394,7 +394,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeXDPLocked(ctx, l.logger, l.registry, lnc, devices); err != nil {
+	if err := reinitializeXDPLocked(ctx, l.logger, l.registry, l.bpfCollectionLoader, lnc, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
