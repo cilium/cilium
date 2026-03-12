@@ -88,14 +88,15 @@ func writeCopyrightHeader(w io.StringWriter) error {
 	return err
 }
 
-// sortedMapSpecs returns the MapSpecs from the given map sorted by their Name
-// field.
-func sortedMapSpecs(m map[string]*ebpf.MapSpec) iter.Seq[*ebpf.MapSpec] {
-	return slices.Values(slices.SortedFunc(maps.Values(m), mapSpecByName))
+// sorted returns the values of m as a slice, sorted by key.
+func sorted[T any](m map[string]T) []T {
+	keys := slices.Sorted(maps.Keys(m))
+	out := make([]T, 0, len(m))
+	for _, k := range keys {
+		out = append(out, m[k])
+	}
+	return out
 }
-
-// mapSpecByName compares two ebpf.MapSpec by their Name field. Used for sorting.
-func mapSpecByName(a, b *ebpf.MapSpec) int { return strings.Compare(a.Name, b.Name) }
 
 // mapSpecCompatible checks whether two MapSpecs have the same Type, KeySize,
 // ValueSize, and MaxEntries. It returns an error if they are not compatible.
