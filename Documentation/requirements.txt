@@ -8,7 +8,7 @@ sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@77d
 semver==3.0.4
 # Sphinx extensions
 myst-parser==2.0.0
-sphinx-tabs==3.4.7
+sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.5
 sphinxcontrib-openapi==0.9.0
@@ -24,14 +24,14 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 attrs==25.4.0
 babel==2.18.0
-certifi==2026.1.4
-charset-normalizer==3.4.4
+certifi==2026.2.25
+charset-normalizer==3.4.5
 click==8.3.1
 colorama==0.4.6
 deepmerge==2.0
 docutils==0.20.1
 idna==3.11
-imagesize==1.4.1
+imagesize==2.0.0
 Jinja2==3.1.6
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
@@ -51,7 +51,7 @@ Pygments==2.19.2
 PyYAML==6.0.3
 referencing==0.37.0
 requests==2.32.5
-rich==14.3.2
+rich==14.3.3
 rpds-py==0.30.0
 rstcheck-core==1.2.2
 shellingham==1.5.4
@@ -65,8 +65,8 @@ sphinxcontrib-jquery==4.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-tornado==6.5.4
-typer==0.23.1
+tornado==6.5.5
+typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
