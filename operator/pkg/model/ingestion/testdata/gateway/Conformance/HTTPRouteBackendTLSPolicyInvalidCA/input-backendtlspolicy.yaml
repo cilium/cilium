@@ -1,0 +1,21 @@
+policies:
+  - svcName: gateway-conformance-infra/invalid-ca-test
+    invalid:
+      "btls":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: invalid-ca-policy
+          namespace: gateway-conformance-infra
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: "invalid-ca-test"
+              sectionName: "btls"
+          validation:
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                name: "nonexistent-ca-certificate"
+            hostname: "abc.example.com"

@@ -277,7 +277,11 @@ func extractRoutes(logger *slog.Logger,
 			svc := getServiceSpec(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, hr.Namespace), services)
 			if svc != nil {
 				toAppend := backendToModelBackend(*svc, be.BackendRef, hr.Namespace)
-				toAppend = addBackendTLSDetails(logger, toAppend, svc, btlspMap)
+				var include bool
+				toAppend, include = addBackendTLSDetails(logger, toAppend, svc, btlspMap)
+				if !include {
+					continue
+				}
 				bes = append(bes, toAppend)
 				for _, f := range be.Filters {
 					switch f.Type {
@@ -382,7 +386,7 @@ func extractRoutes(logger *slog.Logger,
 	return httpRoutes
 }
 
-func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) model.Backend {
+func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Service, btlspMap helpers.BackendTLSPolicyServiceMap) (model.Backend, bool) {
 	svcFullName := types.NamespacedName{Name: svc.GetName(), Namespace: svc.GetNamespace()}
 
 	log = log.With(logfields.Service, svcFullName)
@@ -461,13 +465,23 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 
 			}
 			if be.TLS != nil {
-				return be
+				return be, true
+			}
+
+			// No valid BackendTLSPolicy matched this port. Check if an invalid policy
+			// would have matched. If so, the backend must be excluded.
+			for sectionName := range collection.Invalid {
+				if port.Name == string(sectionName) || sectionName == "" {
+					log.Info("Service has an invalid BackendTLSPolicy for this port, excluding backend",
+						logfields.Section, sectionName)
+					return be, false
+				}
 			}
 
 		}
 	}
 	// There was no relevant BackendTLSPolicy, no changes.
-	return be
+	return be, true
 }
 
 func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {

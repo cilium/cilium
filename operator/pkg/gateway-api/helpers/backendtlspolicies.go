@@ -37,6 +37,9 @@ type BackendTLSPolicyTargetServiceCollection struct {
 	// Note that the an empty value for SectionName means
 	// "all sections", and will conflict with any other section name.
 	Valid map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy
+	// Invalid holds the map of the section name on the Service
+	// to the BackendTLSPolicy that failed Cilium-specific validation.
+	Invalid map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy
 	// Conflicted holds the all the conflicted BackendTLSPolicies that
 	// target this Service, with the map key being the object's full name.
 	// This avoids traversing a slice to find a match all the time.
@@ -49,6 +52,18 @@ func (b *BackendTLSPolicyTargetServiceCollection) UpsertValidPolicy(sectionName 
 	}
 
 	b.Valid[sectionName] = btlsp
+}
+
+func (b *BackendTLSPolicyTargetServiceCollection) DeleteValidPolicy(sectionName gatewayv1.SectionName) {
+	delete(b.Valid, sectionName)
+}
+
+func (b *BackendTLSPolicyTargetServiceCollection) UpsertInvalidPolicy(sectionName gatewayv1.SectionName, btlsp *gatewayv1.BackendTLSPolicy) {
+	if b.Invalid == nil {
+		b.Invalid = make(map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy)
+	}
+
+	b.Invalid[sectionName] = btlsp
 }
 
 func (b *BackendTLSPolicyTargetServiceCollection) UpsertConflictedPolicy(btlspFullName types.NamespacedName, btlsp *gatewayv1.BackendTLSPolicy) {
