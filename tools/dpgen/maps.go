@@ -19,6 +19,11 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 )
 
+// mapsOpts are the input options for the maps command.
+var mapsOpts struct {
+	goPkg string
+}
+
 const (
 	mapKVFile      = "mapkv.btf"
 	mapsGoFile     = "maps_generated.go"
@@ -98,27 +103,27 @@ func runMaps(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling combined BTF: %w", err)
 	}
-	if err := os.WriteFile(path.Join(out, mapKVFile), btfBlob, 0644); err != nil {
+	if err := os.WriteFile(mapKVFile, btfBlob, 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", mapKVFile, err)
 	}
 
-	f, err := os.OpenFile(mapsGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.Create(mapsGoFile)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", mapsGoFile, err)
 	}
 	defer f.Close()
 
-	if err := renderMapSpecs(f, outer, inner, goPkg); err != nil {
+	if err := renderMapSpecs(f, outer, inner, mapsOpts.goPkg); err != nil {
 		return fmt.Errorf("rendering MapSpecs: %w", err)
 	}
 
-	f, err = os.OpenFile(mapsGoTestFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err = os.Create(mapsGoTestFile)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", mapsGoTestFile, err)
 	}
 	defer f.Close()
 
-	if err := renderMapSpecsTest(f, goPkg); err != nil {
+	if err := renderMapSpecsTest(f, mapsOpts.goPkg); err != nil {
 		return fmt.Errorf("rendering MapSpecs test: %w", err)
 	}
 

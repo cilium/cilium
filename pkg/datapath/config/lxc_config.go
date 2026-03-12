@@ -5,9 +5,12 @@
 
 package config
 
-// BPFLXC is a configuration struct for a Cilium datapath object. Warning: do
-// not instantiate directly! Always use [NewBPFLXC] to ensure the default values
-// configured in the ELF are honored.
+import "github.com/cilium/cilium/pkg/datapath/types"
+
+// BPFLXC is a configuration struct for a Cilium datapath object.
+//
+// Warning: do not instantiate directly! Always use [NewBPFLXC] to ensure the
+// default values configured in the ELF are honored.
 type BPFLXC struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
 	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
@@ -38,9 +41,9 @@ type BPFLXC struct {
 	// The endpoint's security ID.
 	EndpointID uint16 `config:"endpoint_id"`
 	// The endpoint's IPv4 address.
-	EndpointIPv4 [4]byte `config:"endpoint_ipv4"`
+	EndpointIPv4 types.V4Addr `config:"endpoint_ipv4"`
 	// The endpoint's IPv6 address.
-	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
+	EndpointIPv6 types.V6Addr `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
 	// Ephemeral port range minimun.
@@ -54,11 +57,11 @@ type BPFLXC struct {
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
-	InterfaceMAC [8]byte `config:"interface_mac"`
+	InterfaceMAC types.MACAddr `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
-	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
+	NATIPv4Masquerade types.V4Addr `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
-	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	NATIPv6Masquerade types.V6Addr `config:"nat_ipv6_masquerade"`
 	// The log level for policy verdicts in workload endpoints.
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
@@ -77,10 +80,11 @@ type BPFLXC struct {
 
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x5dc, false, false, false, false, false, false, false,
-		false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, 0x0, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		0x0, 0x0, 0x0, 0x0, false, 0x0,
+		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, false, 0x0, 0x0, 0x0, 0x0, node}
 }

@@ -3,4 +3,4 @@
 
 package types
 
-//go:generate go run github.com/cilium/cilium/tools/dpgen types ../../../bpf/bpf_*.o
+//go:generate go tool dpgen types ../../../bpf/bpf_*.o
