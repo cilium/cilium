@@ -406,7 +406,12 @@ static __always_inline bool nat46x64_cb_route(struct __ctx_buff *ctx)
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_ROUTE;
 }
 
-static __always_inline bool nat46x64_cb_xlate(struct __ctx_buff *ctx)
+static __always_inline bool
+nat46x64_cb_xlate(struct __ctx_buff *ctx __maybe_unused)
 {
+#if defined(ENABLE_NAT_46X64_GATEWAY) || defined(ENABLE_NAT_46X64)
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_XLATE;
+#else
+	return false;
+#endif
 }
