@@ -1,0 +1,83 @@
+# Test that catch-all ClusterConfigs cannot override selector-based assignments
+hive start
+
+# Create a CiliumNode
+k8s/add node1.yaml
+
+# Create first ClusterConfig with selector
+k8s/add config-with-selector.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was created
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1.yaml
+* cmp expected-node1-selector.yaml actual-node1.yaml
+
+# Create catch-all ClusterConfig (should cause conflict)
+k8s/add config-catch-all.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was NOT updated (still managed by config-with-selector)
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-after.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-after.yaml
+* cmp expected-node1-selector.yaml actual-node1-after.yaml
+
+# Verify catch-all config has Conflict condition
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config-catch-all -o actual-catch-all-status.yaml
+* grep 'type: Conflict' actual-catch-all-status.yaml
+* grep 'status: "True"' actual-catch-all-status.yaml
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- config-with-selector.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config-with-selector
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node1
+  spec:
+    driverName: selector-driver
+
+-- config-catch-all.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config-catch-all
+spec:
+  spec:
+    driverName: catch-all-driver
+
+-- expected-node1-selector.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "true"
+    cilium.io/source-cluster-config: config-with-selector
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: selector-driver
+status:
+  managedBy: operator

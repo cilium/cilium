@@ -1885,4 +1885,10 @@ const (
 	PodUID = "podUID"
 
 	ClaimUID = "claimUID"
+
+	ConflictType = "conflictType"
+
+	OldConfig = "oldConfig"
+
+	NewConfig = "newConfig"
 )
