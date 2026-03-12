@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -46,11 +47,12 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl             sysctl.Sysctl
-	prefilter          datapath.PreFilter
-	compilationLock    datapath.CompilationLock
-	configWriter       datapath.ConfigWriter
-	nodeConfigNotifier *manager.NodeConfigNotifier
+	sysctl              sysctl.Sysctl
+	prefilter           datapath.PreFilter
+	compilationLock     datapath.CompilationLock
+	configWriter        datapath.ConfigWriter
+	nodeConfigNotifier  *manager.NodeConfigNotifier
+	bpfCollectionLoader *bpfCollectionLoader
 
 	db           *statedb.DB
 	devices      statedb.Table[*tables.Device]
@@ -69,6 +71,7 @@ type Params struct {
 	ConfigWriter       datapath.ConfigWriter
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
+	PluginRegistry     plugin.Registry
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
@@ -92,6 +95,10 @@ func newLoader(p Params) *loader {
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
 		routeManager:       p.RouteManager,
+		bpfCollectionLoader: &bpfCollectionLoader{
+			pluginOperationsDir: bpffsPluginsOperationsDir(bpf.CiliumPath()),
+			pluginsEnabled:      p.PluginRegistry.IsEnabled(),
+		},
 
 		db:      p.DB,
 		devices: p.Devices,
