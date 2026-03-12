@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-type NeedUpdateCRDFunc func(currentCRD, targetCRD *apiextensionsv1.CustomResourceDefinition) (bool, error)
+type NeedUpdateCRDFunc func(targetCRD, currentCRD *apiextensionsv1.CustomResourceDefinition) (bool, error)
 
 // CreateUpdateCRD ensures the CRD object is installed into the K8s cluster. It
 // will create or update the CRD and its validation schema as necessary. This
