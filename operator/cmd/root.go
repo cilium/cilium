@@ -48,7 +48,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
 	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
-	networkdriveripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/operator/pkg/networkdriver"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -363,7 +363,8 @@ var (
 		ztunnel.Cell,
 
 		// Provide Multi Pool IPAM for DRA resources managed by the Cilium Network Driver
-		networkdriveripam.Cell,
+		// and Network Driver Config Controller
+		networkdriver.Cell,
 	}
 
 	binaryName = filepath.Base(os.Args[0])
