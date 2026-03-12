@@ -23,6 +23,8 @@ type Interface interface {
 	CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer
 	// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
 	CiliumCIDRGroups() CiliumCIDRGroupInformer
+	// CiliumDatapathPlugins returns a CiliumDatapathPluginInformer.
+	CiliumDatapathPlugins() CiliumDatapathPluginInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
 	// CiliumGatewayClassConfigs returns a CiliumGatewayClassConfigInformer.
@@ -76,6 +78,11 @@ func (v *version) CiliumBGPPeerConfigs() CiliumBGPPeerConfigInformer {
 // CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
 func (v *version) CiliumCIDRGroups() CiliumCIDRGroupInformer {
 	return &ciliumCIDRGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumDatapathPlugins returns a CiliumDatapathPluginInformer.
+func (v *version) CiliumDatapathPlugins() CiliumDatapathPluginInformer {
+	return &ciliumDatapathPluginInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
