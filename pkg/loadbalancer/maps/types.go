@@ -972,6 +972,12 @@ const (
 	// SockRevNat6MapName is the BPF map name.
 	SockRevNat6MapName = "cilium_lb6_reverse_sk"
 
+	// SockRevNat4StMapName is the BPF sk_storage map name.
+	SockRevNat4StMapName = "cilium_lb4_reverse_sk_st"
+
+	// SockRevNat6StMapName is the BPF sk_storage map name.
+	SockRevNat6StMapName = "cilium_lb6_reverse_sk_st"
+
 	// SockRevNat4MapSize is the maximum number of entries in the BPF map.
 	SockRevNat4MapSize = 256 * 1024
 
@@ -986,6 +992,20 @@ const (
 	// map. It is set by Init(), but unit tests use the initial value below.
 	MaxSockRevNat6MapEntries = SockRevNat6MapSize
 )
+
+// SockRevNatStKey is used as the key for the sk_storage maps.
+// BPF sk_storage maps use the socket file descriptor as an implicit key,
+// but the bpf interface requires a key type of size 4.
+type SockRevNatStKey struct {
+	Pad uint32
+}
+
+// String converts the key into a human readable string format.
+func (k *SockRevNatStKey) String() string {
+	return "sk_storage"
+}
+
+func (k *SockRevNatStKey) New() bpf.MapKey { return &SockRevNatStKey{} }
 
 // SockRevNat4Key is the tuple with address, port and cookie used as key in
 // the reverse NAT sock map.

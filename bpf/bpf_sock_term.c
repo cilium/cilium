@@ -41,10 +41,23 @@ static int BPF_FUNC(seq_write, struct seq_file *m, const void *data,
 		    __u32 len);
 #endif
 
-static __always_inline
-bool matches_v4(__sock_cookie cookie)
+static __always_inline bool matches_v4(void *sk, __sock_cookie cookie)
 {
 	struct ipv4_revnat_tuple key = { };
+
+#ifdef HAVE_SK_STORAGE
+	struct ipv4_revnat_entry *val;
+	if (sk) {
+		val = bpf_sk_storage_get(&cilium_lb4_reverse_sk_st, sk, 0, 0);
+		if (val) {
+			if (val->address == cilium_sock_term_filter.address.addr4 &&
+			    val->port == bpf_htons(cilium_sock_term_filter.port))
+				return true;
+		}
+	}
+#else
+	(void)sk;
+#endif
 
 	key.address = cilium_sock_term_filter.address.addr4;
 	key.port    = bpf_htons(cilium_sock_term_filter.port);
@@ -53,10 +66,27 @@ bool matches_v4(__sock_cookie cookie)
 	return map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 }
 
-static __always_inline
-bool matches_v6(__sock_cookie cookie)
+static __always_inline bool matches_v6(void *sk, __sock_cookie cookie)
 {
 	struct ipv6_revnat_tuple key = { };
+
+#ifdef HAVE_SK_STORAGE
+	struct ipv6_revnat_entry *val;
+	if (sk) {
+		val = bpf_sk_storage_get(&cilium_lb6_reverse_sk_st, sk, 0, 0);
+		if (val) {
+			/* Since address is a union v6addr we can just compare */
+			if (!__builtin_memcmp(
+				    &val->address,
+				    &cilium_sock_term_filter.address.addr6,
+				    sizeof(union v6addr)) &&
+			    val->port == bpf_htons(cilium_sock_term_filter.port))
+				return true;
+		}
+	}
+#else
+	(void)sk;
+#endif
 
 	key.address = cilium_sock_term_filter.address.addr6;
 	key.port    = bpf_htons(cilium_sock_term_filter.port);
@@ -76,7 +106,7 @@ int sock_udp_destroy_v4(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -96,7 +126,7 @@ int sock_tcp_destroy_v4(struct bpf_iter__tcp *ctx __maybe_unused)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v4(cookie))
+	if (!matches_v4(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -116,7 +146,7 @@ int sock_udp_destroy_v6(struct bpf_iter__udp *ctx)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))
@@ -136,7 +166,7 @@ int sock_tcp_destroy_v6(struct bpf_iter__tcp *ctx __maybe_unused)
 
 	cookie = get_socket_cookie(sk);
 
-	if (!matches_v6(cookie))
+	if (!matches_v6(sk, cookie))
 		return 0;
 
 	if (!bpf_sock_destroy(sk))

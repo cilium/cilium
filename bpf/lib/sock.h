@@ -41,6 +41,13 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_reverse_sk __section_maps_btf;
 
+struct {
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__type(key, int);
+	__type(value, struct ipv4_revnat_entry);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_lb4_reverse_sk_st __section_maps_btf;
+
 struct ipv6_revnat_tuple {
 	__sock_cookie cookie;
 	union v6addr address;
@@ -62,3 +69,10 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_reverse_sk __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_SK_STORAGE);
+	__type(key, int);
+	__type(value, struct ipv6_revnat_entry);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_lb6_reverse_sk_st __section_maps_btf;
