@@ -354,6 +354,48 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Equal(t, 0, metrics.nack[typeURL])
 }
 
+func TestUpsertCompletionAfterDeletedResource(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+	metrics := newMockMetrics()
+
+	// Empty cache is the version 1
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+
+	// Create version 2 with resource 0 and a completion that waits for ACK.
+	callback, comp := newCompCallback(logger)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.pendingCompletions, 1)
+	require.Equal(t, uint64(2), acker.version)
+
+	// Delete the same resource before the ACK for version 2 is received.
+	acker.Delete(typeURL, resources[0].Name, nil, nil, nil)
+	require.Condition(t, isNotCompletedComparison(comp))
+	require.Len(t, acker.pendingCompletions, 1)
+	require.Equal(t, uint64(3), acker.version)
+
+	// The pending completion must still be keyed by node so that ACK processing
+	// can find it, even though there are no resource names left.
+	for _, pending := range acker.pendingCompletions {
+		require.Equal(t, typeURL, pending.typeURL)
+		require.Contains(t, pending.remainingNodesResources, node0)
+		require.Empty(t, pending.remainingNodesResources[node0])
+	}
+
+	// ACK the newer version from the right node with a different resource name.
+	// This should complete the pending upsert completion after delete pruning.
+	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[2].Name}, typeURL, "")
+	require.Condition(t, completedComparison(comp))
+	require.Empty(t, acker.pendingCompletions)
+	require.Equal(t, 1, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+}
+
 func TestDeleteMultipleNodes(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
