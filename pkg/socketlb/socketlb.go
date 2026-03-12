@@ -4,6 +4,7 @@
 package socketlb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cilium/ebpf"
 
+	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -59,14 +61,24 @@ func cgroupLinkPath() string {
 // File to dump the socketlb BPF configuration to.
 var configDumpPath = filepath.Join(option.Config.StateDir, "bpf", socketConfig)
 
+func cgroupPluginsLinkPath() string {
+	return filepath.Join(bpf.CiliumPath(), Subsystem, "plugin_links/cgroup")
+}
+
+func attachmentContextSocket() *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Socket_{},
+	}
+}
+
 // Enable attaches necessary bpf programs for socketlb based on ciliums config.
 //
 // On restart, Enable can also detach unnecessary programs if specific configuration
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, reg *registry.MapRegistry,
-	sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
+func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
+	collLoader bpf.CollectionLoader, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -83,14 +95,14 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
-	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
+	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: configDumpPath,
-	})
+	}, lnc, attachmentContextSocket(), cgroupPluginsLinkPath())
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -100,6 +112,7 @@ func Enable(logger *slog.Logger, reg *registry.MapRegistry,
 	if err != nil {
 		return fmt.Errorf("failed loading eBPF collection into the kernel: %w", err)
 	}
+	defer cleanup()
 	defer coll.Close()
 
 	// Map a program name to its enabled status. Programs disabled by default.
@@ -175,6 +188,11 @@ func Disable(logger *slog.Logger) error {
 		if err := detachCgroup(logger, p, cgroups.GetCgroupRoot(), cgroupLinkPath()); err != nil {
 			return fmt.Errorf("detach cgroup: %w", err)
 		}
+
+	}
+
+	if err := bpf.Remove(filepath.Join(bpf.CiliumPath(), Subsystem)); err != nil {
+		return fmt.Errorf("removing socketlb root bpffs  directory: %w")
 	}
 
 	return nil
