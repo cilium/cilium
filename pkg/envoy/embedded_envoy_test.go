@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
@@ -54,6 +55,131 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	return err
 }
 
+func TestEnvoyAds(t *testing.T) {
+	s := setupEnvoySuite(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	logging.SetLogLevelToDebug()
+	flowdebug.Enable()
+
+	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
+	require.NoError(t, err)
+
+	t.Logf("run directory: %s", testRunDir)
+
+	localEndpointStore := newLocalEndpointStore()
+
+	logger := hivetest.Logger(t)
+
+	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+		adsServerConfig{
+			envoySocketDir:    util.GetSocketDir(testRunDir),
+			proxyGID:          1337,
+			httpNormalizePath: true,
+			metrics:           xds.NewXDSMetric(),
+		},
+		nil)
+	require.NotNil(t, xdsServer)
+
+	go func() {
+		err = xdsServer.start(t.Context())
+		require.NoError(t, err)
+	}()
+	defer xdsServer.stop()
+
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	require.NotNil(t, accessLogServer)
+	go func() {
+		err = accessLogServer.start(t.Context())
+		require.NoError(t, err)
+	}()
+	defer accessLogServer.stop()
+
+	// launch debug variant of the Envoy proxy
+	starter := &onDemandXdsStarter{logger: logger}
+	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
+		adsMode:                        true,
+		runDir:                         testRunDir,
+		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
+		baseID:                         15,
+		connectTimeout:                 1,
+		maxActiveDownstreamConnections: 100,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, envoyProxy)
+	t.Log("started Envoy")
+
+	defer envoyProxy.admin.quit()
+
+	t.Log("adding metrics listener")
+	xdsServer.AddMetricsListener(context.Background(), 9964, s.waitGroup)
+
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+	t.Log("completed adding metrics listener")
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	t.Log("adding listener1")
+	xdsServer.AddListener(context.Background(), "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+
+	t.Log("adding listener2")
+	xdsServer.AddListener(context.Background(), "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+
+	t.Log("adding listener3")
+	xdsServer.AddListener(context.Background(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+	t.Log("completed adding listener1, listener2, listener3")
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	// Remove listener3
+	t.Log("removing listener 3")
+	xdsServer.RemoveListener(context.Background(), "listener3", s.waitGroup)
+
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+	t.Log("completed removing listener 3")
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	// Add listener3 again
+	t.Log("adding listener 3")
+	var cbErr error
+	cbCalled := false
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
+		func(err error) {
+			cbCalled = true
+			cbErr = err
+		})
+
+	err = s.waitForProxyCompletion()
+	require.NoError(t, err)
+	require.True(t, cbCalled)
+	require.NoError(t, cbErr)
+	t.Log("completed adding listener 3")
+	s.waitGroup = completion.NewWaitGroup(ctx)
+
+	t.Log("stopping Envoy")
+	err = envoyProxy.Stop()
+	require.NoError(t, err)
+
+	time.Sleep(2 * time.Second) // Wait for Envoy to really terminate.
+
+	// Remove listener3 again, and wait for timeout after stopping Envoy.
+	t.Log("removing listener 3")
+	xdsServer.RemoveListener(context.Background(), "listener3", s.waitGroup)
+	err = s.waitForProxyCompletion()
+	require.Error(t, err)
+	t.Logf("failed to remove listener 3: %s", err)
+}
+
 func TestEnvoy(t *testing.T) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -79,7 +205,7 @@ func TestEnvoy(t *testing.T) {
 
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    GetSocketDir(testRunDir),
+			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
@@ -117,7 +243,7 @@ func TestEnvoy(t *testing.T) {
 	defer envoyProxy.admin.quit()
 
 	t.Log("adding metrics listener")
-	xdsServer.AddMetricsListener(9964, s.waitGroup)
+	xdsServer.AddMetricsListener(context.Background(), 9964, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -125,13 +251,13 @@ func TestEnvoy(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(context.Background(), "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(context.Background(), "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(context.Background(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -140,7 +266,7 @@ func TestEnvoy(t *testing.T) {
 
 	// Remove listener3
 	t.Log("removing listener 3")
-	xdsServer.RemoveListener("listener3", s.waitGroup)
+	xdsServer.RemoveListener(context.Background(), "listener3", s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -151,7 +277,7 @@ func TestEnvoy(t *testing.T) {
 	t.Log("adding listener 3")
 	var cbErr error
 	cbCalled := false
-	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
 		func(err error) {
 			cbCalled = true
 			cbErr = err
@@ -172,7 +298,7 @@ func TestEnvoy(t *testing.T) {
 
 	// Remove listener3 again, and wait for timeout after stopping Envoy.
 	t.Log("removing listener 3")
-	xdsServer.RemoveListener("listener3", s.waitGroup)
+	xdsServer.RemoveListener(context.Background(), "listener3", s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
 	t.Logf("failed to remove listener 3: %s", err)
@@ -203,7 +329,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    GetSocketDir(testRunDir),
+			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
@@ -244,7 +370,7 @@ func TestEnvoyNACK(t *testing.T) {
 	t.Log("adding ", rName)
 	var cbErr error
 	cbCalled := false
-	xdsServer.AddListener(rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
+	xdsServer.AddListener(context.Background(), rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
 		func(err error) {
 			cbCalled = true
 			cbErr = err
@@ -259,7 +385,7 @@ func TestEnvoyNACK(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
 	t.Log("removing ", rName)
-	xdsServer.RemoveListener(rName, s.waitGroup)
+	xdsServer.RemoveListener(context.Background(), rName, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 }

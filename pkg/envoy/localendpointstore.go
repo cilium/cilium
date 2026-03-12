@@ -42,3 +42,9 @@ func (s *LocalEndpointStore) removeLocalEndpoint(endpointIP string) {
 
 	delete(s.networkPolicyEndpoints, endpointIP)
 }
+
+func GetLocalEndpointStoreForTest() *LocalEndpointStore {
+	return &LocalEndpointStore{
+		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
+	}
+}
