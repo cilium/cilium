@@ -35,10 +35,10 @@ func (m MAC) String() string {
 	return net.HardwareAddr(m).String()
 }
 
-// As8 returns the MAC as an array of 8 bytes for use in datapath configuration
-// structs. This is 8 bytes due to padding of union macaddr.
-func (m MAC) As8() [8]byte {
-	var res [8]byte
+// As6 returns the MAC as an array of 6 bytes for use in datapath configuration
+// structs.
+func (m MAC) As6() [6]byte {
+	var res [6]byte
 	copy(res[:], m)
 	return res
 }

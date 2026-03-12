@@ -5,18 +5,21 @@
 
 package config
 
-// Node is a configuration struct for a Cilium datapath object. Warning: do not
-// instantiate directly! Always use [NewNode] to ensure the default values
-// configured in the ELF are honored.
+import "github.com/cilium/cilium/pkg/datapath/types"
+
+// Node is a configuration struct for a Cilium datapath object.
+//
+// Warning: do not instantiate directly! Always use [NewNode] to ensure the
+// default values configured in the ELF are honored.
 type Node struct {
 	// Interface index of the cilium_host device.
 	CiliumHostIfIndex uint32 `config:"cilium_host_ifindex"`
 	// MAC address of the cilium_host device.
-	CiliumHostMAC [8]byte `config:"cilium_host_mac"`
+	CiliumHostMAC types.MACAddr `config:"cilium_host_mac"`
 	// Interface index of the cilium_net device.
 	CiliumNetIfIndex uint32 `config:"cilium_net_ifindex"`
 	// MAC address of the cilium_net device.
-	CiliumNetMAC [8]byte `config:"cilium_net_mac"`
+	CiliumNetMAC types.MACAddr `config:"cilium_net_mac"`
 	// Cluster ID.
 	ClusterID uint32 `config:"cluster_id"`
 	// Number of bits of the identity reserved for the Cluster ID.
@@ -45,7 +48,7 @@ type Node struct {
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
 	// NAT 46x64 prefix.
-	NAT46X64Prefix [4]byte `config:"nat_46x64_prefix"`
+	NAT46X64Prefix types.V4Addr `config:"nat_46x64_prefix"`
 	// Nodeport maximum port value.
 	NodeportPortMax uint16 `config:"nodeport_port_max"`
 	// Nodeport minimum port value.
@@ -53,11 +56,11 @@ type Node struct {
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
-	RouterIPv6 [16]byte `config:"router_ipv6"`
+	RouterIPv6 types.V6Addr `config:"router_ipv6"`
 	// IPv4 source address used for SNAT when a Pod talks to itself over a Service.
-	ServiceLoopbackIPv4 [4]byte `config:"service_loopback_ipv4"`
+	ServiceLoopbackIPv4 types.V4Addr `config:"service_loopback_ipv4"`
 	// IPv6 source address used for SNAT when a Pod talks to itself over a Service.
-	ServiceLoopbackIPv6 [16]byte `config:"service_loopback_ipv6"`
+	ServiceLoopbackIPv6 types.V6Addr `config:"service_loopback_ipv6"`
 	// Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.
 	SupportsFIBLookupSkipNeigh bool `config:"supports_fib_lookup_skip_neigh"`
 	// Length of payload to capture when tracing native packets.
@@ -69,11 +72,15 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &Node{0x0,
+		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		0x0,
+		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, false, 0x0, false, false, false, false, 0x0, 0x0,
-		0x0, 0x0, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0}, 0x0, 0x0, false,
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		0x0, 0x0, false,
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		false, 0x0, 0x0, 0x0}
 }

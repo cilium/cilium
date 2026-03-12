@@ -14,10 +14,10 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg := NewBPFLXC(NodeConfig(lnc))
 
 	if ep.IPv4Address().IsValid() {
-		cfg.EndpointIPv4 = ep.IPv4Address().As4()
+		cfg.EndpointIPv4.Addr = ep.IPv4Address().As4()
 	}
 	if ep.IPv6Address().IsValid() {
-		cfg.EndpointIPv6 = ep.IPv6Address().As16()
+		cfg.EndpointIPv6.Addr = ep.IPv6Address().As16()
 	}
 
 	// Netkit devices can be L2-less, meaning they operate with a zero MAC
@@ -25,7 +25,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	// at its default non-zero value.
 	em := ep.GetNodeMAC()
 	if len(em) == 6 {
-		cfg.InterfaceMAC = em.As8()
+		cfg.InterfaceMAC.Addr = em.As6()
 	}
 
 	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
