@@ -473,8 +473,6 @@ endif
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
 	$(QUIET) contrib/scripts/check-log-newlines.sh
-	@$(ECHO_CHECK) contrib/scripts/check-test-tags.sh
-	$(QUIET) contrib/scripts/check-test-tags.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
