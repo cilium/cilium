@@ -16,35 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
-
-// Common acronyms to transform into stylized form for Go field names.
-var stylized = map[string]string{
-	"bpf":     "BPF",
-	"lxc":     "LXC",
-	"xdp":     "XDP",
-	"ipv4":    "IPv4",
-	"ipv6":    "IPv6",
-	"nat":     "NAT",
-	"mac":     "MAC",
-	"mtu":     "MTU",
-	"id":      "ID",
-	"ip":      "IP",
-	"netns":   "NetNS",
-	"ipcache": "IPCache",
-	"lrp":     "LRP",
-	"icmp":    "ICMP",
-	"wg":      "WG",
-	"vtep":    "VTEP",
-	"ep":      "EP",
-	"fib":     "FIB",
-	"ifindex": "IfIndex",
-	"arp":     "ARP",
-	"lb":      "LB",
-}
 
 func runConfig(cmd *cobra.Command, args []string) error {
 	spec, err := ebpf.LoadCollectionSpec(inPath)
@@ -238,24 +210,6 @@ func getValue[T comparable](v *ebpf.VariableSpec) (out T, err error) {
 		return out, fmt.Errorf("getting value: %w", err)
 	}
 	return out, nil
-}
-
-// camelCase converts a string like "foo_bar" to "FooBar". It capitalizes the
-// acronyms defined in 'stylized'.
-func camelCase(s string) string {
-	var b strings.Builder
-	for w := range strings.SplitSeq(s, "_") {
-		w = stylize(strings.ToLower(w))
-		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
-	}
-	return b.String()
-}
-
-func stylize(s string) string {
-	if v, ok := stylized[s]; ok {
-		return v
-	}
-	return s
 }
 
 // tagsToComment converts a slice of tags into a tab-indented string with
