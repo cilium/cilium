@@ -145,9 +145,10 @@ func (svc *Service) GetSourceRangesPolicy() SVCSourceRangesPolicy {
 func (svc *Service) GetSourceRangesEnabled(svcType SVCType, lbSourceRangeAllTypes bool) bool {
 	if lbSourceRangeAllTypes {
 		return len(svc.SourceRanges) > 0
-	} else {
-		return len(svc.SourceRanges) > 0 && svcType == SVCTypeLoadBalancer
 	}
+	// loadBalancerSourceRanges also applies to ExternalIPs frontends of a LoadBalancer service.
+	return len(svc.SourceRanges) > 0 &&
+		(svcType == SVCTypeLoadBalancer || svcType == SVCTypeExternalIPs)
 }
 
 func (svc *Service) GetAnnotations() map[string]string {
