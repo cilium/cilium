@@ -230,10 +230,11 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 	return nil
 }
 
-func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry, lnc *config.Config) (err error) {
+func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry, collLoader *bpfCollectionLoader, lnc *config.Config) (err error) {
 	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), wgTypes.IfaceName))
 		os.RemoveAll(bpfStateDeviceDir(wgTypes.IfaceName))
 
 		return
@@ -244,7 +245,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, reg *regist
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	if err := replaceWireguardDatapath(ctx, logger, reg, lnc, link); err != nil {
+	if err := replaceWireguardDatapath(ctx, logger, reg, collLoader, lnc, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
@@ -429,7 +430,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, l.registry, lnc); err != nil {
+	if err := reinitializeWireguard(ctx, l.logger, l.registry, l.bpfCollectionLoader, lnc); err != nil {
 		return err
 	}
 
