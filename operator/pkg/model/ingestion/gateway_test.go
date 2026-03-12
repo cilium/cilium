@@ -50,6 +50,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteBackendTLSPolicy":                   {},
 		"Conformance/HTTPRouteBackendTLSPolicySystemCA":           {},
 		"Conformance/HTTPRouteBackendTLSPolicyConflictResolution": {},
+		"Conformance/HTTPRouteBackendTLSPolicyInvalidCA":          {},
 	}
 
 	for name := range tests {

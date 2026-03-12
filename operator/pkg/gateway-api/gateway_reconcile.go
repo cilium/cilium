@@ -1131,11 +1131,9 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 		}
 
 		// Lastly, pull out any valid BackendTLSPolicies, then check them.
-		// The SectionName logic has already deduplicated them, so we don't actually need to track
-		// the sectionName here.
-
-		validBTLSPs := collection.Valid
-		for _, original := range validBTLSPs {
+		// Policies that fail validation are moved from Valid to Invalid so
+		// the ingestion logic can distinguish "no policy" from "broken policy".
+		for sectionName, original := range collection.Valid {
 
 			btlsp := original.DeepCopy()
 
@@ -1178,6 +1176,12 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 					Name:      btlsp.GetName(),
 					Namespace: btlsp.GetNamespace(),
 				}] = struct{}{}
+			} else {
+				// This BackendTLSPolicy is invalid, so it should be removed from the valid
+				// map and added to the invalid map to ensure it's not used by the
+				// ingestion logic.
+				collection.DeleteValidPolicy(sectionName)
+				collection.UpsertInvalidPolicy(sectionName, original)
 			}
 
 			// Checks finished, apply the status to the actual objects.
