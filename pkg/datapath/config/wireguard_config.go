@@ -5,9 +5,12 @@
 
 package config
 
-// BPFWireguard is a configuration struct for a Cilium datapath object. Warning:
-// do not instantiate directly! Always use [NewBPFWireguard] to ensure the
-// default values configured in the ELF are honored.
+import "github.com/cilium/cilium/pkg/datapath/types"
+
+// BPFWireguard is a configuration struct for a Cilium datapath object.
+//
+// Warning: do not instantiate directly! Always use [NewBPFWireguard] to ensure
+// the default values configured in the ELF are honored.
 type BPFWireguard struct {
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
@@ -29,11 +32,11 @@ type BPFWireguard struct {
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
-	InterfaceMAC [8]byte `config:"interface_mac"`
+	InterfaceMAC types.MACAddr `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
-	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
+	NATIPv4Masquerade types.V4Addr `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
-	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	NATIPv6Masquerade types.V6Addr `config:"nat_ipv6_masquerade"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
 	// Port number used for the overlay network.
@@ -45,8 +48,9 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, false, false, false, false, false, false, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
-		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFWireguard{0x5dc, false, false, false, false, false, false, 0x0, 0x0,
+		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
+		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		false, 0x0, 0x0, node}
 }

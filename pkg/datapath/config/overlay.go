@@ -20,7 +20,7 @@ func Overlay(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 
 	em := mac.MAC(link.Attrs().HardwareAddr)
 	if len(em) == 6 {
-		cfg.InterfaceMAC = em.As8()
+		cfg.InterfaceMAC.Addr = em.As6()
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
