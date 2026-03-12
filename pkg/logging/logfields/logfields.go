@@ -1890,4 +1890,10 @@ const (
 	AttachType = "attachType"
 
 	WithFrags = "withFrags"
+
+	CiliumDatapathPluginName = "datapathPluginName"
+
+	CiliumDatapathPluginAttachmentPolicy = "datapathPluginAttachmentPolicy"
+
+	CiliumDatapathPluginVersion = "datapathPluginVersion"
 )
