@@ -162,9 +162,20 @@ spec:
                 format: int64
                 type: integer
             type: object
+          status:
+            description: CiliumNetworkDriverNodeConfigStatus is the status of a CiliumNetworkDriverNodeConfig.
+            properties:
+              managedBy:
+                description: |-
+                  ManagedBy indicates whether this config is operator-managed.
+                  If set to "operator", the operator is allowed to update/delete this resource.
+                  If empty or set to another value, the resource is user-managed and should not be modified by the operator.
+                type: string
+            type: object
         required:
         - spec
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

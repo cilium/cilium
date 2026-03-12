@@ -68,6 +68,7 @@ type CiliumNetworkDriverNodeConfigList struct {
 // +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdrivernodeconfig",path="ciliumnetworkdrivernodeconfigs",scope="Cluster",shortName={ndnc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // CiliumNetworkDriverNodeConfig is a Kubernetes third-party resource used to
 // configure the Cilium Network Driver feature.
@@ -81,7 +82,24 @@ type CiliumNetworkDriverNodeConfig struct {
 
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
+
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	Status CiliumNetworkDriverNodeConfigStatus `json:"status,omitempty"`
 }
+
+// CiliumNetworkDriverNodeConfigStatus is the status of a CiliumNetworkDriverNodeConfig.
+//
+// +deepequal-gen=true
+type CiliumNetworkDriverNodeConfigStatus struct {
+	// ManagedBy indicates whether this config is operator-managed.
+	// If set to "operator", the operator is allowed to update/delete this resource.
+	// If empty or set to another value, the resource is user-managed and should not be modified by the operator.
+	//
+	// +kubebuilder:validation:Optional
+	ManagedBy string `json:"managedBy,omitempty"`
+}
+
 type CiliumNetworkDriverNodeConfigSpec struct {
 	// Interval between DRA registration retries
 	//
