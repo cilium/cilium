@@ -1828,7 +1828,10 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 
 	epID := ep.GetID()
 	resourceName := strconv.FormatUint(epID, 10)
-	s.networkPolicyCache.Delete(NetworkPolicyTypeURL, resourceName)
+
+	// Safe to pass nodeIPs as nil when wg is also nil and the returned revert function is
+	// ignored.
+	s.NetworkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
 
 	ip := ep.GetIPv6Address()
 	if ip != "" {
