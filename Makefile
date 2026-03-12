@@ -401,6 +401,8 @@ generate-bpf: ## Generate config structs from BPF objects using dpgen and Go ske
 	@$(ECHO_DOCKER)
 	contrib/scripts/builder.sh \
 		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/bpf generate V=$(V)
+	contrib/scripts/builder.sh \
+		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/examples/datapath-plugin generate V=$(V)
 	@$(ECHO_CHECK) bpf-skel
 	$(QUIET)git status bpf/ pkg/ --porcelain
 
