@@ -28,7 +28,7 @@ cilium connectivity test [flags]
       --curl-insecure                                         Pass --insecure to curl
       --curl-parallel uint                                    Number of parallel requests in curl commands (0 to disable)
   -d, --debug                                                 Show debug messages
-      --dns-test-server-image string                          Image path to use for CoreDNS (default "registry.k8s.io/coredns/coredns:v1.14.1@sha256:82b57287b29beb757c740dbbe68f2d4723da94715b563fffad5c13438b71b14a")
+      --dns-test-server-image string                          Image path to use for CoreDNS (default "registry.k8s.io/coredns/coredns:v1.14.2@sha256:e7e6440cfd1e919280958f5b5a6ab2b184d385bba774c12ad2a9e1e4183f90d9")
       --echo-image string                                     Image path to use for echo server (default "gcr.io/k8s-staging-gateway-api/echo-advanced:v20251204-v1.4.1")
       --exit-zero-on-failure                                  Exit with zero return code even when test failures are detected
       --external-cidr string                                  IPv4 CIDR to use as external target in connectivity tests (default "1.0.0.0/8")
@@ -44,7 +44,7 @@ cilium connectivity test [flags]
       --external-target-ipv6-capable                          External target is IPv6 capable
       --flow-validation string                                Enable Hubble flow validation { disabled | warning | strict } (default "warning")
       --force-deploy                                          Force re-deploying test artifacts
-      --frr-image string                                      Image path to use for FRR (default "quay.io/frrouting/frr:10.5.1@sha256:848482643a8d6f56452b659ea68f6138472bb57414a4f295a7c4107a0416269c")
+      --frr-image string                                      Image path to use for FRR (default "quay.io/frrouting/frr:10.5.2@sha256:94e78424a15839e0953623e2515c3e54f308644946395bc341b25e43f5c2d323")
       --helm-values-secret-name string                        Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed (default "cilium-cli-helm-values")
   -h, --help                                                  help for test
       --hubble                                                Automatically use Hubble for flow validation & troubleshooting (default true)
@@ -72,7 +72,7 @@ cilium connectivity test [flags]
       --secondary-network-iface string                        Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                   Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node                                           Limit to tests able to run on a single node
-      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:4faaec291d6193614d02c24185842e4cea76b5d86679c6d4d156d0c96dee9752")
+      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:5dc44a92103afe611c152fca347c524a170e1f3fda2411c29e2894d22a855099")
       --sysdump-cilium-bugtool-flags stringArray              Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string       The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string            The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")
