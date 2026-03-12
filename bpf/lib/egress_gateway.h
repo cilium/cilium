@@ -245,7 +245,7 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 		if (!info || !info->flag_has_tunnel_ep)
 			return false;
 
-		*tunnel_endpoint = info->tunnel_endpoint.ip4;
+		*tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 		*dst_sec_identity = info->sec_identity;
 
 		return true;
@@ -437,7 +437,7 @@ bool egress_gw_reply_needs_redirect_hook_v6(struct ipv6hdr *ip6,
 		const struct remote_endpoint_info *egw_info;
 
 		egw_info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (!egw_info || egw_info->tunnel_endpoint.ip4 == 0)
+		if (!egw_info || egw_info->tunnel_endpoint.ip4.be32 == 0)
 			return false;
 
 		*info = egw_info;
@@ -580,7 +580,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */
-	fake_info.tunnel_endpoint.ip4 = gateway_ip;
+	fake_info.tunnel_endpoint.ip4.be32 = gateway_ip;
 	fake_info.flag_has_tunnel_ep = true;
 	return encap_and_redirect_with_nodeid(ctx, &fake_info,
 					      src_sec_identity, dst_sec_identity,

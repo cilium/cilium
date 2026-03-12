@@ -101,7 +101,7 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 	struct l2_responder_stats value = {0};
 
 	key.ifindex = 0;
-	key.ip4 = v4_svc_one;
+	key.ip4.be32 = v4_svc_one;
 	map_update_elem(&cilium_l2_responder_v4, &key, &value, BPF_ANY);
 
 	config_set(RUNTIME_CONFIG_AGENT_LIVENESS, ktime_get_ns());

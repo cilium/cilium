@@ -951,7 +951,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 			auth_type = (__u8)*ext_err;
 			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4;
+				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -1279,7 +1279,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
-			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
+			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
 								SECLABEL_IPV4, WORLD_IPV4_ID,
@@ -1321,7 +1321,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (ct_status == CT_REPLY) {
 			if (identity_is_remote_node(dst_sec_identity) && ct_state->from_tunnel) {
 				/* Do not modify [info], as this will update IPcache */
-				fake_info.tunnel_endpoint.ip4 = ip4->daddr;
+				fake_info.tunnel_endpoint.ip4.be32 = ip4->daddr;
 				fake_info.flag_has_tunnel_ep = true;
 				info = &fake_info;
 			}
@@ -1514,7 +1514,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 			auth_type = (__u8)*ext_err;
 			if (info)
-				tunnel_endpoint = info->tunnel_endpoint.ip4;
+				tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
 			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
 					      tunnel_endpoint, auth_type);
 		}
@@ -1942,7 +1942,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
-						      sep->tunnel_endpoint.ip4, auth_type);
+						      sep->tunnel_endpoint.ip4.be32, auth_type);
 			}
 		}
 
@@ -2252,7 +2252,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
-						      sep->tunnel_endpoint.ip4, auth_type);
+						      sep->tunnel_endpoint.ip4.be32, auth_type);
 			}
 		}
 		/* Emit verdict if drop or if allow for CT_NEW. */

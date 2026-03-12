@@ -14,12 +14,7 @@ struct node_key {
 	__u8 pad2;
 	__u8 family;
 	union {
-		struct {
-			__u32 ip4;
-			__u32 pad4;
-			__u32 pad5;
-			__u32 pad6;
-		};
+		union v4addr ip4;
 		union v6addr ip6;
 	};
 };
@@ -45,7 +40,7 @@ lookup_ip4_node(__be32 ip4)
 	struct node_key key = {};
 
 	key.family = ENDPOINT_KEY_IPV4;
-	key.ip4 = ip4;
+	key.ip4.be32 = ip4;
 
 	return map_lookup_elem(&cilium_node_map_v2, &key);
 }
@@ -96,5 +91,5 @@ lookup_node(const struct remote_endpoint_info *info)
 	if (info->flag_ipv6_tunnel_ep)
 		return lookup_ip6_node(&info->tunnel_endpoint.ip6);
 # endif /* ENABLE_IPV6 */
-	return lookup_ip4_node(info->tunnel_endpoint.ip4);
+	return lookup_ip4_node(info->tunnel_endpoint.ip4.be32);
 }
