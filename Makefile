@@ -251,7 +251,7 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	contrib/scripts/k8s-manifests-gen.sh
 
 .PHONY: generate-apis
-generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api
+generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api generate-datapathplugins-api
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -330,6 +330,9 @@ generate-ztunnel-api: pkg/ztunnel/pb/ca_ztunnel.proto pkg/ztunnel/pb/workload_zt
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/ztunnel/pb
 
 generate-sdp-api: api/v1/standalone-dns-proxy/standalone-dns-proxy.proto
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
+
+generate-datapathplugins-api:
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
 define generate_k8s_protobuf
