@@ -71,6 +71,16 @@ func attachmentContextLXC(ep endpoint.Endpoint) *datapathplugins.AttachmentConte
 	}
 }
 
+func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Overlay_{
+			Overlay: &datapathplugins.AttachmentContext_Overlay{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
+
 // bpfCollectionLoader coordinates between datapath plugins when loading a BPF
 // collection. It provides an interface similar to the usual bpf.Load and
 // bpf.LoadAndAssign functions.

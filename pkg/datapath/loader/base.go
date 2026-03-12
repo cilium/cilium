@@ -204,15 +204,16 @@ func cleanCallsMaps(mapNamePattern string) error {
 }
 
 func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *config.Config, tunnelConfig tunnel.Config) error {
+	collLoader *bpfCollectionLoader, lnc *config.Config, tunnelConfig tunnel.Config) error {
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
 		cleanCallsMaps("cilium_calls_overlay*")
 
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.VxlanDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
+		os.RemoveAll(bpffsDeviceNameDir(bpf.CiliumPath(), defaults.GeneveDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
-
 		return nil
 	}
 
@@ -222,7 +223,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
 
-	if err := replaceOverlayDatapath(ctx, logger, reg, lnc, link); err != nil {
+	if err := replaceOverlayDatapath(ctx, logger, reg, collLoader, lnc, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
@@ -432,7 +433,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 		return err
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, l.registry, lnc, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, l.logger, l.registry, l.bpfCollectionLoader, lnc, tunnelConfig); err != nil {
 		return err
 	}
 
