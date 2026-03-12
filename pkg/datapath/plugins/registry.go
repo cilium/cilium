@@ -35,14 +35,21 @@ func pluginSocketFile(stateDir, name string) string {
 	return filepath.Join(pluginStateDir(stateDir, name), sockFileName)
 }
 
+type syncChan chan struct{}
+
+func newSyncChan() syncChan {
+	return make(chan struct{})
+}
+
 type registry struct {
 	mu                     lock.Mutex
 	logger                 *slog.Logger
 	registry               map[string]*plugin
 	datapathPluginStateDir string
+	synced                 syncChan
 }
 
-func newRegistry(logger *slog.Logger, config datapathPluginsConfig) types.Registry {
+func newRegistry(logger *slog.Logger, synced syncChan, config datapathPluginsConfig) types.Registry {
 	if !option.Config.EnableDatapathPlugins {
 		logger.Info("Datapath plugins are disabled.")
 	} else {
@@ -53,6 +60,21 @@ func newRegistry(logger *slog.Logger, config datapathPluginsConfig) types.Regist
 		logger:                 logger,
 		registry:               make(map[string]*plugin),
 		datapathPluginStateDir: config.DatapathPluginsStateDir,
+		synced:                 synced,
+	}
+}
+
+// Sync blocks until the registry is initialized or until ctx is done.
+func (m *registry) Sync(ctx context.Context) error {
+	if !option.Config.EnableDatapathPlugins {
+		return nil
+	}
+
+	select {
+	case <-m.synced:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -154,6 +176,15 @@ func (p *plugin) Name() string {
 
 func (p *plugin) AttachmentPolicy() api_v2alpha1.CiliumDatapathPluginAttachmentPolicy {
 	return p.dpp.Spec.AttachmentPolicy
+}
+
+func (p *plugin) DeepEqual(o types.Plugin) bool {
+	other, ok := o.(*plugin)
+	if !ok {
+		return false
+	}
+
+	return p.dpp.DeepEqual(other.dpp)
 }
 
 func (p *plugin) close() error {
