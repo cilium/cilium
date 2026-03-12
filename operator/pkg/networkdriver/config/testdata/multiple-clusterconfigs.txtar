@@ -1,0 +1,97 @@
+# Test multiple ClusterConfigs with different selectors
+hive start
+
+# Create two CiliumNodes with different labels
+k8s/add node1.yaml
+k8s/add node2.yaml
+
+# Create two CiliumNetworkDriverClusterConfigs with different selectors
+k8s/add worker-config.yaml
+k8s/add control-plane-config.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Check that NodeConfig for node1 uses worker-config
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1.yaml
+* cmp expected-node1.yaml actual-node1.yaml
+
+# Check that NodeConfig for node2 uses control-plane-config
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node2 -o actual-node2.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node2.yaml
+* cmp expected-node2.yaml actual-node2.yaml
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+    node-role: worker
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- node2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node2
+  labels:
+    kubernetes.io/hostname: node2
+    node-role: control-plane
+spec:
+  addresses:
+  - ip: 10.0.0.2
+    type: InternalIP
+
+-- worker-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: worker-config
+spec:
+  nodeSelector:
+    matchLabels:
+      node-role: worker
+  spec:
+    driverName: one
+
+-- control-plane-config.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: control-plane-config
+spec:
+  nodeSelector:
+    matchLabels:
+      node-role: control-plane
+  spec:
+    driverName: two
+-- expected-node1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: one
+status:
+  managedBy: operator
+-- expected-node2.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node2
+  resourceVersion: "<nr>"
+spec:
+  driverName: two
+status:
+  managedBy: operator

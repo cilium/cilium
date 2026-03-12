@@ -1,0 +1,65 @@
+# Test that user-managed NodeConfigs are not overwritten
+hive start
+
+# Create a CiliumNode
+k8s/add node1.yaml
+
+# Create a user-managed NodeConfig
+k8s/add node1cfg.yaml
+
+# Create a ClusterConfig that would match this node
+k8s/add clusterconfigNode1.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Check that NodeConfig was NOT modified (still has user values)
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual.yaml
+* cmp expected.yaml actual.yaml
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- node1cfg.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node1
+spec:
+  driverName: one
+
+-- clusterconfigNode1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: test-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node1
+  spec:
+    driverName: two
+
+-- expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: one
+status: {}

@@ -25,6 +25,8 @@ var Cell = cell.Module(
 		ciliumNetworkDriverClusterConfig,
 		ciliumNetworkDriverNodeConfig,
 	),
+
+	cell.Invoke(registerConfigReconciler),
 )
 
 // ciliumNetworkDriverClusterConfig creates a Resource for watching
