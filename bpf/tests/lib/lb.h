@@ -57,6 +57,34 @@ lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u16 backend_count, __u1
 }
 
 static __always_inline void
+lb_v4_add_l7_service(__be32 addr, __be16 port, __u8 proto,
+		     __u16 rev_nat_index, __u32 proxy_port)
+{
+	struct lb4_key svc_key = {
+		.address = addr,
+		.dport = port,
+		.proto = proto,
+		.scope = LB_LOOKUP_SCOPE_EXT,
+	};
+	struct lb4_service svc_value = {
+		.l7_lb_proxy_port = proxy_port,
+		.count = 0,
+		.rev_nat_index = rev_nat_index,
+		.flags = SVC_FLAG_ROUTABLE,
+		.flags2 = SVC_FLAG_L7LOADBALANCER,
+	};
+
+	map_update_elem(&LB4_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
+
+	struct lb4_reverse_nat revnat_value = {
+		.address = addr,
+		.port = port,
+	};
+
+	map_update_elem(&LB4_REVERSE_NAT_MAP, &rev_nat_index, &revnat_value, BPF_ANY);
+}
+
+static __always_inline void
 lb_v4_upsert_backend(__u32 backend_id, __be32 backend_addr, __be16 backend_port,
 		     __u8 backend_proto, __u8 flags, __u8 cluster_id)
 {
@@ -166,5 +194,33 @@ lb_v6_add_backend(const union v6addr *svc_addr, __be16 svc_port, __u16 backend_s
 
 	memcpy(&backend.address, backend_addr, sizeof(*backend_addr));
 	map_update_elem(&LB6_BACKEND_MAP, &backend_id, &backend, BPF_ANY);
+}
+
+static __always_inline void
+lb_v6_add_l7_service(const union v6addr *addr, __be16 port, __u8 proto,
+		     __u16 rev_nat_index, __u32 proxy_port)
+{
+	struct lb6_key svc_key __align_stack_8 = {
+		.dport = port,
+		.proto = proto,
+		.scope = LB_LOOKUP_SCOPE_EXT,
+	};
+	struct lb6_service svc_value = {
+		.l7_lb_proxy_port = proxy_port,
+		.count = 0,
+		.rev_nat_index = rev_nat_index,
+		.flags = SVC_FLAG_ROUTABLE,
+		.flags2 = SVC_FLAG_L7LOADBALANCER,
+	};
+
+	memcpy(&svc_key.address, addr, sizeof(*addr));
+	map_update_elem(&LB6_SERVICES_MAP_V2, &svc_key, &svc_value, BPF_ANY);
+
+	struct lb6_reverse_nat revnat_value __align_stack_8 = {
+		.port = port,
+	};
+
+	memcpy(&revnat_value.address, addr, sizeof(*addr));
+	map_update_elem(&LB6_REVERSE_NAT_MAP, &rev_nat_index, &revnat_value, BPF_ANY);
 }
 #endif

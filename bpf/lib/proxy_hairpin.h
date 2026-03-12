@@ -13,6 +13,8 @@
 #include "csum.h"
 #include "l4.h"
 
+DECLARE_CONFIG(bool, proxy_redirect_via_cilium_net, "Whether to redirect to the proxy via cilium_net (hairpin) or via stack")
+
 #if defined(HOST_IFINDEX_MAC) && defined(HOST_IFINDEX)
 
 /** Redirect to the proxy by hairpinning the packet out the incoming
