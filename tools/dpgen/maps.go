@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/container/set"
 )
 
 const (
@@ -42,11 +44,15 @@ func runMaps(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating BTF builder: %w", err)
 	}
 
+	// Track the objects we've processed to provide better error messages in case
+	// of incompatible maps.
+	objsDone := set.Set[string]{}
 	for p := range glob(args) {
 		cs, err := ebpf.LoadCollectionSpec(p)
 		if err != nil {
 			return fmt.Errorf("loading CollectionSpec %s: %w", p, err)
 		}
+		objName := path.Base(p)
 
 		// Iterate MapSpecs in sorted order to guarantee deterministic output of the
 		// generated BTF blob. If types get added in random order, the resulting
@@ -60,7 +66,8 @@ func runMaps(cmd *cobra.Command, args []string) error {
 			// adding.
 			if existing, ok := outer[spec.Name]; ok {
 				if err := mapSpecCompatible(existing, spec); err != nil {
-					return fmt.Errorf("incompatible map %s across BPF objects: %w", spec.Name, err)
+					return fmt.Errorf("%q contains map %q incompatible with one or more BPF objects %v: %w",
+						objName, spec.Name, objsDone.AsSlice(), err)
 				}
 			}
 			outer[spec.Name] = spec
@@ -73,7 +80,8 @@ func runMaps(cmd *cobra.Command, args []string) error {
 				name := spec.InnerMap.Name
 				if existing, ok := inner[name]; ok {
 					if err := mapSpecCompatible(existing, spec.InnerMap); err != nil {
-						return fmt.Errorf("incompatible inner map %s across BPF objects: %w", name, err)
+						return fmt.Errorf("%q contains inner map %q incompatible with one or more BPF objects %v: %w",
+							objName, name, objsDone.AsSlice(), err)
 					}
 				}
 				inner[name] = spec.InnerMap
@@ -83,6 +91,8 @@ func runMaps(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+
+		objsDone.Insert(objName)
 	}
 
 	btfBlob, err := bb.Marshal(nil, nil)
