@@ -75,6 +75,18 @@ func bpffsEndpointLinksDir(base string, ep endpoint.Endpoint) string {
 	return filepath.Join(bpffsEndpointDir(base, ep), "links")
 }
 
+func bpffsPluginsOperationsDir(base string) string {
+	return filepath.Join(base, "plugins")
+}
+
+func bpffsPluginOperationsDir(base, plugin string) string {
+	return filepath.Join(base, plugin)
+}
+
+func bpffsPluginOperationDir(base, plugin, id string) string {
+	return filepath.Join(bpffsPluginOperationsDir(base, plugin), id)
+}
+
 // bpfStateDeviceDir returns the path to the per-device directory in the Cilium
 // state directory, usually /var/run/cilium/bpf/<device>. It does not ensure the
 // directory exists.
