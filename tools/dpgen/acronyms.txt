@@ -1,0 +1,29 @@
+// These acronyms are substituted in generated code if they appear as words at
+// the start or end of an identifier (type or field name) or between
+// underscores. The goal is to end up with more Go-like identifiers.
+//
+// The lowercased strings of the acronym and the incoming word are used to
+// perform the lookup.
+
+ARP
+BPF
+EP
+FIB
+ICMP
+ID
+IfIndex
+IP
+IPCache
+IPv4
+IPv6
+LB
+LRP
+LXC
+MAC
+MTU
+NAT
+NetNS
+VTEP
+WG
+XDP
+

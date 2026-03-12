@@ -4,18 +4,62 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
 	"iter"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"golang.org/x/sys/unix"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+//go:embed acronyms.txt
+var _acronyms string
+var acronyms = sync.OnceValue(func() map[string]string {
+	m := make(map[string]string)
+	for line := range strings.SplitSeq(_acronyms, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "//") {
+			continue
+		}
+
+		lower := strings.ToLower(line)
+		if _, ok := m[lower]; ok {
+			fmt.Println("duplicate acronym:", line)
+			os.Exit(1)
+		}
+		m[lower] = line
+	}
+
+	return m
+})
+
+func stylize(s string) string {
+	if v, ok := acronyms()[strings.ToLower(s)]; ok {
+		return v
+	}
+	return s
+}
+
+// camelCase converts a string like "foo_bar" to "FooBar". It capitalizes the
+// acronyms defined in acronyms.txt.
+func camelCase(s string) string {
+	var b strings.Builder
+	for w := range strings.SplitSeq(s, "_") {
+		w = stylize(w)
+		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
+	}
+	return b.String()
+}
 
 // glob expands the given glob patterns into a sequence of matching file paths.
 func glob(patterns []string) iter.Seq[string] {
