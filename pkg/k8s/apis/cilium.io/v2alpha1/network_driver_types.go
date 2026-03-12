@@ -25,6 +25,7 @@ type CiliumNetworkDriverClusterConfigList struct {
 // +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdriverclusterconfig",path="ciliumnetworkdriverclusterconfigs",scope="Cluster",shortName={ndcc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // CiliumNetworkDriverClusterConfig is a Kubernetes third-party resource used to
 // configure the Cilium Network Driver feature.
@@ -38,6 +39,12 @@ type CiliumNetworkDriverClusterConfig struct {
 
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverClusterConfigSpec `json:"spec"`
+
+	// Status is a running status of the cluster configuration
+	//
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	Status CiliumNetworkDriverClusterConfigStatus `json:"status,omitempty"`
 }
 
 type CiliumNetworkDriverClusterConfigSpec struct {
@@ -50,6 +57,17 @@ type CiliumNetworkDriverClusterConfigSpec struct {
 
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
+}
+
+// CiliumNetworkDriverClusterConfigStatus defines the status of the cluster configuration.
+//
+// +deepequal-gen=true
+type CiliumNetworkDriverClusterConfigStatus struct {
+	// Conditions represent the latest available observations of the CiliumNetworkDriverClusterConfig state.
+	//
+	// +kubebuilder:validation:Optional
+	// +deepequal-gen=false
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -68,6 +86,7 @@ type CiliumNetworkDriverNodeConfigList struct {
 // +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdrivernodeconfig",path="ciliumnetworkdrivernodeconfigs",scope="Cluster",shortName={ndnc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // CiliumNetworkDriverNodeConfig is a Kubernetes third-party resource used to
 // configure the Cilium Network Driver feature.
@@ -81,7 +100,24 @@ type CiliumNetworkDriverNodeConfig struct {
 
 	// +kubebuilder:validation:Required
 	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
+
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	Status CiliumNetworkDriverNodeConfigStatus `json:"status,omitempty"`
 }
+
+// CiliumNetworkDriverNodeConfigStatus is the status of a CiliumNetworkDriverNodeConfig.
+//
+// +deepequal-gen=true
+type CiliumNetworkDriverNodeConfigStatus struct {
+	// ManagedBy indicates whether this config is operator-managed.
+	// If set to "operator", the operator is allowed to update/delete this resource.
+	// If empty or set to another value, the resource is user-managed and should not be modified by the operator.
+	//
+	// +kubebuilder:validation:Optional
+	ManagedBy string `json:"managedBy,omitempty"`
+}
+
 type CiliumNetworkDriverNodeConfigSpec struct {
 	// Interval between DRA registration retries
 	//
