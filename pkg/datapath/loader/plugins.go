@@ -63,6 +63,16 @@ func attachmentContextLXC(ep datapath.Endpoint) *datapathplugins.AttachmentConte
 	}
 }
 
+func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Overlay_{
+			Overlay: &datapathplugins.AttachmentContext_Overlay{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
+
 type bpfCollectionLoader struct {
 	pluginOperationsDir string
 	pluginsEnabled      bool
