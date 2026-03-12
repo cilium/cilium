@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -118,6 +119,7 @@ type orchestratorParams struct {
 	IPsecConfig         datapath.IPsecConfig
 	BIGTCPConfig        *bigtcp.Configuration
 	ConnectorConfig     datapath.ConnectorConfig
+	PluginRegistry      plugin.Registry
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -195,6 +197,11 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		return nil
 	}
 
+	health.OK("Waiting for plugin registry")
+	if err := o.params.PluginRegistry.Sync(ctx); err != nil {
+		return fmt.Errorf("waiting for plugin registry: %w", err)
+	}
+
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
 	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
@@ -226,6 +233,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.WgAgent,
 			o.params.IPsecConfig,
 			o.params.ConnectorConfig,
+			o.params.PluginRegistry.Plugins(),
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

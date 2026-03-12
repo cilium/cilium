@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/statedb"
 )
 
-func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[*api_v2alpha1.CiliumDatapathPlugin], orchestrator datapath.Orchestrator, registry types.Registry, logger *slog.Logger) {
+func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[*api_v2alpha1.CiliumDatapathPlugin], orchestrator datapath.Orchestrator, registry types.Registry, synced syncChan, logger *slog.Logger) {
 	if !registry.IsEnabled() {
 		return
 	}
@@ -48,6 +48,18 @@ func registerDPPWatcher(jg job.Group, db *statedb.DB, table statedb.Table[*api_v
 						)
 
 						registry.Register(e)
+					}
+				}
+
+				initialized, _ := table.Initialized(db.ReadTxn())
+				if initialized {
+					if synced != nil {
+						close(synced)
+						synced = nil
+					}
+					logger.Info("Reinitialize datapath")
+					if err := orchestrator.Reinitialize(ctx); err != nil {
+						logger.Error("Failed to reinitialize datapath", logfields.Error, err)
 					}
 				}
 
