@@ -100,6 +100,10 @@ const (
 	CGCCListName       = "ciliumgatewayclassconfiglists"
 	CGCCKindDefinition = "CiliumGatewayClassConfig"
 	CGCCName           = CGCCPluralName + "." + CustomResourceDefinitionGroup
+
+	CDPPPluralName     = "ciliumdatapathplugins"
+	CDPPKindDefinition = "CiliumDatapathPlugin"
+	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -169,6 +173,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		// new Gateway API types
 		&CiliumGatewayClassConfig{},
 		&CiliumGatewayClassConfigList{},
+
+		&CiliumDatapathPlugin{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

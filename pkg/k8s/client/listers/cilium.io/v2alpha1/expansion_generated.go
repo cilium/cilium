@@ -29,6 +29,10 @@ type CiliumBGPPeerConfigListerExpansion interface{}
 // CiliumCIDRGroupLister.
 type CiliumCIDRGroupListerExpansion interface{}
 
+// CiliumDatapathPluginListerExpansion allows custom methods to be added to
+// CiliumDatapathPluginLister.
+type CiliumDatapathPluginListerExpansion interface{}
+
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
