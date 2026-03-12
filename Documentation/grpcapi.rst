@@ -20,3 +20,4 @@ upheld for whole lifecycle of Cilium 1.x.
    Observer <_api/v1/observer/README>
    Peer <_api/v1/peer/README>
    Relay <_api/v1/relay/README>
+   Datapath Plugin <_api/v1/datapathplugins/README>

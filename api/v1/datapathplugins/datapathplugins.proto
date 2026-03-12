@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+syntax = "proto3";
+
+import "google/protobuf/any.proto";
+
+package datapathplugins;
+
+option go_package = "github.com/cilium/cilium/api/v1/datapathplugins";
+
+// A DatapathPlugin interacts with Cilium's loader to augment or modify BPF
+// collections as they are prepared for an attachment point.
+service DatapathPlugin {
+    // PrepareCollection happens before the BPF collection is loaded into the
+    // kernel. Cilium passes BPF collection details to the plugin and the plugin
+    // tells Cilium how it would like to modify the collection.
+    rpc PrepareCollection(PrepareCollectionRequest) returns (PrepareCollectionResponse) {}
+    // InstrumentCollection happens after the BPF collection is loaded into the
+    // kernel. Cilium passes BPF collection details to the plugin along with
+    // details about hook attachment points it created in the prepare phase.
+    // The plugin loads its BPF programs and passes them back to Cilium to be
+    // attached to these hook points.
+    rpc InstrumentCollection(InstrumentCollectionRequest) returns (InstrumentCollectionResponse) {}
+}
+
+// AttachmentContext contains the context about the attachment point in
+// question. It may carry endpoint-specific information used to determine which
+// hooks to load or how to configure them.
+message AttachmentContext {
+    // InterfaceInfo contains information about a network interface.
+    message InterfaceInfo {
+        // name of the network interface.
+        string name = 1;
+    }
+
+    // PodInfo contains information about a pod.
+    message PodInfo {
+        // pod namespace.
+        string namespace = 1;
+        // pod name.
+        string name = 2;
+        // container name.
+        string container_name = 3;
+    }
+
+    // attachment context for bpf_host (netdev, cilium_host, cilium_net).
+    message Host {
+        // interface that is being configured.
+        InterfaceInfo iface = 1;
+    }
+
+    // attachment context for bpf_lxc (containers).
+    message LXC {
+        // interface that is being configured.
+        InterfaceInfo iface = 1;
+        // pod that is being configured.
+        PodInfo pod_info = 2;
+    }
+
+    // attachment context for bpf_overlay (vxlan/geneve).
+    message Overlay {
+        // interface that is being configured.
+        InterfaceInfo iface = 1;
+    }
+
+    // attachment context for bpf_sock (connect4,bind4,...)
+    message Socket {
+    }
+
+    // attachment context for bpf_wireguard (cilium_wg)
+    message Wireguard {
+        // interface that is being configured.
+        InterfaceInfo iface = 1;
+    }
+
+    // attachment context for bpf_xdp (netdev)
+    message XDP {
+        // interface that is being configured.
+        InterfaceInfo iface = 1;
+    }
+
+    oneof context {
+        Host host = 1;
+        LXC lxc = 2;
+        Overlay overlay = 3;
+        Socket socket = 4;
+        Wireguard wireguard = 5;
+        XDP xdp = 6;
+    }
+}
+
+enum HookType {
+    UNKNOWN = 0;
+    // pre hooks run before the main Cilium program.
+    PRE = 1;
+    // post hooks run after the main Cilium program.
+    POST = 2;
+}
+
+// Phase 1: As Cilium loads and prepares a collection for a particular
+// attachment point, it sends a PrepareHooksRequest to each plugin with context
+// about the attachment point, collection, and its configuration. The plugin
+// decides which hooks it would like to insert, where it would like to insert
+// them, and informs Cilium in the PrepareHooksResponse.
+message PrepareCollectionRequest {
+    message CollectionSpec {
+        message ProgramSpec {
+            uint32 type = 1;
+            uint32 attach_type = 2;
+            string section_name = 3;
+            string license = 4;
+        }
+        message MapSpec {
+            uint32 type = 1;
+            uint32 key_size = 2;
+            uint32 value_size = 3;
+            uint32 max_entries = 4;
+            uint32 flags = 5;
+            uint32 pin_type = 6;
+        }
+
+        // program details for each programs in the collection.
+        map<string, ProgramSpec> programs = 1;
+        // map details for each map in the collection.
+        map<string, MapSpec> maps = 2;
+    }
+
+    CollectionSpec collection = 1;
+    AttachmentContext attachment_context = 2;
+    // config contains datapath configuration for this collection.
+    google.protobuf.Any config = 3;
+}
+
+message PrepareCollectionResponse {
+    message HookSpec {
+        // An OrderingConstraint is a constraint about where this hook should
+        // go at this hook point relative to other plugins' hooks.
+        message OrderingConstraint {
+            enum Order {
+                UNKNOWN = 0;
+                BEFORE = 1;
+                AFTER = 2;
+            }
+            Order order = 1;
+            string plugin = 2;
+        }
+        // position of the hook relative to the target program.
+        HookType type = 1;
+        // name of the program that should be instrumented.
+        string target = 2;
+        // constraints is a list of ordering constraints for this hook. If other
+        // plugins want to place a hook at this same hook point, hooks from
+        // various plugins will be arranged in an order that respects all
+        // ordering constraints.
+        repeated OrderingConstraint constraints = 3;
+    }
+
+    // list of hooks that should be added to the collection.
+    repeated HookSpec hooks = 1;
+    // cookie is an opaque string that will be passed in the subsequent
+    // InstrumentCollectionRequest related to this PrepareCollectionRequest. It
+    // may be used by plugins to associate the two requests or carry metadata
+    // between them.
+    string cookie = 2;
+}
+
+// Phase 2: Cilium has constructed and loaded the collection along with any
+// dispatcher programs that are meant to replace existing entrypoints in the
+// collection. Cilium sends a round of requests to any plugins that wanted to
+// inject hooks in the prepare phase.
+message InstrumentCollectionRequest {
+    // Program and map IDs in the collection
+    message Collection {
+        message Program {
+            uint32 id = 2;
+        }
+        message Map {
+            uint32 id = 2;
+        }
+
+        // program details for each programs in the collection.
+        map<string, Program> programs = 1;
+        // map details for each map in the collection.
+        map<string, Map> maps = 2;
+    }
+
+    message Hook {
+        message AttachTarget {
+            // id of the target program.
+            uint32 program_id = 1;
+            // name of the hook's subprogram inside the target program.
+            string subprog_name = 2;
+        }
+
+        // position of the hook relative to the target program.
+        HookType type = 1;
+        // name of the program that should be instrumented.
+        string target = 2;
+        // info necessary for loading freplace programs.
+        AttachTarget attach_target = 3;
+        // plugin must pin the hook program to this pin path before responding
+        // to Cilium.
+        string pin_path = 4;
+    }
+
+    Collection collection = 1;
+    AttachmentContext attachment_context = 2;
+    // config contains datapath configuration for this collection.
+    google.protobuf.Any config = 3;
+    // list of hooks corresponding with those specified by the plugin in its
+    // PrepareHooks response.
+    repeated Hook hooks = 4;
+    // an ephemeral per-request bpffs directory where a plugin can pin an
+    // arbitrary set of objects. The lifecycle of these pins will be bound to
+    // that of the attachment context. This is useful especially in cases where
+    // the plugin loads its own set of tail call programs accessible from the
+    // entrypoint hook program and want to make sure a PROG_ARRAY and the
+    // programs it contains remain intact even after the InstrumentCollection
+    // request returns.
+    string pins = 5;
+    // cookie matches the cookie provided in the plugin's PrepareHooks response.
+    string cookie = 6;
+}
+
+message InstrumentCollectionResponse {
+}
