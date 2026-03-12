@@ -344,6 +344,7 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6
 
 tool (
+	github.com/cilium/cilium/tools/dpgen
 	github.com/cilium/deepequal-gen
 	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters

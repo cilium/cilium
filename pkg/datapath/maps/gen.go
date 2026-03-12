@@ -3,4 +3,4 @@
 
 package maps
 
-//go:generate go run github.com/cilium/cilium/tools/dpgen maps ../../../bpf/bpf_*.o
+//go:generate go tool dpgen maps ../../../bpf/bpf_*.o
