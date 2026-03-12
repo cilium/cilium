@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
+	"github.com/cilium/cilium/pkg/datapath/plugins"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -164,6 +165,9 @@ var Cell = cell.Module(
 
 	// Provides the desired device table, and a reconciler that install these links into the Linux kernel.
 	deviceReconciler.Cell,
+
+	// Plugins cell keeps the plugin registry up to date.
+	plugins.Cell,
 )
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {

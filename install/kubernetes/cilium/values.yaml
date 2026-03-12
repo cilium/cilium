@@ -867,6 +867,12 @@ conntrackGCMaxInterval: ""
 # -- (string) Configure timeout in which Cilium will exit if CRDs are not available
 # @default -- `"5m"`
 crdWaitTimeout: ""
+# -- Plugins to inject custom BPF into the datapath.
+datapathPlugins:
+  # -- Enable datapath plugins.
+  enabled: false
+  # -- Parent directory for per-plugin state directories.
+  stateDir: /var/run/cilium/plugins
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"

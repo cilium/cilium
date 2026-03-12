@@ -1216,6 +1216,18 @@
      - Grafana dashboards for cilium-agent grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
      - ``{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}``
+   * - :spelling:ignore:`datapathPlugins`
+     - Plugins to inject custom BPF into the datapath.
+     - object
+     - ``{"enabled":false,"stateDir":"/var/run/cilium/plugins"}``
+   * - :spelling:ignore:`datapathPlugins.enabled`
+     - Enable datapath plugins.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`datapathPlugins.stateDir`
+     - Parent directory for per-plugin state directories.
+     - string
+     - ``"/var/run/cilium/plugins"``
    * - :spelling:ignore:`debug.enabled`
      - Enable debug logging
      - bool

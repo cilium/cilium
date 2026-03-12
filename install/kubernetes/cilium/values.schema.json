@@ -1799,6 +1799,17 @@
       },
       "type": "object"
     },
+    "datapathPlugins": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "stateDir": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "debug": {
       "properties": {
         "enabled": {
