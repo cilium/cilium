@@ -100,12 +100,58 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 		return fmt.Errorf("retrieving all netlink devices: %w", err)
 	}
 
-	// collect all devices that have netdev programs attached on either ingress or egress.
-	ingressDevs := []netlink.Link{}
-	egressDevs := []netlink.Link{}
 	for _, l := range links {
 		if !isObsoleteDev(l.Attrs().Name, devices) {
 			continue
+		}
+
+		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
+		if err != nil {
+			return fmt.Errorf("listing ingress filters: %w", err)
+		}
+		for _, filter := range ingressFilters {
+			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
+				if strings.HasPrefix(bpfFilter.Name, symbolFromHostNetdevEp) {
+					err = removeTCFilters(l, directionToParent(dirIngress))
+					if err != nil {
+						logger.Error(
+							"couldn't remove ingress tc filters",
+							logfields.Error, err,
+							logfields.Device, l.Attrs().Name,
+						)
+					}
+					break
+				}
+			}
+		}
+
+		egressFilters, err := safenetlink.FilterList(l, directionToParent(dirEgress))
+		if err != nil {
+			return fmt.Errorf("listing egress filters: %w", err)
+		}
+		for _, filter := range egressFilters {
+			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
+				if strings.HasPrefix(bpfFilter.Name, symbolToHostNetdevEp) {
+					err = removeTCFilters(l, directionToParent(dirEgress))
+					if err != nil {
+						logger.Error(
+							"couldn't remove egress tc filters",
+							logfields.Error, err,
+							logfields.Device, l.Attrs().Name,
+						)
+					}
+					break
+				}
+			}
+		}
+
+		// Remove links directory first.
+		linksPath := bpffsDeviceLinksDir(bpf.CiliumPath(), l)
+		if err := bpf.Remove(linksPath); err != nil {
+			logger.Error("Failed to remove bpffs entry",
+				logfields.Error, err,
+				logfields.BPFFSPath, linksPath,
+			)
 		}
 
 		// Remove the per-device bpffs directory containing pinned links and
@@ -124,52 +170,6 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 			logger.Error("Failed to remove device state directory",
 				logfields.Error, err,
 				logfields.Path, statePath,
-			)
-		}
-
-		ingressFilters, err := safenetlink.FilterList(l, directionToParent(dirIngress))
-		if err != nil {
-			return fmt.Errorf("listing ingress filters: %w", err)
-		}
-		for _, filter := range ingressFilters {
-			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
-				if strings.HasPrefix(bpfFilter.Name, symbolFromHostNetdevEp) {
-					ingressDevs = append(ingressDevs, l)
-				}
-			}
-		}
-
-		egressFilters, err := safenetlink.FilterList(l, directionToParent(dirEgress))
-		if err != nil {
-			return fmt.Errorf("listing egress filters: %w", err)
-		}
-		for _, filter := range egressFilters {
-			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
-				if strings.HasPrefix(bpfFilter.Name, symbolToHostNetdevEp) {
-					egressDevs = append(egressDevs, l)
-				}
-			}
-		}
-	}
-
-	for _, dev := range ingressDevs {
-		err = removeTCFilters(dev, directionToParent(dirIngress))
-		if err != nil {
-			logger.Error(
-				"couldn't remove ingress tc filters",
-				logfields.Error, err,
-				logfields.Device, dev.Attrs().Name,
-			)
-		}
-	}
-
-	for _, dev := range egressDevs {
-		err = removeTCFilters(dev, directionToParent(dirEgress))
-		if err != nil {
-			logger.Error(
-				"couldn't remove egress tc filters",
-				logfields.Error, err,
-				logfields.Device, dev.Attrs().Name,
 			)
 		}
 	}
