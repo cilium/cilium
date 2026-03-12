@@ -181,6 +181,28 @@ func TestMakeBlocksManyCalls(t *testing.T) {
 	assert.Equal(t, b, b2)
 }
 
+func TestMakeBlocksNonFunctionLabel(t *testing.T) {
+	insns := asm.Instructions{
+		asm.Mov.Reg(asm.R1, asm.R6).WithSymbol("prog"),
+		asm.Call.Label("subprog"),
+		asm.JNE.Imm32(asm.R0, -1, "return"),
+		asm.Mov.Imm(asm.R0, 0),            // 3
+		asm.Return().WithSymbol("return"), // 4
+		asm.Mov.Imm32(asm.R0, 0).WithSymbol("subprog"),
+		asm.Return(),
+	}
+
+	bl, err := MakeBlocks(insns)
+	require.NoError(t, err)
+	assert.EqualValues(t, 5, bl.count())
+
+	assert.Equal(t, 3, bl[2].start)
+	assert.Equal(t, 3, bl[2].end)
+	assert.Equal(t, 4, bl[3].start)
+	assert.Equal(t, 4, bl[3].end)
+	assert.Equal(t, bl[2].edge(insns).fthrough, &insns[bl[3].start])
+}
+
 func TestBlocksIterateLocal(t *testing.T) {
 	insns := branchingProg(t, 100)
 

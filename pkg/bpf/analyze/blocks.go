@@ -716,9 +716,20 @@ func markBranches(insns asm.Instructions) error {
 
 	i := insns.Iterate()
 	for i.Next() {
-		// Set a leader on symbols, as they mark the start of functions.
+		// Set a leader on symbols, as they may mark the start of
+		// functions.
 		if sym := i.Ins.Symbol(); sym != "" {
 			setLeader(i.Ins)
+
+			// If the previous instruction isn't a jump or exit,
+			// this symbol is a label within the same program and
+			// likely a jump target. Mark this as a fallthrough from
+			// the previous instruction; otherwise, the previous
+			// block will be finalized without any edge.
+			prev := previous(i, insns)
+			if prev != nil && !prev.OpCode.Class().IsJump() {
+				setBranchFallthrough(prev, i.Ins)
+			}
 		}
 
 		switch op := i.Ins.OpCode.JumpOp(); op {
