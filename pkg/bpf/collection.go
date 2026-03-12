@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sys/cpu"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -164,6 +165,10 @@ type CollectionOptions struct {
 	// MapRegistry is the map registry to use for replacing MapSpecs at load time.
 	// If nil, no maps are replaced.
 	MapRegistry *registry.MapRegistry
+
+	// ProgramPatches transform the instructions in a program after
+	// reachability pruning.
+	ProgramPatches map[string]func(asm.Instructions) (asm.Instructions, error)
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -262,6 +267,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
+
+	if err := patchPrograms(spec, opts.ProgramPatches); err != nil {
+		return nil, nil, fmt.Errorf("applying program patches: %w", err)
+	}
 
 	// Attempt to load the Collection.
 	coll, err := ebpf.NewCollectionWithOptions(spec, opts.CollectionOptions)
@@ -471,6 +480,23 @@ func modifyAuxData(spec *ebpf.CollectionSpec) error {
 	err = auxMaxOff.Set(uint64(valueSize) - stride)
 	if err != nil {
 		return fmt.Errorf("setting _aux_max_off: %w", err)
+	}
+
+	return nil
+}
+
+func patchPrograms(coll *ebpf.CollectionSpec, patches map[string]func(asm.Instructions) (asm.Instructions, error)) error {
+	for name, patch := range patches {
+		prog := coll.Programs[name]
+		if prog == nil {
+			continue
+		}
+
+		newInstructions, err := patch(prog.Instructions)
+		if err != nil {
+			return fmt.Errorf("patching %s: %w", name, err)
+		}
+		prog.Instructions = newInstructions
 	}
 
 	return nil
