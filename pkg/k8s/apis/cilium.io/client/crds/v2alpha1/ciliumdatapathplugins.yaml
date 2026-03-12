@@ -1,0 +1,70 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: ciliumdatapathplugins.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumDatapathPlugin
+    listKind: CiliumDatapathPluginList
+    plural: ciliumdatapathplugins
+    shortNames:
+    - cddp
+    singular: ciliumdatapathplugin
+  scope: Cluster
+  versions:
+  - deprecated: true
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          A CiliumDatapathPlugin registers a datapath plugin with Cilium and contains
+          information about its status and how Cilium should interact with it.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              attachmentPolicy:
+                description: |-
+                  AttachmentPolicy dictates how Cilium behaves when it cannot talk to
+                  a plugin.
+                enum:
+                - Always
+                - BestEffort
+                type: string
+              version:
+                description: |-
+                  Version is an opaque string used to indicate the datapath plugin version.
+                  Update this when deploying a new version of a datapath plugin to trigger a datapath
+                  reinitialization.
+                type: string
+            required:
+            - attachmentPolicy
+            - version
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

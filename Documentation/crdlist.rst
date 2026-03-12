@@ -6,6 +6,7 @@
 - :ref:`CiliumCIDRGroup<CiliumCIDRGroup>`
 - CiliumClusterwideEnvoyConfig
 - :ref:`CiliumClusterwideNetworkPolicy<CiliumClusterwideNetworkPolicy>`
+- CiliumDatapathPlugin
 - CiliumEgressGatewayPolicy
 - :ref:`CiliumEndpoint<CiliumEndpoint>`
 - :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
