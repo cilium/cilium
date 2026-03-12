@@ -180,6 +180,9 @@ generate: $(BPF)
 	@$(ECHO_GEN)../pkg/datapath/bpf
 	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
 		$(GO) generate ../pkg/datapath/bpf
+	@$(ECHO_GEN)../pkg/datapath/bpf/testprogs
+	$(QUIET)BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" \
+		$(GO) generate ../pkg/datapath/bpf/testprogs
 
 $(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
