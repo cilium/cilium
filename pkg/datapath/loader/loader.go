@@ -48,11 +48,12 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl             sysctl.Sysctl
-	prefilter          prefilter.PreFilter
-	compilationLock    types.CompilationLock
-	configWriter       config.Writer
-	nodeConfigNotifier *manager.NodeConfigNotifier
+	sysctl              sysctl.Sysctl
+	prefilter           prefilter.PreFilter
+	compilationLock     types.CompilationLock
+	configWriter        config.Writer
+	nodeConfigNotifier  *manager.NodeConfigNotifier
+	bpfCollectionLoader *bpfCollectionLoader
 
 	db           *statedb.DB
 	devices      statedb.Table[*tables.Device]
@@ -83,20 +84,25 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	registerRouteInitializer(p)
+	collLoader := newBPFCollectionLoader(
+		option.Config.EnableDatapathPlugins,
+		bpffsPluginsOperationsDir(bpf.CiliumPath()),
+	)
+	collLoader.runGC(p.Logger, p.JobGroup)
 	return &loader{
-		logger:             p.Logger,
-		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
-		registry:           p.MapRegistry,
-		sysctl:             p.Sysctl,
-		hostDpInitialized:  make(chan struct{}),
-		prefilter:          p.Prefilter,
-		compilationLock:    p.CompilationLock,
-		configWriter:       p.ConfigWriter,
-		nodeConfigNotifier: p.NodeConfigNotifier,
-		routeManager:       p.RouteManager,
-
-		db:      p.DB,
-		devices: p.Devices,
+		logger:              p.Logger,
+		templateCache:       newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
+		registry:            p.MapRegistry,
+		sysctl:              p.Sysctl,
+		hostDpInitialized:   make(chan struct{}),
+		prefilter:           p.Prefilter,
+		compilationLock:     p.CompilationLock,
+		configWriter:        p.ConfigWriter,
+		nodeConfigNotifier:  p.NodeConfigNotifier,
+		routeManager:        p.RouteManager,
+		bpfCollectionLoader: collLoader,
+		db:                  p.DB,
+		devices:             p.Devices,
 	}
 }
 
