@@ -87,7 +87,7 @@ Patterns are interpreted as glob patterns to match eBPF object files.
 Use with go:generate in a Go source file (e.g. gen.go) to automatically detect
 the current package name:
 
-    //go:generate go run github.com/cilium/cilium/tools/dpgen maps ../../../bpf/bpf_*.o
+    //go:generate go tool dpgen maps ../../../bpf/bpf_*.o
 
 If running outside of go:generate, the package name must be provided with -p/--package.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
