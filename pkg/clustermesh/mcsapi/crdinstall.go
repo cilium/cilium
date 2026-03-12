@@ -94,9 +94,11 @@ func needsUpdateMCS(targetCRD, currentCRD *apiextensionsv1.CustomResourceDefinit
 		return false, fmt.Errorf("invalid release version label on CRD %s: %s", targetCRD.Name, targetCRD.Labels[mcsapicrd.ReleaseVersionLabel])
 	}
 
-	if err != nil || currentVersion.LT(targetVersion) {
-		// version in cluster is either unparsable or smaller than current version
-		return true, nil
+	if err != nil || !currentVersion.EQ(targetVersion) {
+		// upgrade the CRD if the in cluster version is either unparsable or smaller
+		// than the target CRD. Stop here if the in cluster version is higher
+		// to prevent downgrading the CRD.
+		return err != nil || currentVersion.LT(targetVersion), nil
 	}
 
 	// CRD Revision check
@@ -111,10 +113,7 @@ func needsUpdateMCS(targetCRD, currentCRD *apiextensionsv1.CustomResourceDefinit
 		return false, fmt.Errorf("invalid CRD revision label on CRD %s: %s", targetCRD.Name, targetCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel])
 	}
 
-	if err != nil || currentRevision < targetRevision {
-		// crd revision in cluster is either unparsable or smaller than current version
-		return true, nil
-	}
-
-	return false, nil
+	// upgrade the CRD if the in cluster revision is either unparsable or smaller
+	// than the target CRD
+	return err != nil || currentRevision < targetRevision, nil
 }
