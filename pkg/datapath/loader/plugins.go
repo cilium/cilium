@@ -468,6 +468,10 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 	}, cleanupStagingDirs, nil
 }
 
+func (l *loader) initializePluginsDir() error {
+	return bpf.Remove(bpffsPluginsOperationsDir(bpf.CiliumPath()))
+}
+
 func preHookSubprogName(pluginName string) string {
 	return fmt.Sprintf("__pre_hook_%s__", pluginName)
 }

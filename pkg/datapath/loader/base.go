@@ -184,7 +184,6 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, reg *registry
 
 		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
 		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
-
 		return nil
 	}
 
@@ -298,6 +297,10 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	// BPF file system setup.
 	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
 		return fmt.Errorf("failed to create bpffs directory: %w", err)
+	}
+
+	if err := l.initializePluginsDir(); err != nil {
+		return fmt.Errorf("initializing plugins bpffs directories: %w", err)
 	}
 
 	// Datapath initialization
