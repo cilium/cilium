@@ -62,7 +62,7 @@ func defaultWireguardMapRenames(lnc *datapath.LocalNodeConfiguration, device net
 }
 
 func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
+	collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
@@ -73,7 +73,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 	}
 
 	var obj wireguardObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		Constants:   wireguardConfiguration(lnc, device),
 		MapRenames:  wireguardMapRenames(lnc, device),
@@ -81,10 +81,11 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
-	})
+	}, lnc, attachmentContextWireguard(device), bpffsDevicePluginPinsDir(bpf.CiliumPath(), device))
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
