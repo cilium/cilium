@@ -61,7 +61,7 @@ func defaultOverlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink
 }
 
 func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
+	collLoader bpf.CollectionLoader, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
 	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -72,7 +72,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 	}
 
 	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 
 		MapRegistry: reg,
 		Constants:   overlayConfiguration(lnc, link),
@@ -81,10 +81,11 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(link.Attrs().Name), overlayConfig),
-	})
+	}, lnc, attachmentContextOverlay(link), bpffsDevicePluginPinsDir(bpf.CiliumPath(), link))
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
