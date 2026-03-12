@@ -109,7 +109,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, l.registry, l.db, l.devices, l.routeManager, ep, lnc, spec)
+	err = reloadEndpoint(ctx, l.logger, l.registry, l.bpfCollectionLoader, l.db, l.devices, l.routeManager, ep, lnc, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -192,12 +192,12 @@ func defaultEndpointMapRenames(ep endpoint.Config, lnc *config.Config) map[strin
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.DB,
-	devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
+func reloadEndpoint(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry, collLoader *bpfCollectionLoader,
+	db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
 	ep endpoint.Endpoint, lnc *config.Config, spec *ebpf.CollectionSpec) error {
 
 	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
@@ -205,10 +205,11 @@ func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.
 		Constants:      endpointConfiguration(ep, lnc),
 		MapRenames:     endpointMapRenames(ep, lnc),
 		ConfigDumpPath: filepath.Join(ep.StateDir(), endpointConfig),
-	})
+	}, lnc, attachmentContextLXC(ep), bpffsEndpointPluginPinsDir(bpf.CiliumPath(), ep))
 	if err != nil {
 		return err
 	}
+	defer cleanup()
 	defer obj.Close()
 
 	// Insert policy programs before attaching entrypoints to tc hooks.

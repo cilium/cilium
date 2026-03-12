@@ -47,6 +47,8 @@ type epInfoCache struct {
 	netNsCookie            uint64
 	rtInfo                 uint32
 	properties             map[string]any
+	k8sNamespace           string
+	k8sPodName             string
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -63,14 +65,16 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		return &epInfoCache{
 			revision: e.desiredPolicyRevision,
 
-			id:         e.GetID(),
-			identity:   e.getIdentity(),
-			ifIndex:    e.GetIfIndex(),
-			mac:        e.GetNodeMAC(),
-			ipv4:       e.IPv4Address(),
-			ipv6:       e.IPv6Address(),
-			atHostNS:   true,
-			properties: maps.Clone(e.properties),
+			id:           e.GetID(),
+			identity:     e.getIdentity(),
+			ifIndex:      e.GetIfIndex(),
+			mac:          e.GetNodeMAC(),
+			ipv4:         e.IPv4Address(),
+			ipv6:         e.IPv6Address(),
+			atHostNS:     true,
+			properties:   maps.Clone(e.properties),
+			k8sNamespace: e.GetK8sNamespace(),
+			k8sPodName:   e.GetK8sPodName(),
 
 			endpoint: e,
 		}
@@ -97,6 +101,8 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		netNsCookie:            e.NetNsCookie,
 		rtInfo:                 e.rtInfo,
 		properties:             maps.Clone(e.properties),
+		k8sNamespace:           e.GetK8sNamespace(),
+		k8sPodName:             e.GetK8sPodName(),
 
 		endpoint: e,
 	}
@@ -223,4 +229,12 @@ func (ep *epInfoCache) isProperty(propertyKey string) bool {
 
 func (ep *epInfoCache) GetPropertyValue(key string) any {
 	return ep.properties[key]
+}
+
+func (ep *epInfoCache) GetK8sNamespace() string {
+	return ep.k8sNamespace
+}
+
+func (ep *epInfoCache) GetK8sPodName() string {
+	return ep.k8sPodName
 }
