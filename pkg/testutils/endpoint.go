@@ -121,3 +121,15 @@ func (e *TestEndpoint) StateDir() string {
 	}
 	return "test_loader"
 }
+
+func (e *TestEndpoint) GetK8sNamespace() string {
+	return ""
+}
+
+func (e *TestEndpoint) GetK8sPodName() string {
+	return ""
+}
+
+func (e *TestEndpoint) GetContainerName() string {
+	return ""
+}
