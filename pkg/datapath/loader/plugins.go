@@ -73,6 +73,16 @@ func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentCo
 	}
 }
 
+func attachmentContextWireguard(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Wireguard_{
+			Wireguard: &datapathplugins.AttachmentContext_Wireguard{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
+
 type bpfCollectionLoader struct {
 	pluginOperationsDir string
 	pluginsEnabled      bool
