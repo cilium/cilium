@@ -4,6 +4,7 @@
 package main
 
 import (
+	"cmp"
 	_ "embed"
 	"fmt"
 	"io"
@@ -20,6 +21,8 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/cilium/cilium/pkg/container/set"
 )
 
 //go:embed acronyms.txt
@@ -75,6 +78,21 @@ func glob(patterns []string) iter.Seq[string] {
 	return slices.Values(matches)
 }
 
+// writeHeader writes a standard Go file header with the given package name and
+// imports.
+func writeHeader(w io.StringWriter, pkg string, imports []string) error {
+	if err := writeCopyrightHeader(w); err != nil {
+		return fmt.Errorf("writing copyright header: %w", err)
+	}
+	if err := writePackageHeader(w, pkg); err != nil {
+		return fmt.Errorf("writing package header: %w", err)
+	}
+	if err := writeImports(w, imports); err != nil {
+		return fmt.Errorf("writing imports: %w", err)
+	}
+	return nil
+}
+
 // writeCopyrightHeader writes the standard copyright header to the given
 // writer.
 func writeCopyrightHeader(w io.StringWriter) error {
@@ -88,6 +106,41 @@ func writeCopyrightHeader(w io.StringWriter) error {
 	return err
 }
 
+// writePackageHeader writes the package declaration to the given writer.
+func writePackageHeader(w io.StringWriter, pkg string) error {
+	if pkg == "" {
+		return fmt.Errorf("package name cannot be empty")
+	}
+	_, err := w.WriteString(fmt.Sprintf("package %s\n\n", pkg))
+	return err
+}
+
+func writeImports(w io.StringWriter, imports []string) error {
+	if len(imports) == 0 {
+		return nil
+	}
+
+	if len(imports) == 1 {
+		_, err := w.WriteString(fmt.Sprintf("import %q\n\n", imports[0]))
+		return err
+	}
+
+	_, err := w.WriteString("import (\n")
+	if err != nil {
+		return err
+	}
+
+	for _, imp := range imports {
+		_, err := w.WriteString(fmt.Sprintf("\t%q\n", imp))
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = w.WriteString(")\n\n")
+	return err
+}
+
 // sorted returns the values of m as a slice, sorted by key.
 func sorted[T any](m map[string]T) []T {
 	keys := slices.Sorted(maps.Keys(m))
@@ -96,6 +149,11 @@ func sorted[T any](m map[string]T) []T {
 		out = append(out, m[k])
 	}
 	return out
+}
+
+// sortedSeq iterates seq in sorted order.
+func sortedSeq[T cmp.Ordered](seq iter.Seq[T]) iter.Seq[T] {
+	return slices.Values(slices.Sorted(seq))
 }
 
 // mapSpecCompatible checks whether two MapSpecs have the same Type, KeySize,
@@ -120,21 +178,52 @@ func mapSpecCompatible(a, b *ebpf.MapSpec) error {
 	return nil
 }
 
-// addMapKV adds the BTF types for the map's key and value to the given BTF
+// addMapKV adds the BTF types of the map's key and value to the given BTF
 // builder.
-func addMapKV(bb *btf.Builder, spec *ebpf.MapSpec) error {
+func addMapKV(bb *btf.Builder, added *set.Set[string], spec *ebpf.MapSpec) error {
 	if spec.Key != nil {
-		if _, err := bb.Add(spec.Key); err != nil {
-			return fmt.Errorf("adding key BTF for map %s: %w", spec.Name, err)
+		if err := addType(bb, added, spec.Key); err != nil {
+			return fmt.Errorf("adding key type: %w", err)
 		}
 	}
-
 	if spec.Value != nil {
-		if _, err := bb.Add(spec.Value); err != nil {
-			return fmt.Errorf("adding value BTF for map %s: %w", spec.Name, err)
+		if err := addType(bb, added, spec.Value); err != nil {
+			return fmt.Errorf("adding value type: %w", err)
 		}
 	}
+	return nil
+}
 
+// addVariableType adds the BTF type of the variable to the given BTF builder.
+func addVariableType(bb *btf.Builder, added *set.Set[string], v *ebpf.VariableSpec) error {
+	if v.Type == nil || v.Type.Type == nil {
+		return fmt.Errorf("no BTF type information")
+	}
+
+	return addType(bb, added, v.Type.Type)
+}
+
+func addType(bb *btf.Builder, added *set.Set[string], typ btf.Type) error {
+	name := btf.UnderlyingType(typ).TypeName()
+	if td, ok := btf.As[*btf.Typedef](typ); ok {
+		name = td.TypeName()
+	}
+	if name == "" {
+		return fmt.Errorf("anonymous type %v", typ)
+	}
+
+	// Always add the type chain in full. The underlying type will be queryable by
+	// name, as well as any typedefs referring to it.
+	if _, err := bb.Add(typ); err != nil {
+		return fmt.Errorf("adding type %s: %w", name, err)
+	}
+
+	// If the incoming type is a typedef, emit the typedef, not only the
+	// underlying type. Typically, the typedef will be the one used in the map
+	// declaration, so it needs to be queryable by name in the resulting BTF blob.
+	if added != nil {
+		added.Insert(name)
+	}
 	return nil
 }
 
