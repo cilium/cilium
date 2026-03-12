@@ -145,8 +145,8 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
 func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
-	reg *registry.MapRegistry, lnc *config.Config,
-	xdpDev string, xdpMode xdp.Mode) error {
+	reg *registry.MapRegistry, collLoader *bpfCollectionLoader,
+	lnc *config.Config, xdpDev string, xdpMode xdp.Mode) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -177,7 +177,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	if err := loadAssignAttach(logger, reg, xdpMode, iface, spec, lnc); err != nil {
+	if err := loadAssignAttach(ctx, logger, reg, collLoader, xdpMode, iface, spec, lnc); err != nil {
 		return err
 	}
 
@@ -228,16 +228,17 @@ func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionS
 	}
 }
 
-func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
-	xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec,
-	lnc *config.Config) error {
+func loadAssignAttach(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
+	collLoader *bpfCollectionLoader, xdpMode xdp.Mode, iface netlink.Link,
+	spec *ebpf.CollectionSpec, lnc *config.Config) error {
 	var (
-		obj    xdpObjects
-		commit func() error
-		err    error
+		obj     xdpObjects
+		commit  func() error
+		cleanup func()
+		err     error
 	)
 	for i, spec := range xdpPermutations(spec) {
-		commit, err = bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+		commit, cleanup, err = collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 			MapRegistry: reg,
 			Constants:   xdpConfiguration(lnc, iface),
 			MapRenames:  xdpMapRenames(lnc, iface),
@@ -245,11 +246,12 @@ func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-		})
+		}, lnc, attachmentContextXDP(iface), bpffsDevicePluginPinsXdpDir(bpf.CiliumPath(), iface))
 		if err != nil {
 			return err
 		}
 		defer obj.Close()
+		defer cleanup()
 
 		err = attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
 			bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode))

@@ -58,6 +58,10 @@ func bpffsDevicePluginPinsTcDir(base string, device netlink.Link) string {
 	return bpffsDevicePluginPinsDir(base, device, "tc")
 }
 
+func bpffsDevicePluginPinsXdpDir(base string, device netlink.Link) string {
+	return bpffsDevicePluginPinsDir(base, device, "xdp")
+}
+
 // bpffsEndpointsDir returns the path to the 'endpoints' directory on bpffs, usually
 // /sys/fs/bpf/cilium/endpoints. It does not ensure the directory exists.
 //

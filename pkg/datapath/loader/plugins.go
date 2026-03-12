@@ -91,6 +91,16 @@ func attachmentContextWireguard(device netlink.Link) *datapathplugins.Attachment
 	}
 }
 
+func attachmentContextXDP(device netlink.Link) *datapathplugins.AttachmentContext {
+	return &datapathplugins.AttachmentContext{
+		Context: &datapathplugins.AttachmentContext_Xdp{
+			Xdp: &datapathplugins.AttachmentContext_XDP{
+				Iface: linkToInterfaceInfo(device),
+			},
+		},
+	}
+}
+
 // bpfCollectionLoader coordinates between datapath plugins when loading a BPF
 // collection. It provides an interface similar to the usual bpf.Load and
 // bpf.LoadAndAssign functions.
