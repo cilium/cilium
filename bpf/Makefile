@@ -173,6 +173,7 @@ generate: $(BPF)
 	$(GO) generate ../pkg/datapath/config
 	$(GO) generate ../pkg/datapath/maps
 	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf
+	BPF2GO_CC="$(CLANG)" BPF2GO_CFLAGS="$(MAX_OVERLAY_OPTIONS) $(CLANG_FLAGS)" $(GO) generate ../pkg/datapath/bpf/testprogs
 
 $(BPF_SIMPLE): %.o: %.c $(LIB)
 	@$(ECHO_CC)
