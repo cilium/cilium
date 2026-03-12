@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
@@ -257,6 +258,8 @@ type LocalNodeConfiguration struct {
 	KPRConfig kpr.KPRConfig
 
 	SvcRouteConfig svcrouteconfig.RoutesConfig
+
+	Plugins plugin.Plugins
 }
 
 // DeepEqual compares two LocalNodeConfiguration structs for equality.
