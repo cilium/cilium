@@ -35,6 +35,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		newDPPListerWatcher,
 		NewDPPTable,
+		newSyncChan,
 	),
 	cell.Invoke(
 		registerDPPReflector,
