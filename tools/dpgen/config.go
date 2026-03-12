@@ -37,7 +37,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing copyright header: %w", err)
 	}
 
-	b.WriteString("package config\n\n")
+	fmt.Fprintf(&b, "package %s\n\n", goPkg)
 	b.WriteString(s)
 
 	os.WriteFile(out, []byte(b.String()), 0644)

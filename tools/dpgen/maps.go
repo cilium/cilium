@@ -71,7 +71,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 			}
 			outer[spec.Name] = spec
 
-			if err := addMapKV(bb, spec); err != nil {
+			if err := addMapKV(bb, nil, spec); err != nil {
 				return err
 			}
 
@@ -85,7 +85,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 				}
 				inner[name] = spec.InnerMap
 
-				if err := addMapKV(bb, spec.InnerMap); err != nil {
+				if err := addMapKV(bb, nil, spec.InnerMap); err != nil {
 					return err
 				}
 			}

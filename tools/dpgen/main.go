@@ -23,6 +23,7 @@ func main() {
 
 	rootCmd.AddCommand(configCmd())
 	rootCmd.AddCommand(mapsCmd())
+	rootCmd.AddCommand(typesCmd())
 
 	flags := rootCmd.Flags()
 	flags.StringVarP(&goPkg, "package", "p", os.Getenv("GOPACKAGE"), "name of the Go package dpgen was invoked for/from")
@@ -99,6 +100,39 @@ If running outside of go:generate, the package name must be provided with -p/--p
 		RunE: runMaps,
 		Args: cobra.MinimumNArgs(1),
 	}
+
+	return c
+}
+
+func typesCmd() *cobra.Command {
+	c := &cobra.Command{
+		Use:   "types [pattern(s) ...]",
+		Short: "Generate Go type declarations from one or more datapath objects",
+		Long: `Generate Go type declarations from one or more datapath objects.
+
+Collect types appearing directly in pinned maps and global variables from one
+or more eBPF object files and merge them into a single set of Go type
+declarations. Emit a single Go source file in the current package.
+
+Patterns are interpreted as glob patterns to match eBPF object files. All files
+must be provided in a single invocation in order for dpgen to merge their BTF.
+
+Use with go:generate in a Go source file (e.g. gen.go) to automatically detect
+the current package name:
+
+    //go:generate go run github.com/cilium/cilium/tools/dpgen types ../../../bpf/bpf_*.o`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if typesOpts.goPkg == "" {
+				return fmt.Errorf("package name cannot be empty, set with -p/--package or GOPACKAGE")
+			}
+			return nil
+		},
+		RunE: runTypes,
+		Args: cobra.MinimumNArgs(1),
+	}
+
+	flags := c.Flags()
+	flags.StringVarP(&typesOpts.goPkg, "package", "p", os.Getenv("GOPACKAGE"), "name of the Go package dpgen was invoked for/from (default $GOPACKAGE)")
 
 	return c
 }
