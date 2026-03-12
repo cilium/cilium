@@ -6,6 +6,7 @@ package loadbalancer
 import (
 	"bytes"
 	"encoding/json"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -649,6 +650,75 @@ func TestL4AddrParsing(t *testing.T) {
 		}
 
 		require.Equal(t, tc.output, addr)
+	}
+}
+
+func TestGetSourceRangesEnabled(t *testing.T) {
+	prefix := netip.MustParsePrefix("10.0.0.0/8")
+
+	tests := []struct {
+		name                  string
+		sourceRanges          []netip.Prefix
+		svcType               SVCType
+		lbSourceRangeAllTypes bool
+		want                  bool
+	}{
+		{
+			name:         "LoadBalancer with source ranges",
+			sourceRanges: []netip.Prefix{prefix},
+			svcType:      SVCTypeLoadBalancer,
+			want:         true,
+		},
+		{
+			// loadBalancerSourceRanges must also apply to ExternalIPs frontends (#44718).
+			name:         "ExternalIPs with source ranges",
+			sourceRanges: []netip.Prefix{prefix},
+			svcType:      SVCTypeExternalIPs,
+			want:         true,
+		},
+		{
+			name:    "ExternalIPs without source ranges",
+			svcType: SVCTypeExternalIPs,
+			want:    false,
+		},
+		{
+			name:                  "ExternalIPs with source ranges, allTypes=true",
+			sourceRanges:          []netip.Prefix{prefix},
+			svcType:               SVCTypeExternalIPs,
+			lbSourceRangeAllTypes: true,
+			want:                  true,
+		},
+		{
+			name:         "NodePort with source ranges, allTypes=false",
+			sourceRanges: []netip.Prefix{prefix},
+			svcType:      SVCTypeNodePort,
+			want:         false,
+		},
+		{
+			name:                  "NodePort with source ranges, allTypes=true",
+			sourceRanges:          []netip.Prefix{prefix},
+			svcType:               SVCTypeNodePort,
+			lbSourceRangeAllTypes: true,
+			want:                  true,
+		},
+		{
+			name:    "LoadBalancer without source ranges",
+			svcType: SVCTypeLoadBalancer,
+			want:    false,
+		},
+		{
+			name:         "ClusterIP with source ranges",
+			sourceRanges: []netip.Prefix{prefix},
+			svcType:      SVCTypeClusterIP,
+			want:         false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &Service{SourceRanges: tt.sourceRanges}
+			got := svc.GetSourceRangesEnabled(tt.svcType, tt.lbSourceRangeAllTypes)
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }
 
