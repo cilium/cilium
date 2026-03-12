@@ -10,7 +10,6 @@ import (
 	"maps"
 	"os"
 	"path"
-	"slices"
 	"text/template"
 
 	"github.com/cilium/ebpf"
@@ -57,7 +56,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 		// Iterate MapSpecs in sorted order to guarantee deterministic output of the
 		// generated BTF blob. If types get added in random order, the resulting
 		// contents of the BTF blob will differ between runs.
-		for spec := range sortedMapSpecs(cs.Maps) {
+		for _, spec := range sorted(cs.Maps) {
 			if !needMapSpec(spec) {
 				continue
 			}
@@ -156,8 +155,8 @@ func renderMapSpecs(w io.Writer, outer, inner map[string]*ebpf.MapSpec, pkg stri
 	}{
 		pkg,
 		mapKVFile,
-		slices.SortedFunc(maps.Values(outer), mapSpecByName),
-		slices.SortedFunc(maps.Values(all), mapSpecByName),
+		sorted(outer),
+		sorted(all),
 	}); err != nil {
 		return fmt.Errorf("executing template: %w", err)
 	}
