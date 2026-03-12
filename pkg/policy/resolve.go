@@ -334,9 +334,13 @@ func (p *selectorPolicy) MaybeDetach() {
 		return
 	}
 	p.L4Policy.mutex.Lock()
-	defer p.L4Policy.mutex.Unlock()
 	p.L4Policy.superseded = true
-	p.L4Policy.maybeDetachLocked(p.SelectorCache)
+	needsDetach := p.L4Policy.shouldDetachLocked()
+	p.L4Policy.mutex.Unlock()
+
+	if needsDetach {
+		p.L4Policy.finishDetach(p.SelectorCache)
+	}
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts

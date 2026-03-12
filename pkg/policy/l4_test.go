@@ -712,8 +712,12 @@ func TestHoldCountPerEndpoint(t *testing.T) {
 	require.Empty(t, l4policy.users, "no users remain")
 
 	// Simulate supersession, then verify detach works
+	l4policy.mutex.Lock()
 	l4policy.superseded = true
-	l4policy.maybeDetachLocked(sc)
+	needsDetach := l4policy.shouldDetachLocked()
+	l4policy.mutex.Unlock()
+	require.True(t, needsDetach, "shouldDetachLocked should return true for superseded policy with no users")
+	l4policy.finishDetach(sc)
 	require.Nil(t, l4policy.users, "policy detached after being superseded")
 }
 
