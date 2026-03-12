@@ -39,6 +39,10 @@ func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterfac
 	return newFakeCiliumCIDRGroups(c)
 }
 
+func (c *FakeCiliumV2alpha1) CiliumDatapathPlugins() v2alpha1.CiliumDatapathPluginInterface {
+	return newFakeCiliumDatapathPlugins(c)
+}
+
 func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSliceInterface {
 	return newFakeCiliumEndpointSlices(c)
 }

@@ -539,6 +539,9 @@ const (
 
 	// PolicyAccouting is the default value for option.PolicyAccounting
 	PolicyAccounting = true
+
+	// EnableDatapathPlugins is the default value for option.EnableDatapathPlugins
+	EnableDatapathPlugins = false
 )
 
 var (
