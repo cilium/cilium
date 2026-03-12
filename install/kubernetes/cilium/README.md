@@ -354,6 +354,9 @@ contributors across the globe, there is almost always someone available to help.
 | daemon.enableSourceIPVerification | bool | `true` | enableSourceIPVerification is a boolean flag to enable or disable the Source IP verification of endpoints. This flag is useful when Cilium is chained with other CNIs.  By default, this functionality is enabled |
 | daemon.runPath | string | `"/var/run/cilium"` | Configure where Cilium runtime state should be stored. |
 | dashboards | object | `{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null}` | Grafana dashboards for cilium-agent grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards |
+| datapathPlugins | object | `{"enabled":false,"stateDir":"/var/run/cilium/plugins"}` | Plugins to inject custom BPF into the datapath. |
+| datapathPlugins.enabled | bool | `false` | Enable datapath plugins. |
+| datapathPlugins.stateDir | string | `"/var/run/cilium/plugins"` | Parent directory for per-plugin state directories. |
 | debug.enabled | bool | `false` | Enable debug logging |
 | debug.metricsSamplingInterval | string | `"5m"` | Set the agent-internal metrics sampling frequency. This sets the frequency of the internal sampling of the agent metrics. These are available via the "cilium-dbg shell -- metrics -s" command and are part of the metrics HTML page included in the sysdump. @schema type: [null, string] @schema |
 | debug.verbose | string | `nil` | Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath, policy, or tagged), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy - tagged |

@@ -92,6 +92,7 @@ cilium-agent [flags]
       --controller-group-metrics strings                          List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                 Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
       --datapath-mode string                                      Datapath mode name (auto, veth, netkit, netkit-l2) (default "veth")
+      --datapath-plugins-state-dir string                         Parent directory for per-plugin subdirectories containing UNIX sockets for talking to a Cilium datapath plugin. (default "/var/run/cilium/plugins")
   -D, --debug                                                     Enable debugging mode
       --debug-verbose strings                                     List of enabled verbose debug groups
       --default-lb-service-ipam string                            Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
