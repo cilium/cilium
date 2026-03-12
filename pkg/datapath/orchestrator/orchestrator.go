@@ -196,7 +196,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
 	var (
-		request   reinitializeRequest
+		request   = reinitializeRequest{ctx: ctx}
 		retryChan <-chan time.Time
 	)
 	for {
@@ -226,7 +226,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			// Reinitializing is expensive, only do so if the configuration has changed.
 			prevConfig := o.latestLocalNodeConfig.Load()
 			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
+				err = o.reinitialize(request.ctx, &localNodeConfig)
+				if err != nil {
 					o.params.Log.Warn("Failed to initialize datapath, retrying later",
 						logfields.Error, err,
 						logfields.RetryDelay, reinitRetryDuration,
@@ -237,15 +238,14 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					retryChan = nil
 					health.OK("OK")
 				}
-			} else {
-				// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
-				if request.errChan != nil {
-					close(request.errChan)
-				}
 			}
 		}
 
-		request = reinitializeRequest{}
+		if request.errChan != nil {
+			request.errChan <- err
+			close(request.errChan)
+		}
+		request = reinitializeRequest{ctx: ctx}
 
 		select {
 		case <-ctx.Done():
@@ -268,6 +268,9 @@ func (o *orchestrator) DatapathInitialized() <-chan struct{} {
 	return o.dpInitialized
 }
 
+// Reinitialize makes one attempt to reinitialize the datapath. If that attempt
+// is usuccessful, it returns the error that occurred but the orchestrator will
+// continue to attempt datapath (re)initiailization until it is successful.
 func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	errChan := make(chan error)
 	o.trigger <- reinitializeRequest{
@@ -277,11 +280,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *datapath.LocalNodeConfiguration) error {
-	if req.ctx != nil {
-		ctx = req.ctx
-	}
-
+func (o *orchestrator) reinitialize(ctx context.Context, localNodeConfig *datapath.LocalNodeConfiguration) error {
 	err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
@@ -291,13 +290,6 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		o.params.BIGTCPConfig,
 	)
 	if err != nil {
-		if req.errChan != nil {
-			select {
-			case req.errChan <- err:
-			default:
-			}
-			close(req.errChan)
-		}
 		return err
 	}
 
