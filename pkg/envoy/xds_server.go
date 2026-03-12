@@ -177,10 +177,9 @@ type xdsServer struct {
 	// Envoy proxies.
 	networkPolicyCache *xds.Cache
 
-	// NetworkPolicyMutator wraps networkPolicyCache to publish policy
+	// networkPolicyMutator wraps networkPolicyCache to publish policy
 	// updates to Envoy proxies.
-	// Exported for testing only!
-	NetworkPolicyMutator xds.AckingResourceMutator
+	networkPolicyMutator xds.AckingResourceMutator
 
 	resourceConfig map[string]*xds.ResourceTypeConfiguration
 
@@ -312,7 +311,7 @@ func (s *xdsServer) initializeXdsConfigs() {
 	s.endpointMutator = edsMutator
 	s.secretMutator = sdsMutator
 	s.networkPolicyCache = npdsCache
-	s.NetworkPolicyMutator = npdsMutator
+	s.networkPolicyMutator = npdsMutator
 
 	s.resourceConfig = map[string]*xds.ResourceTypeConfiguration{
 		ListenerTypeURL:           ldsConfig,
@@ -1739,7 +1738,7 @@ func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy 
 	nodeIDs := getNodeIDs(ep, policy)
 
 	// only wait for the most current policy to be acked when no (new) policy is given
-	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
+	s.networkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy,
@@ -1791,7 +1790,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	epID := ep.GetID()
 	nodeIDs := getNodeIDs(ep, policy)
 	resourceName := strconv.FormatUint(epID, 10)
-	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
+	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
 	for _, ip := range ips {
 		revertUpdatedNetworkPolicyEndpoints[ip] = s.localEndpointStore.getLocalEndpoint(ip)
@@ -1831,7 +1830,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 
 	// Safe to pass nodeIPs as nil when wg is also nil and the returned revert function is
 	// ignored.
-	s.NetworkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
+	s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
 
 	ip := ep.GetIPv6Address()
 	if ip != "" {
@@ -1841,7 +1840,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	if ip != "" {
 		s.localEndpointStore.removeLocalEndpoint(ip)
 		// Delete node resources held in the cache for the endpoint
-		s.NetworkPolicyMutator.DeleteNode(ip)
+		s.networkPolicyMutator.DeleteNode(ip)
 	}
 }
 
