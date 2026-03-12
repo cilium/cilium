@@ -441,6 +441,11 @@ func attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endp
 			return err
 		}
 
+		switch iface.(type) {
+		case *netlink.Bridge:
+			consts["proxy_redirect_via_cilium_net"] = 1
+		}
+
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(&netdevObj, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{

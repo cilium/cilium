@@ -37,6 +37,7 @@ static volatile const __u8 mac_four[] =  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2};
 static volatile const __u8 mac_five[] =  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D};
 static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
 static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+static volatile const __u8 mac_host[] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
@@ -87,6 +88,8 @@ static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0
 
 volatile const __u8 v6_ext_node_one[] = v6_ext_node_one_addr;
 volatile const __u8 v6_ext_node_two[] = v6_ext_node_two_addr;
+
+static volatile const __u8 v6_svc_one[] = {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
