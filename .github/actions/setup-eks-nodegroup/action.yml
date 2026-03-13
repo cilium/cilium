@@ -18,27 +18,19 @@ inputs:
     description: ''
     required: false
     default: 'true'
-  mode:
-    description: ''
+  node_groups_override:
+    description: 'Full "managedNodeGroups" YAML block to create node groups'
     required: false
     default: ''
-  client_node_number:
-    description: 'Node number, will only be used for egw mode'
-    required: false
-    default: '4'
-  egw_default_zone:
-    description: 'Availability zone that will be used for egw nodegroups'
-    required: false
-    default: ''
-  egw_no_cilium_zone:
-    description: 'Availability zone that will be used for no-cilium egw nodegroup'
+  timeout:
+    description: 'eksctl create nodegroup timeout (e.g. 15m). If empty, no --timeout flag is passed.'
     required: false
     default: ''
 runs:
   using: composite
   steps:
-    - name: Create nodegroup details (regular mode)
-      if: ${{ inputs.mode != 'egw' }}
+    - name: Create nodegroup details
+      if: ${{ inputs.node_groups_override == '' }}
       shell: bash
       run: |
         cat <<EOF > nodegroup-details.yaml
@@ -69,86 +61,19 @@ runs:
              effect: "NoExecute"
         EOF
 
-    - name: Create nodegroup details (EGW mode)
-      if: ${{ inputs.mode == 'egw' }}
+    - name: Create nodegroup details from provided configuration
+      if: ${{ inputs.node_groups_override != '' }}
       shell: bash
       run: |
         cat <<EOF > nodegroup-details.yaml
-        managedNodeGroups:
-        - name: ng-amd64-client
-          instanceTypes:
-           - m5n.xlarge
-          availabilityZones:
-           - ${{ inputs.egw_default_zone }}
-          desiredCapacity: ${{ inputs.client_node_number }}
-          spot: false
-          privateNetworking: true
-          volumeType: "gp3"
-          volumeSize: 20
-          maxPodsPerNode: 110
-          taints:
-           - key: "node.cilium.io/agent-not-ready"
-             value: "true"
-             effect: "NoExecute"
-          labels:
-             role.scaffolding/egw-client: "true"
-        - name: ng-amd64-egw-node
-          instanceTypes:
-           - m5n.xlarge
-          availabilityZones:
-           - ${{ inputs.egw_default_zone }}
-          desiredCapacity: 1
-          spot: false
-          privateNetworking: true
-          volumeType: "gp3"
-          volumeSize: 20
-          maxPodsPerNode: 110
-          taints:
-           - key: "node.cilium.io/agent-not-ready"
-             value: "true"
-             effect: "NoExecute"
-          labels:
-             role.scaffolding/egw-node: "true"
-        - name: ng-amd64-heapster
-          instanceTypes:
-           - m5n.xlarge
-          availabilityZones:
-           - ${{ inputs.egw_default_zone }}
-          desiredCapacity: 1
-          spot: false
-          privateNetworking: true
-          volumeType: "gp3"
-          volumeSize: 20
-          maxPodsPerNode: 110
-          taints:
-           - key: "node.cilium.io/agent-not-ready"
-             value: "true"
-             effect: "NoExecute"
-          labels:
-             role.scaffolding/monitoring: "true"
-        - name: ng-amd64-no-cilium
-          instanceTypes:
-           - m5n.xlarge
-          availabilityZones:
-           - ${{ inputs.egw_no_cilium_zone }}
-          desiredCapacity: 1
-          spot: false
-          privateNetworking: true
-          volumeType: "gp3"
-          volumeSize: 20
-          taints:
-           - key: "cilium.io/no-schedule"
-             value: "true"
-             effect: "NoSchedule"
-          labels:
-            cilium.io/no-schedule: "true"
-          # Manually inject a dummy CNI configuration to let the Kubelet turn
-          # ready. This is necessary as otherwise the node creation would
-          # never complete. Regardless, no pods will be scheduled here given
-          # that the node is tainted.
-          preBootstrapCommands:
-          - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
+        ${{ inputs.node_groups_override }}
         EOF
+
+        if [ "$(yq 'has("managedNodeGroups")' nodegroup-details.yaml)" != "true" ] \
+          || [ "$(yq '.managedNodeGroups | length' nodegroup-details.yaml)" == "0" ]; then
+          echo "node_groups_override must contain a non-empty 'managedNodeGroups' array"
+          exit 1
+        fi
 
     - name: Create EKS nodegroup
       shell: bash
@@ -169,4 +94,9 @@ runs:
 
         cat ./nodegroup-details.yaml >> ./eks-nodegroups.yaml
 
-        eksctl create nodegroup -f ./eks-nodegroups.yaml
+        TIMEOUT_ARG=""
+        if [ -n "${{ inputs.timeout }}" ]; then
+          TIMEOUT_ARG="--timeout=${{ inputs.timeout }}"
+        fi
+
+        eksctl create nodegroup -f ./eks-nodegroups.yaml ${TIMEOUT_ARG}
