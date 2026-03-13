@@ -344,6 +344,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 	cidrSlice := api.CIDRSlice{"192.168.0.0/16"}
 	cidrRuleSlice := api.CIDRRuleSlice{{Cidr: "10.0.0.0/8"}}
 	fqdns := api.FQDNSelectorSlice{{MatchName: "example.com"}}
+	groups := []api.Groups{{AWS: &api.AWSGroup{Region: "us-underground-42"}}}
 
 	tests := []struct {
 		name          string
@@ -353,6 +354,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 		cidrSlice     api.CIDRSlice
 		cidrRuleSlice api.CIDRRuleSlice
 		fqdns         api.FQDNSelectorSlice
+		groups        []api.Groups
 		want          types.Selectors
 	}{
 		{
@@ -390,6 +392,11 @@ func TestMergeEndpointSelectors(t *testing.T) {
 			want:  types.ToSelectors(fqdns...),
 		},
 		{
+			name:   "only groups",
+			groups: groups,
+			want:   types.ToSelectors(groups...),
+		},
+		{
 			name:          "all present",
 			endpoints:     endpoints,
 			nodes:         nodes,
@@ -397,6 +404,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 			cidrSlice:     cidrSlice,
 			cidrRuleSlice: cidrRuleSlice,
 			fqdns:         fqdns,
+			groups:        groups,
 			want: types.ToSelectors([]types.APISelector{
 				endpoints[0],
 				nodes[0],
@@ -404,6 +412,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 				cidrSlice[0],
 				cidrRuleSlice[0],
 				fqdns[0],
+				groups[0],
 			}...),
 		},
 		{
@@ -415,7 +424,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mergeEndpointSelectors(tt.endpoints, tt.nodes, tt.entities, tt.cidrSlice, tt.cidrRuleSlice, tt.fqdns)
+			got := mergeEndpointSelectors(tt.endpoints, tt.nodes, tt.entities, tt.cidrSlice, tt.cidrRuleSlice, tt.fqdns, tt.groups)
 			assert.Equal(t, tt.want, got)
 		})
 	}

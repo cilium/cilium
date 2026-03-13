@@ -20,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/operator/pkg/networkpolicy/groups"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -35,6 +36,8 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Invoke(registerPolicyValidator),
+	cell.Provide(groups.NewGroupManager),
+	cell.Invoke(groups.RegisterPolicyToGroupController),
 )
 
 type Config struct {

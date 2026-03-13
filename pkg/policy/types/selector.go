@@ -154,6 +154,8 @@ func ToSelector[T APISelector](peer T) Selector {
 		return newCIDRRuleSelector(v)
 	case api.FQDNSelector:
 		return newFqdnSelector(v)
+	case api.Groups:
+		return NewLabelSelector(v.GetAsEndpointSelector())
 	}
 
 	return nil
