@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -34,6 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+// ciliumProgPrefix is the prefix for all Cilium BPF program names.
+// Only programs with this prefix will be detached during cleanup.
+const ciliumProgPrefix = "cil_"
 
 var attachTypes = map[string]ebpf.AttachType{
 	Connect4:     ebpf.AttachCGroupInet4Connect,
@@ -233,9 +238,23 @@ func detachAll(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) e
 	for _, id := range ids.Programs {
 		prog, err := ebpf.NewProgramFromID(id.ID)
 		if err != nil {
-			return fmt.Errorf("could not open program id %d: %w", id, err)
+			return fmt.Errorf("could not open program id %d: %w", id.ID, err)
 		}
 		defer prog.Close()
+
+		// Only detach programs that belong to Cilium (name starts with "cil_").
+		// This prevents accidentally detaching programs from other applications.
+		info, err := prog.Info()
+		if err != nil {
+			return fmt.Errorf("could not get info for program id %d: %w", id.ID, err)
+		}
+		if !strings.HasPrefix(info.Name, ciliumProgPrefix) {
+			logger.Debug("Skipping non-Cilium program",
+				logfields.ID, id.ID,
+				logfields.Name, info.Name,
+			)
+			continue
+		}
 
 		if err := link.RawDetachProgram(link.RawDetachProgramOptions{
 			Target:  int(cg.Fd()),
