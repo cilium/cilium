@@ -104,6 +104,7 @@ get started and experiment with Cilium.
    observability/grafana
    observability/metrics
    observability/visibility
+   observability/packet-tracing
 
 .. toctree::
    :maxdepth: 2
