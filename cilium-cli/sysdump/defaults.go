@@ -16,6 +16,7 @@ const (
 	DefaultCiliumEnvoyLabelSelector          = labelPrefix + "cilium-envoy"
 	DefaultCiliumOperatorLabelSelector       = "io.cilium/app=operator"
 	DefaultClustermeshApiserverLabelSelector = labelPrefix + "clustermesh-apiserver"
+	DefaultClustermeshCertgenLabelSelector   = labelPrefix + "clustermesh-apiserver-generate-certs"
 	DefaultCiliumNodeInitLabelSelector       = "app=cilium-node-init"
 	DefaultCiliumSpireAgentLabelSelector     = "app=spire-agent"
 	DefaultCiliumSpireServerLabelSelector    = "app=spire-server"
