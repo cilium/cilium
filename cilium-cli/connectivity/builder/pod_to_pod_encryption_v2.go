@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type podToPodEncryptionV2 struct{}
@@ -19,10 +18,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	// unencrypted packets shall, or shall not, be observed based on the feature set.
 	newTest("pod-to-pod-encryption-v2", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
-		WithCondition(func() bool {
-			// this test only runs post v1.18.0 clusters
-			return versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
-		}).
+		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
 			tests.PodToPodEncryptionV2(),
@@ -30,10 +26,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 
 	newTest("pod-to-pod-with-l7-policy-encryption-v2", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
-		WithCondition(func() bool {
-			// this test only runs post v1.18.0 clusters
-			return versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
-		}).
+		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.EncryptionPod),
