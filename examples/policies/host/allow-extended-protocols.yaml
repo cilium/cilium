@@ -6,7 +6,7 @@ spec:
   description: "Allow specific traffic on egress of worker nodes"
   nodeSelector:
     matchLabels:
-      type: ingress-worker
+      type: egress-worker
   egress:
   - toPorts:
     - ports:
@@ -20,4 +20,5 @@ spec:
         protocol: TCP
       - port: "8472"
         protocol: UDP
-      - protocol: VRRP
+      - port: "0"
+        protocol: VRRP
