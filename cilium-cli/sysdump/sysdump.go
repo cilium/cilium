@@ -72,6 +72,8 @@ type Options struct {
 	CiliumOperatorLabelSelector string
 	// The labels used to target 'clustermesh-apiserver' pods.
 	ClustermeshApiserverLabelSelector string
+	// The labels used to target the Cluster Mesh certgen pods.
+	ClustermeshCertgenLabelSelector string
 	// The labels used to target Cilium SPIRE server pods.
 	CiliumSPIREServerLabelSelector string
 	// The labels used to target Cilium SPIRE agent pods.
@@ -1204,6 +1206,56 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to collect the 'clustermesh-apiserver' deployment: %w", err)
 				}
 				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cluster Mesh certgen cronjob",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetCronJob(ctx, c.Options.CiliumNamespace, clustermeshCertgenCronJobName, metav1.GetOptions{})
+				if err != nil {
+					if k8sErrors.IsNotFound(err) {
+						c.logWarn("cronjob %q not found in namespace %q - this is expected if Cluster Mesh is not enabled, or certificates are not generated via certgen",
+							clustermeshCertgenCronJobName, c.Options.CiliumNamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cluster Mesh certgen cronjob: %w", err)
+				}
+				if err := c.WriteYAML(clustermeshCertgenCronJobFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cluster Mesh certgen cronjob: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cluster Mesh certgen logs",
+			Quick:       false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.ClustermeshCertgenLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from the Cluster Mesh certgen pods")
+				}
+				if err := c.SubmitLogsTasks(AllPods(p), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cluster Mesh certgen pods")
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cluster Mesh cert-manager certificates",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				return c.GatherResourceUnstructured(
+					ctx,
+					certificate,
+					clustermeshCertManagerCertsFileName,
+					"clustermesh-apiserver-admin-cert",
+					"clustermesh-apiserver-local-cert",
+					"clustermesh-apiserver-remote-cert",
+					"clustermesh-apiserver-server-cert",
+				)
 			},
 		},
 		{
@@ -3275,6 +3327,9 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 	cmd.Flags().StringVar(&options.ClustermeshApiserverLabelSelector,
 		optionPrefix+"clustermesh-apiserver-label-selector", DefaultClustermeshApiserverLabelSelector,
 		"The labels used to target 'clustermesh-apiserver' pods")
+	cmd.Flags().StringVar(&options.ClustermeshCertgenLabelSelector,
+		optionPrefix+"clustermesh-generate-certs-label-selector", DefaultClustermeshCertgenLabelSelector,
+		"The labels used to target the Cluster Mesh generate certs pods")
 	cmd.Flags().StringVar(&options.CiliumNodeInitLabelSelector,
 		optionPrefix+"cilium-node-init-selector", DefaultCiliumNodeInitLabelSelector,
 		"The labels used to target Cilium node init pods")
