@@ -136,8 +136,9 @@ var (
 	}
 )
 
-// Upon starting, the agent will load the ipsec key, set the SPI accordingly,
-// and update the EncryptionKey in the local node object to the SPI.
+// Upon starting, the agent will load the ipsec key. The SPI is published to
+// the eBPF map and CiliumNode in StartBackgroundJobs(), after ensuring XFRM
+// states are configured for all known peers.
 type Agent struct {
 	ipSecLock lock.RWMutex
 
@@ -198,26 +199,39 @@ func (a *Agent) Start(cell.HookContext) error {
 	}
 
 	var err error
+	// Load keys from file ONLY. Do NOT update eBPF map or CiliumNode yet.
+	// The eBPF map will be updated in StartBackgroundJobs() AFTER XFRM states
+	// are created to ensure synchronization between XFRM and eBPF state.
 	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
 	if err != nil {
 		return err
 	}
-	if err := a.setIPSecSPI(a.spi); err != nil {
-		return err
-	}
-
-	a.localNode.Update(func(n *node.LocalNode) {
-		n.EncryptionKey = a.spi
-	})
-
 	return nil
 }
 
-// StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
+// StartBackgroundJobs publishes the initial SPI and starts the keyfile
+// watcher and stale key reclaimer jobs.
+//
+// Before publishing the SPI, it calls AllNodeValidateImplementation to
+// ensure XFRM states exist for all known peers. This prevents a race
+// where remote peers see our new SPI and start sending encrypted traffic
+// before we have XFRM IN states to decrypt it. This mirrors the pattern
+// used in keyfileWatcher for key rotations.
 func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
 	if !a.Enabled() {
 		return nil
 	}
+
+	// Create XFRM states for all known peers before advertising SPI.
+	handler.AllNodeValidateImplementation()
+
+	a.localNode.Update(func(n *node.LocalNode) {
+		n.EncryptionKey = a.spi
+	})
+	if err := a.setIPSecSPI(a.spi); err != nil {
+		return err
+	}
+
 	if err := a.startKeyfileWatcher(handler); err != nil {
 		return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
 	}

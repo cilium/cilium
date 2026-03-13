@@ -249,23 +249,23 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 				assert.Equal(c, mtuConfig.GetDeviceMTU(), mtuConfig.GetRouteMTU()+overhead)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 5. Ensure local node has been updated.
+			// 5. Start background ipsec jobs (publishes SPI to local node and encrypt map).
+			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler))
+
+			// 6. Ensure local node has been updated.
 			localNode, err := nodeStore.Get(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, localNode.EncryptionKey, ipsecAgent.spi)
 
-			// 6. Ensure encrypt map is updated accordingly.
+			// 7. Ensure encrypt map is updated accordingly.
 			v, err := encryptMap.Lookup(zeroKey)
 			require.NoError(t, err)
 			assert.Equal(t, ipsecAgent.spi, v.KeyID)
 
-			// 6. Start background ipsec jobs.
-			require.NoError(t, ipsecAgent.StartBackgroundJobs(nodeHandler))
-
-			// 7. Dump another valid IPSec key to file.
+			// 8. Dump another valid IPSec key to file.
 			require.NoError(t, os.WriteFile(keyFile, anotherValidKey, 0644))
 
-			// 8. Ensure the ipsec agent updated the spi accordingly.
+			// 9. Ensure the ipsec agent updated the spi accordingly.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				assert.Equal(c, uint8(5), ipsecAgent.spi)
 				v, err := encryptMap.Lookup(zeroKey)
@@ -274,10 +274,10 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 				assert.NotEmpty(c, ipsecAgent.ipSecKeysRemovalTime)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 8. Dump an invalid IPSec key to file.
+			// 10. Dump an invalid IPSec key to file.
 			require.NoError(t, os.WriteFile(keyFile, invalidKey, 0644))
 
-			// 9. Ensure the ipsec agent rejected the new key.
+			// 11. Ensure the ipsec agent rejected the new key.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				assert.Equal(c, uint8(5), ipsecAgent.spi)
 				v, err := encryptMap.Lookup(zeroKey)
@@ -285,7 +285,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 				assert.Equal(c, ipsecAgent.spi, v.KeyID)
 			}, TestTimeout, 50*time.Millisecond)
 
-			// 10. Stop the hive.
+			// 12. Stop the hive.
 			require.NoError(t, hive.Stop(log, ctx))
 
 			return nil
