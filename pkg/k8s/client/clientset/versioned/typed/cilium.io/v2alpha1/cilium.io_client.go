@@ -25,7 +25,6 @@ type CiliumV2alpha1Interface interface {
 	CiliumGatewayClassConfigsGetter
 	CiliumL2AnnouncementPoliciesGetter
 	CiliumLoadBalancerIPPoolsGetter
-	CiliumNodeConfigsGetter
 	CiliumPodIPPoolsGetter
 }
 
@@ -72,10 +71,6 @@ func (c *CiliumV2alpha1Client) CiliumL2AnnouncementPolicies() CiliumL2Announceme
 
 func (c *CiliumV2alpha1Client) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInterface {
 	return newCiliumLoadBalancerIPPools(c)
-}
-
-func (c *CiliumV2alpha1Client) CiliumNodeConfigs(namespace string) CiliumNodeConfigInterface {
-	return newCiliumNodeConfigs(c, namespace)
 }
 
 func (c *CiliumV2alpha1Client) CiliumPodIPPools() CiliumPodIPPoolInterface {
