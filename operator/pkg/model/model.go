@@ -66,6 +66,8 @@ type HTTPListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
 	TLS []TLSSecret `json:"tls,omitempty"`
+	// FrontendTLSValidation holds mTLS configuration for client certificate validation.
+	FrontendTLSValidation *FrontendTLSValidation `json:"frontend_tls_validation,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
@@ -206,6 +208,15 @@ type FullyQualifiedResource struct {
 type TLSSecret struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// FrontendTLSValidation holds configuration for client certificate validation (mTLS).
+type FrontendTLSValidation struct {
+	// CACertRefs references ConfigMaps containing CA certificates for client validation.
+	CACertRefs []FullyQualifiedResource `json:"ca_cert_refs,omitempty"`
+	// RequireClientCertificate when true requires valid client cert (AllowValidOnly mode).
+	// When false, allows connections without valid cert (AllowInsecureFallback mode).
+	RequireClientCertificate bool `json:"require_client_certificate,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
@@ -605,4 +616,84 @@ func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
 		}
 	}
 	return res
+}
+
+// TLSSecretListenerData holds TLS secret data along with the listener's frontend validation.
+type TLSSecretListenerData struct {
+	TLSSecret             TLSSecret
+	Hostnames             []string
+	FrontendTLSValidation *FrontendTLSValidation
+}
+
+// TLSSecretsToHostnamesWithValidation returns grouped TLS secret data with hostnames and frontend validation.
+// This is only for HTTP listeners.
+func (m *Model) TLSSecretsToHostnamesWithValidation() []TLSSecretListenerData {
+	type listenerBucket struct {
+		secret              TLSSecret
+		validation          *FrontendTLSValidation
+		validationKey       string
+		aggregatedHostnames []string
+	}
+
+	res := make(map[string]*listenerBucket)
+	for _, h := range m.HTTP {
+		for _, s := range h.TLS {
+			validationKey := frontendTLSValidationKey(h.FrontendTLSValidation)
+			key := fmt.Sprintf("%s/%s|%s", s.Namespace, s.Name, validationKey)
+
+			bucket, exists := res[key]
+			if !exists {
+				bucket = &listenerBucket{
+					secret:        s,
+					validation:    h.FrontendTLSValidation,
+					validationKey: validationKey,
+				}
+				res[key] = bucket
+			}
+			bucket.aggregatedHostnames = append(bucket.aggregatedHostnames, h.Hostname)
+		}
+	}
+
+	keys := make([]string, 0, len(res))
+	for k := range res {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		left := res[keys[i]]
+		right := res[keys[j]]
+		if left.secret.Namespace != right.secret.Namespace {
+			return left.secret.Namespace < right.secret.Namespace
+		}
+		if left.secret.Name != right.secret.Name {
+			return left.secret.Name < right.secret.Name
+		}
+		return left.validationKey < right.validationKey
+	})
+
+	output := make([]TLSSecretListenerData, 0, len(keys))
+	for _, key := range keys {
+		bucket := res[key]
+		output = append(output, TLSSecretListenerData{
+			TLSSecret:             bucket.secret,
+			Hostnames:             slices.SortedUnique(bucket.aggregatedHostnames),
+			FrontendTLSValidation: bucket.validation,
+		})
+	}
+
+	return output
+}
+
+func frontendTLSValidationKey(validation *FrontendTLSValidation) string {
+	if validation == nil {
+		return "none"
+	}
+
+	refs := make([]string, 0, len(validation.CACertRefs))
+	for _, ref := range validation.CACertRefs {
+		refs = append(refs, fmt.Sprintf("%s/%s/%s/%s/%s", ref.Group, ref.Version, ref.Kind, ref.Namespace, ref.Name))
+	}
+	sort.Strings(refs)
+
+	return fmt.Sprintf("require_client_cert=%t;ca_refs=%s", validation.RequireClientCertificate, strings.Join(refs, ","))
 }

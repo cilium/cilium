@@ -13,3 +13,11 @@ func NamespaceDerefOr(namespace *gatewayv1.Namespace, defaultNamespace string) s
 	}
 	return defaultNamespace
 }
+
+// DerefOr dereferences a pointer and returns its value, or the default if nil.
+func DerefOr[T any](ptr *T, def T) T {
+	if ptr != nil {
+		return *ptr
+	}
+	return def
+}

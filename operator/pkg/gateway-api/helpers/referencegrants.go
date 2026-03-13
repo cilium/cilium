@@ -52,3 +52,8 @@ func isReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1.
 	}
 	return false
 }
+
+// IsObjectRefAllowed returns true if the object reference is allowed by the reference grant.
+func IsObjectRefAllowed(originatingNamespace string, ref gatewayv1.ObjectReference, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1beta1.ReferenceGrant) bool {
+	return isReferenceAllowed(originatingNamespace, string(ref.Name), ref.Namespace, fromGVK, toGVK, grants)
+}

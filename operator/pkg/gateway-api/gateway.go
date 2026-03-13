@@ -156,6 +156,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to BackendTLSPolicy
 		Watches(&gatewayv1.BackendTLSPolicy{}, r.enqueueRequestForBackendTLSPolicy()).
 		Watches(&corev1.ConfigMap{}, r.enqueueRequestForBackendTLSPolicyConfigMap()).
+		// Watch for changes to Frontend TLS ConfigMaps
+		Watches(&corev1.ConfigMap{}, r.enqueueRequestForFrontendTLSConfigMap()).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		Owns(&corev1.Service{})
@@ -171,6 +173,87 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return gatewayBuilder.Complete(r)
+}
+
+// enqueueRequestForFrontendTLSConfigMap returns an event handler that, when passed a ConfigMap,
+// returns reconcile.Requests for all Cilium-relevant Gateways that reference that ConfigMap
+// in their Frontend TLS validation configuration.
+func (r *gatewayReconciler) enqueueRequestForFrontendTLSConfigMap() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		scopedLog := r.logger.With(logfields.LogSubsys, "queue-gw-from-frontend-tls-configmap")
+
+		cfgMap, ok := o.(*corev1.ConfigMap)
+		if !ok {
+			return []reconcile.Request{}
+		}
+
+		// Find all Gateways that reference this ConfigMap in their Frontend TLS validation
+		gwList := &gatewayv1.GatewayList{}
+		if err := r.Client.List(ctx, gwList); err != nil {
+			scopedLog.ErrorContext(ctx, "Unable to list Gateways", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		var reqs []reconcile.Request
+		for i := range gwList.Items {
+			gw := &gwList.Items[i]
+			if !hasMatchingController(ctx, r.Client, controllerName, r.logger)(gw) {
+				continue
+			}
+
+			if gw.Spec.TLS == nil || gw.Spec.TLS.Frontend == nil {
+				continue
+			}
+
+			frontend := gw.Spec.TLS.Frontend
+			isReferenced := false
+
+			// Check default validation
+			if frontend.Default.Validation != nil {
+				for _, certRef := range frontend.Default.Validation.CACertificateRefs {
+					refNs := helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace)
+					if refNs == cfgMap.Namespace && string(certRef.Name) == cfgMap.Name {
+						isReferenced = true
+						break
+					}
+				}
+			}
+
+			// Check per-port overrides
+			if !isReferenced {
+				for _, perPort := range frontend.PerPort {
+					if perPort.TLS.Validation == nil {
+						continue
+					}
+					for _, certRef := range perPort.TLS.Validation.CACertificateRefs {
+						refNs := helpers.NamespaceDerefOr(certRef.Namespace, gw.Namespace)
+						if refNs == cfgMap.Namespace && string(certRef.Name) == cfgMap.Name {
+							isReferenced = true
+							break
+						}
+					}
+					if isReferenced {
+						break
+					}
+				}
+			}
+
+			if isReferenced {
+				req := reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: gw.Namespace,
+						Name:      gw.Name,
+					},
+				}
+				reqs = append(reqs, req)
+				scopedLog.DebugContext(ctx, "ConfigMap referenced in Gateway Frontend TLS, queueing Gateway",
+					logfields.ConfigMapName, client.ObjectKeyFromObject(cfgMap),
+					logfields.Gateway, req.NamespacedName)
+			}
+		}
+
+		return reqs
+	})
 }
 
 // enqueueRequestForOwningGatewayClass returns an event handler that, when given a GatewayClass,

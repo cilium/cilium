@@ -62,6 +62,7 @@ var Cell = cell.Module(
 
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
+	cell.Provide(registerFrontendTLSConfigMapSync),
 )
 
 var requiredGVKs = []schema.GroupVersionKind{
@@ -307,6 +308,27 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 			RefObject:            &gatewayv1.BackendTLSPolicy{},
 			RefObjectEnqueueFunc: EnqueueBackendTLSPolicyConfigMaps(params.CtrlRuntimeManager.GetClient(), params.Logger),
 			RefObjectCheckFunc:   ConfigMapIsReferencedInCiliumGateway,
+			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		},
+	}
+}
+
+// registerFrontendTLSConfigMapSync registers Gateway API for ConfigMap synchronization based on
+// CA certificates referenced in Gateway frontend TLS validation (mTLS).
+func registerFrontendTLSConfigMapSync(params secretSyncParams) secretsync.SecretSyncRegistrationOut {
+	if !params.Preconditions.Enabled {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
+	if !params.GatewayApiConfig.EnableGatewayAPISecretsSync {
+		return secretsync.SecretSyncRegistrationOut{}
+	}
+
+	return secretsync.SecretSyncRegistrationOut{
+		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{
+			RefObject:            &gatewayv1.Gateway{},
+			RefObjectEnqueueFunc: EnqueueFrontendTLSConfigMaps(params.CtrlRuntimeManager.GetClient(), params.Logger),
+			RefObjectCheckFunc:   FrontendTLSConfigMapIsReferenced,
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
 	}
