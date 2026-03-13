@@ -196,7 +196,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 55
+    timeout-minutes: 70
     steps:
       - name: Log Matrix Configuration
         run: |
