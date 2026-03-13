@@ -513,7 +513,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 			}
 		}
 
-		if addr.Addr.Is6() {
+		if addr.Addr.Is6() && !addr.Addr.IsLinkLocalUnicast() {
 			if addr.Addr == k8sIPv6 {
 				// Address matches the K8s Node IP. Prioritize it within its
 				// category (public or private) for NodePort address selection.
