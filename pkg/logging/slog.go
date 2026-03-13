@@ -17,17 +17,28 @@ import (
 // logrErrorKey is the key used by the logr library for the error parameter.
 const logrErrorKey = "err"
 
+// Note: slogHandlerOpts will be mutated by initializeSlog.
+// After mutating the opts, DefaultSlogLogger should be re-initialized
+// with a copy of slogHandlerOpts.
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slogLeveler,
 	ReplaceAttr: replaceAttrFn,
 }
 
+// slogLeveler is the global leveler, updates to the log level
+// do not recreate the default logger.
 var slogLeveler = func() *slog.LevelVar {
 	var levelVar slog.LevelVar
 	levelVar.Set(slog.LevelInfo)
 	return &levelVar
 }()
+
+// GetGlobalLevel gets the currently set level, as it is set in the global
+// slog leveler reference.
+func GetGlobalLevel() slog.Level {
+	return slogLeveler.Level()
+}
 
 var defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 	os.Stderr,
@@ -40,12 +51,14 @@ var DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
 func initializeSlog(logOpts LogOptions, loggers []string) {
+	// Create new instance of opts to avoid handing global slogHandlerOpts
+	// over to new logger.
+	// Note: The single leveler is shared, and can safely be changed concurrently.
 	opts := *slogHandlerOpts
-	opts.Level = logOpts.GetLogLevel()
+	SetLogLevel(logOpts.GetLogLevel())
 	if opts.Level == slog.LevelDebug {
 		opts.AddSource = true
 	}
-
 	writer := os.Stderr
 	switch logOpts[WriterOpt] {
 	case StdErrOpt:
@@ -59,24 +72,26 @@ func initializeSlog(logOpts LogOptions, loggers []string) {
 	// Set first the option with or without timestamps
 	switch logFormat {
 	case LogFormatJSON, LogFormatText:
-		opts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
+		slogHandlerOpts.ReplaceAttr = ReplaceAttrFnWithoutTimestamp
 	case LogFormatJSONTimestamp, LogFormatTextTimestamp:
-		opts.ReplaceAttr = replaceAttrFn
+		slogHandlerOpts.ReplaceAttr = replaceAttrFn
 	}
 
 	// Set the log format in either text or JSON
 	switch logFormat {
 	case LogFormatJSON, LogFormatJSONTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewJSONHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewJSONHandler(
 			writer,
 			&opts,
 		))
 	case LogFormatText, LogFormatTextTimestamp:
-		defaultMultiSlogHandler.SetHandler(slog.NewTextHandler(
+		defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 			writer,
 			&opts,
 		))
 	}
+
+	DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 }
 
 func ReplaceAttrFn(groups []string, a slog.Attr) slog.Attr {

@@ -470,8 +470,7 @@ func (cmd *Cmd) setupLogging(n *types.NetConf) error {
 
 	if len(n.LogFile) != 0 {
 		logging.AddHandlers(hooks.NewFileRotationLogHook(
-			// slogloggercheck: the logger has been initialized with default settings
-			logging.GetSlogLevel(logging.DefaultSlogLogger),
+			logging.GetGlobalLevel(),
 			n.LogFile,
 			hooks.EnableCompression(),
 			hooks.WithMaxBackups(defaultLogMaxBackups),
