@@ -621,6 +621,7 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 	progHelpers := []ProgramHelper{
 		// common probes
 		{ebpf.CGroupSock, asm.FnSetRetval},
+		{ebpf.CGroupSock, asm.FnSkStorageGet},
 
 		// xdp related probes
 		{ebpf.XDP, asm.FnXdpGetBuffLen},
@@ -638,6 +639,7 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
 		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_SK_STORAGE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSkStorageGet}],
 	}
 
 	return writeFeatureHeader(writer, features, true)
@@ -698,6 +700,23 @@ func HaveBatchAPI() error {
 		}
 		return nil
 	}
+	return nil
+}
+
+// HaveSkStorage checks if kernel supports BPF_MAP_TYPE_SK_STORAGE.
+func HaveSkStorage() error {
+	spec := ebpf.MapSpec{
+		Type:       ebpf.SkStorage,
+		KeySize:    4,
+		ValueSize:  4,
+		MaxEntries: 0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
+	}
+	m, err := ebpf.NewMapWithOptions(&spec, ebpf.MapOptions{})
+	if err != nil {
+		return ErrNotSupported
+	}
+	m.Close()
 	return nil
 }
 
