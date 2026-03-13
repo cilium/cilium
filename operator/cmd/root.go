@@ -80,6 +80,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
+	operatorFeatures "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
@@ -433,6 +434,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 
 	cmd.AddCommand(
 		cmdref.NewCmd(cmd),
+		operatorFeatures.NewDumpCmd(cmd),
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
