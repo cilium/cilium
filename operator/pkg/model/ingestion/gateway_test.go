@@ -57,7 +57,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(logger, input)
+			listeners, _, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -79,7 +79,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(logger, input)
+			_, listeners, _ := GatewayAPI(logger, input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -99,10 +99,30 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(logger, input)
+			listeners, _, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
+			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
+		})
+	}
+}
+
+func TestL4GatewayAPI(t *testing.T) {
+	tests := map[string]struct{}{
+		"basic l4": {},
+	}
+
+	for name := range tests {
+		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+			input := readGatewayInput(t, name)
+			_, _, listeners := GatewayAPI(logger, input)
+
+			expected := []model.L4Listener{}
+			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
+
 			assert.Equal(t, toYaml(t, expected), toYaml(t, listeners), "Listeners did not match")
 		})
 	}
@@ -210,6 +230,8 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-httproute.yaml"), &input.HTTPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tlsroute.yaml"), &input.TLSRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-tcproute.yaml"), &input.TCPRoutes)
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-udproute.yaml"), &input.UDPRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
 

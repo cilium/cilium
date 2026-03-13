@@ -18,6 +18,7 @@ import (
 type Model struct {
 	HTTP           []HTTPListener           `json:"http,omitempty"`
 	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
+	L4             []L4Listener             `json:"l4,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
@@ -31,6 +32,10 @@ func (m *Model) GetListeners() []Listener {
 		listeners = append(listeners, &m.TLSPassthrough[i])
 	}
 
+	for i := range m.L4 {
+		listeners = append(listeners, &m.L4[i])
+	}
+
 	return listeners
 }
 
@@ -40,6 +45,7 @@ type Listener interface {
 	GetAnnotations() map[string]string
 	GetLabels() map[string]string
 	GetService() *Service
+	GetProtocol() L4Protocol
 }
 
 // HTTPListener holds configuration for any listener that terminates and proxies HTTP
@@ -111,6 +117,10 @@ func (l HTTPListener) GetService() *Service {
 	return l.Service
 }
 
+func (l HTTPListener) GetProtocol() L4Protocol {
+	return L4ProtocolTCP
+}
+
 // TLSPassthroughListener holds configuration for any listener that proxies TLS
 // based on the SNI value.
 // Each holds the configuration info for one distinct TLS listener, by
@@ -165,6 +175,74 @@ func (l TLSPassthroughListener) GetPort() uint32 {
 
 func (l TLSPassthroughListener) GetService() *Service {
 	return l.Service
+}
+
+func (l TLSPassthroughListener) GetProtocol() L4Protocol {
+	return L4ProtocolTCP
+}
+
+type L4Protocol string
+
+const (
+	L4ProtocolTCP L4Protocol = "TCP"
+	L4ProtocolUDP L4Protocol = "UDP"
+)
+
+// L4Listener holds configuration for TCP or UDP listeners.
+type L4Listener struct {
+	// Name of the listener
+	Name string `json:"name,omitempty"`
+	// Sources is a slice of fully qualified resources this listener is sourced from.
+	Sources []FullyQualifiedResource `json:"sources,omitempty"`
+	// IPAddress that the listener should listen on.
+	Address string `json:"address,omitempty"`
+	// Port on which the service can be expected to be accessed by clients.
+	Port uint32 `json:"port,omitempty"`
+	// Protocol of the listener (TCP or UDP).
+	Protocol L4Protocol `json:"protocol,omitempty"`
+	// Routes associated with traffic to the service.
+	Routes []L4Route `json:"routes,omitempty"`
+	// Service configuration
+	Service *Service `json:"service,omitempty"`
+	// Infrastructure configuration
+	Infrastructure *Infrastructure `json:"infrastructure,omitempty"`
+}
+
+func (l L4Listener) GetAnnotations() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Annotations
+	}
+	return nil
+}
+
+func (l L4Listener) GetLabels() map[string]string {
+	if l.Infrastructure != nil {
+		return l.Infrastructure.Labels
+	}
+	return nil
+}
+
+func (l L4Listener) GetSources() []FullyQualifiedResource {
+	return l.Sources
+}
+
+func (l L4Listener) GetPort() uint32 {
+	return l.Port
+}
+
+func (l L4Listener) GetService() *Service {
+	return l.Service
+}
+
+func (l L4Listener) GetProtocol() L4Protocol {
+	return l.Protocol
+}
+
+// L4Route holds the details needed to route TCP/UDP traffic to backends.
+type L4Route struct {
+	Name string `json:"name,omitempty"`
+	// Backends handling the requests.
+	Backends []Backend `json:"backends,omitempty"`
 }
 
 // Service holds the configuration for desired Service details
@@ -513,9 +591,9 @@ type HTTPRetry struct {
 	Backoff *time.Duration `json:"backoff,omitempty"`
 }
 
-// IsEmpty returns true if the model has no HTTP or TLS Passthrough listeners.
+// IsEmpty returns true if the model has no HTTP, TLS Passthrough or L4 listeners.
 func (m *Model) IsEmpty() bool {
-	return len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0
+	return len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 && len(m.L4) == 0
 }
 
 // IsHTTPListenerConfigured returns true if the model has any HTTP listeners.
@@ -531,6 +609,11 @@ func (m *Model) IsHTTPSListenerConfigured() bool {
 		}
 	}
 	return false
+}
+
+// IsL4ListenerConfigured returns true if the model has any L4 listeners.
+func (m *Model) IsL4ListenerConfigured() bool {
+	return len(m.L4) > 0
 }
 
 // IsTLSPassthroughListenerConfigured returns true if the model has any TLS Passthrough listeners.

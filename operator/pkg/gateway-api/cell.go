@@ -74,6 +74,8 @@ var requiredGVKs = []schema.GroupVersionKind{
 
 var optionalGVKs = []schema.GroupVersionKind{
 	gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
+	gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TCPRouteKind),
+	gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.UDPRouteKind),
 	mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind),
 }
 
@@ -258,8 +260,9 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		},
 	}
 	cecTranslator := translation.NewCECTranslator(cfg)
+	gl4cTranslator := translation.NewGL4CTranslator()
 
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, cfg)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, gl4cTranslator, cfg)
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
@@ -429,6 +432,14 @@ func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Transla
 			// TLSRoute is reconciled by the Gateway API reconciler, but log that the
 			// support has been successfully enabled.
 			logger.Info("TLSRoute CRD is installed, TLSRoute support is enabled")
+		case helpers.TCPRouteKind:
+			// TCPRoute is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
+			logger.Info("TCPRoute CRD is installed, TCPRoute support is enabled")
+		case helpers.UDPRouteKind:
+			// UDPRoute is reconciled by the Gateway API reconciler, but log that the
+			// support has been successfully enabled.
+			logger.Info("UDPRoute CRD is installed, UDPRoute support is enabled")
 		case helpers.ServiceImportKind:
 			// we don't need a reconciler, but we do need to tell folks that the
 			// support is working.

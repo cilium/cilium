@@ -57,6 +57,8 @@ func testSchemeNoServiceImport() *runtime.Scheme {
 
 	noMCSGVKs := []schema.GroupVersionKind{
 		gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
+		gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TCPRouteKind),
+		gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.UDPRouteKind),
 	}
 
 	registerGatewayAPITypesToScheme(scheme, noMCSGVKs)

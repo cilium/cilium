@@ -67,8 +67,8 @@ readonly secondary_network_flag
 readonly optimize_sysctl
 readonly external_dns
 
-controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
-workers="${2:-${WORKERS:=${default_workers}}}"
+controlplanes="${1-${CONTROLPLANES-${default_controlplanes}}}"
+workers="${2-${WORKERS-${default_workers}}}"
 cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 # IMAGE controls the K8s version as well (e.g. kindest/node:v1.11.10)
 image="${4:-${IMAGE:=${default_image}}}"
@@ -176,10 +176,12 @@ control_planes() {
 }
 
 workers() {
-  for i in $(seq 1 "${workers}"); do
-    echo "- role: worker"
-    node_config "1" "$i" "${workers}"
-  done
+  if [ "${workers}" -gt 0 ]; then
+    for i in $(seq 1 "${workers}"); do
+      echo "- role: worker"
+      node_config "1" "$i" "${workers}"
+    done
+  fi
 }
 
 echo "${kind_cmd}"

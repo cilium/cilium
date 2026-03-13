@@ -264,7 +264,7 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 		m.HTTP = append(m.HTTP, ingestion.Ingress(nil, *ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 	}
 
-	cec, svc, err := r.dedicatedTranslator.Translate(m)
+	cec, _, svc, err := r.dedicatedTranslator.Translate(m)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to translate model into resources: %w", err)
 	}

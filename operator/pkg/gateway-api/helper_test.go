@@ -100,6 +100,14 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &gatewayv1alpha2.TLSRoute{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "TCPRoute":
+			obj := &gatewayv1alpha2.TCPRoute{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "UDPRoute":
+			obj := &gatewayv1alpha2.UDPRoute{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		case "GRPCRoute":
 			obj := &gatewayv1.GRPCRoute{}
 			fromYaml(t, o, obj)

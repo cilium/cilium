@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
@@ -73,7 +74,8 @@ func Test_translator_Translate(t *testing.T) {
 			cfg := translation.Config{}
 			readInput(t, fmt.Sprintf("testdata/%s/config-input.yaml", tt.name), &cfg)
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator(cfg),
+				cecTranslator:  translation.NewCECTranslator(cfg),
+				gl4cTranslator: translation.NewGL4CTranslator(),
 			}
 
 			input := &model.Model{}
@@ -83,7 +85,7 @@ func Test_translator_Translate(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, err := trans.Translate(input)
+			cec, _, svc, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
@@ -187,8 +189,9 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 			for _, translatorCase := range translatorCases {
 				t.Run(translatorCase.name, func(t *testing.T) {
 					trans := &gatewayAPITranslator{
-						cecTranslator: translation.NewCECTranslator(translatorCase.cfg),
-						cfg:           translatorCase.cfg,
+						cecTranslator:  translation.NewCECTranslator(translatorCase.cfg),
+						gl4cTranslator: translation.NewGL4CTranslator(),
+						cfg:            translatorCase.cfg,
 					}
 					input := &model.Model{}
 					readInput(t, fmt.Sprintf("testdata/%s/%s/input.yaml", tt.name, translatorCase.name), input)
@@ -197,7 +200,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					expectedService := &corev1.Service{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
-					cec, svc, err := trans.Translate(input)
+					cec, _, svc, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, expectedService, svc, "Service mismatch")
 
@@ -239,8 +242,9 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 				},
 			}
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator(cfg),
-				cfg:           cfg,
+				cecTranslator:  translation.NewCECTranslator(cfg),
+				gl4cTranslator: translation.NewGL4CTranslator(),
+				cfg:            cfg,
 			}
 
 			input := &model.Model{}
@@ -250,7 +254,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, err := trans.Translate(input)
+			cec, _, svc, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())
@@ -264,10 +268,104 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 	}
 }
 
+func Test_translator_Translate_L4Only(t *testing.T) {
+	trans := &gatewayAPITranslator{
+		cecTranslator:  translation.NewCECTranslator(translation.Config{}),
+		gl4cTranslator: translation.NewGL4CTranslator(),
+	}
+	source := model.FullyQualifiedResource{
+		Name:      "test",
+		Namespace: "default",
+		Kind:      "Gateway",
+		UID:       "uid",
+	}
+	input := &model.Model{
+		L4: []model.L4Listener{
+			{
+				Name:     "tcp",
+				Sources:  []model.FullyQualifiedResource{source},
+				Port:     80,
+				Protocol: model.L4ProtocolTCP,
+			},
+			{
+				Name:     "udp",
+				Sources:  []model.FullyQualifiedResource{source},
+				Port:     53,
+				Protocol: model.L4ProtocolUDP,
+			},
+		},
+	}
+
+	cec, gl4c, svc, err := trans.Translate(input)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+	require.Nil(t, cec)
+	require.NotNil(t, gl4c)
+	require.Len(t, gl4c.Spec.Listeners, 2)
+	assert.Equal(t, ciliumv2alpha1.L4ProtocolTCP, gl4c.Spec.Listeners[0].Protocol)
+	assert.Equal(t, ciliumv2alpha1.L4ProtocolUDP, gl4c.Spec.Listeners[1].Protocol)
+	assert.ElementsMatch(t, []corev1.ServicePort{
+		{
+			Name:     "port-80",
+			Port:     80,
+			Protocol: corev1.ProtocolTCP,
+		},
+		{
+			Name:     "port-53-udp",
+			Port:     53,
+			Protocol: corev1.ProtocolUDP,
+		},
+	}, svc.Spec.Ports)
+}
+
+func Test_translator_toServicePorts_MixedProtocolsSamePort(t *testing.T) {
+	trans := &gatewayAPITranslator{}
+	listeners := []model.Listener{
+		&model.L4Listener{
+			Port:     80,
+			Protocol: model.L4ProtocolUDP,
+		},
+		&model.HTTPListener{
+			Port: 80,
+		},
+		&model.TLSPassthroughListener{
+			Port: 53,
+		},
+		&model.L4Listener{
+			Port:     53,
+			Protocol: model.L4ProtocolUDP,
+		},
+	}
+
+	servicePorts := trans.toServicePorts(listeners)
+	assert.Equal(t, []corev1.ServicePort{
+		{
+			Name:     "port-53",
+			Port:     53,
+			Protocol: corev1.ProtocolTCP,
+		},
+		{
+			Name:     "port-53-udp",
+			Port:     53,
+			Protocol: corev1.ProtocolUDP,
+		},
+		{
+			Name:     "port-80",
+			Port:     80,
+			Protocol: corev1.ProtocolTCP,
+		},
+		{
+			Name:     "port-80-udp",
+			Port:     80,
+			Protocol: corev1.ProtocolUDP,
+		},
+	}, servicePorts)
+}
+
 func Test_getService(t *testing.T) {
 	type args struct {
 		resource              *model.FullyQualifiedResource
-		allPorts              []uint32
+		allPorts              []corev1.ServicePort
 		labels                map[string]string
 		annotations           map[string]string
 		externalTrafficPolicy string
@@ -287,7 +385,13 @@ func Test_getService(t *testing.T) {
 					Kind:      "Gateway",
 					UID:       "57889650-380b-4c05-9a2e-3baee7fd5271",
 				},
-				allPorts:              []uint32{80},
+				allPorts: []corev1.ServicePort{
+					{
+						Name:     fmt.Sprintf("port-%d", 80),
+						Port:     80,
+						Protocol: corev1.ProtocolTCP,
+					},
+				},
 				externalTrafficPolicy: "Cluster",
 			},
 			want: &corev1.Service{
@@ -331,7 +435,7 @@ func Test_getService(t *testing.T) {
 					Kind:      "Gateway",
 					UID:       "41b82697-2d8d-4776-81b6-44d0bbac7faa",
 				},
-				allPorts:              []uint32{80},
+				allPorts:              []corev1.ServicePort{{Name: "port-80", Port: 80, Protocol: corev1.ProtocolTCP}},
 				externalTrafficPolicy: "Local",
 			},
 			want: &corev1.Service{

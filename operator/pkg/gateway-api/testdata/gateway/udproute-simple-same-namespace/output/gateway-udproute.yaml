@@ -1,0 +1,51 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-udproute
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: udp
+      port: 5353
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: UDPRoute
+status:
+  conditions:
+    - message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+      lastTransitionTime: "2026-02-25T00:00:00Z"
+    - message: Gateway waiting for address
+      reason: AddressNotAssigned
+      status: "False"
+      type: Programmed
+      lastTransitionTime: "2026-02-25T00:00:00Z"
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+          lastTransitionTime: "2026-02-25T00:00:00Z"
+        - message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+          lastTransitionTime: "2026-02-25T00:00:00Z"
+        - message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+          lastTransitionTime: "2026-02-25T00:00:00Z"
+      name: udp
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: UDPRoute
