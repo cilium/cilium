@@ -1600,6 +1600,10 @@
      - Maximum number of requests on Envoy clusters
      - int
      - ``1024``
+   * - :spelling:ignore:`envoy.configTimeoutDuration`
+     - Max duration to wait for envoy to respond to configuration changes. Default "2m".
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int

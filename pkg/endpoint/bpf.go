@@ -399,8 +399,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return 0, fmt.Errorf("endpoint was closed while waiting for datapath lock: %w", err)
 	}
 
-	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
-	defer datapathRegenCtxt.completionCancel()
+	cancel := datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
+	defer cancel()
 
 	err = e.runPreCompilationSteps(regenContext)
 	// Keep track of the side-effects of the regeneration that need to be
@@ -601,7 +601,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 	}
 
 	// Compile and install BPF programs for this endpoint
-	templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+	templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.proxyWaitGroup.Context(), datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			e.getLogger().Error(

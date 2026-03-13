@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // WaitGroup waits for a collection of Completions to complete.
@@ -27,20 +28,16 @@ type WaitGroup struct {
 	pendingCompletions []*Completion
 }
 
-// NewWaitGroup returns a new WaitGroup using the given context. The WaitGroup will hold an internal context
-// that will be cancelled when the first completion returns an error or when Wait returns. If Wait is not executed,
-// a call to Cancel should be done to avoid leaking resources.
-func NewWaitGroup(ctx context.Context) *WaitGroup {
-	ctx2, cancel := context.WithCancel(ctx)
-	return &WaitGroup{ctx: ctx2, cancel: cancel}
+// NewWaitGroup returns a new WaitGroup using the given context.
+// Returns a cancel function that must be eventually called by the caller.
+// The returned WaitGroup can be used for multiple AddCompletion/Wait cycles within the given
+// timeout duration.
+func NewWaitGroup(parentCtx context.Context, timeout time.Duration) (*WaitGroup, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(parentCtx, timeout)
+	return &WaitGroup{ctx: ctx, cancel: cancel}, cancel
 }
 
-// Cancel will cancel the underlying context and free its resources
-func (wg *WaitGroup) Cancel() {
-	wg.cancel()
-}
-
-// Context returns the context of all the Completions in the wait group.
+// Context returns the context (with a timeout) of the wait group.
 func (wg *WaitGroup) Context() context.Context {
 	return wg.ctx
 }
@@ -91,6 +88,9 @@ func updateError(old, new error) error {
 // this returns.
 // Returns the error value of one of the completions, if available, or the
 // error value of the Context otherwise.
+//
+// The WaitGroup retains it's initial context timeout if the context deadline has not been exceeded,
+// and can be reused until it does by adding new completions and waiting again.
 func (wg *WaitGroup) Wait() error {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
@@ -114,7 +114,6 @@ Loop:
 		}
 	}
 	wg.pendingCompletions = nil
-	wg.cancel()
 	return err
 }
 

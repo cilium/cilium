@@ -41,6 +41,7 @@ var Cell = cell.Module(
 
 	metrics.Metric(xds.NewXDSMetric),
 
+	cell.Config(config.DefaultXdsConfig),
 	cell.Config(config.ProxyConfig{}),
 	cell.Config(config.SecretSyncConfig{}),
 	cell.Provide(newEnvoyXDSServer),
@@ -62,6 +63,8 @@ type xdsServerParams struct {
 	IPCache            *ipcache.IPCache
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
 	LocalEndpointStore *LocalEndpointStore
+
+	XdsConfig config.XdsConfig
 
 	EnvoyProxyConfig config.ProxyConfig
 
@@ -105,6 +108,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			policyRestoreTimeout:          params.EnvoyProxyConfig.EnvoyPolicyRestoreTimeout,
 			metrics:                       params.Metrics,
 			httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
+			xdsResponseTimeout:            params.XdsConfig.EnvoyConfigTimeout,
 		},
 		params.SecretManager)
 

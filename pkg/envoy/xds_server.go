@@ -223,6 +223,7 @@ type xdsServerConfig struct {
 	policyRestoreTimeout          time.Duration
 	metrics                       xds.Metrics
 	httpLingerConfig              int
+	xdsResponseTimeout            time.Duration
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -1883,13 +1884,16 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 			logfields.Resource, msg,
 		)
 	}
+
+	var cancel context.CancelFunc
 	var wg *completion.WaitGroup
 	// Listener config may fail if it refers to a cluster that has not been added yet, so we
 	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
 	// config does not fail for this reason.
 	// Enable wait before new Listeners are added if clusters are also added.
 	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
-		wg = completion.NewWaitGroup(ctx)
+		wg, cancel = completion.NewWaitGroup(ctx, s.config.xdsResponseTimeout)
+		defer cancel()
 	}
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Do not wait for the addition of routes, clusters, endpoints, routes,
@@ -1943,12 +1947,14 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
 			return err
 		}
-		wg = nil
 	}
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
-	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
+	if len(resources.Listeners) == 0 {
+		wg = nil
+	} else if wg == nil {
+		wg, cancel = completion.NewWaitGroup(ctx, s.config.xdsResponseTimeout)
+		defer cancel()
 	}
 	for _, r := range resources.Listeners {
 		s.logger.Debug("Envoy upsertListener",
@@ -1989,12 +1995,14 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 
 func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
 	waitForDelete := false
+	var cancel context.CancelFunc
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
 	if len(new.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
+		wg, cancel = completion.NewWaitGroup(ctx, s.config.xdsResponseTimeout)
+		defer cancel()
 	}
 	// Delete old listeners not added in 'new' or if old and new listener have different ports
 	var deleteListeners []*envoy_config_listener.Listener
@@ -2147,8 +2155,6 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		s.logger.Debug("UpdateEnvoyResources: Finished waiting for proxy deletes",
 			logfields.Duration, time.Since(start),
 		)
-		// new wait group for adds
-		wg = completion.NewWaitGroup(ctx)
 	}
 
 	// Add new Secrets
@@ -2179,8 +2185,6 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		s.logger.Debug("UpdateEnvoyResources: Finished waiting for cluster updates",
 			logfields.Duration, time.Since(start),
 		)
-		// new wait group for adds
-		wg = completion.NewWaitGroup(ctx)
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {
@@ -2225,12 +2229,14 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 		logfields.ResourceEndpoints, len(resources.Endpoints),
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
+	var cancel context.CancelFunc
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
 	if len(resources.Listeners) > 0 {
-		wg = completion.NewWaitGroup(ctx)
+		wg, cancel = completion.NewWaitGroup(ctx, s.config.xdsResponseTimeout)
+		defer cancel()
 	}
 	for _, r := range resources.Listeners {
 		listenerName := r.Name

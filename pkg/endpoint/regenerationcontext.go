@@ -144,8 +144,6 @@ type datapathRegenerationContext struct {
 	epInfoCache        *epInfoCache
 	proxyWaitGroup     *completion.WaitGroup
 	ctCleaned          chan struct{}
-	completionCtx      context.Context
-	completionCancel   context.CancelFunc
 	currentDir         string
 	nextDir            string
 	regenerationLevel  regeneration.DatapathRegenerationLevel
@@ -157,9 +155,8 @@ type datapathRegenerationContext struct {
 	revertStack  revert.RevertStack
 }
 
-func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {
-	completionCtx, completionCancel := context.WithTimeout(parentCtx, EndpointGenerationTimeout)
-	ctx.proxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	ctx.completionCtx = completionCtx
-	ctx.completionCancel = completionCancel
+func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) context.CancelFunc {
+	proxyWaitGroup, cancel := completion.NewWaitGroup(parentCtx, EndpointGenerationTimeout)
+	ctx.proxyWaitGroup = proxyWaitGroup
+	return cancel
 }

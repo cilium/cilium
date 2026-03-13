@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	envoyConfig "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -183,6 +184,7 @@ type endpointManagerParams struct {
 	JobGroup        job.Group
 	Lifecycle       cell.Lifecycle
 	Config          EndpointManagerConfig
+	XdsConfig       envoyConfig.XdsConfig
 	Clientset       client.Clientset
 	MetricsRegistry *metrics.Registry
 	Health          cell.Health
@@ -207,7 +209,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 
 	p.Config.Validate(p.Logger)
 
-	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config)
+	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config, p.XdsConfig)
 
 	p.Lifecycle.Append(cell.Hook{
 		OnStop: func(cell.HookContext) error {

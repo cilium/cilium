@@ -6,8 +6,21 @@ package config
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+type XdsConfig struct {
+	EnvoyConfigTimeout time.Duration
+}
+
+func (r XdsConfig) Flags(flags *pflag.FlagSet) {
+	flags.Duration("envoy-config-timeout", defaults.PolicyUpdateTimeout, "Maximum time to wait for Envoy to N/ACK an xDS response.")
+}
+
+var DefaultXdsConfig = XdsConfig{
+	EnvoyConfigTimeout: defaults.PolicyUpdateTimeout,
+}
 
 type ProxyConfig struct {
 	DisableEnvoyVersionCheck            bool

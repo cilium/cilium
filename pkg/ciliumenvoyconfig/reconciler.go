@@ -158,9 +158,6 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	resources := res.Resources
 
-	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
-	defer cancel()
-
 	var prevResources envoy.Resources
 	if res.ReconciledResources != nil {
 		prevResources = *res.ReconciledResources
