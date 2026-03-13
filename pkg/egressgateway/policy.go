@@ -205,8 +205,16 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		}
 
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
+		// Try to find the interface with this IP. This is best-effort: in cloud environments
+		// (e.g. GKE, EKS, AKS), the egress IP may be managed by the cloud provider and not
+		// directly visible on a local interface. In such cases, we still use the egress IP for
+		// SNAT, just without interface metadata.
 		if err != nil {
-			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+			logger.Warn(
+				"Failed to find interface with egress IP, continuing without interface metadata",
+				logfields.Error, err,
+				logfields.EgressIP, gc.egressIP,
+			)
 		}
 
 	default:
@@ -247,7 +255,10 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	if v6Needed {
 		gwc.egressIP6 = egressIP6
 	}
-	gwc.localNodeConfiguredAsGateway = true
+
+	if gwc.ifaceName != "" {
+		gwc.localNodeConfiguredAsGateway = true
+	}
 
 	return nil
 }
