@@ -54,7 +54,7 @@ type DNSMessageHandler interface {
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
-		msg *dns.Msg,
+		details *dnsproxy.MsgDetails,
 		protocol string,
 		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
@@ -86,6 +86,17 @@ type dnsMessageHandler struct {
 
 var _ DNSMessageHandler = &dnsMessageHandler{}
 
+// flowInfo contains the flow context information used for proxy statistics
+// and access log records.
+type flowInfo struct {
+	flowType       accesslog.FlowType
+	verdict        accesslog.FlowVerdict
+	reason         string
+	addrInfo       accesslog.AddressingInfo
+	protocol       string
+	serverAddrPort netip.AddrPort
+}
+
 // SetBindPort pushes the proxy bind port to the handler;
 // this is needed to break an import loop otherwise.
 //
@@ -116,12 +127,11 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	dnsMsgDetails *dnsproxy.MsgDetails,
 	protocol string,
 	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
 ) error {
-	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
 	metricError := metricErrorAllow
@@ -185,45 +195,51 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 
 	// We determine the direction based on the DNS packet. The observation
 	// point is always Egress, however.
-	var flowType accesslog.FlowType
-	var addrInfo accesslog.AddressingInfo
+	flow := flowInfo{
+		verdict:        verdict,
+		reason:         reason,
+		protocol:       protocol,
+		serverAddrPort: serverAddrPort,
+	}
 	serverAddrPortStr := serverAddrPort.String()
-	if msg.Response {
-		flowType = accesslog.TypeResponse
-		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstEPID = ep.GetID()
+	if dnsMsgDetails.Response {
+		flow.flowType = accesslog.TypeResponse
+		flow.addrInfo.DstIPPort = epIPPort
+		flow.addrInfo.DstEPID = ep.GetID()
 		// ignore error; log fields are best effort. Only returns error if endpoint
 		// is going away.
-		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.SrcIPPort = serverAddrPortStr
-		addrInfo.SrcIdentity = serverID
+		flow.addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
+		flow.addrInfo.SrcIPPort = serverAddrPortStr
+		flow.addrInfo.SrcIdentity = serverID
 	} else {
-		flowType = accesslog.TypeRequest
-		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcEPID = ep.GetID()
+		flow.flowType = accesslog.TypeRequest
+		flow.addrInfo.SrcIPPort = epIPPort
+		flow.addrInfo.SrcEPID = ep.GetID()
 		// ignore error; same reason as above.
-		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.DstIPPort = serverAddrPortStr
-		addrInfo.DstIdentity = serverID
+		flow.addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
+		flow.addrInfo.DstIPPort = serverAddrPortStr
+		flow.addrInfo.DstIdentity = serverID
 	}
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
-	if err != nil {
-		h.logger.Error("cannot extract DNS message details",
-			logfields.Error, err,
-			logfields.DNSName, qname,
-		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
-	}
-
-	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat)
+	if dnsMsgDetails.Response && dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {
+		h.UpdateOnDNSMsg(lookupTime, ep, dnsMsgDetails.QName, dnsMsgDetails.ResponseIPs, int(dnsMsgDetails.TTL), stat)
 		endMetric()
 	}
 
 	stat.ProcessingTime.End(true)
 
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, !msg.Response, verdict)
+	return h.logDNSMessage(ep, flow, dnsMsgDetails, stat)
+}
+
+// logDNSMessage updates proxy statistics and creates and emits a proxy access log record for a DNS message.
+func (h *dnsMessageHandler) logDNSMessage(
+	ep *endpoint.Endpoint,
+	flowInfo flowInfo,
+	dnsMsgDetails *dnsproxy.MsgDetails,
+	stat *dnsproxy.ProxyRequestContext,
+) error {
+	protoID := u8proto.ProtoIDs[strings.ToLower(flowInfo.protocol)]
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(flowInfo.protocol), flowInfo.serverAddrPort.Port(), h.bindPort, false, !dnsMsgDetails.Response, flowInfo.verdict)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
@@ -232,21 +248,21 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
-	record, err := h.proxyAccessLogger.NewLogRecord(context.Background(), flowType, false,
+	record, err := h.proxyAccessLogger.NewLogRecord(context.Background(), flowInfo.flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
-		accesslog.LogTags.Verdict(verdict, reason),
-		accesslog.LogTags.Addressing(logContext, addrInfo),
+		accesslog.LogTags.Verdict(flowInfo.verdict, flowInfo.reason),
+		accesslog.LogTags.Addressing(logContext, flowInfo.addrInfo),
 		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
-			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
+			Query:             dnsMsgDetails.QName,
+			IPs:               dnsMsgDetails.ResponseIPs,
+			TTL:               dnsMsgDetails.TTL,
+			CNAMEs:            dnsMsgDetails.CNAMEs,
 			ObservationSource: stat.DataSource,
-			RCode:             rcode,
-			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
+			RCode:             dnsMsgDetails.RCode,
+			QTypes:            dnsMsgDetails.QTypes,
+			AnswerTypes:       dnsMsgDetails.AnswerTypes,
 		}),
 	)
 	if err != nil {
