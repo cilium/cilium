@@ -26,7 +26,6 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 		return false, nil
 	}
 
-	allListenerHostNames := GetAllListenerHostNames(gw.Spec.Listeners)
 	hasNamespaceRestriction := false
 	for _, listener := range gw.Spec.Listeners {
 		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
@@ -36,7 +35,12 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 			continue
 		}
 
-		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) == 0 {
+		// Only consider hostnames from listeners with the same protocol for hostname isolation.
+		// This prevents hostnames from different protocol types (e.g., HTTPS) from
+		// incorrectly filtering out routes that should attach to wildcard listeners
+		// of another protocol type (e.g., HTTP).
+		protocolListenerHostNames := GetListenerHostNamesByProtocol(gw.Spec.Listeners, []gatewayv1.ProtocolType{listener.Protocol})
+		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), protocolListenerHostNames)) == 0 {
 			continue
 		}
 
@@ -238,6 +242,24 @@ func GetAllListenerHostNames(listeners []gatewayv1.Listener) []gatewayv1.Hostnam
 	for _, listener := range listeners {
 		if listener.Hostname != nil {
 			hosts = append(hosts, *listener.Hostname)
+		}
+	}
+	return hosts
+}
+
+// GetListenerHostNamesByProtocol returns hostnames from listeners that match any of the specified protocols.
+// This is used to ensure hostname isolation only considers listeners of the same protocol type,
+// preventing HTTPS listener hostnames from incorrectly filtering out routes on HTTP wildcard listeners.
+func GetListenerHostNamesByProtocol(listeners []gatewayv1.Listener, protocols []gatewayv1.ProtocolType) []gatewayv1.Hostname {
+	var hosts []gatewayv1.Hostname
+	for _, listener := range listeners {
+		if listener.Hostname != nil {
+			for _, protocol := range protocols {
+				if listener.Protocol == protocol {
+					hosts = append(hosts, *listener.Hostname)
+					break
+				}
+			}
 		}
 	}
 	return hosts
