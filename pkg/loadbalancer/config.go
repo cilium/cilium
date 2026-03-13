@@ -90,6 +90,11 @@ const (
 
 	// EnableServiceTopologyName is the flag name of for the EnableServiceTopology option
 	EnableServiceTopologyName = "enable-service-topology"
+
+	// NodePortEnableDynamicSourceLookup is the flag name for the NodePortEnableDynamicSourceLookup option
+	// Enable dynamic source IP resolution for SNAT via linux's routing table.
+	// The kernel must support this feature.
+	NodePortEnableDynamicSourceLookup = "enable-dynamic-source-lookup-nodeport"
 )
 
 // Configuration option defaults
@@ -223,6 +228,10 @@ type UserConfig struct {
 	// thus may need to first reconcile the Kubernetes services to connect to ClusterMesh (if endpoints have changed
 	// while agent was down).
 	InitWaitTimeout time.Duration `mapstructure:"lb-init-wait-timeout"`
+
+	// Enable dynamic source IP resolution for SNAT via linux's routing table.
+	// The kernel must support this feature.
+	NodePortEnableDynamicSourceLookup bool `mapstructure:"enable-dynamic-source-lookup-nodeport"`
 }
 
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
@@ -337,6 +346,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Duration("lb-init-wait-timeout", def.InitWaitTimeout, "Amount of time to wait for initialization before reconciling BPF maps")
 	flags.MarkHidden("lb-init-wait-timeout")
+
+	flags.Bool(NodePortEnableDynamicSourceLookup, def.NodePortEnableDynamicSourceLookup, "Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.")
 }
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final

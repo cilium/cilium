@@ -40,6 +40,9 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	}
 
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
+	node.SupportsFIBLookupSrc = probes.HaveFibLookupSrc() == nil
+
+	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 
 	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 

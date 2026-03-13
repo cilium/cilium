@@ -129,6 +129,7 @@ cilium-agent [flags]
       --enable-drift-checker                                      Enables support for config drift checker (default true)
       --enable-dynamic-config                                     Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
+      --enable-dynamic-source-lookup-nodeport                     Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.
       --enable-egress-gateway                                     Enable egress gateway
       --enable-encryption-strict-mode-egress                      Enable strict mode encryption enforcement for egress traffic
       --enable-encryption-strict-mode-ingress                     Enable strict mode encryption enforcement for ingress traffic

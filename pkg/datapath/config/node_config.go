@@ -29,6 +29,8 @@ type Node struct {
 	EnableConntrackAccounting bool `config:"enable_conntrack_accounting"`
 	// Use jiffies (count of timer ticks since boot).
 	EnableJiffies bool `config:"enable_jiffies"`
+	// Enable dynamic source IP resolution for SNAT via linux's routing table.
+	EnableNodeportSourceLookup bool `config:"enable_nodeport_source_lookup"`
 	// Enable BPF-based proxy redirection.
 	EnableTproxy bool `config:"enable_tproxy"`
 	// Cluster-wide IPv4 tuple hash seed sourced.
@@ -53,6 +55,8 @@ type Node struct {
 	ServiceLoopbackIPv6 [16]byte `config:"service_loopback_ipv6"`
 	// Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.
 	SupportsFIBLookupSkipNeigh bool `config:"supports_fib_lookup_skip_neigh"`
+	// Whether or not BPF_FIB_LOOKUP_SRC is supported.
+	SupportsFIBLookupSrc bool `config:"supports_fib_lookup_src"`
 	// Length of payload to capture when tracing native packets.
 	TracePayloadLen uint32 `config:"trace_payload_len"`
 	// Length of payload to capture when tracing overlay packets.
@@ -63,10 +67,10 @@ type Node struct {
 
 func NewNode() *Node {
 	return &Node{0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x8, false, 0x0, false, false, false, 0x0, 0x0, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, false,
+		0x0, 0x8, false, 0x0, false, false, false, false, 0x0, 0x0,
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0}, 0x0, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, 0x0, 0x0, 0x0}
+		false, false, 0x0, 0x0, 0x0}
 }
