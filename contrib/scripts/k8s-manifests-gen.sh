@@ -46,16 +46,19 @@ go tool sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${
 go run ${SCRIPT_ROOT}/../../tools/crdcheck "${TMPDIR}"
 
 # Clean up old CRD state and start with a blank state.
+# We only delete the yaml files in the directories because these directories
+# also contain an `embed.go` which exists to export the CRD manifests via Go's
+# `embed.FS`.
 for path in ${CRDS_CILIUM_PATHS}; do
-  rm -rf "${path}" && mkdir "${path}"
+  find "${path}" -type f -name '*.yaml' -delete
 done
 
 for file in ${CRDS_CILIUM_V2}; do
-  mv "${TMPDIR}/cilium.io_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/cilium.io/client/crds/v2/${file}.yaml";
+  mv "${TMPDIR}/cilium.io_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/cilium.io/client/crds/v2/${file}.yaml"
 done
 
 for file in ${CRDS_CILIUM_V2ALPHA1}; do
-  mv "${TMPDIR}/cilium.io_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/cilium.io/client/crds/v2alpha1/${file}.yaml";
+  mv "${TMPDIR}/cilium.io_${file}.yaml" "${SCRIPT_ROOT}/../../pkg/k8s/apis/cilium.io/client/crds/v2alpha1/${file}.yaml"
 done
 
 rm -rf "${TMPDIR}"
