@@ -3471,6 +3471,14 @@
               },
               "type": "object"
             },
+            "networkPolicy": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
@@ -4018,6 +4026,14 @@
               "type": "object"
             },
             "labels": {
+              "type": "object"
+            },
+            "networkPolicy": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
               "type": "object"
             },
             "nodeSelector": {
