@@ -70,6 +70,7 @@ runs:
 
         gcloud container clusters create "${{ inputs.cluster-name }}" \
           --zone "${{ inputs.zone }}" \
+          --release-channel "extended" \
           --enable-ip-alias \
           --create-subnetwork="range=/26" \
           --cluster-ipv4-cidr="/21" \
