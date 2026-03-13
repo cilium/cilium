@@ -137,6 +137,7 @@ cilium-agent [flags]
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
       --enable-extended-ip-protocols                              Enable traffic with extended IP protocols in datapath
+      --enable-floating-tunnel-endpoint                           Enable floating tunnel endpoints
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                               Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
@@ -438,6 +439,7 @@ cilium-agent [flags]
       --trace-sock                                                Enable tracing for socket-based LB (default true)
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
+      --tunnel-routing-devices strings                            A list of devices used to route tunnel traffic when floating tunnel endpoints are enabled
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")
       --underlay-protocol string                                  IP family for the underlay ("ipv4", "ipv6", or "auto") (default "auto")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.

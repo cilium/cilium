@@ -131,6 +131,10 @@ func (i *ipcacheMock) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	return 0
 }
 
+func (i *ipcacheMock) UpsertTunnelEndpointMapping(from, to net.IP) {}
+
+func (i *ipcacheMock) DeleteTunnelEndpointMapping(from net.IP) {}
+
 type ipsetMock struct {
 	v4 map[string]struct{}
 	v6 map[string]struct{}
@@ -1528,4 +1532,63 @@ func TestNodesStartupPruning(t *testing.T) {
 		assert.Equal(t, float64(2), mngr.metrics.EventsReceived.WithLabelValues("delete", string(source.Restored)).Get())
 		assert.Equal(t, float64(3), mngr.metrics.NumNodes.Get())
 	})
+}
+
+func TestNodeMultipathTunnelEndpoint(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	ipcache := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
+		Logger:            hivetest.Logger(t),
+		IdentityAllocator: allocator,
+		IdentityUpdater:   &mockUpdater{},
+	})
+	defer cancel()
+	dp := newSignalNodeHandler()
+	dp.EnableNodeAddEvent = true
+	dp.EnableNodeUpdateEvent = true
+	dp.EnableNodeDeleteEvent = true
+	h, _ := cell.NewSimpleHealth()
+	mngr, err := New(logger, &option.DaemonConfig{
+		LocalRouterIPv4:              "169.254.4.6",
+		EnableFloatingTunnelEndpoint: true,
+	}, tunnel.Config{}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, node.NewTestLocalNodeStore(node.LocalNode{}))
+	require.NoError(t, err)
+	mngr.Subscribe(dp)
+	defer mngr.Stop(context.TODO())
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.128.0.40"),
+			},
+			{
+				Type: addressing.NodeExternalIP,
+				IP:   net.ParseIP("34.171.135.203"),
+			},
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("169.254.4.6"),
+			},
+		},
+		Source: source.Local,
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		mapped, ok := ipcache.GetTunnelEndpointMapping(nodeEvent.GetNodeInternalIPv4())
+		assert.True(t, ok)
+		assert.Equal(t, mapped, nodeEvent.GetCiliumInternalIP(false))
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
+	}
 }

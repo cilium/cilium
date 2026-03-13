@@ -2412,6 +2412,12 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+# -- Make Cilium use floating tunnel endpoints. When enabled, Cilium will use the router IPs of remote nodes 
+#    as the tunnel endpoint instead of the node IP, which allows that traffic to be routed over multiple interfaces.
+enableFloatingTunnelEndpoint: false
+# -- List of devices to be used for multipath routing when not empty, Cilium will create multipath routes for the
+#    router IPs via the specified devices.
+tunnelRoutingDevices: []
 nat:
   # -- Number of the top-k SNAT map connections to track in Cilium statedb.
   mapStatsEntries: 32

@@ -565,6 +565,13 @@ data:
   underlay-protocol: {{ .Values.underlayProtocol | quote }}
 {{- end }}
 
+{{- if .Values.enableFloatingTunnelEndpoint }}
+  enable-floating-tunnel-endpoint: "true"
+{{- end }}
+{{- if .Values.tunnelRoutingDevices }}
+  tunnel-routing-devices: {{ join " " .Values.tunnelRoutingDevices | quote }}
+{{- end }}
+
 {{- if .Values.serviceNoBackendResponse }}
   service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
 {{- end}}

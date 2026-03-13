@@ -539,6 +539,9 @@ const (
 
 	// PolicyAccouting is the default value for option.PolicyAccounting
 	PolicyAccounting = true
+
+	// EnableTunnelMultipathRouting is the default value for option.EnableTunnelMultipathRouting
+	EnableTunnelMultipathRouting = false
 )
 
 var (

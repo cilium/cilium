@@ -108,6 +108,7 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.IdentityUpdater
 	synced.CacheStatus
+	EnableTunnelMultipathRouting bool
 }
 
 // IPCache is a collection of mappings:
@@ -115,13 +116,14 @@ type Configuration struct {
 //     which are part of the same cluster, and vice-versa
 //   - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
-	logger            *slog.Logger
-	mutex             lock.SemaphoredMutex
-	ipToIdentityCache map[string]Identity
-	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
-	ipToHostIPCache   map[string]IPKeyPair
-	ipToK8sMetadata   map[string]K8sMetadata
-	ipToEndpointFlags map[string]uint8
+	logger             *slog.Logger
+	mutex              lock.SemaphoredMutex
+	ipToIdentityCache  map[string]Identity
+	identityToIPCache  map[identity.NumericIdentity]map[string]struct{}
+	ipToHostIPCache    map[string]IPKeyPair
+	ipToK8sMetadata    map[string]K8sMetadata
+	ipToEndpointFlags  map[string]uint8
+	ipToTunnelEndpoint map[string]net.IP
 
 	listeners []IPIdentityMappingListener
 
@@ -161,18 +163,19 @@ type IPCache struct {
 // identity (and vice-versa) initialized.
 func NewIPCache(c *Configuration) *IPCache {
 	ipc := &IPCache{
-		logger:            c.Logger,
-		mutex:             lock.NewSemaphoredMutex(),
-		ipToIdentityCache: map[string]Identity{},
-		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
-		ipToHostIPCache:   map[string]IPKeyPair{},
-		ipToK8sMetadata:   map[string]K8sMetadata{},
-		ipToEndpointFlags: map[string]uint8{},
-		controllers:       controller.NewManager(),
-		namedPorts:        types.NewNamedPortMultiMap(),
-		metadata:          newMetadata(c.Logger),
-		prefixLengths:     counter.DefaultPrefixLengthCounter(),
-		Configuration:     c,
+		logger:             c.Logger,
+		mutex:              lock.NewSemaphoredMutex(),
+		ipToIdentityCache:  map[string]Identity{},
+		identityToIPCache:  map[identity.NumericIdentity]map[string]struct{}{},
+		ipToHostIPCache:    map[string]IPKeyPair{},
+		ipToK8sMetadata:    map[string]K8sMetadata{},
+		ipToEndpointFlags:  map[string]uint8{},
+		ipToTunnelEndpoint: map[string]net.IP{},
+		controllers:        controller.NewManager(),
+		namedPorts:         types.NewNamedPortMultiMap(),
+		metadata:           newMetadata(c.Logger),
+		prefixLengths:      counter.DefaultPrefixLengthCounter(),
+		Configuration:      c,
 	}
 	return ipc
 }
@@ -389,6 +392,14 @@ func (ipc *IPCache) upsertLocked(
 	} else if fromLegacyAPI {
 		// If this is a new entry, inserted via legacy API, then track it as such
 		newIdentity.modifiedByLegacyAPI = true
+	}
+
+	if ipc.Configuration.EnableTunnelMultipathRouting {
+		if hostIP != nil {
+			if tunnelIP, found := ipc.ipToTunnelEndpoint[hostIP.String()]; found {
+				hostIP = tunnelIP
+			}
+		}
 	}
 
 	// Endpoint IP identities take precedence over CIDR identities, so if the
@@ -911,6 +922,25 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 		}
 	}
 	return cidrs
+}
+
+func (ipc *IPCache) UpsertTunnelEndpointMapping(from, to net.IP) {
+	ipc.mutex.Lock()
+	ipc.ipToTunnelEndpoint[from.String()] = to
+	ipc.mutex.Unlock()
+}
+
+func (ipc *IPCache) GetTunnelEndpointMapping(from net.IP) (to net.IP, ok bool) {
+	ipc.mutex.RLock()
+	to, ok = ipc.ipToTunnelEndpoint[from.String()]
+	ipc.mutex.RUnlock()
+	return
+}
+
+func (ipc *IPCache) DeleteTunnelEndpointMapping(from net.IP) {
+	ipc.mutex.Lock()
+	delete(ipc.ipToTunnelEndpoint, from.String())
+	ipc.mutex.Unlock()
 }
 
 // Equal returns true if two K8sMetadata pointers contain the same data or are

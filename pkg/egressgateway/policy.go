@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -134,7 +135,12 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 				continue
 			}
 
-			addr, ok := netipx.FromStdIP(node.GetNodeIP(false))
+			nodeIP := node.GetNodeIP(false)
+			if option.Config.EnableFloatingTunnelEndpoint {
+				nodeIP = node.GetCiliumInternalIP(false)
+			}
+
+			addr, ok := netipx.FromStdIP(nodeIP)
 			if !ok {
 				continue
 			}
