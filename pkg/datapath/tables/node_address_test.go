@@ -273,6 +273,33 @@ var nodeAddressTests = []struct {
 			netip.MustParseAddr("2001:db8::1"), // IPv6: only private IP
 		},
 	},
+
+	{
+		name: "ipv6 skip link-local",
+		addrs: []DeviceAddress{
+			{
+				Addr:  netip.MustParseAddr("2600:beef::1"), // public
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  netip.MustParseAddr("fe80::1"), // link-local (should be skipped)
+				Scope: RT_SCOPE_LINK,
+			},
+		},
+		wantAddrs: []netip.Addr{
+			ciliumHostIP,
+			ciliumHostIPLinkScoped,
+			netip.MustParseAddr("2600:beef::1"),
+			netip.MustParseAddr("fe80::1"),
+		},
+		wantPrimary: []netip.Addr{
+			ciliumHostIP,
+			netip.MustParseAddr("2600:beef::1"),
+		},
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("2600:beef::1"),
+		},
+	},
 }
 
 func TestNodeAddress(t *testing.T) {
