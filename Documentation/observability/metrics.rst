@@ -759,6 +759,17 @@ Name                               Labels                           Default     
 ``fqdn_selectors``                                                  Enabled      Number of registered ToFQDN selectors
 ================================== ================================ ============ ========================================================
 
+Hive
+~~~~
+
+============================ ===================== ============ ========================================================
+Name                         Labels                Default      Description
+============================ ===================== ============ ========================================================
+``hive_start_duration``                            Enabled      Duration of the hive.Start method
+``hive_stop_duration``                             Disabled     Duration of the hive.Stop method. Not reported when metrics are handled by a hive (common in cilium-agent and cilium-operator)
+``hive_populate_duration``                         Enabled      Duration of the hive.Populate method
+============================ ===================== ============ ========================================================
+
 Jobs
 ~~~~
 

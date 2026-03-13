@@ -55,6 +55,12 @@ func New(cells ...cell.Cell) *Hive {
 			),
 		),
 
+		// Hive metrics
+		cell.Group(
+			metrics.Metric(newHiveCiliumMetrics),
+			cell.Provide(hiveMetrics),
+		),
+
 		// StateDB and its metrics
 		cell.Group(
 			statedb.Cell,
