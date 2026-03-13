@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -34,16 +35,13 @@ const (
 	AuthTypeDisabled   = types.AuthTypeDisabled
 )
 
-var (
-	ep1 = testutils.NewTestEndpoint()
-	ep2 = testutils.NewTestEndpoint()
-)
-
 func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
 }
 
 func TestCacheManagement(t *testing.T) {
+	ep1 := testutils.NewTestEndpoint()
+	ep2 := testutils.NewTestEndpoint()
 	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
@@ -54,14 +52,9 @@ func TestCacheManagement(t *testing.T) {
 	require.False(t, deleted)
 
 	// Insert identity twice. Should be the same policy.
-	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NoError(t, err)
-	require.True(t, updated)
-	policy2, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NoError(t, err)
-	require.False(t, updated)
-	// must be same pointer
-	require.Same(t, policy2, policy1)
+	policy1 := cache.insert(identity)
+	policy2 := cache.insert(identity)
+	require.Equal(t, policy2, policy1)
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
@@ -76,23 +69,26 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1, _, _ = cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NotNil(t, policy1)
-	policy3, _, _ := cache.updateSelectorPolicy(identity3, ep3.Id)
-	require.NotNil(t, policy3)
-	require.NotSame(t, policy3, policy1)
+	policy1 = cache.insert(identity)
+	policy3 := cache.insert(identity3)
+	require.NotEqual(t, policy3, policy1)
 	_ = cache.delete(identity)
-	_, updated, _ = cache.updateSelectorPolicy(identity3, ep3.Id)
-	require.False(t, updated)
+	policy3, ok := cache.lookup(identity3)
+	require.NotNil(t, policy3)
+	require.True(t, ok)
 }
 
 func TestCachePopulation(t *testing.T) {
+	ep1 := testutils.NewTestEndpoint()
+	ep2 := testutils.NewTestEndpoint()
+
 	repo := NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
 	identity1 := ep1.GetSecurityIdentity()
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
+	cip1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
 	policy1, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
@@ -101,26 +97,61 @@ func TestCachePopulation(t *testing.T) {
 	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.NotNil(t, policy2)
-	require.Same(t, policy1, policy2)
+	policy3, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
+	require.NotNil(t, policy1)
+	require.Same(t, policy1, policy3)
+	cip2, ok := cache.lookup(identity1)
+	require.True(t, ok)
+	require.Same(t, cip1, cip2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, updated, _ = cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.True(t, updated)
+	_, _, err = cache.updateSelectorPolicy(identity1, ep1.Id)
+	require.Error(t, err)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint()
 	ep3.SetIdentity(1234, true)
-	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	_, _, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	require.Error(t, err)
+
+	cache.insert(ep3.GetSecurityIdentity())
+	policy4, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+
+	// policy4 must be different from ep1, ep2
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.NotEqual(t, policy1, policy4)
+
+	// Insert endpoint with different identity and observe that the cache
+	// is different from ep1, ep2
+	policy5 := cache.insert(identity1)
+	idp1 := policy5.getPolicy()
+	require.Nil(t, idp1)
+
+	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.GetID())
 	require.NoError(t, err)
 	require.True(t, updated)
 
-	// policy3 must be different from ep1, ep2
+	idp1 = policy5.getPolicy()
+	require.NotNil(t, idp1)
+
+	identity3 := ep3.GetSecurityIdentity()
+	policy6 := cache.insert(identity3)
+	require.NotEqual(t, policy5, policy6)
+	idp3, updated, err := cache.updateSelectorPolicy(identity3, ep3.GetID())
 	require.NoError(t, err)
-	require.NotEqual(t, policy1, policy3)
+	require.False(t, updated)
+	require.Equal(t, idp1, idp3)
+
+	repo.revision.Store(43)
+	idp3, updated, err = cache.updateSelectorPolicy(identity3, ep3.GetID())
+	require.NoError(t, err)
+	require.True(t, updated)
+	idp1 = policy5.getPolicy()
+
+	require.NotEqual(t, idp1, idp3)
 }
 
 // Distillery integration tests
@@ -380,12 +411,15 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 // allowing simple direct evaluation of L3 and L4 state into "MapState".
 type policyDistillery struct {
 	*Repository
-	log io.Writer
+	idmgr identitymanager.IDManager
+	log   io.Writer
 }
 
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
+	idmgr := identitymanager.NewIDManager()
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop()),
+		idmgr:      idmgr,
+		Repository: NewPolicyRepository(nil, nil, nil, idmgr, api.NewPolicyMetricsNoop()),
 	}
 	ret.selectorCache = selectorCache
 	return ret
@@ -642,6 +676,7 @@ func Test_MergeL3(t *testing.T) {
 			round++
 
 			repo := newPolicyDistillery(selectorCache)
+			repo.idmgr.Add(identity)
 			_, _ = repo.MustAddList(rules)
 
 			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
@@ -1178,6 +1213,7 @@ func Test_MergeRules(t *testing.T) {
 
 	for i, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		repo.idmgr.Add(identity)
 		generatedRule := generateRule(tt.test)
 		for _, r := range tt.rules {
 			if r != nil {
@@ -1274,6 +1310,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		repo.idmgr.Add(identity)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
@@ -1320,6 +1357,7 @@ func Test_AllowAll(t *testing.T) {
 
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		repo.idmgr.Add(identity)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(tt.selector)
@@ -1739,6 +1777,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	option.Config.EnableIPv6 = false
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		repo.idmgr.Add(identity)
 		for _, rule := range tt.rules {
 			if rule != nil {
 				_, _ = repo.MustAddList(api.Rules{rule})
@@ -1820,6 +1859,7 @@ func Test_Allowception(t *testing.T) {
 	option.Config.EnableIPv6 = false
 
 	repo := newPolicyDistillery(selectorCache)
+	repo.idmgr.Add(identity)
 	rules := api.Rules{ruleAllowEgressDenyCIDRSet}
 	for _, rule := range rules {
 		if rule != nil {
@@ -1868,6 +1908,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		repo.idmgr.Add(identity)
 		for _, rule := range tt.rules {
 			if rule != nil {
 				_, _ = repo.MustAddList(api.Rules{rule})
@@ -1996,6 +2037,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
 		repo.MustAddList(tt.rules)
+		repo.idmgr.Add(fooIdentity)
 
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
@@ -2179,6 +2221,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			require.NotNil(t, res)
 
 			repo := newPolicyDistillery(td.sc)
+			repo.idmgr.Add(identity)
 			repo.MustAddList(api.Rules{&tr.Rule})
 			repo = repo.WithLogBuffer(buffer)
 			mapstate, err := repo.distillPolicy(DummyOwner{}, identity)
