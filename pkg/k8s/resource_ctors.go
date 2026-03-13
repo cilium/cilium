@@ -391,6 +391,7 @@ func CiliumSlimEndpointResource(params CiliumResourceParams, localNodeStore *nod
 		opts...,
 	)
 	indexers := cache.Indexers{
+		NamespaceIndex: namespaceIndexFunc,
 		"localNode": func(obj any) ([]string, error) {
 			return ciliumEndpointLocalPodIndexFunc(params.Logger, localNodeStore, obj)
 		},
@@ -442,6 +443,7 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, localNodeStore *no
 		opts...,
 	)
 	indexers := cache.Indexers{
+		NamespaceIndex: ciliumEndpointSliceNamespaceIndexFunc,
 		"localNode": func(obj any) ([]string, error) {
 			return ciliumEndpointSliceLocalPodIndexFunc(localNodeStore, obj)
 		},
@@ -451,6 +453,17 @@ func CiliumEndpointSliceResource(params CiliumResourceParams, localNodeStore *no
 		resource.WithIndexers(indexers),
 		resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
+}
+
+// ciliumEndpointSliceNamespaceIndexFunc indexes CiliumEndpointSlices by their spec-level
+// Namespace field. CES is a cluster-scoped resource so ObjectMeta.Namespace is always empty;
+// the actual namespace is stored in the CES Namespace field.
+func ciliumEndpointSliceNamespaceIndexFunc(obj any) ([]string, error) {
+	ces, ok := obj.(*cilium_api_v2alpha1.CiliumEndpointSlice)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+	return []string{ces.Namespace}, nil
 }
 
 // ciliumEndpointSliceLocalPodIndexFunc is an IndexFunc that indexes CiliumEndpointSlices
