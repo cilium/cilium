@@ -3,6 +3,13 @@
 
 syntax = "proto3";
 
+import "host_config.proto";
+import "lxc_config.proto";
+import "overlay_config.proto";
+import "sock_config.proto";
+import "wireguard_config.proto";
+import "xdp_config.proto";
+
 package datapathplugins;
 
 option go_package = "github.com/cilium/cilium/api/v1/datapathplugins";
@@ -62,14 +69,22 @@ message AttachmentContext {
 	oneof context {
 		Host host = 1;
 		LXC lxc = 2;
-		Network network = 3;
-		Overlay overlay = 4;
-		Socket socket = 5;
-		Wireguard wireguard = 6;
-		XDP xdp = 7;
+		Overlay overlay = 3;
+		Socket socket = 4;
+		Wireguard wireguard = 5;
+		XDP xdp = 6;
 	}
+}
 
-	// TODO: marshal and pass ep config constants
+message Config {
+	oneof config {
+		BPFHost host = 1;
+		BPFLXC lxc = 2;
+		BPFOverlay overlay = 3;
+		BPFSock socket = 4;
+		BPFWireguard wireguard = 5;
+		BPFXDP xdp = 6;
+	}
 }
 
 enum HookType {
@@ -96,6 +111,7 @@ message PrepareCollectionRequest {
     CollectionSpec collection = 1;
     LocalNodeConfig local_node_config = 2;
     AttachmentContext attachment_context = 3;
+    Config config = 4;
 }
 
 message PrepareCollectionResponse {
@@ -165,9 +181,10 @@ message InstrumentCollectionRequest {
     Collection collection = 1;
     LocalNodeConfig local_node_config = 2;
     AttachmentContext attachment_context = 3;
-    repeated Hook hooks = 4;
-    string pins = 5;
-    string cookie = 6;
+    Config config = 4;
+    repeated Hook hooks = 5;
+    string pins = 6;
+    string cookie = 7;
 }
 
 message InstrumentCollectionResponse {
