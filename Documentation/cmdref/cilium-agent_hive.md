@@ -207,6 +207,7 @@ cilium-agent hive [flags]
       --l2-pod-announcements-interface-pattern string             Regex matching interfaces used for sending gratuitous ARP and NDP messages
       --lb-state-file string                                      Synchronize load-balancing state from the specified file
       --lrp-address-matcher-cidrs strings                         Limit address matches to specific CIDRs
+      --lrp-to-ip-range string                                    Limit ToIP matches to specific IP range (default "169.254.0.0/16")
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
       --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta)
       --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)

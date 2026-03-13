@@ -809,6 +809,10 @@ data:
   lrp-address-matcher-cidrs: {{ .Values.localRedirectPolicies.addressMatcherCIDRs | join "," | quote }}
 {{- end }}
 
+{{- if .Values.localRedirectPolicies.toIPRange }}
+  lrp-to-ip-range: {{ .Values.localRedirectPolicies.toIPRange | quote }}
+{{- end }}
+
 {{- if .Values.ipv4NativeRoutingCIDR }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
