@@ -83,38 +83,37 @@ func needsUpdateMCS(targetCRD, currentCRD *apiextensionsv1.CustomResourceDefinit
 	}
 
 	// release version check
-	v, ok := currentCRD.Labels[mcsapicrd.ReleaseVersionLabel]
+	currentVer, ok := currentCRD.Labels[mcsapicrd.ReleaseVersionLabel]
 	if !ok {
 		// no schema version detected
 		return true, nil
 	}
-	currentVersion, err := versioncheck.Version(v)
-	version, errTarget := versioncheck.Version(targetCRD.Labels[mcsapicrd.ReleaseVersionLabel])
+	currentVersion, err := versioncheck.Version(currentVer)
+	targetVersion, errTarget := versioncheck.Version(targetCRD.Labels[mcsapicrd.ReleaseVersionLabel])
 	if errTarget != nil {
 		return false, fmt.Errorf("invalid release version label on CRD %s: %s", targetCRD.Name, targetCRD.Labels[mcsapicrd.ReleaseVersionLabel])
 	}
 
-	if err != nil || currentVersion.LT(version) {
-		// version in cluster is either unparsable or smaller than current version
-		return true, nil
+	if err != nil || !currentVersion.EQ(targetVersion) {
+		// upgrade the CRD if the in cluster version is either unparsable or smaller
+		// than the target CRD. Stop here if the in cluster version is higher
+		// to prevent downgrading the CRD.
+		return err != nil || currentVersion.LT(targetVersion), nil
 	}
 
 	// CRD Revision check
-	rev, ok := currentCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel]
+	currentRev, ok := currentCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel]
 	if !ok {
 		// no CRD revision detected
 		return true, nil
 	}
-	currentRevision, err := strconv.Atoi(rev)
-	revision, errTarget := strconv.Atoi(targetCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel])
+	currentRevision, err := strconv.Atoi(currentRev)
+	targetRevision, errTarget := strconv.Atoi(targetCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel])
 	if errTarget != nil {
 		return false, fmt.Errorf("invalid CRD revision label on CRD %s: %s", targetCRD.Name, targetCRD.Labels[mcsapicrd.CustomResourceDefinitionSchemaRevisionLabel])
 	}
 
-	if err != nil || currentRevision < revision {
-		// crd revision in cluster is either unparsable or smaller than current version
-		return true, nil
-	}
-
-	return false, nil
+	// upgrade the CRD if the in cluster revision is either unparsable or smaller
+	// than the target CRD
+	return err != nil || currentRevision < targetRevision, nil
 }
