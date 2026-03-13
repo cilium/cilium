@@ -183,22 +183,6 @@ const (
 	// with.
 	CiliumPodLabels = "cilium-pod-labels"
 
-	// TaintSyncWorkers is the number of workers used to synchronize
-	// taints and conditions in Kubernetes nodes.
-	TaintSyncWorkers = "taint-sync-workers"
-
-	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
-	// should be removed in Kubernetes nodes.
-	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
-
-	// SetCiliumNodeTaints is whether or not to taint nodes that do not have
-	// a running Cilium instance.
-	SetCiliumNodeTaints = "set-cilium-node-taints"
-
-	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
-	// nodes.
-	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
@@ -287,22 +271,6 @@ type OperatorConfig struct {
 	// with.
 	CiliumPodLabels string
 
-	// TaintSyncWorkers is the number of workers used to synchronize
-	// taints and conditions in Kubernetes nodes.
-	TaintSyncWorkers int
-
-	// RemoveCiliumNodeTaints is the flag to define if the Cilium node taint
-	// should be removed in Kubernetes nodes.
-	RemoveCiliumNodeTaints bool
-
-	// SetCiliumNodeTaints is whether or not to set taints on nodes that do not
-	// have a running Cilium pod.
-	SetCiliumNodeTaints bool
-
-	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
-	// nodes.
-	SetCiliumIsUpCondition bool
-
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
 }
@@ -330,10 +298,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
 	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
-	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
-	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
-	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
-	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
 	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)

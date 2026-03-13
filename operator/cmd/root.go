@@ -75,7 +75,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -239,6 +238,32 @@ var (
 
 		// Garbage collects stale CiliumNode custom resources.
 		operatorWatchers.CiliumNodeGCCell,
+
+		// Manages node taints and conditions based on Cilium pod readiness.
+		operatorWatchers.NodeTaintSyncCell,
+
+		// Validates that identity allocation mode is consistent with the
+		// Kubernetes client and endpoint GC configuration.
+		cell.Invoke(func(in struct {
+			cell.In
+			IdentityGCCfg identitygc.SharedConfig
+			EndpointGCCfg endpointgc.SharedConfig
+			Clientset     k8sClient.Clientset
+			Logger        *slog.Logger
+		}) error {
+			mode := in.IdentityGCCfg.IdentityAllocationMode
+			if mode == option.IdentityAllocationModeCRD ||
+				mode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+				mode == option.IdentityAllocationModeDoubleWriteReadCRD {
+				if !in.Clientset.IsEnabled() {
+					return fmt.Errorf("%s identity allocation mode requires k8s to be configured", mode)
+				}
+				if in.EndpointGCCfg.Interval == 0 {
+					return fmt.Errorf("cilium identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
+				}
+			}
+			return nil
+		}),
 
 		legacyCell,
 
@@ -612,89 +637,16 @@ var legacyCell = cell.Module(
 	"legacy-cell",
 	"Cilium operator legacy cell",
 
-	cell.Invoke(registerLegacyOnLeader),
+	cell.Invoke(func(lc cell.Lifecycle, logger *slog.Logger) {
+		lc.Append(cell.Hook{
+			OnStart: func(ctx cell.HookContext) error {
+				isLeader.Store(true)
+				logger.InfoContext(ctx, "Initialization complete")
+				return nil
+			},
+		})
+	}),
 )
-
-type params struct {
-	cell.In
-	Lifecycle cell.Lifecycle
-	Clientset k8sClient.Clientset
-	Logger    *slog.Logger
-}
-
-func registerLegacyOnLeader(p params) {
-	ctx, cancel := context.WithCancel(context.Background())
-	legacy := &legacyOnLeader{
-		ctx:       ctx,
-		cancel:    cancel,
-		clientset: p.Clientset,
-		logger:    p.Logger,
-	}
-	p.Lifecycle.Append(cell.Hook{
-		OnStart: legacy.onStart,
-		OnStop:  legacy.onStop,
-	})
-}
-
-type legacyOnLeader struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	clientset k8sClient.Clientset
-	wg        sync.WaitGroup
-	logger    *slog.Logger
-}
-
-func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
-	legacy.cancel()
-
-	// Wait for background goroutines to finish.
-	legacy.wg.Wait()
-
-	return nil
-}
-
-// onStart is the function called once the operator starts leading
-// in HA mode.
-func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
-	isLeader.Store(true)
-
-	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
-
-	if legacy.clientset.IsEnabled() &&
-		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
-		legacy.logger.InfoContext(ctx,
-			"Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes",
-			logfields.K8sNamespace, operatorOption.Config.CiliumK8sNamespace,
-			logfields.LabelSelectorFlagOption, operatorOption.Config.CiliumPodLabels,
-			logfields.RemoveCiliumNodeTaintsFlagOption, operatorOption.Config.RemoveCiliumNodeTaints,
-			logfields.SetCiliumNodeTaintsFlagOption, operatorOption.Config.SetCiliumNodeTaints,
-			logfields.SetCiliumIsUpConditionFlagOption, operatorOption.Config.SetCiliumIsUpCondition,
-		)
-
-		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done(),
-			watcherLogger)
-	}
-
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
-		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
-		if !legacy.clientset.IsEnabled() {
-			logging.Fatal(legacy.logger, fmt.Sprintf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode))
-		}
-		if operatorOption.Config.EndpointGCInterval == 0 {
-			logging.Fatal(legacy.logger, "Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
-		}
-	}
-
-	if legacy.clientset.IsEnabled() {
-		if err := labelsfilter.ParseLabelPrefixCfg(legacy.logger, option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
-			logging.Fatal(legacy.logger, "Unable to parse Label prefix configuration", logfields.Error, err)
-		}
-	}
-
-	legacy.logger.InfoContext(ctx, "Initialization complete")
-	return nil
-}
 
 // kvstoreExtraOptions provides the extra options to initialize the kvstore client.
 func kvstoreExtraOptions(in struct {
