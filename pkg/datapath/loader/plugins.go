@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpf/analyze"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/google/uuid"
 	"github.com/vishvananda/netlink"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -220,6 +222,15 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 		req.Collection.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{}
 	}
 
+	var cfg *anypb.Any
+	if opts.Constants != nil {
+		cfg, err = config.Any(opts.Constants)
+		if err != nil {
+			return nil, fmt.Errorf("converting config to Any: %w", err)
+		}
+		req.Config = cfg
+	}
+
 	type prepareResult struct {
 		plugin plugin.Plugin
 		err    error
@@ -323,6 +334,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 			Maps:     make(map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map),
 		}
 		req.AttachmentContext = attachmentContext
+		req.Config = cfg
 	}
 
 	return instrumentCollectionRequests, nil
