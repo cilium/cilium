@@ -127,8 +127,9 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -151,16 +152,18 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
 	v, mod, _ = cache.Upsert(typeURL, resources[1].Name, resources[1])
 	require.Equal(t, uint64(3), v)
 	require.True(t, mod)
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -178,8 +181,9 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -202,8 +206,9 @@ func TestRequestAllResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -385,8 +390,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -409,8 +415,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", nil, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with resource 0 and 1.
 	// This time, update the cache before sending the request.
@@ -434,8 +441,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -458,8 +466,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1], resources[2]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -496,8 +505,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "6", []proto.Message{resources[2]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Resource 1 has been deleted; Resource 2 exists. Confirm using Lookup().
 	rsrc, err := cache.Lookup(typeURL, resources[1].Name)
@@ -508,8 +518,9 @@ func TestRequestSomeResources(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rsrc)
 	require.Equal(t, resources[2], rsrc.(*envoy_config_route.RouteConfiguration))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -577,8 +588,9 @@ func TestUpdateRequestResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resource 1.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -614,8 +626,9 @@ func TestUpdateRequestResources(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[1], resources[2]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -675,8 +688,9 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -699,8 +713,9 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with resources 0 and 1.
 	// This time, update the cache before sending the request.
@@ -725,8 +740,9 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0], resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -749,8 +765,9 @@ func TestRequestStaleNonce(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "4", []proto.Message{resources[1]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -809,8 +826,9 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -834,8 +852,9 @@ func TestNAck(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// NACK the received version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -869,8 +888,9 @@ func TestNAck(t *testing.T) {
 
 	require.Condition(t, isNotCompletedComparison(comp1))
 	require.Condition(t, isNotCompletedComparison(comp2))
-	require.Equal(t, 0, metrics.nack[typeURL])
-	require.Equal(t, 2, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 2, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -885,8 +905,9 @@ func TestNAck(t *testing.T) {
 
 	require.Condition(t, isNotCompletedComparison(comp1))
 	require.Condition(t, completedComparison(comp2))
-	require.Equal(t, 1, metrics.nack[typeURL])
-	require.Equal(t, 2, metrics.ack[typeURL])
+	require.Equal(t, 1, metrics.ack[typeURL])
+	require.Equal(t, 2, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -945,8 +966,9 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "1", nil, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 2 with resource 0.
 	callback1, comp1 := newCompCallback(logger)
@@ -969,8 +991,9 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.VersionInfo, resp.Nonce)
 	require.Condition(t, responseCheck(resp, "2", []proto.Message{resources[0]}, false, typeURL))
-	require.Equal(t, 0, metrics.nack[typeURL])
-	require.Equal(t, 1, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 1, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// NACK the received version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -1006,8 +1029,9 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.NotEmpty(t, resp.Nonce)
 
 	require.Condition(t, isNotCompletedComparison(comp2))
-	require.Equal(t, 0, metrics.nack[typeURL])
-	require.Equal(t, 3, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 3, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Request the next version of resources.
 	req = &envoy_service_discovery.DiscoveryRequest{
@@ -1022,8 +1046,9 @@ func TestNAckFromTheStart(t *testing.T) {
 
 	// Version 3 was ACKed by the last request.
 	require.Condition(t, completedComparison(comp2))
-	require.Equal(t, 1, metrics.nack[typeURL])
-	require.Equal(t, 3, metrics.ack[typeURL])
+	require.Equal(t, 1, metrics.ack[typeURL])
+	require.Equal(t, 3, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -1089,8 +1114,9 @@ func TestRequestHighVersionFromTheStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "65", []proto.Message{resources[0]}, false, typeURL))
 	require.NotEmpty(t, resp.Nonce)
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
@@ -1181,8 +1207,9 @@ func TestTheSameVersionOnRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.Condition(t, responseCheck(resp, "3", []proto.Message{resources[0]}, false, typeURL))
 	require.NotEmpty(t, resp.Nonce)
-	require.Equal(t, 0, metrics.nack[typeURL])
 	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Close the stream.
 	closeStream()
