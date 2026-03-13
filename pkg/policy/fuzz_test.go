@@ -49,7 +49,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
-		keys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), key, entry, allFeatures, ChangeState{})
+		keys.insertWithChanges(types.MaxDenyPrecedence, key, entry, allFeatures, ChangeState{})
 	})
 }
 

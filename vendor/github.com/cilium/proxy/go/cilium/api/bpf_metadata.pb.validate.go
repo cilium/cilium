@@ -71,7 +71,16 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for EnforcePolicyOnL7Lb
 
-	// no validation rules for ProxyId
+	if m.GetProxyId() > 65535 {
+		err := BpfMetadataValidationError{
+			field:  "ProxyId",
+			reason: "value must be less than or equal to 65535",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if all {
 		switch v := interface{}(m.GetPolicyUpdateWarningLimit()).(type) {

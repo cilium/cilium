@@ -117,6 +117,9 @@ const (
 	// PolicyPrecedence is the datapath precedence for a policy Entry
 	PolicyPrecedence = "policyPrecedence"
 
+	// PolicyPassPrecedence is the precedence for a pass policy Entry
+	PolicyPassPrecedence = "policyPassPrecedence"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
@@ -1602,6 +1605,8 @@ const (
 	Tier = "tier"
 
 	TierBasePriority = "tierBasePriority"
+
+	TierLastPriority = "tierLastPriority"
 
 	Priority = "priority"
 
