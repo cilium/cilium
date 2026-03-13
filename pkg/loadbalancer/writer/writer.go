@@ -410,6 +410,49 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 		}
 	}
 
+	// Check for preferSameNode first
+	if w.config.EnableServiceTopology && fe != nil && fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameNode {
+		candidatesFound := false
+		for be := range bes {
+			if be.NodeName == w.nodeName {
+				candidatesFound = true
+				break
+			}
+		}
+
+		if candidatesFound {
+			return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+				for be, rev := range bes {
+					if be.NodeName != w.nodeName {
+						continue
+					}
+					if fe != nil && fe.Address.Protocol() != be.Address.Protocol() {
+						continue
+					}
+					if be.Address.IsIPv6() {
+						if !ipv6 {
+							continue
+						}
+					} else if !ipv4 {
+						continue
+					}
+					if fe != nil {
+						if fe.PortName != "" && len(be.PortNames) > 0 {
+							// A backend with specific port name requested. Look up what this backend
+							// is called for this service when the backend has multiple (named) ports.
+							if !slices.Contains(be.PortNames, string(fe.PortName)) {
+								continue
+							}
+						}
+					}
+					if !yield(be, rev) {
+						return
+					}
+				}
+			}
+		}
+	}
+
 	// Check whether the [Backend.ForZones] hints should be consulted when
 	// selecting a backend.
 	checkZoneHints := false
@@ -422,7 +465,8 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 	if w.config.EnableServiceTopology &&
 		thisZone != nil &&
 		fe != nil && fe.RedirectTo == nil &&
-		fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
+		(fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose ||
+			fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameZone) {
 		// Topology-aware routing enabled. See if we can find any backends fitting
 		// for our zone. If we don't find any we fall back to default behaviour.
 		// https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards
