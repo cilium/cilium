@@ -31,8 +31,12 @@ DECLARE_CONFIG(__u32, interface_ifindex, "ifindex of the interface the bpf progr
 DEFINE_IPV6(ROUTER_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
 #endif
 
-#define HOST_IFINDEX 1
-#define CILIUM_IFINDEX 1
+#ifndef CILIUM_IFINDEX
+# define CILIUM_IFINDEX 1
+#endif
+#ifndef HOST_IFINDEX
+# define HOST_IFINDEX 1
+#endif
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
 #ifndef HOST_IP
