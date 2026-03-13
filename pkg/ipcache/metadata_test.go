@@ -821,12 +821,10 @@ func TestMetadataWaitForRevision(t *testing.T) {
 	_, wantRev := m.dequeuePrefixUpdates()
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		err := m.waitForRevision(t.Context(), wantRev)
 		require.NoError(t, err)
-		wg.Done()
-	}()
+	})
 
 	m.setInjectedRevision(wantRev)
 	wg.Wait()

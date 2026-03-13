@@ -46,11 +46,9 @@ func UnmanagedPodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 		cache.ResourceEventHandlerFuncs{},
 		TransformToUnmanagedPod,
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		unmanagedPodInformer.Run(ctx.Done())
-	}()
+	})
 
 	cache.WaitForCacheSync(ctx.Done(), unmanagedPodInformer.HasSynced)
 }

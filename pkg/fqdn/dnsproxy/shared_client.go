@@ -196,9 +196,7 @@ func handler(wg *sync.WaitGroup, client *dns.Client, conn *dns.Conn, requests ch
 	}
 
 	// Receive loop
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(responses)
 
 		// Synthesize a dns.Conn for this reading goroutine, so that it is not
@@ -241,7 +239,7 @@ func handler(wg *sync.WaitGroup, client *dns.Client, conn *dns.Conn, requests ch
 				return // exit immediately when the trigger channel is closed
 			}
 		}
-	}()
+	})
 
 	type waiter struct {
 		ch    chan sharedClientResponse
