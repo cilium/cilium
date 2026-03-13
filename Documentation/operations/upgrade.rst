@@ -384,6 +384,10 @@ Added Metrics
   tagged by the status (``OK``, ``Warning``, ``Failure``) of each component (``BPF``, ``Policy``).
 * ``cilium_kubernetes_resource_sync_duration`` was added and reports duration in seconds
   of a specific Kubernetes resource sync.
+* ``cilium_hive_start_duration`` was added and reports the hive.Start method duration.
+* ``cilium_hive_stop_duration`` was added and reports the hive.Stop method duration.
+  Not reported when metrics are handled by a hive (common in cilium-agent and cilium-operator). Disabled by default.
+* ``cilium_hive_populate_duration`` was added and reports the hive.Populate method duration.
 
 Changed Metrics
 ###############
