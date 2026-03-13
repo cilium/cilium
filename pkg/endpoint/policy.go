@@ -299,73 +299,52 @@ func (e *Endpoint) waitForPolicyComputationResult(
 	securityIdentity *identity.Identity,
 	result *policyGenerateResult,
 ) (*compute.Result, error) {
-	var (
-		computeResult compute.Result
-		retries       int
-	)
-
 	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	timeout := time.NewTimer(time.Second)
+	defer timeout.Stop()
 
-done:
 	for {
-		var (
-			found, failed bool
-			watch         <-chan struct{}
-		)
-
-		computeResult, _, watch, found = e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
-		switch {
-		case found && computeResult.Revision >= wantedRevision:
-			break done
-		case found && computeResult.Revision < wantedRevision:
-			retries++
-			failed = true
+		computeResult, _, watch, found := e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
+		if found && computeResult.Revision >= wantedRevision {
 			e.getLogger().Info(
-				"Policy computation result has stale revision, retrying",
+				"Retrieved identity policy from statedb",
+				logfields.PolicyRevision, computeResult.Revision,
+			)
+			return &computeResult, nil
+		}
+
+		if found {
+			e.getLogger().Debug(
+				"Policy computation result has stale revision, waiting for update",
 				logfields.Identity, securityIdentity.ID,
 				logfields.PolicyRevision, computeResult.Revision,
-				"wantedRevision", wantedRevision,
-				"retries", retries,
+				logfields.PolicyRevisionNext, wantedRevision,
 			)
-		case !found:
+		} else {
 			e.getLogger().Debug(
 				"Policy computation result not found in statedb, waiting",
 				logfields.Identity, securityIdentity.ID,
-				"wantedRevision", wantedRevision,
-				"retries", retries,
+				logfields.PolicyRevisionNext, wantedRevision,
 			)
 		}
 
-		if retries >= 3 {
+		// Wait for the statedb entry to be created or updated.
+		// The watch channel fires when the radix tree node for this
+		// identity is modified (insert/update), including from a
+		// snapshot older than the current WriteTxn.
+		select {
+		case <-watch:
+			// Entry was modified, re-query with a fresh ReadTxn.
+			continue
+		case <-timeout.C:
 			datapathRegenCtxt.policyResult = result
 			if found {
 				return nil, errPolicyComputationStaleRevision
 			}
 			return nil, errPolicyComputationNotFound
 		}
-
-		select {
-		case <-ticker.C:
-			// Retry as GetWatch() operates on a snapshot. It is possible by
-			// the time we called GetWatch(), we have an outdated snapshot.
-			// Retry up to 3 times before declaring endpoint regeneration
-			// failed. The regeneration controller will retry again.
-			if !failed {
-				retries++
-			}
-		case <-watch:
-		}
 	}
-
-	e.getLogger().Info(
-		"Retrieved identity policy from statedb",
-		logfields.PolicyRevision, computeResult.Revision,
-	)
-
-	return &computeResult, nil
 }
 
 // setDesiredPolicy updates the endpoint with the results of a policy calculation.
