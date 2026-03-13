@@ -251,7 +251,6 @@ type multiPoolManager struct {
 	preallocatedIPsPerPool preAllocatePerPool
 	pendingIPsPerPool      *pendingAllocationsPerPool
 
-	poolsMutex   lock.Mutex
 	pools        map[Pool]*poolPair
 	poolsUpdated chan struct{}
 
@@ -825,8 +824,8 @@ func (m *multiPoolManager) Allocator(family Family) Allocator {
 }
 
 func (m *multiPoolManager) capacity(family Family) uint64 {
-	m.poolsMutex.Lock()
-	defer m.poolsMutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	var cap uint64
 	for _, pool := range m.pools {
