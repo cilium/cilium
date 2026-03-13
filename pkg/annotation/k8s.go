@@ -156,6 +156,15 @@ const (
 	// the latter two, one can set the annotation with the value "LoadBalancer".
 	ServiceTypeExposure = ServicePrefix + "/type"
 
+	// ServiceScopeExposure restricts which frontend scopes are installed.
+	// Only matters if externalTrafficPolicy != internalTrafficPolicy (service is two-scoped)
+	// Allowed values are of type loadbalancer.SVCScope:
+	//  - none
+	//      default behaviour, install both external and internal scopes (if applicable)
+	//  - external-only
+	//      install only external-scope frontends
+	ServiceScopeExposure = ServicePrefix + "/scope"
+
 	// ServiceSourceRangesPolicy is the annotation name used to specify the policy
 	// of the user-provided loadBalancerSourceRanges, meaning whether this CIDR
 	// list should act as an allow- or deny-list. Both "allow" or "deny" are
