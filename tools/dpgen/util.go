@@ -44,6 +44,30 @@ func writeCopyrightHeader(w io.StringWriter) error {
 	return err
 }
 
+func writeProtoHeader(w io.StringWriter, goPkg string, imports []string) error {
+	_, err := w.WriteString(fmt.Sprintf(`syntax = "proto3";
+
+package %s;
+
+option go_package = "%s";
+
+`, filepath.Base(goPkg), goPkg))
+	if err != nil {
+		return err
+	}
+
+	if len(imports) > 0 {
+		for _, i := range imports {
+			if _, err := w.WriteString(fmt.Sprintf("import \"%s\";\n", i)); err != nil {
+				return err
+			}
+		}
+
+		_, err = w.WriteString("\n")
+	}
+	return err
+}
+
 // sortedMapSpecs returns the MapSpecs from the given map sorted by their Name
 // field.
 func sortedMapSpecs(m map[string]*ebpf.MapSpec) iter.Seq[*ebpf.MapSpec] {

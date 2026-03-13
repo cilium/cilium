@@ -22,18 +22,22 @@ func bpffsDevicesDir(base string) string {
 	return filepath.Join(base, "devices")
 }
 
+func bpffsDeviceNameDir(base string, deviceName string) string {
+	// If a device name contains a "." we must sanitize the string to satisfy bpffs directory path
+	// requirements. The string of a directory path on bpffs is not allowed to contain any "." characters.
+	// By replacing "." with "-", we circurmvent this limitation. This also introduces a small
+	// risk of naming collisions, e.g "eth-0" and "eth.0" would translate to the same bpffs directory.
+	// The probability of this happening in practice should be very small.
+	return filepath.Join(bpffsDevicesDir(base), strings.ReplaceAll(deviceName, ".", "-"))
+}
+
 // bpffsDeviceDir returns the path to the per-device directory on bpffs, usually
 // /sys/fs/bpf/cilium/devices/<device>. It does not ensure the directory exists.
 //
 // base is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
 func bpffsDeviceDir(base string, device netlink.Link) string {
-	// If a device name contains a "." we must sanitize the string to satisfy bpffs directory path
-	// requirements. The string of a directory path on bpffs is not allowed to contain any "." characters.
-	// By replacing "." with "-", we circurmvent this limitation. This also introduces a small
-	// risk of naming collisions, e.g "eth-0" and "eth.0" would translate to the same bpffs directory.
-	// The probability of this happening in practice should be very small.
-	return filepath.Join(bpffsDevicesDir(base), strings.ReplaceAll(device.Attrs().Name, ".", "-"))
+	return bpffsDeviceNameDir(base, device.Attrs().Name)
 }
 
 // bpffsDeviceLinksDir returns the bpffs path to the per-device links directory,
@@ -44,6 +48,10 @@ func bpffsDeviceDir(base string, device netlink.Link) string {
 // during tests.
 func bpffsDeviceLinksDir(base string, device netlink.Link) string {
 	return filepath.Join(bpffsDeviceDir(base, device), "links")
+}
+
+func bpffsDevicePluginPinsDir(base string, device netlink.Link) string {
+	return filepath.Join(bpffsDeviceDir(base, device), "plugin_pins")
 }
 
 // bpffsEndpointsDir returns the path to the 'endpoints' directory on bpffs, usually
@@ -73,6 +81,25 @@ func bpffsEndpointDir(base string, ep datapath.Endpoint) string {
 // during tests.
 func bpffsEndpointLinksDir(base string, ep datapath.Endpoint) string {
 	return filepath.Join(bpffsEndpointDir(base, ep), "links")
+}
+
+// Keep this separate from bpffsEndpointLinksDir to ensure that when Unload()
+// runs and calls bpf.Remove() we don't accidentally unpin plugin hook programs
+// before the main attachment, since this would lead to undefined behavior.
+func bpffsEndpointPluginPinsDir(base string, ep datapath.Endpoint) string {
+	return filepath.Join(bpffsEndpointDir(base, ep), "plugin_pins")
+}
+
+func bpffsPluginsOperationsDir(base string) string {
+	return filepath.Join(base, "plugins")
+}
+
+func bpffsPluginOperationsDir(base, plugin string) string {
+	return filepath.Join(base, plugin)
+}
+
+func bpffsPluginOperationDir(base, plugin, id string) string {
+	return filepath.Join(bpffsPluginOperationsDir(base, plugin), id)
 }
 
 // bpfStateDeviceDir returns the path to the per-device directory in the Cilium

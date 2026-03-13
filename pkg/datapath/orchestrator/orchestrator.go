@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -118,6 +119,7 @@ type orchestratorParams struct {
 	IPsecConfig         datapath.IPsecConfig
 	BIGTCPConfig        *bigtcp.Configuration
 	ConnectorConfig     datapath.ConnectorConfig
+	PluginRegistry      plugin.Registry
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -195,6 +197,11 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		return nil
 	}
 
+	health.OK("Waiting for plugin registry")
+	if err := o.params.PluginRegistry.Sync(ctx); err != nil {
+		return fmt.Errorf("waiting for plugin registry: %w", err)
+	}
+
 	health.OK("Initializing")
 	limiter := rate.NewLimiter(minReinitInterval, 1)
 	if err := o.waitForHostDevices(ctx, health, limiter); err != nil {
@@ -202,7 +209,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	}
 
 	var (
-		request   reinitializeRequest
+		request   = reinitializeRequest{errChan: make(chan error, 1), ctx: ctx}
 		retryChan <-chan time.Time
 	)
 	for {
@@ -226,6 +233,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.WgAgent,
 			o.params.IPsecConfig,
 			o.params.ConnectorConfig,
+			o.params.PluginRegistry.Plugins(),
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
@@ -234,7 +242,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			// Reinitializing is expensive, only do so if the configuration has changed.
 			prevConfig := o.latestLocalNodeConfig.Load()
 			if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
-				if err := o.reinitialize(ctx, request, &localNodeConfig); err != nil {
+				err := o.reinitialize(request.ctx, &localNodeConfig)
+				if err != nil {
 					o.params.Log.Warn("Failed to initialize datapath, retrying later",
 						logfields.Error, err,
 						logfields.RetryDelay, reinitRetryDuration,
@@ -245,11 +254,12 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 					retryChan = nil
 					health.OK("OK")
 				}
+
+				request.errChan <- err
+				close(request.errChan)
 			} else {
 				// We don't need to reinitialize, but we still need to unblock the requestor if there is one.
-				if request.errChan != nil {
-					close(request.errChan)
-				}
+				close(request.errChan)
 			}
 		}
 
@@ -311,11 +321,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *datapath.LocalNodeConfiguration) error {
-	if req.ctx != nil {
-		ctx = req.ctx
-	}
-
+func (o *orchestrator) reinitialize(ctx context.Context, localNodeConfig *datapath.LocalNodeConfiguration) error {
 	err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
@@ -328,13 +334,6 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		err = o.params.ConnectorConfig.Reinitialize()
 	}
 	if err != nil {
-		if req.errChan != nil {
-			select {
-			case req.errChan <- err:
-			default:
-			}
-			close(req.errChan)
-		}
 		return err
 	}
 
