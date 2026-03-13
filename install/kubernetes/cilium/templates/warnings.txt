@@ -10,4 +10,9 @@
   their corresponding exporter type ('hubble.export.static', 'hubble.export.dynamic.config.content')
   and will be removed in v1.19.
 {{- end -}}
+{{- if and .Values.hubble.relay.enabled (not .Values.hubble.relay.tls.server.enabled) -}}
+- WARNING: TLS is not enabled for the Hubble Relay server (hubble.relay.tls.server.enabled=false).
+  This means Hubble Relay communications are not encrypted. For more information about the security
+  implications, please see: https://docs.cilium.io/en/stable/security/threat-model/#hubble-data-attacker
+{{- end -}}
 {{- end -}}
