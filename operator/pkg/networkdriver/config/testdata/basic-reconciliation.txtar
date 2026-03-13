@@ -1,0 +1,55 @@
+# Test basic reconciliation of ClusterConfig to NodeConfig
+hive start
+
+# Create a CiliumNode
+k8s/add node1.yaml
+
+# Create a CiliumNetworkDriverClusterConfig
+k8s/add clusterconfig.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Check that NodeConfig was created
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual.yaml
+* cmp expected.yaml actual.yaml
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- clusterconfig.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: test-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node1
+  spec:
+    driverName: one
+
+-- expected.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: one
+status:
+  managedBy: operator

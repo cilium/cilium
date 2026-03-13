@@ -293,6 +293,30 @@ rules:
   - list
   - watch
 - apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdrivernodeconfigs
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - watch
+  - delete
+  - patch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdrivernodeconfigs/status
+  verbs:
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkdriverclusterconfigs/status
+  verbs:
+  - update
+- apiGroups:
     - cilium.io
   resources:
     - ciliumpodippools

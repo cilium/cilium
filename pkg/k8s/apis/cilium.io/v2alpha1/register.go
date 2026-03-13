@@ -194,6 +194,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkDriverClusterConfig{},
 		&CiliumNetworkDriverClusterConfigList{},
 		&CiliumNetworkDriverNodeConfig{},
+		&CiliumNetworkDriverNodeConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
