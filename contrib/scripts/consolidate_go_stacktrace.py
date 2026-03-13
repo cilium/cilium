@@ -11,8 +11,8 @@ from functools import cmp_to_key
 import argparse
 
 
-cilium_source = '/go/src/github.com/cilium/cilium/'
-filters = {'lock': ["lock", "Lock(", "RLock(", "Semacquire("]}
+cilium_source = "/go/src/github.com/cilium/cilium/"
+filters = {"lock": ["lock", "Lock(", "RLock(", "Semacquire("]}
 
 
 def get_stacks(f):
@@ -73,51 +73,52 @@ def skip_paths(line, must_exist, must_not_exist):
             return True
     return False
 
+
 # For stack : list[str], find the first line matching the source
 # repository and return the go pkg path for that stack.
 
 
 def first_target_pkg(stack):
     for s in stack:
-        if skip_paths(s, [cilium_source], ['vendor', 'lock']):
+        if skip_paths(s, [cilium_source], ["vendor", "lock"]):
             continue
 
         # Convert the following:
-        #         /go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1886 +0x28ee
+        # /go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1886 +0x28ee
         # =>
         # daemon/cm
-        result = re.sub(
-            r'.*{}(.*)/[^.]*\.go.*'.format(cilium_source),
-            r'\1',
-            s)
+        result = re.sub(r".*{}(.*)/[^.]*\.go.*".format(cilium_source), r"\1", s)
         # print('  > found {}'.format(result))
         return result
     fallback = stack[-2].lstrip()
     # print('  > found {}'.format(fallback))
-    return 'goroutine initiated from {}'.format(fallback)
+    return "goroutine initiated from {}".format(fallback)
 
 
 if __name__ == "__main__":
     # Handle arguments. We only support a file path, or stdin on "-" or no
     # parameter
     parser = argparse.ArgumentParser(
-        description='Consolidate stacktraces to remove duplicate stacks.')
+        description="Consolidate stacktraces to remove duplicate stacks."
+    )
     parser.add_argument(
-        'infile',
-        metavar='PATH',
-        nargs='?',
-        help='Read and parse this file. Specify \'-\' or omit this option for stdin.')
+        "infile",
+        metavar="PATH",
+        nargs="?",
+        help="Read and parse this file. Specify '-' or omit this option for stdin.",
+    )
     parser.add_argument(
-        '-s',
-        '--source-dir',
+        "-s",
+        "--source-dir",
         default="",
-        help='Rewrite Cilium source paths to refer to this directory')
+        help="Rewrite Cilium source paths to refer to this directory",
+    )
     parser.add_argument(
-        '-f',
-        '--filter',
-        nargs='?',
-        help='Filter by known categories ({})'.format(
-            ','.join(filters.keys())))
+        "-f",
+        "--filter",
+        nargs="?",
+        help="Filter by known categories ({})".format(",".join(filters.keys())),
+    )
     args = parser.parse_args()
 
     if args.infile in ["-", "", None]:
@@ -139,22 +140,21 @@ if __name__ == "__main__":
     source_dir = args.source_dir
     if source_dir == "":
         source_dir = "./"
-    elif source_dir != "" and source_dir[-1] != '/':
+    elif source_dir != "" and source_dir[-1] != "/":
         source_dir += "/"
 
     # print count of each unique stack, and a sample, sorted by frequency
-    print('{} unique stack traces'.format(len(consolidated)))
+    print("{} unique stack traces".format(len(consolidated)))
     skipped = dict()
     blocked = dict()
     keywords = None
     if args.filter in filters:
         keywords = filters[args.filter]
     for stack in sorted(
-            consolidated.values(),
-            key=cmp_to_key(
-                lambda a,
-                b: len(a) - len(b)),
-            reverse=True):
+        consolidated.values(),
+        key=cmp_to_key(lambda a, b: len(a) - len(b)),
+        reverse=True,
+    ):
         if keywords is not None:
             if len(stack[0]) == 0:
                 continue
@@ -175,19 +175,21 @@ if __name__ == "__main__":
         print("\n".join(stack[0]).replace(cilium_source, source_dir))
 
     if len(skipped) > 0:
-        print('Stacktraces from the following packages were skipped as they do not match {}:'.format(
-            keywords), file=sys.stderr)
+        print(
+            "Stacktraces from the following packages were skipped "
+            f"as they do not match {keywords}:",
+            file=sys.stderr,
+        )
         for s in sorted(skipped.keys()):
             print(
-                '{} ({} goroutines)'.format(
-                    s.replace(
-                        cilium_source,
-                        args.source_dir),
-                    skipped[s]),
-                file=sys.stderr)
+                "{} ({} goroutines)".format(
+                    s.replace(cilium_source, args.source_dir), skipped[s]
+                ),
+                file=sys.stderr,
+            )
         print(file=sys.stderr)
     if len(blocked) > 0:
-        print('The following packages are blocked:')
+        print("The following packages are blocked:")
         for s in blocked:
             print(s.replace(cilium_source, args.source_dir))
 

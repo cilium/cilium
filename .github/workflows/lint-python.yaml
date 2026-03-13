@@ -1,0 +1,46 @@
+name: Python Related Checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+    - main
+    - ft/main/**
+  # Add this workflow to be triggered by merge queue events
+  merge_group:
+
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+
+    - name: Run Ruff Check
+      run: |
+        make lint-python || (echo "please run 'make lint-python', adjust code accordingly (manual and/or 'make lint-python-fix') and submit your changes"; exit 1)
+
+    - name: Run Ruff Format
+      run: |
+        make format-python || (echo "please run 'make format-python', adjust code accordingly (manual and/or 'make format-python-fix') and submit your changes"; exit 1)

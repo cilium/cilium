@@ -1,5 +1,6 @@
 from sphinx.writers.html5 import HTML5Translator
 
+
 # Make all external links open in new tabs
 class PatchedHTMLTranslator(HTML5Translator):
     def starttag(self, node, tagname, *args, **attrs):
