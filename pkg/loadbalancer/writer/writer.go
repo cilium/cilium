@@ -422,7 +422,8 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 	if w.config.EnableServiceTopology &&
 		thisZone != nil &&
 		fe != nil && fe.RedirectTo == nil &&
-		fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
+		(fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose ||
+			fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameZone) {
 		// Topology-aware routing enabled. See if we can find any backends fitting
 		// for our zone. If we don't find any we fall back to default behaviour.
 		// https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards
