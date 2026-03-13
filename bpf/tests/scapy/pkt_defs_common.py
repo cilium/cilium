@@ -65,6 +65,7 @@ v6_svc_one    = "fd10::1"
 
 # External IPv6 addrs
 v6_ext_node_one = "2001::1"
+v6_ext_node_two = "2001::2"
 
 # IPv6 service loopback
 v6_svc_loopback = "fd05::1"

@@ -126,6 +126,9 @@ func (f RemoteEndpointInfoFlags) String() string {
 	if f&FlagRemoteCluster != 0 {
 		flags += "remotecluster,"
 	}
+	if f&FlagUnroutable != 0 {
+		flags += "unroutable,"
+	}
 
 	if flags == "" {
 		return "<none>"
@@ -147,6 +150,11 @@ const (
 	// FlagRemoteCluster is set when the node is in a remote cluster.
 	// It's always unset when clustermesh is disabled or for pods.
 	FlagRemoteCluster
+	// FlagUnroutable is set when it's preferential that traffic towards
+	// an IP or CIDR should be dropped in the datapath. This can be used to
+	// facilitate dropping of unknown transport protocols to avoid routing
+	// loops.
+	FlagUnroutable
 )
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the

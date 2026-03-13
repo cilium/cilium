@@ -15,3 +15,4 @@ from tc_wireguard_from_overlay_pkt_defs import *
 from icmp_err_revnat_pkt_defs import *
 from lb_pkt_defs import *
 from tc_redirect_pkt_defs import *
+from tc_unsupported_pkt_defs import *

@@ -101,8 +101,10 @@ volatile const __u8 v6_pod_three[] = v6_pod_three_addr;
 #define v6_node_three_addr {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3}
 
 #define v6_ext_node_one_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+#define v6_ext_node_two_addr {0x20, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}
 
 volatile const __u8 v6_ext_node_one[] = v6_ext_node_one_addr;
+volatile const __u8 v6_ext_node_two[] = v6_ext_node_two_addr;
 
 volatile const __u8 v6_node_one[] = v6_node_one_addr;
 volatile const __u8 v6_node_two[] = v6_node_two_addr;
