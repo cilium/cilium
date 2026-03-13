@@ -20,8 +20,15 @@ func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) 
 		WithCiliumPolicy(templates["clientEgressToFQDNsPolicyYAML"]).
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
 		WithScenarios(
-			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80)),
-			tests.PodToWorld2(ct.Params().ExternalTargetIPv6Capable), // resolves to ExternalOtherTarget
+			tests.PodToWorld(
+				ct.Params().ExternalTargetIPv6Capable,
+				false,
+				tests.WithRetryDestPort(80),
+			),
+			tests.PodToWorld2( // resolves to ExternalOtherTarget
+				ct.Params().ExternalTargetIPv6Capable,
+				false,
+			),
 		).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
@@ -64,8 +71,15 @@ func (t toFqdnsWithProxy) build(ct *check.ConnectivityTest, templates map[string
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 		WithScenarios(
-			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryDestPort(80)),
-			tests.PodToWorld2(ct.Params().ExternalTargetIPv6Capable), // resolves to ExternalOtherTarget
+			tests.PodToWorld(
+				ct.Params().ExternalTargetIPv6Capable,
+				false,
+				tests.WithRetryDestPort(80),
+			),
+			tests.PodToWorld2( // resolves to ExternalOtherTarget
+				ct.Params().ExternalTargetIPv6Capable,
+				false,
+			),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(features.IPFamilyAny) == ct.Params().ExternalOtherTarget {

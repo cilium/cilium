@@ -13,4 +13,4 @@ specs:
       - port: "443"
         protocol: "TCP"
       serverNames:
-      - "{{ trimSuffix (generateDNSMatchPatternWithWildcard .ExternalTarget .ExternalOtherTarget "random") "." }}"
+      - "{{ trimSuffix (generateDNSMatchPatternWithWildcard .FakeExternalTarget .FakeExternalOtherTarget "random") "." }}"

@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/builder/manifests/template"
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
@@ -393,16 +394,26 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		templates["clientEgressToCIDRK8sPolicyKNPYAML"] = clientEgressToCIDRK8sPolicyYAML
 	}
 
+	fakeExternalTarget1 := tests.FakeExternalTarget1
+	fakeExternalTarget2 := tests.FakeExternalTarget2
+	if !param.ExternalTargetFakeDNS {
+		fakeExternalTarget1 = param.ExternalTarget
+		fakeExternalTarget2 = param.ExternalOtherTarget
+	}
 	renderedTemplates := map[string]string{}
 	for key, temp := range templates {
 		val, err := template.Render(temp, struct {
 			check.Parameters
-			ClusterNameLocal  string
-			ClusterNameRemote string
+			ClusterNameLocal        string
+			ClusterNameRemote       string
+			FakeExternalTarget      string
+			FakeExternalOtherTarget string
 		}{
-			Parameters:        param,
-			ClusterNameLocal:  clusterNameLocal,
-			ClusterNameRemote: clusterNameRemote,
+			Parameters:              param,
+			ClusterNameLocal:        clusterNameLocal,
+			ClusterNameRemote:       clusterNameRemote,
+			FakeExternalTarget:      fakeExternalTarget1,
+			FakeExternalOtherTarget: fakeExternalTarget2,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to render template %s: %w", key, err)
