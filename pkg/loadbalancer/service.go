@@ -105,9 +105,16 @@ const (
 	// TrafficDistributionDefault will ignore any topology aware hints for choosing the backends.
 	TrafficDistributionDefault = TrafficDistribution("")
 
-	// TrafficDistributionPreferClose Indicates preference for routing traffic to topologically close backends,
-	// that is to backends that are in the same zone.
+	// TrafficDistributionPreferSameZone indicates preference for routing traffic to backends
+	// in the same zone as the client.
+	TrafficDistributionPreferSameZone = TrafficDistribution("PreferSameZone")
+
+	// TrafficDistributionPreferClose is a deprecated alias for PreferSameZone.
 	TrafficDistributionPreferClose = TrafficDistribution("PreferClose")
+
+	// TrafficDistributionPreferSameNode indicates preference for routing traffic to backends
+	// on the same node as the client.
+	TrafficDistributionPreferSameNode = TrafficDistribution("PreferSameNode")
 )
 
 func (svc *Service) DeepEqual(other *Service) bool {
