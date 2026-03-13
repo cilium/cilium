@@ -20,4 +20,12 @@ spec:
         protocol: TCP
       - port: "8472"
         protocol: UDP
+      # Extended IP protocols (no transport-layer ports)
       - protocol: VRRP
+      # Tunnel/encapsulation protocols
+      - protocol: GRE
+      - protocol: IPIP
+      - protocol: IPV6
+      # IPsec protocols
+      - protocol: ESP
+      - protocol: AH
