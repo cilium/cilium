@@ -26,6 +26,7 @@ const (
 	ciliumSPIREServerConfigMapName     = defaults.SPIREServerConfigMapName
 	ciliumSPIREAgentConfigMapName      = defaults.SPIREAgentConfigMapName
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
+	clustermeshCertgenCronJobName      = "clustermesh-apiserver-generate-certs"
 	gkeConfigMapsName                  = "gke-config-maps"
 	gkeHubbleConfigMap                 = "cilium-hubble-config"
 	gkeOverrideConfigMap               = "cilium-config-emergency-override"
@@ -74,6 +75,8 @@ const (
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
 	ciliumPodIPPoolsFileName                 = "ciliumpodippools-<ts>.yaml"
 	clustermeshApiserverDeploymentFileName   = "clustermesh-apiserver-deployment-<ts>.yaml"
+	clustermeshCertgenCronJobFileName        = "clustermesh-generate-certs-cronjob-<ts>.yaml"
+	clustermeshCertManagerCertsFileName      = "clustermesh-certificates-<ts>.yaml"
 	metricsFileName                          = "metrics-%s-%s-<ts>.txt"
 	cniConfigMapFileName                     = "cni-configmap-<ts>.yaml"
 	cniConfigFileName                        = "cniconf-%s-%s-<ts>.txt"
