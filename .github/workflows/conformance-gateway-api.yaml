@@ -21,6 +21,10 @@ on:
         required: false
         default: "{}"
 
+  # Run nightly
+  schedule:
+    - cron: '0 6 * * *'
+
   push:
     branches:
       - main
@@ -56,6 +60,7 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
@@ -100,26 +105,60 @@ jobs:
           SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          event_name='${{ github.event_name }}'
+          pr_number='${{ inputs.PR-number }}'
+          MATRIX='{
+            "include": [
+              {
+                "crd-channel": "experimental",
+                "conformance-profile": false,
+                "default": true
+              },
+              {
+                "crd-channel": "standard",
+                "conformance-profile": false
+              },
+              {
+                "crd-channel": "experimental",
+                "conformance-profile": true
+              },
+              {
+                "crd-channel": "standard",
+                "conformance-profile": false,
+                "encryption": "ipsec"
+              }
+            ]
+          }'
+
+          # Use the complete matrix for nightly runs and stable branch scheduled
+          # workflow_dispatch invocations from Ariane. Use the default entry for PRs.
+          if [[ "$event_name" == "push" || "$event_name" == "schedule" || "$pr_number" == v* ]]; then
+            RESULT=$(jq -c . <<< "$MATRIX")
+          else
+            RESULT=$(jq -c '{include: [.include[] | select(.default)]}' <<< "$MATRIX")
+          fi
+
+          echo "matrix=${RESULT}" >> "$GITHUB_OUTPUT"
+
   gateway-api-conformance-test:
     name: Gateway API Conformance Test
     env:
       job_name: "Gateway API Conformance Test"
-    needs: [wait-for-images]
+    needs: [generate-matrix, wait-for-images]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - crd-channel: experimental
-            conformance-profile: false
-          - crd-channel: standard
-            conformance-profile: false
-          - crd-channel: experimental
-            conformance-profile: true
-          - crd-channel: standard
-            conformance-profile: false
-            encryption: ipsec
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
       - name: Set commit status to pending
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -221,18 +260,16 @@ jobs:
 
       - name: Install Gateway API CRDs
         run: |
-          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
           # Install Gateway CRDs
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gatewayclasses.yaml
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gateways.yaml
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_httproutes.yaml
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_referencegrants.yaml
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_grpcroutes.yaml
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_backendtlspolicies.yaml
-          ## TLSRoute is only available in experimental channel in v0.7.0
-          kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$gateway_api_version/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          # Set this to "standard" to use the standard CRDs instead
+          GW_CHANNEL="experimental"
 
-          # To make sure that Gateway API CRs are available
+          GW_CHANNEL="$GW_CHANNEL" \
+          GW_VERSION="$gateway_api_version" \
+          make kind-servicemesh-prereqs
+
+          # To make sure that Gateway API CRDs are available
           kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
