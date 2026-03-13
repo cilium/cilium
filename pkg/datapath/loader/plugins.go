@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpf/analyze"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/google/uuid"
 	"github.com/vishvananda/netlink"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -183,7 +185,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 	}
 	fmt.Printf("JORDAN RIFE %v\n", lnc.Plugins)
 
-	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, lnc, attachmentContext)
+	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
 	}
@@ -206,7 +208,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 	return coll, commit, cleanup, nil
 }
 
-func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
+func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
 	req := &datapathplugins.PrepareCollectionRequest{
 		AttachmentContext: attachmentContext,
 		Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
@@ -220,6 +222,15 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 	}
 	for name := range spec.Maps {
 		req.Collection.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{}
+	}
+
+	var cfg *anypb.Any
+	if opts.Constants != nil {
+		cfg, err = config.Any(opts.Constants)
+		if err != nil {
+			return nil, fmt.Errorf("converting config to Any: %w", err)
+		}
+		req.Config = cfg
 	}
 
 	type prepareResult struct {
@@ -324,6 +335,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 			Maps:     make(map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map),
 		}
 		req.AttachmentContext = attachmentContext
+		req.Config = cfg
 	}
 
 	return instrumentCollectionRequests, nil
