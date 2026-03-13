@@ -296,11 +296,19 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			// CEC.
 			// Policy is regenerated when listeners are added or removed
 			// to fix this condition when the listener is available.
-			e.getLogger().Debug(
-				"Redirect rule with missing listener skipped, will be applied once the listener is available",
-				logfields.Error, err,
-				logfields.Listener, pp.GetListener(),
-			)
+			if listener != "" {
+				e.getLogger().Debug(
+					"Redirect rule with missing listener skipped, will be applied once the listener is available",
+					logfields.Error, err,
+					logfields.Listener, listener,
+				)
+			} else {
+				e.getLogger().Error(
+					"Redirect rule with missing listener skipped, policy will drop",
+					logfields.Error, err,
+				)
+
+			}
 			skipped++
 			continue
 		}

@@ -14,7 +14,6 @@ type RuleFeatures struct {
 	DNS               bool
 	HTTP              bool
 	HTTPHeaderMatches bool
-	OtherL7           bool
 	Deny              bool
 	IngressCIDRGroup  bool
 	MutualAuth        bool
@@ -44,9 +43,6 @@ func (m Metrics) AddRule(r types.PolicyEntry) {
 	}
 	if rf.HTTPHeaderMatches {
 		m.NPHTTPHeaderMatchesIngested.WithLabelValues(actionAdd).Inc()
-	}
-	if rf.OtherL7 {
-		m.NPOtherL7Ingested.WithLabelValues(actionAdd).Inc()
 	}
 	if rf.Deny {
 		m.NPDenyPoliciesIngested.WithLabelValues(actionAdd).Inc()
@@ -89,9 +85,6 @@ func (m Metrics) DelRule(r types.PolicyEntry) {
 	if rf.HTTPHeaderMatches {
 		m.NPHTTPHeaderMatchesIngested.WithLabelValues(actionDel).Inc()
 	}
-	if rf.OtherL7 {
-		m.NPOtherL7Ingested.WithLabelValues(actionDel).Inc()
-	}
 	if rf.Deny {
 		m.NPDenyPoliciesIngested.WithLabelValues(actionDel).Inc()
 	}
@@ -113,7 +106,7 @@ func (m Metrics) DelRule(r types.PolicyEntry) {
 }
 
 func (rf *RuleFeatures) allFeaturesPortRules() bool {
-	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.OtherL7 && rf.TLSInspection && rf.SNIAllowList
+	return rf.DNS && rf.HTTP && rf.HTTPHeaderMatches && rf.TLSInspection && rf.SNIAllowList
 }
 
 func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
@@ -130,9 +123,6 @@ func ruleTypePortRules(rf *RuleFeatures, portRules api.PortRules) {
 					}
 				}
 			}
-		}
-		if p.Rules != nil && (len(p.Rules.L7) > 0) {
-			rf.OtherL7 = true
 		}
 		if !rf.TLSInspection && (p.OriginatingTLS != nil || p.TerminatingTLS != nil) {
 			rf.TLSInspection = true

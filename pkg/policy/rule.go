@@ -84,14 +84,6 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(policyContext PolicyContext) 
 		} else {
 			policyContext.PolicyTrace("   Merging DNS wildcard rule, equal rule already exists: %+v\n", rule)
 		}
-	case epd.L7Rules.L7Proto != "" && len(epd.L7Rules.L7) > 0:
-		rule := api.PortRuleL7{}
-		if !rule.Exists(epd.L7Rules) {
-			policyContext.PolicyTrace("   Merging L7 wildcard rule: %+v\n", rule)
-			epd.L7Rules.L7 = append(epd.L7Rules.L7, rule)
-		} else {
-			policyContext.PolicyTrace("   Merging L7 wildcard rule, equal rule already exists: %+v\n", rule)
-		}
 	}
 	return epd.L7Rules
 }
@@ -320,14 +312,6 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 					existingPolicy.HTTP = append(existingPolicy.HTTP, newRule)
 				}
 			}
-			if existingPolicy.L7Proto == "" && newPolicy.L7Proto != "" {
-				existingPolicy.L7Proto = newPolicy.L7Proto
-			}
-			for _, newRule := range newPolicy.L7 {
-				if !newRule.Exists(existingPolicy.L7Rules) {
-					existingPolicy.L7 = append(existingPolicy.L7, newRule)
-				}
-			}
 			for _, newRule := range newPolicy.DNS {
 				if !newRule.Exists(existingPolicy.L7Rules) {
 					existingPolicy.DNS = append(existingPolicy.DNS, newRule)
@@ -395,14 +379,8 @@ func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 
 		pr := ports.GetPortRule()
 		if pr != nil {
-			if pr.Rules != nil && pr.Rules.L7Proto != "" {
-				policyCtx.PolicyTrace("        l7proto: \"%s\"\n", pr.Rules.L7Proto)
-			}
 			if !pr.Rules.IsEmpty() {
 				for _, l7 := range pr.Rules.HTTP {
-					policyCtx.PolicyTrace("          %+v\n", l7)
-				}
-				for _, l7 := range pr.Rules.L7 {
 					policyCtx.PolicyTrace("          %+v\n", l7)
 				}
 			}

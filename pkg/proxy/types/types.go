@@ -4,10 +4,10 @@
 package types
 
 const (
-	// ProxyTypeAny represents the case where no proxy type is provided.
-	ProxyTypeAny ProxyType = ""
 	// ProxyTypeHTTP specifies the Envoy HTTP proxy type
 	ProxyTypeHTTP ProxyType = "http"
+	// ProxyTypeTLS specifies the Envoy TLS proxy type
+	ProxyTypeTLS ProxyType = "tls"
 	// ProxyTypeDNS specifies the statically configured DNS proxy type
 	ProxyTypeDNS ProxyType = "dns"
 	// ProxyTypeCRD specifies a proxy configured via CiliumEnvoyConfig CRD
