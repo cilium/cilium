@@ -3,7 +3,8 @@
 
 static __always_inline void
 endpoint_add_entry(struct endpoint_key *key, __u32 ifindex, __u16 lxc_id, __u32 flags, __u32 sec_id,
-		   __u32 parent_ifindex, const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
+		   __u32 parent_ifindex, __u16 vlan_id,
+		   const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
 {
 	struct endpoint_info value = {
 		.ifindex = ifindex,
@@ -11,6 +12,7 @@ endpoint_add_entry(struct endpoint_key *key, __u32 ifindex, __u16 lxc_id, __u32 
 		.flags = flags,
 		.sec_id = sec_id,
 		.parent_ifindex = parent_ifindex,
+		.vlan_id = vlan_id,
 	};
 
 	if (ep_mac_addr)
@@ -30,7 +32,21 @@ endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags, __u
 		.family = ENDPOINT_KEY_IPV4,
 	};
 
-	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, parent_ifindex,
+	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, parent_ifindex, 0,
+			   ep_mac_addr, node_mac_addr);
+}
+
+static __always_inline void
+endpoint_v4_add_entry_with_vlan(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags,
+				__u32 sec_id, __u32 parent_ifindex, __u16 vlan_id,
+				const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
+{
+	struct endpoint_key key = {
+		.ip4 = addr,
+		.family = ENDPOINT_KEY_IPV4,
+	};
+
+	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, parent_ifindex, vlan_id,
 			   ep_mac_addr, node_mac_addr);
 }
 
@@ -56,6 +72,6 @@ endpoint_v6_add_entry(const union v6addr *addr, __u32 ifindex, __u16 lxc_id,
 
 	memcpy(&key.ip6, addr, sizeof(*addr));
 
-	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, 0,
+	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, 0, 0,
 			   ep_mac_addr, node_mac_addr);
 }

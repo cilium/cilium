@@ -43,6 +43,7 @@ type epInfoCache struct {
 	lxcMAC                 mac.MAC
 	ifIndex                int
 	parentIfIndex          int
+	vlanID                 uint16
 	netNsCookie            uint64
 	fibTableID             uint32
 	properties             map[string]any
@@ -93,6 +94,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		lxcMAC:                 e.mac,
 		ifIndex:                e.ifIndex,
 		parentIfIndex:          e.parentIfIndex,
+		vlanID:                 e.vlanID,
 		netNsCookie:            e.NetNsCookie,
 		fibTableID:             e.fibTableID,
 		properties:             maps.Clone(e.properties),
@@ -111,6 +113,10 @@ func (ep *epInfoCache) GetIfIndex() int {
 
 func (ep *epInfoCache) GetParentIfIndex() int {
 	return ep.parentIfIndex
+}
+
+func (ep *epInfoCache) GetVlanID() uint16 {
+	return ep.vlanID
 }
 
 func (ep *epInfoCache) LXCMac() mac.MAC {

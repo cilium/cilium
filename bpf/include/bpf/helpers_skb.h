@@ -45,6 +45,11 @@ static int BPF_FUNC(skb_change_head, struct __sk_buff *skb, __u32 head_room,
 
 static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, __u32 len);
 
+/* VLAN manipulation */
+static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, __be16 vlan_proto,
+		    __u16 vlan_tci);
+static int BPF_FUNC(skb_vlan_pop, struct __sk_buff *skb);
+
 /* Packet tunnel encap/decap */
 static int BPF_FUNC(skb_get_tunnel_key, struct __sk_buff *skb,
 		    struct bpf_tunnel_key *to, __u32 size, __u32 flags);
