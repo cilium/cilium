@@ -197,16 +197,32 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	case gc.egressIP.IsValid():
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
 		// interface.
-		egressIP4 = gc.egressIP
+		if gc.egressIP.Is4() {
+			egressIP4 = gc.egressIP
 
-		// TODO: add ipv6 support for specifying an egress IP, currently only ipv4 is supported.
-		if v6Needed {
-			egressIP6 = EgressIPNotFoundIPv6
-		}
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+			}
 
-		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+			if v6Needed {
+				egressIP6, err = netdevice.GetIfaceFirstIPv6Address(gwc.ifaceName)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve IPv6 address for egress interface: %w", err)
+				}
+			}
+		} else if gc.egressIP.Is6() {
+			egressIP6 = gc.egressIP
+
+			gwc.ifaceName, err = netdevice.GetIfaceWithIPv6Address(gc.egressIP)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve interface with IPv6 egress IP: %w", err)
+			}
+
+			egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
+			}
 		}
 
 	default:
