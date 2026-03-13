@@ -51,6 +51,64 @@ message FQDNMapping {
     uint32 source_identity = 4; // Identity of the client making the DNS request
     bytes source_ip = 5; // IP address of the client making the DNS request
     uint32 response_code = 6; // DNS Response code as specified in RFC2316
+    // Metrics and access logging data collected by the standalone DNS proxy.
+    MetricsData metrics_data = 7;
+}
+
+// MetricsData carries the flow context and timing statistics that the agent
+// needs to emit proxy metrics and access log records for DNS events
+// originating from the standalone DNS proxy.
+message MetricsData {
+    // Proxy request processing timing statistics
+    ProcessingStats processing_stats = 1;
+
+    // DNS response metadata extracted from the DNS message
+    DNSResponseData dns_response_data = 2;
+
+    // Source port of the endpoint making the DNS request
+    uint32 source_port = 3;
+
+    // IP:port of the destination DNS server as "ip:port" string (e.g., "8.8.8.8:53")
+    string server_addr = 4;
+
+    // Security identity of the destination DNS server
+    uint32 server_identity = 5;
+
+    // L4 protocol used for the DNS request (e.g., "udp", "tcp")
+    string protocol = 6;
+
+    // Whether the DNS request was allowed by policy
+    bool allowed = 7;
+
+    // Error message if the DNS request encountered an error (empty if no error)
+    string error_message = 8;
+
+    // Whether the error was a network timeout
+    bool is_timeout = 9;
+}
+
+// ProcessingStats carries proxy request timing statistics collected by the
+// standalone DNS proxy. All durations are in nanoseconds.
+message ProcessingStats {
+    int64 total_time_ns = 1;
+    int64 processing_time_ns = 2;
+    int64 upstream_time_ns = 3;
+    int64 semaphore_acquire_time_ns = 4;
+    int64 policy_check_time_ns = 5;
+    int64 policy_generation_time_ns = 6;
+    int64 dataplane_time_ns = 7;
+    int64 qname_lock_time_ns = 8;
+    int64 update_ep_cache_time_ns = 9;
+    int64 update_nm_cache_time_ns = 10;
+}
+
+// DNSResponseData holds the DNS message details extracted from the response
+// that are needed for access logging on the agent side.
+message DNSResponseData {
+    bool is_response = 1; // Whether this is a DNS response (true) or request (false)
+    repeated string cnames = 2; // CNAME records from the DNS response
+    repeated uint32 qtypes = 3; // DNS question types
+    repeated uint32 answer_types = 4; // DNS answer record types
 }
 
 // Ack returned by cilium agent to SDP on receiving FQDN-IP mapping update

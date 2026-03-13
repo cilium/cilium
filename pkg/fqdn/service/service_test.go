@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"log/slog"
 	"net"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
@@ -36,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -106,6 +109,16 @@ func (m *mockUpdater) UpdateIdentities(_, _ identity.IdentityMap) <-chan struct{
 	return out
 }
 
+// mockProxyAccessLogger is a test implementation of accesslog.ProxyAccessLogger
+// that returns a dummy log record and does nothing on Log.
+type mockProxyAccessLogger struct{}
+
+func (m *mockProxyAccessLogger) NewLogRecord(_ context.Context, t accesslog.FlowType, ingress bool, tags ...accesslog.LogTag) (*accesslog.LogRecord, error) {
+	return &accesslog.LogRecord{}, nil
+}
+
+func (m *mockProxyAccessLogger) Log(_ *accesslog.LogRecord) {}
+
 func TestFQDNDataServer(t *testing.T) {
 
 	test := map[string]struct {
@@ -165,7 +178,7 @@ func TestFQDNDataServer(t *testing.T) {
 								Lifecycle:         lc,
 								Logger:            logger,
 								NameManager:       nil,
-								ProxyAccessLogger: nil,
+								ProxyAccessLogger: &mockProxyAccessLogger{},
 							})
 					},
 					func() *option.DaemonConfig {
@@ -279,7 +292,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 							Lifecycle:         lc,
 							Logger:            logger,
 							NameManager:       nm,
-							ProxyAccessLogger: nil,
+							ProxyAccessLogger: &mockProxyAccessLogger{},
 						})
 				},
 				func() *option.DaemonConfig {
@@ -918,50 +931,80 @@ func TestUpdateMappingRequest(t *testing.T) {
 		shouldError      bool
 		errorMessage     string
 	}{
-		"nil source IP should return invalid argument error": {
+		"nil source IP still forwards to NotifyOnDNSMsg for metrics": {
 			mapping: &pb.FQDNMapping{
 				SourceIp:     nil,
 				Fqdn:         "example.com",
 				RecordIp:     [][]byte{[]byte("10.20.30.40")},
 				Ttl:          300,
 				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					Protocol: "udp",
+					Allowed:  true,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: true,
+					},
+				},
 			},
-			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
 			shouldError:      true,
-			errorMessage:     "source IP is nil in FQDN mapping",
+			errorMessage:     "DNS request cannot be associated with an existing endpoint",
 		},
 		"empty record IPs should return success": {
 			mapping: &pb.FQDNMapping{
 				SourceIp: []byte("1.2.3.4"),
 				Fqdn:     "example.com",
-				RecordIp: [][]byte{}, // Empty record IPs
+				RecordIp: [][]byte{}, // Empty record IPs (request, not response)
+				MetricsData: &pb.MetricsData{
+					SourcePort: 5353,
+					Protocol:   "udp",
+					Allowed:    true,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: false,
+					},
+				},
 			},
 			expectedResponse: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 			shouldError:      false,
 		},
-		"endpoint not found should return error": {
+		"endpoint not found still forwards to NotifyOnDNSMsg for metrics": {
 			mapping: &pb.FQDNMapping{
 				SourceIp:     []byte("192.168.1.1"), // Non-existent IP
 				Fqdn:         "example.com",
 				RecordIp:     [][]byte{[]byte("1.2.3.4")},
 				Ttl:          300,
 				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					SourcePort: 5353,
+					Protocol:   "udp",
+					Allowed:    true,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: true,
+					},
+				},
 			},
 			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
 			shouldError:      true,
-			errorMessage:     "endpoint not found for IP",
+			errorMessage:     "DNS request cannot be associated with an existing endpoint",
 		},
-		"fqdn is empty string should return error": {
+		"empty fqdn still forwards to NotifyOnDNSMsg for metrics": {
 			mapping: &pb.FQDNMapping{
 				SourceIp:     []byte("1.2.3.4"),
 				Fqdn:         "",
 				RecordIp:     [][]byte{[]byte("5.6.7.8")},
 				Ttl:          300,
 				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					SourcePort: 5353,
+					Protocol:   "udp",
+					Allowed:    true,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: true,
+					},
+				},
 			},
-			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
-			shouldError:      true,
-			errorMessage:     "FQDN is nil or empty in FQDN mapping",
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			shouldError:      false,
 		},
 		"valid mapping should succeed": {
 			mapping: &pb.FQDNMapping{
@@ -970,6 +1013,33 @@ func TestUpdateMappingRequest(t *testing.T) {
 				RecordIp:     [][]byte{[]byte("5.6.7.8")},
 				Ttl:          300,
 				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					SourcePort:     5353,
+					ServerAddr:     "8.8.8.8:53",
+					ServerIdentity: 42,
+					Protocol:       "udp",
+					Allowed:        true,
+					ErrorMessage:   "",
+					IsTimeout:      false,
+					ProcessingStats: &pb.ProcessingStats{
+						TotalTimeNs:            10000000,
+						ProcessingTimeNs:       1000000,
+						UpstreamTimeNs:         5000000,
+						SemaphoreAcquireTimeNs: 500000,
+						PolicyCheckTimeNs:      200000,
+						PolicyGenerationTimeNs: 100000,
+						DataplaneTimeNs:        2000000,
+						QnameLockTimeNs:        50000,
+						UpdateEpCacheTimeNs:    300000,
+						UpdateNmCacheTimeNs:    150000,
+					},
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse:  true,
+						Cnames:      []string{"alias.example.com."},
+						Qtypes:      []uint32{uint32(dns.TypeA)},
+						AnswerTypes: []uint32{uint32(dns.TypeA)},
+					},
+				},
 			},
 			expectedResponse: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 			shouldError:      false,
@@ -992,6 +1062,257 @@ func TestUpdateMappingRequest(t *testing.T) {
 
 			require.NotNil(t, response, "Response should not be nil")
 			require.Equal(t, tc.expectedResponse, response.Response, "Response code mismatch for scenario: %s", scenario)
+		})
+	}
+}
+
+func TestReconstructNotifyArgsFromProto(t *testing.T) {
+	testCases := map[string]struct {
+		mapping              *pb.FQDNMapping
+		sourceIP             []byte
+		expectedMsgDetails   dnsproxy.MsgDetails
+		expectedServerAddr   netip.AddrPort
+		expectedEpIPPort     string
+		expectedServerID     identity.NumericIdentity
+		expectedProtocol     string
+		expectedAllowed      bool
+	}{
+		"response with all fields": {
+			mapping: &pb.FQDNMapping{
+				Fqdn:         "example.com",
+				RecordIp:     [][]byte{[]byte("5.6.7.8"), []byte("9.10.11.12")},
+				Ttl:          300,
+				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					SourcePort:     12345,
+					ServerAddr:     "8.8.8.8:53",
+					ServerIdentity: 42,
+					Protocol:       "udp",
+					Allowed:        true,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse:  true,
+						Cnames:      []string{"alias.example.com."},
+						Qtypes:      []uint32{uint32(dns.TypeA)},
+						AnswerTypes: []uint32{uint32(dns.TypeA), uint32(dns.TypeCNAME)},
+					},
+				},
+			},
+			sourceIP: []byte("1.2.3.4"),
+			expectedMsgDetails: dnsproxy.MsgDetails{
+				QName:       "example.com",
+				ResponseIPs: []netip.Addr{netip.MustParseAddr("5.6.7.8"), netip.MustParseAddr("9.10.11.12")},
+				TTL:         300,
+				CNAMEs:      []string{"alias.example.com."},
+				RCode:       dns.RcodeSuccess,
+				AnswerTypes: []uint16{uint16(dns.TypeA), uint16(dns.TypeCNAME)},
+				QTypes:      []uint16{uint16(dns.TypeA)},
+				Response:    true,
+			},
+			expectedServerAddr: netip.MustParseAddrPort("8.8.8.8:53"),
+			expectedEpIPPort:   "1.2.3.4:12345",
+			expectedServerID:   identity.NumericIdentity(42),
+			expectedProtocol:   "udp",
+			expectedAllowed:    true,
+		},
+		"dns request (non-response) with no record IPs": {
+			mapping: &pb.FQDNMapping{
+				Fqdn:         "request.example.com",
+				Ttl:          0,
+				ResponseCode: dns.RcodeSuccess,
+				MetricsData: &pb.MetricsData{
+					SourcePort:     54321,
+					ServerAddr:     "8.8.4.4:53",
+					ServerIdentity: 10,
+					Protocol:       "tcp",
+					Allowed:        false,
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: false,
+						Qtypes:     []uint32{uint32(dns.TypeAAAA)},
+					},
+				},
+			},
+			sourceIP: []byte("10.0.0.1"),
+			expectedMsgDetails: dnsproxy.MsgDetails{
+				QName:       "request.example.com",
+				ResponseIPs: nil,
+				TTL:         0,
+				CNAMEs:      nil,
+				RCode:       dns.RcodeSuccess,
+				AnswerTypes: nil,
+				QTypes:      []uint16{uint16(dns.TypeAAAA)},
+				Response:    false,
+			},
+			expectedServerAddr: netip.MustParseAddrPort("8.8.4.4:53"),
+			expectedEpIPPort:   "10.0.0.1:54321",
+			expectedServerID:   identity.NumericIdentity(10),
+			expectedProtocol:   "tcp",
+			expectedAllowed:    false,
+		},
+		"empty protocol preserved as empty": {
+			mapping: &pb.FQDNMapping{
+				Fqdn: "default.example.com",
+				MetricsData: &pb.MetricsData{
+					ServerAddr: "1.1.1.1:53",
+					DnsResponseData: &pb.DNSResponseData{
+						IsResponse: true,
+					},
+				},
+			},
+			sourceIP: []byte("10.0.0.2"),
+			expectedMsgDetails: dnsproxy.MsgDetails{
+				QName:    "default.example.com",
+				Response: true,
+			},
+			expectedServerAddr: netip.MustParseAddrPort("1.1.1.1:53"),
+			expectedEpIPPort:   "10.0.0.2:0",
+			expectedProtocol:   "",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			server := &FQDNDataServer{log: hivetest.Logger(t)}
+			msgDetails, serverAddrPort, epIPPort, serverID, protocol, allowed :=
+				server.reconstructNotifyArgsFromProto(tc.mapping, tc.sourceIP)
+
+			require.Equal(t, tc.expectedMsgDetails, msgDetails)
+			require.Equal(t, tc.expectedServerAddr, serverAddrPort)
+			require.Equal(t, tc.expectedEpIPPort, epIPPort)
+			require.Equal(t, tc.expectedServerID, serverID)
+			require.Equal(t, tc.expectedProtocol, protocol)
+			require.Equal(t, tc.expectedAllowed, allowed)
+		})
+	}
+}
+
+func TestPopulateProxyStatContextFromProto(t *testing.T) {
+	testCases := map[string]struct {
+		metricsData         *pb.MetricsData
+		expectedTimings     map[string]time.Duration
+		expectedErrContains string
+	}{
+		"all timing fields populated": {
+			metricsData: &pb.MetricsData{
+				ProcessingStats: &pb.ProcessingStats{
+					TotalTimeNs:            10000000,
+					ProcessingTimeNs:       1000000,
+					UpstreamTimeNs:         5000000,
+					SemaphoreAcquireTimeNs: 500000,
+					PolicyCheckTimeNs:      200000,
+					PolicyGenerationTimeNs: 100000,
+					DataplaneTimeNs:        2000000,
+					QnameLockTimeNs:        50000,
+					UpdateEpCacheTimeNs:    300000,
+					UpdateNmCacheTimeNs:    150000,
+				},
+				ErrorMessage: "upstream timeout",
+			},
+			expectedTimings: map[string]time.Duration{
+				"TotalTime":            10 * time.Millisecond,
+				"ProcessingTime":       1 * time.Millisecond,
+				"UpstreamTime":         5 * time.Millisecond,
+				"SemaphoreAcquireTime": 500 * time.Microsecond,
+				"PolicyCheckTime":      200 * time.Microsecond,
+				"PolicyGenerationTime": 100 * time.Microsecond,
+				"DataplaneTime":        2 * time.Millisecond,
+				"QnameLockTime":        50 * time.Microsecond,
+				"UpdateEpCacheTime":    300 * time.Microsecond,
+				"UpdateNmCacheTime":    150 * time.Microsecond,
+			},
+			expectedErrContains: "upstream timeout",
+		},
+		"nil MetricsData is a no-op": {
+			metricsData:     nil,
+			expectedTimings: map[string]time.Duration{},
+		},
+		"nil ProcessingStats with error": {
+			metricsData: &pb.MetricsData{
+				ErrorMessage: "some error",
+			},
+			expectedTimings:     map[string]time.Duration{},
+			expectedErrContains: "some error",
+		},
+		"zero timing values are not set": {
+			metricsData: &pb.MetricsData{
+				ProcessingStats: &pb.ProcessingStats{
+					TotalTimeNs:    1000000,
+					UpstreamTimeNs: 0,
+				},
+			},
+			expectedTimings: map[string]time.Duration{
+				"TotalTime":    1 * time.Millisecond,
+				"UpstreamTime": 0,
+			},
+		},
+		"no error message leaves stat.Err nil": {
+			metricsData: &pb.MetricsData{
+				ProcessingStats: &pb.ProcessingStats{
+					TotalTimeNs: 5000000,
+				},
+			},
+			expectedTimings: map[string]time.Duration{
+				"TotalTime": 5 * time.Millisecond,
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			stat := &dnsproxy.ProxyRequestContext{}
+			populateProxyStatContextFromProto(stat, tc.metricsData)
+
+			// Check error
+			if tc.expectedErrContains != "" {
+				require.Error(t, stat.Err)
+				require.Contains(t, stat.Err.Error(), tc.expectedErrContains)
+			} else {
+				require.NoError(t, stat.Err)
+			}
+
+			// Check timing fields
+			timingFields := map[string]time.Duration{
+				"TotalTime":            stat.TotalTime.SuccessTotal(),
+				"ProcessingTime":       stat.ProcessingTime.SuccessTotal(),
+				"UpstreamTime":         stat.UpstreamTime.SuccessTotal(),
+				"SemaphoreAcquireTime": stat.SemaphoreAcquireTime.SuccessTotal(),
+				"PolicyCheckTime":      stat.PolicyCheckTime.SuccessTotal(),
+				"PolicyGenerationTime": stat.PolicyGenerationTime.SuccessTotal(),
+				"DataplaneTime":        stat.DataplaneTime.SuccessTotal(),
+				"QnameLockTime":        stat.QnameLockTime.SuccessTotal(),
+				"UpdateEpCacheTime":    stat.UpdateEpCacheTime.SuccessTotal(),
+				"UpdateNmCacheTime":    stat.UpdateNmCacheTime.SuccessTotal(),
+			}
+
+			for field, expected := range tc.expectedTimings {
+				actual, ok := timingFields[field]
+				require.True(t, ok, "Unknown timing field: %s", field)
+				require.Equal(t, expected, actual, "Timing mismatch for %s", field)
+			}
+		})
+	}
+}
+
+func TestResponseCodeFromError(t *testing.T) {
+	tests := map[string]struct {
+		err      error
+		expected pb.ResponseCode
+	}{
+		"ErrDNSRequestNoEndpoint returns ENDPOINT_NOT_FOUND": {
+			err:      dnsproxy.ErrDNSRequestNoEndpoint{},
+			expected: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
+		},
+		"wrapped ErrDNSRequestNoEndpoint returns ENDPOINT_NOT_FOUND": {
+			err:      fmt.Errorf("something went wrong: %w", dnsproxy.ErrDNSRequestNoEndpoint{}),
+			expected: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
+		},
+		"generic error returns SERVER_FAILURE": {
+			err:      fmt.Errorf("unexpected failure"),
+			expected: pb.ResponseCode_RESPONSE_CODE_SERVER_FAILURE,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tc.expected, responseCodeFromError(tc.err))
 		})
 	}
 }
