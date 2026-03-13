@@ -1720,6 +1720,14 @@
      - ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
      - int
      - ``0``
+   * - :spelling:ignore:`envoy.nodeLocality`
+     - Enable node locality lookup and pass resolved zone to cilium-envoy via ``--service-zone``.
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`envoy.nodeLocality.enabled`
+     - Enable node-locality support for cilium-envoy.
+     - bool
+     - ``false``
    * - :spelling:ignore:`envoy.nodeSelector`
      - Node selector for cilium-envoy.
      - object

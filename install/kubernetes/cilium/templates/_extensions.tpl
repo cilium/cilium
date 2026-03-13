@@ -110,6 +110,50 @@ Allow packagers to add init containers to the cilium-envoy pods.
 {{- end }}
 
 {{/*
+Allow packagers to add locality init container items to the cilium-envoy pods.
+*/}}
+{{- define "envoy.initContainers.nodeLocality" -}}
+- name: lookup-bootstrap-locality
+  image: {{ include "cilium.image" .Values.image }}
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  command:
+    - /usr/bin/cilium-envoy-bootstrap-locality
+  args:
+    - --output=/var/run/cilium/envoy-locality-config/service-zone
+  env:
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: spec.nodeName
+  {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+  - name: KUBERNETES_SERVICE_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: {{ .Values.k8sServiceHostRef.name }}
+        key: {{ .Values.k8sServiceHostRef.key }}
+  - name: KUBERNETES_SERVICE_PORT
+    value: {{ include "k8sServicePort" . }}
+  {{- end }}
+  {{- if .Values.k8sServiceHost }}
+  - name: KUBERNETES_SERVICE_HOST
+    value: {{ include "k8sServiceHost" . }}
+  - name: KUBERNETES_SERVICE_PORT
+    value: {{ include "k8sServicePort" . }}
+  {{- end }}
+  securityContext:
+    runAsUser: 0
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+  volumeMounts:
+  - name: envoy-config-locality
+    mountPath: /var/run/cilium/envoy-locality-config
+    readOnly: false
+{{- end }}
+
+{{/*
 Allow packagers to add extra args to the cilium-envoy container.
 */}}
 {{- define "envoy.args.extra" -}}
@@ -131,6 +175,27 @@ Allow packagers to add extra volume mounts to the cilium-envoy container.
 Allow packagers to add extra host path mounts to the cilium-envoy container.
 */}}
 {{- define "envoy.hostPathMounts.extra" -}}
+{{- end }}
+
+{{/*
+Allow packagers to add locality-specific volume mounts to the cilium-envoy container.
+*/}}
+{{- define "envoy.volumeMounts.nodeLocality" -}}
+{{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+- mountPath: /var/run/cilium/envoy-locality-config
+  name: envoy-config-locality
+  readOnly: true
+{{- end }}
+{{- end }}
+
+{{/*
+Allow packagers to add locality-specific volumes to the cilium-envoy pod.
+*/}}
+{{- define "envoy.hostPathMounts.nodeLocality" -}}
+{{- if and .Values.envoy.nodeLocality .Values.envoy.nodeLocality.enabled }}
+  - name: envoy-config-locality
+    emptyDir: {}
+{{- end }}
 {{- end }}
 
 
@@ -173,4 +238,3 @@ affinity:
   {{- toYaml . | nindent 2 }}     
 {{- end }}
 {{- end }}
-

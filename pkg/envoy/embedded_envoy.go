@@ -60,6 +60,10 @@ var (
 	}
 
 	tracing = false
+
+	// configureEmbeddedBootstrapHook allows downstream repos to append
+	// bootstrap-specific Envoy configuration without modifying this file.
+	configureEmbeddedBootstrapHook func(*envoy_config_bootstrap.Bootstrap, int64)
 )
 
 const (
@@ -551,6 +555,10 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 				},
 			}},
 		},
+	}
+
+	if configureEmbeddedBootstrapHook != nil {
+		configureEmbeddedBootstrapHook(bs, config.connectTimeout)
 	}
 
 	o.logger.Debug("Envoy: Writing Bootstrap config",

@@ -729,6 +729,7 @@ Makefile* @cilium/build
 /tools/ @cilium/contributing
 /tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
+/tools/envoy-bootstrap-locality @cilium/envoy
 /tools/metricslint @cilium/metrics
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
