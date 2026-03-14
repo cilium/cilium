@@ -875,6 +875,15 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 	time.MaxInternalTimerDelay = vp.GetDuration(option.MaxInternalTimerDelay)
 }
 
+// validateL7ProxyRedirection checks that when L7 proxy is enabled, at least one
+// proxy redirection mechanism (iptables or BPF TProxy) is also enabled.
+func validateL7ProxyRedirection(cfg *option.DaemonConfig) error {
+	if cfg.EnableL7Proxy && !cfg.InstallIptRules && !cfg.EnableBPFTProxy {
+		return fmt.Errorf("L7 proxy requires iptables rules (--install-iptables-rules=\"true\") or BPF TProxy (--enable-bpf-tproxy=\"true\")")
+	}
+	return nil
+}
+
 func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	var debugDatapath bool
 
@@ -1057,8 +1066,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Unable to parse Label prefix configuration", logfields.Error, err)
 	}
 
-	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
-		logging.Fatal(logger, "L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
+	if err := validateL7ProxyRedirection(option.Config); err != nil {
+		logging.Fatal(logger, err.Error())
 	}
 
 	if option.Config.EnableRemoteNodeMasquerade && !option.Config.EnableBPFMasquerade {
