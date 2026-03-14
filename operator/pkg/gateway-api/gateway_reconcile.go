@@ -183,17 +183,24 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
+	gatewayClassConfig := r.getGatewayClassConfig(ctx, gwc)
+	serverHeaderTransformation := "OVERWRITE"
+	if gatewayClassConfig != nil && gatewayClassConfig.Spec.Envoy != nil && gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation != nil {
+		serverHeaderTransformation = *gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation
+	}
+
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
-		Gateway:             *gw,
-		HTTPRoutes:          httpRoutes,
-		TLSRoutes:           tlsRoutes,
-		GRPCRoutes:          grpcRoutes,
-		Services:            servicesList.Items,
-		ServiceImports:      serviceImportsList.Items,
-		ReferenceGrants:     grants.Items,
-		BackendTLSPolicyMap: btlspMap,
+		GatewayClass:               *gwc,
+		GatewayClassConfig:         gatewayClassConfig,
+		ServerHeaderTransformation: serverHeaderTransformation,
+		Gateway:                    *gw,
+		HTTPRoutes:                 httpRoutes,
+		TLSRoutes:                  tlsRoutes,
+		GRPCRoutes:                 grpcRoutes,
+		Services:                   servicesList.Items,
+		ServiceImports:             serviceImportsList.Items,
+		ReferenceGrants:            grants.Items,
+		BackendTLSPolicyMap:        btlspMap,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
