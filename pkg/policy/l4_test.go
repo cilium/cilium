@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
-	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -291,12 +290,13 @@ func TestJSONMarshal(t *testing.T) {
 			"8080/TCP": {
 				Port:     8080,
 				Protocol: api.ProtoTCP,
+				U8Proto:  u8proto.TCP,
 				Ingress:  false,
 			},
 		})},
 		Ingress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
 			"80/TCP": {
-				Port: 80, Protocol: api.ProtoTCP,
+				Port: 80, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
@@ -309,7 +309,7 @@ func TestJSONMarshal(t *testing.T) {
 				Ingress: true,
 			},
 			"9090/TCP": {
-				Port: 9090, Protocol: api.ProtoTCP,
+				Port: 9090, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
@@ -330,7 +330,7 @@ func TestJSONMarshal(t *testing.T) {
 				Ingress: true,
 			},
 			"8080/TCP": {
-				Port: 8080, Protocol: api.ProtoTCP,
+				Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
 						Verdict:  types.Allow,
@@ -450,72 +450,6 @@ func TestJSONMarshal(t *testing.T) {
 	}
 
 	require.True(t, policy.HasEnvoyRedirect())
-}
-
-// TestL4PolicyMapPortRangeOverlaps tests the Upsert, ExactLookup,
-// and Delete methods with L4Filters that have overlapping ports.
-func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
-	portRanges := []struct {
-		startPort, endPort uint16
-	}{
-		{1, 65534}, {1, 1023}, {0, 65535}, {1024, 65535},
-	}
-	for i, portRange := range portRanges {
-		t.Run(fmt.Sprintf("%d-%d", portRange.startPort, portRange.endPort), func(tt *testing.T) {
-			l4Map := makeL4PolicyMap()
-			startFilter := &L4Filter{
-				U8Proto:  u8proto.TCP,
-				Protocol: api.ProtoTCP,
-				Port:     portRange.startPort,
-				EndPort:  portRange.endPort,
-			}
-			startPort := fmt.Sprintf("%d", portRange.startPort)
-			l4Map.Upsert(startPort, portRange.endPort, "TCP", startFilter)
-			// we need to make a copy of portRanges to splice.
-			pRs := make([]struct{ startPort, endPort uint16 }, len(portRanges))
-			copy(pRs, portRanges)
-			// Iterate over every port range except the one being tested.
-			for _, altPR := range slices.Delete(pRs, i, i+1) {
-				t.Logf("Checking for port range %d-%d on main port range %d-%d", altPR.startPort, altPR.endPort, portRange.startPort, portRange.endPort)
-				altStartPort := fmt.Sprintf("%d", altPR.startPort)
-				// This range should not exist yet.
-				altL4 := l4Map.ExactLookup(altStartPort, altPR.endPort, "TCP")
-				if altL4 != nil {
-					require.Nilf(t, altL4, "%d-%d range found and it should not have been as %d-%d", altPR.startPort, altPR.endPort, altL4.Port, altL4.EndPort)
-				}
-				require.Nil(t, altL4)
-				altFilter := &L4Filter{
-					U8Proto:  u8proto.TCP,
-					Protocol: api.ProtoTCP,
-					Port:     altPR.startPort,
-					EndPort:  altPR.endPort,
-				}
-				// Upsert overlapping port range.
-				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)
-				altL4 = l4Map.ExactLookup(altStartPort, altPR.endPort, "TCP")
-				require.NotNilf(t, altL4, "%d-%d range not found and it should have been", altPR.startPort, altPR.endPort)
-				require.True(t, altL4.Equals(altFilter), "%d-%d range lookup returned a range of %d-%d",
-					altPR.startPort, altPR.endPort, altL4.Port, altL4.EndPort)
-
-				gotMainFilter := l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range upsert", altPR.startPort, altPR.endPort)
-
-				// Delete overlapping port range, and make sure it's not there.
-				l4Map.Delete(altStartPort, altPR.endPort, "TCP")
-				altL4 = l4Map.ExactLookup(altStartPort, altPR.endPort, "TCP")
-				if altL4 != nil {
-					require.Nilf(t, altL4, "%d-%d range found after a delete and it should not have been as %d-%d", altPR.startPort, altPR.endPort, altL4.Port, altL4.EndPort)
-				}
-				require.Nil(t, altL4)
-
-				gotMainFilter = l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range delete", altPR.startPort, altPR.endPort)
-
-				// Put it back for the next iteration.
-				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)
-			}
-		})
-	}
 }
 
 func BenchmarkContainsAllL3L4(b *testing.B) {

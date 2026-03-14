@@ -1125,7 +1125,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 		},
 	}
 
-	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"TCP/80": {
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: &PerSelectorPolicy{

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -295,7 +296,7 @@ var ExpectedPortNetworkPolicyRule1Wildcard = &cilium.PortNetworkPolicyRule{
 var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12,
 		},
@@ -305,7 +306,7 @@ var L4PolicyMap1 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12HeaderMatch,
 		},
@@ -315,7 +316,7 @@ var L4PolicyMap1HeaderMatch = policy.NewL4PolicyMapWithValues(map[string]*policy
 var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1:           L7Rules1,
 			cachedRequiresV2Selector1: L7Rules12,
@@ -326,7 +327,7 @@ var L4PolicyMap1RequiresV2 = policy.NewL4PolicyMapWithValues(map[string]*policy.
 var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector2: L7Rules1,
 		},
@@ -336,7 +337,7 @@ var L4PolicyMap2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"8080/TCP": {
 		Port:     8080,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: denyPerSelectorPolicy,
 			cachedSelector2: L7Rules1,
@@ -347,7 +348,7 @@ var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Fil
 var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules12,
 		},
@@ -358,7 +359,7 @@ var L4PolicyMap3 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap4 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
@@ -369,7 +370,7 @@ var L4PolicyMap4 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
@@ -380,7 +381,7 @@ var L4PolicyMap5 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 var L4PolicyMapSNI = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 	"443/TCP": {
 		Port:     443,
-		Protocol: api.ProtoTCP,
+		Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{
 				ServerNames: policy.NewStringSet([]string{
@@ -722,7 +723,7 @@ func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
 var L4PolicyL7 = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"9090/TCP": {
-			Port: 9090, Protocol: api.ProtoTCP,
+			Port: 9090, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					L7Parser: "tester",
@@ -789,7 +790,7 @@ func TestGetNetworkPolicyL7(t *testing.T) {
 var L4PolicyMySQL = &policy.L4Policy{
 	Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"3306/TCP": {
-			Port: 3306, Protocol: api.ProtoTCP,
+			Port: 3306, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					L7Parser: "envoy.filters.network.mysql_proxy",
@@ -926,7 +927,7 @@ func newL4PolicyTLSEgress(tls *policy.TLSContext) *policy.L4Policy {
 	return &policy.L4Policy{
 		Egress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
-				Port: 443, Protocol: api.ProtoTCP,
+				Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
 						L7Parser:       "tls",
@@ -992,7 +993,7 @@ func newL4PolicyTLSIngress(tls *policy.TLSContext) *policy.L4Policy {
 	return &policy.L4Policy{
 		Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 			"443/TCP": {
-				Port: 443, Protocol: api.ProtoTCP,
+				Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 				PerSelectorPolicies: policy.L7DataMap{
 					cachedSelector1: &policy.PerSelectorPolicy{
 						L7Parser:       "tls",
@@ -1034,7 +1035,7 @@ var ExpectedPerPortPoliciesTLSIngressNoSyncUseFullContext = newIngressPortNetwor
 var L4PolicyTLSFullContext = &policy.L4Policy{
 	Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
 		"443/TCP": {
-			Port: 443, Protocol: api.ProtoTCP,
+			Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					L7Parser: "tls",
