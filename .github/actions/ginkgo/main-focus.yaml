@@ -18,9 +18,6 @@ focus:
 - "f04-agent-policy-multi-node-1"
 - "f05-agent-policy-multi-node-2"
 - "f06-agent-policy-basic"
-- "f07-datapath-host"
-- "f08-datapath-misc-1"
-- "f09-datapath-misc-2"
 - "f10-agent-hubble-bandwidth"
 - "f11-datapath-service-ns-tc"
 - "f12-datapath-service-ns-misc"
@@ -31,7 +28,6 @@ focus:
 - "f17-datapath-service-ew-kube-proxy"
 - "f18-datapath-lrp"
 - "f19-mac-address"
-- "f20-datapath-misc-3"
 include:
   ###
   # K8sAgentChaosTest Graceful shutdown exits with a success message on SIGTERM
@@ -87,34 +83,6 @@ include:
   # K8sPolicyTestExtended Validate toEntities KubeAPIServer Still allows connection to KubeAPIServer with a duplicate policy
   - focus: "f06-agent-policy-basic"
     cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
-
-  ###
-  # K8sDatapathConfig Host firewall With native routing
-  # K8sDatapathConfig Host firewall With native routing and endpoint routes
-  # K8sDatapathConfig Host firewall With VXLAN
-  # K8sDatapathConfig Host firewall With VXLAN and endpoint routes
-  - focus: "f07-datapath-host"
-    cliFocus: "K8sDatapathConfig Host"
-
-  ###
-  # K8sDatapathConfig Encapsulation Check iptables masquerading with random-fully
-  # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation flags send notifications
-  # K8sDatapathConfig MonitorAggregation Checks that monitor aggregation restricts notifications
-  - focus: "f08-datapath-misc-1"
-    cliFocus: "K8sDatapathConfig Encapsulation|K8sDatapathConfig Etcd|K8sDatapathConfig Etcd|K8sDatapathConfig MonitorAggregation"
-
-  ###
-  # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
-  # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting, IPv4 only
-  # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
-  - focus: "f09-datapath-misc-2"
-    cliFocus: "K8sDatapathConfig Check"
-
-  ###
-  # K8sDatapathConfig Iptables Skip conntrack for pod traffic
-  # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
-  - focus: "f20-datapath-misc-3"
-    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
@@ -214,11 +182,6 @@ exclude:
   - k8s-version: "1.34"
     focus: "f05-agent-policy-multi-node-2"
 
-  # These tests require an external node which is only available on
-  # "net-next". So there's no point on running them.
-  - k8s-version: "1.34"
-    focus: "f09-datapath-misc-2"
-
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.34"
     focus: "f11-datapath-service-ns-tc"
@@ -239,11 +202,6 @@ exclude:
   # / net-next so there's no point on running them
   - k8s-version: "1.33"
     focus: "f05-agent-policy-multi-node-2"
-
-  # These tests require an external node which is only available on
-  # "net-next". So there's no point on running them.
-  - k8s-version: "1.33"
-    focus: "f09-datapath-misc-2"
 
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.33"
@@ -273,11 +231,6 @@ exclude:
 
   - k8s-version: "1.32"
     focus: "f05-agent-policy-multi-node-2"
-
-  # These tests require an external node which is only available on
-  # "net-next". So there's no point on running them.
-  - k8s-version: "1.32"
-    focus: "f09-datapath-misc-2"
 
   - k8s-version: "1.32"
     focus: "f11-datapath-service-ns-tc"
