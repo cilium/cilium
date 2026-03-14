@@ -235,7 +235,6 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
-				lastErr = err
 				n.logger.Info(
 					"Unable to get CiliumNode resource",
 					logfields.Error, err,
