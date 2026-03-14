@@ -19,10 +19,12 @@ import (
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/auth/identity"
+	ztunnel "github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/backoff"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
@@ -42,12 +44,40 @@ var defaultSelectors = []*types.Selector{
 	},
 }
 
+// DefaultSpireEntryConfig returns the default SpireEntryConfig for mutual-auth mode.
+func DefaultSpireEntryConfig() SpireEntryConfig {
+	return SpireEntryConfig{
+		ParentID:      defaultParentID,
+		PathFunc:      toPath,
+		SelectorsFunc: func(id string) []*types.Selector { return defaultSelectors },
+	}
+}
+
+// ZtunnelSpireEntryConfig returns the SpireEntryConfig for ztunnel mode.
+// In ztunnel mode:
+// - ParentID is "/ztunnel"
+// - Path format is "/ns/{namespace}/sa/{serviceaccount}"
+// - Selectors are k8s namespace and service account selectors
+func ZtunnelSpireEntryConfig() SpireEntryConfig {
+	return SpireEntryConfig{
+		ParentID:      "/ztunnel",
+		PathFunc:      ztunnel.SpiffeIDPathFunc,
+		SelectorsFunc: ztunnel.SpiffeIDSelectorsFunc,
+	}
+}
+
 // Cell is the cell for the SPIRE client.
 var Cell = cell.Module(
 	"spire-client",
 	"Spire Server API Client",
 	cell.Config(defaultMutualAuthConfig),
 	cell.Config(defaultClientConfig),
+	cell.Provide(func(zfg ztunnel.Config) SpireEntryConfig {
+		if zfg.EnableZTunnel {
+			return ZtunnelSpireEntryConfig()
+		}
+		return DefaultSpireEntryConfig()
+	}),
 	cell.Provide(NewClient),
 )
 
@@ -56,6 +86,7 @@ var FakeCellClient = cell.Module(
 	"Fake Spire Server API Client",
 	cell.Config(defaultMutualAuthConfig),
 	cell.Config(defaultClientConfig),
+	cell.Provide(DefaultSpireEntryConfig),
 	cell.Provide(NewFakeClient),
 )
 
@@ -109,34 +140,90 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 type params struct {
 	cell.In
 
-	K8sClient k8sClient.Clientset
+	Logger           *slog.Logger
+	K8sClient        k8sClient.Clientset
+	Lifecycle        cell.Lifecycle
+	MutualAuthConfig MutualAuthConfig
+	ClientConfig     ClientConfig
+	EntryConfig      SpireEntryConfig
+	ZtunnelConfig    ztunnel.Config
+}
+
+// SpireEntryConfig contains the configuration for SPIRE entry generation.
+// This allows the SPIRE client to be configured for different use cases
+// such as mutual-auth or ztunnel.
+type SpireEntryConfig struct {
+	ParentID      string
+	PathFunc      func(string) string
+	SelectorsFunc func(string) []*types.Selector
+}
+
+type out struct {
+	cell.Out
+
+	Provider identity.Provider
+	Client   *Client
 }
 
 type Client struct {
-	cfg        ClientConfig
-	log        *slog.Logger
-	entry      entryv1.EntryClient
-	entryMutex lock.RWMutex
-	k8sClient  k8sClient.Clientset
+	cfg         ClientConfig
+	log         *slog.Logger
+	entry       entryv1.EntryClient
+	entryCfg    SpireEntryConfig
+	entryMutex  lock.RWMutex
+	k8sClient   k8sClient.Clientset
+	initialized chan struct{}
 }
 
 // NewClient creates a new SPIRE client.
 // If the mutual authentication is not enabled, it returns a noop client.
-func NewClient(params params, lc cell.Lifecycle, authCfg MutualAuthConfig, cfg ClientConfig, log *slog.Logger) identity.Provider {
-	if !authCfg.Enabled {
-		return &noopClient{}
-	}
-	client := &Client{
-		k8sClient: params.K8sClient,
-		cfg:       cfg,
-		log:       log.With(logfields.LogSubsys, "spire-client"),
+// When ztunnel is enabled, the client is still created but the identity.Provider
+// returned is a noop since ztunnel handles identity differently.
+func NewClient(params params) out {
+	if !params.MutualAuthConfig.Enabled {
+		return out{
+			Provider: &noopClient{},
+			Client:   nil,
+		}
 	}
 
-	lc.Append(cell.Hook{
+	client := &Client{
+		k8sClient:   params.K8sClient,
+		cfg:         params.ClientConfig,
+		entryCfg:    params.EntryConfig,
+		log:         params.Logger.With(logfields.LogSubsys, "spire-client"),
+		initialized: make(chan struct{}),
+	}
+
+	var provider identity.Provider = client
+	if params.ZtunnelConfig.EnableZTunnel {
+		params.Logger.Info("Ztunnel-Spire integration enabled, returning noop identity provider")
+		provider = &noopClient{}
+	}
+
+	params.Lifecycle.Append(cell.Hook{
 		OnStart: client.onStart,
 		OnStop:  func(_ cell.HookContext) error { return nil },
 	})
-	return client
+	return out{
+		Provider: provider,
+		Client:   client,
+	}
+}
+
+// GetSpireEntryConfig returns the SPIRE entry configuration.
+func (c *Client) GetSpireEntryConfig() SpireEntryConfig {
+	return c.entryCfg
+}
+
+// GetSpireTrustDomain returns the SPIFFE trust domain.
+func (c *Client) GetSpireTrustDomain() string {
+	return c.cfg.SpiffeTrustDomain
+}
+
+// Initialized returns a channel that is closed when the client is initialized.
+func (c *Client) Initialized() <-chan struct{} {
+	return c.initialized
 }
 
 func (c *Client) onStart(ctx cell.HookContext) error {
@@ -151,6 +238,7 @@ func (c *Client) onStart(ctx cell.HookContext) error {
 				c.entryMutex.Lock()
 				c.entry = entryv1.NewEntryClient(conn)
 				c.entryMutex.Unlock()
+				close(c.initialized)
 				break
 			}
 			c.log.WarnContext(ctx,
@@ -212,7 +300,7 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 }
 
 // Upsert creates or updates the SPIFFE ID for the given ID.
-// The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
+// The SPIFFE ID path and selectors are determined by the SpireEntryConfig.
 func (c *Client) Upsert(ctx context.Context, id string) error {
 	c.entryMutex.RLock()
 	defer c.entryMutex.RUnlock()
@@ -229,13 +317,13 @@ func (c *Client) Upsert(ctx context.Context, id string) error {
 		{
 			SpiffeId: &types.SPIFFEID{
 				TrustDomain: c.cfg.SpiffeTrustDomain,
-				Path:        toPath(id),
+				Path:        c.entryCfg.PathFunc(id),
 			},
 			ParentId: &types.SPIFFEID{
 				TrustDomain: c.cfg.SpiffeTrustDomain,
-				Path:        defaultParentID,
+				Path:        c.entryCfg.ParentID,
 			},
-			Selectors: defaultSelectors,
+			Selectors: c.entryCfg.SelectorsFunc(id),
 		},
 	}
 
@@ -250,8 +338,89 @@ func (c *Client) Upsert(ctx context.Context, id string) error {
 	return err
 }
 
+// defaultBatchSize is the maximum number of entries to process in a single batch.
+// SPIRE server may have limits on batch sizes.
+const defaultBatchSize = 200
+
+// UpsertBatch creates or updates multiple SPIFFE entries at once.
+// For each ID, it checks if an entry exists and updates it, otherwise creates it.
+func (c *Client) UpsertBatch(ctx context.Context, ids []string) error {
+	c.entryMutex.RLock()
+	defer c.entryMutex.RUnlock()
+
+	if c.entry == nil {
+		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Build entries for all IDs
+	entries := make([]*types.Entry, 0, len(ids))
+	for _, id := range ids {
+		entries = append(entries, &types.Entry{
+			SpiffeId: &types.SPIFFEID{
+				TrustDomain: c.cfg.SpiffeTrustDomain,
+				Path:        c.entryCfg.PathFunc(id),
+			},
+			ParentId: &types.SPIFFEID{
+				TrustDomain: c.cfg.SpiffeTrustDomain,
+				Path:        c.entryCfg.ParentID,
+			},
+			Selectors: c.entryCfg.SelectorsFunc(id),
+		})
+	}
+
+	// Try to create all entries first - this handles new entries efficiently
+	var errs []error
+	for i := 0; i < len(entries); i += defaultBatchSize {
+		end := min(i+defaultBatchSize, len(entries))
+		chunk := entries[i:end]
+
+		resp, err := c.entry.BatchCreateEntry(ctx,
+			&entryv1.BatchCreateEntryRequest{Entries: chunk},
+		)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("batch create failed for chunk %d-%d: %w", i, end, err))
+			continue
+		}
+
+		// For AlreadyExists entries, we need to update them
+		var toUpdate []*types.Entry
+		for j, r := range resp.Results {
+			if r.Status.Code == int32(codes.AlreadyExists) {
+				toUpdate = append(toUpdate, chunk[j])
+			} else if r.Status.Code != int32(codes.OK) {
+				errs = append(errs, fmt.Errorf("entry create failed: %v: %s",
+					r.Status.Code, r.Status.Message))
+			}
+		}
+
+		// Update existing entries
+		if len(toUpdate) > 0 {
+			_, err := c.entry.BatchUpdateEntry(ctx,
+				&entryv1.BatchUpdateEntryRequest{Entries: toUpdate},
+			)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("batch update failed: %w", err))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		c.log.Warn("UpsertBatch completed with errors",
+			logfields.Total, len(ids),
+			logfields.Count, len(errs))
+		return fmt.Errorf("batch upsert had %d errors: %w", len(errs), errs[0])
+	}
+
+	c.log.Debug("UpsertBatch completed successfully", logfields.Count, len(ids))
+	return nil
+}
+
 // Delete deletes the SPIFFE ID for the given ID.
-// The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
+// The SPIFFE ID path is determined by the SpireEntryConfig.
 func (c *Client) Delete(ctx context.Context, id string) error {
 	c.entryMutex.RLock()
 	defer c.entryMutex.RUnlock()
@@ -285,20 +454,130 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+// DeleteBatch deletes multiple SPIFFE entries at once.
+// It lists all entries by parent ID, filters to the requested IDs, and deletes in batches.
+// This is more efficient than looking up each entry individually.
+func (c *Client) DeleteBatch(ctx context.Context, ids []string) error {
+	c.entryMutex.RLock()
+	defer c.entryMutex.RUnlock()
+	if c.entry == nil {
+		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Build a set of SPIFFE ID paths we want to delete
+	pathsToDelete := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		path := c.entryCfg.PathFunc(id)
+		if path != "" {
+			pathsToDelete[path] = struct{}{}
+		}
+	}
+
+	if len(pathsToDelete) == 0 {
+		return nil
+	}
+
+	// List all entries by parent ID and filter to ones we want to delete
+	var entryIDs []string
+	var pageToken string
+	for {
+		resp, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
+			Filter: &entryv1.ListEntriesRequest_Filter{
+				ByParentId: &types.SPIFFEID{
+					TrustDomain: c.cfg.SpiffeTrustDomain,
+					Path:        c.entryCfg.ParentID,
+				},
+			},
+			PageToken: pageToken,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list entries: %w", err)
+		}
+
+		for _, e := range resp.Entries {
+			if e.SpiffeId != nil {
+				if _, ok := pathsToDelete[e.SpiffeId.Path]; ok {
+					entryIDs = append(entryIDs, e.Id)
+				}
+			}
+		}
+
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+
+	if len(entryIDs) == 0 {
+		c.log.Debug("DeleteBatch: no entries found to delete", logfields.Count, len(ids))
+		return nil
+	}
+
+	// Delete in batches
+	var errs []error
+	for i := 0; i < len(entryIDs); i += defaultBatchSize {
+		end := min(i+defaultBatchSize, len(entryIDs))
+		chunk := entryIDs[i:end]
+
+		resp, err := c.entry.BatchDeleteEntry(ctx, &entryv1.BatchDeleteEntryRequest{
+			Ids: chunk,
+		})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("batch delete failed for chunk %d-%d: %w", i, end, err))
+			continue
+		}
+
+		// Check individual results, ignore NotFound errors
+		for _, r := range resp.Results {
+			if r.Status.Code != int32(codes.OK) &&
+				r.Status.Code != int32(codes.NotFound) {
+				errs = append(errs, fmt.Errorf("entry delete failed: %v: %s",
+					r.Status.Code, r.Status.Message))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		c.log.Warn("DeleteBatch completed with errors",
+			logfields.Total, len(ids),
+			logfields.Count, len(entryIDs),
+			logfields.Error, fmt.Sprintf("%d errors", len(errs)))
+		return fmt.Errorf("batch delete had %d errors: %w", len(errs), errs[0])
+	}
+
+	c.log.Debug("DeleteBatch completed successfully",
+		logfields.Total, len(ids),
+		logfields.Count, len(entryIDs))
+	return nil
+}
+
 func (c *Client) List(ctx context.Context) ([]string, error) {
 	c.entryMutex.RLock()
 	defer c.entryMutex.RUnlock()
-	entries, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
-		Filter: &entryv1.ListEntriesRequest_Filter{
-			ByParentId: &types.SPIFFEID{
-				TrustDomain: c.cfg.SpiffeTrustDomain,
-				Path:        defaultParentID,
-			},
-			BySelectors: &types.SelectorMatch{
-				Selectors: defaultSelectors,
-				Match:     types.SelectorMatch_MATCH_EXACT,
-			},
+
+	filter := &entryv1.ListEntriesRequest_Filter{
+		ByParentId: &types.SPIFFEID{
+			TrustDomain: c.cfg.SpiffeTrustDomain,
+			Path:        c.entryCfg.ParentID,
 		},
+	}
+
+	// Only add selector filter if selectors are provided.
+	// For ztunnel mode, SelectorsFunc("") returns nil since each entry
+	// has unique selectors, so we only filter by ParentID.
+	if selectors := c.entryCfg.SelectorsFunc(""); selectors != nil {
+		filter.BySelectors = &types.SelectorMatch{
+			Selectors: selectors,
+			Match:     types.SelectorMatch_MATCH_EXACT,
+		}
+	}
+
+	entries, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
+		Filter: filter,
 	})
 	if err != nil {
 		return nil, err
@@ -320,14 +599,14 @@ func (c *Client) listEntries(ctx context.Context, id string) (*entryv1.ListEntri
 		Filter: &entryv1.ListEntriesRequest_Filter{
 			BySpiffeId: &types.SPIFFEID{
 				TrustDomain: c.cfg.SpiffeTrustDomain,
-				Path:        toPath(id),
+				Path:        c.entryCfg.PathFunc(id),
 			},
 			ByParentId: &types.SPIFFEID{
 				TrustDomain: c.cfg.SpiffeTrustDomain,
-				Path:        defaultParentID,
+				Path:        c.entryCfg.ParentID,
 			},
 			BySelectors: &types.SelectorMatch{
-				Selectors: defaultSelectors,
+				Selectors: c.entryCfg.SelectorsFunc(id),
 				Match:     types.SelectorMatch_MATCH_EXACT,
 			},
 		},
