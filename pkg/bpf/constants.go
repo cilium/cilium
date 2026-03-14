@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/config/types"
 )
 
 // applyConstants sets the values of BPF C runtime configurables defined using
@@ -30,15 +31,15 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 	}
 
 	for name, value := range constants {
-		constName := config.ConstantPrefix + name
+		constName := types.ConstantPrefix + name
 
 		v, ok := spec.Variables[constName]
 		if !ok {
 			return fmt.Errorf("can't set non-existent Variable %s", name)
 		}
 
-		if v.SectionName != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.SectionName, name)
+		if v.SectionName != types.ConstantSection {
+			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", types.ConstantSection, v.SectionName, name)
 		}
 
 		if err := v.Set(value); err != nil {
@@ -158,7 +159,7 @@ func dumpConstants(spec *ebpf.CollectionSpec, opts *CollectionOptions) error {
 	// Write out marshaled variable values for replaying BPF loads later.
 	vars := make(map[string][]byte)
 	for name, v := range spec.Variables {
-		if v.SectionName != config.Section {
+		if v.SectionName != types.ConstantSection {
 			continue
 		}
 		vars[name] = v.Value

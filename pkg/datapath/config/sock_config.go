@@ -5,9 +5,10 @@
 
 package config
 
-// BPFSock is a configuration struct for a Cilium datapath object. Warning: do
-// not instantiate directly! Always use [NewBPFSock] to ensure the default
-// values configured in the ELF are honored.
+// BPFSock is a configuration struct for a Cilium datapath object.
+//
+// Warning: do not instantiate directly! Always use [NewBPFSock] to ensure the
+// default values configured in the ELF are honored.
 type BPFSock struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`

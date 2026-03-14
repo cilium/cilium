@@ -10,13 +10,19 @@ import (
 	"maps"
 	"os"
 	"path"
-	"slices"
 	"text/template"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/container/set"
 )
+
+// mapsOpts are the input options for the maps command.
+var mapsOpts struct {
+	goPkg string
+}
 
 const (
 	mapKVFile      = "mapkv.btf"
@@ -37,25 +43,25 @@ func runMaps(cmd *cobra.Command, args []string) error {
 	// They are instantiated to serve as templates for MapSpec.InnerMap.
 	inner := make(map[string]*ebpf.MapSpec)
 
-	bb, err := btf.NewBuilder(nil)
+	bb, err := btf.NewBuilder(nil, &btf.BuilderOptions{Deduplicate: true})
 	if err != nil {
 		return fmt.Errorf("creating BTF builder: %w", err)
 	}
 
-	if err = bb.EnableDeduplication(); err != nil {
-		return fmt.Errorf("enabling BTF deduplication: %w", err)
-	}
-
+	// Track the objects we've processed to provide better error messages in case
+	// of incompatible maps.
+	objsDone := set.Set[string]{}
 	for p := range glob(args) {
 		cs, err := ebpf.LoadCollectionSpec(p)
 		if err != nil {
 			return fmt.Errorf("loading CollectionSpec %s: %w", p, err)
 		}
+		objName := path.Base(p)
 
 		// Iterate MapSpecs in sorted order to guarantee deterministic output of the
 		// generated BTF blob. If types get added in random order, the resulting
 		// contents of the BTF blob will differ between runs.
-		for spec := range sortedMapSpecs(cs.Maps) {
+		for _, spec := range sorted(cs.Maps) {
 			if !needMapSpec(spec) {
 				continue
 			}
@@ -64,12 +70,13 @@ func runMaps(cmd *cobra.Command, args []string) error {
 			// adding.
 			if existing, ok := outer[spec.Name]; ok {
 				if err := mapSpecCompatible(existing, spec); err != nil {
-					return fmt.Errorf("incompatible map %s across BPF objects: %w", spec.Name, err)
+					return fmt.Errorf("%q contains map %q incompatible with one or more BPF objects %v: %w",
+						objName, spec.Name, objsDone.AsSlice(), err)
 				}
 			}
 			outer[spec.Name] = spec
 
-			if err := addMapKV(bb, spec); err != nil {
+			if err := addMapKV(bb, nil, spec); err != nil {
 				return err
 			}
 
@@ -77,43 +84,46 @@ func runMaps(cmd *cobra.Command, args []string) error {
 				name := spec.InnerMap.Name
 				if existing, ok := inner[name]; ok {
 					if err := mapSpecCompatible(existing, spec.InnerMap); err != nil {
-						return fmt.Errorf("incompatible inner map %s across BPF objects: %w", name, err)
+						return fmt.Errorf("%q contains inner map %q incompatible with one or more BPF objects %v: %w",
+							objName, name, objsDone.AsSlice(), err)
 					}
 				}
 				inner[name] = spec.InnerMap
 
-				if err := addMapKV(bb, spec.InnerMap); err != nil {
+				if err := addMapKV(bb, nil, spec.InnerMap); err != nil {
 					return err
 				}
 			}
 		}
+
+		objsDone.Insert(objName)
 	}
 
 	btfBlob, err := bb.Marshal(nil, nil)
 	if err != nil {
 		return fmt.Errorf("marshaling combined BTF: %w", err)
 	}
-	if err := os.WriteFile(path.Join(out, mapKVFile), btfBlob, 0644); err != nil {
+	if err := os.WriteFile(mapKVFile, btfBlob, 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", mapKVFile, err)
 	}
 
-	f, err := os.OpenFile(mapsGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.Create(mapsGoFile)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", mapsGoFile, err)
 	}
 	defer f.Close()
 
-	if err := renderMapSpecs(f, outer, inner, goPkg); err != nil {
+	if err := renderMapSpecs(f, outer, inner, mapsOpts.goPkg); err != nil {
 		return fmt.Errorf("rendering MapSpecs: %w", err)
 	}
 
-	f, err = os.OpenFile(mapsGoTestFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err = os.Create(mapsGoTestFile)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", mapsGoTestFile, err)
 	}
 	defer f.Close()
 
-	if err := renderMapSpecsTest(f, goPkg); err != nil {
+	if err := renderMapSpecsTest(f, mapsOpts.goPkg); err != nil {
 		return fmt.Errorf("rendering MapSpecs test: %w", err)
 	}
 
@@ -150,8 +160,8 @@ func renderMapSpecs(w io.Writer, outer, inner map[string]*ebpf.MapSpec, pkg stri
 	}{
 		pkg,
 		mapKVFile,
-		slices.SortedFunc(maps.Values(outer), mapSpecByName),
-		slices.SortedFunc(maps.Values(all), mapSpecByName),
+		sorted(outer),
+		sorted(all),
 	}); err != nil {
 		return fmt.Errorf("executing template: %w", err)
 	}

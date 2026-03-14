@@ -8,7 +8,7 @@
 #include <bpf/loader.h>
 
 struct l2_responder_v4_key {
-	__u32 ip4;
+	union v4addr ip4;
 	__u32 ifindex;
 };
 
@@ -77,7 +77,7 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
 			return CTX_ACT_OK;
 
-		key.ip4 = tip;
+		key.ip4.be32 = tip;
 		key.ifindex = ctx->ingress_ifindex;
 		stats = map_lookup_elem(&cilium_l2_responder_v4, &key);
 		if (!stats)

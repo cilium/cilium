@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package maps
+package types
 
-//go:generate go tool dpgen maps ../../../bpf/bpf_*.o
+//go:generate go tool dpgen types ../../../bpf/bpf_*.o

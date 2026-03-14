@@ -19,7 +19,7 @@ require (
 	github.com/cilium/charts v0.0.0-20260302230044-43d28b4ff7f9
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.20.1-0.20260218191617-ee67e7f43dd9
+	github.com/cilium/ebpf v0.21.0
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v1.0.0
@@ -343,6 +343,7 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20260130142103-27e5da2a39e6
 
 tool (
+	github.com/cilium/cilium/tools/dpgen
 	github.com/cilium/deepequal-gen
 	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters

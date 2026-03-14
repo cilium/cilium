@@ -5,77 +5,111 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"strings"
+	"text/template"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/datapath/config"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"github.com/cilium/cilium/pkg/datapath/config/types"
 )
 
-// Common acronyms to transform into stylized form for Go field names.
-var stylized = map[string]string{
-	"bpf":     "BPF",
-	"lxc":     "LXC",
-	"xdp":     "XDP",
-	"ipv4":    "IPv4",
-	"ipv6":    "IPv6",
-	"nat":     "NAT",
-	"mac":     "MAC",
-	"mtu":     "MTU",
-	"id":      "ID",
-	"ip":      "IP",
-	"netns":   "NetNS",
-	"ipcache": "IPCache",
-	"lrp":     "LRP",
-	"icmp":    "ICMP",
-	"wg":      "WG",
-	"vtep":    "VTEP",
-	"ep":      "EP",
-	"fib":     "FIB",
-	"ifindex": "IfIndex",
-	"arp":     "ARP",
-	"lb":      "LB",
+// configOpts are the input options for the config command.
+var configOpts struct {
+	goPkg, typesPkg string
+
+	embed  string
+	embeds []string
+
+	kind, outName, outFile string
 }
 
+// needUtils tracks whether any of the variables reference external types that
+// require rendering a file with utility functions to the target package.
+var needUtils = false
+
+// needExternalTypes tracks whether any of the variables reference external
+// types (i.e. structs or unions) that need to be rendered with `dpgen type`.
+var needExternalTypes = false
+
 func runConfig(cmd *cobra.Command, args []string) error {
-	spec, err := ebpf.LoadCollectionSpec(inPath)
+	spec, err := ebpf.LoadCollectionSpec(args[0])
 	if err != nil {
 		return fmt.Errorf("loading spec: %w", err)
 	}
 
-	comment := fmt.Sprintf("%s is a configuration struct for a Cilium datapath object. "+
-		"Warning: do not instantiate directly! Always use [New%s] to ensure the default "+
-		"values configured in the ELF are honored.", name, name)
-	s, err := varsToStruct(spec, name, kind, comment, embeds)
+	s, err := varsToStruct(spec, configOpts.outName, configOpts.kind, configOpts.typesPkg, configOpts.embeds)
 	if err != nil {
 		return fmt.Errorf("generating config struct: %w", err)
 	}
 
-	var b strings.Builder
-	if err := writeCopyrightHeader(&b); err != nil {
-		return fmt.Errorf("writing copyright header: %w", err)
+	if needUtils {
+		if err := writeUtilFile("util_generated.go", configOpts.goPkg); err != nil {
+			return fmt.Errorf("writing util file: %w", err)
+		}
 	}
 
-	b.WriteString("package config\n\n")
-	b.WriteString(s)
+	var b bytes.Buffer
+	if err := writeHeader(&b, configOpts.goPkg, nil); err != nil {
+		return fmt.Errorf("writing header: %w", err)
+	}
 
-	os.WriteFile(out, []byte(b.String()), 0644)
+	if needExternalTypes {
+		if configOpts.typesPkg == "" {
+			return fmt.Errorf("external types needed but types package is empty")
+		}
+		if err := writeImports(&b, []string{configOpts.typesPkg}); err != nil {
+			return fmt.Errorf("writing imports: %w", err)
+		}
+	}
+	if _, err := b.WriteString(s); err != nil {
+		return fmt.Errorf("writing struct: %w", err)
+	}
+	if err := os.WriteFile(configOpts.outFile, b.Bytes(), 0644); err != nil {
+		return fmt.Errorf("writing output file: %w", err)
+	}
+
+	return nil
+}
+
+//go:embed util_generated.go.tpl
+var utilTpl string
+
+// writeUtilFile writes utility functions needed by the generated code to a
+// file.
+func writeUtilFile(path, pkg string) error {
+	tpl, err := template.New("util").Parse(utilTpl)
+	if err != nil {
+		return fmt.Errorf("parsing template: %w", err)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", path, err)
+	}
+	defer f.Close()
+
+	if err := tpl.Execute(f, struct {
+		Package string
+	}{
+		pkg,
+	}); err != nil {
+		return fmt.Errorf("executing template: %w", err)
+	}
 
 	return nil
 }
 
 // varsToStruct generates a Go struct from the configuration variables in the
 // CollectionSpec.
-func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds []string) (string, error) {
+func varsToStruct(spec *ebpf.CollectionSpec, name, kind, typesPkg string, embeds []string) (string, error) {
 	type field struct {
 		comment  string
 		goName   string
@@ -91,13 +125,13 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	for n, v := range spec.Variables {
 		// Only consider variables in a specific config section to avoid interfering
 		// with unrelated objects.
-		if v.SectionName != config.Section {
+		if v.SectionName != types.ConstantSection {
 			continue
 		}
 
 		// DECLARE_CONFIG prefixes the variable name with a well-known prefix to
 		// avoid collisions with other variables with common names.
-		n = strings.TrimPrefix(n, config.ConstantPrefix)
+		n = strings.TrimPrefix(n, types.ConstantPrefix)
 
 		if v.Type == nil {
 			return "", fmt.Errorf("variable %s has no type information, was the ELF built without BTF?", n)
@@ -117,7 +151,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			return "", fmt.Errorf("variable %s has no doc comment", n)
 		}
 
-		typ, err := btfVarGoType(v.Type)
+		typ, err := btfVarGoTypeName(v.Type, typesPkg)
 		if err != nil {
 			return "", fmt.Errorf("variable %s: getting Go type: %w", n, err)
 		}
@@ -127,7 +161,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			return "", fmt.Errorf("variable %s: converting tags to comments: %w", n, err)
 		}
 
-		defValue, err := varGoValue(v)
+		defValue, err := varGoValue(v, typesPkg)
 		if err != nil {
 			return "", fmt.Errorf("variable %s: getting default Go value: %w", n, err)
 		}
@@ -142,14 +176,16 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 	var b strings.Builder
 
 	// Render a Go type definition for a configuration struct.
-	if comment != "" {
-		b.WriteString(wrapString(comment, "// "))
-	}
-	b.WriteString(fmt.Sprintf("type %s struct {\n", name))
+	comment := fmt.Sprintf(`%s is a configuration struct for a Cilium datapath object.
+
+Warning: do not instantiate directly! Always use [New%s] to ensure the default values configured in the ELF are honored.`, name, name)
+	b.WriteString(wrapString(comment, "// "))
+
+	fmt.Fprintf(&b, "type %s struct {\n", name)
 
 	for _, f := range fields {
 		b.WriteString(f.comment)
-		b.WriteString(fmt.Sprintf("\t%s %s `%s:\"%s\"`\n", f.goName, f.typ, config.TagName, f.cName))
+		fmt.Fprintf(&b, "\t%s %s `%s:\"%s\"`\n", f.goName, f.typ, types.ConstantTag, f.cName)
 	}
 
 	if len(embeds) > 0 {
@@ -157,7 +193,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			b.WriteString("\n")
 		}
 		for _, e := range embeds {
-			b.WriteString(fmt.Sprintf("\t%s\n", e))
+			fmt.Fprintf(&b, "\t%s\n", e)
 		}
 	}
 	b.WriteString("}\n")
@@ -168,8 +204,8 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 		params = append(params, fmt.Sprintf("%s %s", strings.ToLower(e), e))
 	}
 
-	b.WriteString(fmt.Sprintf("\nfunc New%s(%s) *%s {\n", name, strings.Join(params, ", "), name))
-	b.WriteString(fmt.Sprintf("\treturn &%s{", name))
+	fmt.Fprintf(&b, "\nfunc New%s(%s) *%s {\n", name, strings.Join(params, ", "), name)
+	fmt.Fprintf(&b, "\treturn &%s{", name)
 	var vals []string
 	for _, f := range fields {
 		vals = append(vals, f.defValue)
@@ -185,7 +221,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 }
 
 // varGoValue returns the Go value of a variable as an any.
-func varGoValue(v *ebpf.VariableSpec) (any, error) {
+func varGoValue(v *ebpf.VariableSpec, typesPkg string) (any, error) {
 	switch t := btf.UnderlyingType(v.Type.Type).(type) {
 	case *btf.Int:
 		switch t.Encoding {
@@ -222,11 +258,12 @@ func varGoValue(v *ebpf.VariableSpec) (any, error) {
 		}
 
 	case *btf.Union:
-		s := make([]byte, t.Size)
-		if err := v.Get(&s); err != nil {
-			return nil, fmt.Errorf("getting value: %w", err)
-		}
-		return s, nil
+		needUtils = true
+		return getCastValue(t.Name, t.Size, v, typesPkg)
+
+	case *btf.Struct:
+		needUtils = true
+		return getCastValue(t.Name, t.Size, v, typesPkg)
 
 	default:
 		return "", fmt.Errorf("unsupported type %T", t)
@@ -240,22 +277,17 @@ func getValue[T comparable](v *ebpf.VariableSpec) (out T, err error) {
 	return out, nil
 }
 
-// camelCase converts a string like "foo_bar" to "FooBar". It capitalizes the
-// acronyms defined in 'stylized'.
-func camelCase(s string) string {
-	var b strings.Builder
-	for w := range strings.SplitSeq(s, "_") {
-		w = stylize(strings.ToLower(w))
-		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
+// getCastValue gets the default value of a variable and returns a string of Go
+// code that casts the value to the appropriate Go type using the cast() helper
+// provided by util_generated.go.
+//
+//	cast[uint32]([]byte{0x01, 0x00, 0x00, 0x00}
+func getCastValue(name string, size uint32, v *ebpf.VariableSpec, typesPkg string) (string, error) {
+	b := make([]byte, size)
+	if err := v.Get(b); err != nil {
+		return "", fmt.Errorf("getting value: %w", err)
 	}
-	return b.String()
-}
-
-func stylize(s string) string {
-	if v, ok := stylized[s]; ok {
-		return v
-	}
-	return s
+	return fmt.Sprintf("cast[%s](%#v)", qualifiedTypeName(name, typesPkg), b), nil
 }
 
 // tagsToComment converts a slice of tags into a tab-indented string with
@@ -287,8 +319,8 @@ func wrapString(in, prefix string) string {
 	var b strings.Builder
 	width := uint(80 - len(prefix))
 	for line := range strings.SplitSeq(wordwrap.WrapString(in, width), "\n") {
-		b.WriteString(prefix)
-		b.WriteString(line)
+		// Trim trailing whitespace to allow for empty lines within comments.
+		b.WriteString(strings.TrimSuffix(prefix+line, " "))
 		b.WriteString("\n")
 	}
 	return b.String()
@@ -309,9 +341,20 @@ func sentencify(s string) string {
 	return s
 }
 
-// btfVarGoType converts the type of an integer btf.Var to its equivalent Go
+// qualifiedTypeName returns the qualified Go type name for a given C type name
+// and Go package. If the package is empty, it returns the C type name as-is.
+func qualifiedTypeName(name, typesPkg string) string {
+	if typesPkg == "" {
+		return name
+	}
+
+	_, pkg := path.Split(typesPkg)
+	return fmt.Sprintf("%s.%s", pkg, camelCase(name))
+}
+
+// btfVarGoTypeName converts the value type of a btf.Var to its equivalent Go
 // type name.
-func btfVarGoType(v *btf.Var) (string, error) {
+func btfVarGoTypeName(v *btf.Var, typesPkg string) (string, error) {
 	switch t := btf.UnderlyingType(v.Type).(type) {
 	case *btf.Int:
 		if t.Encoding == btf.Char {
@@ -333,9 +376,14 @@ func btfVarGoType(v *btf.Var) (string, error) {
 		return fmt.Sprintf("%s%d", base, t.Size*8), nil
 
 	case *btf.Union:
-		// Unions can't be represented in Go and are most often used for accessing
-		// subfields of addresses. Emit a fixed-size byte array instead.
-		return fmt.Sprintf("[%d]byte", t.Size), nil
+		// Reference a union-equivalent type to be rendered with `dpgen type`.
+		needExternalTypes = true
+		return qualifiedTypeName(t.Name, typesPkg), nil
+
+	case *btf.Struct:
+		// Reference a struct-equivalent type to be rendered with `dpgen type`.
+		needExternalTypes = true
+		return qualifiedTypeName(t.Name, typesPkg), nil
 
 	default:
 		return "", fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
@@ -344,15 +392,20 @@ func btfVarGoType(v *btf.Var) (string, error) {
 
 // goValueLiteral returns a string representation of a Go value.
 func goValueLiteral(v any) string {
-	str := fmt.Sprintf("%#v", v)
 	switch t := v.(type) {
 	case []byte:
 		// Replace a slice literal with a fixed-size array literal. Since we can't
 		// create arrays of a given size at runtime to feed to fmt.Sprintf(), do a
 		// manual conversion.
-		str = strings.Replace(str, "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
+		return strings.Replace(fmt.Sprintf("%#v", t), "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
+	case string:
+		// String means a struct or union initializer, typically of the format
+		// `cast[GoType](byteSlice)`. Emit these into the struct literal as-is since
+		// the string represents valid Go code.
+		return t
 	}
-	return str
+
+	return fmt.Sprintf("%#v", v)
 }
 
 // join joins a slice of strings into a comma-separated string, wrapping lines
