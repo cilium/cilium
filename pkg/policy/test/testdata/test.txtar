@@ -1,0 +1,88 @@
+hive/start
+db/show health
+
+# Initialize state: create host and health endpoints.
+identity/allocate reserved:host,reserved:kube-apiserver
+identity/allocate reserved:health
+endpoint/create 1 reserved:host,reserved:kube-apiserver
+endpoint/create 4 reserved:health
+
+# Import initial policy. Neither host nor health endpoint should have their
+# policy recomputed as this policy does not select them.
+k8s/add policy.yaml
+policy/import policy.yaml
+
+# Create first real endpoint selected by policy.yaml. Policy computation for
+# this endpoint should be at 2 now.
+env id1_labels=k8s:io.kubernetes.pod.namespace=default,k8s:foo=bar
+identity/allocate ${id1_labels}
+env --from-stdout id1
+endpoint/create ${id1} ${id1_labels}
+
+# Create second real endpoint selected by policy.yaml. Policy computation for
+# this endpoint should be at 2.
+env id2_labels=k8s:io.kubernetes.pod.namespace=default,k8s:baz=bar
+identity/allocate ${id2_labels}
+env --from-stdout id2
+endpoint/create ${id2} ${id2_labels}
+
+# Remove initial policy. Policy revision should be at 3.
+policy/remove policy.yaml
+
+# Add new policy that does not select foo=bar endpoint. Policy computation of
+# all identities should stay at 3 (doesn't bump if there is no need to
+# recompute), but the repo revision and endpoints' revision should be at 4.
+policy/import allow-env-prod.yaml
+
+# Wait until all endpoints' revision is at 4 which means they have consumed the
+# latest computation of revision 3.
+endpoint/wait-all 4
+
+# Perform assertion that all endpoints with a non-reserved identity (not host /
+# health) are still at policy revision 3.
+db/show --columns Identity,Revision policy-computations
+stdout host.+1
+stdout health.+1
+stdout ${id1}.+3
+stdout ${id2}.+3
+
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "policy"
+  namespace: "default"
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+      - matchLabels: {}
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": kube-system
+          "k8s:k8s-app": kube-dns
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: "UDP"
+        rules:
+          dns:
+          - matchPattern: "*"
+    - toFQDNs:
+      - matchPattern: "*"
+      - matchPattern: "ifconfig.co"
+    - toCIDR:
+      - "1.1.1.1/32"
+
+-- allow-env-prod.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-env-prod"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: prod
+  egress:
+  - {}

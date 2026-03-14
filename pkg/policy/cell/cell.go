@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -30,6 +32,7 @@ var Cell = cell.Module(
 	cell.Provide(newPolicyRepo),
 	cell.Provide(newPolicyUpdater),
 	cell.Provide(newPolicyImporter),
+	cell.Provide(newPolicyCacheOut),
 	cell.Provide(newIdentityUpdater),
 	cell.Provide(newIPCacher),
 	cell.Config(defaultConfig),
@@ -102,11 +105,16 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	return policyRepo
 }
 
+func newPolicyCacheOut(r policy.PolicyRepository) stream.Observable[policy.PolicyCacheChange] {
+	return r.PolicyCacheObservable()
+}
+
 type policyUpdaterParams struct {
 	cell.In
 
 	Logger           *slog.Logger
 	PolicyRepository policy.PolicyRepository
+	PolicyComputer   compute.PolicyRecomputer
 	EndpointManager  endpointmanager.EndpointManager
 }
 
@@ -114,7 +122,5 @@ func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
 	// policyUpdater: forces policy recalculation on all endpoints.
 	// Called for various events, such as named port changes
 	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(params.Logger, params.PolicyRepository, params.EndpointManager)
-
-	return policyUpdater
+	return policy.NewUpdater(params.Logger, params.PolicyRepository, params.PolicyComputer, params.EndpointManager)
 }

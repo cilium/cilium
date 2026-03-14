@@ -39,13 +39,24 @@ var Cell = cell.Module(
 	"endpoint-manager",
 	"Manages the collection of local endpoints",
 
+	defaultGroup,
+	cell.Invoke(
+		registerNamespaceUpdater,
+	),
+)
+
+var TestCell = cell.Module(
+	"test-endpoint-manager",
+	"Manages the collection of local endpoints",
+
+	defaultGroup,
+)
+
+var defaultGroup = cell.Group(
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
 	cell.Provide(endpoint.NewEndpointBuildQueue),
 	cell.ProvidePrivate(newEndpointSynchronizer),
-	cell.Invoke(
-		registerNamespaceUpdater,
-	),
 )
 
 type EndpointsLookup interface {
@@ -148,6 +159,11 @@ type EndpointManager interface {
 	// TriggerRegenerateAlEndpoints triggers a batched regeneration of all endpoints.
 	// Returns immediately.
 	TriggerRegenerateAllEndpoints()
+
+	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
+	// this function is called to be at a given policy revision.
+	// New endpoints appearing while waiting are ignored.
+	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 
 	// OverrideEndpointOpts applies the given options to all endpoints.
 	OverrideEndpointOpts(om option.OptionMap)

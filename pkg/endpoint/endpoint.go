@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -168,7 +169,8 @@ type Endpoint struct {
 
 	epBuildQueue EndpointBuildQueue
 
-	policyRepo policy.PolicyRepository
+	policyRepo    policy.PolicyRepository
+	policyFetcher compute.PolicyRecomputer
 
 	// namedPortsGetter can get the ipcache.IPCache object.
 	namedPortsGetter NamedPortsGetter
@@ -287,7 +289,7 @@ type Endpoint struct {
 
 	// policyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
-	policyMap *policymap.PolicyMap
+	policyMap policymap.PolicyMap
 
 	// PolicyMapPressureUpdater updates the policymap pressure metric.
 	PolicyMapPressureUpdater policyMapPressureUpdater
@@ -444,6 +446,13 @@ type Endpoint struct {
 	// state. A lower-level current regeneration is bumped to this level to cover for the
 	// skipped regeneration levels.
 	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
+
+	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor from any regeneration
+	// event that was skipped because the endpoint was already in StateWaitingToRegenerate.
+	// The pending regeneration must wait for at least this policy revision in statedb before
+	// completing. This prevents a race where a PolicyUpdate is dropped as a duplicate while
+	// the running regen's policyRevisionToWaitFor is already satisfied by an older revision.
+	skippedPolicyRevision uint64
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
@@ -642,10 +651,11 @@ func createEndpoint(
 		wgConfig:           p.WgConfig,
 		ipsecConfig:        p.IPSecConfig,
 		lxcMap:             p.LxcMap,
+		localNodeStore:     p.LocalNodeStore,
 		policyMapFactory:   p.PolicyMapFactory,
 		policyRepo:         p.PolicyRepo,
+		policyFetcher:      p.PolicyFetcher,
 		namedPortsGetter:   p.NamedPortsGetter,
-		localNodeStore:     p.LocalNodeStore,
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
@@ -744,7 +754,6 @@ func CreateIngressEndpoint(p EndpointParams,
 func CreateHostEndpoint(p EndpointParams,
 	dnsRulesAPI DNSRulesAPI, proxy EndpointProxy,
 	policyDebugLog io.Writer) (*Endpoint, error) {
-
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
@@ -982,14 +991,15 @@ func ParseEndpoint(p EndpointParams,
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
 		lxcMap:           p.LxcMap,
+		localNodeStore:   p.LocalNodeStore,
 		policyMapFactory: p.PolicyMapFactory,
 		namedPortsGetter: p.NamedPortsGetter,
 		policyRepo:       p.PolicyRepo,
+		policyFetcher:    p.PolicyFetcher,
 		proxy:            proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
-		localNodeStore:   p.LocalNodeStore,
 	}
 
 	if err := ep.UnmarshalJSON(epJSON); err != nil {
@@ -2094,8 +2104,8 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	e.getLogger().Debug(
 		"Refreshing labels of endpoint",
 		logfields.SourceFilter, sourceFilter,
-		logfields.IdentityLabels, map[string]labels.Label(identityLabels),
-		logfields.InfoLabels, map[string]labels.Label(infoLabels),
+		logfields.IdentityLabels, identityLabels,
+		logfields.InfoLabels, infoLabels,
 	)
 
 	if err := e.lockAlive(); err != nil {
@@ -2154,7 +2164,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 
 	e.getLogger().Debug(
 		"Updated endpoint with new labels",
-		logfields.Labels, map[string]labels.Label(newIdtyLabels),
+		logfields.Labels, newIdtyLabels,
 	)
 	return nil
 }
@@ -2358,6 +2368,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		}
 	}
 
+	// Unconditionally force policy recomputation after a new identity has been
+	// assigned.
+	e.forcePolicyComputation()
+
 	readyToRegenerate := false
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
 		Reason:            regeneration.ReasonLabelsUpdate,
@@ -2376,10 +2390,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	if e.ID != 0 {
 		readyToRegenerate = e.setRegenerateStateLocked(regenMetadata)
 	}
-
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.forcePolicyComputation()
 
 	// Trigger the sync-to-k8s-ciliumendpoint controller to sync the new
 	// endpoint's identity.
@@ -2780,4 +2790,66 @@ func (e *Endpoint) GetContainerNetnsPath() string {
 
 func (e *Endpoint) SetContainerNetnsPath(path string) {
 	e.containerNetnsPath = path
+}
+
+// CopyFromTemplate creates a copy of the calling Endpoint object and returns
+// it. This is used to create Endpoint objects without going through the New*()
+// code path which is useful in tests.
+func (e *Endpoint) CopyFromTemplate() *Endpoint {
+	if e == nil {
+		return nil
+	}
+
+	clone := &Endpoint{
+		DNSHistory:   e.DNSHistory,
+		DNSZombies:   e.DNSZombies,
+		ID:           e.ID,
+		IPv4:         e.IPv4,
+		IPv6:         e.IPv6,
+		K8sNamespace: e.K8sNamespace,
+		K8sPodName:   e.K8sPodName,
+
+		aliveCancel:        e.aliveCancel,
+		aliveCtx:           e.aliveCtx,
+		allocator:          e.allocator,
+		compilationLock:    e.compilationLock,
+		controllers:        e.controllers,
+		createdAt:          e.createdAt,
+		ctMapGC:            e.ctMapGC,
+		dnsRulesAPI:        e.dnsRulesAPI,
+		dockerEndpointID:   e.dockerEndpointID,
+		dockerNetworkID:    e.dockerNetworkID,
+		epBuildQueue:       e.epBuildQueue,
+		forcePolicyCompute: e.forcePolicyCompute,
+		hasBPFProgram:      e.hasBPFProgram,
+		identityManager:    e.identityManager,
+		ifIndex:            e.ifIndex,
+		ifName:             e.ifName,
+		kvstoreSyncher:     e.kvstoreSyncher,
+		loader:             e.loader,
+		lxcMap:             e.lxcMap,
+		monitorAgent:       e.monitorAgent,
+		nodeMAC:            e.nodeMAC,
+		orchestrator:       e.orchestrator,
+		policyFetcher:      e.policyFetcher,
+		policyMapFactory:   e.policyMapFactory,
+		policyRepo:         e.policyRepo,
+		proxy:              e.proxy,
+		state:              e.state,
+	}
+	clone.containerID.Store(e.containerID.Load())
+	clone.logger.Store(e.logger.Load())
+
+	clone.mutex = lock.RWMutex{}
+	clone.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
+	clone.labels = labels.NewOpLabels()
+	clone.status = NewEndpointStatus()
+	if e.controllers == nil {
+		clone.controllers = controller.NewManager()
+	}
+	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
+	clone.realizedPolicy = clone.desiredPolicy
+	clone.initialEnvoyPolicyComputed = make(chan struct{})
+
+	return clone
 }
