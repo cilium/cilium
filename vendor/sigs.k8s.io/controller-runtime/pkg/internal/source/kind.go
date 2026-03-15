@@ -91,16 +91,23 @@ func (ks *Kind[object, request]) Start(ctx context.Context, queue workqueue.Type
 			return
 		}
 
-		_, err := i.AddEventHandlerWithOptions(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates), toolscache.HandlerOptions{
+		handlerRegistration, err := i.AddEventHandlerWithOptions(NewEventHandler(ctx, queue, ks.Handler, ks.Predicates), toolscache.HandlerOptions{
 			Logger: &logKind,
 		})
 		if err != nil {
 			ks.startedErr <- err
 			return
 		}
+		// First, wait for the cache to sync. For real caches this waits for startup.
+		// For fakes with Synced=false, this returns immediately allowing fast failure.
 		if !ks.Cache.WaitForCacheSync(ctx) {
-			// Would be great to return something more informative here
 			ks.startedErr <- errors.New("cache did not sync")
+			close(ks.startedErr)
+			return
+		}
+		// Then wait for this specific handler to receive all initial events.
+		if !toolscache.WaitForCacheSync(ctx.Done(), handlerRegistration.HasSynced) {
+			ks.startedErr <- errors.New("handler did not sync")
 		}
 		close(ks.startedErr)
 	}()

@@ -312,7 +312,7 @@ func (blder *TypedBuilder[request]) doWatch() error {
 			return err
 		}
 
-		if reflect.TypeFor[request]() != reflect.TypeOf(reconcile.Request{}) {
+		if reflect.TypeFor[request]() != reflect.TypeFor[reconcile.Request]() {
 			return fmt.Errorf("For() can only be used with reconcile.Request, got %T", *new(request))
 		}
 

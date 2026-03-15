@@ -106,6 +106,7 @@ type Hive struct {
 	flags           *pflag.FlagSet
 	viper           *viper.Viper
 	lifecycle       cell.Lifecycle
+	metrics         Metrics
 	populated       bool
 	invokes         []func(*slog.Logger, time.Duration) error
 	configOverrides []any
@@ -134,6 +135,7 @@ func NewWithOptions(opts Options, cells ...cell.Cell) *Hive {
 		lifecycle: &cell.DefaultLifecycle{
 			LogThreshold: opts.LogThreshold,
 		},
+		metrics:         NopMetrics{},
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
 	}
@@ -298,6 +300,8 @@ func (h *Hive) Populate(log *slog.Logger) error {
 	}
 	h.populated = true
 
+	start := time.Now()
+
 	// Provide all the parsed settings to the config cells.
 	err := h.container.Provide(
 		func() cell.AllSettings {
@@ -350,6 +354,20 @@ func (h *Hive) Populate(log *slog.Logger) error {
 			return err
 		}
 	}
+
+	if err := h.container.Invoke(func(in struct {
+		dig.In
+		Metrics Metrics `optional:"true"`
+	},
+	) {
+		if in.Metrics != nil {
+			h.metrics = in.Metrics
+		}
+	}); err != nil {
+		return err
+	}
+
+	h.metrics.PopulateDuration(time.Since(start))
 	return nil
 }
 
@@ -390,6 +408,8 @@ func (h *Hive) Start(log *slog.Logger, ctx context.Context) error {
 	} else {
 		log.Error("Failed to start hive", "error", err, "duration", time.Since(start))
 	}
+
+	h.metrics.StartDuration(time.Since(start))
 	return err
 }
 
@@ -406,6 +426,8 @@ func (h *Hive) Stop(log *slog.Logger, ctx context.Context) error {
 	} else {
 		log.Error("Failed to stop hive", "error", err, "duration", time.Since(start))
 	}
+
+	h.metrics.StopDuration(time.Since(start))
 	return err
 }
 

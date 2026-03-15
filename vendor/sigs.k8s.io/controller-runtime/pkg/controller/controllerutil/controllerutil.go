@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -501,10 +502,8 @@ type MutateFn func() error
 // It returns an indication of whether it updated the object's list of finalizers.
 func AddFinalizer(o client.Object, finalizer string) (finalizersUpdated bool) {
 	f := o.GetFinalizers()
-	for _, e := range f {
-		if e == finalizer {
-			return false
-		}
+	if slices.Contains(f, finalizer) {
+		return false
 	}
 	o.SetFinalizers(append(f, finalizer))
 	return true
@@ -517,7 +516,7 @@ func RemoveFinalizer(o client.Object, finalizer string) (finalizersUpdated bool)
 	length := len(f)
 
 	index := 0
-	for i := 0; i < length; i++ {
+	for i := range length {
 		if f[i] == finalizer {
 			continue
 		}
@@ -531,10 +530,5 @@ func RemoveFinalizer(o client.Object, finalizer string) (finalizersUpdated bool)
 // ContainsFinalizer checks an Object that the provided finalizer is present.
 func ContainsFinalizer(o client.Object, finalizer string) bool {
 	f := o.GetFinalizers()
-	for _, e := range f {
-		if e == finalizer {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(f, finalizer)
 }

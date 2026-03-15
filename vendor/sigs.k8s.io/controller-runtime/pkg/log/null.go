@@ -34,7 +34,7 @@ func (log NullLogSink) Init(logr.RuntimeInfo) {
 }
 
 // Info implements logr.InfoLogger.
-func (NullLogSink) Info(_ int, _ string, _ ...interface{}) {
+func (NullLogSink) Info(_ int, _ string, _ ...any) {
 	// Do nothing.
 }
 
@@ -44,7 +44,7 @@ func (NullLogSink) Enabled(level int) bool {
 }
 
 // Error implements logr.Logger.
-func (NullLogSink) Error(_ error, _ string, _ ...interface{}) {
+func (NullLogSink) Error(_ error, _ string, _ ...any) {
 	// Do nothing.
 }
 
@@ -54,6 +54,6 @@ func (log NullLogSink) WithName(_ string) logr.LogSink {
 }
 
 // WithValues implements logr.Logger.
-func (log NullLogSink) WithValues(_ ...interface{}) logr.LogSink {
+func (log NullLogSink) WithValues(_ ...any) logr.LogSink {
 	return log
 }
