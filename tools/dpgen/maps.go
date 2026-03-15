@@ -93,7 +93,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling combined BTF: %w", err)
 	}
-	if err := os.WriteFile(path.Join(out, mapKVFile), btfBlob, 0644); err != nil {
+	if err := os.WriteFile(path.Join(goOut, mapKVFile), btfBlob, 0644); err != nil {
 		return fmt.Errorf("writing %s: %w", mapKVFile, err)
 	}
 
