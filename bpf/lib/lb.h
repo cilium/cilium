@@ -1021,8 +1021,9 @@ lb6_lookup_wildcard_nodeport_service(struct lb6_key *key __maybe_unused)
 		return NULL;
 
 	info = lookup_ip6_remote_endpoint(&key->address, 0);
-	if (info && identity_is_remote_node(info->sec_identity) &&
-	    !info->flag_remote_cluster) {
+	if (info && (info->sec_identity == HOST_ID ||
+		     (identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))) {
 		memset(&key->address, 0, sizeof(key->address));
 		return lb6_lookup_service(key, true);
 	}
@@ -1764,8 +1765,9 @@ lb4_lookup_wildcard_nodeport_service(struct lb4_key *key __maybe_unused)
 		return NULL;
 
 	info = lookup_ip4_remote_endpoint(key->address, 0);
-	if (info && identity_is_remote_node(info->sec_identity) &&
-	    !info->flag_remote_cluster) {
+	if (info && (info->sec_identity == HOST_ID ||
+		     (identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))) {
 		key->address = 0;
 		return lb4_lookup_service(key, true);
 	}
