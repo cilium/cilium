@@ -251,8 +251,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	ip := decoded.GetIP()
 	if tn != nil && ip != nil {
 		if !tn.OriginalIP().IsUnspecified() {
-			// Ignore invalid IP - getters will handle invalid value.
-			srcIP, _ = netipx.FromStdIP(tn.OriginalIP())
+			srcIP = tn.OriginalIP()
 			// On SNAT the trace notification has OrigIP set to the pre
 			// translation IP and the source IP parsed from the header is the
 			// post translation IP. The check is here because sometimes we get

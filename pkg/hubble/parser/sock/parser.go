@@ -9,8 +9,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"go4.org/netipx"
-
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
@@ -100,9 +98,8 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	}
 	srcPort := uint16(0) // source port is not known for TraceSock events
 
-	// Ignore invalid IPs - getters will handle invalid values.
-	// IPs can be empty for Ethernet-only packets.
-	dstIP, _ := netipx.FromStdIP(sock.IP())
+	// IPs can be zero for Ethernet-only packets.
+	dstIP := sock.IP()
 	dstPort := sock.DstPort
 
 	datapathContext := common.DatapathContext{
