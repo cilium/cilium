@@ -6,26 +6,27 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // Wireguard returns a [BPFWireguard].
 func Wireguard(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-	cfg := NewBPFWireguard(NodeConfig(lnc))
+	cfg := config_latest.NewBPFWireguard(NodeConfig(lnc))
 
-	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
+	cfg.InterfaceIfindex = uint32(link.Attrs().Index)
 
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableExtendedIpProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
-	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.EphemeralMin = uint32(lnc.EphemeralMin)
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
-	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
-	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+	cfg.EnableIpv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIpv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }

@@ -43,6 +43,11 @@ func (m MAC) As8() [8]byte {
 	return res
 }
 
+func (m MAC) AsSlice() []byte {
+	res := m.As8()
+	return res[:]
+}
+
 // ParseMAC parses s only as an IEEE 802 MAC-48.
 func ParseMAC(s string) (MAC, error) {
 	ha, err := net.ParseMAC(s)

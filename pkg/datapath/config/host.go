@@ -10,6 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -18,28 +19,28 @@ import (
 
 // CiliumHost returns a [BPFHost] for attaching bpf_host.c to cilium_host.
 func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) any {
-	cfg := NewBPFHost(NodeConfig(lnc))
+	cfg := config_latest.NewBPFHost(NodeConfig(lnc))
 
 	em := ep.GetNodeMAC()
 	if len(em) != 6 {
 		panic(fmt.Sprintf("invalid MAC address for cilium_host: %q", em))
 	}
-	cfg.InterfaceMAC = em.As8()
+	cfg.InterfaceMac = em.AsSlice()
 
-	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
+	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
-	cfg.HostEPID = uint16(lnc.HostEndpointID)
+	cfg.HostEpId = uint32(lnc.HostEndpointID)
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if lnc.EnableWireguard {
-		cfg.WGIfIndex = lnc.WireguardIfIndex
-		cfg.WGPort = wgtypes.ListenPort
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+		cfg.VtepMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -47,25 +48,25 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
-	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.EphemeralMin = uint32(lnc.EphemeralMin)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
-	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
-	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+	cfg.EnableIpv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIpv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }
 
 // CiliumNet returns a [BPFHost] for attaching bpf_host.c to cilium_net.
 func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-	cfg := NewBPFHost(NodeConfig(lnc))
+	cfg := &config_latest.BPFHost{Node: NodeConfig(lnc)}
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
@@ -73,38 +74,38 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	if len(em) != 6 {
 		panic(fmt.Sprintf("invalid MAC address for %s: %q", link.Attrs().Name, em))
 	}
-	cfg.InterfaceMAC = em.As8()
+	cfg.InterfaceMac = em.AsSlice()
 
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableExtendedIpProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	ifindex := link.Attrs().Index
-	cfg.InterfaceIfIndex = uint32(ifindex)
+	cfg.InterfaceIfindex = uint32(ifindex)
 
-	cfg.HostEPID = uint16(lnc.HostEndpointID)
+	cfg.HostEpId = uint32(lnc.HostEndpointID)
 
 	if lnc.EnableWireguard {
-		cfg.WGIfIndex = lnc.WireguardIfIndex
-		cfg.WGPort = wgtypes.ListenPort
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+		cfg.VtepMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
-	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
-	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.EphemeralMin = uint32(lnc.EphemeralMin)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
-	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
-	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+	cfg.EnableIpv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIpv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }
@@ -112,13 +113,13 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 // Netdev returns a [BPFHost] for attaching bpf_host.c to an externally-facing
 // network device.
 func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, masq4, masq6 netip.Addr) any {
-	cfg := NewBPFHost(NodeConfig(lnc))
+	cfg := &config_latest.BPFHost{Node: NodeConfig(lnc)}
 
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.
 	em := mac.MAC(link.Attrs().HardwareAddr)
 	if len(em) == 6 {
-		cfg.InterfaceMAC = em.As8()
+		cfg.InterfaceMac = em.AsSlice()
 	} else {
 		cfg.EthHeaderLength = 0
 	}
@@ -126,32 +127,32 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	ifindex := link.Attrs().Index
-	cfg.InterfaceIfIndex = uint32(ifindex)
+	cfg.InterfaceIfindex = uint32(ifindex)
 
 	// Enable masquerading on external interfaces.
 	if option.Config.EnableBPFMasquerade {
 		if option.Config.EnableIPv4Masquerade && masq4.IsValid() {
-			cfg.NATIPv4Masquerade = masq4.As4()
+			cfg.NatIpv4Masquerade = masq4.AsSlice()
 		}
 		if option.Config.EnableIPv6Masquerade && masq6.IsValid() {
-			cfg.NATIPv6Masquerade = masq6.As16()
+			cfg.NatIpv6Masquerade = masq6.AsSlice()
 		}
 		// Masquerading IPv4 traffic from endpoints leaving the host.
 		cfg.EnableRemoteNodeMasquerade = option.Config.EnableRemoteNodeMasquerade
 	}
 
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.HostEPID = uint16(lnc.HostEndpointID)
+	cfg.EnableExtendedIpProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.HostEpId = uint32(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if lnc.EnableWireguard {
-		cfg.WGIfIndex = lnc.WireguardIfIndex
-		cfg.WGPort = wgtypes.ListenPort
+		cfg.WgIfindex = lnc.WireguardIfIndex
+		cfg.WgPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+		cfg.VtepMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -159,18 +160,18 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
-	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.EphemeralMin = uint32(lnc.EphemeralMin)
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
-	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
-	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+	cfg.EnableIpv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIpv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	switch link.(type) {
 	case *netlink.Bridge:
