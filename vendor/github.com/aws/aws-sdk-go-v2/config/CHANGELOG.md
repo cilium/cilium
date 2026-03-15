@@ -1,3 +1,8 @@
+# v1.32.12 (2026-03-13)
+
+* **Bug Fix**: Replace usages of the old ioutil/ package throughout the SDK.
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.32.11 (2026-03-03)
 
 * **Bug Fix**: Modernize non codegen files with go fix

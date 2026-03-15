@@ -71,6 +71,12 @@ func ConntrackUpdate(table ConntrackTableType, family InetFamily, flow *Conntrac
 	return pkgHandle.ConntrackUpdate(table, family, flow)
 }
 
+// ConntrackDelete deletes an existing conntrack flow in the desired table
+// conntrack -D [table]		Delete conntrack flow
+func ConntrackDelete(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
+	return pkgHandle.ConntrackDelete(table, family, flow)
+}
+
 // ConntrackDeleteFilter deletes entries on the specified table on the base of the filter
 // conntrack -D [table] parameters         Delete conntrack or expectation
 //
@@ -135,6 +141,23 @@ func (h *Handle) ConntrackCreate(table ConntrackTableType, family InetFamily, fl
 // conntrack -U [table]		Update a conntrack
 func (h *Handle) ConntrackUpdate(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
 	req := h.newConntrackRequest(table, family, nl.IPCTNL_MSG_CT_NEW, unix.NLM_F_ACK|unix.NLM_F_REPLACE)
+	attr, err := flow.toNlData()
+	if err != nil {
+		return err
+	}
+
+	for _, a := range attr {
+		req.AddData(a)
+	}
+
+	_, err = req.Execute(unix.NETLINK_NETFILTER, 0)
+	return err
+}
+
+// ConntrackDelete deletes an existing conntrack flow in the desired table using the handle
+// conntrack -D [table]		Delete a conntrack
+func (h *Handle) ConntrackDelete(table ConntrackTableType, family InetFamily, flow *ConntrackFlow) error {
+	req := h.newConntrackRequest(table, family, nl.IPCTNL_MSG_CT_DELETE, unix.NLM_F_ACK)
 	attr, err := flow.toNlData()
 	if err != nil {
 		return err
@@ -368,6 +391,8 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 	//	<BEuint64>
 	//	<len, CTA_LABELS>
 	//	<binary data>
+	//	<len, CTA_ZONE>
+	//	<BEuint16>
 	//	<len, NLA_F_NESTED|CTA_PROTOINFO>
 
 	// CTA_TUPLE_ORIG
@@ -414,6 +439,11 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 		default:
 			return nil, errors.New("couldn't generate netlink data for conntrack: field 'ProtoInfo' only supports TCP or nil")
 		}
+	}
+
+	if s.Zone != 0 {
+		ctZone := nl.NewRtAttr(nl.CTA_ZONE, nl.BEUint16Attr(s.Zone))
+		payload = append(payload, ctZone)
 	}
 
 	return payload, nil

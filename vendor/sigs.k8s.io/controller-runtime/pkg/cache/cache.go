@@ -22,7 +22,6 @@ import (
 	"maps"
 	"net/http"
 	"slices"
-	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -657,7 +656,8 @@ func defaultConfig(toDefault, defaultFrom Config) Config {
 
 func namespaceAllSelector(namespaces []string) []fields.Selector {
 	selectors := make([]fields.Selector, 0, len(namespaces)-1)
-	sort.Strings(namespaces)
+	slices.Sort(namespaces)
+
 	for _, namespace := range namespaces {
 		if namespace != metav1.NamespaceAll {
 			selectors = append(selectors, fields.OneTermNotEqualSelector("metadata.namespace", namespace))

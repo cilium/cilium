@@ -2188,6 +2188,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						link = &Ifb{}
 					case "bridge":
 						link = &Bridge{}
+					case "openvswitch":
+						link = &OpenvSwitch{}
 					case "vlan":
 						link = &Vlan{}
 					case "netkit":
@@ -2308,6 +2310,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						linkSlave = &BondSlave{}
 					case "vrf":
 						linkSlave = &VrfSlave{}
+					case "openvswitch":
+						linkSlave = &OpenvSwitchSlave{}
 					}
 
 				case nl.IFLA_INFO_SLAVE_DATA:

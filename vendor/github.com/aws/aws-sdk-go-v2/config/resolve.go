@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -69,7 +69,7 @@ func resolveCustomCABundle(ctx context.Context, cfg *aws.Config, cfgs configs) e
 			tr.TLSClientConfig.RootCAs = x509.NewCertPool()
 		}
 
-		b, err := ioutil.ReadAll(pemCerts)
+		b, err := io.ReadAll(pemCerts)
 		if err != nil {
 			appendErr = fmt.Errorf("failed to read custom CA bundle PEM file")
 		}

@@ -43,14 +43,15 @@ var (
 	log = logf.Log.WithName("conversion-webhook")
 )
 
-func NewWebhookHandler(scheme *runtime.Scheme) http.Handler {
-	return &webhook{scheme: scheme, decoder: NewDecoder(scheme)}
+func NewWebhookHandler(scheme *runtime.Scheme, registry Registry) http.Handler {
+	return &webhook{scheme: scheme, decoder: NewDecoder(scheme), registry: registry}
 }
 
 // webhook implements a CRD conversion webhook HTTP handler.
 type webhook struct {
-	scheme  *runtime.Scheme
-	decoder *Decoder
+	scheme   *runtime.Scheme
+	decoder  *Decoder
+	registry Registry
 }
 
 // ensure Webhook implements http.Handler
@@ -119,7 +120,7 @@ func (wh *webhook) handleConvertRequest(ctx context.Context, req *apix.Conversio
 		if err != nil {
 			return nil, err
 		}
-		err = wh.convertObject(src, dst)
+		err = wh.convertObject(ctx, src, dst)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +138,7 @@ func (wh *webhook) handleConvertRequest(ctx context.Context, req *apix.Conversio
 // convertObject will convert given a src object to dst object.
 // Note(droot): couldn't find a way to reduce the cyclomatic complexity under 10
 // without compromising readability, so disabling gocyclo linter
-func (wh *webhook) convertObject(src, dst runtime.Object) error {
+func (wh *webhook) convertObject(ctx context.Context, src, dst runtime.Object) error {
 	srcGVK := src.GetObjectKind().GroupVersionKind()
 	dstGVK := dst.GetObjectKind().GroupVersionKind()
 
@@ -147,6 +148,10 @@ func (wh *webhook) convertObject(src, dst runtime.Object) error {
 
 	if srcGVK == dstGVK {
 		return fmt.Errorf("conversion is not allowed between same type %T", src)
+	}
+
+	if converter, ok := wh.registry.GetConverter(srcGVK.GroupKind()); ok {
+		return converter.ConvertObject(ctx, src, dst)
 	}
 
 	srcIsHub, dstIsHub := isHub(src), isHub(dst)

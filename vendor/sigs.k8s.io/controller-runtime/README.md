@@ -53,6 +53,7 @@ Compatible k8s.io/*, client-go and minimum Go versions can be looked up in our [
 
 |          | k8s.io/*, client-go | minimum Go version |
 |----------|:-------------------:|:------------------:|
+| CR v0.22 |        v0.34        |        1.24        |
 | CR v0.21 |        v0.33        |        1.24        |
 | CR v0.20 |        v0.32        |        1.23        |
 | CR v0.19 |        v0.31        |        1.22        |

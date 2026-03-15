@@ -155,6 +155,9 @@ type SubResourceWriter interface {
 	// pointer so that obj can be updated with the content returned by the
 	// Server.
 	Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error
+
+	// Apply applies the given apply configurations subresource.
+	Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error
 }
 
 // SubResourceClient knows how to perform CRU operations on Kubernetes objects.

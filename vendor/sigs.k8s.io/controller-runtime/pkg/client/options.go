@@ -97,6 +97,12 @@ type SubResourcePatchOption interface {
 	ApplyToSubResourcePatch(*SubResourcePatchOptions)
 }
 
+// SubResourceApplyOption configures a subresource apply request.
+type SubResourceApplyOption interface {
+	// ApplyToSubResourceApply applies the configuration on the given patch options.
+	ApplyToSubResourceApply(*SubResourceApplyOptions)
+}
+
 // }}}
 
 // {{{ Multi-Type Options
@@ -148,6 +154,10 @@ func (dryRunAll) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
 
+func (dryRunAll) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
+	opts.DryRun = []string{metav1.DryRunAll}
+}
+
 // FieldOwner set the field manager name for the given server-side apply patch.
 type FieldOwner string
 
@@ -183,6 +193,11 @@ func (f FieldOwner) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
 
 // ApplyToSubResourceUpdate applies this configuration to the given update options.
 func (f FieldOwner) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
+	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceApply applies this configuration to the given apply options.
+func (f FieldOwner) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
 	opts.FieldManager = string(f)
 }
 
@@ -946,6 +961,10 @@ func (forceOwnership) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
 }
 
 func (forceOwnership) ApplyToApply(opts *ApplyOptions) {
+	opts.Force = ptr.To(true)
+}
+
+func (forceOwnership) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
 	opts.Force = ptr.To(true)
 }
 

@@ -33,6 +33,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:                            "controller_runtime_webhook_latency_seconds",
 			Help:                            "Histogram of the latency of processing admission requests",
+			Buckets:                         prometheus.ExponentialBuckets(10e-9, 10, 12),
 			NativeHistogramBucketFactor:     1.1,
 			NativeHistogramMaxBucketNumber:  100,
 			NativeHistogramMinResetDuration: 1 * time.Hour,

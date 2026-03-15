@@ -39,6 +39,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+// errReconciliationTimeout is the error used as the cause when the ReconciliationTimeout guardrail fires.
+// This allows us to distinguish wrapper timeouts from user-initiated context cancellations.
+var errReconciliationTimeout = errors.New("reconciliation timeout")
+
 // Options are the arguments for creating a new Controller.
 type Options[request comparable] struct {
 	// Reconciler is a function that can be called at any time with the Name / Namespace of an object and
@@ -207,13 +211,26 @@ func (c *Controller[request]) Reconcile(ctx context.Context, req request) (_ rec
 		}
 	}()
 
+	var timeoutCause error
 	if c.ReconciliationTimeout > 0 {
+		timeoutCause = errReconciliationTimeout
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.ReconciliationTimeout)
+		ctx, cancel = context.WithTimeoutCause(ctx, c.ReconciliationTimeout, timeoutCause)
 		defer cancel()
 	}
 
-	return c.Do.Reconcile(ctx, req)
+	res, err := c.Do.Reconcile(ctx, req)
+
+	// Check if the reconciliation timed out due to our wrapper timeout guardrail.
+	// We check ctx.Err() == context.DeadlineExceeded first to ensure the context was actually
+	// cancelled due to a deadline (not parent cancellation or other reasons), then verify it was
+	// our specific timeout cause. This prevents false positives from parent context cancellations
+	// or other timeout scenarios.
+	if timeoutCause != nil && ctx.Err() == context.DeadlineExceeded && errors.Is(context.Cause(ctx), timeoutCause) {
+		ctrlmetrics.ReconcileTimeouts.WithLabelValues(c.Name).Inc()
+	}
+
+	return res, err
 }
 
 // Watch implements controller.Controller.
@@ -437,6 +454,7 @@ func (c *Controller[request]) initMetrics() {
 	ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.TerminalReconcileErrors.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.ReconcilePanics.WithLabelValues(c.Name).Add(0)
+	ctrlmetrics.ReconcileTimeouts.WithLabelValues(c.Name).Add(0)
 	ctrlmetrics.WorkerCount.WithLabelValues(c.Name).Set(float64(c.MaxConcurrentReconciles))
 	ctrlmetrics.ActiveWorkers.WithLabelValues(c.Name).Set(0)
 }
@@ -459,6 +477,9 @@ func (c *Controller[request]) reconcileHandler(ctx context.Context, req request,
 	// resource to be synced.
 	log.V(5).Info("Reconciling")
 	result, err := c.Reconcile(ctx, req)
+	if result.Priority != nil {
+		priority = *result.Priority
+	}
 	switch {
 	case err != nil:
 		if errors.Is(err, reconcile.TerminalError(nil)) {
@@ -468,8 +489,8 @@ func (c *Controller[request]) reconcileHandler(ctx context.Context, req request,
 		}
 		ctrlmetrics.ReconcileErrors.WithLabelValues(c.Name).Inc()
 		ctrlmetrics.ReconcileTotal.WithLabelValues(c.Name, labelError).Inc()
-		if !result.IsZero() {
-			log.Info("Warning: Reconciler returned both a non-zero result and a non-nil error. The result will always be ignored if the error is non-nil and the non-nil error causes requeuing with exponential backoff. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
+		if result.RequeueAfter > 0 || result.Requeue { //nolint: staticcheck // We have to handle Requeue until it is removed
+			log.Info("Warning: Reconciler returned both a result with either RequeueAfter or Requeue set and a non-nil error. RequeueAfter and Requeue will always be ignored if the error is non-nil. For more details, see: https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/reconcile#Reconciler")
 		}
 		log.Error(err, "Reconciler error")
 	case result.RequeueAfter > 0:

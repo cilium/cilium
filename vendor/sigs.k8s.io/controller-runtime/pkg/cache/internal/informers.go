@@ -45,6 +45,20 @@ import (
 
 var log = logf.RuntimeLog.WithName("cache")
 
+// ErrResourceNotCached indicates that the resource type
+// the client asked the cache for is not cached, i.e. the
+// corresponding informer does not exist yet.
+type ErrResourceNotCached struct {
+	GVK schema.GroupVersionKind
+}
+
+// Error returns the error
+func (r ErrResourceNotCached) Error() string {
+	return fmt.Sprintf("%s is not cached", r.GVK.String())
+}
+
+var _ error = (*ErrResourceNotCached)(nil)
+
 // InformersOpts configures an InformerMap.
 type InformersOpts struct {
 	HTTPClient            *http.Client
@@ -242,11 +256,9 @@ func (ip *Informers) startInformerLocked(cacheEntry *Cache) {
 		return
 	}
 
-	ip.waitGroup.Add(1)
-	go func() {
-		defer ip.waitGroup.Done()
+	ip.waitGroup.Go(func() {
 		cacheEntry.Start(ip.ctx.Done())
-	}()
+	})
 }
 
 func (ip *Informers) waitForStarted(ctx context.Context) bool {
@@ -296,10 +308,13 @@ func (ip *Informers) Peek(gvk schema.GroupVersionKind, obj runtime.Object) (res 
 
 // Get will create a new Informer and add it to the map of specificInformersMap if none exists. Returns
 // the Informer from the map.
-func (ip *Informers) Get(ctx context.Context, gvk schema.GroupVersionKind, obj runtime.Object, opts *GetOptions) (bool, *Cache, error) {
+func (ip *Informers) Get(ctx context.Context, gvk schema.GroupVersionKind, obj runtime.Object, readerFailOnMissingInformer bool, opts *GetOptions) (bool, *Cache, error) {
 	// Return the informer if it is found
 	i, started, ok := ip.Peek(gvk, obj)
 	if !ok {
+		if readerFailOnMissingInformer {
+			return false, nil, &ErrResourceNotCached{GVK: gvk}
+		}
 		var err error
 		if i, started, err = ip.addInformerToMap(gvk, obj); err != nil {
 			return started, nil, err

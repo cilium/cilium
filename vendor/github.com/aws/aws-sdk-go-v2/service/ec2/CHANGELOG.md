@@ -1,3 +1,7 @@
+# v1.294.1 (2026-03-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.294.0 (2026-03-05)
 
 * **Feature**: Added metadata field to CapacityAllocation.

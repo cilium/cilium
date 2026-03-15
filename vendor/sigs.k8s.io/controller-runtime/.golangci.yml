@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.24"
+  go: "1.25"
   timeout: 10m
   allow-parallel-runners: true
 linters:
@@ -11,6 +11,7 @@ linters:
     - bidichk
     - bodyclose
     - copyloopvar
+    - depguard
     - dogsled
     - dupl
     - errcheck
@@ -22,12 +23,15 @@ linters:
     - goconst
     - gocritic
     - gocyclo
+    - godoclint
     - goprintffuncname
     - govet
     - importas
     - ineffassign
+    - iotamixing
     - makezero
     - misspell
+    - modernize
     - nakedret
     - nilerr
     - nolintlint
@@ -40,6 +44,12 @@ linters:
     - unused
     - whitespace
   settings:
+    depguard:
+      rules:
+        forbid-pkg-errors:
+          deny:
+            - pkg: sort
+              desc: Should be replaced with slices package
     forbidigo:
         forbid:
           - pattern: context.Background
@@ -50,6 +60,7 @@ linters:
       disable:
         - fieldalignment
         - shadow
+        - buildtag
       enable-all: true
     importas:
       alias:
@@ -66,6 +77,10 @@ linters:
         - pkg: sigs.k8s.io/controller-runtime
           alias: ctrl
       no-unaliased: true
+    modernize:
+      disable:
+        - omitzero
+        - fmtappendf
     revive:
       rules:
         # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration

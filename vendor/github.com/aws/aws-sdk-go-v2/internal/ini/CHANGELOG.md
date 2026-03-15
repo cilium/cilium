@@ -1,3 +1,7 @@
+# v1.8.6 (2026-03-13)
+
+* **Bug Fix**: Replace usages of the old ioutil/ package throughout the SDK.
+
 # v1.8.5 (2026-03-03)
 
 * **Bug Fix**: Modernize non codegen files with go fix

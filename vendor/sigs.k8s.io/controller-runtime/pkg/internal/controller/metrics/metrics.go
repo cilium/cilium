@@ -80,6 +80,15 @@ var (
 		Name: "controller_runtime_active_workers",
 		Help: "Number of currently used workers per controller",
 	}, []string{"controller"})
+
+	// ReconcileTimeouts is a prometheus counter metric which holds the total
+	// number of reconciliations that timed out due to the ReconciliationTimeout
+	// context timeout. This metric only increments when the wrapper timeout fires,
+	// not when user reconcilers cancels the context or completes before the timeout.
+	ReconcileTimeouts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "controller_runtime_reconcile_timeouts_total",
+		Help: "Total number of reconciliation timeouts per controller",
+	}, []string{"controller"})
 )
 
 func init() {
@@ -91,6 +100,7 @@ func init() {
 		ReconcileTime,
 		WorkerCount,
 		ActiveWorkers,
+		ReconcileTimeouts,
 		// expose process metrics like CPU, Memory, file descriptor usage etc.
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		// expose all Go runtime metrics like GC stats, memory stats etc.

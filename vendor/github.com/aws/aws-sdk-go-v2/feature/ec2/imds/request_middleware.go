@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"path"
 	"time"
@@ -176,11 +176,11 @@ func (m *deserializeResponse) HandleDeserialize(
 
 	// read the full body so that any operation timeouts cleanup will not race
 	// the body being read.
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return out, metadata, fmt.Errorf("read response body failed, %w", err)
 	}
-	resp.Body = ioutil.NopCloser(bytes.NewReader(body))
+	resp.Body = io.NopCloser(bytes.NewReader(body))
 
 	// Anything that's not 200 |< 300 is error
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

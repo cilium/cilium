@@ -167,7 +167,7 @@ func errResourceToResourceStatus(err error, resource *unstructured.Unstructured,
 	// If the error is from the context, we don't attach that to the ResourceStatus,
 	// but just return it directly so the caller can decide how to handle this
 	// situation.
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || isRateLimiterContextDeadlineExceeded(err) {
 		return nil, err
 	}
 	identifier := object.UnstructuredToObjMetadata(resource)
@@ -193,7 +193,7 @@ func errIdentifierToResourceStatus(err error, identifier object.ObjMetadata) (*e
 	// If the error is from the context, we don't attach that to the ResourceStatus,
 	// but just return it directly so the caller can decide how to handle this
 	// situation.
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || isRateLimiterContextDeadlineExceeded(err) {
 		return nil, err
 	}
 	if apierrors.IsNotFound(err) {
@@ -208,4 +208,21 @@ func errIdentifierToResourceStatus(err error, identifier object.ObjMetadata) (*e
 		Status:     status.UnknownStatus,
 		Error:      err,
 	}, nil
+}
+
+// isRateLimiterContextDeadlineExceeded checks if the error is a rate limiter "would exceed context deadline" error
+// this allows us to treat it the same way as the context.Canceled and context.DeadlineExceeded errors
+// instead of attaching the error to the ResourceStatus, caller can decide how to handle this
+func isRateLimiterContextDeadlineExceeded(err error) bool {
+	for {
+		next := errors.Unwrap(err)
+		if next == nil {
+			break
+		}
+		err = next
+	}
+
+	// there's no dedicated error type for this, hence we check the error message
+	// https://cs.opensource.google/go/x/time/+/refs/tags/v0.10.0:rate/rate.go;l=276
+	return err != nil && err.Error() == "rate: Wait(n=1) would exceed context deadline"
 }

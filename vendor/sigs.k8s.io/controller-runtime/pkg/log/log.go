@@ -88,7 +88,7 @@ var (
 )
 
 // FromContext returns a logger with predefined values from a context.Context.
-func FromContext(ctx context.Context, keysAndValues ...interface{}) logr.Logger {
+func FromContext(ctx context.Context, keysAndValues ...any) logr.Logger {
 	log := Log
 	if ctx != nil {
 		if logger, err := logr.FromContext(ctx); err == nil {

@@ -289,6 +289,21 @@ func (bridge *Bridge) Type() string {
 	return "bridge"
 }
 
+// OpenvSwitch links are Open vSwitch bridge devices.
+// Note: their lifecycle is typically managed by OVS (OVSDB/ovs-vsctl),
+// while netlink is used to query/link them.
+type OpenvSwitch struct {
+	LinkAttrs
+}
+
+func (ovs *OpenvSwitch) Attrs() *LinkAttrs {
+	return &ovs.LinkAttrs
+}
+
+func (ovs *OpenvSwitch) Type() string {
+	return "openvswitch"
+}
+
 // Vlan links have ParentIndex set in their Attrs()
 type Vlan struct {
 	LinkAttrs
@@ -1064,6 +1079,12 @@ type VrfSlave struct {
 
 func (v *VrfSlave) SlaveType() string {
 	return "vrf"
+}
+
+type OpenvSwitchSlave struct{}
+
+func (o *OpenvSwitchSlave) SlaveType() string {
+	return "openvswitch"
 }
 
 // Geneve devices must specify RemoteIP and ID (VNI) on create
