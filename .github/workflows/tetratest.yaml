@@ -1,0 +1,53 @@
+name: tetratest
+on: pull_request
+
+jobs:
+    check:
+        name: test
+        runs-on: ubuntu-24.04
+        steps:
+        - name: install tetragon
+          run: |
+            curl -LO https://github.com/cilium/tetragon/releases/download/v1.6.0/tetragon-v1.6.0-amd64.tar.gz
+            tar -xvf tetragon-v1.6.0-amd64.tar.gz
+            cd tetragon-v1.6.0-amd64/
+            sudo ./install.sh
+            sudo systemctl status tetragon
+            
+            curl -L https://github.com/cilium/tetragon/releases/latest/download/tetra-linux-amd64.tar.gz | tar -xz
+            sudo mv tetra /usr/local/bin
+            
+            echo eBPF! > /tmp/tetragon
+            sleep 5 #wait for tetragon to be ready
+            sudo systemctl status tetragon
+        - name: apply policy
+          run: |
+            cat <<EOF > policy.yaml
+            apiVersion: cilium.io/v1alpha1
+            kind: TracingPolicy
+            metadata:
+              name: "fd-install"
+            spec:
+              kprobes:
+              - call: "fd_install"
+                syscall: false
+                args:
+                - index: 0
+                  type: "int"
+                - index: 1
+                  type: "file"
+                selectors:
+                - matchArgs:
+                  - index: 1
+                    operator: "Equal"
+                    values:
+                    - "/tmp/tetragon"
+                  matchActions:
+                  - action: Sigkill
+            EOF
+            cat policy.yaml
+            
+            sudo tetra tracingpolicy add policy.yaml
+        - name: check that policy works
+          run: |
+            cat /tmp/tetragon
