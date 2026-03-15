@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	"github.com/cilium/ebpf"
 
 	"google.golang.org/grpc"
@@ -87,7 +88,11 @@ func (s *datapathPluginServer) PrepareCollection(ctx context.Context, req *datap
 
 	progs := req.GetCollection().GetPrograms()
 	if progs != nil && progs["cil_from_container"] != nil {
-		s.logger.Info("Attach pre/post hooks to cil_from_container", "pod", lxcInfo.GetPodInfo())
+		var lxcConfig config_latest.BPFLXC
+		if err := req.Config.UnmarshalTo(&lxcConfig); err != nil {
+			return nil, fmt.Errorf("unmarshalling to BPFLXC: %w", err)
+		}
+		s.logger.Info("Attach pre/post hooks to cil_from_container", "pod", lxcInfo.GetPodInfo(), "config", lxcConfig)
 	} else {
 		return nil, fmt.Errorf("no cil_from_container program in collection for lxc interface")
 	}

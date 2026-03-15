@@ -2,6 +2,7 @@ FROM golang:1.25 AS build
 
 WORKDIR /cilium
 COPY api api
+COPY pkg/datapath/config/latest pkg/datapath/config/latest
 COPY go.mod go.mod
 COPY go.sum go.sum
 
