@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -317,11 +317,13 @@ func (n *TraceNotify) IsGeneve() bool {
 
 // OriginalIP returns the original source IP if reverse NAT was performed on
 // the flow
-func (n *TraceNotify) OriginalIP() net.IP {
+func (n *TraceNotify) OriginalIP() netip.Addr {
 	if n.IsIPv6() {
-		return n.OrigIP[:]
+		return netip.AddrFrom16(n.OrigIP)
 	}
-	return n.OrigIP[:4]
+	var arr [4]byte
+	copy(arr[:], n.OrigIP[:4])
+	return netip.AddrFrom4(arr)
 }
 
 // DataOffset returns the offset from the beginning of TraceNotify where the

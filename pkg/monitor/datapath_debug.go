@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"net"
+	"net/netip"
 
 	// NOTE: syscall is deprecated, but it is replaced by golang.org/x/sys
 	//       which reuses syscall.Errno similarly to how we do below.
@@ -217,9 +217,9 @@ func l4CreateInfo(n *DebugMsg) string {
 }
 
 func ip4Str(arg1 uint32) string {
-	ip := make(net.IP, 4)
-	binary.NativeEndian.PutUint32(ip, arg1)
-	return ip.String()
+	var buf [4]byte
+	binary.NativeEndian.PutUint32(buf[:], arg1)
+	return netip.AddrFrom4(buf).String()
 }
 
 func ip6Str(arg1 uint32) string {

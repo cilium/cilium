@@ -6,7 +6,7 @@ package monitor
 import (
 	"encoding/binary"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
@@ -95,11 +95,13 @@ func (t *TraceSockNotify) XlatePointStr() string {
 }
 
 // IP returns the IPv4 or IPv6 address field.
-func (t *TraceSockNotify) IP() net.IP {
+func (t *TraceSockNotify) IP() netip.Addr {
 	if (t.Flags & TraceSockNotifyFlagIPv6) != 0 {
-		return t.DstIP[:]
+		return netip.AddrFrom16(t.DstIP)
 	}
-	return t.DstIP[:4]
+	var arr [4]byte
+	copy(arr[:], t.DstIP[:4])
+	return netip.AddrFrom4(arr)
 }
 
 func (t *TraceSockNotify) L4ProtoStr() string {
