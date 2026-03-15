@@ -201,7 +201,7 @@ jobs:
 
           - focus: "privileged"
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            lvhImage: "6.18-20260306.021014"
+            lvhImage: "6.18-20260310.122539"
 
     timeout-minutes: 50
     steps:
