@@ -21,30 +21,9 @@ import (
 	"golang.org/x/text/language"
 )
 
-// Common acronyms to transform into stylized form for Go field names.
-var stylized = map[string]string{
-	"bpf":     "BPF",
-	"lxc":     "LXC",
-	"xdp":     "XDP",
-	"ipv4":    "IPv4",
-	"ipv6":    "IPv6",
-	"nat":     "NAT",
-	"mac":     "MAC",
-	"mtu":     "MTU",
-	"id":      "ID",
-	"ip":      "IP",
-	"netns":   "NetNS",
-	"ipcache": "IPCache",
-	"lrp":     "LRP",
-	"icmp":    "ICMP",
-	"wg":      "WG",
-	"vtep":    "VTEP",
-	"ep":      "EP",
-	"fib":     "FIB",
-	"ifindex": "IfIndex",
-	"arp":     "ARP",
-	"lb":      "LB",
-}
+const (
+	protobufTagName = "protobuf"
+)
 
 func runConfig(cmd *cobra.Command, args []string) error {
 	spec, err := ebpf.LoadCollectionSpec(inPath)
@@ -52,10 +31,12 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading spec: %w", err)
 	}
 
-	comment := fmt.Sprintf("%s is a configuration struct for a Cilium datapath object. "+
-		"Warning: do not instantiate directly! Always use [New%s] to ensure the default "+
-		"values configured in the ELF are honored.", name, name)
-	s, err := varsToStruct(spec, name, kind, comment, embeds)
+	fields, err := specToFields(spec, kind)
+	if err != nil {
+		return fmt.Errorf("generating fields: %w", err)
+	}
+
+	s, err := fieldsToStruct(fields, name, embeds)
 	if err != nil {
 		return fmt.Errorf("generating config struct: %w", err)
 	}
@@ -65,27 +46,40 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing copyright header: %w", err)
 	}
 
-	b.WriteString("package config\n\n")
+	b.WriteString("package latest\n\n")
+	b.WriteString("import \"fmt\"\n\n")
 	b.WriteString(s)
+	os.WriteFile(goOut, []byte(b.String()), 0644)
 
-	os.WriteFile(out, []byte(b.String()), 0644)
+	b.Reset()
+	s, err = fieldsToMessage(fields, name, embeds)
+	if err != nil {
+		return fmt.Errorf("generating config struct: %w", err)
+	}
+	if err := writeCopyrightHeader(&b); err != nil {
+		return fmt.Errorf("writing copyright header: %w", err)
+	}
+	if err := writeProtoHeader(&b, goPkg, protoImports); err != nil {
+		return fmt.Errorf("writing proto header: %w", err)
+	}
+	b.WriteString(s)
+	fmt.Println(protoOut)
+	os.WriteFile(protoOut, []byte(b.String()), 0644)
 
 	return nil
 }
 
-// varsToStruct generates a Go struct from the configuration variables in the
-// CollectionSpec.
-func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds []string) (string, error) {
-	type field struct {
-		comment  string
-		goName   string
-		cName    string
-		typ      string
-		defValue string
-	}
+type field struct {
+	comment   string
+	goName    string
+	cName     string
+	protoType string
+	defValue  string
+	size      int
+}
 
+func specToFields(spec *ebpf.CollectionSpec, kind string) ([]field, error) {
 	kind = "kind:" + kind
-
 	fields := make([]field, 0, len(spec.Variables))
 
 	for n, v := range spec.Variables {
@@ -100,7 +94,7 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 		n = strings.TrimPrefix(n, config.ConstantPrefix)
 
 		if v.Type == nil {
-			return "", fmt.Errorf("variable %s has no type information, was the ELF built without BTF?", n)
+			return nil, fmt.Errorf("variable %s has no type information, was the ELF built without BTF?", n)
 		}
 
 		// Skip variables that don't have the requested kind.
@@ -114,42 +108,137 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 		tags = slices.DeleteFunc(tags, func(s string) bool { return s == kind })
 
 		if len(tags) == 0 || tags[0] == "" {
-			return "", fmt.Errorf("variable %s has no doc comment", n)
+			return nil, fmt.Errorf("variable %s has no doc comment", n)
 		}
 
-		typ, err := btfVarGoType(v.Type)
+		protoType, size, err := btfVarProtoType(v.Type)
 		if err != nil {
-			return "", fmt.Errorf("variable %s: getting Go type: %w", n, err)
+			return nil, fmt.Errorf("variable %s: getting Go type: %w", n, err)
 		}
 
 		comment, err := tagsToComment(tags)
 		if err != nil {
-			return "", fmt.Errorf("variable %s: converting tags to comments: %w", n, err)
+			return nil, fmt.Errorf("variable %s: converting tags to comments: %w", n, err)
 		}
 
 		defValue, err := varGoValue(v)
 		if err != nil {
-			return "", fmt.Errorf("variable %s: getting default Go value: %w", n, err)
+			return nil, fmt.Errorf("variable %s: getting default Go value: %w", n, err)
 		}
 
-		fields = append(fields, field{comment, camelCase(n), n, typ, goValueLiteral(defValue)})
+		fields = append(fields, field{
+			comment:   comment,
+			goName:    camelCase(n),
+			cName:     n,
+			protoType: protoType,
+			defValue:  goValueLiteral(defValue),
+			size:      size,
+		})
 	}
 
 	slices.SortStableFunc(fields, func(a, b field) int {
 		return strings.Compare(a.goName, b.goName)
 	})
 
+	return fields, nil
+}
+
+// fieldsToStruct generates a Go struct from the fields derived from variables
+// in the CollectionSpec.
+func fieldsToStruct(fields []field, name string, embeds []string) (string, error) {
 	var b strings.Builder
 
-	// Render a Go type definition for a configuration struct.
-	if comment != "" {
-		b.WriteString(wrapString(comment, "// "))
+	// Render a constructor with default values set using ASSIGN_CONFIG.
+	var params []string
+	for _, e := range embeds {
+		params = append(params, fmt.Sprintf("%s *%s", strings.ToLower(e), e))
 	}
-	b.WriteString(fmt.Sprintf("type %s struct {\n", name))
 
+	b.WriteString(fmt.Sprintf("func New%s(%s) *%s {\n", name, strings.Join(params, ", "), name))
+	b.WriteString(fmt.Sprintf("\tr := &%s{}\n", name))
+	for _, f := range fields {
+		b.WriteString(fmt.Sprintf("\tr.%s = %s\n", f.goName, f.defValue))
+	}
+	for _, e := range embeds {
+		b.WriteString(fmt.Sprintf("\tr.%s = %s\n", e, strings.ToLower(e)))
+	}
+	b.WriteString("\treturn r\n")
+	b.WriteString("}\n")
+
+	b.WriteString(fmt.Sprintf("var fieldSizes%s = map[string]int{\n", name))
+	for _, field := range fields {
+		b.WriteString(fmt.Sprintf("\t\"%s\": %d,\n", field.cName, field.size))
+	}
+	b.WriteString("}\n")
+
+	b.WriteString(fmt.Sprintf("\nfunc (c *%s) SizeOf(fieldName string) int {\n", name))
+	for _, e := range embeds {
+		b.WriteString(fmt.Sprintf("\tif c.%s.SizeOf(fieldName) != 0 {\n", e))
+		b.WriteString(fmt.Sprintf("\t\treturn c.%s.SizeOf(fieldName)\n", e))
+		b.WriteString("\t}\n")
+	}
+	b.WriteString(fmt.Sprintf("\treturn fieldSizes%s[fieldName]\n", name))
+	b.WriteString("}\n")
+
+	b.WriteString(fmt.Sprintf("\nfunc (c *%s) Map() (map[string]any, error) {\n", name))
+	b.WriteString("\tresult := make(map[string]any)\n")
+	for _, e := range embeds {
+		b.WriteString(fmt.Sprintf("\tmap%s, err := c.%s.Map()\n", e, e))
+
+		b.WriteString("\tif err != nil {\n")
+		b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s: %%w\", err)\n", e))
+		b.WriteString("\t}\n")
+
+		b.WriteString(fmt.Sprintf("\tfor name, val := range map%s {\n", e))
+		b.WriteString("\t\tif _, ok := result[name]; ok {\n")
+		b.WriteString(fmt.Sprintf("\t\t\treturn nil, fmt.Errorf(\"%s: %%s exists in two embedded types\", name)\n", e))
+		b.WriteString("\t\t}\n")
+		b.WriteString("\t\tresult[name] = val\n")
+		b.WriteString("\t}\n")
+	}
+	for _, f := range fields {
+		if f.protoType == "bytes" {
+			// Make sure length is == specified size
+			b.WriteString(fmt.Sprintf("\tif (len(c.%s) != %d) {\n", f.goName, f.size))
+			b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s must be %d bytes (got %%d)\", len(c.%s))\n", f.goName, f.size, f.goName))
+			b.WriteString("\t}\n")
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = c.%s\n", f.cName, f.goName))
+		} else if f.size <= 2 && f.protoType != "bool" {
+			var base string
+			if strings.HasPrefix(f.protoType, "uint") {
+				base = "uint"
+			} else if strings.HasPrefix(f.protoType, "int") {
+				base = "int"
+			}
+			nativeType := fmt.Sprintf("%s%d", base, f.size*8)
+			// Make sure value fits into f.lenBytes
+			b.WriteString(fmt.Sprintf("\t%s := %s(c.%s)\n", f.goName, nativeType, f.goName))
+			b.WriteString(fmt.Sprintf("\tif (%s(%s) != c.%s) {\n", f.protoType, f.goName, f.goName))
+			b.WriteString(fmt.Sprintf("\t\treturn nil, fmt.Errorf(\"%s must fit into a %s (value = %%d)\", c.%s)\n", f.goName, nativeType, f.goName))
+			b.WriteString("\t}\n")
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = %s\n", f.cName, f.goName))
+		} else {
+			b.WriteString(fmt.Sprintf("\tresult[\"%s\"] = c.%s\n", f.cName, f.goName))
+		}
+	}
+	b.WriteString("\treturn result, nil\n")
+	b.WriteString("}\n")
+
+	return b.String(), nil
+}
+
+// fieldsToMessage generates a protobuf IDL message from the fields derived from variables
+// in the CollectionSpec.
+func fieldsToMessage(fields []field, name string, embeds []string) (string, error) {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("message %s {\n", name))
+
+	n := 1
 	for _, f := range fields {
 		b.WriteString(f.comment)
-		b.WriteString(fmt.Sprintf("\t%s %s `%s:\"%s\"`\n", f.goName, f.typ, config.TagName, f.cName))
+		b.WriteString(fmt.Sprintf("\t%s %s = %d;\n", f.protoType, f.cName, n))
+		n++
 	}
 
 	if len(embeds) > 0 {
@@ -157,28 +246,9 @@ func varsToStruct(spec *ebpf.CollectionSpec, name, kind, comment string, embeds 
 			b.WriteString("\n")
 		}
 		for _, e := range embeds {
-			b.WriteString(fmt.Sprintf("\t%s\n", e))
+			b.WriteString(fmt.Sprintf("\t%s %s = %d;\n", e, strings.ToLower(e), n))
 		}
 	}
-	b.WriteString("}\n")
-
-	// Render a constructor with default values set using ASSIGN_CONFIG.
-	var params []string
-	for _, e := range embeds {
-		params = append(params, fmt.Sprintf("%s %s", strings.ToLower(e), e))
-	}
-
-	b.WriteString(fmt.Sprintf("\nfunc New%s(%s) *%s {\n", name, strings.Join(params, ", "), name))
-	b.WriteString(fmt.Sprintf("\treturn &%s{", name))
-	var vals []string
-	for _, f := range fields {
-		vals = append(vals, f.defValue)
-	}
-	for _, e := range embeds {
-		vals = append(vals, strings.ToLower(e))
-	}
-	b.WriteString(join(vals))
-	b.WriteString("}\n")
 	b.WriteString("}\n")
 
 	return b.String(), nil
@@ -240,22 +310,20 @@ func getValue[T comparable](v *ebpf.VariableSpec) (out T, err error) {
 	return out, nil
 }
 
-// camelCase converts a string like "foo_bar" to "FooBar". It capitalizes the
-// acronyms defined in 'stylized'.
+// camelCase converts a string like "foo_bar" to "FooBar".
 func camelCase(s string) string {
 	var b strings.Builder
 	for w := range strings.SplitSeq(s, "_") {
-		w = stylize(strings.ToLower(w))
+		// protoc-gen-go handles names like "nat_46x64_prefix"
+		// by inserting a _ before the numeric part:
+		// Nat_46X64Prefix. Special case this to ensure the name
+		// matches what will be generated.
+		if w[0] >= '0' && w[0] <= '9' {
+			w = "_" + w
+		}
 		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
 	}
 	return b.String()
-}
-
-func stylize(s string) string {
-	if v, ok := stylized[s]; ok {
-		return v
-	}
-	return s
 }
 
 // tagsToComment converts a slice of tags into a tab-indented string with
@@ -310,47 +378,53 @@ func sentencify(s string) string {
 }
 
 // btfVarGoType converts the type of an integer btf.Var to its equivalent Go
-// type name.
-func btfVarGoType(v *btf.Var) (string, error) {
+// and protobuf type name.
+func btfVarProtoType(v *btf.Var) (string, int, error) {
 	switch t := btf.UnderlyingType(v.Type).(type) {
 	case *btf.Int:
 		if t.Encoding == btf.Char {
-			return "byte", nil
+			return "int32", int(t.Size), nil
 		}
 
 		if t.Encoding == btf.Bool {
-			return "bool", nil
+			return "bool", int(t.Size), nil
 		}
 
 		if t.Size > 8 {
-			return "", fmt.Errorf("unsupported size %d", t.Size)
+			return "", 0, fmt.Errorf("unsupported size %d", t.Size)
 		}
 
 		base := "int"
 		if t.Encoding == btf.Unsigned {
 			base = "uint"
 		}
-		return fmt.Sprintf("%s%d", base, t.Size*8), nil
+		var protoType string
+		if t.Size <= 2 {
+			protoType = fmt.Sprintf("%s32", base)
+		} else {
+			protoType = fmt.Sprintf("%s%d", base, t.Size*8)
+		}
+		return protoType, int(t.Size), nil
 
 	case *btf.Union:
 		// Unions can't be represented in Go and are most often used for accessing
 		// subfields of addresses. Emit a fixed-size byte array instead.
-		return fmt.Sprintf("[%d]byte", t.Size), nil
+		return "bytes", int(t.Size), nil
 
 	default:
-		return "", fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
+		return "", 0, fmt.Errorf("unsupported type %T", btf.UnderlyingType(v.Type))
 	}
 }
 
 // goValueLiteral returns a string representation of a Go value.
 func goValueLiteral(v any) string {
 	str := fmt.Sprintf("%#v", v)
-	switch t := v.(type) {
+	switch v.(type) {
 	case []byte:
 		// Replace a slice literal with a fixed-size array literal. Since we can't
 		// create arrays of a given size at runtime to feed to fmt.Sprintf(), do a
 		// manual conversion.
-		str = strings.Replace(str, "[]byte{", fmt.Sprintf("[%d]byte{", len(t)), 1)
+		str = strings.Replace(str, "[]byte{", "[]byte{", 1)
 	}
 	return str
 }
