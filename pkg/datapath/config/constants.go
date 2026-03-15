@@ -12,6 +12,3 @@ const ConstantPrefix = "__config_"
 // Cilium datapath. Must match the section used by the CONFIG macro in
 // static_data.h.
 const Section = ".rodata.config"
-
-// TagName is the name of the struct tag used to annotate configuration fields.
-const TagName = "config"

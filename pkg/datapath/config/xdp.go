@@ -6,28 +6,29 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // XDP returns a [BPFXDP].
 func XDP(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-	cfg := NewBPFXDP(NodeConfig(lnc))
+	cfg := config_latest.NewBPFXDP(NodeConfig(lnc))
 
-	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
-	cfg.DeviceMTU = uint16(link.Attrs().MTU)
+	cfg.InterfaceIfindex = uint32(link.Attrs().Index)
+	cfg.DeviceMtu = uint32(link.Attrs().MTU)
 
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableExtendedIpProtocols = option.Config.EnableExtendedIPProtocols
 
-	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.EphemeralMin = uint32(lnc.EphemeralMin)
 
-	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
+	cfg.EnableXdpPrefilter = option.Config.EnableXDPPrefilter
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
-	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
-	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+	cfg.EnableIpv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIpv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }

@@ -10,24 +10,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStructToMap(t *testing.T) {
-	type e struct {
-		B int `config:"b"`
-	}
-	type s struct {
-		A int `config:"a"`
-		e
+type e struct {
+	B int
+}
 
-		ignored bool
+func (e *e) Map() (map[string]any, error) {
+	return map[string]any{
+		"b": e.B,
+	}, nil
+}
+
+type s struct {
+	A int
+	e
+
+	ignored bool
+}
+
+func (s *s) Map() (map[string]any, error) {
+	inner, err := s.e.Map()
+	if err != nil {
+		return nil, err
 	}
+	inner["a"] = s.A
+
+	return inner, nil
+}
+
+type compl struct {
+	C int
+}
+
+func (c *compl) Map() (map[string]any, error) {
+	return map[string]any{
+		"c": c.C,
+	}, nil
+}
+
+type dup struct {
+	Foo int
+}
+
+func (d *dup) Map() (map[string]any, error) {
+	return map[string]any{
+		"a": d.Foo,
+	}, nil
+}
+
+func TestStructToMap(t *testing.T) {
 	obj := s{1, e{2}, true}
 	want := map[string]any{"a": 1, "b": 2}
 
-	values, err := Map(obj)
-	require.NoError(t, err)
-	assert.Equal(t, want, values)
-
-	values, err = Map(&obj)
+	values, err := Map(&obj)
 	require.NoError(t, err)
 	assert.Equal(t, want, values)
 
@@ -35,16 +69,10 @@ func TestStructToMap(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, values)
 
-	type compl struct {
-		C int `config:"c"`
-	}
 	values, err = Map([]any{&obj, &compl{3}})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"a": 1, "b": 2, "c": 3}, values)
 
-	type dup struct {
-		Foo int `config:"a"`
-	}
 	_, err = Map([]any{&obj, &dup{3}})
 	require.ErrorIs(t, err, errDuplicateVariable)
 

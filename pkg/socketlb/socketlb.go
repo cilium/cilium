@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
-	"github.com/cilium/cilium/pkg/datapath/config"
+	config_latest "github.com/cilium/cilium/pkg/datapath/config/latest"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/registry"
@@ -88,12 +88,12 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 		return fmt.Errorf("load CollectionSpec: %w", err)
 	}
 
-	cfg := config.NewBPFSock(config.NodeConfig(lnc))
+	cfg := config_latest.NewBPFSock(config_latest.NewNode())
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+	cfg.EnableLrp = option.Config.EnableLocalRedirectPolicy
 
-	cfg.TunnelProtocol = lnc.TunnelProtocol
-	cfg.TunnelPort = lnc.TunnelPort
+	cfg.TunnelProtocol = uint32(lnc.TunnelProtocol)
+	cfg.TunnelPort = uint32(lnc.TunnelPort)
 
 	coll, commit, cleanup, err := collLoader.Load(ctx, logger, spec, &bpf.CollectionOptions{
 		MapRegistry: reg,
