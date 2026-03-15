@@ -704,6 +704,11 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg := config.NewBPFOverlay(nodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
 
+	em := mac.MAC(device.Attrs().HardwareAddr)
+	if len(em) == 6 {
+		cfg.InterfaceMAC = em.As8()
+	}
+
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
