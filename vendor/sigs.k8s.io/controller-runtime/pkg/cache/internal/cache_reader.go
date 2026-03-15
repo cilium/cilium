@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -109,7 +110,7 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Ob
 
 // List lists items out of the indexer and writes them to out.
 func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...client.ListOption) error {
-	var objs []interface{}
+	var objs []any
 	var err error
 
 	listOpts := client.ListOptions{}
@@ -186,10 +187,10 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 	return nil
 }
 
-func byIndexes(indexer cache.Indexer, requires fields.Requirements, namespace string) ([]interface{}, error) {
+func byIndexes(indexer cache.Indexer, requires fields.Requirements, namespace string) ([]any, error) {
 	var (
 		err  error
-		objs []interface{}
+		objs []any
 		vals []string
 	)
 	indexers := indexer.GetIndexers()
@@ -213,17 +214,14 @@ func byIndexes(indexer cache.Indexer, requires fields.Requirements, namespace st
 		if !exist {
 			return nil, fmt.Errorf("index with name %s does not exist", indexName)
 		}
-		filteredObjects := make([]interface{}, 0, len(objs))
+		filteredObjects := make([]any, 0, len(objs))
 		for _, obj := range objs {
 			vals, err = fn(obj)
 			if err != nil {
 				return nil, err
 			}
-			for _, val := range vals {
-				if val == indexedValue {
-					filteredObjects = append(filteredObjects, obj)
-					break
-				}
+			if slices.Contains(vals, indexedValue) {
+				filteredObjects = append(filteredObjects, obj)
 			}
 		}
 		if len(filteredObjects) == 0 {

@@ -91,7 +91,7 @@ type TypedOptions[request comparable] struct {
 	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
 	// priority queue.
 	//
-	// Note: This flag is disabled by default until a future version. This feature is currently in beta.
+	// Note: This flag is enabled by default.
 	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/2374.
 	UsePriorityQueue *bool
 
@@ -250,7 +250,7 @@ func NewTypedUnmanaged[request comparable](name string, options TypedOptions[req
 	}
 
 	if options.RateLimiter == nil {
-		if ptr.Deref(options.UsePriorityQueue, false) {
+		if ptr.Deref(options.UsePriorityQueue, true) {
 			options.RateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[request](5*time.Millisecond, 1000*time.Second)
 		} else {
 			options.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[request]()
@@ -259,7 +259,7 @@ func NewTypedUnmanaged[request comparable](name string, options TypedOptions[req
 
 	if options.NewQueue == nil {
 		options.NewQueue = func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request] {
-			if ptr.Deref(options.UsePriorityQueue, false) {
+			if ptr.Deref(options.UsePriorityQueue, true) {
 				return priorityqueue.New(controllerName, func(o *priorityqueue.Opts[request]) {
 					o.Log = options.Logger.WithValues("controller", controllerName)
 					o.RateLimiter = rateLimiter

@@ -128,8 +128,12 @@ type XfrmState struct {
 }
 
 func (sa XfrmState) String() string {
-	return fmt.Sprintf("Dst: %v, Src: %v, Proto: %s, Mode: %s, SPI: 0x%x, ReqID: 0x%x, ReplayWindow: %d, Mark: %v, OutputMark: %v, SADir: %d, Ifid: %d, Pcpunum: %d, Auth: %v, Crypt: %v, Aead: %v, Encap: %v, ESN: %t, DontEncapDSCP: %t, OSeqMayWrap: %t, Replay: %v",
-		sa.Dst, sa.Src, sa.Proto, sa.Mode, sa.Spi, sa.Reqid, sa.ReplayWindow, sa.Mark, sa.OutputMark, sa.SADir, sa.Ifid, *sa.Pcpunum, sa.Auth, sa.Crypt, sa.Aead, sa.Encap, sa.ESN, sa.DontEncapDSCP, sa.OSeqMayWrap, sa.Replay)
+	pcpu := "<nil>"
+	if sa.Pcpunum != nil {
+		pcpu = fmt.Sprintf("%d", *sa.Pcpunum)
+	}
+	return fmt.Sprintf("Dst: %v, Src: %v, Proto: %s, Mode: %s, SPI: 0x%x, ReqID: 0x%x, ReplayWindow: %d, Mark: %v, OutputMark: %v, SADir: %d, Ifid: %d, Pcpunum: %s, Auth: %v, Crypt: %v, Aead: %v, Encap: %v, ESN: %t, DontEncapDSCP: %t, OSeqMayWrap: %t, Replay: %v",
+		sa.Dst, sa.Src, sa.Proto, sa.Mode, sa.Spi, sa.Reqid, sa.ReplayWindow, sa.Mark, sa.OutputMark, sa.SADir, sa.Ifid, pcpu, sa.Auth, sa.Crypt, sa.Aead, sa.Encap, sa.ESN, sa.DontEncapDSCP, sa.OSeqMayWrap, sa.Replay)
 }
 func (sa XfrmState) Print(stats bool) string {
 	if !stats {
@@ -469,11 +473,6 @@ func (h *Handle) xfrmStateGetOrDelete(state *XfrmState, nlProto int) (*XfrmState
 	if state.Ifid != 0 {
 		ifId := nl.NewRtAttr(nl.XFRMA_IF_ID, nl.Uint32Attr(uint32(state.Ifid)))
 		req.AddData(ifId)
-	}
-
-	if state.Pcpunum != nil {
-		pcpuNum := nl.NewRtAttr(nl.XFRMA_SA_PCPU, nl.Uint32Attr(uint32(*state.Pcpunum)))
-		req.AddData(pcpuNum)
 	}
 
 	resType := nl.XFRM_MSG_NEWSA

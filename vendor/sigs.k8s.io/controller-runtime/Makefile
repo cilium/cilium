@@ -27,7 +27,7 @@ SHELL:=/usr/bin/env bash
 #
 # Go.
 #
-GO_VERSION ?= 1.24.0
+GO_VERSION ?= 1.25.0
 
 # Use GOPROXY environment variable if set
 GOPROXY := $(shell go env GOPROXY)
@@ -69,18 +69,14 @@ help:  ## Display this help
 ## --------------------------------------
 
 .PHONY: test
-test: test-tools ## Run the script check-everything.sh which will check all.
+test: ## Run the script check-everything.sh which will check all.
 	TRACE=1 ./hack/check-everything.sh
-
-.PHONY: test-tools
-test-tools: ## tests the tools codebase (setup-envtest)
-	cd tools/setup-envtest && go test ./...
 
 ## --------------------------------------
 ## Binaries
 ## --------------------------------------
 
-GO_APIDIFF_VER := v0.8.2
+GO_APIDIFF_VER := v0.8.3
 GO_APIDIFF_BIN := go-apidiff
 GO_APIDIFF := $(abspath $(TOOLS_BIN_DIR)/$(GO_APIDIFF_BIN)-$(GO_APIDIFF_VER))
 GO_APIDIFF_PKG := github.com/joelanford/go-apidiff
@@ -88,7 +84,7 @@ GO_APIDIFF_PKG := github.com/joelanford/go-apidiff
 $(GO_APIDIFF): # Build go-apidiff from tools folder.
 	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) $(GO_APIDIFF_PKG) $(GO_APIDIFF_BIN) $(GO_APIDIFF_VER)
 
-CONTROLLER_GEN_VER := v0.17.1
+CONTROLLER_GEN_VER := v0.20.0
 CONTROLLER_GEN_BIN := controller-gen
 CONTROLLER_GEN := $(abspath $(TOOLS_BIN_DIR)/$(CONTROLLER_GEN_BIN)-$(CONTROLLER_GEN_VER))
 CONTROLLER_GEN_PKG := sigs.k8s.io/controller-tools/cmd/controller-gen

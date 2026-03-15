@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"sort"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -75,7 +75,7 @@ func (h *Handler) serveAggregated(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	// ...sort to be consistent...
-	sort.Slice(parts, func(i, j int) bool { return parts[i].name < parts[j].name })
+	slices.SortStableFunc(parts, func(i, j checkStatus) int { return strings.Compare(i.name, j.name) })
 
 	// ...and write out the result
 	// TODO(directxman12): this should also accept a request for JSON content (via a accept header)

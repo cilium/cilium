@@ -79,7 +79,7 @@ type Controller struct {
 	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
 	// priority queue.
 	//
-	// Note: This flag is disabled by default until a future version. This feature is currently in beta.
+	// Note: This flag is enabled by default.
 	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/2374.
 	UsePriorityQueue *bool
 

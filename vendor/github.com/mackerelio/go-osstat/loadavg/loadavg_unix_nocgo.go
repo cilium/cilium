@@ -1,5 +1,4 @@
 //go:build linux && !cgo
-// +build linux,!cgo
 
 package loadavg
 
@@ -15,7 +14,7 @@ func get() (*Stats, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Close() // nolint
 	return collectLoadavgStats(file)
 }
 

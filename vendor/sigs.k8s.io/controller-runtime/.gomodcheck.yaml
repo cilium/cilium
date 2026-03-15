@@ -9,6 +9,10 @@ upstreamRefs:
   # k8s.io/utils -> conflicts with k/k deps
 
 excludedModules:
+  # Needs a newer version to fix https://github.com/kubernetes-sigs/controller-runtime/issues/3418
+  # This should not be needed by the time we update to 1.36
+  - sigs.k8s.io/structured-merge-diff/v6
+
   # --- test dependencies:
   - github.com/onsi/ginkgo/v2
   - github.com/onsi/gomega
