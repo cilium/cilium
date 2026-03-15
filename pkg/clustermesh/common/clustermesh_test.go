@@ -174,7 +174,8 @@ func TestClusterMesh(t *testing.T) {
 	writeFile(t, path("cluster4"), data)
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		sf, _ := statuses.Load("cluster4")
-		if !assert.NotNil(c, sf, "The status function for cluster4 should have been registered") {
+		if sf == nil {
+			c.Errorf("status function for cluster4 is nil")
 			return
 		}
 

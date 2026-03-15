@@ -858,7 +858,8 @@ func TestClusterConfigConditions(t *testing.T) {
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				// Check conditions
 				cc, err := f.bgpcClient.Get(ctx, clusterConfigName, meta_v1.GetOptions{})
-				if !assert.NoError(ct, err, "Cannot get cluster config") {
+				if err != nil {
+					ct.Errorf("failed to get cluster config: %v", err)
 					return
 				}
 
@@ -1114,7 +1115,8 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 
 			require.EventuallyWithT(t, func(ct *assert.CollectT) {
 				configs, err := f.bgpcClient.List(ctx, meta_v1.ListOptions{})
-				if !assert.NoError(ct, err, "Cannot list cluster configs") {
+				if err != nil {
+					ct.Errorf("failed to list cluster configs: %v", err)
 					return
 				}
 
@@ -1129,7 +1131,8 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 						config.Status.Conditions,
 						v2.BGPClusterConfigConditionConflictingClusterConfigs,
 					)
-					if !assert.NotNil(ct, cond, "Condition not found") {
+					if cond == nil {
+						ct.Errorf("condition not found")
 						return
 					}
 
@@ -1147,7 +1150,8 @@ func TestConflictingClusterConfigCondition(t *testing.T) {
 					expr, err := regexp.Compile(
 						`Selecting the same node\(s\) with ClusterConfig\(s\): \[(.*)\]`,
 					)
-					if !assert.NoError(ct, err, "Error during regexp match") {
+					if err != nil {
+						ct.Errorf("failed to compile regexp: %v", err)
 						return
 					}
 
@@ -1226,7 +1230,8 @@ func TestDisableClusterConfigStatusReport(t *testing.T) {
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		// Check conditions
 		cc, err := f.bgpcClient.Get(ctx, clusterConfig.Name, meta_v1.GetOptions{})
-		if !assert.NoError(ct, err, "Cannot get cluster config") {
+		if err != nil {
+			ct.Errorf("failed to get cluster config: %v", err)
 			return
 		}
 
@@ -1547,10 +1552,10 @@ func TestRouterIDAllocation(t *testing.T) {
 				// we can't guarantee the order of the router IDs so we use a map to compare
 				InitNodesRouterIDs := make(map[string]struct{})
 				nodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
-				if !assert.NoError(c, err) {
+				if err != nil {
 					return
 				}
-				if !assert.NotNil(c, nodeConfigs) {
+				if nodeConfigs == nil {
 					return
 				}
 
@@ -1575,13 +1580,13 @@ func TestRouterIDAllocation(t *testing.T) {
 				// version even after receiving an event for the new version.
 				if tt.FinalClusterConfigs != nil {
 					for _, clusterConfig := range tt.FinalClusterConfigs {
-						if err := upsertBGPCC(ctx, f, clusterConfig); !assert.NoError(c, err) {
+						if err := upsertBGPCC(ctx, f, clusterConfig); err != nil {
 							return
 						}
 					}
 				}
 				NodeConfigs, err := f.bgpnClient.List(ctx, meta_v1.ListOptions{})
-				if !assert.NoError(c, err) {
+				if err != nil {
 					return
 				}
 				if !assert.Len(c, NodeConfigs.Items, len(tt.FinalExpectedNodeInstances)) {

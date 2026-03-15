@@ -324,7 +324,8 @@ func TestCRDConditions(t *testing.T) {
 			// check eventually the conditions are updated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				nodeConfig, err := f.bgpnClient.Get(ctx, "node0", metav1.GetOptions{})
-				if !assert.NoError(c, err) {
+				if err != nil {
+					c.Errorf("failed to get node config: %v", err)
 					return
 				}
 				if !assert.Len(c, nodeConfig.Status.Conditions, len(tt.expectedNodeConfig.Status.Conditions)) {
@@ -421,7 +422,8 @@ func TestDisableStatusReport(t *testing.T) {
 	// Wait for status to be cleared
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		nc, err := cs.CiliumV2().CiliumBGPNodeConfigs().Get(ctx, "node0", metav1.GetOptions{})
-		if !assert.NoError(ct, err) {
+		if err != nil {
+			ct.Errorf("failed to get node config: %v", err)
 			return
 		}
 		// The status should be cleared to empty

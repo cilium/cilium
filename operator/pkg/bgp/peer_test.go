@@ -224,7 +224,8 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 				pc, exists, err := peerConfigStore.GetByKey(resource.Key{
 					Name: peerConfigName,
 				})
-				if !assert.NoError(ct, err, "Failed to get peer config") {
+				if err != nil {
+					ct.Errorf("failed to get peer config: %v", err)
 					return
 				}
 				if !assert.True(ct, exists, "Peer config not found") {
@@ -234,7 +235,8 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 					pc.Status.Conditions,
 					v2.BGPPeerConfigConditionMissingAuthSecret,
 				)
-				if !assert.NotNil(ct, cond, "Condition not found") {
+				if cond == nil {
+					ct.Errorf("condition not found")
 					return
 				}
 				assert.Equal(ct, tt.expectedState, cond.Status, "Unexpected condition status")
@@ -291,7 +293,8 @@ func TestDisablePeerConfigStatusReport(t *testing.T) {
 		pc, exists, err := peerConfigStore.GetByKey(resource.Key{
 			Name: peerConfig.Name,
 		})
-		if !assert.NoError(ct, err, "Failed to get peer config") {
+		if err != nil {
+			ct.Errorf("failed to get peer config: %v", err)
 			return
 		}
 		if !assert.True(ct, exists, "Peer config not found") {
