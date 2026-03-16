@@ -20,8 +20,9 @@ import (
 // which are hard to represent correctly in YAML.
 
 type BackendTLSPolicyMapEntry struct {
-	ServiceName   string                                 `json:"svcName,omitempty"`
-	ValidPolicies map[string]*gatewayv1.BackendTLSPolicy `json:"valid,omitempty"`
+	ServiceName     string                                 `json:"svcName,omitempty"`
+	ValidPolicies   map[string]*gatewayv1.BackendTLSPolicy `json:"valid,omitempty"`
+	InvalidPolicies map[string]*gatewayv1.BackendTLSPolicy `json:"invalid,omitempty"`
 }
 
 type BackendTLSPolicyMapFixture struct {
@@ -37,22 +38,25 @@ func (bm *BackendTLSPolicyMapFixture) ToBackendTLSPolicyMap() (helpers.BackendTL
 			return nil, fmt.Errorf("Service Name must consist of namespace/name, was %s", fixture.ServiceName)
 		}
 		svcFullName := types.NamespacedName{Namespace: svcNameSplit[0], Name: svcNameSplit[1]}
+
+		if _, ok := btlspMap[svcFullName]; !ok {
+			btlspMap[svcFullName] = &helpers.BackendTLSPolicyTargetServiceCollection{}
+		}
+
 		for sn, policy := range fixture.ValidPolicies {
 			sectionName := gatewayv1.SectionName(sn)
-			// If there's no service entry in the btlspMap already, add one
-			if _, ok := btlspMap[svcFullName]; !ok {
-				btlspMap[svcFullName] = &helpers.BackendTLSPolicyTargetServiceCollection{
-					Valid: map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{
-						sectionName: policy,
-					},
-				}
-				continue
-			}
-			// If there's already a sectionName entry, that's an error
 			if _, ok := btlspMap[svcFullName].Valid[sectionName]; ok {
 				return nil, fmt.Errorf("Can't have multiple identical sectionNames, got %s twice", sectionName)
 			}
-			btlspMap[svcFullName].Valid[sectionName] = policy
+			btlspMap[svcFullName].UpsertValidPolicy(sectionName, policy)
+		}
+
+		for sn, policy := range fixture.InvalidPolicies {
+			sectionName := gatewayv1.SectionName(sn)
+			if _, ok := btlspMap[svcFullName].Invalid[sectionName]; ok {
+				return nil, fmt.Errorf("Can't have multiple identical invalid sectionNames, got %s twice", sectionName)
+			}
+			btlspMap[svcFullName].UpsertInvalidPolicy(sectionName, policy)
 		}
 	}
 	return btlspMap, nil

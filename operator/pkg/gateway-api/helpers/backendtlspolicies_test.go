@@ -435,3 +435,94 @@ func Test_buildBackendTLSPolicyLookup(t *testing.T) {
 		})
 	}
 }
+
+func Test_UpsertInvalidPolicy(t *testing.T) {
+	btlsp := &gatewayv1.BackendTLSPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
+
+	t.Run("upsert into nil map initializes it", func(t *testing.T) {
+		collection := &BackendTLSPolicyTargetServiceCollection{}
+		collection.UpsertInvalidPolicy("https", btlsp)
+
+		if collection.Invalid == nil {
+			t.Fatal("Invalid map should be initialized")
+		}
+		if got := collection.Invalid[gatewayv1.SectionName("https")]; got != btlsp {
+			t.Errorf("expected policy in Invalid[\"https\"], got %v", got)
+		}
+	})
+
+	t.Run("upsert overwrites existing entry", func(t *testing.T) {
+		collection := &BackendTLSPolicyTargetServiceCollection{}
+		collection.UpsertInvalidPolicy("https", btlsp)
+
+		replacement := &gatewayv1.BackendTLSPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "replacement-policy",
+				Namespace: "default",
+			},
+		}
+		collection.UpsertInvalidPolicy("https", replacement)
+
+		if got := collection.Invalid[gatewayv1.SectionName("https")]; got != replacement {
+			t.Errorf("expected replacement policy, got %v", got)
+		}
+	})
+}
+
+func Test_DeleteValidPolicy(t *testing.T) {
+	btlsp := &gatewayv1.BackendTLSPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
+
+	t.Run("delete removes entry from Valid", func(t *testing.T) {
+		collection := &BackendTLSPolicyTargetServiceCollection{}
+		collection.UpsertValidPolicy("https", btlsp)
+		collection.DeleteValidPolicy("https")
+
+		if _, ok := collection.Valid[gatewayv1.SectionName("https")]; ok {
+			t.Error("expected entry to be deleted from Valid")
+		}
+	})
+
+	t.Run("delete on missing key is a no-op", func(t *testing.T) {
+		collection := &BackendTLSPolicyTargetServiceCollection{}
+		collection.UpsertValidPolicy("https", btlsp)
+		collection.DeleteValidPolicy("other")
+
+		if _, ok := collection.Valid[gatewayv1.SectionName("https")]; !ok {
+			t.Error("existing entry should not be affected")
+		}
+	})
+}
+
+func Test_MoveValidToInvalid(t *testing.T) {
+	btlsp := &gatewayv1.BackendTLSPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "default",
+		},
+	}
+
+	t.Run("move from Valid to Invalid", func(t *testing.T) {
+		collection := &BackendTLSPolicyTargetServiceCollection{}
+		collection.UpsertValidPolicy("https", btlsp)
+
+		collection.DeleteValidPolicy("https")
+		collection.UpsertInvalidPolicy("https", btlsp)
+
+		if _, ok := collection.Valid[gatewayv1.SectionName("https")]; ok {
+			t.Error("entry should be removed from Valid")
+		}
+		if got := collection.Invalid[gatewayv1.SectionName("https")]; got != btlsp {
+			t.Errorf("entry should be in Invalid, got %v", got)
+		}
+	})
+}
