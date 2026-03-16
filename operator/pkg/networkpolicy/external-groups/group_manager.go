@@ -71,6 +71,7 @@ type ExternalGroupManagerParams struct {
 	cell.In
 
 	Log *slog.Logger
+	Cfg ExtGroupConfig
 
 	DB      *statedb.DB
 	EGTable statedb.RWTable[*ExternalGroup]
@@ -81,6 +82,11 @@ type ExternalGroupManagerParams struct {
 }
 
 func NewGroupManager(params ExternalGroupManagerParams) ExternalGroupManager {
+	if params.Cfg.RegisterDummy {
+		params.Log.Warn("WARNING: using test-only dummy External Group provider.")
+		provider.RegisterTestDummyProvider()
+	}
+
 	// If there are no group providers, ignore
 	if !provider.Enabled() {
 		return &noopGroupManager{}
