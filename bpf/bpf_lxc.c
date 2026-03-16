@@ -758,6 +758,10 @@ pass_to_stack:
 	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
+#else
+	/* See IPv4 path for comments. */
+	if (from_l7lb && ctx_get_ifindex(ctx) != HOST_IFINDEX)
+		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 #endif
 
 #ifndef TUNNEL_MODE
@@ -1316,6 +1320,18 @@ pass_to_stack:
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
+#else
+	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
+	 * tail called from cil_to_container for packets sent by a L7 LB.
+	 * In case of a local backend, we execute this code already from the
+	 * backend pod ingress path, and returning CTX_ACT_OK would completely
+	 * bypass ingress policies. Therefore, we need to hairpin the packet
+	 * back to cil_to_container to ensure ingress policies are applied.
+	 * Without per-endpoint routes, endpoint policies are correctly
+	 * checked via tail call from bpf_host.
+	 */
+	if (from_l7lb && ctx_get_ifindex(ctx) != HOST_IFINDEX)
+		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 #endif
 
 #ifndef TUNNEL_MODE
