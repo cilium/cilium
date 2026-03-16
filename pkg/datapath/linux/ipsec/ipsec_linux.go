@@ -1092,7 +1092,11 @@ func (a *Agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 		// Scanning IPsec keys with one of the following formats:
 		// 1. [spi] aead-algo aead-key icv-len
 		// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
-		s := strings.Split(scanner.Text(), " ")
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		s := strings.Fields(line)
 		if len(s) < 3 {
 			// Regardless of the format used, the IPsec secret should have at
 			// least 3 fields separated by white spaces.
@@ -1176,8 +1180,14 @@ func (a *Agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 }
 
 func parseSPI(spiStr string) (uint8, int, error) {
+	if len(spiStr) == 0 {
+		return 0, 0, fmt.Errorf("empty SPI value")
+	}
 	if spiStr[len(spiStr)-1] == '+' {
 		spiStr = spiStr[:len(spiStr)-1]
+	}
+	if len(spiStr) == 0 {
+		return 0, 0, fmt.Errorf("empty SPI value after trimming")
 	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
