@@ -151,6 +151,7 @@ var (
 		"Unknown ICMPv6 code",
 		"Forbidden ICMPv6 message",
 		"No egress gateway found",
+		"VLAN traffic disallowed by VLAN filter",
 	}
 
 	ExpectedXFRMErrors = []string{
