@@ -26,7 +26,7 @@ func (*IPsecAgent) SPI() uint8 {
 	return 4
 }
 
-func (*IPsecAgent) StartBackgroundJobs(types.NodeHandler) error {
+func (*IPsecAgent) StartBackgroundJobs(types.NodeHandler, <-chan struct{}) error {
 	return nil
 }
 

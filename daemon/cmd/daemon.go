@@ -277,7 +277,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return err
 	}
 
-	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
+	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler, params.Orchestrator.DatapathInitialized()); err != nil {
 		params.Logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
 
