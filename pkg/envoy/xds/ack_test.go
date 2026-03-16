@@ -408,10 +408,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 }
 
 func TestRevertInsert(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
@@ -431,9 +428,7 @@ func TestRevertInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resources[2], res)
 
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert(comp)
+	revert()
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	require.NoError(t, err)
@@ -445,10 +440,7 @@ func TestRevertInsert(t *testing.T) {
 }
 
 func TestRevertUpdate(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
@@ -475,9 +467,7 @@ func TestRevertUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resources[1], res)
 
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert(comp)
+	revert()
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	require.NoError(t, err)
@@ -489,10 +479,7 @@ func TestRevertUpdate(t *testing.T) {
 }
 
 func TestRevertDelete(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
@@ -523,9 +510,7 @@ func TestRevertDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resources[2], res)
 
-	comp := wg.AddCompletion()
-	defer comp.Complete(nil)
-	revert(comp)
+	revert()
 
 	res, err = cache.Lookup(typeURL, resources[0].Name)
 	require.NoError(t, err)
