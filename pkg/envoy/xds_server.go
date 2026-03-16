@@ -162,11 +162,12 @@ type xdsServer struct {
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
 
-	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
-	// When this is zero, cilium should not wait for NACKs/ACKs from envoy.
-	// This value is different from len(listeners) due to non-proxy listeners
-	// (e.g., prometheus listener)
-	proxyListeners int
+	// npdsListeners tracks the set of listener names configured to start an NPDS client
+	// for network policy enforcement.
+	// When this set is empty, cilium should not wait for NACKs/ACKs from envoy for
+	// network policy mutations.
+	// mutex must be held during access.
+	npdsListeners npdsListenersTracker
 
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
@@ -188,6 +189,37 @@ type xdsServer struct {
 	localEndpointStore *LocalEndpointStore
 
 	secretManager certificatemanager.SecretManager
+}
+
+// npdsListenersTracker tracks the set of listener names that require NPDS.
+type npdsListenersTracker map[string]struct{}
+
+// Add inserts name into the tracker and returns a function that reverts the change.
+func (t npdsListenersTracker) Add(name string) func() {
+	if _, ok := t[name]; ok {
+		return func() {}
+	}
+
+	t[name] = struct{}{}
+	return func() { delete(t, name) }
+}
+
+// Delete removes name from the tracker and returns a function that reverts the removal.
+// If name was not present the returned revert is a no-op.
+func (t npdsListenersTracker) Delete(name string) func() {
+	if _, ok := t[name]; !ok {
+		return func() {}
+	}
+
+	delete(t, name)
+	return func() {
+		t[name] = struct{}{}
+	}
+}
+
+// Empty returns true when no listeners are tracked.
+func (t npdsListenersTracker) Empty() bool {
+	return len(t) == 0
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -219,6 +251,7 @@ func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCac
 	return &xdsServer{
 		restorerPromise:    restorerPromise,
 		listenerCount:      make(map[string]uint),
+		npdsListeners:      make(npdsListenersTracker),
 		ipCache:            ipCache,
 		localEndpointStore: localEndpointStore,
 
@@ -819,14 +852,13 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	count := s.listenerCount[name]
 	if count == 0 {
 		if isProxyListener {
-			s.proxyListeners++
+			_ = s.npdsListeners.Add(name)
 		}
 		log.WithField(logfields.Listener, name).Infof("Envoy: Upserting new listener")
 	}
 	count++
 	s.listenerCount[name] = count
-
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
+	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
 		func(err error) {
 			if cb != nil {
 				cb(err)
@@ -839,16 +871,47 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_listener.Listener, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	var revertNPDSTracking func()
+
+	requireNPDS := listenerRequiresNPDS(listenerConf)
+	if requireNPDS {
+		revertNPDSTracking = s.npdsListeners.Add(name)
+	} else {
+		revertNPDSTracking = s.npdsListeners.Delete(name)
+		if s.npdsListeners.Empty() {
+			s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
+		}
+	}
+
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
+	return func(c *completion.Completion) {
+		s.mutex.Lock()
+		revertFunc(c)
+		revertNPDSTracking()
+		s.mutex.Unlock()
+	}
 }
 
 // deleteListener deletes an LDS Envoy Listener.
 func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callback func(error)) xds.AckingResourceMutatorRevertFunc {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	revertNPDSTracking := s.npdsListeners.Delete(name)
+	if s.npdsListeners.Empty() {
+		s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
+	}
+
 	// 'callback' is not called if there is no change and this configuration has already been acked.
-	return s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	revertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
+	return func(c *completion.Completion) {
+		s.mutex.Lock()
+		revertNPDSTracking()
+		revertFunc(c)
+		s.mutex.Unlock()
+	}
 }
 
 // upsertRoute either updates an existing RDS route with 'name', or creates a new one.
@@ -997,6 +1060,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	log.Debugf("Envoy: RemoveListener %s", name)
 
 	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
+	var revertNPDSTracking func()
 
 	s.mutex.Lock()
 	count := s.listenerCount[name]
@@ -1004,13 +1068,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		count--
 		if count == 0 {
 			if isProxyListener {
-				s.proxyListeners--
-				if s.proxyListeners < 0 {
-					log.WithFields(logrus.Fields{
-						logfields.Listener: name,
-						logfields.Count:    s.proxyListeners,
-					}).Error("Envoy: RemoveListener: negative proxyListener count")
-				}
+				revertNPDSTracking = s.npdsListeners.Delete(name)
 			}
 			delete(s.listenerCount, name)
 			log.WithField(logfields.Listener, name).Infof("Envoy: Deleting listener")
@@ -1018,7 +1076,7 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 
 			// cancel all pending network policy completions if this was the last
 			// listener with bpf metadata listener filter with bpf path configured.
-			if s.proxyListeners <= 0 {
+			if s.npdsListeners.Empty() {
 				s.networkPolicyMutator.CancelCompletions(NetworkPolicyTypeURL)
 			}
 		} else {
@@ -1034,9 +1092,9 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		s.mutex.Lock()
 		if listenerRevertFunc != nil {
 			listenerRevertFunc(completion)
-			if isProxyListener {
-				s.proxyListeners++
-			}
+		}
+		if revertNPDSTracking != nil {
+			revertNPDSTracking()
 		}
 		s.listenerCount[name] = s.listenerCount[name] + 1
 		s.mutex.Unlock()
@@ -1919,7 +1977,7 @@ func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy 
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if s.proxyListeners == 0 {
+	if s.npdsListeners.Empty() {
 		wg = nil
 	}
 
@@ -1964,7 +2022,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
-	if s.proxyListeners == 0 {
+	if s.npdsListeners.Empty() {
 		wg = nil
 	}
 
