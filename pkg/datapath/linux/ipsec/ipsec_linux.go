@@ -136,8 +136,9 @@ var (
 	}
 )
 
-// Upon starting, the agent will load the ipsec key, set the SPI accordingly,
-// and update the EncryptionKey in the local node object to the SPI.
+// Upon starting, the agent will load the ipsec key. In case of an ongoing key rotation
+// detected, the SPI update is deferred in StartBackgroundJobs(), after ensuring
+// XFRM states are configured for all known peers.
 type agent struct {
 	ipSecLock lock.RWMutex
 
@@ -151,6 +152,7 @@ type agent struct {
 	// These are initialized in [newAgent].
 	authKeySize int
 	spi         uint8
+	pendingSPI  uint8
 	// ipSecKeysGlobal is a map of all global IPsec keys per IP, plus a key for
 	// the empty string which is used for the global key.
 	ipSecKeysGlobal map[string]*ipSecKey
@@ -181,6 +183,7 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 
 		authKeySize:          0,
 		spi:                  0,
+		pendingSPI:           0,
 		ipSecKeysGlobal:      map[string]*ipSecKey{},
 		ipSecKeysRemovalTime: map[uint8]time.Time{},
 		xfrmStateCache:       NewXfrmStateListCache(time.Minute, c.EnableIPsecXfrmStateCaching),
@@ -189,6 +192,11 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 	return ipsec
 }
 
+// Start initializes the agent by loading the IPsec keys and setting the SPI in
+// the BPF map and CiliumNode. If a key rotation is detected (the BPF map has
+// a valid SPI and the key file contains the next SPI), it defers the SPI update
+// until the datapath is initialized to avoid a window where remote peers send
+// traffic encrypted with the new SPI before we have matching XFRM IN states.
 func (a *agent) Start(cell.HookContext) error {
 	if !a.config.EncryptNode {
 		a.deleteIPsecEncryptRoute()
@@ -197,13 +205,21 @@ func (a *agent) Start(cell.HookContext) error {
 		return nil
 	}
 
-	var err error
-	a.authKeySize, a.spi, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
+	v, err := a.encryptMap.Lookup(encrypt.EncryptKey{Key: 0})
 	if err != nil {
 		return err
 	}
-	if err := a.setIPSecSPI(a.spi); err != nil {
+	a.spi = v.KeyID
+
+	a.authKeySize, a.pendingSPI, err = a.loadIPSecKeysFile(a.config.IPsecKeyFile)
+	if err != nil {
 		return err
+	}
+
+	if !a.ongoingRotation() {
+		if err := a.setIPSecSPI(a.pendingSPI); err != nil {
+			return err
+		}
 	}
 
 	a.localNode.Update(func(n *node.LocalNode) {
@@ -214,13 +230,39 @@ func (a *agent) Start(cell.HookContext) error {
 }
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (a *agent) StartBackgroundJobs(handler node.Handler) error {
+// dpInitialized is closed when the datapath has been initialized and XFRM
+// states are ready. It is used to defer the new SPI publication during key rotation.
+func (a *agent) StartBackgroundJobs(handler node.Handler, dpInitialized <-chan struct{}) error {
 	if !a.Enabled() {
 		return nil
 	}
-	if err := a.startKeyfileWatcher(handler); err != nil {
-		return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+
+	if a.ongoingRotation() {
+		a.jobs.Add(job.OneShot("deferred-spi-update", func(ctx context.Context, _ cell.Health) error {
+			select {
+			case <-dpInitialized:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
+			a.log.Info("Datapath initialized, publishing updated SPI",
+				logfields.OldSPI, a.spi,
+				logfields.SPI, a.pendingSPI,
+			)
+			if err := a.publishPendingSPI(handler); err != nil {
+				return err
+			}
+			if err := a.startKeyfileWatcher(handler); err != nil {
+				return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+			}
+			return nil
+		}))
+	} else {
+		if err := a.startKeyfileWatcher(handler); err != nil {
+			return fmt.Errorf("failed to start IPsec keyfile watcher: %w", err)
+		}
 	}
+
 	a.jobs.Add(job.Timer("stale-key-reclaimer", a.onTimer, time.Minute))
 	return nil
 }
@@ -1204,6 +1246,44 @@ func (a *agent) setIPSecSPI(spi uint8) error {
 	return nil
 }
 
+// ongoingRotation returns true if there is an ongoing key rotation, which is the
+// case when both the current [*agent.spi] and pending [*agent.pendingSPI] are valid,
+// and the pending SPI is the next one.
+func (a *agent) ongoingRotation() bool {
+	if a.spi == 0 || a.pendingSPI == 0 {
+		return false
+	}
+	return a.pendingSPI == a.spi%linux_defaults.IPsecMaxKeyVersion+1
+}
+
+// publishPendingSPI publishes the pending SPI to the datapath and CiliumNode.
+//
+//  1. AllNodeValidateImplementation will eventually call nodeUpdate(), which is
+//     responsible for updating the IPSec policies and states for all the different
+//     EPs with ipsec.UpsertIPsecEndpoint(). We do this before advertising the new
+//     SPI to ensure our ingress XFRM states are ready before peers start sending
+//     traffic encrypted with the new key.
+//
+//  2. Update the IPSec key identity in the local node. This will set
+//     addrs.ipsecKeyIdentity in the node package, and eventually trigger an
+//     update to publish the updated information to k8s/kvstore.
+//
+//  3. Push SPI update into BPF datapath now that XFRM state is configured.
+func (a *agent) publishPendingSPI(handler node.Handler) error {
+	handler.AllNodeValidateImplementation()
+
+	a.localNode.Update(func(n *node.LocalNode) {
+		n.EncryptionKey = a.pendingSPI
+	})
+
+	if err := a.setIPSecSPI(a.pendingSPI); err != nil {
+		return fmt.Errorf("failed to set IPsec SPI: %w", err)
+	}
+
+	a.pendingSPI = 0
+	return nil
+}
+
 // deleteIPsecEncryptRoute removes nodes in main routing table by walking
 // routes and matching route protocol type.
 func (a *agent) deleteIPsecEncryptRoute() {
@@ -1229,7 +1309,7 @@ func (a *agent) deleteIPsecEncryptRoute() {
 	}
 }
 
-func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) error {
+func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) (err error) {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1256,39 +1336,20 @@ func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 				}
 			}
 
-			_, spi, err := a.loadIPSecKeysFile(keyfilePath)
+			a.authKeySize, a.pendingSPI, err = a.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				health.Degraded(fmt.Sprintf("Failed to load keyfile %q", keyfilePath), err)
 				a.log.Error("Failed to load IPsec keyfile", logfields.Error, err)
 				continue
 			}
 			a.log.Info("Loaded IPsec keyfile",
-				logfields.SPI, spi,
+				logfields.SPI, a.pendingSPI,
 				logfields.Path, keyfilePath,
 			)
 
-			// AllNodeValidateImplementation will eventually call
-			// nodeUpdate(), which is responsible for updating the
-			// IPSec policies and states for all the different EPs
-			// with ipsec.UpsertIPsecEndpoint(). We do this before
-			// advertising the new SPI to ensure our ingress XFRM
-			// states are ready before peers start sending traffic
-			// encrypted with the new key.
-			nodeHandler.AllNodeValidateImplementation()
-
-			// Update the IPSec key identity in the local node.
-			// This will set addrs.ipsecKeyIdentity in the node
-			// package, and eventually trigger an update to
-			// publish the updated information to k8s/kvstore.
-			a.localNode.Update(func(ln *node.LocalNode) {
-				ln.EncryptionKey = spi
-			})
-
-			// Push SPI update into BPF datapath now that XFRM state
-			// is configured.
-			if err := a.setIPSecSPI(spi); err != nil {
-				health.Degraded("Failed to set IPsec SPI", err)
-				a.log.Error("Failed to set IPsec SPI", logfields.Error, err)
+			if err := a.publishPendingSPI(nodeHandler); err != nil {
+				health.Degraded("Failed to publish pending SPI", err)
+				a.log.Error("Failed to publish pending SPI", logfields.Error, err)
 				continue
 			}
 			health.OK("Watching keyfiles")
