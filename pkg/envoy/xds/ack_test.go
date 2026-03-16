@@ -8,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -75,6 +77,20 @@ func completedInTime(comp *compCheck) bool {
 	case <-time.After(MaxCompletionDuration):
 		return false
 	}
+}
+
+func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
+	for _, node := range nodeIDs {
+		if acked, exists := m.ackedVersions[node]; !exists || acked < m.version {
+			log.WithFields(logrus.Fields{
+				logfields.XDSCachedVersion: m.version,
+				logfields.XDSAckedVersion:  acked,
+				logfields.XDSClientNode:    node,
+			}).Debug("Node has not acked the current cached version yet")
+			return false
+		}
+	}
+	return true
 }
 
 func TestUpsertSingleNode(t *testing.T) {
@@ -168,6 +184,76 @@ func TestUseCurrent(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Len(t, acker.ackedVersions, 2)
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
+	require.Empty(t, acker.pendingCompletions)
+}
+
+func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	baselineWG := completion.NewWaitGroup(ctx)
+
+	cache := NewCache()
+	acker := NewAckingResourceMutatorWrapper(cache)
+
+	// Create version 2 and fully ACK it so both nodes have a shared baseline.
+	callbackV2, compV2 := newCompCallback()
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, baselineWG, callbackV2)
+	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
+	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
+	require.Condition(t, completedComparison(compV2))
+	require.NoError(t, baselineWG.Wait())
+	require.Equal(t, uint64(2), acker.ackedVersions[node0])
+	require.Equal(t, uint64(2), acker.ackedVersions[node1])
+
+	// Create version 3, but only node0 ACKs it. Node1 remains outstanding.
+	upsertV3WG := completion.NewWaitGroup(ctx)
+	callbackV3, compV3 := newCompCallback()
+	acker.Upsert(typeURL, resources[1].Name, resources[1], []string{node0, node1}, upsertV3WG, callbackV3)
+	acker.HandleResourceVersionAck(3, 3, node0, []string{resources[1].Name}, typeURL, "")
+	require.Condition(t, isNotCompletedComparison(compV3))
+	require.Equal(t, uint64(3), acker.ackedVersions[node0])
+	require.Equal(t, uint64(2), acker.ackedVersions[node1])
+	require.Len(t, acker.pendingCompletions, 1)
+
+	currentCtx, currentCancel := context.WithTimeout(context.Background(), MaxCompletionDuration)
+	defer currentCancel()
+	currentWG := completion.NewWaitGroup(currentCtx)
+
+	// UseCurrent must only wait for node1, as node0 has already ACKed version 3.
+	acker.UseCurrent(typeURL, []string{node0, node1}, currentWG)
+	// There are now two outstanding waits for version 3:
+	// 1. the original Upsert completion, still waiting for node1 to ACK resources[1]
+	// 2. the new UseCurrent completion, which should only wait for nodes that have not ACKed
+	//    the current version yet.
+	// If the old bug regresses, UseCurrent would add node0 again and the wait below would need
+	// another ACK from node0 before completing.
+	require.Len(t, acker.pendingCompletions, 2)
+
+	var useCurrentPending *pendingCompletion
+	for _, pending := range acker.pendingCompletions {
+		// Both pending completions target the current version, so identify the UseCurrent
+		// one by its shape: it tracks nodes only, therefore node1 is present with a nil
+		// resource set.  The Upsert completion instead tracks per-resource ACKs, so its
+		// node entry has a non-nil resource-name map.
+		if pending.version == acker.version {
+			if remaining, found := pending.remainingNodesResources[node1]; found && remaining == nil {
+				useCurrentPending = pending
+				break
+			}
+		}
+	}
+	require.NotNil(t, useCurrentPending)
+	require.Len(t, useCurrentPending.remainingNodesResources, 1)
+	require.Contains(t, useCurrentPending.remainingNodesResources, node1)
+	require.NotContains(t, useCurrentPending.remainingNodesResources, node0)
+
+	// ACKing node1 for version 3 must complete the UseCurrent wait without requiring a new ACK from node0.
+	acker.HandleResourceVersionAck(3, 3, node1, []string{resources[1].Name}, typeURL, "")
+	// The same ACK must also complete the original Upsert completion for version 3.
+	require.Condition(t, completedComparison(compV3))
+	require.NoError(t, upsertV3WG.Wait())
+	require.NoError(t, currentWG.Wait())
 	require.Empty(t, acker.pendingCompletions)
 }
 
