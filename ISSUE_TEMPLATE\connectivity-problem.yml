@@ -1,0 +1,16 @@
+name: Connectivity Problem
+description: Report a connectivity issue with Cilium
+labels: ["kind/bug", "area/connectivity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before submitting: Check for overlapping IP ranges
+
+        One of the most common causes of Cilium connectivity problems is
+        **overlapping IP address ranges**. Before filing this issue, please
+        verify that your Pod CIDR, Node IPs, and Service CIDR do not overlap.
+
+        Run the following commands and check for overlaps:
+
+        
