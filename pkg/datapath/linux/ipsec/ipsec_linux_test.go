@@ -113,11 +113,27 @@ func TestPrivilegedLoadKeysNoFile(t *testing.T) {
 }
 
 func testInvalidLoadKeys(t *testing.T) {
-	a := NewTestIPsecAgent(t)
-	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := a.LoadIPSecKeys(keys)
-	require.Error(t, err)
+	testCases := []struct {
+		name     string
+		input    []byte
+		expError string
+	}{
+		{"invalid keys", invalidKeysDat, "unable to decode authentication key string"},
+		{"empty line", []byte(" \n"), "missing IPSec key or invalid format"},
+		{"blank second line", []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n   \n"), "missing IPSec key or invalid format"},
+		{"leading space", []byte(" rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+		{"spi plus only", []byte("+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := NewTestIPsecAgent(t)
+			keys := bytes.NewReader(tc.input)
+			_, _, err := a.LoadIPSecKeys(keys)
+			require.ErrorContains(t, err, tc.expError)
+		})
+	}
 
+	a := NewTestIPsecAgent(t)
 	params := &types.IPSecParameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
@@ -132,7 +148,7 @@ func testInvalidLoadKeys(t *testing.T) {
 		ReqID:          DefaultReqID,
 	}
 
-	_, err = a.UpsertIPsecEndpoint(params)
+	_, err := a.UpsertIPsecEndpoint(params)
 	require.Error(t, err)
 }
 
@@ -183,6 +199,7 @@ func TestPrivilegedParseSPI(t *testing.T) {
 		{"3+", 3, 0, false},
 		{"abc", 0, 0, true},
 		{"0", 0, 0, true},
+		{"+", 0, 0, true},
 	}
 	for _, tc := range testCases {
 		spi, off, err := parseSPI(tc.input)
