@@ -85,10 +85,16 @@ class CiliumHelmInstallDirective(SphinxDirective):
 
     def _format_command(self, base_cmd, opts, indent, post_helm_commands='', post_commands=''):
         """Format a helm command with proper line continuation."""
+        # Normalize indent
+        if isinstance(indent, int):
+            indent = ' ' * indent
+        cont_indent = indent + '  '
+
         # Parse post_helm_commands (these get line continuation like helm args)
         post_helm_lines = []
         if post_helm_commands:
             for line in post_helm_commands.split('\n'):
+                line = line.strip()
                 if line:
                     post_helm_lines.append(line)
 
@@ -96,110 +102,85 @@ class CiliumHelmInstallDirective(SphinxDirective):
         post_cmd_lines = []
         if post_commands:
             for line in post_commands.split('\n'):
+                line = line.strip()
                 if line:
                     post_cmd_lines.append(line)
 
-        if not opts and not post_helm_lines and not post_cmd_lines:
-            return f'{indent}{base_cmd}'
+        # Build the helm command with continuations
+        continued_lines = [base_cmd]
+        continued_lines.extend(f'{cont_indent}{opt}' for opt in opts)
+        continued_lines.extend(f'{cont_indent}{line}' for line in post_helm_lines)
 
-        has_post_helm = len(post_helm_lines) > 0
-        has_post_cmd = len(post_cmd_lines) > 0
+        formatted_lines = []
+        for i, line in enumerate(continued_lines):
+            # First line needs the base indent
+            if i == 0:
+                full = f'{indent}{line}'
+            else:
+                full = line
+            # Add '\' for all but the last continued line
+            if i < len(continued_lines) - 1:
+                full += ' \\'
+            formatted_lines.append(full)
 
-        lines = [f'{indent}{base_cmd} \\\\']
-
-        # Add regular options with line continuation
-        for i, opt in enumerate(opts):
-            is_last = (i == len(opts) - 1) and not has_post_helm
-            suffix = '' if is_last else ' \\\\'
-            lines.append(f'{indent}   {opt}{suffix}')
-
-        # Add post_helm_commands - no line continuation, just aligned with other args
-        for line in post_helm_lines:
-            lines.append(f'{indent}   {line}')
-
-        # Add post_commands without line continuation
+        # Append post commands without continuation
         for line in post_cmd_lines:
-            lines.append(f'{indent}{line}')
+            formatted_lines.append(f'{indent}{line}')
 
-        return '\n'.join(lines)
+        # Ensure trailing newline for RST literal blocks
+        return '\n'.join(formatted_lines) + '\n'
 
     def run(self):
-        namespace = self.options.get('namespace', 'kube-system')
-        command = self.options.get('command', 'install')
-        name = self.options.get('name', 'cilium')
+        # Options
+        namespace = self.options.get('namespace')
         extra_args = self.options.get('extra-args', '')
+        set_options = self._parse_set_options()
+        opts = self._build_opts_list(namespace, extra_args, set_options)
+
+        command = self.options.get('command', 'upgrade --install')
+        name = self.options.get('name', 'cilium')
+
         post_helm_commands = self.options.get('post-helm-commands', '')
         post_commands = self.options.get('post-commands', '')
 
-        set_options = self._parse_set_options()
-        opts_list = self._build_opts_list(namespace, extra_args, set_options)
+        # Base charts for different sources
+        helm_repo_chart = 'cilium/cilium'
+        oci_chart = 'oci://ghcr.io/cilium/charts/cilium'
+        dev_chart = './cilium'
 
-        # For template command, format is "helm template |CHART_RELEASE|" (no name)
-        # For install/upgrade, format is "helm install name |CHART_RELEASE|"
-        if command == 'template':
-            helm_repo_base = f'helm {command} |CHART_RELEASE|'
-            oci_base = f'helm {command} oci://quay.io/cilium/charts/cilium |CHART_VERSION|'
-        else:
-            helm_repo_base = f'helm {command} {name} |CHART_RELEASE|'
-            oci_base = f'helm {command} {name} oci://quay.io/cilium/charts/cilium |CHART_VERSION|'
+        # Build base commands
+        helm_repo_base = f'helm {command} {name} {helm_repo_chart}'
+        oci_base = f'helm {command} {name} {oci_chart}'
+        not_stable_base = f'helm {command} {name} {dev_chart}'
 
-        # Build formatted commands for each section
+        # Indents for RST literal blocks inside tabs/only blocks
+        stable_tab_indent = ' ' * 12
+        not_stable_indent = ' ' * 6
+
         helm_repo_cmd = self._format_command(
-            helm_repo_base,
-            opts_list, '            ', post_helm_commands, post_commands
+            helm_repo_base, opts, stable_tab_indent,
+            post_helm_commands=post_helm_commands, post_commands=post_commands
         )
         oci_cmd = self._format_command(
-            oci_base,
-            opts_list, '            ', post_helm_commands, post_commands
+            oci_base, opts, stable_tab_indent,
+            post_helm_commands=post_helm_commands, post_commands=post_commands
         )
         not_stable_cmd = self._format_command(
-            helm_repo_base,
-            opts_list, '      ', post_helm_commands, post_commands
+            not_stable_base, opts, not_stable_indent,
+            post_helm_commands=post_helm_commands, post_commands=post_commands
         )
 
-        # Generate RST from template
-        rst_content = RST_TEMPLATE.format(
+        rst = dedent(RST_TEMPLATE).format(
             helm_repo_cmd=helm_repo_cmd,
             oci_cmd=oci_cmd,
             not_stable_cmd=not_stable_cmd,
         )
 
-        # Parse and return nodes
-        string_list = StringList(
-            rst_content.splitlines(),
-            source=self.state_machine.document['source']
-        )
-        node = nodes.container()
-        node.document = self.state.document
-        self.state.nested_parse(string_list, 0, node)
-        return node.children
-
-
-class CiliumHelmUpgradeDirective(CiliumHelmInstallDirective):
-    """Directive to generate helm upgrade commands with OCI Registry tabs."""
-
-    def run(self):
-        if 'command' not in self.options:
-            self.options['command'] = 'upgrade'
-        return super().run()
-
-
-class CiliumHelmTemplateDirective(CiliumHelmInstallDirective):
-    """Directive to generate helm template commands with OCI Registry tabs."""
-
-    def run(self):
-        if 'command' not in self.options:
-            self.options['command'] = 'template'
-        return super().run()
+        lines = StringList(rst.splitlines())
+        self.state_machine.insert_input(lines, source=self.state.document.current_source)
+        return []
 
 
 def setup(app):
     app.add_directive('cilium-helm-install', CiliumHelmInstallDirective)
-    app.add_directive('cilium-helm-upgrade', CiliumHelmUpgradeDirective)
-    app.add_directive('cilium-helm-template', CiliumHelmTemplateDirective)
-
-    return {
-        'version': '1.0',
-        'parallel_read_safe': True,
-        'parallel_write_safe': True,
-    }
+    return {'version': '1.0', 'parallel_read_safe': True}
