@@ -66,3 +66,8 @@ export SPIRE_SERVER_DIGEST:=sha256:27c7d356768b8641c569745e1121328affeb4aaabe0c9
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
 export SPIRE_AGENT_VERSION:=1.14.4
 export SPIRE_AGENT_DIGEST:=sha256:f93996a9396ec4042a48042085c2abf1a0f8f0f3b339571e06ebfebbf94bb830
+
+# renovate: datasource=docker
+export ZTUNNEL_REPO:=quay.io/cilium/ztunnel
+export ZTUNNEL_VERSION:=v1.0.0
+export ZTUNNEL_DIGEST:=sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24

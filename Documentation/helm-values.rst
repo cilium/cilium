@@ -1419,7 +1419,7 @@
    * - :spelling:ignore:`encryption.ztunnel`
      - ztunnel encryption configuration. ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode. These settings only apply when encryption.type is set to "ztunnel".
      - object
-     - ``{"affinity":{},"annotations":{},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"affinity":{},"annotations":{},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":"sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.0.0","useDigest":true},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`encryption.ztunnel.affinity`
      - Affinity for ztunnel pods.
      - object
@@ -1451,7 +1451,7 @@
    * - :spelling:ignore:`encryption.ztunnel.image`
      - ztunnel container image.
      - object
-     - ``{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false}``
+     - ``{"digest":"sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.0.0","useDigest":true}``
    * - :spelling:ignore:`encryption.ztunnel.nodeSelector`
      - Node selector for ztunnel pods.
      - object

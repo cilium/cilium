@@ -1189,14 +1189,11 @@ encryption:
       # type: [null, string]
       # @schema
       override: ~
-      repository: "docker.io/istio/ztunnel"
-      tag: "1.28.0-distroless"
-      pullPolicy: "IfNotPresent"
-      # @schema
-      # type: [null, string]
-      # @schema
-      digest: ~
-      useDigest: false
+      repository: "${ZTUNNEL_REPO}"
+      tag: "${ZTUNNEL_VERSION}"
+      pullPolicy: "${PULL_POLICY}"
+      digest: "${ZTUNNEL_DIGEST}"
+      useDigest: true
     # -- CA server address for certificate requests.
     caAddress: "https://localhost:15012"
     # -- TCP port for the health API.

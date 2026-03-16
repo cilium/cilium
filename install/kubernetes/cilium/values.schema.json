@@ -2026,10 +2026,7 @@
             "image": {
               "properties": {
                 "digest": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
+                  "type": "string"
                 },
                 "override": {
                   "type": [
