@@ -54,6 +54,7 @@ var (
 			k8s.NamespaceResource,
 			k8s.CiliumNetworkPolicyResource,
 			k8s.CiliumClusterwideNetworkPolicyResource,
+			k8s.CiliumCIDRGroupResource,
 		),
 	)
 )

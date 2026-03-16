@@ -10,4 +10,5 @@ var Cell = cell.Module(
 	"Translates external Groups references in polices to CiliumCIDRGroups",
 
 	cell.Provide(NewExternalGroupTable),
+	cell.Provide(NewGroupManager),
 )

@@ -10,10 +10,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/part"
 
 	"github.com/cilium/cilium/operator/pkg/networkpolicy/external-groups/provider"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -70,6 +74,10 @@ type ExternalGroupManagerParams struct {
 
 	DB      *statedb.DB
 	EGTable statedb.RWTable[*ExternalGroup]
+
+	Clientset   client.Clientset
+	CCGResource resource.Resource[*cilium_v2.CiliumCIDRGroup]
+	JG          job.Group
 }
 
 func NewGroupManager(params ExternalGroupManagerParams) ExternalGroupManager {
@@ -77,7 +85,17 @@ func NewGroupManager(params ExternalGroupManagerParams) ExternalGroupManager {
 	if !provider.Enabled() {
 		return &noopGroupManager{}
 	}
-	return newGroupManager(params)
+	gm := newGroupManager(params)
+	gm.RegisterResourceKind(gkCCG)
+
+	// reflect CCGs in to the DB
+	params.JG.Add(job.Observer(
+		"policy-external-group-ccg-watcher",
+		gm.handleCCGEvent,
+		params.CCGResource,
+	))
+
+	return gm
 }
 
 func newGroupManager(params ExternalGroupManagerParams) *externalGroupManager {
@@ -86,6 +104,9 @@ func newGroupManager(params ExternalGroupManagerParams) *externalGroupManager {
 
 		db:  params.DB,
 		tbl: params.EGTable,
+
+		clientset:   params.Clientset,
+		ccgResource: params.CCGResource,
 
 		pendingResources: sets.Set[schema.GroupKind]{},
 		ready:            make(chan struct{}),
@@ -103,6 +124,9 @@ type externalGroupManager struct {
 
 	db  *statedb.DB
 	tbl statedb.RWTable[*ExternalGroup]
+
+	clientset   client.Clientset
+	ccgResource resource.Resource[*cilium_v2.CiliumCIDRGroup]
 
 	// trig is a len-1 channel sent when manual
 	// synchronization is desired
