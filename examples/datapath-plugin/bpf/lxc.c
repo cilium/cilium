@@ -6,21 +6,22 @@
 
 #include <bpf/bpf_helpers.h>
 
+char program_name[256];
 char pod_namespace[256];
 char pod_name[256];
 
 SEC("freplace")
-int before_cil_from_container(struct __sk_buff *ctx)
+int before_lxc(struct __sk_buff *ctx)
 {
-	bpf_printk("before cil_from_container in %s/%s\n", pod_namespace, pod_name);
+	bpf_printk("before %s in %s/%s\n", program_name, pod_namespace, pod_name);
 
 	return TC_ACT_UNSPEC;
 }
 
 SEC("freplace")
-int after_cil_from_container(struct __sk_buff *ctx, int ret)
+int after_lxc(struct __sk_buff *ctx, int ret)
 {
-	bpf_printk("after cil_from_container in %s/%s (ret=%d)\n", pod_namespace, pod_name, ret);
+	bpf_printk("after %s in %s/%s (ret=%d)\n", program_name, pod_namespace, pod_name, ret);
 
 	return TC_ACT_UNSPEC;
 }

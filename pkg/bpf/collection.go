@@ -240,9 +240,9 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("computing reachability: %w", err)
 	}
 
-	if err := removeUnusedTailcalls(spec, reach, logger); err != nil {
-		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
-	}
+	// if err := removeUnusedTailcalls(spec, reach, logger); err != nil {
+	// 	return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
+	// }
 
 	if err := resolveTailCalls(spec); err != nil {
 		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)

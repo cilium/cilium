@@ -663,6 +663,9 @@ func computeBlocks(insns asm.Instructions) (Blocks, error) {
 	}
 
 	if err := connectBlocks(blocks, insns); err != nil {
+		for i, insn := range insns {
+			fmt.Printf("%d: %v: block %v symbol %v\n", i, insn, getBlock(&insn), insn.Symbol())
+		}
 		return nil, fmt.Errorf("connecting blocks: %w", err)
 	}
 
@@ -854,10 +857,17 @@ func connectBlocks(blocks Blocks, insns asm.Instructions) error {
 		}
 
 		blk.predecessors = make([]*Block, 0, len(leader.predecessors))
-		for _, pi := range leader.predecessors {
+		for i, pi := range leader.predecessors {
+			if pi == nil {
+				fmt.Printf("predecessor is nil: %d: %+v %+v %d\n", i, pi, leader.predecessors, len(leader.predecessors))
+				for i, insn := range insns {
+					fmt.Printf("%d: %v\n", i, insn)
+				}
+				panic("predecessor is nil?")
+			}
 			b := getBlock(pi)
 			if b == nil {
-				return fmt.Errorf("predecessor instruction %v has no block", pi)
+				return fmt.Errorf("%v predecessor instruction %v has no block %v", blk, pi)
 			}
 			blk.predecessors = append(blk.predecessors, b)
 		}

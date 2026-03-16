@@ -66,7 +66,7 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 
 // CiliumNet returns a [BPFHost] for attaching bpf_host.c to cilium_net.
 func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
-	cfg := &config_latest.BPFHost{Node: NodeConfig(lnc)}
+	cfg := config_latest.NewBPFHost(NodeConfig(lnc))
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
@@ -113,7 +113,7 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 // Netdev returns a [BPFHost] for attaching bpf_host.c to an externally-facing
 // network device.
 func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration, link netlink.Link, masq4, masq6 netip.Addr) any {
-	cfg := &config_latest.BPFHost{Node: NodeConfig(lnc)}
+	cfg := config_latest.NewBPFHost(NodeConfig(lnc))
 
 	// External devices can be L2-less, in which case it won't have a MAC address
 	// and its ethernet header length is set to 0.

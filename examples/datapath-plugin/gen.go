@@ -4,4 +4,4 @@
 // Package bpf provides Go skeletons containing BPF programs.
 package main
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go plugin ./bpf/plugin.c
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go lxc ./bpf/lxc.c

@@ -102,6 +102,7 @@ type bpfCollectionLoader struct {
 	gcOnce              sync.Once
 	gcWakeup            chan struct{}
 	gcMu                sync.RWMutex
+	mu                  sync.Mutex
 }
 
 func (l *bpfCollectionLoader) gc() {
@@ -169,6 +170,8 @@ func (l *bpfCollectionLoader) LoadAndAssign(ctx context.Context, logger *slog.Lo
 }
 
 func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *datapath.LocalNodeConfiguration, attachmentContext *datapathplugins.AttachmentContext, pinsDir string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if !l.pluginsEnabled {
 		// If plugins were previously enabled, clean up any lingering
 		// pinned links in the plugin link directories.
@@ -183,6 +186,11 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return coll, commit, func() {}, err
 	}
 
+	// It is currently not possible to do freplace for programs that are
+	// inside a PROG_ARRAY map, so we have to limit instrumentation to
+	// __section_entry programs.
+	//
+	// https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/
 	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
@@ -483,7 +491,9 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 
 		logger.Debug("InstrumentCollection() succeeded", "plugin", r.plugin.Name())
 
+		fmt.Printf("start linking hooks\n")
 		for _, hook := range req.Hooks {
+			fmt.Printf("link hook pinned to %s to %s/%s\n", hook.PinPath, hook.Target, hook.AttachTarget.SubprogName)
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
 			if err != nil {
 				return nil, nil, fmt.Errorf("load pinned hook program at %s: %w", hook.PinPath, err)
@@ -674,6 +684,7 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 			Name:    entryName,
 			Type:    funcProto,
 			Linkage: btf.GlobalFunc,
+			Tags:    btfMeta.Tags,
 		})
 
 	var epilogue asm.Instructions
