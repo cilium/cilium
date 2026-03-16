@@ -58,9 +58,6 @@ enum {
 #define TRACE_EP_ID_UNKNOWN		0
 #define TRACE_IFINDEX_UNKNOWN		0	/* Linux kernel doesn't use ifindex 0 */
 
-#ifndef MONITOR_AGGREGATION
-#define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
-#endif
 
 #ifndef TRACE_EXTENSION
 #define TRACE_EXTENSION
@@ -183,7 +180,7 @@ struct trace_notify {
 static __always_inline bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
-	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
+	if (CONFIG(monitor_aggregation) >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
 		case TRACE_FROM_LXC:
 		case TRACE_FROM_PROXY:
@@ -205,7 +202,7 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 	 * then 'monitor' will be set to 0 to avoid emitting trace notifications
 	 * when aggregation is enabled (the default).
 	 */
-	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
+	if (CONFIG(monitor_aggregation) >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
 		return false;
 
 	return true;

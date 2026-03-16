@@ -71,5 +71,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
 	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
 
+	level, _ := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
+	node.MonitorAggregation = uint8(level)
+
 	return node
 }

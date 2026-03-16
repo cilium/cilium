@@ -31,10 +31,6 @@ enum {
 	TRACE_SOCK_AGGREGATE_CONNECT	= 3, /* Only trace connect syscalls */
 };
 
-/* Default monitor aggregation value when not provided by build defines. */
-#ifndef MONITOR_AGGREGATION
-#define MONITOR_AGGREGATION TRACE_SOCK_AGGREGATE_NONE
-#endif
 
 #ifndef TRACE_SOCK_EXTENSION
 #define TRACE_SOCK_EXTENSION
@@ -108,7 +104,7 @@ static __always_inline bool
 emit_trace_sock_notify(enum xlate_point xlate_point, bool is_connect)
 {
 	/* Hide reverse-direction traces starting at RX-level aggregation. */
-	if (MONITOR_AGGREGATION >= TRACE_SOCK_AGGREGATE_RECV) {
+	if (CONFIG(monitor_aggregation) >= TRACE_SOCK_AGGREGATE_RECV) {
 		switch (xlate_point) {
 		case XLATE_PRE_DIRECTION_REV:
 		case XLATE_POST_DIRECTION_REV:
@@ -119,7 +115,7 @@ emit_trace_sock_notify(enum xlate_point xlate_point, bool is_connect)
 	}
 
 	/* At ACTIVE_CT (3) and up, only emit for connect syscalls. */
-	if (MONITOR_AGGREGATION >= TRACE_SOCK_AGGREGATE_CONNECT)
+	if (CONFIG(monitor_aggregation) >= TRACE_SOCK_AGGREGATE_CONNECT)
 		if (!is_connect)
 			return false;
 
@@ -147,7 +143,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	 * Uses CT_REPORT_INTERVAL as the time bucket for aggregation to
 	 * align with monitor aggregation timing.
 	 */
-	if (MONITOR_AGGREGATION != TRACE_SOCK_AGGREGATE_NONE) {
+	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
@@ -194,7 +190,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	 * Uses CT_REPORT_INTERVAL as the time bucket for aggregation to
 	 * align with monitor aggregation timing.
 	 */
-	if (MONITOR_AGGREGATION != TRACE_SOCK_AGGREGATE_NONE) {
+	if (CONFIG(monitor_aggregation) != TRACE_SOCK_AGGREGATE_NONE) {
 		/* One token per CT_REPORT_INTERVAL with no burst to align with
 		 * monitor aggregation semantics ("~1 per interval").
 		 */
