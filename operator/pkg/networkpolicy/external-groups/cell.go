@@ -17,6 +17,7 @@ var Cell = cell.Module(
 	cell.Config(defaultExtGroupConfig),
 	cell.Provide(NewExternalGroupTable),
 	cell.Provide(NewGroupManager),
+	cell.Invoke(registerPolicyToGroupController),
 )
 
 type ExtGroupConfig struct {
