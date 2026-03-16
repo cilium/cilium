@@ -446,16 +446,7 @@
       ],
       "allowedVersions": "<1.26",
       "matchBaseBranches": [
-        "v1.19"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
-      ],
-      "allowedVersions": "<1.25",
-      "matchBaseBranches": [
+        "v1.19",
         "v1.18",
         "v1.17"
       ]
