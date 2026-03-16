@@ -2,7 +2,7 @@
 ---
 include:
   - version: "1.32"
-    region: ca-central-1
+    region: us-west-1
   - version: "1.33"
     region: us-east-2
   - version: "1.34"
