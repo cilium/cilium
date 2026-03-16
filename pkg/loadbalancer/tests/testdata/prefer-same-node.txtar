@@ -1,0 +1,118 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Test PreferSameNode traffic distribution: backends on the local node are
+# preferred over backends on other nodes.
+#
+
+# Start and wait for watchers
+hive start
+
+# Add the service with trafficDistribution=PreferSameNode and two endpoints:
+# 10.244.1.1 on the local node ('testnode'), 10.244.2.1 on a remote node.
+k8s/add service.yaml
+k8s/add endpointslice.yaml endpointslice2.yaml
+
+# With PreferSameNode, only the local-node backend should be selected.
+db/cmp backends backends.table
+db/cmp frontends frontends-local.table
+
+# Remove the local-node endpointslice. Since no local backend exists we fall
+# back to all backends (safeguard: no candidates → use all).
+k8s/delete endpointslice.yaml
+db/cmp frontends frontends-remote.table
+
+# Restore the local backend.
+k8s/add endpointslice.yaml
+db/cmp frontends frontends-local.table
+
+# Disable PreferSameNode by removing trafficDistribution. All backends selected.
+sed 'PreferSameNode' 'Disabled' service.yaml
+k8s/update service.yaml
+db/cmp frontends frontends-all.table
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameNode
+
+-- frontends-local.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+
+-- frontends-remote.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.2.1:80/TCP
+
+-- frontends-all.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
+
+-- backends.table --
+Service    Address
+test/echo  10.244.1.1:80/TCP
+test/echo  10.244.2.1:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP

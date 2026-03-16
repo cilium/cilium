@@ -152,8 +152,8 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal && isTopologyAware(svc) {
-		s.TrafficDistribution = loadbalancer.TrafficDistributionPreferClose
+	if s.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyLocal {
+		s.TrafficDistribution = trafficDistribution(svc)
 	}
 
 	// A service that is annotated as headless has no frontends, even if the service spec contains
@@ -461,10 +461,21 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 	}
 }
 
-func isTopologyAware(svc *slim_corev1.Service) bool {
-	return getAnnotationTopologyAwareHints(svc) ||
-		(svc.Spec.TrafficDistribution != nil &&
-			*svc.Spec.TrafficDistribution == corev1.ServiceTrafficDistributionPreferClose)
+func trafficDistribution(svc *slim_corev1.Service) loadbalancer.TrafficDistribution {
+	if svc.Spec.TrafficDistribution != nil {
+		switch *svc.Spec.TrafficDistribution {
+		case corev1.ServiceTrafficDistributionPreferSameZone:
+			return loadbalancer.TrafficDistributionPreferSameZone
+		case corev1.ServiceTrafficDistributionPreferClose:
+			return loadbalancer.TrafficDistributionPreferClose
+		case corev1.ServiceTrafficDistributionPreferSameNode:
+			return loadbalancer.TrafficDistributionPreferSameNode
+		}
+	}
+	if getAnnotationTopologyAwareHints(svc) {
+		return loadbalancer.TrafficDistributionPreferSameZone
+	}
+	return loadbalancer.TrafficDistributionDefault
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
