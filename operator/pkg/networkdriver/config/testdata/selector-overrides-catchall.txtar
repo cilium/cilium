@@ -1,0 +1,97 @@
+# Test that selector-based config can override catch-all config
+hive start
+
+# Create a CiliumNode
+k8s/add node1.yaml
+
+# Create catch-all ClusterConfig first
+k8s/add config-catch-all.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was created from catch-all
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1.yaml
+* cmp expected-node1-catch-all.yaml actual-node1.yaml
+
+# Create selector-based ClusterConfig (should override catch-all)
+k8s/add config-with-selector.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was updated to use selector-based config
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-after.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-after.yaml
+* cmp expected-node1-selector.yaml actual-node1-after.yaml
+
+# Verify selector-based config has no conflict
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config-with-selector -o actual-selector-status.yaml
+! grep 'type: Conflict' actual-selector-status.yaml
+
+# Verify catch-all config HAS a conflict (it's blocked by the selector-based config)
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config-catch-all -o actual-catchall-status.yaml
+* grep 'type: Conflict' actual-catchall-status.yaml
+* grep 'status: "True"' actual-catchall-status.yaml
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+-- config-catch-all.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config-catch-all
+spec:
+  spec:
+    driverName: catch-all-driver
+-- config-with-selector.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config-with-selector
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node1
+  spec:
+    driverName: selector-driver
+-- expected-node1-catch-all.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "false"
+    cilium.io/source-cluster-config: config-catch-all
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: catch-all-driver
+status:
+  managedBy: operator
+-- expected-node1-selector.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "true"
+    cilium.io/source-cluster-config: config-with-selector
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: selector-driver
+status:
+  managedBy: operator

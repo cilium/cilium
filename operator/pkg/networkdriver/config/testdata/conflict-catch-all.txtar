@@ -15,6 +15,10 @@ k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1.
 sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1.yaml
 * cmp expected-node1-selector.yaml actual-node1.yaml
 
+# Verify selector-based config has no conflict
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config-with-selector -o actual-selector-status.yaml
+! grep 'type: Conflict' actual-selector-status.yaml
+
 # Create catch-all ClusterConfig (should cause conflict)
 k8s/add config-catch-all.yaml
 

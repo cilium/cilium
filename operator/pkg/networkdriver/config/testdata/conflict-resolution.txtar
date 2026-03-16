@@ -1,10 +1,10 @@
-# Test that selector-based ClusterConfigs detect conflicts
+# Test that conflict status is cleared when conflicting config is removed
 hive start
 
 # Create a CiliumNode
 k8s/add node1.yaml
 
-# Create first ClusterConfig with selector (this should succeed)
+# Create first ClusterConfig with selector
 k8s/add config1.yaml
 
 # Wait for reconciliation
@@ -25,15 +25,25 @@ k8s/add config2.yaml
 # Wait for reconciliation
 sleep 1s
 
-# Verify NodeConfig was NOT updated (still has config1 annotations)
-k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-after.yaml
-sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-after.yaml
-* cmp expected-node1-from-config1.yaml actual-node1-after.yaml
-
 # Verify config2 has Conflict condition in status
 k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config2 -o actual-config2-status.yaml
 * grep 'type: Conflict' actual-config2-status.yaml
 * grep 'status: "True"' actual-config2-status.yaml
+
+# Delete the first config (should allow config2 to take over)
+k8s/delete config1.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig is now managed by config2
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-after.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-after.yaml
+* cmp expected-node1-from-config2.yaml actual-node1-after.yaml
+
+# Verify config2's conflict status is cleared
+k8s/get cilium.io.v2alpha1.ciliumnetworkdriverclusterconfigs config2 -o actual-config2-resolved.yaml
+! grep 'status: "True"' actual-config2-resolved.yaml
 
 hive stop
 
@@ -51,7 +61,6 @@ spec:
   addresses:
   - ip: 10.0.0.1
     type: InternalIP
-
 -- config1.yaml --
 apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverClusterConfig
@@ -63,7 +72,6 @@ spec:
       role: worker
   spec:
     driverName: driver1
-
 -- config2.yaml --
 apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverClusterConfig
@@ -75,7 +83,6 @@ spec:
       role: worker
   spec:
     driverName: driver2
-
 -- expected-node1-from-config1.yaml --
 apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverNodeConfig
@@ -87,5 +94,18 @@ metadata:
   resourceVersion: "<nr>"
 spec:
   driverName: driver1
+status:
+  managedBy: operator
+-- expected-node1-from-config2.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "true"
+    cilium.io/source-cluster-config: config2
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: driver2
 status:
   managedBy: operator

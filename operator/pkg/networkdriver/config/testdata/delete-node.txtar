@@ -1,0 +1,66 @@
+# Test deletion of CiliumNode cleans up its NodeConfig
+hive start
+
+# Create a CiliumNode
+k8s/add node1.yaml
+
+# Create a CiliumNetworkDriverClusterConfig
+k8s/add clusterconfig.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was created
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-before.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-before.yaml
+* cmp expected-nodeconfig.yaml actual-before.yaml
+
+# Delete the CiliumNode
+k8s/delete node1.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify NodeConfig was deleted
+! k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- clusterconfig.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: test-config
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: node1
+  spec:
+    driverName: one
+-- expected-nodeconfig.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "true"
+    cilium.io/source-cluster-config: test-config
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: one
+status:
+  managedBy: operator

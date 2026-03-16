@@ -1,0 +1,136 @@
+# Test that deleting a ClusterConfig allows another ClusterConfig to take over nodes
+hive start
+
+# Create two CiliumNodes
+k8s/add node1.yaml
+k8s/add node2.yaml
+
+# Create a ClusterConfig that matches node1
+k8s/add config1.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Check that NodeConfig for node1 uses config1
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-before.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-before.yaml
+* cmp expected-node1-config1.yaml actual-node1-before.yaml
+
+# Verify node2 has no NodeConfig yet
+! k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node2
+
+# Create another ClusterConfig that matches both nodes
+k8s/add config-all.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify node2 now has a NodeConfig (from config-all)
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node2 -o actual-node2-before.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node2-before.yaml
+* cmp expected-node2-configall.yaml actual-node2-before.yaml
+
+# Delete config1
+k8s/delete config1.yaml
+
+# Wait for reconciliation
+sleep 1s
+
+# Verify node1 now uses config-all (ownership transferred)
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node1 -o actual-node1-after.yaml
+sed 'resourceVersion: ".*"' 'resourceVersion: "<nr>"' actual-node1-after.yaml
+* cmp expected-node1-configall.yaml actual-node1-after.yaml
+
+# Verify node2 still has its NodeConfig
+k8s/get cilium.io.v2alpha1.ciliumnetworkdrivernodeconfigs node2
+
+hive stop
+
+#####
+
+-- node1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node1
+  labels:
+    kubernetes.io/hostname: node1
+    node-role: worker
+spec:
+  addresses:
+  - ip: 10.0.0.1
+    type: InternalIP
+
+-- node2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node2
+  labels:
+    kubernetes.io/hostname: node2
+    node-role: control-plane
+spec:
+  addresses:
+  - ip: 10.0.0.2
+    type: InternalIP
+
+-- config1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config1
+spec:
+  nodeSelector:
+    matchLabels:
+      node-role: worker
+  spec:
+    driverName: one
+
+-- config-all.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverClusterConfig
+metadata:
+  name: config-all
+spec:
+  spec:
+    driverName: all
+
+-- expected-node1-config1.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "true"
+    cilium.io/source-cluster-config: config1
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: one
+status:
+  managedBy: operator
+-- expected-node2-configall.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "false"
+    cilium.io/source-cluster-config: config-all
+  name: node2
+  resourceVersion: "<nr>"
+spec:
+  driverName: all
+status:
+  managedBy: operator
+-- expected-node1-configall.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  annotations:
+    cilium.io/had-selector: "false"
+    cilium.io/source-cluster-config: config-all
+  name: node1
+  resourceVersion: "<nr>"
+spec:
+  driverName: all
+status:
+  managedBy: operator
