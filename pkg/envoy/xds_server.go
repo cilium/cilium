@@ -873,9 +873,9 @@ func (s *xdsServer) upsertListener(name string, listenerConf *envoy_config_liste
 
 	// 'callback' is not called if there is no change and this configuration has already been acked.
 	revertFunc := s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg, callback)
-	return func(c *completion.Completion) {
+	return func() {
 		s.mutex.Lock()
-		revertFunc(c)
+		revertFunc()
 		revertNPDSTracking()
 		s.mutex.Unlock()
 	}
@@ -893,10 +893,10 @@ func (s *xdsServer) deleteListener(name string, wg *completion.WaitGroup, callba
 
 	// 'callback' is not called if there is no change and this configuration has already been acked.
 	revertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, callback)
-	return func(c *completion.Completion) {
+	return func() {
 		s.mutex.Lock()
 		revertNPDSTracking()
-		revertFunc(c)
+		revertFunc()
 		s.mutex.Unlock()
 	}
 }
@@ -1080,10 +1080,10 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	}
 	s.mutex.Unlock()
 
-	return func(completion *completion.Completion) {
+	return func() {
 		s.mutex.Lock()
 		if listenerRevertFunc != nil {
-			listenerRevertFunc(completion)
+			listenerRevertFunc()
 		}
 		if revertNPDSTracking != nil {
 			revertNPDSTracking()
@@ -1701,9 +1701,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 			}
 		}
 
-		// Don't wait for an ACK for the reverted xDS updates.
-		// This is best-effort.
-		revertFunc(nil)
+		revertFunc()
 
 		s.logger.Debug("Finished reverting xDS network policy update")
 
@@ -1881,7 +1879,7 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 
 		// revert all changes in case of failure
 		if err != nil {
-			revertFuncs.Revert(nil)
+			revertFuncs.Revert()
 			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
 			return err
 		}
@@ -1921,7 +1919,7 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 
 		// revert all changes in case of failure
 		if err != nil {
-			revertFuncs.Revert(nil)
+			revertFuncs.Revert()
 			s.logger.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
 		}
 		return err
@@ -2151,7 +2149,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 
 		// revert all changes in case of failure
 		if err != nil {
-			revertFuncs.Revert(nil)
+			revertFuncs.Revert()
 			s.logger.Debug("UpdateEnvoyResources: Finished reverting failed xDS transactions")
 		}
 		return err
@@ -2219,7 +2217,7 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 
 		// revert all changes in case of failure
 		if err != nil {
-			revertFuncs.Revert(nil)
+			revertFuncs.Revert()
 			s.logger.Debug("DeleteEnvoyResources: Finished reverting failed xDS transactions")
 		}
 		return err
