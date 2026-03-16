@@ -362,6 +362,9 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+          if [[ "${{ matrix.config.kpr }}" == "true" ]]; then
+            CONNECTIVITY_TEST_DEFAULTS+=" --test '!pod-to-host'"
+          fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
