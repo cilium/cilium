@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -212,18 +211,47 @@ func (m *AckingResourceMutatorWrapper) WaitForFirstAck(ctx context.Context, node
 	}
 }
 
-// AddVersionCompletion adds a completion to wait for any ACK for the
-// version and type URL, ignoring the ACKed resource names.
-func (m *AckingResourceMutatorWrapper) addVersionCompletion(typeURL string, version uint64, nodeIDs []string, c *completion.Completion) {
+// addCurrentVersionCompletion adds a completion to wait for any ACK for the
+// version and type URL for the given nodes, ignoring the ACKed resource names.
+// Nodes that have already acked the version are skipped. No completion is added if all nodes have
+// already acked the given version.
+// Returns true if the caller should wait for an ACK.
+func (m *AckingResourceMutatorWrapper) addCurrentVersionCompletion(typeURL string, nodeIPs []string, wg *completion.WaitGroup, callback func(error)) bool {
+	remainingNodesResources := make(map[string]map[string]struct{}, len(nodeIPs))
+	for _, nodeIP := range nodeIPs {
+		if acked, exists := m.ackedVersions[nodeIP]; exists && acked >= m.version {
+			m.logger.Debug("Skipping node that has already ACKed version",
+				logfields.XDSCachedVersion, m.version,
+				logfields.XDSAckedVersion, acked,
+				logfields.XDSClientNode, nodeIP,
+			)
+			continue
+		}
+		remainingNodesResources[nodeIP] = nil
+	}
+	if len(remainingNodesResources) == 0 {
+		return false
+	}
+
 	comp := &pendingCompletion{
-		version:                 version,
+		version:                 m.version,
 		typeURL:                 typeURL,
-		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+		remainingNodesResources: remainingNodesResources,
 	}
-	for _, nodeID := range nodeIDs {
-		comp.remainingNodesResources[nodeID] = nil
-	}
+	c := wg.AddCompletionWithCallback(callback)
 	m.pendingCompletions[c] = comp
+	return true
+}
+
+func (m *AckingResourceMutatorWrapper) maybeAddCurrentVersionCompletion(wait bool, typeURL string, nodeIPs []string, wg *completion.WaitGroup, callback func(error)) {
+	if wait {
+		wait = m.addCurrentVersionCompletion(typeURL, nodeIPs, wg, callback)
+	}
+
+	// Call callback immediately if there was nothing to wait for
+	if !wait && callback != nil {
+		callback(nil)
+	}
 }
 
 // UseCurrent adds a completion to the WaitGroup if the current
@@ -233,20 +261,20 @@ func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []stri
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	wait := wg != nil
+	if wg == nil {
+		return
+	}
 
 	if m.restoring {
 		// Do not wait for acks when restoring state
 		m.logger.Debug("UseCurrent: Restoring, skipping wait for ACK",
 			logfields.XDSTypeURL, typeURL,
 		)
-
-		wait = false
+		return
 	}
 
-	if wait {
-		m.useCurrent(typeURL, nodeIDs, wg, nil)
-	}
+	// Add a completion object for the current version so that the caller may wait for the N/ACK
+	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg, nil)
 }
 
 // DeleteNode frees resources held for the named nodes
@@ -319,24 +347,15 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
-		if wait {
-			m.useCurrent(typeURL, nodeIDs, wg, callback)
-		} else if callback != nil {
-			callback(nil)
-		}
+		// Add a completion object for the current version so that the caller may wait for
+		// the N/ACK
+		m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
 		return func() {}
 	}
 
 	if wait {
 		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
-		if _, found := m.pendingCompletions[c]; found {
-			s := fmt.Sprintf("attempt to reuse completion to upsert xDS resource: %v", c)
-			logging.Fatal(m.logger, s,
-				logfields.XDSTypeURL, typeURL,
-				logfields.XDSResourceName, resourceName,
-			)
-		}
 
 		comp := &pendingCompletion{
 			version:                 m.version,
@@ -354,34 +373,14 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
 	// as 'callback' is called with the lock already held.
-	return func() {
-		if revert != nil {
+	if revert != nil {
+		return func() {
 			m.locker.Lock()
 			defer m.locker.Unlock()
 			m.version, _ = revert()
 		}
 	}
-}
-
-func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) {
-	if !m.currentVersionAcked(nodeIDs) {
-		// Add a completion object for 'version' so that the caller may wait for the N/ACK
-		m.addVersionCompletion(typeURL, m.version, nodeIDs, wg.AddCompletionWithCallback(callback))
-	}
-}
-
-func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
-	for _, node := range nodeIDs {
-		if acked, exists := m.ackedVersions[node]; !exists || acked < m.version {
-			m.logger.Debug("Node has not acked the current cached version yet",
-				logfields.XDSCachedVersion, m.version,
-				logfields.XDSAckedVersion, acked,
-				logfields.XDSClientNode, node,
-			)
-			return false
-		}
-	}
-	return true
+	return func() {}
 }
 
 func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
@@ -439,36 +438,17 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		}
 	}
 
-	if !updated {
-		if wait {
-			m.useCurrent(typeURL, nodeIDs, wg, callback)
-		} else if callback != nil {
-			callback(nil)
-		}
-		return func() {}
-	}
+	// Add a completion object for the current version so that the caller may wait for the N/ACK
+	m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
 
-	if wait {
-		c := wg.AddCompletionWithCallback(callback)
-		if _, found := m.pendingCompletions[c]; found {
-			s := fmt.Sprintf("attempt to reuse completion to delete xDS resource: %v", c)
-			logging.Fatal(m.logger, s,
-				logfields.XDSTypeURL, typeURL,
-				logfields.XDSResourceName, resourceName)
-		}
-
-		m.addVersionCompletion(typeURL, m.version, nodeIDs, c)
-	} else if callback != nil {
-		callback(nil)
-	}
-
-	return func() {
-		if revert != nil {
+	if updated && revert != nil {
+		return func() {
 			m.locker.Lock()
 			defer m.locker.Unlock()
 			m.version, _ = revert()
 		}
 	}
+	return func() {}
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'ackVersion', is the last version that was NACKed.
