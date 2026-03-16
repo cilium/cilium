@@ -19,6 +19,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
@@ -561,6 +562,183 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			// Ensure that a node IP change gets reflected
 			err = wgAgent.updatePeer(k8s2NodeName, wgDummyPeerKey.String(), k8s2NodeIPv4_2, k8s2NodeIPv6_2)
 			require.Error(t, err, "node %q is not allowed to use the dummy peer key", k8s2NodeName)
+		})
+	}
+}
+
+func TestAgent_PeerEndpointSelection(t *testing.T) {
+	tests := []struct {
+		name         string
+		config       Config
+		nodeIPv4     net.IP
+		nodeIPv6     net.IP
+		expectError  bool
+		expectedIP   net.IP
+		expectedPort int
+	}{
+		{
+			name: "IPv6 underlay with dual-stack selects IPv6 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv6,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv6,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "IPv4 underlay with dual-stack selects IPv4 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv4,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "Auto underlay with dual-stack selects IPv4 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.Auto,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "Empty underlay with dual-stack selects IPv4 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.UnderlayProtocol(""),
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "Native routing with dual-stack selects IPv4 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: false,
+				UnderlayProtocol: tunnel.IPv6,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "IPv6 underlay with IPv6-only cluster selects IPv6 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       false,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv6,
+			},
+			nodeIPv4:     nil,
+			nodeIPv6:     k8s1NodeIPv6,
+			expectedIP:   k8s1NodeIPv6,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "IPv6 underlay without nodeIPv6 falls back to IPv4",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv6,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     nil,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "IPv4-only cluster selects IPv4 endpoint",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       false,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv4,
+			},
+			nodeIPv4:     k8s1NodeIPv4,
+			nodeIPv6:     nil,
+			expectedIP:   k8s1NodeIPv4,
+			expectedPort: types.ListenPort,
+		},
+		{
+			name: "No node IPs returns error",
+			config: Config{
+				UserConfig: UserConfig{
+					EnableConfig: EnableConfig{EnableWireguard: true},
+				},
+				EnableIPv4:       true,
+				EnableIPv6:       true,
+				TunnelingEnabled: true,
+				UnderlayProtocol: tunnel.IPv4,
+			},
+			nodeIPv4:    nil,
+			nodeIPv6:    nil,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wgAgent, _ := newTestAgent(t.Context(), hivetest.Logger(t), newFakeWgClient(), tt.config)
+
+			err := wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, tt.nodeIPv4, tt.nodeIPv6)
+
+			if tt.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			peer := wgAgent.peerByNodeName[k8s1NodeName]
+			require.NotNil(t, peer)
+			require.NotNil(t, peer.endpoint)
+			require.Equal(t, tt.expectedIP.String(), peer.endpoint.IP.String())
+			require.Equal(t, tt.expectedPort, peer.endpoint.Port)
 		})
 	}
 }
