@@ -70,6 +70,9 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 #ifdef ENABLE_ROUTING
 /* We are tail calling from cilium_host */
 # define CILIUM_HOST_IFINDEX 1
+#else
+/* We are tail calling from bpf_lxc, let's change cilium_host ifindex */
+# define CILIUM_HOST_IFINDEX 2
 #endif
 
 #define CILIUM_NET_IFINDEX 10
@@ -82,6 +85,8 @@ ASSIGN_CONFIG(__u32, interface_ifindex, 12)
 /* Test that a packet received from a L7LB for a local backend gets correctly handled:
  * - in case of per-endpoint routes disabled, packet tail calls from
      cil_from_host, and it will return to stack
+ * - in case of per-endpoint routes, packet tail calls from
+     cil_to_container, and it will be hairpinned back to handle ingress policies.
  * Given we cannot import both bpf_host and bpf_lxc, in our SETUP functions
  * we will simulate hitting the `tail_call_egress_policy(ctx, lxc_id)` codepath.
  */
@@ -132,6 +137,10 @@ int l7_lb_local_backend_v4_check(const struct __ctx_buff *ctx)
 
 #ifdef ENABLE_ROUTING
 	assert(*status_code == CTX_ACT_OK);
+#else
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	assert(redirect_ifindex == ctx_get_ifindex(ctx));
 #endif
 
 	test_finish();
@@ -185,6 +194,10 @@ int l7_lb_local_backend_v6_check(const struct __ctx_buff *ctx)
 
 #ifdef ENABLE_ROUTING
 	assert(*status_code == CTX_ACT_OK);
+#else
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	assert(redirect_ifindex == ctx_get_ifindex(ctx));
 #endif
 
 	test_finish();
