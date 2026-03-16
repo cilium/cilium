@@ -54,9 +54,19 @@ sed '#trafficD' 'trafficD' service.yaml
 k8s/update service.yaml
 db/cmp frontends frontends-foo.table
 
+# Check that the deprecated 'PreferClose' alias works identically to 'PreferSameZone'.
+sed 'PreferSameZone' 'PreferClose' service.yaml
+k8s/update service.yaml
+db/cmp services services-preferclose.table
+db/cmp frontends frontends-foo.table
+
 #####
 
 -- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameZone
+
+-- services-preferclose.table --
 Name        Source   PortNames  TrafficPolicy  Flags
 test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferClose
 
@@ -97,7 +107,7 @@ spec:
   selector:
     name: echo
   type: ClusterIP
-  #trafficDistribution: PreferClose
+  #trafficDistribution: PreferSameZone
 
 -- endpointslice.yaml --
 apiVersion: discovery.k8s.io/v1
