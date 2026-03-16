@@ -109,4 +109,29 @@ func (t toFqdnsWithProxy) build(ct *check.ConnectivityTest, templates map[string
 			// No HTTP proxy on other ports
 			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
 		})
+
+	newTest("to-fqdns-with-ccec-listener", ct).
+		WithCiliumPolicy(templates["clientEgressToFQDNsAndCCECListenerYAML"]).
+		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
+		WithCiliumVersion(">=1.20.0").
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.EnableEnvoyConfig)).
+		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
+		WithScenarios(
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, false),
+			tests.PodToWorld2(ct.Params().ExternalTargetIPv6Capable, false), // resolves to ExternalOtherTarget
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			extTarget := ct.Params().ExternalTarget
+			if a.Destination().Port() == 80 && a.Destination().Address(features.GetIPFamily(extTarget)) == extTarget {
+				egress = check.ResultDNSOK
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+					URL:    fmt.Sprintf("http://%s/", strings.TrimSuffix(extTarget, ".")),
+				}
+				return egress, check.ResultNone
+			}
+			// No HTTP proxy on other ports/target
+			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
+		})
 }

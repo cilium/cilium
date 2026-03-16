@@ -41,6 +41,9 @@ var (
 	//go:embed manifests/client-egress-to-fqdns-and-http-get.yaml
 	clientEgressToFQDNsAndHTTPGetPolicyYAML string
 
+	//go:embed manifests/client-egress-to-fqdns-and-ccec-listener.yaml
+	clientEgressToFQDNsAndCCECListenerYAML string
+
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
 
@@ -369,6 +372,7 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"clientEgressL7HTTPNamedPortPolicyYAML":                      clientEgressL7HTTPNamedPortPolicyYAML,
 		"clientEgressToFQDNsPolicyYAML":                              clientEgressToFQDNsPolicyYAML,
 		"clientEgressToFQDNsAndHTTPGetPolicyYAML":                    clientEgressToFQDNsAndHTTPGetPolicyYAML,
+		"clientEgressToFQDNsAndCCECListenerYAML":                     clientEgressToFQDNsAndCCECListenerYAML,
 		"clientEgressTLSSNIPolicyYAML":                               clientEgressTLSSNIPolicyYAML,
 		"clientEgressTLSSNIWildcardPolicyYAML":                       clientEgressTLSSNIWildcardPolicyYAML,
 		"clientEgressTLSSNIRandomWildcardPolicyYAML":                 clientEgressTLSSNIRandomWildcardPolicyYAML,
