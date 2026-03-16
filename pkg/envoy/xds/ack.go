@@ -51,20 +51,14 @@ type ResourceVersionAckObserver interface {
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
 // an update on a AckingResourceMutator.
-// The completion, if not nil, is called back when the new resource update is
-// ACKed by the Envoy nodes.
-type AckingResourceMutatorRevertFunc func(completion *completion.Completion)
+type AckingResourceMutatorRevertFunc func()
 
 type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
 
-func (rl AckingResourceMutatorRevertFuncList) Revert(wg *completion.WaitGroup) {
+func (rl AckingResourceMutatorRevertFuncList) Revert() {
 	// Revert the listed funcions in reverse order
 	for i := len(rl) - 1; i >= 0; i-- {
-		var c *completion.Completion
-		if wg != nil {
-			c = wg.AddCompletion()
-		}
-		rl[i](c)
+		rl[i]()
 	}
 }
 
@@ -330,7 +324,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		} else if callback != nil {
 			callback(nil)
 		}
-		return func(completion *completion.Completion) {}
+		return func() {}
 	}
 
 	if wait {
@@ -360,19 +354,11 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
 	// as 'callback' is called with the lock already held.
-	return func(completion *completion.Completion) {
-		m.locker.Lock()
-		defer m.locker.Unlock()
-
+	return func() {
 		if revert != nil {
+			m.locker.Lock()
+			defer m.locker.Unlock()
 			m.version, _ = revert()
-
-			if completion != nil {
-				// We don't know whether the revert did an Upsert or a Delete, so as a
-				// best effort, just wait for any ACK for the version and type URL,
-				// and ignore the ACKed resource names, like for a Delete.
-				m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
-			}
 		}
 	}
 }
@@ -459,7 +445,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		} else if callback != nil {
 			callback(nil)
 		}
-		return func(completion *completion.Completion) {}
+		return func() {}
 	}
 
 	if wait {
@@ -476,19 +462,11 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		callback(nil)
 	}
 
-	return func(completion *completion.Completion) {
-		m.locker.Lock()
-		defer m.locker.Unlock()
-
+	return func() {
 		if revert != nil {
+			m.locker.Lock()
+			defer m.locker.Unlock()
 			m.version, _ = revert()
-
-			if completion != nil {
-				// We don't know whether the revert had any effect at all, so as a
-				// best effort, just wait for any ACK for the version and type URL,
-				// and ignore the ACKed resource names, like for a Delete.
-				m.addVersionCompletion(typeURL, m.version, nodeIDs, completion)
-			}
 		}
 	}
 }
