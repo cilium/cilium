@@ -226,9 +226,16 @@ type prepender interface {
 	Tracker() k8sTesting.ObjectTracker
 }
 
-func prependReactors(cs prepender, ot *statedbObjectTracker) {
+func prependReactors(cs prepender, ot k8sTesting.ObjectTracker) {
 	cs.PrependReactor("*", "*", k8sTesting.ObjectReaction(ot))
-	cs.PrependWatchReactor("*", func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+	cs.PrependWatchReactor("*", watchReactorFunc(ot))
+
+	// Switch out the tracker to our version.
+	overrideTracker(cs, ot)
+}
+
+func watchReactorFunc(ot k8sTesting.ObjectTracker) k8sTesting.WatchReactionFunc {
+	return func(action k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
 		var opts metav1.ListOptions
 		if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
 			opts = watchAction.ListOptions
@@ -237,10 +244,7 @@ func prependReactors(cs prepender, ot *statedbObjectTracker) {
 		ns := action.GetNamespace()
 		watch, err := ot.Watch(gvr, ns, opts)
 		return true, watch, err
-	})
-
-	// Switch out the tracker to our version.
-	overrideTracker(cs, ot)
+	}
 }
 
 func showGVR(gvr schema.GroupVersionResource) string {
