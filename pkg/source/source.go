@@ -4,7 +4,7 @@
 package source
 
 import (
-	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 )
@@ -82,21 +82,27 @@ var defaultSources Sources = []Source{
 	Unspec,
 }
 
+var getSourcePriorities = sync.OnceValue(func() map[Source]int {
+	m := make(map[Source]int, len(defaultSources))
+	for i, src := range defaultSources {
+		m[src] = i
+	}
+	return m
+})
+
 // AllowOverwrite returns true if new state from a particular source is allowed
 // to overwrite existing state from another source
-func AllowOverwrite(existing, new Source) bool {
-	overflowNegative := overflowNegativeTo(len(defaultSources))
-	return overflowNegative(slices.Index(defaultSources, new)) <= overflowNegative(slices.Index(defaultSources, existing))
-}
-
-func overflowNegativeTo(infinity int) func(int) int {
-	return func(n int) int {
-		if n < 0 {
-			return infinity
-		} else {
-			return n
-		}
+func AllowOverwrite(existing, next Source) bool {
+	priorities := getSourcePriorities()
+	pNext, ok := priorities[next]
+	if !ok {
+		pNext = len(defaultSources)
 	}
+	pExisting, ok := priorities[existing]
+	if !ok {
+		pExisting = len(defaultSources)
+	}
+	return pNext <= pExisting
 }
 
 var Cell = cell.Module(

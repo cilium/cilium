@@ -75,7 +75,7 @@ type metadata struct {
 	// If this mutex will be held at the same time as the IPCache mutex,
 	// this mutex must be taken first and then take the IPCache mutex in
 	// order to prevent deadlocks.
-	lock.Mutex
+	lock.RWMutex
 
 	// m is the actual map containing the mappings.
 	m map[cmtypes.PrefixCluster]*prefixInfo
@@ -258,15 +258,15 @@ func (m *metadata) upsertLocked(prefix cmtypes.PrefixCluster, src source.Source,
 // GetMetadataSourceByPrefix returns the highest precedence source which has
 // provided metadata for this prefix
 func (ipc *IPCache) GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source {
-	ipc.metadata.Lock()
-	defer ipc.metadata.Unlock()
-	return ipc.metadata.getLocked(prefix).Source()
+	ipc.metadata.RLock()
+	defer ipc.metadata.RUnlock()
+	return ipc.metadata.getLockedSource(prefix)
 }
 
 // get returns a deep copy of the flattened prefix info
 func (m *metadata) get(prefix cmtypes.PrefixCluster) *resourceInfo {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 	return m.getLocked(prefix)
 }
 
@@ -283,6 +283,18 @@ func (m *metadata) getLocked(prefix cmtypes.PrefixCluster) *resourceInfo {
 		return pi.flattened.DeepCopy()
 	}
 	return nil
+}
+
+// getLockedSource returns the highest precedence source which has
+// provided metadata for this prefix
+func (m *metadata) getLockedSource(prefix cmtypes.PrefixCluster) source.Source {
+	if pi, ok := m.m[canonicalPrefix(prefix)]; ok {
+		if pi.flattened == nil {
+			return pi.highestPrecedenceSource()
+		}
+		return pi.flattened.source
+	}
+	return source.Unspec
 }
 
 // mergeParentLabels pulls down all labels from parent prefixes, with "longer" prefixes having

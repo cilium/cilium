@@ -234,3 +234,84 @@ func TestFlatten(t *testing.T) {
 		})
 	}
 }
+
+func TestHighestPrecedenceSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		infos    map[types.ResourceID]*resourceInfo
+		expected source.Source
+	}{
+		{
+			name:     "empty byResource",
+			infos:    map[types.ResourceID]*resourceInfo{},
+			expected: source.Unspec,
+		},
+		{
+			name: "single resource",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Local},
+			},
+			expected: source.Local,
+		},
+		{
+			name: "two resources - local wins over generated",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Local},
+				"res2": {source: source.Generated},
+			},
+			expected: source.Local,
+		},
+		{
+			name: "two resources - kubernetes wins over unspec",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Unspec},
+				"res2": {source: source.Kubernetes},
+			},
+			expected: source.Kubernetes,
+		},
+		{
+			name: "three resources - KubeAPIServer causes early exit",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Local},
+				"res2": {source: source.KVStore},
+				"res3": {source: source.KubeAPIServer}, // KubeAPIServer wins over all
+			},
+			expected: source.KubeAPIServer,
+		},
+		{
+			name: "same source multiple times",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Kubernetes},
+				"res2": {source: source.Kubernetes},
+				"res3": {source: source.Kubernetes},
+			},
+			expected: source.Kubernetes,
+		},
+		{
+			name: "all sources with local winning",
+			infos: map[types.ResourceID]*resourceInfo{
+				"res1": {source: source.Restored},
+				"res2": {source: source.Generated},
+				"res3": {source: source.LocalAPI},
+				"res4": {source: source.Directory},
+				"res5": {source: source.ClusterMesh},
+				"res6": {source: source.Kubernetes},
+				"res7": {source: source.CustomResource},
+				"res8": {source: source.KVStore},
+				"res9": {source: source.Local},
+			},
+			expected: source.Local,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pi := newPrefixInfo()
+			pi.byResource = test.infos
+			source := pi.highestPrecedenceSource()
+			assert.Equal(t, test.expected, source)
+		})
+	}
+}
