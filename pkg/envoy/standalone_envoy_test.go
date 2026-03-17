@@ -22,7 +22,9 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-// To run the embedded_envoy_test, the following have to be met:
+// This test is not run in CI and is meant to be run locally when iterating on the Envoy (xDS) integration.
+// It tests the basic functionality of the standalone Envoy proxy, including starting the proxy, adding and removing resources, and handling NACKs from Envoy.
+// To run the standalone_envoy_test, the following have to be met:
 //
 // - Environment variable `CILIUM_ENABLE_ENVOY_UNIT_TEST` must be set
 // - `cilium-envoy-starter` and `cilium-envoy` must exist in the PATH
@@ -103,7 +105,7 @@ func TestEnvoy(t *testing.T) {
 
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
-	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
+	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         15,
@@ -226,7 +228,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 	// launch debug variant of the Envoy proxy
 	starter := &onDemandXdsStarter{logger: logger}
-	envoyProxy, err := starter.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
+	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
 		runDir:                         testRunDir,
 		logPath:                        filepath.Join(testRunDir, "cilium-envoy.log"),
 		baseID:                         42,

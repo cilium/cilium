@@ -94,13 +94,13 @@ func mapLogLevel(agentLogLevel slog.Level, defaultEnvoyLogLevel string) string {
 
 // Envoy manages a running Envoy proxy instance via the
 // ListenerDiscoveryService and RouteDiscoveryService gRPC APIs.
-type EmbeddedEnvoy struct {
+type StandaloneEnvoy struct {
 	stopCh chan struct{}
 	errCh  chan error
 	admin  *EnvoyAdminClient
 }
 
-type embeddedEnvoyConfig struct {
+type standaloneEnvoyConfig struct {
 	runDir                         string
 	logPath                        string
 	defaultLogLevel                string
@@ -116,9 +116,9 @@ type embeddedEnvoyConfig struct {
 	maxRequests                    uint32
 }
 
-// startEmbeddedEnvoyInternal starts an Envoy proxy instance.
-func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConfig) (*EmbeddedEnvoy, error) {
-	envoy := &EmbeddedEnvoy{
+// startStandaloneEnvoyInternal starts an Envoy proxy instance.
+func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoyConfig) (*StandaloneEnvoy, error) {
+	envoy := &StandaloneEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
 		admin:  NewEnvoyAdminClientForSocket(o.logger, GetSocketDir(config.runDir), config.defaultLogLevel),
@@ -152,7 +152,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		maxRequests:                    config.maxRequests,
 	})
 
-	o.logger.Debug("Envoy: Starting embedded Envoy")
+	o.logger.Debug("Envoy: Starting standalone Envoy")
 
 	// make it a buffered channel, so we can not only
 	// read the written value but also skip it in
@@ -246,7 +246,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 				// Start Envoy again
 				continue
 			case <-envoy.stopCh:
-				o.logger.Info("Envoy: Stopping embedded Envoy proxy",
+				o.logger.Info("Envoy: Stopping standalone Envoy proxy",
 					logfields.PID, cmd.Process.Pid,
 				)
 				if err := envoy.admin.quit(); err != nil {
@@ -271,7 +271,7 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		return envoy, nil
 	}
 
-	return nil, errors.New("failed to start embedded Envoy server")
+	return nil, errors.New("failed to start standalone Envoy server")
 }
 
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
@@ -342,9 +342,9 @@ func (o *onDemandXdsStarter) newEnvoyLogPiper() io.WriteCloser {
 	return writer
 }
 
-// Stop kills the Envoy process started with startEmbeddedEnvoy. The gRPC API streams are terminated
+// Stop kills the Envoy process started with startStandaloneEnvoy. The gRPC API streams are terminated
 // first.
-func (e *EmbeddedEnvoy) Stop() error {
+func (e *StandaloneEnvoy) Stop() error {
 	close(e.stopCh)
 	err, ok := <-e.errCh
 	if ok {
@@ -353,7 +353,7 @@ func (e *EmbeddedEnvoy) Stop() error {
 	return nil
 }
 
-func (e *EmbeddedEnvoy) GetAdminClient() *EnvoyAdminClient {
+func (e *StandaloneEnvoy) GetAdminClient() *EnvoyAdminClient {
 	return e.admin
 }
 
@@ -570,8 +570,8 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 	}
 }
 
-// getEmbeddedEnvoyVersion returns the envoy binary version string
-func getEmbeddedEnvoyVersion() (string, error) {
+// getStandaloneEnvoyVersion returns the envoy binary version string
+func getStandaloneEnvoyVersion() (string, error) {
 	out, err := exec.Command(ciliumEnvoy, "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to execute '%s --version': %w", ciliumEnvoy, err)
