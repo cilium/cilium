@@ -934,6 +934,10 @@ func (x *PrepareCollectionRequest_CollectionSpec) GetMaps() map[string]*PrepareC
 
 type PrepareCollectionRequest_CollectionSpec_ProgramSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	AttachType    uint32                 `protobuf:"varint,2,opt,name=attach_type,json=attachType,proto3" json:"attach_type,omitempty"`
+	SectionName   string                 `protobuf:"bytes,3,opt,name=section_name,json=sectionName,proto3" json:"section_name,omitempty"`
+	License       string                 `protobuf:"bytes,4,opt,name=license,proto3" json:"license,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -968,8 +972,42 @@ func (*PrepareCollectionRequest_CollectionSpec_ProgramSpec) Descriptor() ([]byte
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{1, 0, 0}
 }
 
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) GetType() uint32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) GetAttachType() uint32 {
+	if x != nil {
+		return x.AttachType
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) GetSectionName() string {
+	if x != nil {
+		return x.SectionName
+	}
+	return ""
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_ProgramSpec) GetLicense() string {
+	if x != nil {
+		return x.License
+	}
+	return ""
+}
+
 type PrepareCollectionRequest_CollectionSpec_MapSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          uint32                 `protobuf:"varint,1,opt,name=type,proto3" json:"type,omitempty"`
+	KeySize       uint32                 `protobuf:"varint,2,opt,name=key_size,json=keySize,proto3" json:"key_size,omitempty"`
+	ValueSize     uint32                 `protobuf:"varint,3,opt,name=value_size,json=valueSize,proto3" json:"value_size,omitempty"`
+	MaxEntries    uint32                 `protobuf:"varint,4,opt,name=max_entries,json=maxEntries,proto3" json:"max_entries,omitempty"`
+	Flags         uint32                 `protobuf:"varint,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	PinType       uint32                 `protobuf:"varint,6,opt,name=pin_type,json=pinType,proto3" json:"pin_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1002,6 +1040,48 @@ func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) ProtoReflect() protore
 // Deprecated: Use PrepareCollectionRequest_CollectionSpec_MapSpec.ProtoReflect.Descriptor instead.
 func (*PrepareCollectionRequest_CollectionSpec_MapSpec) Descriptor() ([]byte, []int) {
 	return file_datapathplugins_datapathplugins_proto_rawDescGZIP(), []int{1, 0, 1}
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetType() uint32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetKeySize() uint32 {
+	if x != nil {
+		return x.KeySize
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetValueSize() uint32 {
+	if x != nil {
+		return x.ValueSize
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetMaxEntries() uint32 {
+	if x != nil {
+		return x.MaxEntries
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetFlags() uint32 {
+	if x != nil {
+		return x.Flags
+	}
+	return 0
+}
+
+func (x *PrepareCollectionRequest_CollectionSpec_MapSpec) GetPinType() uint32 {
+	if x != nil {
+		return x.PinType
+	}
+	return 0
 }
 
 type PrepareCollectionResponse_HookSpec struct {
@@ -1417,18 +1497,31 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\x05iface\x18\x01 \x01(\v20.datapathplugins.AttachmentContext.InterfaceInfoR\x05iface\x1aM\n" +
 	"\x03XDP\x12F\n" +
 	"\x05iface\x18\x01 \x01(\v20.datapathplugins.AttachmentContext.InterfaceInfoR\x05ifaceB\t\n" +
-	"\acontext\"\xdd\x05\n" +
+	"\acontext\"\xf0\a\n" +
 	"\x18PrepareCollectionRequest\x12X\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\v28.datapathplugins.PrepareCollectionRequest.CollectionSpecR\n" +
 	"collection\x12Q\n" +
 	"\x12attachment_context\x18\x02 \x01(\v2\".datapathplugins.AttachmentContextR\x11attachmentContext\x12,\n" +
-	"\x06config\x18\x03 \x01(\v2\x14.google.protobuf.AnyR\x06config\x1a\xe5\x03\n" +
+	"\x06config\x18\x03 \x01(\v2\x14.google.protobuf.AnyR\x06config\x1a\xf8\x05\n" +
 	"\x0eCollectionSpec\x12b\n" +
 	"\bprograms\x18\x01 \x03(\v2F.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramsEntryR\bprograms\x12V\n" +
-	"\x04maps\x18\x02 \x03(\v2B.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntryR\x04maps\x1a\r\n" +
-	"\vProgramSpec\x1a\t\n" +
-	"\aMapSpec\x1a\x81\x01\n" +
+	"\x04maps\x18\x02 \x03(\v2B.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapsEntryR\x04maps\x1a\x7f\n" +
+	"\vProgramSpec\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12\x1f\n" +
+	"\vattach_type\x18\x02 \x01(\rR\n" +
+	"attachType\x12!\n" +
+	"\fsection_name\x18\x03 \x01(\tR\vsectionName\x12\x18\n" +
+	"\alicense\x18\x04 \x01(\tR\alicense\x1a\xa9\x01\n" +
+	"\aMapSpec\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\rR\x04type\x12\x19\n" +
+	"\bkey_size\x18\x02 \x01(\rR\akeySize\x12\x1d\n" +
+	"\n" +
+	"value_size\x18\x03 \x01(\rR\tvalueSize\x12\x1f\n" +
+	"\vmax_entries\x18\x04 \x01(\rR\n" +
+	"maxEntries\x12\x14\n" +
+	"\x05flags\x18\x05 \x01(\rR\x05flags\x12\x19\n" +
+	"\bpin_type\x18\x06 \x01(\rR\apinType\x1a\x81\x01\n" +
 	"\rProgramsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12Z\n" +
 	"\x05value\x18\x02 \x01(\v2D.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpecR\x05value:\x028\x01\x1ay\n" +

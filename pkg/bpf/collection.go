@@ -39,9 +39,9 @@ func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-// isEntrypoint returns true if the program is marked with the __section_entry
+// IsEntrypoint returns true if the program is marked with the __section_entry
 // annotation.
-func isEntrypoint(prog *ebpf.ProgramSpec) bool {
+func IsEntrypoint(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/entry")
 }
 

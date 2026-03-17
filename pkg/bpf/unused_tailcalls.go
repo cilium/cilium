@@ -62,7 +62,7 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
 	visited := &set.Set[*ebpf.ProgramSpec]{}
 	for _, r := range reach {
-		if !isEntrypoint(r.ProgramSpec) {
+		if !IsEntrypoint(r.ProgramSpec) {
 			continue
 		}
 

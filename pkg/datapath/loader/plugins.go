@@ -186,11 +186,6 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return coll, commit, func() {}, err
 	}
 
-	// It is currently not possible to do freplace for programs that are
-	// inside a PROG_ARRAY map, so we have to limit instrumentation to
-	// __section_entry programs.
-	//
-	// https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/
 	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
@@ -223,11 +218,23 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 		},
 	}
 
-	for name := range spec.Programs {
-		req.Collection.Programs[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{}
+	for name, p := range spec.Programs {
+		req.Collection.Programs[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
+			Type:        uint32(p.Type),
+			AttachType:  uint32(p.AttachType),
+			SectionName: p.SectionName,
+			License:     p.License,
+		}
 	}
-	for name := range spec.Maps {
-		req.Collection.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{}
+	for name, m := range spec.Maps {
+		req.Collection.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
+			Type:       uint32(m.Type),
+			KeySize:    m.KeySize,
+			ValueSize:  m.ValueSize,
+			MaxEntries: m.MaxEntries,
+			Flags:      m.Flags,
+			PinType:    uint32(m.Pinning),
+		}
 	}
 
 	var cfg *anypb.Any
@@ -288,6 +295,15 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 			ps := spec.Programs[h.Target]
 			if ps == nil {
 				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): target program \"%s\" does not exist in the collection spec", r.plugin.Name(), h.Target))
+
+				continue
+			} else if !bpf.IsEntrypoint(ps) {
+				// It is currently not possible to do freplace for programs that are
+				// inside a PROG_ARRAY map, so we have to limit instrumentation to
+				// __section_entry programs.
+				//
+				// https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/
+				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): target program \"%s\" is not an entrypoint program", r.plugin.Name(), h.Target))
 
 				continue
 			}
@@ -491,9 +507,7 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 
 		logger.Debug("InstrumentCollection() succeeded", "plugin", r.plugin.Name())
 
-		fmt.Printf("start linking hooks\n")
 		for _, hook := range req.Hooks {
-			fmt.Printf("link hook pinned to %s to %s/%s\n", hook.PinPath, hook.Target, hook.AttachTarget.SubprogName)
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
 			if err != nil {
 				return nil, nil, fmt.Errorf("load pinned hook program at %s: %w", hook.PinPath, err)

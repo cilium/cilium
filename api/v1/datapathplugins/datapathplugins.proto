@@ -75,8 +75,18 @@ enum HookType {
 message PrepareCollectionRequest {
     message CollectionSpec {
         message ProgramSpec {
+		uint32 type = 1;
+		uint32 attach_type = 2;
+		string section_name = 3;
+		string license = 4;
         }
 	message MapSpec {
+		uint32 type = 1;
+		uint32 key_size = 2;
+		uint32 value_size = 3;
+		uint32 max_entries = 4;
+		uint32 flags = 5;
+		uint32 pin_type = 6;
         }
 
         map<string, ProgramSpec> programs = 1;

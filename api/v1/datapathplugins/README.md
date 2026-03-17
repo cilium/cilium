@@ -378,6 +378,16 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| type | [uint32](#uint32) |  |  |
+| key_size | [uint32](#uint32) |  |  |
+| value_size | [uint32](#uint32) |  |  |
+| max_entries | [uint32](#uint32) |  |  |
+| flags | [uint32](#uint32) |  |  |
+| pin_type | [uint32](#uint32) |  |  |
+
+
 
 
 
@@ -402,6 +412,14 @@ them, and informs Cilium in the PrepareHooksResponse.
 
 ### PrepareCollectionRequest.CollectionSpec.ProgramSpec
 
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| type | [uint32](#uint32) |  |  |
+| attach_type | [uint32](#uint32) |  |  |
+| section_name | [string](#string) |  |  |
+| license | [string](#string) |  |  |
 
 
 

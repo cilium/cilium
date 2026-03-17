@@ -22,3 +22,5 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+datapathPlugins:
+  enabled: true

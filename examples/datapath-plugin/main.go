@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/datapathplugins"
@@ -77,17 +78,70 @@ func newDatapathPluginServer(logger *slog.Logger, pinDir string) (*datapathPlugi
 }
 
 func (s *datapathPluginServer) PrepareCollection(ctx context.Context, req *datapathplugins.PrepareCollectionRequest) (*datapathplugins.PrepareCollectionResponse, error) {
-	lxcInfo := req.GetAttachmentContext().GetLxc()
-	if lxcInfo == nil {
-		s.logger.Info("Skipping collection, since it's not for an LXC interface", "request", req)
+	var hooks []*datapathplugins.PrepareCollectionResponse_HookSpec
 
+	switch req.AttachmentContext.Context.(type) {
+	case *datapathplugins.AttachmentContext_Host_, *datapathplugins.AttachmentContext_Lxc,
+		*datapathplugins.AttachmentContext_Overlay_, *datapathplugins.AttachmentContext_Wireguard_:
+		s.logger.Info("Prepare collection", "context", req.GetAttachmentContext())
+		hooks = prepareSkbHooks(req.GetCollection().GetPrograms())
+	default:
+		s.logger.Info("Skip collection", "context", req.GetAttachmentContext())
 		return nil, nil
 	}
 
-	s.logger.Info("Prepare pre/post hooks for programs", "pod", lxcInfo.GetPodInfo())
+	return &datapathplugins.PrepareCollectionResponse{
+		Hooks: hooks,
+	}, nil
+}
 
+func (s *datapathPluginServer) InstrumentCollection(ctx context.Context, req *datapathplugins.InstrumentCollectionRequest) (*datapathplugins.InstrumentCollectionResponse, error) {
+	var acStr string
+
+	switch ac := req.AttachmentContext.Context.(type) {
+	case *datapathplugins.AttachmentContext_Host_:
+		acStr = fmt.Sprintf("host/%s", ac.Host.GetIface().Name)
+	case *datapathplugins.AttachmentContext_Lxc:
+		acStr = fmt.Sprintf("lxc/%s/%s/%s",
+			ac.Lxc.GetPodInfo().GetNamespace(),
+			ac.Lxc.GetPodInfo().GetPodName(),
+			ac.Lxc.GetIface().Name,
+		)
+	case *datapathplugins.AttachmentContext_Overlay_:
+		acStr = fmt.Sprintf("overlay/%s", ac.Overlay.GetIface().Name)
+	case *datapathplugins.AttachmentContext_Wireguard_:
+		acStr = fmt.Sprintf("overlay/%s", ac.Wireguard.GetIface().Name)
+	default:
+		return nil, fmt.Errorf("unexpected attachment context: %v", req.AttachmentContext)
+	}
+
+	s.logger.Info("Instrument collection", "context", req.GetAttachmentContext())
+	if err := loadAndPinSkb(acStr, req.GetHooks()); err != nil {
+		return &datapathplugins.InstrumentCollectionResponse{}, err
+	}
+
+	return &datapathplugins.InstrumentCollectionResponse{}, nil
+}
+
+func strToByte256(s string) [256]byte {
+	var buf [256]byte
+
+	copy(buf[:], s)
+
+	return buf
+}
+
+func prepareSkbHooks(programs map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec) []*datapathplugins.PrepareCollectionResponse_HookSpec {
 	var hooks []*datapathplugins.PrepareCollectionResponse_HookSpec
-	for name := range req.GetCollection().GetPrograms() {
+
+	for name, prog := range programs {
+		if !strings.HasSuffix(prog.SectionName, "/entry") {
+			continue
+		}
+		if strings.HasPrefix(name, "cil_lxc_policy") {
+			continue
+		}
+
 		hooks = append(hooks,
 			&datapathplugins.PrepareCollectionResponse_HookSpec{
 				Type:   datapathplugins.HookType_PRE,
@@ -100,25 +154,20 @@ func (s *datapathPluginServer) PrepareCollection(ctx context.Context, req *datap
 		)
 	}
 
-	return &datapathplugins.PrepareCollectionResponse{
-		Hooks: hooks,
-	}, nil
+	return hooks
 }
 
-func (s *datapathPluginServer) InstrumentCollection(ctx context.Context, req *datapathplugins.InstrumentCollectionRequest) (*datapathplugins.InstrumentCollectionResponse, error) {
-	lxcInfo := req.GetAttachmentContext().GetLxc()
-	if lxcInfo == nil {
-		return nil, fmt.Errorf("collection is not for an LXC interface")
-	}
+func instrumentSkb(ctx *datapathplugins.AttachmentContext_LXC, hooks []*datapathplugins.InstrumentCollectionRequest_Hook) error {
+	return loadAndPinSkb("", hooks)
+}
 
-	s.logger.Info("Add pre/post hooks for programs", "pod", lxcInfo.GetPodInfo())
-
+func loadAndPinSkb(attachmentContext string, hooks []*datapathplugins.InstrumentCollectionRequest_Hook) error {
 	specByTarget := map[string]*ebpf.CollectionSpec{}
-	for _, hook := range req.GetHooks() {
+	for _, hook := range hooks {
 		if specByTarget[hook.Target] == nil {
-			spec, err := loadLxc()
+			spec, err := loadSkb()
 			if err != nil {
-				return nil, fmt.Errorf("loading specs: %w", err)
+				return fmt.Errorf("loading specs: %w", err)
 			}
 			specByTarget[hook.Target] = spec
 		}
@@ -127,68 +176,53 @@ func (s *datapathPluginServer) InstrumentCollection(ctx context.Context, req *da
 
 		targetProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(hook.AttachTarget.ProgramId))
 		if err != nil {
-			return nil, fmt.Errorf("loading target program %d: %w", hook.AttachTarget.ProgramId, err)
+			return fmt.Errorf("loading target program %d: %w", hook.AttachTarget.ProgramId, err)
 		}
 		defer targetProg.Close()
 
 		var progSpec *ebpf.ProgramSpec
 		if hook.Type == datapathplugins.HookType_PRE {
-			progSpec = spec.Programs["before_lxc"]
+			progSpec = spec.Programs["before_skb"]
 		} else {
-			progSpec = spec.Programs["after_lxc"]
+			progSpec = spec.Programs["after_skb"]
 		}
 		progSpec.AttachTarget = targetProg
 		progSpec.AttachTo = hook.AttachTarget.SubprogName
 	}
 
-	collByTarget := map[string]*lxcObjects{}
+	objsByTarget := map[string]*skbObjects{}
+
 	for target, spec := range specByTarget {
 		coll, err := ebpf.NewCollection(spec)
 		if err != nil {
-			return nil, fmt.Errorf("loading collection for %s: %w", target, err)
+			return fmt.Errorf("loading collection for %s: %w", target, err)
 		}
 		defer coll.Close()
-		var objs lxcObjects
+		var objs skbObjects
 		if err := coll.Assign(&objs); err != nil {
-			return nil, fmt.Errorf("assigning collection for %s: %w", target, err)
+			return fmt.Errorf("assigning collection for %s: %w", target, err)
 		}
 		defer objs.Close()
-		collByTarget[target] = &objs
-
-		if err := objs.lxcVariables.PodNamespace.Set(strToByte256(lxcInfo.GetPodInfo().GetNamespace())); err != nil {
-			return nil, fmt.Errorf("setting pod namespace for %s: %w", target, err)
-		}
-		if err := objs.lxcVariables.PodName.Set(strToByte256(lxcInfo.GetPodInfo().GetPodName())); err != nil {
-			return nil, fmt.Errorf("setting pod name for %s: %w", target, err)
-		}
-		if err := objs.lxcVariables.ProgramName.Set(strToByte256(target)); err != nil {
-			return nil, fmt.Errorf("setting program name for %s: %w", target, err)
+		objsByTarget[target] = &objs
+		if err := objs.skbVariables.AttachmentContext.Set(strToByte256(attachmentContext)); err != nil {
+			return fmt.Errorf("setting attachment_context for %s: %w", target, err)
 		}
 	}
 
-	for _, hook := range req.GetHooks() {
-		coll := collByTarget[hook.Target]
+	for _, hook := range hooks {
+		coll := objsByTarget[hook.Target]
 
 		var prog *ebpf.Program
 		if hook.Type == datapathplugins.HookType_PRE {
-			prog = coll.BeforeLxc
+			prog = coll.BeforeSkb
 		} else {
-			prog = coll.AfterLxc
+			prog = coll.AfterSkb
 		}
 
-		fmt.Printf("%v pin program to %s\n", hook.AttachTarget, hook.PinPath)
 		if err := prog.Pin(hook.PinPath); err != nil {
-			return nil, fmt.Errorf("pinning program to %s: %w", hook.PinPath, err)
+			return fmt.Errorf("pinning program to %s: %w", hook.PinPath, err)
 		}
 	}
 
-	return &datapathplugins.InstrumentCollectionResponse{}, nil
-}
-
-func strToByte256(s string) [256]byte {
-	var buf [256]byte
-
-	copy(buf[:], s)
-
-	return buf
+	return nil
 }

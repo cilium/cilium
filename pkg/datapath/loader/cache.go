@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/ebpf"
 
+	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -233,12 +234,12 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	// downstream callers don't need to compute them again. This is expensive to
 	// run, so do it only once per compilation. Control flow isn't expected to
 	// be changed after compilation.
-	// for name, prog := range obj.spec.Programs {
-	// 	if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
-	// 		return nil, "", fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
-	// 	}
-	// 	o.logger.Debug("Precomputed Blocks", logfields.Object, name)
-	// }
+	for name, prog := range obj.spec.Programs {
+		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
+			return nil, "", fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
+		}
+		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
+	}
 
 	return obj.spec.Copy(), hash, nil
 }
