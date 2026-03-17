@@ -275,7 +275,7 @@ static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
 		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
-		__u32 tbid)
+		__u32 tbid, bool intra_node_visible_redirect)
 {
 	int ret;
 	struct bpf_fib_lookup_padded fib_params = {0};
@@ -288,6 +288,11 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	}
 
 	fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, flags);
+	if (intra_node_visible_redirect) {
+		fib_params.l.ifindex = CONFIG(direct_routing_dev_ifindex);
+		fib_result = BPF_FIB_LKUP_RET_NO_NEIGH;
+	}
+
 	switch (fib_result) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 	case BPF_FIB_LKUP_RET_NO_NEIGH:

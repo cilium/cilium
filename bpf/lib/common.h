@@ -285,6 +285,7 @@ enum metric_dir {
 						*/
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* source identity */
+#define MARK_MAGIC_INTRA_NODE		0x2000
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400 /* source identity */

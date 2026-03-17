@@ -209,7 +209,7 @@ int test2_check(struct __ctx_buff *ctx)
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
-		fib_redirect_v4(ctx, 0, &hdr, true, true, &ext_err, &oif, 0);
+		fib_redirect_v4(ctx, 0, &hdr, true, true, &ext_err, &oif, 0, false);
 
 		if (fib_lookup_recorder.flags != BPF_FIB_LOOKUP_SKIP_NEIGH)
 			test_fatal("expected flags %x, got %d",

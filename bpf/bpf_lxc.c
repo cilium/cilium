@@ -1219,7 +1219,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * that endpoint.
 	 */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
-	    is_defined(ENABLE_HOST_ROUTING)) {
+	    is_defined(ENABLE_HOST_ROUTING) || CONFIG(enable_intra_node_visibility)) {
 		__be32 daddr = ip4->daddr;
 		const struct endpoint_info *ep;
 
@@ -1254,6 +1254,11 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 				goto pass_to_stack;
 			}
 #endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
+
+			if (CONFIG(enable_intra_node_visibility)) {
+				ctx->mark |= MARK_MAGIC_INTRA_NODE;
+				goto intra_node_visibility_delivery;
+			}
 
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV4,
@@ -1343,11 +1348,13 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	}
 #endif /* TUNNEL_MODE */
 
-	if (is_defined(ENABLE_HOST_ROUTING)) {
+intra_node_visibility_delivery:
+	if (is_defined(ENABLE_HOST_ROUTING) || (CONFIG(enable_intra_node_visibility) && (ctx->mark & MARK_MAGIC_INTRA_NODE))) {
 		int oif = 0;
 		__u32 tbid = CONFIG(fib_table_id);
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif, tbid);
+		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif, tbid, 
+			    CONFIG(enable_intra_node_visibility) && (ctx->mark & MARK_MAGIC_INTRA_NODE));
 		switch (ret) {
 		case CTX_ACT_REDIRECT:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,

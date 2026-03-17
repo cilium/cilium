@@ -1327,6 +1327,13 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
+	if (CONFIG(enable_intra_node_visibility)) {
+		/* Fastpath to skip additional netdev processing for intra-node traffic. */
+		if ((ctx->mark & MARK_MAGIC_INTRA_NODE) == MARK_MAGIC_INTRA_NODE) {
+			return CTX_ACT_OK;
+		}
+	}
+
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || magic == MARK_MAGIC_ENCRYPT)
 		src_sec_identity = HOST_ID;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
