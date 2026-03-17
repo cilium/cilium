@@ -292,10 +292,6 @@ type Kubectl struct {
 	// ciliumOptions is a cache of the most recent configuration options
 	// used to install Cilium via CiliumInstall().
 	ciliumOptions map[string]string
-
-	// nDNSReplicas is the number of replicas for DNS pods in the cluster.
-	// Stored via kub.ScaleDownDNS(), used by kub.ScaleUpDNS().
-	nDNSReplicas int
 }
 
 // CreateKubectl initializes a Kubectl helper with the provided vmName and log
@@ -1661,6 +1657,60 @@ func absoluteServiceName(namespace, service string) string {
 }
 
 func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
+	// Get the node that runs the DNS pod
+	dnsPodsNodes, err := kub.GetPodsNodes(KubeSystemNamespace, kubeDNSLabel)
+	if err != nil {
+		return err
+	}
+	if numDNSPods := len(dnsPodsNodes); numDNSPods > 1 {
+		return fmt.Errorf("this test requires to have exactly one DNS pod; there are %d pods", numDNSPods)
+	}
+	dnsNode := ""
+	for _, node := range dnsPodsNodes {
+		dnsNode = node
+		break
+	}
+
+	// Run the DNS check from a pod that runs on a different node
+	logGathererPodsNodes, err := kub.GetPodsNodes(LogGathererNamespace, logGathererSelector(false))
+	if err != nil {
+		return err
+	}
+	logGathererPod := ""
+	for pod, node := range logGathererPodsNodes {
+		if node != dnsNode {
+			logGathererPod = pod
+			break
+		}
+	}
+	if logGathererPod == "" {
+		return fmt.Errorf("this test requires at least one node that doesn't run a DNS pod")
+	}
+	err = kub.kubernetesDNSCanResolveFromPod(namespace, service, LogGathererNamespace, logGathererPod)
+	if err != nil {
+		return err
+	}
+
+	// Run the DNS check from a pod that runs on the node of the DNS pod
+	logGathererPod = ""
+	for pod, node := range logGathererPodsNodes {
+		if node == dnsNode {
+			logGathererPod = pod
+			break
+		}
+	}
+	if logGathererPod == "" {
+		return fmt.Errorf("this test requires at least one node that runs a DNS pod")
+	}
+	err = kub.kubernetesDNSCanResolveFromPod(namespace, service, LogGathererNamespace, logGathererPod)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (kub *Kubectl) kubernetesDNSCanResolveFromPod(namespace, service, podNS, podName string) error {
 	serviceToResolve := absoluteServiceName(namespace, service)
 
 	kubeDnsService, err := kub.GetService(KubeSystemNamespace, "kube-dns")
@@ -1676,7 +1726,7 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	defer cancel()
 
 	cmd := fmt.Sprintf("dig +short %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-	res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+	res := kub.ExecInPod(ctx, podNS, podName, cmd)
 	if res.err != nil {
 		return fmt.Errorf("unable to resolve service name %s with DNS server %s by running '%s' Cilium pod: %s",
 			serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
@@ -1695,7 +1745,7 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	// IP returned by the dig is the IP of one of the pods.
 	if destinationService.Spec.ClusterIP == v1.ClusterIPNone {
 		cmd := fmt.Sprintf("dig +tcp %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-		res = kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+		res = kub.ExecInPod(ctx, podNS, podName, cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to resolve service name %s by running '%s': %s",
 				serviceToResolve, cmd, res.OutputPrettyPrint())
@@ -1866,10 +1916,10 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//   - The Kubernetes DNS deployment has at least one replica
+//   - The Kubernetes DNS deployment has exactly one replica
 //   - All replicas are up-to-date and ready
 //   - All pods matching the deployment are represented by a CiliumEndpoint with an identity
-//   - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
+//   - The kube-system/kube-dns service is correctly plumbed in all Cilium agents
 //   - The service "default/kubernetes" can be resolved via the KubernetesDNS
 //     and the IP returned matches the ClusterIP in the service
 func (kub *Kubectl) ValidateKubernetesDNS() error {
@@ -1877,12 +1927,15 @@ func (kub *Kubectl) ValidateKubernetesDNS() error {
 	// is no point in validating correct plumbing if the DNS is not even up
 	// and running.
 	ginkgoext.By("Checking if deployment is ready")
-	_, err := kub.DeploymentIsReady(KubeSystemNamespace, "kube-dns")
+	numReplicas, err := kub.DeploymentIsReady(KubeSystemNamespace, "kube-dns")
 	if err != nil {
-		_, err = kub.DeploymentIsReady(KubeSystemNamespace, "coredns")
+		numReplicas, err = kub.DeploymentIsReady(KubeSystemNamespace, "coredns")
 		if err != nil {
 			return err
 		}
+	}
+	if numReplicas != 1 {
+		return fmt.Errorf("there must be exactly one replica for the DNS service")
 	}
 
 	var (
@@ -1982,37 +2035,21 @@ func (kub *Kubectl) setDNSReplicas(nReplicas int) *CmdRes {
 }
 
 // ScaleDownDNS reduces the number of pods in the cluster performing kube-dns
-// duties down to zero. May be reverted by calling ScaleUpDNS().
+// duties down to zero.
 func (kub *Kubectl) ScaleDownDNS() *CmdRes {
-	cmd := fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].status.replicas}'", KubectlCmd, KubeSystemNamespace, kubeDNSLabel)
-	res := kub.ExecShort(cmd)
-	if !res.WasSuccessful() {
-		ginkgoext.Failf("Unable to retrieve DNS pods to scale down, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
-		return res
-	}
-
-	n, err := strconv.Atoi(res.Stdout())
-	if err != nil {
-		ginkgoext.Failf("Failed to retrieve DNS replicas via '%s': %s", res.GetCmd(), err)
-		res.success = false
-		res.err = err
-		return res
-	}
-	kub.nDNSReplicas = n
-
-	res = kub.setDNSReplicas(0)
+	res := kub.setDNSReplicas(0)
 	if !res.WasSuccessful() {
 		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
 	}
 	return res
 }
 
-// ScaleUpDNS restores the number of replicas for kube-dns to the number
-// prior to calling ScaleDownDNS(). Must be called after ScaleDownDNS().
+// ScaleUpDNS restores the number of replicas for kube-dns to one.
+// Must be called after ScaleDownDNS().
 func (kub *Kubectl) ScaleUpDNS() *CmdRes {
-	res := kub.setDNSReplicas(kub.nDNSReplicas)
+	res := kub.setDNSReplicas(1)
 	if !res.WasSuccessful() {
-		ginkgoext.Failf("Unable to scale down DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
+		ginkgoext.Failf("Unable to scale up DNS pods, command '%s': %s", res.GetCmd(), res.OutputPrettyPrint())
 	}
 	return res
 }
@@ -3109,6 +3146,12 @@ func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd str
 	}
 
 	return results, nil
+}
+
+// ExecInPod runs the given command in the pod specified by namespace and name
+func (kub *Kubectl) ExecInPod(ctx context.Context, namespace, name, cmd string) *CmdRes {
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, name, cmd)
+	return kub.ExecContext(ctx, command)
 }
 
 // ExecInHostNetNS runs given command in a pod running in a host network namespace
