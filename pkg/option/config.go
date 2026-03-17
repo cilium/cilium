@@ -995,6 +995,9 @@ const (
 
 	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
 	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
+
+	// EnableIntraNodeVisibility enables BPF-based intra-node visibility
+	EnableIntraNodeVisibility = "enable-intra-node-visibility"
 )
 
 // Default string arguments
@@ -1860,6 +1863,9 @@ type DaemonConfig struct {
 
 	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
 	EnableCiliumNodeCRD bool
+
+	// Enable BPF-based intra-node visibility feature
+	EnableIntraNodeVisibility bool
 }
 
 var (
@@ -1920,6 +1926,8 @@ var (
 		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 
 		PolicyAccounting: defaults.PolicyAccounting,
+
+		EnableIntraNodeVisibility: defaults.EnableIntraNodeVisibility,
 	}
 )
 
@@ -1979,7 +1987,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled bool) bool {
 	return kprCfg.KubeProxyReplacement || c.EnableBPFMasquerade || c.EnableHostFirewall || wireguardEnabled ||
-		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled
+		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled || c.EnableIntraNodeVisibility
 }
 
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
@@ -2139,7 +2147,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wiregua
 		return true
 	}
 
-	return kprCfg.KubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled
+	return kprCfg.KubeProxyReplacement || BPFHostRoutingEnabled || wireguardEnabled || c.EnableIntraNodeVisibility
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2520,6 +2528,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
+	c.EnableIntraNodeVisibility = vp.GetBool(EnableIntraNodeVisibility)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
 	case "":

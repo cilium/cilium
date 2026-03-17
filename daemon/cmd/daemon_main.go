@@ -824,6 +824,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableCiliumNodeCRDName)
 	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
 
+	flags.Bool(option.EnableIntraNodeVisibility, defaults.EnableIntraNodeVisibility, "Enable BPF-based intra-node visibility")
+	option.BindEnv(vp, option.EnableIntraNodeVisibility)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}

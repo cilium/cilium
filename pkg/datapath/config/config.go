@@ -60,6 +60,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.KernelHz = uint32(option.Config.KernelHz)
 
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
+	node.EnableIntraNodeVisibility = option.Config.EnableIntraNodeVisibility
 
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
 

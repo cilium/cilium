@@ -539,6 +539,9 @@ const (
 
 	// PolicyAccouting is the default value for option.PolicyAccounting
 	PolicyAccounting = true
+
+	// EnableIntraNodeVisibility is the default value for option.EnableIntraNodeVisibility
+	EnableIntraNodeVisibility = false
 )
 
 var (
