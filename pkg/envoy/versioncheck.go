@@ -45,7 +45,7 @@ func (r *envoyVersionChecker) getEnvoyVersion() (string, error) {
 	if r.externalEnvoy {
 		return r.getRemoteEnvoyVersion()
 	} else {
-		return getEmbeddedEnvoyVersion()
+		return getStandaloneEnvoyVersion()
 	}
 }
 
