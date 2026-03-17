@@ -240,10 +240,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	if option.Config.EnableEndpointRoutes {
-		cDefinesMap["ENABLE_ENDPOINT_ROUTES"] = "1"
-	}
-
 	if option.Config.EnableEnvoyConfig {
 		cDefinesMap["ENABLE_L7_LB"] = "1"
 	}

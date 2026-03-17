@@ -71,5 +71,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
 	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
 
+	node.EnableEndpointRoutes = option.Config.EnableEndpointRoutes
+
 	return node
 }
