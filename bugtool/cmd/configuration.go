@@ -220,6 +220,11 @@ func miscSystemCommands() []string {
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
 		"find /sys/fs/bpf -ls",
+		// sr-iov devlink
+		"devlink dev info",
+		"devlink port",
+		// lspci
+		"lspci -vv",
 	}
 }
 
