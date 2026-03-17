@@ -1,5 +1,55 @@
 # Changelog
 
+## v1.17.14
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bpf: nodeport: use hairpin redirect for L7 LB on bridge devices (Backport PR cilium/cilium#44709, Upstream PR cilium/cilium#44658, @smagnani96)
+* Fix envoy admin socket being created as world-accessible (Backport PR cilium/cilium#44591, Upstream PR cilium/cilium#44512, @0xch4z)
+* l7lb: fix bypassing ingress policies for local backends (Backport PR cilium/cilium#44805, Upstream PR cilium/cilium#44693, @smagnani96)
+
+**CI Changes:**
+* pkg: Mark node_linux_test.go as unparallel (Backport PR cilium/cilium#44591, Upstream PR cilium/cilium#38172, @jschwinger233)
+
+**Misc Changes:**
+* [1.17] gha: Use eks 1.30 from us-west-2 (cilium/cilium#44752, @sayboras)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#44376, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#44485, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#44583, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#44687, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#44794, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#44373, @cilium-renovate[bot])
+* chore(deps): update base-images to v1.25.8 (v1.17) (cilium/cilium#44811, @cilium-renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.19.1 (v1.17) (cilium/cilium#44345, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.1 (v1.17) (cilium/cilium#44402, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.2 (v1.17) (cilium/cilium#44552, @cilium-renovate[bot])
+* chore(deps): update dependency mfridman/protoc-gen-go-json to v1.6.0 (v1.17) (cilium/cilium#44684, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v34 (v1.17) (cilium/cilium#44584, @cilium-renovate[bot])
+* chore(deps): update dependency sphinx-tabs to v3.5.0 (v1.17) (cilium/cilium#44685, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:24.04 docker digest to d1e2e92 (v1.17) (cilium/cilium#44481, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to e3f9456 (v1.17) (cilium/cilium#44798, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to f512d81 (v1.17) (cilium/cilium#44581, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.4.1 (v1.17) (cilium/cilium#44686, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1770979049-232ed4a26881e4ab4f766f251f258ed424fff663 (v1.17) (cilium/cilium#44374, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1771585526-532310e626e42c7086de4ef3ea913736125bbd31 (v1.17) (cilium/cilium#44483, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773220507-ffc0948a7ec4868e6b552a71cf4d3860e78b53cc (v1.17) (cilium/cilium#44682, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773405792-4046425704636ea5b770460c20c065069cf572dc (v1.17) (cilium/cilium#44792, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773656288-7b052e66eb2cfc5ac130ce0a5be66202a10d83be (v1.17) (cilium/cilium#44808, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#44375, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#44484, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#44683, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#44793, @cilium-renovate[bot])
+* fix(deps): update k8s.io patch updates stable (v1.17) (patch) (cilium/cilium#44508, @cilium-renovate[bot])
+* fix(deps): update k8s.io patch updates stable to v0.32.13 (v1.17) (patch) (cilium/cilium#44582, @cilium-renovate[bot])
+* fix(deps): update k8s.io/utils digest to b8788ab (v1.17) (cilium/cilium#44482, @cilium-renovate[bot])
+* Include the results of `find /sys/fs/bpf` in bugtool output (Backport PR cilium/cilium#44591, Upstream PR cilium/cilium#38980, @ti-mo)
+
+**Other Changes:**
+* Fix gke channels (cilium/cilium#44558, @Artyop)
+* install: Update image digests for v1.17.13 (cilium/cilium#44325, @cilium-release-bot[bot])
+
 ## v1.17.13
 
 Summary of Changes
