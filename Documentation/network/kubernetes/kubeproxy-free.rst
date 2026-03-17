@@ -1875,6 +1875,25 @@ The following scenarios are prone to this problem:
 
 Therefore, it is highly recommended not to expose a backend endpoint via multiple VIPs :gh-issue:`11810` :gh-issue:`18632`.
 
+Socket Termination Unreliable Due to Reverse SK Map Exhaustion
+**************************************************************
+
+When socket-LB is enabled, Cilium forcefully terminates application sockets that are connected to deleted service
+backends, so that applications can be re-load-balanced to active backends (see :ref:`Limitations`).
+Before terminating a socket, Cilium verifies that the socket was actually load-balanced by socket-LB by looking up
+the socket's cookie and destination in the ``cilium_lb4_reverse_sk`` and ``cilium_lb6_reverse_sk`` BPF maps.
+This prevents unrelated sockets from being terminated. When these maps become full, LRU eviction may remove entries
+belonging to active connections, causing those connections to fail the verification and be skipped during socket termination.
+
+Currently, no mechanism exists to remove entries from these maps when sockets are closed. As a result, the maps
+accumulate entries over time and may eventually fill up, causing socket termination to become unreliable until
+the node is restarted. If this becomes an issue, consider disabling socket-LB in pod namespaces by setting
+``socketLB.hostNamespaceOnly=true``. See :gh-issue:`42649` and :gh-issue:`28820` for details.
+
+Replacing these maps with BPF socket storage (:gh-issue:`42658`) would resolve this issue.
+
+.. _Limitations:
+
 Limitations
 ###########
 
