@@ -1,5 +1,71 @@
 # Changelog
 
+## v1.18.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Allow to attach Cilium's XDP program on network interfaces that have jumbo MTU configured and support xdp.frags program type. (Backport PR cilium/cilium#44499, Upstream PR cilium/cilium#41967, @viktor-kurchenko)
+
+**Bugfixes:**
+* bpf: nodeport: use hairpin redirect for L7 LB on bridge devices (Backport PR cilium/cilium#44758, Upstream PR cilium/cilium#44658, @smagnani96)
+* cilium-dbg: fix seg-fault `ip get -l reserved:host` (Backport PR cilium/cilium#44519, Upstream PR cilium/cilium#44443, @aanm)
+* Enable Cilium upgrade and downgrade when existing XDP attach types differ from new XDP programs (Backport PR cilium/cilium#44499, Upstream PR cilium/cilium#44209, @dylandreimerink)
+* Fix a bug where node IPv6 updates and deletes were not correctly propagated to the Linux kernel neighbor subsystem. (Backport PR cilium/cilium#44592, Upstream PR cilium/cilium#44540, @tklauser)
+* Fix a bug where removed addresses from EndpointSlices might be missed if multiple EndpointSlices share the same name (Backport PR cilium/cilium#44021, Upstream PR cilium/cilium#43999, @EmilyShepherd)
+* Fix envoy admin socket being created as world-accessible (Backport PR cilium/cilium#44592, Upstream PR cilium/cilium#44512, @0xch4z)
+* Fixed an issue where wildcard FQDN network policy identities were not correctly pushed to Envoy when using SNI-based policies. (Backport PR cilium/cilium#44519, Upstream PR cilium/cilium#44462, @liyihuang)
+* Fixed VTEP ARP responses returning 00:00:00:00:00:00 MAC due to interface MAC missing from eBPF Overlay configuration. (Backport PR cilium/cilium#44700, Upstream PR cilium/cilium#44513, @akos011221)
+* gateway-api: Fix hostname intersection bug that was preventing cert-manager challenges from working correctly. (Backport PR cilium/cilium#44519, Upstream PR cilium/cilium#44492, @youngnick)
+* l7lb: fix bypassing ingress policies for local backends (Backport PR cilium/cilium#44804, Upstream PR cilium/cilium#44693, @smagnani96)
+* loadbalancer/healthserver: refresh ProxyRedirect per request (Backport PR cilium/cilium#44399, Upstream PR cilium/cilium#44286, @mhofstetter)
+
+**CI Changes:**
+* gh: e2e-upgrade: don't hardcode IPsec encryption algorithm (Backport PR cilium/cilium#44519, Upstream PR cilium/cilium#44381, @julianwiedmann)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#44372, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#44480, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#44579, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#44681, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#44791, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.18) (cilium/cilium#44369, @cilium-renovate[bot])
+* chore(deps): update base-images (v1.18) (cilium/cilium#44580, @cilium-renovate[bot])
+* chore(deps): update base-images (v1.18) (cilium/cilium#44678, @cilium-renovate[bot])
+* chore(deps): update base-images to v1.25.8 (v1.18) (cilium/cilium#44810, @cilium-renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.19.1 (v1.18) (cilium/cilium#44344, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.1 (v1.18) (cilium/cilium#44401, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.19.2 (v1.18) (cilium/cilium#44577, @cilium-renovate[bot])
+* chore(deps): update dependency sphinx-tabs to v3.5.0 (v1.18) (cilium/cilium#44679, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:24.04 docker digest to d1e2e92 (v1.18) (cilium/cilium#44476, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to e3f9456 (v1.18) (cilium/cilium#44797, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to f512d81 (v1.18) (cilium/cilium#44575, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.6.8 (v1.18) (cilium/cilium#44370, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.4.1 (v1.18) (cilium/cilium#44680, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1770979049-232ed4a26881e4ab4f766f251f258ed424fff663 (v1.18) (cilium/cilium#44371, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1771585526-532310e626e42c7086de4ef3ea913736125bbd31 (v1.18) (cilium/cilium#44478, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773220507-ffc0948a7ec4868e6b552a71cf4d3860e78b53cc (v1.18) (cilium/cilium#44676, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773405792-4046425704636ea5b770460c20c065069cf572dc (v1.18) (cilium/cilium#44789, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1773656288-7b052e66eb2cfc5ac130ce0a5be66202a10d83be (v1.18) (cilium/cilium#44807, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#44252, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#44479, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#44677, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#44790, @cilium-renovate[bot])
+* Docs: improve docs around ipsec upgrade in 1.18 (Backport PR cilium/cilium#44399, Upstream PR cilium/cilium#44302, @darox)
+* fix(deps): update k8s.io patch updates stable (v1.18) (cilium/cilium#44477, @cilium-renovate[bot])
+* fix(deps): update k8s.io patch updates stable to v0.33.9 (v1.18) (patch) (cilium/cilium#44578, @cilium-renovate[bot])
+* fix(deps): update sigs.k8s.io/mcs-api/controllers digest to 0f775a3 (v1.18) (cilium/cilium#44576, @cilium-renovate[bot])
+* fix(deps): update sigs.k8s.io/mcs-api/controllers digest to 15301c2 (v1.18) (cilium/cilium#44675, @cilium-renovate[bot])
+* loadbalancer/healthserver: stabilize proxy-redirect test (Backport PR cilium/cilium#44519, Upstream PR cilium/cilium#44323, @mhofstetter)
+
+**Other Changes:**
+* [1.18] gha: Use eks 1.32 from us-west-2 (cilium/cilium#44753, @sayboras)
+* [v1.18] endpoint/bpf: remove change empty condition for updateEnvoy (cilium/cilium#44616, @liyihuang)
+* [v1.18] gh: verifier: disable RHEL8 (cilium/cilium#44317, @julianwiedmann)
+* [v1.18] loadbalancer: Fix flake in hybrid-dsr.txtar (cilium/cilium#44756, @julianwiedmann)
+* install: Update image digests for v1.18.7 (cilium/cilium#44326, @cilium-release-bot[bot])
+
 ## v1.18.7
 
 Summary of Changes
