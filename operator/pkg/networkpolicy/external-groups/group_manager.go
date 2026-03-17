@@ -101,12 +101,19 @@ func NewGroupManager(params ExternalGroupManagerParams) ExternalGroupManager {
 		params.CCGResource,
 	))
 
+	// synchronize desired state to CCGs
+	params.JG.Add(job.OneShot(
+		"policy-external-groups-to-ccg",
+		gm.sync,
+	))
+
 	return gm
 }
 
 func newGroupManager(params ExternalGroupManagerParams) *externalGroupManager {
 	gc := &externalGroupManager{
 		log: params.Log,
+		cfg: params.Cfg,
 
 		db:  params.DB,
 		tbl: params.EGTable,
@@ -127,6 +134,7 @@ func newGroupManager(params ExternalGroupManagerParams) *externalGroupManager {
 
 type externalGroupManager struct {
 	log *slog.Logger
+	cfg ExtGroupConfig
 
 	db  *statedb.DB
 	tbl statedb.RWTable[*ExternalGroup]
