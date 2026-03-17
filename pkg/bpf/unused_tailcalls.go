@@ -43,7 +43,7 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 	// Build a map of tail call slots to reachableSpecs.
 	tails := make(map[uint32]*reachableSpec)
 	for _, r := range reach {
-		if !isTailCall(r.ProgramSpec) {
+		if !IsTailCall(r.ProgramSpec) {
 			continue
 		}
 
@@ -152,7 +152,7 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) {
 	var deleted []string
 	for name, prog := range spec.Programs {
-		if !isTailCall(prog) {
+		if !IsTailCall(prog) {
 			continue
 		}
 
