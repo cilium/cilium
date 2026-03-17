@@ -43,6 +43,7 @@ var (
 
 func newEGM(t *testing.T) *externalGroupManager {
 	params := ExternalGroupManagerParams{
+		Cfg: defaultExtGroupConfig,
 		Log: hivetest.Logger(t),
 		DB:  statedb.New(),
 	}
