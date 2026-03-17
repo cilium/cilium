@@ -209,7 +209,11 @@ func (f *SocketFilter) MatchSocket(socket netlink.SocketID) bool {
 
 func filterAndDestroySockets(family, protocol uint8, states uint32, socketCB func(socket netlink.SocketID, err error)) error {
 	return iterateNetlinkSockets(protocol, family, states, func(sockInfo *Socket, err error) error {
-		socketCB(sockInfo.ID, err)
+		if err != nil {
+			socketCB(netlink.SocketID{}, err)
+			return nil
+		}
+		socketCB(sockInfo.ID, nil)
 		return nil
 	})
 }
