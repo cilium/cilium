@@ -1633,8 +1633,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			var err error
 			proxyPort, err = epPolicy.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, listener)
 			if err != nil {
-				logger.Warn(
-					"AccumulateMapChanges: Missing redirect.",
+				logArgs := []any{
 					logfields.EndpointSelector, cs,
 					logfields.Port, port,
 					logfields.Protocol, proto,
@@ -1643,7 +1642,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 					logfields.IsRedirect, redirect,
 					logfields.Listener, listener,
 					logfields.ListenerPriority, listenerPriority,
-				)
+				}
+				// If the redirect is configured through a listener, it is possible that listener
+				// configuration is in progress. Policy will be automatically regenerated once
+				// the listener is programmed.
+				if len(listener) != 0 {
+					logger.Info("AccumulateMapChanges: Missing redirect.", logArgs...)
+				} else {
+					logger.Warn("AccumulateMapChanges: Missing redirect.", logArgs...)
+				}
+
 				continue
 			}
 		}
