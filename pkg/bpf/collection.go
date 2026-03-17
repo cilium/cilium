@@ -48,9 +48,9 @@ func isEntrypoint(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/entry")
 }
 
-// isTailCall returns true if the program is marked with the __declare_tail()
+// IsTailCall returns true if the program is marked with the __declare_tail()
 // annotation.
-func isTailCall(prog *ebpf.ProgramSpec) bool {
+func IsTailCall(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/tail")
 }
 
@@ -58,7 +58,7 @@ func isTailCall(prog *ebpf.ProgramSpec) bool {
 // marked with the __declare_tail() annotation. The slot is the index in the
 // calls map that the program will be called from.
 func tailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
-	if !isTailCall(prog) {
+	if !IsTailCall(prog) {
 		return 0, fmt.Errorf("program %s is not a tail call", prog.Name)
 	}
 
@@ -92,7 +92,7 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 
 	slots := make(map[uint32]struct{})
 	for name, prog := range spec.Programs {
-		if !isTailCall(prog) {
+		if !IsTailCall(prog) {
 			continue
 		}
 
