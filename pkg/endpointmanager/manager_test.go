@@ -4,6 +4,7 @@
 package endpointmanager
 
 import (
+	"context"
 	"net/netip"
 	"sync"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/completion"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -76,6 +78,25 @@ func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr 
 }
 
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
+func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *testing.T) {
+	logger := hivetest.Logger(t)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	proxyWaitGroup := completion.NewWaitGroup(ctx)
+	const blockingCompletionID = "blocking-proxy-policy-update"
+
+	// Leave the completion pending so the wait group times out while waiting on it.
+	proxyWaitGroup.AddCompletion(func() string { return blockingCompletionID })
+
+	err := mgr.waitForProxyCompletions(proxyWaitGroup)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "Waiting on "+blockingCompletionID)
 }
 
 func TestLookup(t *testing.T) {
