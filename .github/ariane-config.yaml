@@ -68,7 +68,12 @@ triggers:
     - conformance-ztunnel-e2e.yaml
     depends-on:
     - /build-images-dependency
-  /ci-eks:
+  /ci-eks(?:\s+gateway-api=true)?:
+    workflows:
+    - conformance-eks.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-gateway-api-eks:
     workflows:
     - conformance-eks.yaml
     depends-on:

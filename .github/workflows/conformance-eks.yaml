@@ -527,6 +527,265 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  gateway-api-conformance:
+    name: Gateway API Conformance Test (EKS)
+    needs: [wait-for-images, generate-matrix]
+    if: ${{ fromJson(inputs.extra-args || '{}')['gateway-api'] == true && needs.generate-matrix.outputs.empty == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To allow retrieving information from the PR API
+      pull-requests: read
+      # To be able to set commit status
+      statuses: write
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
+    env:
+      job_name: "Gateway API Conformance Test (EKS)"
+      timeout: 5m
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - crd-channel: standard
+            default: true
+
+    steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Get PR base branch
+        id: get-base-branch
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Base branch for PR #${{ inputs.PR-number }}: $BASE_BRANCH"
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          # Reuse default matrix entry for cluster configuration
+          DEFAULT_MATRIX='${{ needs.generate-matrix.outputs.matrix }}'
+          DEFAULT_ENTRY=$(echo "$DEFAULT_MATRIX" | jq -c '.include[0]')
+          VERSION=$(echo "$DEFAULT_ENTRY" | jq -r '.version')
+          REGION=$(echo "$DEFAULT_ENTRY" | jq -r '.region')
+
+          VERSION_SANITIZED="${VERSION//[.]/-}"
+          CLUSTER_NAME="${{ env.clusterNamePrefix }}-gwapi-${VERSION_SANITIZED}"
+          CLUSTER_NAME_HASH=$(echo -n "${CLUSTER_NAME}" | sha256sum | cut -c1-10)
+          HELM_CLUSTER_NAME="cilium-${CLUSTER_NAME_HASH}-${VERSION_SANITIZED}"
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
+            --helm-set=hubble.relay.enabled=true \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=gatewayAPI.enabled=true \
+            --wait=false"
+
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
+          SKIPPED_TESTS="MeshGRPCRouteWeight,MeshHTTPRouteMatching,MeshHTTPRouteNamedRule"
+
+          echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+          echo version=${VERSION} >> $GITHUB_OUTPUT
+          echo region=${REGION} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo exempt_features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
+          echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ steps.vars.outputs.region }}
+          role-duration-seconds: 28800 # 8h
+
+      - name: Setup EKS cluster (from pool or create new)
+        id: setup-cluster
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ steps.vars.outputs.version }}
+          addons: "coredns kube-proxy"
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      - name: Install Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.1
+
+      - name: Install tparse
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
+          go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Gateway API CRDs (standard channel)
+        run: |
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          GW_CHANNEL="standard" \
+          GW_VERSION="$gateway_api_version" \
+          make kind-servicemesh-prereqs
+
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/grpcroutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Create EKS nodegroups
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.setup-cluster.outputs.cluster_name }}
+          region: ${{ steps.vars.outputs.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ steps.vars.outputs.version }}
+          spot: false
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods -n kube-system
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run Gateway API conformance test
+        timeout-minutes: 30
+        run: |
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --allow-crds-mismatch --cleanup-base-resources=false \
+            --exempt-features \"${{ steps.vars.outputs.exempt_features }}\" \
+            -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ matrix.crd-channel }}) - gateway-conformance.xml" \
+          GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
+          make gateway-api-conformance
+
+      - name: Run common post steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "eks-gwapi-${{ matrix.crd-channel }}-${{ inputs.UID }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+
+      - name: Trigger cluster deletion workflow
+        if: ${{ always() && steps.setup-cluster.outputs.cluster_name != '' }}
+        continue-on-error: true
+        run: |
+          CLUSTER_NAME="${{ steps.setup-cluster.outputs.cluster_name }}"
+          REGION="${{ steps.vars.outputs.region }}"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_call" ]; then
+            REF="${{ steps.get-base-branch.outputs.base-branch }}"
+          else
+            REF="${{ github.ref_name }}"
+          fi
+
+          gh workflow run eks-cluster-delete.yaml \
+            --ref "$REF" \
+            --field cluster_name="$CLUSTER_NAME" \
+            --field region="$REGION"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
