@@ -21,7 +21,8 @@ const (
 	node1 = "10.0.0.1"
 	node2 = "10.0.0.2"
 
-	MaxCompletionDuration = 250 * time.Millisecond
+	MaxCompletionDuration      = 100 * time.Millisecond
+	CompletionAssertionTimeout = 1 * time.Second
 )
 
 type compCheck struct {
@@ -52,17 +53,23 @@ func newCompCallback() (func(error), *compCheck) {
 
 func completedComparison(comp *compCheck) assert.Comparison {
 	return func() bool {
-		return completedInTime(comp)
+		return completedWithin(comp, CompletionAssertionTimeout)
 	}
 }
 
 func isNotCompletedComparison(comp *compCheck) assert.Comparison {
 	return func() bool {
-		return !completedInTime(comp)
+		return !completedWithin(comp, 0)
 	}
 }
 
-func completedInTime(comp *compCheck) bool {
+func doesNotCompleteComparison(comp *compCheck) assert.Comparison {
+	return func() bool {
+		return !completedWithin(comp, MaxCompletionDuration)
+	}
+}
+
+func completedWithin(comp *compCheck, wait time.Duration) bool {
 	if comp == nil {
 		return false
 	}
@@ -71,10 +78,22 @@ func completedInTime(comp *compCheck) bool {
 		return false
 	}
 
+	if wait <= 0 {
+		select {
+		case comp.err = <-comp.ch:
+			return comp.err == nil
+		default:
+			return false
+		}
+	}
+
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
 	select {
 	case comp.err = <-comp.ch:
 		return comp.err == nil
-	case <-time.After(MaxCompletionDuration):
+	case <-timer.C:
 		return false
 	}
 }
