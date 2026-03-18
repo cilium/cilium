@@ -18,6 +18,7 @@ packages=(
   kmod
   ca-certificates
   libatomic1
+  pciutils
 )
 
 export DEBIAN_FRONTEND=noninteractive
