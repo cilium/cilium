@@ -21,6 +21,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Get runner public IP
+      id: get-runner-ip
+      uses: ./.github/actions/get-runner-ip
+      with:
+        source: https://checkip.amazonaws.com
+        parsing: text
+
     - name: Create EKS cluster
       shell: bash
       run: |
@@ -35,6 +42,10 @@ runs:
           tags:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
+        clusterEndpoints:
+            publicAccess: true
+            privateAccess: true
+          publicAccessCidrs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
 
         managedNodeGroups:
         - name: ng-amd64
