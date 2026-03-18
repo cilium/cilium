@@ -86,7 +86,12 @@ triggers:
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
-  /ci-gke(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)))?:
+  /ci-gke(?:\s+(versions=(all)|channel=(EXTENDED|REGULAR|STABLE|RAPID|NONE|extended|regular|stable|none)|gateway-api=true))*:
+    workflows:
+    - conformance-gke.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-gateway-api-gke:
     workflows:
     - conformance-gke.yaml
     depends-on:

@@ -495,6 +495,222 @@ jobs:
           gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
+  gateway-api-conformance:
+    name: Gateway API Conformance Test (GKE)
+    needs: [wait-for-images, generate-matrix]
+    if: ${{ fromJson(inputs.extra-args || '{}')['gateway-api'] == true && needs.generate-matrix.outputs.empty == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To allow retrieving information from the PR API
+      pull-requests: read
+      # To be able to set commit status
+      statuses: write
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
+    env:
+      job_name: "Gateway API Conformance Test (GKE)"
+      timeout: 5m
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - crd-channel: standard
+            default: true
+
+    steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Truncate owner label for GKE
+        id: truncate-owner
+        uses: ./.github/actions/truncate-label
+        with:
+          label: ${{ github.event_name == 'workflow_dispatch' && inputs.PR-number || github.ref_name }}
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          OWNER="${{ steps.truncate-owner.outputs.truncated_label }}"
+
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=cluster.name=${{ env.clusterName }}-gwapi \
+            --helm-set=hubble.relay.enabled=true \
+            --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=gatewayAPI.enabled=true \
+            --wait=false"
+
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
+          SKIPPED_TESTS="MeshGRPCRouteWeight,MeshHTTPRouteMatching,MeshHTTPRouteNamedRule"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo exempt_features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
+          echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PR_SA }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          version: ${{ env.gcloud_version }}
+
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+
+      - name: Create GKE cluster
+        id: create-cluster
+        uses: ./.github/actions/setup-gke-cluster
+        with:
+          cluster-name: ${{ env.clusterName }}-gwapi
+          zone: ${{ fromJson(needs.generate-matrix.outputs.matrix).k8s[0].zone }}
+          cluster-version: ${{ fromJson(needs.generate-matrix.outputs.matrix).k8s[0].version }}
+          nodes: 2
+          machine-type: e2-custom-2-4096
+          labels: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}"
+
+      - name: Get cluster credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.clusterName }}-gwapi --zone ${{ fromJson(needs.generate-matrix.outputs.matrix).k8s[0].zone }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      - name: Install Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.1
+
+      - name: Install tparse
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
+          go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Gateway API CRDs (standard channel)
+        run: |
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          GW_CHANNEL="standard" \
+          GW_VERSION="$gateway_api_version" \
+          make kind-servicemesh-prereqs
+
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/grpcroutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --helm-set=ipv4NativeRoutingCIDR=${{ steps.create-cluster.outputs.native_cidr }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods -n kube-system
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run Gateway API conformance test
+        timeout-minutes: 30
+        run: |
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --allow-crds-mismatch --cleanup-base-resources=false \
+            --exempt-features \"${{ steps.vars.outputs.exempt_features }}\" \
+            -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ matrix.crd-channel }}) - gateway-conformance.xml" \
+          GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
+          make gateway-api-conformance
+
+      - name: Run common post steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "gke-gwapi-${{ matrix.crd-channel }}-${{ inputs.UID }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+
+      - name: Clean up GKE
+        if: ${{ always() }}
+        run: |
+          while [ "$(gcloud container operations list --zone ${{ fromJson(needs.generate-matrix.outputs.matrix).k8s[0].zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-gwapi" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
+          gcloud container clusters delete ${{ env.clusterName }}-gwapi --zone ${{ fromJson(needs.generate-matrix.outputs.matrix).k8s[0].zone }} --quiet --async
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
