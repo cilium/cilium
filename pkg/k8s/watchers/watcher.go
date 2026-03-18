@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 
@@ -54,7 +53,7 @@ type endpointManager interface {
 	GetHostEndpoint() *endpoint.Endpoint
 	GetEndpointsByPodName(string) []*endpoint.Endpoint
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
-	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
+	UpdatePolicyMaps(context.Context) error
 }
 
 type nodeManager interface {
