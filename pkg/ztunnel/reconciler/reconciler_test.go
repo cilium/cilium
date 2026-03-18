@@ -179,7 +179,7 @@ func (m *MockEndpointManager) Unsubscribe(s endpointmanager.Subscriber) {
 	delete(m.subscribers, s)
 }
 
-func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
+func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	panic("MockEndpointManager.UpdatePolicyMaps not implemented")
 }
 

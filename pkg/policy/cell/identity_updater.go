@@ -5,6 +5,7 @@ package policycell
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"maps"
 	"slices"
@@ -206,15 +207,24 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	// UpdatePolicyMaps also waits for notifications to be complete, but we already waited :-)
-	noopWG := &sync.WaitGroup{}
-
 	// Direct all endpoints to consume the incremental changes and update policy.
-	// This returns a wg that is done when all endpoints have updated both their bpf
+	// This waits until all endpoints have updated both their bpf
 	// policymaps as well as Envoy. (Or if ctx is closed).
 	i.logger.Debug("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
-	updatedWG := i.epmanager.UpdatePolicyMaps(ctx, noopWG)
-	updatedWG.Wait()
+	err := i.epmanager.UpdatePolicyMaps(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		i.logger.Warn("Endpoint proxy policy update timed out. Retrying...",
+			logfields.Error, err)
+
+		// enqueue a dummy update and trigger again
+		wg := &sync.WaitGroup{}
+		i.enqueue(wg, time.Now(), false)
+		i.updatePolicyMaps.Trigger()
+
+		// proceed as if the proxy updates had completed. This is to guard against stalling
+		// for repeated timeouts
+	}
+
 	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(q.firstStartTime).Seconds())
 
 	// We mutated a selector, we must regenerate.

@@ -156,7 +156,7 @@ func (m *MockEndpointManager) Unsubscribe(s endpointmanager.Subscriber) {
 	m._Unsubscribe(s)
 }
 
-func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
+func (m *MockEndpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	panic("MockEndpointManager.UpdatePolicyMaps not implemented")
 }
 
