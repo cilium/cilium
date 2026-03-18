@@ -132,11 +132,11 @@ type EndpointManager interface {
 	// Unsubscribe from endpoint events.
 	Unsubscribe(s Subscriber)
 
-	// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
-	// have had their PolicyMaps updated against the Endpoint's desired policy state.
-	//
-	// Endpoints will wait on the 'notifyWg' parameter before updating policy maps.
-	UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup
+	// UpdatePolicyMaps updates policy maps and proxy network policies for all endpoints
+	// against the Endpoint's desired policy state.
+	// Waits for the policy updates to be completed before returning.
+	// Returns an error if the proxy policy update fails, times out, or is cancelled.
+	UpdatePolicyMaps(ctx context.Context) error
 
 	// RegenerateAllEndpoints calls a setState for each endpoint and
 	// regenerates if state transaction is valid. During this process, the endpoint
