@@ -103,11 +103,35 @@ namespace.
 Namespace Specific Information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Using namespace-specific information like
-``io.cilium.k8s.namespace.labels`` within a ``fromEndpoints`` or
-``toEndpoints`` is supported only for a :ref:`CiliumClusterwideNetworkPolicy`
-and not a :ref:`CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
-will be ignored in :ref:`CiliumNetworkPolicy` resources.
+Namespace-specific information such as ``io.cilium.k8s.namespace.labels``
+can be used within ``fromEndpoints`` and ``toEndpoints`` in both
+:ref:`CiliumNetworkPolicy` and :ref:`CiliumClusterwideNetworkPolicy` resources
+to match pods based on the labels of the namespace they belong to.
+
+The label format is ``io.cilium.k8s.namespace.labels.<label-key>``, where
+``<label-key>`` corresponds to a label on the Kubernetes namespace.
+
+When namespace labels are specified in a ``fromEndpoints`` or ``toEndpoints``
+selector within a :ref:`CiliumNetworkPolicy`, the selector is not implicitly
+restricted to the policy's own namespace. This allows matching pods across
+namespaces based on namespace labels.
+
+.. note:: The ``endpointSelector`` always applies to pods in the namespace
+          associated with the :ref:`CiliumNetworkPolicy` resource itself, regardless
+          of any namespace labels used in ``fromEndpoints`` or ``toEndpoints``.
+
+.. _example_cnp_namespace_labels:
+
+Example
+^^^^^^^
+
+The following example restricts ``rebel-base`` pods to only communicate with
+pods in namespaces labeled ``faction: alliance``. As the Rebel Alliance
+operates across multiple namespaces, namespace labels allow this policy to
+apply to all Alliance namespaces without listing each one by name.
+
+.. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-labels-policy.yaml
+  :language: yaml
 
 Match Expressions
 ~~~~~~~~~~~~~~~~~
