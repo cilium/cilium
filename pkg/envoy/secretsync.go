@@ -99,6 +99,7 @@ func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev
 	resource := Resources{
 		Secrets: []*envoy_extensions_tls_v3.Secret{envoySecret},
 	}
+	// UpsertEnvoyResources does not Wait for an Envoy response when only Secrets are upserted.
 	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
 
@@ -116,6 +117,7 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 			},
 		},
 	}
+	// DeleteEnvoyResources does not Wait for an Envoy response when only Secrets are deleted.
 	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource)
 }
 
