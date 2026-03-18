@@ -45,6 +45,13 @@ const (
 	addrDel ipamAction = "del"
 )
 
+type routeAction string
+
+const (
+	routeAdd routeAction = "add"
+	routeDel routeAction = "del"
+)
+
 var resourceIPAM = cell.Group(
 	cell.Config(defaultIPAMConfig),
 

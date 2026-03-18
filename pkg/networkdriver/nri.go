@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -88,7 +89,12 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 					if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
 						return err
 					}
+
 					if err := netlink.LinkSetUp(l); err != nil {
+						return err
+					}
+
+					if err := driver.setRoutes(l, routeAdd, a.Config.Routes); err != nil {
 						return err
 					}
 
@@ -150,6 +156,10 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 						return err
 					}
 
+					if err := driver.setRoutes(l, routeDel, a.Config.Routes); err != nil {
+						return err
+					}
+
 					if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
 						return err
 					}
@@ -206,6 +216,37 @@ func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6
 	}
 
 	return errors.Join(errs...)
+}
+
+func (driver *Driver) setRoutes(l netlink.Link, action routeAction, routes types.RouteSet) error {
+	var (
+		errs error
+	)
+
+	for dst, gwList := range routes {
+		route := netlink.Route{
+			LinkIndex: l.Attrs().Index,
+			Dst:       netipx.PrefixIPNet(dst),
+		}
+
+		for gw := range gwList {
+			route.MultiPath = append(route.MultiPath, &netlink.NexthopInfo{LinkIndex: l.Attrs().Index, Gw: gw.AsSlice()})
+		}
+
+		switch action {
+		case routeAdd:
+			if err := netlink.RouteAppend(&route); err != nil {
+				errs = errors.Join(errs, err)
+			}
+		case routeDel:
+			if err := netlink.RouteDel(&route); err != nil {
+				errs = errors.Join(errs, err)
+			}
+		}
+
+	}
+
+	return errs
 }
 
 func (driver *Driver) startNRI(ctx context.Context) error {

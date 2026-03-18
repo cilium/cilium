@@ -138,13 +138,107 @@ type DeviceManagerConfig interface {
 
 type RouteSet map[netip.Prefix]AddrSet
 
-type AddrSet map[netip.Prefix]struct{}
+// MarshalJSON implements json.Marshaler for RouteSet.
+// It converts the map to JSON format: {"prefix": ["addr1", "addr2"]}
+func (r RouteSet) MarshalJSON() ([]byte, error) {
+	if r == nil {
+		return []byte("null"), nil
+	}
+
+	m := make(map[string][]string, len(r))
+	for prefix, addrSet := range r {
+		addrs := make([]string, 0, len(addrSet))
+		for addr := range addrSet {
+			addrs = append(addrs, addr.String())
+		}
+		m[prefix.String()] = addrs
+	}
+
+	return json.Marshal(m)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for RouteSet.
+// It parses JSON format: {"prefix": ["addr1", "addr2"]}
+func (r *RouteSet) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*r = nil
+		return nil
+	}
+
+	var m map[string][]string
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+
+	*r = make(RouteSet, len(m))
+	for prefixStr, addrs := range m {
+		prefix, err := netip.ParsePrefix(prefixStr)
+		if err != nil {
+			return err
+		}
+
+		addrSet := make(AddrSet, len(addrs))
+		for _, addrStr := range addrs {
+			addr, err := netip.ParseAddr(addrStr)
+			if err != nil {
+				return err
+			}
+			addrSet[addr] = struct{}{}
+		}
+
+		(*r)[prefix] = addrSet
+	}
+
+	return nil
+}
+
+type AddrSet map[netip.Addr]struct{}
+
+// MarshalJSON implements json.Marshaler for AddrSet.
+// It converts the set to a JSON array: ["addr1", "addr2"]
+func (a AddrSet) MarshalJSON() ([]byte, error) {
+	if a == nil {
+		return []byte("null"), nil
+	}
+
+	addrs := make([]string, 0, len(a))
+	for addr := range a {
+		addrs = append(addrs, addr.String())
+	}
+
+	return json.Marshal(addrs)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for AddrSet.
+// It parses a JSON array: ["addr1", "addr2"]
+func (a *AddrSet) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*a = nil
+		return nil
+	}
+
+	var addrs []string
+	if err := json.Unmarshal(data, &addrs); err != nil {
+		return err
+	}
+
+	*a = make(AddrSet, len(addrs))
+	for _, addrStr := range addrs {
+		addr, err := netip.ParseAddr(addrStr)
+		if err != nil {
+			return err
+		}
+		(*a)[addr] = struct{}{}
+	}
+
+	return nil
+}
 
 type DeviceConfig struct {
 	IPv4Addr netip.Prefix `json:"ipv4Addr"`
 	IPv6Addr netip.Prefix `json:"ipv6Addr"`
 	IPPool   string       `json:"ip-pool"`
-	Routes   RouteSet
+	Routes   RouteSet     `json:"routes"`
 	Vlan     uint16
 }
 
