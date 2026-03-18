@@ -24,6 +24,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Get runner public IP
+      id: get-runner-ip
+      uses: ./.github/actions/get-runner-ip
+      with:
+        source: https://checkip.amazonaws.com
+        parsing: text
+
     - name: Create EKS cluster with ${{ inputs.addons }}
       shell: bash
       run: |
@@ -43,6 +50,7 @@ runs:
           clusterEndpoints:
             publicAccess: true
             privateAccess: true
+          publicAccessCidrs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
 
         addonsConfig:
           disableDefaultAddons: true
