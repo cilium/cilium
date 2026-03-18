@@ -8,6 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -140,6 +144,32 @@ type pendingCompletion struct {
 	remainingNodesResources map[string]map[string]struct{}
 }
 
+func (pc *pendingCompletion) remainingString() string {
+	var sb strings.Builder
+
+	sb.WriteString("version:")
+	sb.WriteString(strconv.FormatUint(pc.version, 10))
+	sb.WriteString(",typeURL:")
+	sb.WriteString(pc.typeURL)
+	sb.WriteString(",remaining:[")
+	for i, node := range slices.Sorted(maps.Keys(pc.remainingNodesResources)) {
+		if i > 0 {
+			sb.WriteRune(',')
+		}
+		sb.WriteString(node)
+		sb.WriteString(":[")
+		for j, name := range slices.Sorted(maps.Keys(pc.remainingNodesResources[node])) {
+			if j > 0 {
+				sb.WriteRune(',')
+			}
+			sb.WriteString(name)
+		}
+		sb.WriteString("]")
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
 // NewAckingResourceMutatorWrapper creates a new AckingResourceMutatorWrapper
 // to wrap the given ResourceMutator.
 func NewAckingResourceMutatorWrapper(logger *slog.Logger, mutator ResourceMutator, metrics Metrics) *AckingResourceMutatorWrapper {
@@ -234,7 +264,7 @@ func (m *AckingResourceMutatorWrapper) addCurrentVersionCompletion(typeURL strin
 		typeURL:                 typeURL,
 		remainingNodesResources: remainingNodesResources,
 	}
-	c := wg.AddCompletionWithCallback(callback)
+	c := wg.AddCompletionWithCallback(comp.remainingString, callback)
 	m.pendingCompletions[c] = comp
 	return true
 }
@@ -327,9 +357,6 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	}
 
 	if wait {
-		// Create a new completion
-		c := wg.AddCompletionWithCallback(callback)
-
 		comp := &pendingCompletion{
 			version:                 m.version,
 			typeURL:                 typeURL,
@@ -339,6 +366,8 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
 			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
 		}
+
+		c := wg.AddCompletionWithCallback(comp.remainingString, callback)
 		m.pendingCompletions[c] = comp
 	} else if callback != nil {
 		callback(nil)
