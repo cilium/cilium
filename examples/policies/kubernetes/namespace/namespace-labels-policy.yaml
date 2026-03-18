@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "alliance-only"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: rebel-base
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.cilium.k8s.namespace.labels.faction: "alliance"
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.cilium.k8s.namespace.labels.faction: "alliance"
