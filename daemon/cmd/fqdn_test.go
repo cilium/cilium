@@ -65,7 +65,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	d := &Daemon{}
 	d.ctx = context.Background()
 	d.policy = policy.NewPolicyRepository(nil, nil, nil, nil, api.NewPolicyMetricsNoop())
-	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil)
+	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil, endpointmanager.EndpointManagerConfig{})
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),
 		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),

@@ -65,6 +65,7 @@ cilium-agent hive dot-graph [flags]
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
+      --endpoint-policy-update-timeout duration                   Timeout duration for Endpoint policy updates (default 10s)
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --envoy-access-log-buffer-size uint                         Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                        Envoy base ID

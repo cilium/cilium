@@ -49,6 +49,8 @@ const regenEndpointControllerName = "endpoint-periodic-regeneration"
 // endpointManager is a structure designed for containing state about the
 // collection of locally running endpoints.
 type endpointManager struct {
+	config EndpointManagerConfig
+
 	health cell.Health
 
 	// mutex protects endpoints and endpointsAux
@@ -103,8 +105,9 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, config EndpointManagerConfig) *endpointManager {
 	mgr := endpointManager{
+		config:                       config,
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
@@ -190,6 +193,9 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithTimeout(ctx, mgr.config.EndpointPolicyUpdateTimeout)
+	defer cancel()
 
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 

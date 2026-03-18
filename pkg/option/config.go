@@ -862,6 +862,9 @@ const (
 	// EndpointRegenInterval is the interval of the periodic endpoint regeneration loop.
 	EndpointRegenInterval = "endpoint-regen-interval"
 
+	// EndpointPolicyUpdateTimeout is the timeout duration for Endpoint policy updates.
+	EndpointPolicyUpdateTimeout = "endpoint-policy-update-timeout"
+
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
 
