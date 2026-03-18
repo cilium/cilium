@@ -5,6 +5,7 @@ package identitycachecell
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"maps"
 	"net"
@@ -234,15 +235,24 @@ func (iao *identityAllocatorOwner) doUpdatePolicyMaps(ctx context.Context) error
 		return ctx.Err()
 	}
 
-	// UpdatePolicyMaps also waits for notifications to be complete, but we already waited :-)
-	noopWG := &sync.WaitGroup{}
-
 	// Direct all endpoints to consume the incremental changes and update policy.
-	// This returns a wg that is done when all endpoints have updated both their bpf
+	// This waits until all endpoints have updated both their bpf
 	// policymaps as well as Envoy. (Or if ctx is closed).
 	log.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
-	updatedWG := iao.epmanager.UpdatePolicyMaps(ctx, noopWG)
-	updatedWG.Wait()
+	err := iao.epmanager.UpdatePolicyMaps(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		log.WithField(logfields.Error, err).Warn("Endpoint proxy policy update timed out. Retrying...")
+
+		// enqueue a dummy update and trigger again
+		wg := &sync.WaitGroup{}
+		iao.wgsLock.Lock()
+		iao.wgs = append(iao.wgs, wg)
+		iao.wgsLock.Unlock()
+		iao.updatePolicyMaps.Trigger()
+
+		// proceed as if the proxy updates had completed. This is to guard against stalling
+		// for repeated timeouts
+	}
 	return nil
 }
 

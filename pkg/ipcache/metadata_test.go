@@ -1190,8 +1190,8 @@ func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMap, _ *s
 
 type mockTriggerer struct{}
 
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
+func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context) error {
+	return nil
 }
 
 func Test_canonicalPrefix(t *testing.T) {

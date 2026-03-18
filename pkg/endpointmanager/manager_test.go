@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiv1 "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -126,6 +127,22 @@ func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr 
 }
 
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
+func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	proxyWaitGroup := completion.NewWaitGroup(ctx)
+	const blockingCompletionID = "blocking-proxy-policy-update"
+
+	// Leave the completion pending so the wait group times out while waiting on it.
+	proxyWaitGroup.AddCompletion(func() string { return blockingCompletionID })
+
+	err := waitForProxyCompletions(proxyWaitGroup)
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "Waiting on "+blockingCompletionID)
 }
 
 func TestLookup(t *testing.T) {

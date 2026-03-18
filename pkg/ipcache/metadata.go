@@ -649,8 +649,10 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 		}
 	}
 
-	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
-	policyImplementedWG.Wait()
+	err := ipc.DatapathHandler.UpdatePolicyMaps(ctx)
+	if err != nil {
+		log.WithField(logfields.Error, err).Error("Failed to update datapath policy maps for IPCache update")
+	}
 
 	return mutated
 }

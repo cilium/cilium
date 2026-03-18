@@ -186,12 +186,11 @@ func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	return nil
 }
 
-// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
-// have had their PolicyMaps updated against the Endpoint's desired policy state.
+// UpdatePolicyMaps applies incremental policy map changes and waits for Envoy to have applied the
+// new policy. Returns the error from the wait on proxy completions.
 //
-// Endpoints will wait on the 'notifyWg' parameter before updating policy maps.
-func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
-	var epWG sync.WaitGroup
+// The configured EndpointPolicyUpdateTimeout will be applied on the given context.
+func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithTimeout(ctx, mgr.config.EndpointPolicyUpdateTimeout)
@@ -200,33 +199,27 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
-	epWG.Add(len(eps))
-	wg.Add(1)
+	wg.Add(len(eps))
 
-	// This is in a goroutine to allow the caller to proceed with other tasks before waiting for the ACKs to complete
-	go func() {
-		// Wait for all the eps to have applied policy map
-		// changes before waiting for the changes to be ACKed
-		epWG.Wait()
-		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
-			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
-		}
-		wg.Done()
-	}()
-
-	// TODO: bound by number of CPUs?
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			// Proceed only after all notifications have been delivered to endpoints
-			notifyWg.Wait()
 			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
 				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
 			}
-			epWG.Done()
+			wg.Done()
 		}(ep)
 	}
 
-	return &wg
+	// Wait for all the eps to have applied policy map
+	// changes before waiting for the changes to be ACKed
+	wg.Wait()
+
+	err := waitForProxyCompletions(proxyWaitGroup)
+	if err != nil {
+		log.WithField(logfields.Error, err).Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
+	}
+
+	return err
 }
 
 // InitMetrics hooks the endpointManager into the metrics subsystem. This can
