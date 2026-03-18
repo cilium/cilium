@@ -26,32 +26,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Get Runner IP
+    - name: Get runner public IP
       id: get-runner-ip
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      uses: ./.github/actions/get-runner-ip
       with:
-        script: |
-          const net = require('net');
-          const url = 'https://whatismyip.azurewebsites.net/json/';
-          const res = await fetch(
-            url, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json'
-              }
-            });
-
-          if (!res.ok) {
-            throw new Error(`Failed to fetch IP address: ${res.status} ${res.statusText}`);
-          }
-
-          const data = await res.json();
-          const ip = data.ip;
-          if (!net.isIP(ip)) {
-            throw new Error(`Invalid IP address: ${ip}`);
-          }
-
-          return `${ip}/32`;
+        source: https://whatismyip.azurewebsites.net/json/
+        parsing: json
+        json-key: ip
 
     - name: Create AKS cluster
       shell: bash
@@ -84,5 +65,5 @@ runs:
           --ip-families ipv4,ipv6 \
           ${{ inputs.taints }} \
           --generate-ssh-keys \
-          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.result }}
+          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
 

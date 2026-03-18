@@ -88,6 +88,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
+      - name: Get runner public IP
+        id: get-runner-ip
+        uses: ./.github/actions/get-runner-ip
+        with:
+          source: https://checkip.amazonaws.com
+          parsing: text
+
       - name: List and delete old clusters
         env:
           REGION: ${{ matrix.region }}
@@ -176,6 +183,11 @@ jobs:
                 echo "Removing kubeconfigs for cluster ${cluster} from S3 bucket ${S3_BUCKET}"
                 aws s3 rm "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --exclude "*" --include "${cluster}-*" --region ${REGION} || true
               fi
+
+              eksctl utils update-cluster-vpc-config --cluster ${cluster} \
+                --public-access-cidrs="${{ steps.get-runner-ip.outputs.cidr }}" \
+                --public-access=true --private-access=true --approve || \
+                echo "Failed to update cluster endpoints (may not have permissions)."
 
               # Delete the cluster
               eksctl delete cluster --name ${cluster} --region ${REGION} --wait || {

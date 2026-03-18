@@ -39,8 +39,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ inputs.region }}
 
+      - name: Get runner public IP
+        id: get-runner-ip
+        uses: ./.github/actions/get-runner-ip
+        with:
+          source: https://checkip.amazonaws.com
+          parsing: text
+
       - name: Delete EKS cluster
         run: |
+          eksctl utils update-cluster-vpc-config --cluster "${{ inputs.cluster_name }}" \
+            --public-access-cidrs="${{ steps.get-runner-ip.outputs.cidr }}" \
+            --public-access=true --private-access=true --approve || \
           eksctl delete cluster --name "${{ inputs.cluster_name }}" --region ${{ inputs.region }}
         shell: bash {0} # Disable default fail-fast behaviour
 
