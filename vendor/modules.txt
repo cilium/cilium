@@ -232,8 +232,8 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.20.1-0.20260218191617-ee67e7f43dd9
-## explicit; go 1.24.0
+# github.com/cilium/ebpf v0.19.0
+## explicit; go 1.23.0
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/btf
@@ -1734,6 +1734,8 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# gotest.tools/v3 v3.5.0
+## explicit; go 1.17
 # k8s.io/api v0.33.10
 ## explicit; go 1.24.0
 k8s.io/api/admission/v1

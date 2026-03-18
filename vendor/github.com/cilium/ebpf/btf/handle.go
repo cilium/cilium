@@ -1,6 +1,7 @@
 package btf
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -152,7 +153,7 @@ func (h *Handle) Spec(base *Spec) (*Spec, error) {
 		return nil, fmt.Errorf("missing base types")
 	}
 
-	return loadRawSpec(btfBuffer, base)
+	return loadRawSpec(bytes.NewReader(btfBuffer), internal.NativeEndian, base)
 }
 
 // Close destroys the handle.

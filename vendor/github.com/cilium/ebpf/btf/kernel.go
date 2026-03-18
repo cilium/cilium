@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"sort"
 	"sync"
@@ -13,7 +12,6 @@ import (
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/linux"
 	"github.com/cilium/ebpf/internal/platform"
-	"github.com/cilium/ebpf/internal/unix"
 )
 
 // globalCache amortises decoding BTF across all users of the library.
@@ -60,11 +58,6 @@ func loadCachedKernelSpec() (*Spec, error) {
 	globalCache.Lock()
 	defer globalCache.Unlock()
 
-	// check again, to prevent race between multiple callers
-	if globalCache.kernel != nil {
-		return globalCache.kernel, nil
-	}
-
 	spec, err := loadKernelSpec()
 	if err != nil {
 		return nil, err
@@ -108,11 +101,6 @@ func loadCachedKernelModuleSpec(module string) (*Spec, error) {
 	globalCache.Lock()
 	defer globalCache.Unlock()
 
-	// check again, to prevent race between multiple callers
-	if spec := globalCache.modules[module]; spec != nil {
-		return spec, nil
-	}
-
 	spec, err = loadKernelModuleSpec(module, base)
 	if err != nil {
 		return nil, err
@@ -122,7 +110,7 @@ func loadCachedKernelModuleSpec(module string) (*Spec, error) {
 	return spec, nil
 }
 
-func loadKernelSpec() (*Spec, error) {
+func loadKernelSpec() (_ *Spec, _ error) {
 	if platform.IsWindows {
 		return nil, internal.ErrNotSupportedOnOS
 	}
@@ -131,31 +119,8 @@ func loadKernelSpec() (*Spec, error) {
 	if err == nil {
 		defer fh.Close()
 
-		info, err := fh.Stat()
-		if err != nil {
-			return nil, fmt.Errorf("stat vmlinux: %w", err)
-		}
-
-		// NB: It's not safe to mmap arbitrary files because mmap(2) doesn't
-		// guarantee that changes made after mmap are not visible in the mapping.
-		//
-		// This is not a problem for vmlinux, since it is always a read-only file.
-		raw, err := unix.Mmap(int(fh.Fd()), 0, int(info.Size()), unix.PROT_READ, unix.MAP_PRIVATE)
-		if err != nil {
-			return LoadSplitSpecFromReader(fh, nil)
-		}
-
-		spec, err := loadRawSpec(raw, nil)
-		if err != nil {
-			_ = unix.Munmap(raw)
-			return nil, fmt.Errorf("load vmlinux: %w", err)
-		}
-
-		runtime.AddCleanup(spec.decoder.sharedBuf, func(b []byte) {
-			_ = unix.Munmap(b)
-		}, raw)
-
-		return spec, nil
+		spec, err := loadRawSpec(fh, internal.NativeEndian, nil)
+		return spec, err
 	}
 
 	file, err := findVMLinux()
@@ -184,7 +149,7 @@ func loadKernelModuleSpec(module string, base *Spec) (*Spec, error) {
 	}
 	defer fh.Close()
 
-	return LoadSplitSpecFromReader(fh, base)
+	return loadRawSpec(fh, internal.NativeEndian, base)
 }
 
 // findVMLinux scans multiple well-known paths for vmlinux kernel images.
@@ -225,9 +190,9 @@ func findVMLinux() (*os.File, error) {
 //
 // It is not safe for concurrent use.
 type Cache struct {
-	kernelTypes   *Spec
-	moduleTypes   map[string]*Spec
-	loadedModules []string
+	KernelTypes   *Spec
+	ModuleTypes   map[string]*Spec
+	LoadedModules []string
 }
 
 // NewCache creates a new Cache.
@@ -262,13 +227,13 @@ func NewCache() *Cache {
 // Kernel is equivalent to [LoadKernelSpec], except that repeated calls do
 // not copy the Spec.
 func (c *Cache) Kernel() (*Spec, error) {
-	if c.kernelTypes != nil {
-		return c.kernelTypes, nil
+	if c.KernelTypes != nil {
+		return c.KernelTypes, nil
 	}
 
 	var err error
-	c.kernelTypes, err = LoadKernelSpec()
-	return c.kernelTypes, err
+	c.KernelTypes, err = LoadKernelSpec()
+	return c.KernelTypes, err
 }
 
 // Module is equivalent to [LoadKernelModuleSpec], except that repeated calls do
@@ -276,12 +241,12 @@ func (c *Cache) Kernel() (*Spec, error) {
 //
 // All modules also share the return value of [Kernel] as their base.
 func (c *Cache) Module(name string) (*Spec, error) {
-	if spec := c.moduleTypes[name]; spec != nil {
+	if spec := c.ModuleTypes[name]; spec != nil {
 		return spec, nil
 	}
 
-	if c.moduleTypes == nil {
-		c.moduleTypes = make(map[string]*Spec)
+	if c.ModuleTypes == nil {
+		c.ModuleTypes = make(map[string]*Spec)
 	}
 
 	base, err := c.Kernel()
@@ -302,14 +267,14 @@ func (c *Cache) Module(name string) (*Spec, error) {
 	}
 
 	spec = &Spec{decoder: decoder}
-	c.moduleTypes[name] = spec
+	c.ModuleTypes[name] = spec
 	return spec, err
 }
 
 // Modules returns a sorted list of all loaded modules.
 func (c *Cache) Modules() ([]string, error) {
-	if c.loadedModules != nil {
-		return c.loadedModules, nil
+	if c.LoadedModules != nil {
+		return c.LoadedModules, nil
 	}
 
 	btfDir, err := os.Open("/sys/kernel/btf")
@@ -328,6 +293,6 @@ func (c *Cache) Modules() ([]string, error) {
 	})
 
 	sort.Strings(entries)
-	c.loadedModules = entries
+	c.LoadedModules = entries
 	return entries, nil
 }

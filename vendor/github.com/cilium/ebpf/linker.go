@@ -54,6 +54,47 @@ func (hs *handles) Close() error {
 	return errors.Join(errs...)
 }
 
+// splitSymbols splits insns into subsections delimited by Symbol Instructions.
+// insns cannot be empty and must start with a Symbol Instruction.
+//
+// The resulting map is indexed by Symbol name.
+func splitSymbols(insns asm.Instructions) (map[string]asm.Instructions, error) {
+	if len(insns) == 0 {
+		return nil, errors.New("insns is empty")
+	}
+
+	currentSym := insns[0].Symbol()
+	if currentSym == "" {
+		return nil, errors.New("insns must start with a Symbol")
+	}
+
+	start := 0
+	progs := make(map[string]asm.Instructions)
+	for i, ins := range insns[1:] {
+		i := i + 1
+
+		sym := ins.Symbol()
+		if sym == "" {
+			continue
+		}
+
+		// New symbol, flush the old one out.
+		progs[currentSym] = slices.Clone(insns[start:i])
+
+		if progs[sym] != nil {
+			return nil, fmt.Errorf("insns contains duplicate Symbol %s", sym)
+		}
+		currentSym = sym
+		start = i
+	}
+
+	if tail := insns[start:]; len(tail) > 0 {
+		progs[currentSym] = slices.Clone(tail)
+	}
+
+	return progs, nil
+}
+
 // The linker is responsible for resolving bpf-to-bpf calls between programs
 // within an ELF. Each BPF program must be a self-contained binary blob,
 // so when an instruction in one ELF program section wants to jump to
@@ -81,8 +122,9 @@ func hasFunctionReferences(insns asm.Instructions) bool {
 
 // applyRelocations collects and applies any CO-RE relocations in insns.
 //
-// insns are modified in place.
-func applyRelocations(insns asm.Instructions, bo binary.ByteOrder, b *btf.Builder, c *btf.Cache, kernelOverride *btf.Spec, extraTargets []*btf.Spec) error {
+// Passing a nil target will relocate against the running kernel. insns are
+// modified in place.
+func applyRelocations(insns asm.Instructions, bo binary.ByteOrder, b *btf.Builder, c *btf.Cache) error {
 	var relos []*btf.CORERelocation
 	var reloInsns []*asm.Instruction
 	iter := insns.Iterate()
@@ -101,38 +143,29 @@ func applyRelocations(insns asm.Instructions, bo binary.ByteOrder, b *btf.Builde
 		bo = internal.NativeEndian
 	}
 
-	var targets []*btf.Spec
-	if kernelOverride == nil {
-		kernel, err := c.Kernel()
-		if err != nil {
-			return fmt.Errorf("load kernel spec: %w", err)
-		}
-
-		modules, err := c.Modules()
-		// Ignore ErrNotExists to cater to kernels which have CONFIG_DEBUG_INFO_BTF_MODULES
-		// or CONFIG_DEBUG_INFO_BTF disabled.
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-
-		targets = make([]*btf.Spec, 0, 1+len(modules)+len(extraTargets))
-		targets = append(targets, kernel)
-
-		for _, kmod := range modules {
-			spec, err := c.Module(kmod)
-			if err != nil {
-				return fmt.Errorf("load BTF for kmod %s: %w", kmod, err)
-			}
-
-			targets = append(targets, spec)
-		}
-	} else {
-		// We expect kernelOverride to contain the merged types
-		// of vmlinux and kernel modules, as distributed by btfhub.
-		targets = []*btf.Spec{kernelOverride}
+	kernelTarget, err := c.Kernel()
+	if err != nil {
+		return fmt.Errorf("load kernel spec: %w", err)
 	}
 
-	targets = append(targets, extraTargets...)
+	modules, err := c.Modules()
+	// Ignore ErrNotExists to cater to kernels which have CONFIG_DEBUG_INFO_BTF_MODULES
+	// or CONFIG_DEBUG_INFO_BTF disabled.
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	targets := make([]*btf.Spec, 0, 1+len(modules))
+	targets = append(targets, kernelTarget)
+
+	for _, kmod := range modules {
+		spec, err := c.Module(kmod)
+		if err != nil {
+			return fmt.Errorf("load BTF for kmod %s: %w", kmod, err)
+		}
+
+		targets = append(targets, spec)
+	}
 
 	fixups, err := btf.CORERelocate(relos, targets, bo, b.Add)
 	if err != nil {
@@ -254,7 +287,7 @@ const kfuncCallPoisonBase = 0xdedc0de
 // fixupKfuncs loops over all instructions in search for kfunc calls.
 // If at least one is found, the current kernels BTF and module BTFis are searched to set Instruction.Constant
 // and Instruction.Offset to the correct values.
-func fixupKfuncs(insns asm.Instructions, cache *btf.Cache) (_ handles, err error) {
+func fixupKfuncs(insns asm.Instructions) (_ handles, err error) {
 	closeOnError := func(c io.Closer) {
 		if err != nil {
 			c.Close()
@@ -275,7 +308,7 @@ fixups:
 	// Only load kernel BTF if we found at least one kfunc call. kernelSpec can be
 	// nil if the kernel does not have BTF, in which case we poison all kfunc
 	// calls.
-	_, err = cache.Kernel()
+	kernelSpec, err := btf.LoadKernelSpec()
 	// ErrNotSupportedOnOS wraps ErrNotSupported, check for it first.
 	if errors.Is(err, internal.ErrNotSupportedOnOS) {
 		return nil, fmt.Errorf("kfuncs are not supported on this platform: %w", err)
@@ -307,7 +340,7 @@ fixups:
 
 		// findTargetInKernel returns btf.ErrNotFound if the input btf.Spec is nil.
 		target := btf.Type((*btf.Func)(nil))
-		spec, module, err := findTargetInKernel(kfm.Func.Name, &target, cache)
+		spec, module, err := findTargetInKernel(kernelSpec, kfm.Func.Name, &target)
 		if errors.Is(err, btf.ErrNotFound) {
 			if kfm.Binding == elf.STB_WEAK {
 				if ins.IsKfuncCall() {
@@ -452,13 +485,7 @@ func resolveKconfigReferences(insns asm.Instructions) (_ *Map, err error) {
 }
 
 func resolveKsymReferences(insns asm.Instructions) error {
-	type fixup struct {
-		*asm.Instruction
-		*ksymMeta
-	}
-
-	var symbols map[string]uint64
-	var fixups []fixup
+	var missing []string
 
 	iter := insns.Iterate()
 	for iter.Next() {
@@ -468,47 +495,28 @@ func resolveKsymReferences(insns asm.Instructions) error {
 			continue
 		}
 
-		if symbols == nil {
-			symbols = make(map[string]uint64)
+		addr, err := kallsyms.Address(meta.Name)
+		if err != nil {
+			return fmt.Errorf("resolve ksym %s: %w", meta.Name, err)
 		}
-
-		symbols[meta.Name] = 0
-		fixups = append(fixups, fixup{
-			iter.Ins, meta,
-		})
-	}
-
-	if len(symbols) == 0 {
-		return nil
-	}
-
-	err := kallsyms.AssignAddresses(symbols)
-	// Tolerate ErrRestrictedKernel during initial lookup, user may have all weak
-	// ksyms and a fallback path.
-	if err != nil && !errors.Is(err, ErrRestrictedKernel) {
-		return fmt.Errorf("resolve ksyms: %w", err)
-	}
-
-	var missing []string
-	for _, fixup := range fixups {
-		addr := symbols[fixup.Name]
-		// A weak ksym variable in eBPF C means its resolution is optional.
-		if addr == 0 && fixup.Binding != elf.STB_WEAK {
-			if !slices.Contains(missing, fixup.Name) {
-				missing = append(missing, fixup.Name)
-			}
+		if addr != 0 {
+			ins.Constant = int64(addr)
 			continue
 		}
 
-		fixup.Constant = int64(addr)
+		if meta.Binding == elf.STB_WEAK {
+			// A weak ksym variable in eBPF C means its resolution is optional.
+			// Set a zero constant explicitly for clarity.
+			ins.Constant = 0
+			continue
+		}
+
+		if !slices.Contains(missing, meta.Name) {
+			missing = append(missing, meta.Name)
+		}
 	}
 
 	if len(missing) > 0 {
-		if err != nil {
-			// Program contains required ksyms, return the error from above.
-			return fmt.Errorf("resolve required ksyms: %s: %w", strings.Join(missing, ","), err)
-		}
-
 		return fmt.Errorf("kernel is missing symbol: %s", strings.Join(missing, ","))
 	}
 

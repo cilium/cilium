@@ -18,7 +18,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.20.1-0.20260218191617-ee67e7f43dd9
+	github.com/cilium/ebpf v0.19.0
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20250611195437-5a5dacdfb354
@@ -267,6 +267,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiserver v0.33.10 // indirect
 	k8s.io/code-generator v0.33.10 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect

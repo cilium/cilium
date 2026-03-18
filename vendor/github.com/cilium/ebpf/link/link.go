@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
-	"github.com/cilium/ebpf/internal/unix"
 )
 
 // Type is the kind of link.
@@ -41,11 +40,6 @@ type Link interface {
 	// not called.
 	Close() error
 
-	// Detach the link from its corresponding attachment point.
-	//
-	// May return an error wrapping ErrNotSupported.
-	Detach() error
-
 	// Info returns metadata on a link.
 	//
 	// May return an error wrapping ErrNotSupported.
@@ -53,6 +47,13 @@ type Link interface {
 
 	// Prevent external users from implementing this interface.
 	isLink()
+}
+
+// NewLinkFromFD creates a link from a raw fd.
+//
+// Deprecated: use [NewFromFD] instead.
+func NewLinkFromFD(fd int) (Link, error) {
+	return NewFromFD(fd)
 }
 
 // NewFromFD creates a link from a raw fd.
@@ -222,24 +223,6 @@ func (l *RawLink) UpdateArgs(opts RawLinkUpdateOptions) error {
 		return fmt.Errorf("update link: %w", err)
 	}
 	return nil
-}
-
-// Detach the link from its corresponding attachment point.
-func (l *RawLink) Detach() error {
-	attr := sys.LinkDetachAttr{
-		LinkFd: l.fd.Uint(),
-	}
-
-	err := sys.LinkDetach(&attr)
-
-	switch {
-	case errors.Is(err, unix.EOPNOTSUPP):
-		return internal.ErrNotSupported
-	case err != nil:
-		return fmt.Errorf("detach link: %w", err)
-	default:
-		return nil
-	}
 }
 
 // Info returns metadata about the link.

@@ -28,10 +28,6 @@ type TypedPointer[T any] struct {
 	ptr Pointer
 }
 
-func (p TypedPointer[T]) IsNil() bool {
-	return p.ptr.ptr == nil
-}
-
 // SlicePointer creates a [TypedPointer] from a slice.
 func SlicePointer[T comparable](s []T) TypedPointer[T] {
 	return TypedPointer[T]{ptr: UnsafeSlicePointer(s)}

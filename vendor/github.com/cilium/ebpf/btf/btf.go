@@ -1,7 +1,9 @@
 package btf
 
 import (
+	"bufio"
 	"debug/elf"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -67,12 +69,11 @@ func LoadSpec(file string) (*Spec, error) {
 func LoadSpecFromReader(rd io.ReaderAt) (*Spec, error) {
 	file, err := internal.NewSafeELFFile(rd)
 	if err != nil {
-		raw, err := io.ReadAll(io.NewSectionReader(rd, 0, math.MaxInt64))
-		if err != nil {
-			return nil, fmt.Errorf("read raw BTF: %w", err)
+		if bo := guessRawBTFByteOrder(rd); bo != nil {
+			return loadRawSpec(io.NewSectionReader(rd, 0, math.MaxInt64), bo, nil)
 		}
 
-		return loadRawSpec(raw, nil)
+		return nil, err
 	}
 
 	return loadSpecFromELF(file)
@@ -169,18 +170,13 @@ func loadSpecFromELF(file *internal.SafeELFFile) (*Spec, error) {
 		return nil, err
 	}
 
-	rawBTF, err := btfSection.Data()
-	if err != nil {
-		return nil, fmt.Errorf("reading .BTF section: %w", err)
+	if btfSection.ReaderAt == nil {
+		return nil, fmt.Errorf("compressed BTF is not supported")
 	}
 
-	spec, err := loadRawSpec(rawBTF, nil)
+	spec, err := loadRawSpec(btfSection.ReaderAt, file.ByteOrder, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	if spec.decoder.byteOrder != file.ByteOrder {
-		return nil, fmt.Errorf("BTF byte order %s does not match ELF byte order %s", spec.decoder.byteOrder, file.ByteOrder)
 	}
 
 	spec.elf = &elfData{
@@ -192,7 +188,7 @@ func loadSpecFromELF(file *internal.SafeELFFile) (*Spec, error) {
 	return spec, nil
 }
 
-func loadRawSpec(btf []byte, base *Spec) (*Spec, error) {
+func loadRawSpec(btf io.ReaderAt, bo binary.ByteOrder, base *Spec) (*Spec, error) {
 	var (
 		baseDecoder *decoder
 		baseStrings *stringTable
@@ -204,37 +200,45 @@ func loadRawSpec(btf []byte, base *Spec) (*Spec, error) {
 		baseStrings = base.strings
 	}
 
-	header, bo, err := parseBTFHeader(btf)
+	buf := internal.NewBufferedSectionReader(btf, 0, math.MaxInt64)
+	header, err := parseBTFHeader(buf, bo)
 	if err != nil {
 		return nil, fmt.Errorf("parsing .BTF header: %v", err)
 	}
 
-	if header.HdrLen > uint32(len(btf)) {
-		return nil, fmt.Errorf("BTF header length is out of bounds")
-	}
-	btf = btf[header.HdrLen:]
-
-	if int(header.StringOff+header.StringLen) > len(btf) {
-		return nil, fmt.Errorf("string table is out of bounds")
-	}
-	stringsSection := btf[header.StringOff : header.StringOff+header.StringLen]
-
-	rawStrings, err := newStringTable(stringsSection, baseStrings)
+	stringsSection := io.NewSectionReader(btf, header.stringStart(), int64(header.StringLen))
+	rawStrings, err := readStringTable(stringsSection, baseStrings)
 	if err != nil {
 		return nil, fmt.Errorf("read string section: %w", err)
 	}
 
-	if int(header.TypeOff+header.TypeLen) > len(btf) {
-		return nil, fmt.Errorf("types section is out of bounds")
+	typesSection := io.NewSectionReader(btf, header.typeStart(), int64(header.TypeLen))
+	rawTypes := make([]byte, header.TypeLen)
+	if _, err := io.ReadFull(typesSection, rawTypes); err != nil {
+		return nil, fmt.Errorf("read type section: %w", err)
 	}
-	typesSection := btf[header.TypeOff : header.TypeOff+header.TypeLen]
 
-	decoder, err := newDecoder(typesSection, bo, rawStrings, baseDecoder)
+	decoder, err := newDecoder(rawTypes, bo, rawStrings, baseDecoder)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Spec{decoder, nil}, nil
+}
+
+func guessRawBTFByteOrder(r io.ReaderAt) binary.ByteOrder {
+	buf := new(bufio.Reader)
+	for _, bo := range []binary.ByteOrder{
+		binary.LittleEndian,
+		binary.BigEndian,
+	} {
+		buf.Reset(io.NewSectionReader(r, 0, math.MaxInt64))
+		if _, err := parseBTFHeader(buf, bo); err == nil {
+			return bo
+		}
+	}
+
+	return nil
 }
 
 // fixupDatasec attempts to patch up missing info in Datasecs and its members by
@@ -496,31 +500,12 @@ func (s *Spec) TypeByName(name string, typ interface{}) error {
 	return nil
 }
 
-// LoadSplitSpec loads split BTF from the given file.
-//
-// Types from base are used to resolve references in the split BTF.
-// The returned Spec only contains types from the split BTF, not from the base.
-func LoadSplitSpec(file string, base *Spec) (*Spec, error) {
-	fh, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer fh.Close()
-
-	return LoadSplitSpecFromReader(fh, base)
-}
-
 // LoadSplitSpecFromReader loads split BTF from a reader.
 //
 // Types from base are used to resolve references in the split BTF.
 // The returned Spec only contains types from the split BTF, not from the base.
 func LoadSplitSpecFromReader(r io.ReaderAt, base *Spec) (*Spec, error) {
-	raw, err := io.ReadAll(io.NewSectionReader(r, 0, math.MaxInt64))
-	if err != nil {
-		return nil, fmt.Errorf("read raw BTF: %w", err)
-	}
-
-	return loadRawSpec(raw, base)
+	return loadRawSpec(r, internal.NativeEndian, base)
 }
 
 // All iterates over all types.

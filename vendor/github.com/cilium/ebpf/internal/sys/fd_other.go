@@ -5,14 +5,12 @@ package sys
 import (
 	"fmt"
 	"os"
-	"runtime"
 
 	"github.com/cilium/ebpf/internal/unix"
 )
 
 type FD struct {
-	raw     int
-	cleanup runtime.Cleanup
+	raw int
 }
 
 // NewFD wraps a raw fd with a finalizer.

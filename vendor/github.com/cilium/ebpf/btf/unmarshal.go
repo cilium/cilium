@@ -13,22 +13,13 @@ import (
 	"sync"
 )
 
-// sharedBuf is a buffer which may be shared between multiple decoders.
-//
-// It must not be modified. Some sharedBuf may be backed by an mmap-ed file, in
-// which case the sharedBuf has a finalizer. sharedBuf must therefore always be
-// passed as a pointer.
-type sharedBuf struct {
-	raw []byte
-}
-
 type decoder struct {
 	// Immutable fields, may be shared.
 
 	base      *decoder
 	byteOrder binary.ByteOrder
-	*sharedBuf
-	strings *stringTable
+	raw       []byte
+	strings   *stringTable
 	// The ID for offsets[0].
 	firstTypeID TypeID
 	// Map from TypeID to offset of the marshaled data in raw. Contains an entry
@@ -130,7 +121,7 @@ func newDecoder(raw []byte, bo binary.ByteOrder, strings *stringTable, base *dec
 	return &decoder{
 		base,
 		bo,
-		&sharedBuf{raw},
+		raw,
 		strings,
 		firstTypeID,
 		offsets,
@@ -186,7 +177,7 @@ func rebaseDecoder(d *decoder, base *decoder) (*decoder, error) {
 	return &decoder{
 		base,
 		d.byteOrder,
-		d.sharedBuf,
+		d.raw,
 		d.strings,
 		d.firstTypeID,
 		d.offsets,
@@ -229,7 +220,7 @@ func (d *decoder) copy(copiedTypes map[Type]Type) *decoder {
 	return &decoder{
 		d.base.copy(copiedTypes),
 		d.byteOrder,
-		d.sharedBuf,
+		d.raw,
 		d.strings,
 		d.firstTypeID,
 		d.offsets,

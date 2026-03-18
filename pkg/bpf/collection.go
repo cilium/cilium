@@ -421,8 +421,8 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 			return fmt.Errorf("can't set non-existent Variable %s", name)
 		}
 
-		if v.SectionName != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.SectionName, name)
+		if v.MapName() != config.Section {
+			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
 		}
 
 		if err := v.Set(value); err != nil {
