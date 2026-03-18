@@ -85,7 +85,7 @@ func TestFQDNDataServer(t *testing.T) {
 				cell.Config(defaultConfig),
 				cell.Provide(
 					func(logger *slog.Logger) endpointmanager.EndpointManager {
-						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 					},
 
 					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
@@ -198,7 +198,7 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			cell.Config(defaultConfig),
 			cell.Provide(
 				func(logger *slog.Logger) endpointmanager.EndpointManager {
-					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil)
+					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 				},
 
 				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
@@ -270,7 +270,7 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func TestHandleIPUpsert(t *testing.T) {
-	endptMgr := endpointmanager.New(hivetest.Logger(t), nil, &dummyEpSyncher{}, nil, nil, nil)
+	endptMgr := endpointmanager.New(hivetest.Logger(t), nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 
 	// create a new server instance
 	server := NewServer(endptMgr, nil, 1234, hivetest.Logger(t), nil)

@@ -51,6 +51,8 @@ const regenEndpointControllerName = "endpoint-periodic-regeneration"
 type endpointManager struct {
 	logger *slog.Logger
 
+	config EndpointManagerConfig
+
 	health cell.Health
 
 	// mutex protects endpoints and endpointsAux
@@ -109,9 +111,10 @@ type endpointManager struct {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(logger *slog.Logger, registry *metrics.Registry, epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent) *endpointManager {
+func New(logger *slog.Logger, registry *metrics.Registry, epSynchronizer EndpointResourceSynchronizer, lns *node.LocalNodeStore, health cell.Health, monitorAgent monitoragent.Agent, config EndpointManagerConfig) *endpointManager {
 	mgr := endpointManager{
 		logger:                       logger,
+		config:                       config,
 		health:                       health,
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
@@ -199,6 +202,9 @@ func (mgr *endpointManager) waitForProxyCompletions(proxyWaitGroup *completion.W
 func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
 	var epWG sync.WaitGroup
 	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithTimeout(ctx, mgr.config.EndpointPolicyUpdateTimeout)
+	defer cancel()
 
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
