@@ -90,14 +90,25 @@ type XDSServer interface {
 
 	// UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
 	// from where they will be delivered to Envoy via xDS streaming gRPC.
+	// 'ctx' is used in Wait for Envoy N/ACK if resources contains both listeners and
+	// clusters. This is needed due to the possible dependency between them. If this is possible
+	// that caller MUST pass a context with a timeout to prevent indefinite blocking in case
+	// Envoy never responds.
 	UpsertEnvoyResources(ctx context.Context, resources Resources) error
 	// UpdateEnvoyResources removes any resources in 'old' that are not
 	// present in 'new' and then adds or updates all resources in 'new'.
 	// Envoy does not support changing the listening port of an existing
 	// listener, so if the port changes we have to delete the old listener
 	// and then add the new one with the new port number.
+	// Uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is needed due to
+	// the possible dependency between listeners and listeners and clusters. If resources
+	// includes listeners the caller MUST pass a context with a timeout to prevent indefinite
+	// blocking in case Envoy never responds.
 	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
-	// DeleteEnvoyResources deletes all Envoy resources in 'resources'.
+	// DeleteEnvoyResources deletes all Envoy resources in 'resources'.  Uses 'ctx' in Wait for
+	// Envoy N/ACK if resources contains listeners. If resources includes listeners the caller
+	// MUST pass a context with a timeout to prevent indefinite blocking in case Envoy never
+	// responds.
 	DeleteEnvoyResources(ctx context.Context, resources Resources) error
 
 	// GetNetworkPolicies returns the current version of the network policies with the given names.
@@ -1776,6 +1787,10 @@ func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
 	return false
 }
 
+// UpsertEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains both listeners and
+// clusters. This is needed due to the possible dependency between them. If this is the case the
+// caller MUST pass a context with a timeout to prevent indefinite blocking in case Envoy never
+// responds.
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
 	if option.Config.Debug {
 		msg := ""
@@ -1908,6 +1923,10 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
+// UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
+// needed due to the possible dependency between listeners and listeners and clusters. If resources
+// includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
+// in case Envoy never responds.
 func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
 	waitForDelete := false
 	var wg *completion.WaitGroup
@@ -2055,7 +2074,8 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 		revertFuncs = append(revertFuncs, s.deleteSecret(secret.Name, nil))
 	}
 
-	// Have to wait for deletes to complete before adding new listeners if a listener's port number is changed.
+	// Have to wait for deletes to complete before adding new listeners if a listener's port
+	// number is changed.
 	if wg != nil && waitForDelete {
 		start := time.Now()
 		s.logger.Debug("UpdateEnvoyResources: Waiting for proxy deletes to complete...")
@@ -2138,6 +2158,9 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	return nil
 }
 
+// DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
+// resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
+// blocking in case Envoy never responds.
 func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
@@ -2148,7 +2171,7 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	)
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
-	// Wait only if new Listeners are added, as they will always be acked.
+	// Wait only if new Listeners are removed, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
 	if len(resources.Listeners) > 0 {
 		wg = completion.NewWaitGroup(ctx)
