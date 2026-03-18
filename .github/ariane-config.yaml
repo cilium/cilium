@@ -27,7 +27,12 @@ triggers:
     - hubble-cli-integration-test.yaml
     depends-on:
     - /build-images-dependency
-  /ci-aks:
+  /ci-aks(?:\s+gateway-api=true)?:
+    workflows:
+    - conformance-aks.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-gateway-api-aks:
     workflows:
     - conformance-aks.yaml
     depends-on:

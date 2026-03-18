@@ -389,6 +389,210 @@ jobs:
           az group delete --name ${{ env.name }} --yes --no-wait
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
+  gateway-api-conformance:
+    name: Gateway API Conformance Test (AKS)
+    needs: [wait-for-images, generate-matrix]
+    if: ${{ fromJson(inputs.extra-args || '{}')['gateway-api'] == true && needs.generate-matrix.outputs.empty == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      job_name: "Gateway API Conformance Test (AKS)"
+      timeout: 5m
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - crd-channel: standard
+            default: true
+
+    steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Override cluster name for gateway-api job
+        run: |
+          echo "name=${{ env.name }}-gwapi" >> "$GITHUB_ENV"
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA || github.sha }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            OWNER="${{ inputs.PR-number }}"
+          else
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          # We explicitly set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
+          # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --datapath-mode=aks-byocni \
+            --helm-set=cluster.name=${{ env.name }} \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=azure.resourceGroup=${{ env.name }} \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=bpf.masquerade=true \
+            --helm-set=gatewayAPI.enabled=true \
+            --helm-set=ipv4.enabled=true \
+            --helm-set=ipv6.enabled=true \
+            --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
+            --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute,HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
+          SKIPPED_TESTS="MeshGRPCRouteWeight,MeshHTTPRouteMatching,MeshHTTPRouteNamedRule"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo exempt_features=${EXEMPT_FEATURES} >> $GITHUB_OUTPUT
+          echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+
+          # Get default matrix entry location
+          DEFAULT_MATRIX='${{ needs.generate-matrix.outputs.matrix }}'
+          LOCATION=$(echo "$DEFAULT_MATRIX" | jq -r '.include[0].location')
+          VERSION=$(echo "$DEFAULT_MATRIX" | jq -r '.include[0].version')
+          echo location=${LOCATION} >> $GITHUB_OUTPUT
+          echo version=${VERSION} >> $GITHUB_OUTPUT
+
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_PR_SP_CREDS }}
+
+      - name: Create AKS cluster
+        uses: ./.github/actions/setup-aks-cluster
+        with:
+          cluster_name: ${{ env.name }}
+          location: ${{ steps.vars.outputs.location }}
+          version: ${{ steps.vars.outputs.version }}
+          tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
+          taints: ${{ env.cost_reduction }}
+
+      - name: Get cluster credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.name }} \
+            --name ${{ env.name }}
+
+      - name: Generate cilium-cli kubeconfig
+        id: gen-kubeconfig
+        uses: ./.github/actions/get-cloud-kubeconfig
+        with:
+          kubeconfig: "~/.kube/config"
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@3ce83aa3b4ea3ce6d97023c4d83c22b73a4ed3b4 # v0.19.2
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
+          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
+
+      - name: Install Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.26.1
+
+      - name: Install tparse
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=mfridman/tparse
+          go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+
+      - name: Install go-junit-report
+        timeout-minutes: 15
+        run: |
+          # renovate: datasource=github-releases depName=cilium/go-junit-report/v2/cmd/go-junit-report
+          go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Install Gateway API CRDs (standard channel)
+        run: |
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+          GW_CHANNEL="standard" \
+          GW_VERSION="$gateway_api_version" \
+          make kind-servicemesh-prereqs
+
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/grpcroutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait --interactive=false --wait-duration=10m
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Run Gateway API conformance test
+        timeout-minutes: 30
+        run: |
+          GATEWAY_TEST_FLAGS="--gateway-class cilium --allow-crds-mismatch --cleanup-base-resources=false \
+            --exempt-features \"${{ steps.vars.outputs.exempt_features }}\" \
+            -test.skip \"${{ steps.vars.outputs.skipped_tests }}\""
+          JUNIT_PATH="cilium-junits/${{ env.job_name }} (${{ matrix.crd-channel }}) - gateway-conformance.xml" \
+          GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
+          make gateway-api-conformance
+
+      - name: Run common post steps
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: ./.github/actions/post-logic
+        with:
+          artifacts_suffix: "aks-gwapi-${{ matrix.crd-channel }}"
+          job_status: "${{ job.status }}"
+          capture_features_tested: false
+
+      - name: Clean up AKS
+        if: ${{ always() }}
+        run: |
+          az group delete --name ${{ env.name }} --yes --no-wait
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
