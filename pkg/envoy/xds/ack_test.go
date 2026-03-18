@@ -591,6 +591,34 @@ func TestUpsertCompletionAfterDeletedResource(t *testing.T) {
 	require.Equal(t, 0, metrics.nack[typeURL])
 }
 
+func TestPendingCompletionTimeoutErrorIncludesRemainingDetails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), MaxCompletionDuration)
+	defer cancel()
+
+	wg := completion.NewWaitGroup(ctx)
+	pending := &pendingCompletion{
+		version: 7,
+		typeURL: "type.googleapis.com/envoy.config.v3.DummyConfiguration",
+		remainingNodesResources: map[string]map[string]struct{}{
+			node1: {
+				"node1-resource0": {},
+				"node1-resource1": {},
+			},
+			node0: {
+				"node0-resource0": {},
+				"node0-resource1": {},
+			},
+		},
+	}
+
+	wg.AddCompletion(pending.remainingString)
+
+	err := wg.Wait()
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.EqualError(t, err, "Waiting on version:7,typeURL:type.googleapis.com/envoy.config.v3.DummyConfiguration,remaining:[10.0.0.0:[node0-resource0,node0-resource1],10.0.0.1:[node1-resource0,node1-resource1]]: context deadline exceeded")
+}
+
 func TestDeleteMultipleNodes(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
