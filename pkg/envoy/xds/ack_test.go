@@ -113,6 +113,29 @@ func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) boo
 	return true
 }
 
+// useCurrent adds a completion to the WaitGroup if the current
+// version of the cached resource has not been acked yet, allowing the
+// caller to wait for the ACK.
+func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	if wg == nil {
+		return
+	}
+
+	if m.restoring {
+		// Do not wait for acks when restoring state
+		m.logger.Debug("useCurrent: Restoring, skipping wait for ACK",
+			logfields.XDSTypeURL, typeURL,
+		)
+		return
+	}
+
+	// Add a completion object for the current version so that the caller may wait for the N/ACK
+	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg, nil)
+}
+
 func TestUpsertSingleNode(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -206,7 +229,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Use current version, not yet acked
-	acker.UseCurrent(typeURL, []string{node0}, wg)
+	acker.useCurrent(typeURL, []string{node0}, wg)
 	require.Len(t, acker.pendingCompletions, 2)
 
 	// Ack the right version, for another resource, from the right node.
@@ -214,7 +237,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Len(t, acker.ackedVersions, 2)
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
-	// UseCurrent ignores resource names, so an ack of the same or later version from the right node will complete it
+	// useCurrent ignores resource names, so an ack of the same or later version from the right node will complete it
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, 1, metrics.ack[typeURL])
 	require.Equal(t, 0, metrics.nack[typeURL])
@@ -273,19 +296,19 @@ func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
 	defer currentCancel()
 	currentWG := completion.NewWaitGroup(currentCtx)
 
-	// UseCurrent must only wait for node1, as node0 has already ACKed version 3.
-	acker.UseCurrent(typeURL, []string{node0, node1}, currentWG)
+	// useCurrent must only wait for node1, as node0 has already ACKed version 3.
+	acker.useCurrent(typeURL, []string{node0, node1}, currentWG)
 	// There are now two outstanding waits for version 3:
 	// 1. the original Upsert completion, still waiting for node1 to ACK resources[1]
-	// 2. the new UseCurrent completion, which should only wait for nodes that have not ACKed
+	// 2. the new useCurrent completion, which should only wait for nodes that have not ACKed
 	//    the current version yet.
-	// If the old bug regresses, UseCurrent would add node0 again and the wait below would need
+	// If the old bug regresses, useCurrent would add node0 again and the wait below would need
 	// another ACK from node0 before completing.
 	require.Len(t, acker.pendingCompletions, 2)
 
 	var useCurrentPending *pendingCompletion
 	for _, pending := range acker.pendingCompletions {
-		// Both pending completions target the current version, so identify the UseCurrent
+		// Both pending completions target the current version, so identify the useCurrent
 		// one by its shape: it tracks nodes only, therefore node1 is present with a nil
 		// resource set.  The Upsert completion instead tracks per-resource ACKs, so its
 		// node entry has a non-nil resource-name map.
@@ -301,7 +324,7 @@ func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
 	require.Contains(t, useCurrentPending.remainingNodesResources, node1)
 	require.NotContains(t, useCurrentPending.remainingNodesResources, node0)
 
-	// ACKing node1 for version 3 must complete the UseCurrent wait without requiring a new ACK from node0.
+	// ACKing node1 for version 3 must complete the useCurrent wait without requiring a new ACK from node0.
 	acker.HandleResourceVersionAck(3, 3, node1, []string{resources[1].Name}, typeURL, "")
 	// The same ACK must also complete the original Upsert completion for version 3.
 	require.Condition(t, completedComparison(compV3))

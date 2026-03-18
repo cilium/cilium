@@ -112,8 +112,6 @@ type XDSServer interface {
 	//
 	// Only used for testing
 	GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error)
-	// UseCurrentNetworkPolicy waits for any pending update on NetworkPolicy to be acked.
-	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup)
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
@@ -1783,23 +1781,6 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 		nodeIDs = append(nodeIDs, "127.0.0.2")
 	}
 	return nodeIDs
-}
-
-func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// If there are no listeners configured, the local node's Envoy proxy won't
-	// query for network policies and therefore will never ACK them, and we'd
-	// wait forever.
-	if s.npdsListeners.Empty() {
-		wg = nil
-	}
-
-	nodeIDs := getNodeIDs(ep, &policy.SelectorPolicy.L4Policy)
-
-	// only wait for the most current policy to be acked when no (new) policy is given
-	s.networkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
 // ErrNotImplemented is the error returned by gRPC methods that are not
