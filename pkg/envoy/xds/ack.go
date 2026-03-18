@@ -73,10 +73,6 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
-	// UseCurrent inserts a completion that allows the caller to wait for the current
-	// version of the given typeURL to be ACKed.
-	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup)
-
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
 
@@ -252,29 +248,6 @@ func (m *AckingResourceMutatorWrapper) maybeAddCurrentVersionCompletion(wait boo
 	if !wait && callback != nil {
 		callback(nil)
 	}
-}
-
-// UseCurrent adds a completion to the WaitGroup if the current
-// version of the cached resource has not been acked yet, allowing the
-// caller to wait for the ACK.
-func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	if wg == nil {
-		return
-	}
-
-	if m.restoring {
-		// Do not wait for acks when restoring state
-		m.logger.Debug("UseCurrent: Restoring, skipping wait for ACK",
-			logfields.XDSTypeURL, typeURL,
-		)
-		return
-	}
-
-	// Add a completion object for the current version so that the caller may wait for the N/ACK
-	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg, nil)
 }
 
 // DeleteNode frees resources held for the named nodes

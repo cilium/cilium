@@ -334,10 +334,6 @@ func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.
 	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, wg)
 }
 
-func (p *Proxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
-	p.envoyIntegration.UseCurrentNetworkPolicy(ep, policy, wg)
-}
-
 func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	p.envoyIntegration.RemoveNetworkPolicy(ep)
 }

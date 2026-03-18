@@ -110,10 +110,6 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
 	delete(r.redirects, id)
 }
 
-// UseCurrentNetworkPolicy does nothing.
-func (f *RedirectSuiteProxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
-}
-
 // UpdateNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
 	return nil, nil

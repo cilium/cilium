@@ -71,10 +71,6 @@ func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater,
 	return p.xdsServer.UpdateNetworkPolicy(ep, policy, wg)
 }
 
-func (p *envoyProxyIntegration) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
-	p.xdsServer.UseCurrentNetworkPolicy(ep, policy, wg)
-}
-
 func (p *envoyProxyIntegration) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	p.xdsServer.RemoveNetworkPolicy(ep)
 }
