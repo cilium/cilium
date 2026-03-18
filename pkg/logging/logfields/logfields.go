@@ -1802,8 +1802,4 @@ const (
 	Rate = "rate"
 
 	KPRConfiguration = "kprConfiguration"
-
-	AttachType = "attachType"
-
-	WithFrags = "withFrags"
 )
