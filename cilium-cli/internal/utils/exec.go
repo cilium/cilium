@@ -5,6 +5,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -15,6 +16,7 @@ type Logger interface {
 
 func Exec(l Logger, command string, args ...string) ([]byte, error) {
 	c := exec.Command(command, args...)
+	c.Env = os.Environ()
 	bytes, err := c.CombinedOutput()
 	if err != nil {
 		cmdStr := fmt.Sprintf("%s %s", command, strings.Join(args, " "))

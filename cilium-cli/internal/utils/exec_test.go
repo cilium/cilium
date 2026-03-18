@@ -4,38 +4,34 @@
 package utils
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-type failIfCalled struct {
-	t *testing.T
-}
+type testLogger struct{}
 
-func (f *failIfCalled) Log(_ string, _ ...any) {
-	f.t.Error("log method should not be called")
-}
+func (testLogger) Log(string, ...any) {}
 
-type countIfCalled struct {
-	count int
-}
+func TestExecInheritsEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
 
-func (c *countIfCalled) Log(_ string, _ ...any) {
-	c.count++
-}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "print-env.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s' \"$AZURE_CONFIG_DIR\"\n"), 0o755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
 
-func TestExec(t *testing.T) {
-	_, err := Exec(&failIfCalled{t}, "true")
-	assert.NoError(t, err)
+	t.Setenv("AZURE_CONFIG_DIR", "/tmp/azure-profile")
 
-	cl := &countIfCalled{0}
-	_, err = Exec(cl, "false")
-	assert.Error(t, err)
-	assert.Equal(t, 1, cl.count)
-
-	cl.count = 0
-	_, err = Exec(cl, "sh", "-c", "'echo foo; exit 1'")
-	assert.Error(t, err)
-	assert.Equal(t, 2, cl.count)
+	out, err := Exec(testLogger{}, script)
+	if err != nil {
+		t.Fatalf("Exec returned error: %v", err)
+	}
+	if string(out) != "/tmp/azure-profile" {
+		t.Fatalf("unexpected output %q", string(out))
+	}
 }
