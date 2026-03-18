@@ -49,6 +49,54 @@ func (m *Mutations) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.RequestTrailersMutations) > 0 {
+		for iNdEx := len(m.RequestTrailersMutations) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.RequestTrailersMutations[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.RequestTrailersMutations[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if len(m.ResponseTrailersMutations) > 0 {
+		for iNdEx := len(m.ResponseTrailersMutations) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.ResponseTrailersMutations[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.ResponseTrailersMutations[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
 	if len(m.QueryParameterMutations) > 0 {
 		for iNdEx := len(m.QueryParameterMutations) - 1; iNdEx >= 0; iNdEx-- {
 			if vtmsg, ok := interface{}(m.QueryParameterMutations[iNdEx]).(interface {
@@ -252,6 +300,30 @@ func (m *Mutations) SizeVT() (n int) {
 	}
 	if len(m.QueryParameterMutations) > 0 {
 		for _, e := range m.QueryParameterMutations {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.ResponseTrailersMutations) > 0 {
+		for _, e := range m.ResponseTrailersMutations {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.RequestTrailersMutations) > 0 {
+		for _, e := range m.RequestTrailersMutations {
 			if size, ok := interface{}(e).(interface {
 				SizeVT() int
 			}); ok {

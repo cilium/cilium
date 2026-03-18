@@ -21,6 +21,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+func (m *ProtocolConfiguration) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ProtocolConfiguration) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *ProtocolConfiguration) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.SendBodyWithoutWaitingForHeaderResponse {
+		i--
+		if m.SendBodyWithoutWaitingForHeaderResponse {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.ResponseBodyMode != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.ResponseBodyMode))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.RequestBodyMode != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.RequestBodyMode))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *ProcessingRequest) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -50,6 +103,16 @@ func (m *ProcessingRequest) MarshalToSizedBufferVTStrict(dAtA []byte) (int, erro
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.ProtocolConfig != nil {
+		size, err := m.ProtocolConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x5a
 	}
 	if m.ObservabilityMode {
 		i--
@@ -1335,6 +1398,25 @@ func (m *BodyMutation_StreamedResponse) MarshalToSizedBufferVTStrict(dAtA []byte
 	}
 	return len(dAtA) - i, nil
 }
+func (m *ProtocolConfiguration) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RequestBodyMode != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.RequestBodyMode))
+	}
+	if m.ResponseBodyMode != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.ResponseBodyMode))
+	}
+	if m.SendBodyWithoutWaitingForHeaderResponse {
+		n += 2
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *ProcessingRequest) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -1369,6 +1451,10 @@ func (m *ProcessingRequest) SizeVT() (n int) {
 	}
 	if m.ObservabilityMode {
 		n += 2
+	}
+	if m.ProtocolConfig != nil {
+		l = m.ProtocolConfig.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

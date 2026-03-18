@@ -2,11 +2,11 @@ package workloadapi
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
-	"github.com/zeebo/errs"
 )
 
 type sourceClient interface {
@@ -58,7 +58,7 @@ func newWatcher(ctx context.Context, config watcherConfig, x509ContextFn func(*X
 	// If this function fails, we need to clean up the source.
 	defer func() {
 		if err != nil {
-			err = errs.Combine(err, w.Close())
+			err = errors.Join(err, w.Close())
 		}
 	}()
 

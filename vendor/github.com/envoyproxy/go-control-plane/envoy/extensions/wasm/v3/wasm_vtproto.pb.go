@@ -9,6 +9,7 @@ package wasmv3
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
 	anypb "github.com/planetscale/vtprotobuf/types/known/anypb"
+	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
@@ -363,6 +364,16 @@ func (m *PluginConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.AllowOnHeadersStopIteration != nil {
+		size, err := (*wrapperspb.BoolValue)(m.AllowOnHeadersStopIteration).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x4a
+	}
 	if m.ReloadConfig != nil {
 		size, err := m.ReloadConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -660,6 +671,10 @@ func (m *PluginConfig) SizeVT() (n int) {
 	}
 	if m.ReloadConfig != nil {
 		l = m.ReloadConfig.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.AllowOnHeadersStopIteration != nil {
+		l = (*wrapperspb.BoolValue)(m.AllowOnHeadersStopIteration).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
