@@ -412,6 +412,8 @@ func (m *ExtAuthz) validate(all bool) error {
 
 	// no validation rules for EmitFilterStateStats
 
+	// no validation rules for MaxDeniedResponseBodyBytes
+
 	switch v := m.Services.(type) {
 	case *ExtAuthz_GrpcService:
 		if v == nil {
@@ -796,6 +798,35 @@ func (m *HttpService) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return HttpServiceValidationError{
 				field:  "AuthorizationResponse",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetRetryPolicy()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpServiceValidationError{
+					field:  "RetryPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpServiceValidationError{
+					field:  "RetryPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRetryPolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpServiceValidationError{
+				field:  "RetryPolicy",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -1526,6 +1557,93 @@ func (m *CheckSettings) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	switch v := m.ServiceOverride.(type) {
+	case *CheckSettings_GrpcService:
+		if v == nil {
+			err := CheckSettingsValidationError{
+				field:  "ServiceOverride",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetGrpcService()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CheckSettingsValidationError{
+						field:  "GrpcService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CheckSettingsValidationError{
+						field:  "GrpcService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CheckSettingsValidationError{
+					field:  "GrpcService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *CheckSettings_HttpService:
+		if v == nil {
+			err := CheckSettingsValidationError{
+				field:  "ServiceOverride",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetHttpService()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CheckSettingsValidationError{
+						field:  "HttpService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CheckSettingsValidationError{
+						field:  "HttpService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CheckSettingsValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {

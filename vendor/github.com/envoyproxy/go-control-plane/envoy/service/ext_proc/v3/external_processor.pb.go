@@ -166,7 +166,7 @@ func (x *ProtocolConfiguration) GetSendBodyWithoutWaitingForHeaderResponse() boo
 	return false
 }
 
-// This represents the different types of messages that Envoy can send
+// This represents the different types of messages that the data plane can send
 // to an external processing server.
 // [#next-free-field: 12]
 type ProcessingRequest struct {
@@ -192,7 +192,7 @@ type ProcessingRequest struct {
 	// The values of properties selected by the “request_attributes“
 	// or “response_attributes“ list in the configuration. Each entry
 	// in the list is populated from the standard
-	// :ref:`attributes <arch_overview_attributes>` supported across Envoy.
+	// :ref:`attributes <arch_overview_attributes>` supported in the data plane.
 	Attributes map[string]*structpb.Struct `protobuf:"bytes,9,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specify whether the filter that sent this request is running in :ref:`observability_mode
 	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.observability_mode>`
@@ -379,7 +379,7 @@ func (*ProcessingRequest_RequestTrailers) isProcessingRequest_Request() {}
 
 func (*ProcessingRequest_ResponseTrailers) isProcessingRequest_Request() {}
 
-// This represents the different types of messages the server may send back to Envoy
+// This represents the different types of messages the server may send back to the data plane
 // when the “observability_mode“ field in the received ProcessingRequest is set to false.
 //
 //   - If the corresponding “BodySendMode“ in the
@@ -416,8 +416,8 @@ type ProcessingResponse struct {
 	// may use this to intelligently control how requests are processed
 	// based on the headers and other metadata that they see.
 	// This field is only applicable when servers responding to the header requests.
-	// If it is set in the response to the body or trailer requests, it will be ignored by Envoy.
-	// It is also ignored by Envoy when the ext_proc filter config
+	// If it is set in the response to the body or trailer requests, it will be ignored by the data plane.
+	// It is also ignored by the data plane when the ext_proc filter config
 	// :ref:`allow_mode_override
 	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
 	// is set to false, or
@@ -427,16 +427,16 @@ type ProcessingResponse struct {
 	ModeOverride *v3.ProcessingMode `protobuf:"bytes,9,opt,name=mode_override,json=modeOverride,proto3" json:"mode_override,omitempty"`
 	// When ext_proc server receives a request message, in case it needs more
 	// time to process the message, it sends back a ProcessingResponse message
-	// with a new timeout value. When Envoy receives this response message,
-	// it ignores other fields in the response, just stop the original timer,
-	// which has the timeout value specified in
+	// with a new timeout value. When the data plane receives this response
+	// message, it ignores other fields in the response, just stop the original
+	// timer, which has the timeout value specified in
 	// :ref:`message_timeout
 	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.message_timeout>`
 	// and start a new timer with this “override_message_timeout“ value and keep the
-	// Envoy ext_proc filter state machine intact.
+	// data plane ext_proc filter state machine intact.
 	// Has to be >= 1ms and <=
 	// :ref:`max_message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.max_message_timeout>`
-	// Such message can be sent at most once in a particular Envoy ext_proc filter processing state.
+	// Such message can be sent at most once in a particular data plane ext_proc filter processing state.
 	// To enable this API, one has to set “max_message_timeout“ to a number >= 1ms.
 	OverrideMessageTimeout *durationpb.Duration `protobuf:"bytes,10,opt,name=override_message_timeout,json=overrideMessageTimeout,proto3" json:"override_message_timeout,omitempty"`
 }
@@ -805,14 +805,14 @@ func (x *HttpTrailers) GetTrailers() *v31.HeaderMap {
 	return nil
 }
 
-// This message is sent by the external server to Envoy after “HttpHeaders“ was
+// This message is sent by the external server to the data plane after “HttpHeaders“ was
 // sent to it.
 type HeadersResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Details the modifications (if any) to be made by Envoy to the current
+	// Details the modifications (if any) to be made by the data plane to the current
 	// request/response.
 	Response *CommonResponse `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 }
@@ -856,14 +856,14 @@ func (x *HeadersResponse) GetResponse() *CommonResponse {
 	return nil
 }
 
-// This message is sent by the external server to Envoy after “HttpBody“ was
+// This message is sent by the external server to the data plane after “HttpBody“ was
 // sent to it.
 type BodyResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Details the modifications (if any) to be made by Envoy to the current
+	// Details the modifications (if any) to be made by the data plane to the current
 	// request/response.
 	Response *CommonResponse `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
 }
@@ -907,14 +907,14 @@ func (x *BodyResponse) GetResponse() *CommonResponse {
 	return nil
 }
 
-// This message is sent by the external server to Envoy after “HttpTrailers“ was
+// This message is sent by the external server to the data plane after “HttpTrailers“ was
 // sent to it.
 type TrailersResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Details the modifications (if any) to be made by Envoy to the current
+	// Details the modifications (if any) to be made by the data plane to the current
 	// request/response trailers.
 	HeaderMutation *HeaderMutation `protobuf:"bytes,1,opt,name=header_mutation,json=headerMutation,proto3" json:"header_mutation,omitempty"`
 }
@@ -965,7 +965,7 @@ type CommonResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// If set, provide additional direction on how the Envoy proxy should
+	// If set, provide additional direction on how the data plane should
 	// handle the rest of the HTTP filter chain.
 	Status CommonResponse_ResponseStatus `protobuf:"varint,1,opt,name=status,proto3,enum=envoy.service.ext_proc.v3.CommonResponse_ResponseStatus" json:"status,omitempty"`
 	// Instructions on how to manipulate the headers. When responding to an
@@ -990,7 +990,7 @@ type CommonResponse struct {
 	// Clear the route cache for the current client request. This is necessary
 	// if the remote server modified headers that are used to calculate the route.
 	// This field is ignored in the response direction. This field is also ignored
-	// if the Envoy ext_proc filter is in the upstream filter chain.
+	// if the data plane ext_proc filter is in the upstream filter chain.
 	ClearRouteCache bool `protobuf:"varint,5,opt,name=clear_route_cache,json=clearRouteCache,proto3" json:"clear_route_cache,omitempty"`
 }
 
@@ -1274,7 +1274,7 @@ type StreamedBodyResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The body response chunk that will be passed to the upstream/downstream by Envoy.
+	// The body response chunk that will be passed to the upstream/downstream by the data plane.
 	Body []byte `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	// The server sets this flag to true if it has received a body request with
 	// :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>` set to true,
@@ -1328,7 +1328,7 @@ func (x *StreamedBodyResponse) GetEndOfStream() bool {
 	return false
 }
 
-// This message specifies the body mutation the server sends to Envoy.
+// This message specifies the body mutation the server sends to the data plane.
 type BodyMutation struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

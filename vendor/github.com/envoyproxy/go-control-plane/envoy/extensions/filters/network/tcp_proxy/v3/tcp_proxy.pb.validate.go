@@ -396,6 +396,35 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetMaxDownstreamConnectionDurationJitterPercentage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "MaxDownstreamConnectionDurationJitterPercentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "MaxDownstreamConnectionDurationJitterPercentage",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxDownstreamConnectionDurationJitterPercentage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxyValidationError{
+				field:  "MaxDownstreamConnectionDurationJitterPercentage",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if d := m.GetAccessLogFlushInterval(); d != nil {
 		dur, err := d.AsDuration(), d.CheckValid()
 		if err != nil {
@@ -871,6 +900,39 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 	// no validation rules for PostPath
 
 	// no validation rules for PropagateResponseTrailers
+
+	if all {
+		switch v := interface{}(m.GetRequestIdExtension()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxy_TunnelingConfigValidationError{
+					field:  "RequestIdExtension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxy_TunnelingConfigValidationError{
+					field:  "RequestIdExtension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetRequestIdExtension()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxy_TunnelingConfigValidationError{
+				field:  "RequestIdExtension",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for RequestIdHeader
+
+	// no validation rules for RequestIdMetadataKey
 
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)
