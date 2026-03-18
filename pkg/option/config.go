@@ -752,6 +752,9 @@ const (
 	// EndpointRegenInterval is the interval of the periodic endpoint regeneration loop.
 	EndpointRegenInterval = "endpoint-regen-interval"
 
+	// EndpointPolicyUpdateTimeout is the timeout duration for Endpoint policy updates.
+	EndpointPolicyUpdateTimeout = "endpoint-policy-update-timeout"
+
 	// LocalRouterIPv4 is the link-local IPv4 address to use for Cilium router device
 	LocalRouterIPv4 = "local-router-ipv4"
 
