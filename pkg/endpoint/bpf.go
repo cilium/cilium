@@ -1128,6 +1128,10 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug("ApplyPolicyMapChanges")
 
+	// NOTE: Since we create an ephemeral regenerationContext for the endpoint here,
+	// the revert functions of updated proxy network policies are not retained.
+	// This means that even if Envoy would end up NACKing a NetworkPolicy, it will remain in the
+	// xDS cache until the next update.
 	return e.applyPolicyMapChangesLocked(&regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
 			proxyWaitGroup: proxyWaitGroup,
@@ -1160,19 +1164,6 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return ErrComingOutOfLockdown
 	}
 
-	hasEnvoyRedirect := e.desiredPolicy.L4Policy.HasEnvoyRedirect()
-	// updateEnvoy when policy has changed, if the endpoint has Envoy redirects,
-	// or is an Ingress endpoint, which needs to enforce also the full L3/4 policy.
-	//
-	// Even if there are no changes, we update the proxyWaitGroup for any in-progress
-	// NetworkPolicy update to be done if the endpoint has envoy redirects, so that the
-	// the expected policy is in place.
-	//
-	// 'updateEnvoy' is already set to 'true' if policy changed. In that case there can
-	// be new redirects and a full policy map update even if there were no incremental
-	// updates.
-	updateEnvoy := hasNewPolicy || hasEnvoyRedirect || e.isIngress
-
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 	var err error
@@ -1199,11 +1190,13 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// NOTE: unlike regeneratePolicy, UpdateNetworkPolicy requires the endpoint read lock for
 	// 'e.desiredPolicy' access.
 	if !e.IsProxyDisabled() {
-		if updateEnvoy && e.desiredPolicy.VersionHandle.IsValid() {
-			e.getLogger().Debug(
-				"applyPolicyMapChanges: Updating Envoy NetworkPolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
-			)
+		hasEnvoyRedirect := e.desiredPolicy.L4Policy.HasEnvoyRedirect()
+
+		// updateEnvoy when policy has changed (due to the possible removed redirects), if
+		// the endpoint has Envoy redirects, or is an Ingress endpoint, which needs to
+		// enforce also the full L3/4 policy.
+		if (hasNewPolicy || hasEnvoyRedirect || e.isIngress) && e.desiredPolicy.VersionHandle.IsValid() {
+			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
 			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
@@ -1211,13 +1204,6 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
 			}
-		} else if hasEnvoyRedirect {
-			// Wait for a possible ongoing update to be done if there were no current changes.
-			e.getLogger().Debug(
-				"applyPolicyMapChanges: Using current Networkpolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
-			)
-			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.L4Policy, proxyWaitGroup)
 		}
 	}
 

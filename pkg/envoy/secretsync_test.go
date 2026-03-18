@@ -467,10 +467,6 @@ func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *p
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
-	panic("unimplemented")
-}
-
 func (*fakeXdsServer) GetPolicySecretSyncNamespace() string {
 	panic("unimplemented")
 }
