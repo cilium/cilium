@@ -169,16 +169,6 @@ func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionS
 		flipFrags  bool
 	}
 
-	// Backport fixup: release branches should not try to load with AttachXDP by
-	// default, since that will cause downgrades _from_ this version to break.
-	// Only try AttachXDP during retry when necessary to make sure downgrades _to_
-	// this version work.
-	for _, prog := range spec.Programs {
-		if prog.Type == ebpf.XDP {
-			prog.AttachType = ebpf.AttachNone
-		}
-	}
-
 	perms := []xdpPerms{
 		{flipAttach: false, flipFrags: false},
 		{flipAttach: true, flipFrags: false},
