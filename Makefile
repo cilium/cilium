@@ -600,19 +600,25 @@ mcs-api-conformance: ## Run MCS-API conformance tests.
 		-test.run $(MCS_API_CONFORMANCE_TEST_NAME) \
 	| $(GOTEST_FORMATTER)
 
-BPF_TEST ?= ""
-BPF_TEST_DUMP_CTX ?= ""
-BPF_TEST_VERBOSE ?= 0
+BPF_TEST ?=
+BPF_TEST_DUMP_CTX ?=
+BPF_TEST_FLAGS ?=
+SUDO ?= sudo -E
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
-	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		env MAKEFLAGS="$(filter-out --jobserver-auth=% --jobserver-fds=%,$(MAKEFLAGS))" \
-		make $(SUBMAKEOPTS) -C bpf/tests/ run \
-			"BPF_TEST=$(BPF_TEST)" \
-			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
-			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
-			"JUNIT_PATH=$(JUNIT_PATH)" \
-			"V=$(BPF_TEST_VERBOSE)"
+	contrib/scripts/builder.sh \
+		env MAKEFLAGS="$(filter-out --jobserver-auth=%,$(MAKEFLAGS))" \
+		make $(SUBMAKEOPTS) -C bpf/tests/ all
+	$(GO) test ./bpf/tests/bpftest \
+		-bpf-test-path $(ROOT_DIR)/bpf/tests \
+		-exec "$(SUDO)" \
+		$(GO_TEST_FLAGS) \
+		$(and $(filter 1,$(V)),-test.v) \
+		$(and $(RUN),-run $(RUN)) \
+		$(and $(BPF_TEST_DUMP_CTX),-dump-ctx) \
+		$(and $(BPF_TEST),-test $(BPF_TEST)) \
+		$(BPF_TEST_FLAGS) \
+	| $(GOTEST_FORMATTER)
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS="-it" contrib/scripts/builder.sh bash

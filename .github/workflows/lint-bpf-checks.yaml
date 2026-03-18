@@ -132,7 +132,7 @@ jobs:
         run: |
           make run_bpf_tests \
               LOG_CODEOWNERS=1 \
-              JUNIT_PATH="../../test/${{ env.job_name }}.xml" \
+              JUNIT_PATH="test/${{ env.job_name }}.xml" \
           || (echo "Run 'make run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Fetch JUnits
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
