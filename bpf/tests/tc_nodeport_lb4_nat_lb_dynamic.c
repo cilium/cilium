@@ -78,6 +78,16 @@ ASSIGN_CONFIG(bool, enable_nodeport_source_lookup, true)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+/* packet defined in ./scapy/tc_nodeport_lb4_nat_lb_dynamic_pkt_defs.py */
+const __u8 tc_nodeport_lb4_nat_lb_dynamic_pre[] = {
+	SCAPY_BUF_BYTES(tc_nodeport_lb4_nat_lb_dynamic_pre)
+};
+
+/* packet defined in ./scapy/tc_nodeport_lb4_nat_lb_dynamic_pkt_defs.py */
+const __u8 tc_nodeport_lb4_nat_lb_dynamic_post[] = {
+	SCAPY_BUF_BYTES(tc_nodeport_lb4_nat_lb_dynamic_post)
+};
+
 /* Test that a SVC request that is LBed to a NAT remote backend using a
  * dynamically resolved source IP.
  * - gets DNATed and SNATed,
@@ -90,8 +100,8 @@ int tc_nodeport_lb4_nat_lb_dynamic_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(TC_NODEPORT_SNAT_DYN_V4_PRE, tc_nodeport_lb4_nat_lb_dynamic_pre);
-	BUILDER_PUSH_BUF(builder, TC_NODEPORT_SNAT_DYN_V4_PRE);
+	scapy_push_data(&builder, tc_nodeport_lb4_nat_lb_dynamic_pre,
+			sizeof(tc_nodeport_lb4_nat_lb_dynamic_pre));
 
 	pktgen__finish(&builder);
 
@@ -130,9 +140,8 @@ int tc_nodeport_lb4_nat_lb_dynamic_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	BUF_DECL(TC_NODEPORT_SNAT_DYN_V4_POST, tc_nodeport_lb4_nat_lb_dynamic_post);
 	ASSERT_CTX_BUF_OFF("dynamic_snat_ok", "Ether", ctx, sizeof(__u32),
-			   TC_NODEPORT_SNAT_DYN_V4_POST,
+			   tc_nodeport_lb4_nat_lb_dynamic_post,
 			   sizeof(struct ethhdr) + sizeof(struct iphdr));
 
 	test_finish();

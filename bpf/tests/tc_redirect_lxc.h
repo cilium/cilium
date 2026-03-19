@@ -128,6 +128,16 @@ ASSIGN_CONFIG(bool, enable_netkit, false)
 
 #ifdef ENABLE_IPV4
 
+/* packet defined in ./scapy/tc_redirect_pkt_defs.py */
+const __u8 tc_redirect_lxc_ipv4_pre[] = {
+	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv4_pre)
+};
+
+/* packet defined in ./scapy/tc_redirect_pkt_defs.py */
+const __u8 tc_redirect_lxc_ipv4_post[] = {
+	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv4_post)
+};
+
 /* Setup for this test:
  * +-------ClusterIP--------+    +----------Pod 1---------+
  * | v4_svc_one:tcp_svc_one | -> | v4_pod_one:tcp_svc_one |
@@ -142,8 +152,8 @@ int tc_redirect_lxc_ipv4_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(REDIRECT_LXC_IPV4_PRE, tc_redirect_lxc_ipv4_pre);
-	BUILDER_PUSH_BUF(builder, REDIRECT_LXC_IPV4_PRE);
+	scapy_push_data(&builder, tc_redirect_lxc_ipv4_pre,
+			sizeof(tc_redirect_lxc_ipv4_pre));
 
 	pktgen__finish(&builder);
 
@@ -213,11 +223,10 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal(TEST_DRIVER_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
 
 	/* Check the packet. */
-	BUF_DECL(REDIRECT_LXC_IPV4_POST, tc_redirect_lxc_ipv4_post);
 	ASSERT_CTX_BUF_OFF("tc_redirect_lxc_ipv4_post",
 			   "Ether", ctx, sizeof(__u32),
-			   REDIRECT_LXC_IPV4_POST,
-			   sizeof(BUF(REDIRECT_LXC_IPV4_POST)));
+			   tc_redirect_lxc_ipv4_post,
+			   sizeof(tc_redirect_lxc_ipv4_post));
 
 	test_finish();
 }
@@ -225,6 +234,16 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
+
+/* packet defined in ./scapy/tc_redirect_pkt_defs.py */
+const __u8 tc_redirect_lxc_ipv6_pre[] = {
+	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv6_pre)
+};
+
+/* packet defined in ./scapy/tc_redirect_pkt_defs.py */
+const __u8 tc_redirect_lxc_ipv6_post[] = {
+	SCAPY_BUF_BYTES(tc_redirect_lxc_ipv6_post)
+};
 
 /* Setup for this test:
  * +-------ClusterIP--------+    +----------Pod 1---------+
@@ -240,8 +259,8 @@ int tc_redirect_lxc_ipv6_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(REDIRECT_LXC_IPV6_PRE, tc_redirect_lxc_ipv6_pre);
-	BUILDER_PUSH_BUF(builder, REDIRECT_LXC_IPV6_PRE);
+	scapy_push_data(&builder, tc_redirect_lxc_ipv6_pre,
+			sizeof(tc_redirect_lxc_ipv6_pre));
 
 	pktgen__finish(&builder);
 
@@ -314,11 +333,10 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal(TEST_DRIVER_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
 
 	/* Check the packet. */
-	BUF_DECL(REDIRECT_LXC_IPV6_POST, tc_redirect_lxc_ipv6_post);
 	ASSERT_CTX_BUF_OFF("tc_redirect_lxc_ipv6_post",
 			   "Ether", ctx, sizeof(__u32),
-			   REDIRECT_LXC_IPV6_POST,
-			   sizeof(BUF(REDIRECT_LXC_IPV6_POST)));
+			   tc_redirect_lxc_ipv6_post,
+			   sizeof(tc_redirect_lxc_ipv6_post));
 
 	test_finish();
 }

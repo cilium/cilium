@@ -17,6 +17,51 @@
 
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_pod_ns_llopt[] = {
+	SCAPY_BUF_BYTES(v6_ndp_pod_ns_llopt)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_pod_ns[] = {
+	SCAPY_BUF_BYTES(v6_ndp_pod_ns)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_pod_na_llopt[] = {
+	SCAPY_BUF_BYTES(v6_ndp_pod_na_llopt)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_pod_ns_mcast_llopt[] = {
+	SCAPY_BUF_BYTES(v6_ndp_pod_ns_mcast_llopt)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_pod_ns_mcast[] = {
+	SCAPY_BUF_BYTES(v6_ndp_pod_ns_mcast)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_node_ns_llopt[] = {
+	SCAPY_BUF_BYTES(v6_ndp_node_ns_llopt)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_node_ns[] = {
+	SCAPY_BUF_BYTES(v6_ndp_node_ns)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_node_ns_mcast_llopt[] = {
+	SCAPY_BUF_BYTES(v6_ndp_node_ns_mcast_llopt)
+};
+
+/* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
+const __u8 v6_ndp_node_ns_mcast[] = {
+	SCAPY_BUF_BYTES(v6_ndp_node_ns_mcast)
+};
+
 struct test_args {
 	__u32 status_code; /* Only used in generic _check */
 
@@ -77,8 +122,7 @@ int ipv6_from_netdev_ns_pod_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_POD_NS_LLOPT, v6_ndp_pod_ns_llopt);
-	BUILDER_PUSH_BUF(builder, V6_NDP_POD_NS_LLOPT);
+	scapy_push_data(&builder, v6_ndp_pod_ns_llopt, sizeof(v6_ndp_pod_ns_llopt));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -99,11 +143,9 @@ int ipv6_from_netdev_ns_pod_check(const struct __ctx_buff *ctx)
 
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
-	BUF_DECL(V6_NDP_POD_NA_LLOPT, v6_ndp_pod_na_llopt);
-
 	ASSERT_CTX_BUF_OFF("pod_na_ns_llopt_ok", "Ether", ctx, sizeof(__u32),
-			   V6_NDP_POD_NA_LLOPT,
-			   sizeof(BUF(V6_NDP_POD_NA_LLOPT)));
+			   v6_ndp_pod_na_llopt,
+			   sizeof(v6_ndp_pod_na_llopt));
 	test_finish();
 
 	return 0;
@@ -116,8 +158,7 @@ int ipv6_from_netdev_ns_pod_pktgen_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_POD_NS, v6_ndp_pod_ns);
-	BUILDER_PUSH_BUF(builder, V6_NDP_POD_NS);
+	scapy_push_data(&builder, v6_ndp_pod_ns, sizeof(v6_ndp_pod_ns));
 
 	pktgen__finish(&builder);
 
@@ -140,10 +181,9 @@ int ipv6_from_netdev_ns_pod_check_noopt(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
-	BUF_DECL(V6_NDP_POD_NA_LLOPT_NS_NOOPT, v6_ndp_pod_na_llopt);
 	ASSERT_CTX_BUF_OFF("pod_na_ns_noopt_ok", "Ether", ctx, sizeof(__u32),
-			   V6_NDP_POD_NA_LLOPT_NS_NOOPT,
-			   sizeof(BUF(V6_NDP_POD_NA_LLOPT_NS_NOOPT)));
+			   v6_ndp_pod_na_llopt,
+			   sizeof(v6_ndp_pod_na_llopt));
 	test_finish();
 
 	return 0;
@@ -167,8 +207,8 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_POD_NS_MCAST_LLOPT, v6_ndp_pod_ns_mcast_llopt);
-	BUILDER_PUSH_BUF(builder, V6_NDP_POD_NS_MCAST_LLOPT);
+	scapy_push_data(&builder, v6_ndp_pod_ns_mcast_llopt,
+			sizeof(v6_ndp_pod_ns_mcast_llopt));
 
 	pktgen__finish(&builder);
 
@@ -191,10 +231,9 @@ int ipv6_from_netdev_ns_pod_check_mcast(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
-	BUF_DECL(V6_NDP_POD_NA_MCAST_NS_NOOPT, v6_ndp_pod_na_llopt);
 	ASSERT_CTX_BUF_OFF("pod_na_ns_mcast_ok", "Ether", ctx, sizeof(__u32),
-			   V6_NDP_POD_NA_MCAST_NS_NOOPT,
-			   sizeof(BUF(V6_NDP_POD_NA_MCAST_NS_NOOPT)));
+			   v6_ndp_pod_na_llopt,
+			   sizeof(v6_ndp_pod_na_llopt));
 	test_finish();
 
 	return 0;
@@ -207,8 +246,7 @@ int ipv6_from_netdev_ns_pod_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_POD_NS_MCAST, v6_ndp_pod_ns_mcast);
-	BUILDER_PUSH_BUF(builder, V6_NDP_POD_NS_MCAST);
+	scapy_push_data(&builder, v6_ndp_pod_ns_mcast, sizeof(v6_ndp_pod_ns_mcast));
 
 	pktgen__finish(&builder);
 
@@ -231,11 +269,10 @@ int ipv6_from_netdev_ns_pod_check_mcast_noopt(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
-	BUF_DECL(V6_NDP_POD_NA_MCAST_LLOPT, v6_ndp_pod_na_llopt);
 	ASSERT_CTX_BUF_OFF("pod_na_ns_mcast_noopt_ok", "Ether", ctx,
 			   sizeof(__u32),
-			   V6_NDP_POD_NA_MCAST_LLOPT,
-			   sizeof(BUF(V6_NDP_POD_NA_MCAST_LLOPT)));
+			   v6_ndp_pod_na_llopt,
+			   sizeof(v6_ndp_pod_na_llopt));
 	test_finish();
 
 	return 0;
@@ -264,8 +301,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_NODE_NS_LLOPT, v6_ndp_node_ns_llopt);
-	BUILDER_PUSH_BUF(builder, V6_NDP_NODE_NS_LLOPT);
+	scapy_push_data(&builder, v6_ndp_node_ns_llopt, sizeof(v6_ndp_node_ns_llopt));
 
 	pktgen__finish(&builder);
 
@@ -288,11 +324,10 @@ int ipv6_from_netdev_ns_node_ip_check(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
-	BUF_DECL(V6_NDP_NODE_NS_LLOPT_PASS, v6_ndp_node_ns_llopt);
 	ASSERT_CTX_BUF_OFF("node_ns_pass", "Ether", ctx,
 			   sizeof(__u32),
-			   V6_NDP_NODE_NS_LLOPT_PASS,
-			   sizeof(BUF(V6_NDP_NODE_NS_LLOPT_PASS)));
+			   v6_ndp_node_ns_llopt,
+			   sizeof(v6_ndp_node_ns_llopt));
 	test_finish();
 
 	return 0;
@@ -306,8 +341,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_NODE_NS, v6_ndp_node_ns);
-	BUILDER_PUSH_BUF(builder, V6_NDP_NODE_NS);
+	scapy_push_data(&builder, v6_ndp_node_ns, sizeof(v6_ndp_node_ns));
 
 	pktgen__finish(&builder);
 
@@ -330,11 +364,10 @@ int ipv6_from_netdev_ns_node_ip_check_noopt(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
-	BUF_DECL(V6_NDP_NODE_NS_PASS, v6_ndp_node_ns);
 	ASSERT_CTX_BUF_OFF("node_ns_pass", "Ether", ctx,
 			   sizeof(__u32),
-			   V6_NDP_NODE_NS_PASS,
-			   sizeof(BUF(V6_NDP_NODE_NS_PASS)));
+			   v6_ndp_node_ns,
+			   sizeof(v6_ndp_node_ns));
 	test_finish();
 
 	return 0;
@@ -357,8 +390,8 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_NODE_NS_MCAST_LLOPT, v6_ndp_node_ns_mcast_llopt);
-	BUILDER_PUSH_BUF(builder, V6_NDP_NODE_NS_MCAST_LLOPT);
+	scapy_push_data(&builder, v6_ndp_node_ns_mcast_llopt,
+			sizeof(v6_ndp_node_ns_mcast_llopt));
 
 	pktgen__finish(&builder);
 
@@ -381,11 +414,10 @@ int ipv6_from_netdev_ns_node_ip_check_mcast(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
-	BUF_DECL(V6_NDP_NODE_NS_MCAST_LLOPT_PASS, v6_ndp_node_ns_mcast_llopt);
 	ASSERT_CTX_BUF_OFF("node_ns_mcast_pass", "Ether", ctx,
 			   sizeof(__u32),
-			   V6_NDP_NODE_NS_MCAST_LLOPT_PASS,
-			   sizeof(BUF(V6_NDP_NODE_NS_MCAST_LLOPT_PASS)));
+			   v6_ndp_node_ns_mcast_llopt,
+			   sizeof(v6_ndp_node_ns_mcast_llopt));
 	test_finish();
 
 	return 0;
@@ -398,8 +430,7 @@ int ipv6_from_netdev_ns_node_ip_pktgen_mcast_noopt(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_NDP_NODE_NS_MCAST, v6_ndp_node_ns_mcast);
-	BUILDER_PUSH_BUF(builder, V6_NDP_NODE_NS_MCAST);
+	scapy_push_data(&builder, v6_ndp_node_ns_mcast, sizeof(v6_ndp_node_ns_mcast));
 
 	pktgen__finish(&builder);
 
@@ -422,11 +453,10 @@ int ipv6_from_netdev_ns_node_ip_check_mcast_noopt(const struct __ctx_buff *ctx)
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
-	BUF_DECL(V6_NDP_NODE_NS_MCAST_PASS, v6_ndp_node_ns_mcast);
 	ASSERT_CTX_BUF_OFF("node_ns_mcast_noopt_pass", "Ether", ctx,
 			   sizeof(__u32),
-			   V6_NDP_NODE_NS_MCAST_PASS,
-			   sizeof(BUF(V6_NDP_NODE_NS_MCAST_PASS)));
+			   v6_ndp_node_ns_mcast,
+			   sizeof(v6_ndp_node_ns_mcast));
 	test_finish();
 
 	return 0;

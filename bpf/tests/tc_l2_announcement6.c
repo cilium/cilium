@@ -33,6 +33,21 @@ struct icmp6_opthdr {
 	__u8 llsrc_mac[ETH_ALEN];
 };
 
+/* packet defined in ./scapy/tc_l2_announce6_pkt_defs.py */
+const __u8 l2_announce6_ns[] = {
+	SCAPY_BUF_BYTES(l2_announce6_ns)
+};
+
+/* packet defined in ./scapy/tc_l2_announce6_pkt_defs.py */
+const __u8 l2_announce6_targeted_ns[] = {
+	SCAPY_BUF_BYTES(l2_announce6_targeted_ns)
+};
+
+/* packet defined in ./scapy/tc_l2_announce6_pkt_defs.py */
+const __u8 l2_announce6_na[] = {
+	SCAPY_BUF_BYTES(l2_announce6_na)
+};
+
 /* Setup for this test:
  * +-------------------------+   +--------------------------------------+    +--------------------------+
  * |L2:mac_one, L3:v6_ext_node_one|---|  ND Request broadcast for v6_svc_one |--->|L2:mac_two, L3:v6_node_one|
@@ -48,13 +63,12 @@ static __always_inline int build_packet(struct __ctx_buff *ctx, bool targeted)
 
 	pktgen__init(&builder, ctx);
 
-	if (targeted) {
-		BUF_DECL(L2_ANNOUNCE6_NS_TAR, l2_announce6_targeted_ns);
-		BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS_TAR);
-	} else {
-		BUF_DECL(L2_ANNOUNCE6_NS, l2_announce6_ns);
-		BUILDER_PUSH_BUF(builder, L2_ANNOUNCE6_NS);
-	}
+	if (targeted)
+		scapy_push_data(&builder, l2_announce6_targeted_ns,
+				sizeof(l2_announce6_targeted_ns));
+	else
+		scapy_push_data(&builder, l2_announce6_ns,
+				sizeof(l2_announce6_ns));
 
 	pktgen__finish(&builder);
 
@@ -92,12 +106,10 @@ int l2_announcement_nd_no_entry_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == TC_ACT_OK);
 
-	BUF_DECL(L2_ANNOUNCE6_NS2, l2_announce6_ns);
-
 	ASSERT_CTX_BUF_OFF("tc_l2announce6_ns_no_entry_untouched",
 			   "Ether", ctx,
-			   sizeof(__u32), L2_ANNOUNCE6_NS2,
-			   sizeof(BUF(L2_ANNOUNCE6_NS2)));
+			   sizeof(__u32), l2_announce6_ns,
+			   sizeof(l2_announce6_ns));
 
 	test_finish();
 }
@@ -133,12 +145,10 @@ int l2_announcement_nd_no_entry_tar_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == TC_ACT_OK);
 
-	BUF_DECL(L2_ANNOUNCE6_NS_TAR2, l2_announce6_targeted_ns);
-
 	ASSERT_CTX_BUF_OFF("tc_l2announce6_ns_tar_no_entry_untouched",
 			   "Ether", ctx,
-			   sizeof(__u32), L2_ANNOUNCE6_NS_TAR2,
-			   sizeof(BUF(L2_ANNOUNCE6_NS_TAR2)));
+			   sizeof(__u32), l2_announce6_targeted_ns,
+			   sizeof(l2_announce6_targeted_ns));
 
 	test_finish();
 }
@@ -189,12 +199,10 @@ int l2_announcement_nd_ok_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	BUF_DECL(L2_ANNOUNCE6_NA, l2_announce6_na);
-
 	ASSERT_CTX_BUF_OFF("tc_l2announce2_entry_found_na",
 			   "Ether", ctx,
-			   sizeof(__u32), L2_ANNOUNCE6_NA,
-			   sizeof(BUF(L2_ANNOUNCE6_NA)));
+			   sizeof(__u32), l2_announce6_na,
+			   sizeof(l2_announce6_na));
 
 	test_finish();
 }
@@ -230,12 +238,10 @@ int l2_announcement_nd_ok_tar_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	BUF_DECL(L2_ANNOUNCE6_NA_TAR, l2_announce6_na);
-
 	ASSERT_CTX_BUF_OFF("tc_l2announce2_tar_entry_found_na",
 			   "Ether", ctx,
-			   sizeof(__u32), L2_ANNOUNCE6_NA_TAR,
-			   sizeof(BUF(L2_ANNOUNCE6_NA_TAR)));
+			   sizeof(__u32), l2_announce6_na,
+			   sizeof(l2_announce6_na));
 
 	test_finish();
 }

@@ -63,6 +63,16 @@ ASSIGN_CONFIG(__u16, tunnel_port, 8472)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+/* packet defined in ./scapy/xdp_nodeport_lb4_nat_lb_tun_dynamic_pkt_defs.py */
+const __u8 xdp_nodeport_lb4_nat_lb_tun_dynamic_pre[] = {
+	SCAPY_BUF_BYTES(xdp_nodeport_lb4_nat_lb_tun_dynamic_pre)
+};
+
+/* packet defined in ./scapy/xdp_nodeport_lb4_nat_lb_tun_dynamic_pkt_defs.py */
+const __u8 xdp_nodeport_lb4_nat_lb_tun_dynamic_post[] = {
+	SCAPY_BUF_BYTES(xdp_nodeport_lb4_nat_lb_tun_dynamic_post)
+};
+
 /* Test that an XDP nodeport load balanced packet has its outer source
  * ip dynamically resolved.
  */
@@ -73,9 +83,8 @@ int xdp_nodeport_lb4_nat_lb_tun_dynamic_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(XDP_NODEPORT_TUN_SNAT_DYN_V4_PRE, xdp_nodeport_lb4_nat_lb_tun_dynamic_pre);
-
-	BUILDER_PUSH_BUF(builder, XDP_NODEPORT_TUN_SNAT_DYN_V4_PRE);
+	scapy_push_data(&builder, xdp_nodeport_lb4_nat_lb_tun_dynamic_pre,
+			sizeof(xdp_nodeport_lb4_nat_lb_tun_dynamic_pre));
 
 	pktgen__finish(&builder);
 
@@ -114,9 +123,8 @@ int xdp_nodeport_lb4_nat_lb_tun_dynamic_check(const struct __ctx_buff *ctx)
 
 	assert(*status_code == CTX_ACT_REDIRECT);
 
-	BUF_DECL(XDP_NODEPORT_TUN_SNAT_DYN_V4_POST, xdp_nodeport_lb4_nat_lb_tun_dynamic_post);
 	ASSERT_CTX_BUF_OFF("dynamic_tun_snat_ok", "Ether", ctx, sizeof(__u32),
-			   XDP_NODEPORT_TUN_SNAT_DYN_V4_POST,
+			   xdp_nodeport_lb4_nat_lb_tun_dynamic_post,
 			   sizeof(struct ethhdr) + sizeof(struct iphdr));
 
 	test_finish();

@@ -69,6 +69,16 @@ ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
 
 #include "lib/endpoint.h"
 
+/* packet defined in ./scapy/tc_wireguard_from_overlay_pkt_defs.py */
+const __u8 v4_overlay_tcp_packet[] = {
+	SCAPY_BUF_BYTES(v4_overlay_tcp_packet)
+};
+
+/* packet defined in ./scapy/tc_wireguard_from_overlay_pkt_defs.py */
+const __u8 v4_overlay_tcp_packet_rewritten[] = {
+	SCAPY_BUF_BYTES(v4_overlay_tcp_packet_rewritten)
+};
+
 PKTGEN("tc", "ipv4_wireguard_no_mark_from_overlay")
 int ipv4_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
@@ -76,8 +86,7 @@ int ipv4_wireguard_no_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_OVERLAY_TCP_NO_MARK, v4_overlay_tcp_packet);
-	BUILDER_PUSH_BUF(builder, V4_OVERLAY_TCP_NO_MARK);
+	scapy_push_data(&builder, v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
 
 	pktgen__finish(&builder);
 	return TEST_PASS;
@@ -113,9 +122,8 @@ int ipv4_wireguard_no_mark_from_overlay_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/* Verify packet was not modified before being dropped */
-	BUF_DECL(EXPECTED_PKT_NO_MARK, v4_overlay_tcp_packet);
 	ASSERT_CTX_BUF_OFF("pkt_unmodified", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_PKT_NO_MARK, sizeof(BUF(EXPECTED_PKT_NO_MARK)));
+			   v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
 
 	test_finish();
 }
@@ -127,8 +135,7 @@ int ipv4_wireguard_mark_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_OVERLAY_TCP_WITH_MARK, v4_overlay_tcp_packet);
-	BUILDER_PUSH_BUF(builder, V4_OVERLAY_TCP_WITH_MARK);
+	scapy_push_data(&builder, v4_overlay_tcp_packet, sizeof(v4_overlay_tcp_packet));
 
 	pktgen__finish(&builder);
 	return TEST_PASS;
@@ -174,9 +181,9 @@ int ipv4_wireguard_mark_from_overlay_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/* Verify MAC addresses were rewritten */
-	BUF_DECL(EXPECTED_PKT_LOCAL_DELIVERY, v4_overlay_tcp_packet_rewritten);
 	ASSERT_CTX_BUF_OFF("pkt_modified", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_PKT_LOCAL_DELIVERY, sizeof(BUF(EXPECTED_PKT_LOCAL_DELIVERY)));
+			   v4_overlay_tcp_packet_rewritten,
+			   sizeof(v4_overlay_tcp_packet_rewritten));
 
 	test_finish();
 }

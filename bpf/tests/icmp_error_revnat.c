@@ -23,6 +23,16 @@
 #include "bpf_nat_tuples.h"
 #include "scapy.h"
 
+/* packet defined in ./scapy/icmp_err_revnat_pkt_defs.py */
+const __u8 icmp4_err_frag_needed_for_revnat[] = {
+	SCAPY_BUF_BYTES(icmp4_err_frag_needed_for_revnat)
+};
+
+/* packet defined in ./scapy/icmp_err_revnat_pkt_defs.py */
+const __u8 icmp4_err_frag_needed_after_revnat[] = {
+	SCAPY_BUF_BYTES(icmp4_err_frag_needed_after_revnat)
+};
+
 /* IP addresses mapping to Scapy definitions (in host byte order):
  * v4_node_one   = "10.0.10.1"  -> IP_ENDPOINT (node/endpoint)
  * v4_pod_one    = "192.168.0.1" -> IP_HOST (pod being SNATed)
@@ -51,8 +61,9 @@ int nat4_icmp_error_tcp_snat_revnat_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 	/* Use Scapy-generated ICMP error packet */
-	BUF_DECL(ICMP4_ERR_FRAG_NEEDED_FOR_REVNAT, icmp4_err_frag_needed_for_revnat);
-	BUILDER_PUSH_BUF(builder, ICMP4_ERR_FRAG_NEEDED_FOR_REVNAT);
+	scapy_push_data(&builder,
+			icmp4_err_frag_needed_for_revnat,
+			sizeof(icmp4_err_frag_needed_for_revnat));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -134,10 +145,9 @@ int nat4_icmp_error_tcp_snat_revnat_check(const struct __ctx_buff *ctx)
 	/* Compare the packet with expected output after rev-NAT.
 	 * Note: offset sizeof(__u32) to skip the return code prepended by framework.
 	 */
-	BUF_DECL(ICMP4_ERR_FRAG_NEEDED_AFTER_REVNAT, icmp4_err_frag_needed_after_revnat);
 	ASSERT_CTX_BUF_OFF("icmp4_revnat_ok", "Ether", ctx, sizeof(__u32),
-			   ICMP4_ERR_FRAG_NEEDED_AFTER_REVNAT,
-			   sizeof(BUF(ICMP4_ERR_FRAG_NEEDED_AFTER_REVNAT)));
+			   icmp4_err_frag_needed_after_revnat,
+			   sizeof(icmp4_err_frag_needed_after_revnat));
 
 	test_finish();
 }
