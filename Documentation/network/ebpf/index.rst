@@ -17,3 +17,4 @@ eBPF Datapath
    lifeofapacket
    maps
    iptables
+   plugins
