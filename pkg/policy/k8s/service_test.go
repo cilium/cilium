@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"cmp"
-	"maps"
 	"net/netip"
 	"slices"
 	"testing"
@@ -18,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -234,9 +232,8 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	// baz is similar to bar, but not an external service (thus not selectable)
 	bazSvcID := loadbalancer.NewServiceName("baz-ns", "baz-svc")
 	bazSvcSelector := map[string]string{
-		"app": "baz",
+		"app.kubernetes.io/name": "baz",
 	}
-
 	bazEps := []cmtypes.AddrCluster{barEpAddr}
 
 	servicesFixture := newServicesFixture(t)
@@ -281,7 +278,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	select {
 	case <-policyAdd:
-		t.Fatalf("what1")
+		t.Fatalf("Unknown policy imported")
 	default:
 	}
 
@@ -447,13 +444,9 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Contains(t, rules[0].Labels, svcByLabelLbl)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcSelector, nil)
-	bazEndpointSelectors.Generated = true
-	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace())
-
+	bazEndpointSelector := newEndpointSelectorForServiceSelector(bazSvcID.Namespace(), bazSvcSelector)
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, bazEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+	assert.Equal(t, bazEndpointSelector, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policy has been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -562,13 +555,9 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
-	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
-
+	fooEndpointSelector := newEndpointSelectorForServiceSelector(fooSvcID.Namespace(), fooSvcSelector)
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+	assert.Equal(t, fooEndpointSelector, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -590,12 +579,8 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
-
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+	assert.Equal(t, fooEndpointSelector, rules[0].Egress[0].ToEndpoints[0])
 
 	// bar-svc is selected by svcByLabelCNP
 	barSvcLabels := map[string]string{
@@ -653,12 +638,9 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	barEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
-	barEndpointSelectors.Generated = true
-	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace())
-
+	barEndpointSelector := newEndpointSelectorForServiceSelector(barSvcID.Namespace(), barSvcLabels)
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, barEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+	assert.Equal(t, barEndpointSelector, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -705,12 +687,8 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Len(t, rules[0].Egress[0].ToEndpoints, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
-
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].Egress[0].ToEndpoints[0])
+	assert.Equal(t, fooEndpointSelector, rules[0].Egress[0].ToEndpoints[0])
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
