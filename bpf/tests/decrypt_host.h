@@ -26,6 +26,30 @@
 
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
+#ifdef ENABLE_WIREGUARD
+/* packet defined in ./scapy/wg_from_netdev_pkt_defs.py */
+const __u8 v4_wireguard[] = {
+	SCAPY_BUF_BYTES(v4_wireguard)
+};
+
+/* packet defined in ./scapy/wg_from_netdev_pkt_defs.py */
+const __u8 v6_wireguard[] = {
+	SCAPY_BUF_BYTES(v6_wireguard)
+};
+#endif
+
+#ifdef ENABLE_IPSEC
+/* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
+const __u8 v4_ipsec[] = {
+	SCAPY_BUF_BYTES(v4_ipsec)
+};
+
+/* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
+const __u8 v6_ipsec[] = {
+	SCAPY_BUF_BYTES(v6_ipsec)
+};
+#endif
+
 int pktgen(struct __ctx_buff *ctx, bool ipv4)
 {
 	struct pktgen builder;
@@ -33,22 +57,16 @@ int pktgen(struct __ctx_buff *ctx, bool ipv4)
 	pktgen__init(&builder, ctx);
 
 #ifdef ENABLE_WIREGUARD
-	if (ipv4) {
-		BUF_DECL(V4_WIREGUARD, v4_wireguard);
-		BUILDER_PUSH_BUF(builder, V4_WIREGUARD);
-	} else {
-		BUF_DECL(V6_WIREGUARD, v6_wireguard);
-		BUILDER_PUSH_BUF(builder, V6_WIREGUARD);
-	}
+	if (ipv4)
+		scapy_push_data(&builder, v4_wireguard, sizeof(v4_wireguard));
+	else
+		scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
 #endif
 #ifdef ENABLE_IPSEC
-	if (ipv4) {
-		BUF_DECL(V4_IPSEC, v4_ipsec);
-		BUILDER_PUSH_BUF(builder, V4_IPSEC);
-	} else {
-		BUF_DECL(V6_IPSEC, v6_ipsec);
-		BUILDER_PUSH_BUF(builder, V6_IPSEC);
-	}
+	if (ipv4)
+		scapy_push_data(&builder, v4_ipsec, sizeof(v4_ipsec));
+	else
+		scapy_push_data(&builder, v6_ipsec, sizeof(v6_ipsec));
 #endif
 
 	pktgen__finish(&builder);
@@ -87,26 +105,21 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
 
 #ifdef ENABLE_WIREGUARD
 	if (ipv4) {
-		BUF_DECL(EXPECTED_WG_PACKET_V4, v4_wireguard);
 		ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   EXPECTED_WG_PACKET_V4, sizeof(BUF(EXPECTED_WG_PACKET_V4)));
+				   v4_wireguard, sizeof(v4_wireguard));
 	} else {
-		BUF_DECL(EXPECTED_WG_PACKET_V6, v6_wireguard);
 		ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   EXPECTED_WG_PACKET_V6, sizeof(BUF(EXPECTED_WG_PACKET_V6)));
+				   v6_wireguard, sizeof(v6_wireguard));
 	}
 #endif
 #ifdef ENABLE_IPSEC
 	if (ipv4) {
-		BUF_DECL(EXPECTED_IPSEC_PACKET_V4, v4_ipsec);
 		ASSERT_CTX_BUF_OFF("v4_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   EXPECTED_IPSEC_PACKET_V4, sizeof(BUF(EXPECTED_IPSEC_PACKET_V4)));
+				   v4_ipsec, sizeof(v4_ipsec));
 	} else {
-		BUF_DECL(EXPECTED_IPSEC_PACKET_V6, v6_ipsec);
 		ASSERT_CTX_BUF_OFF("v6_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   EXPECTED_IPSEC_PACKET_V6, sizeof(BUF(EXPECTED_IPSEC_PACKET_V6)));
+				   v6_ipsec, sizeof(v6_ipsec));
 	}
-
 #endif
 
 	test_finish();

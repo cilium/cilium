@@ -66,7 +66,49 @@ ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 	.reason = REASON_FRAG_PACKET, \
 	.dir = METRIC_SERVICE }
 
-/* Test that the 1st fragment is handled correctly */
+/* Test that the 1st fragment of an external-to-nodeport request is handled correctly */
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ns_nodeport_fragment1[] = {
+	SCAPY_BUF_BYTES(lb4_ns_nodeport_fragment1)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ns_nodeport_fragment2[] = {
+	SCAPY_BUF_BYTES(lb4_ns_nodeport_fragment2)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ns_nodeport_fragment1_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb4_ns_nodeport_fragment1_post_dnat)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ns_nodeport_fragment2_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb4_ns_nodeport_fragment2_post_dnat)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ew_nodeport_fragment1[] = {
+	SCAPY_BUF_BYTES(lb4_ew_nodeport_fragment1)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ew_nodeport_fragment2[] = {
+	SCAPY_BUF_BYTES(lb4_ew_nodeport_fragment2)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ew_nodeport_fragment1_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb4_ew_nodeport_fragment1_post_dnat)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ew_nodeport_fragment2_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb4_ew_nodeport_fragment2_post_dnat)
+};
+
+/* Test that the 1st fragment of an external-to-nodeport request is handled correctly */
 PKTGEN("tc", "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 {
@@ -75,11 +117,9 @@ int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 #ifdef NORTH_SOUTH_TEST
-	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT1, lb4_ns_nodeport_fragment1);
-	BUILDER_PUSH_BUF(builder, LB4_NS_NODEPORT_FRAGMENT1);
+	scapy_push_data(&builder, lb4_ns_nodeport_fragment1, sizeof(lb4_ns_nodeport_fragment1));
 #else
-	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1, lb4_ew_nodeport_fragment1);
-	BUILDER_PUSH_BUF(builder, LB4_EW_NODEPORT_FRAGMENT1);
+	scapy_push_data(&builder, lb4_ew_nodeport_fragment1, sizeof(lb4_ew_nodeport_fragment1));
 #endif
 
 	pktgen__finish(&builder);
@@ -139,17 +179,15 @@ int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 
 	/* Ensure packet has been DNAT correctly. */
 #ifdef NORTH_SOUTH_TEST
-	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ns_nodeport_fragment1_post_dnat);
 	ASSERT_CTX_BUF_OFF("lb4_ns_nodeport_fragment1_post_dnat", "Ether", ctx, sizeof(__u32),
-			   LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT,
-			   sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT)));
-	bytes = sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT));
+			   lb4_ns_nodeport_fragment1_post_dnat,
+			   sizeof(lb4_ns_nodeport_fragment1_post_dnat));
+	bytes = sizeof(lb4_ns_nodeport_fragment1_post_dnat);
 #else
-	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ew_nodeport_fragment1_post_dnat);
 	ASSERT_CTX_BUF_OFF("lb4_ew_nodeport_fragment1_post_dnat", "Ether", ctx, sizeof(__u32),
-			   LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT,
-			   sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT)));
-	bytes = sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT));
+			   lb4_ew_nodeport_fragment1_post_dnat,
+			   sizeof(lb4_ew_nodeport_fragment1_post_dnat));
+	bytes = sizeof(lb4_ew_nodeport_fragment1_post_dnat);
 #endif
 
 	/* Ensure CT entry is updated accordingly (SVC). */
@@ -170,11 +208,9 @@ int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 #ifdef NORTH_SOUTH_TEST
-	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT2, lb4_ns_nodeport_fragment2);
-	BUILDER_PUSH_BUF(builder, LB4_NS_NODEPORT_FRAGMENT2);
+	scapy_push_data(&builder, lb4_ns_nodeport_fragment2, sizeof(lb4_ns_nodeport_fragment2));
 #else
-	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT2, lb4_ew_nodeport_fragment2);
-	BUILDER_PUSH_BUF(builder, LB4_EW_NODEPORT_FRAGMENT2);
+	scapy_push_data(&builder, lb4_ew_nodeport_fragment2, sizeof(lb4_ew_nodeport_fragment2));
 #endif
 
 	pktgen__finish(&builder);
@@ -220,21 +256,17 @@ int nodeport_lb4_fragments_2_check(struct __ctx_buff *ctx)
 
 	/* Ensure packet has been DNAT correctly. */
 #ifdef NORTH_SOUTH_TEST
-	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ns_nodeport_fragment1_post_dnat);
-	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT, lb4_ns_nodeport_fragment2_post_dnat);
 	ASSERT_CTX_BUF_OFF("lb4_ns_nodeport_fragment2_post_dnat", "Ether", ctx, sizeof(__u32),
-			   LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT,
-			   sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT)));
-	bytes = sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT)) +
-		sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT));
+			   lb4_ns_nodeport_fragment2_post_dnat,
+			   sizeof(lb4_ns_nodeport_fragment2_post_dnat));
+	bytes = sizeof(lb4_ns_nodeport_fragment1_post_dnat) +
+		sizeof(lb4_ns_nodeport_fragment2_post_dnat);
 #else
-	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ew_nodeport_fragment1_post_dnat);
-	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT, lb4_ew_nodeport_fragment2_post_dnat);
 	ASSERT_CTX_BUF_OFF("lb4_ew_nodeport_fragment2_post_dnat", "Ether", ctx, sizeof(__u32),
-			   LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT,
-			   sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT)));
-	bytes = sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT)) +
-		sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT));
+			   lb4_ew_nodeport_fragment2_post_dnat,
+			   sizeof(lb4_ew_nodeport_fragment2_post_dnat));
+	bytes = sizeof(lb4_ew_nodeport_fragment1_post_dnat) +
+		sizeof(lb4_ew_nodeport_fragment2_post_dnat);
 #endif
 
 	/* Ensure CT entry is updated accordingly (SVC). */

@@ -30,6 +30,16 @@
 /* For checking statistics in conntrack map. */
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_clusterip[] = {
+	SCAPY_BUF_BYTES(lb4_clusterip)
+};
+
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_clusterip_post_dnat[] = {
+	SCAPY_BUF_BYTES(lb4_clusterip_post_dnat)
+};
+
 /* Test that a request from an external client to a ClusterIP service w/o the
  * `bpf-lb-external-clusterip` flag set is denied. The reason is due to the SVC
  * being created w/o the SVC_FLAG_ROUTABLE flag being set in the bpf map,
@@ -43,8 +53,7 @@ int lb4_nonroutable_clusterip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(LB4_CLUSTERIP, lb4_clusterip);
-	BUILDER_PUSH_BUF(builder, LB4_CLUSTERIP);
+	scapy_push_data(&builder, lb4_clusterip, sizeof(lb4_clusterip));
 
 	pktgen__finish(&builder);
 
@@ -92,9 +101,8 @@ int lb4_nonroutable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	assert_metrics_count(key, count);
 
-	BUF_DECL(LB4_CLUSTERIP, lb4_clusterip);
 	ASSERT_CTX_BUF_OFF("lb4_nonroutable_clusterip", "Ether", ctx, sizeof(__u32),
-			   LB4_CLUSTERIP, sizeof(BUF(LB4_CLUSTERIP)));
+			   lb4_clusterip, sizeof(lb4_clusterip));
 
 	test_finish();
 }
@@ -110,8 +118,7 @@ int lb4_routable_clusterip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(LB4_CLUSTERIP, lb4_clusterip);
-	BUILDER_PUSH_BUF(builder, LB4_CLUSTERIP);
+	scapy_push_data(&builder, lb4_clusterip, sizeof(lb4_clusterip));
 
 	pktgen__finish(&builder);
 
@@ -160,9 +167,8 @@ int lb4_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(ct_entry->packets == 1);
 	assert(ct_entry->bytes == ctx_full_len(ctx) - sizeof(__u32));
 
-	BUF_DECL(LB4_CLUSTERIP_POST_DNAT, lb4_clusterip_post_dnat);
 	ASSERT_CTX_BUF_OFF("lb4_routable_clusterip", "Ether", ctx, sizeof(__u32),
-			   LB4_CLUSTERIP_POST_DNAT, sizeof(BUF(LB4_CLUSTERIP_POST_DNAT)));
+			   lb4_clusterip_post_dnat, sizeof(lb4_clusterip_post_dnat));
 
 	test_finish();
 }

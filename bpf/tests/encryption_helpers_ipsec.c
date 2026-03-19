@@ -27,6 +27,16 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 
 #include "scapy.h"
 
+/* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
+const __u8 v4_ipsec[] = {
+	SCAPY_BUF_BYTES(v4_ipsec)
+};
+
+/* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
+const __u8 v6_ipsec[] = {
+	SCAPY_BUF_BYTES(v6_ipsec)
+};
+
 ASSIGN_CONFIG(__u32, cilium_host_ifindex, 10);
 
 static __always_inline int
@@ -36,13 +46,10 @@ pktgen(struct __ctx_buff *ctx, bool ipv4)
 
 	pktgen__init(&builder, ctx);
 
-	if (ipv4) {
-		BUF_DECL(V4_IPSEC, v4_ipsec);
-		BUILDER_PUSH_BUF(builder, V4_IPSEC);
-	} else {
-		BUF_DECL(V6_IPSEC, v6_ipsec);
-		BUILDER_PUSH_BUF(builder, V6_IPSEC);
-	}
+	if (ipv4)
+		scapy_push_data(&builder, v4_ipsec, sizeof(v4_ipsec));
+	else
+		scapy_push_data(&builder, v6_ipsec, sizeof(v6_ipsec));
 
 	pktgen__finish(&builder);
 
