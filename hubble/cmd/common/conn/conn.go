@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
@@ -155,23 +156,32 @@ func NewWithFlags(ctx context.Context, vp *viper.Viper) (*grpc.ClientConn, error
 	return conn, nil
 }
 
-func newPortForwarder(context, kubeconfig string) (*portforward.PortForwarder, error) {
+// NewK8sClient creates a Kubernetes clientset and REST config from the
+// provided kube-context and kubeconfig path.
+func NewK8sClient(kubeContext, kubeconfig string) (kubernetes.Interface, *rest.Config, error) {
 	restClientGetter := genericclioptions.ConfigFlags{
-		Context:    &context,
+		Context:    &kubeContext,
 		KubeConfig: &kubeconfig,
 	}
 	rawKubeConfigLoader := restClientGetter.ToRawKubeConfigLoader()
 
 	config, err := rawKubeConfigLoader.ClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	pf := portforward.NewPortForwarder(clientset, config)
-	return pf, nil
+	return clientset, config, nil
+}
+
+func newPortForwarder(context, kubeconfig string) (*portforward.PortForwarder, error) {
+	clientset, config, err := NewK8sClient(context, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return portforward.NewPortForwarder(clientset, config), nil
 }
