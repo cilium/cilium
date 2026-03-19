@@ -49,14 +49,17 @@ type Writer[T Event] struct {
 }
 
 // NewWriter creates a new WAL writer for events of type T at the specified logPath.
-// The log file is created if it does not exist, and truncated if it does.
+// The log file is created if it does not exist. The log is not truncated if it exists
+// and thus it's recommended to [Compact] early.
 func NewWriter[T Event](logPath string) (*Writer[T], error) {
 	w := &Writer[T]{
 		logPath: logPath,
 	}
 
-	// Open the log file, create it if it doesn't exist, and truncate it to start fresh.
-	if log, err := w.open(logPath, true); err != nil {
+	// Open the log file. Create it if it doesn't exist. Do not truncate
+	// as otherwise we'd be open to a race to fill the WAL again with the
+	// current entries.
+	if log, err := w.open(logPath, false); err != nil {
 		return nil, err
 	} else {
 		w.log = log
