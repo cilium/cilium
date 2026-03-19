@@ -19,6 +19,30 @@
 
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
+const __u8 v4_wireguard[] = {
+	SCAPY_BUF_BYTES(v4_wireguard)
+};
+
+const __u8 v4_wireguard_sport_mismatch[] = {
+	SCAPY_BUF_BYTES(v4_wireguard_sport_mismatch)
+};
+
+const __u8 v4_wireguard_proto_mismatch[] = {
+	SCAPY_BUF_BYTES(v4_wireguard_proto_mismatch)
+};
+
+const __u8 v6_wireguard[] = {
+	SCAPY_BUF_BYTES(v6_wireguard)
+};
+
+const __u8 v6_wireguard_sport_mismatch[] = {
+	SCAPY_BUF_BYTES(v6_wireguard_sport_mismatch)
+};
+
+const __u8 v6_wireguard_proto_mismatch[] = {
+	SCAPY_BUF_BYTES(v6_wireguard_proto_mismatch)
+};
+
 /* these tests validate that a real wireguard packet is handled properly
  * we expect the packet to not be modified, and to be passed up the stack.
  * MARK_MAGIC_DECRYPT is no longer set; tunnel routing uses port-based rules.
@@ -34,8 +58,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_WIREGUARD, v4_wireguard);
-	BUILDER_PUSH_BUF(builder, V4_WIREGUARD);
+	scapy_push_data(&builder, v4_wireguard, sizeof(v4_wireguard));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -74,11 +97,8 @@ int ipv4_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/*  make sure packet was not modified */
-	/* declare the buffer where our expectation is (the same wireguard packet we injected) */
-	BUF_DECL(EXPECTED_WG_PACKET_V4, v4_wireguard);
-	/* call the assert, passing in the buffer we declared above and the proper offsets */
 	ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_WG_PACKET_V4, sizeof(BUF(EXPECTED_WG_PACKET_V4)));
+			   v4_wireguard, sizeof(v4_wireguard));
 
 	test_finish();
 }
@@ -90,8 +110,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_WIREGUARD, v6_wireguard);
-	BUILDER_PUSH_BUF(builder, V6_WIREGUARD);
+	scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -131,11 +150,8 @@ int ipv6_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	assert(!ctx_is_decrypt(ctx));
 
 	/*  make sure packet was not modified */
-	/* declare the buffer where our expectation is (the same wireguard packet we injected) */
-	BUF_DECL(EXPECTED_WG_PACKET_V6, v6_wireguard);
-	/* call the assert, passing in the buffer we declared above and the proper offsets */
 	ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_WG_PACKET_V6, sizeof(BUF(EXPECTED_WG_PACKET_V6)));
+			   v6_wireguard, sizeof(v6_wireguard));
 
 	test_finish();
 }
@@ -156,8 +172,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_no_identity_pktgen(struct __ctx_buf
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_WIREGUARD_NO_ID, v4_wireguard);
-	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_NO_ID);
+	scapy_push_data(&builder, v4_wireguard, sizeof(v4_wireguard));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -192,8 +207,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_no_identity_pktgen(struct __ctx_buf
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_WIREGUARD_NO_ID, v6_wireguard);
-	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_NO_ID);
+	scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -229,8 +243,8 @@ int ipv4_not_decrypted_wireguard_from_netdev_port_mismatch_pktgen(struct __ctx_b
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_WIREGUARD_SPORT_MISMATCH, v4_wireguard_sport_mismatch);
-	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_SPORT_MISMATCH);
+	scapy_push_data(&builder, v4_wireguard_sport_mismatch,
+			sizeof(v4_wireguard_sport_mismatch));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -276,8 +290,8 @@ int ipv6_not_decrypted_wireguard_from_netdev_port_mismatch_pktgen(struct __ctx_b
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_WIREGUARD_SPORT_MISMATCH, v6_wireguard_sport_mismatch);
-	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_SPORT_MISMATCH);
+	scapy_push_data(&builder, v6_wireguard_sport_mismatch,
+			sizeof(v6_wireguard_sport_mismatch));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -325,8 +339,8 @@ int ipv4_not_decrypted_wireguard_from_netdev_protocol_mismatch_pktgen(struct __c
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V4_WIREGUARD_PROTO_MISMATCH, v4_wireguard_proto_mismatch);
-	BUILDER_PUSH_BUF(builder, V4_WIREGUARD_PROTO_MISMATCH);
+	scapy_push_data(&builder, v4_wireguard_proto_mismatch,
+			sizeof(v4_wireguard_proto_mismatch));
 
 	pktgen__finish(&builder);
 	return 0;
@@ -372,8 +386,8 @@ int ipv6_not_decrypted_wireguard_from_netdev_protocol_mismatch_pktgen(struct __c
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(V6_WIREGUARD_PROTO_MISMATCH, v6_wireguard_proto_mismatch);
-	BUILDER_PUSH_BUF(builder, V6_WIREGUARD_PROTO_MISMATCH);
+	scapy_push_data(&builder, v6_wireguard_proto_mismatch,
+			sizeof(v6_wireguard_proto_mismatch));
 
 	pktgen__finish(&builder);
 	return 0;

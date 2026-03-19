@@ -20,9 +20,29 @@
 #define ASSERT2_FAIL "assert2_fail"
 #define ASSERT3_FAIL "assert3_fail"
 
-#define LEN_SST_EXP sizeof(BUF(SST_EXP))
-#define LEN_SST_NOT_EXP sizeof(BUF(SST_NOT_EXP))
-#define LEN_SST_NOT_EXP_PAD sizeof(BUF(SST_NOT_EXP_PAD))
+const __u8 sst_req[] = {
+	SCAPY_BUF_BYTES(sst_req)
+};
+
+const __u8 sst_rep[] = {
+	SCAPY_BUF_BYTES(sst_rep)
+};
+
+const __u8 sst_rep_pad[] = {
+	SCAPY_BUF_BYTES(sst_rep_pad)
+};
+
+const __u8 sst_lpkt[] = {
+	SCAPY_BUF_BYTES(sst_lpkt)
+};
+
+const __u8 sst_xlpkt[] = {
+	SCAPY_BUF_BYTES(sst_xlpkt)
+};
+
+#define LEN_SST_EXP sizeof(sst_req)
+#define LEN_SST_NOT_EXP sizeof(sst_rep)
+#define LEN_SST_NOT_EXP_PAD sizeof(sst_rep_pad)
 
 /**
  * These are here so that test_fail_now() that returns is captured
@@ -33,9 +53,7 @@ int force_assert_fail_off(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	BUF_DECL(SST_NOT_EXP, sst_rep);
-
-	ASSERT_CTX_BUF_OFF(ASSERT1_FAIL, "Ether", ctx, 0, SST_NOT_EXP,
+	ASSERT_CTX_BUF_OFF(ASSERT1_FAIL, "Ether", ctx, 0, sst_rep,
 			   LEN_SST_NOT_EXP);
 
 	fake_test_end();
@@ -48,10 +66,8 @@ int force_assert_fail_off2(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	BUF_DECL(SST_NOT_EXP, sst_rep);
-
-	ASSERT_CTX_BUF_OFF2(ASSERT2_FAIL, "Ether", ctx, 0, SST_NOT_EXP,
-			    BUF(SST_NOT_EXP), LEN_SST_NOT_EXP,
+	ASSERT_CTX_BUF_OFF2(ASSERT2_FAIL, "Ether", ctx, 0, "sst_rep",
+			    sst_rep, LEN_SST_NOT_EXP,
 			    LEN_SST_NOT_EXP);
 	fake_test_end();
 
@@ -63,10 +79,8 @@ int force_assert_fail_ctx_smaller_exp(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	BUF_DECL(SST_NOT_EXP_PAD, sst_rep_pad);
-
-	ASSERT_CTX_BUF_OFF2(ASSERT3_FAIL, "Ether", ctx, 0, SST_NOT_EXP_PAD,
-			    BUF(SST_NOT_EXP_PAD), LEN_SST_NOT_EXP_PAD,
+	ASSERT_CTX_BUF_OFF2(ASSERT3_FAIL, "Ether", ctx, 0, "sst_rep_pad",
+			    sst_rep_pad, LEN_SST_NOT_EXP_PAD,
 			    LEN_SST_NOT_EXP_PAD);
 	fake_test_end();
 
@@ -80,8 +94,7 @@ int pktgen_scapy_basic_test(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(SST_EXP, sst_req);
-	BUILDER_PUSH_BUF(builder, SST_EXP);
+	scapy_push_data(&builder, sst_req, sizeof(sst_req));
 
 	pktgen__finish(&builder);
 
@@ -96,14 +109,10 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 
 	test_init();
 
-	BUF_DECL(SST_EXP, sst_req);
-	BUF_DECL(SST_NOT_EXP, sst_rep);
-	BUF_DECL(SST_NOT_EXP_PAD, sst_rep_pad);
-
-	ASSERT_CTX_BUF_OFF(ASSERT1, "Ether", ctx, 0, SST_EXP,
+	ASSERT_CTX_BUF_OFF(ASSERT1, "Ether", ctx, 0, sst_req,
 			   LEN_SST_EXP);
-	ASSERT_CTX_BUF_OFF2(ASSERT2, "Ether", ctx, 0, SST_EXP,
-			    BUF(SST_EXP), LEN_SST_EXP, LEN_SST_EXP);
+	ASSERT_CTX_BUF_OFF2(ASSERT2, "Ether", ctx, 0, "sst_req",
+			    sst_req, LEN_SST_EXP, LEN_SST_EXP);
 
 	/* Test failures */
 	rc = force_assert_fail_off(ctx);
@@ -120,9 +129,9 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 		id = 0;
 		entry = map_lookup_elem(&scapy_assert_map, &id);
 		assert(entry);
-		assert(scapy_memcmp(entry->exp_buf, BUF(SST_NOT_EXP),
+		assert(scapy_memcmp(entry->exp_buf, sst_rep,
 				    LEN_SST_NOT_EXP) == 0);
-		assert(scapy_memcmp(entry->got_buf, BUF(SST_EXP),
+		assert(scapy_memcmp(entry->got_buf, sst_req,
 				    LEN_SST_EXP) == 0);
 		assert(memcmp(entry->name, ASSERT1_FAIL,
 			      sizeof(ASSERT1_FAIL)) == 0);
@@ -139,9 +148,9 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 		id = 1;
 		entry = map_lookup_elem(&scapy_assert_map, &id);
 		assert(entry);
-		assert(scapy_memcmp(entry->exp_buf, BUF(SST_NOT_EXP),
+		assert(scapy_memcmp(entry->exp_buf, sst_rep,
 				    LEN_SST_NOT_EXP) == 0);
-		assert(scapy_memcmp(entry->got_buf, BUF(SST_EXP),
+		assert(scapy_memcmp(entry->got_buf, sst_req,
 				    LEN_SST_EXP) == 0);
 		assert(memcmp(entry->name, ASSERT2_FAIL,
 			      sizeof(ASSERT2_FAIL)) == 0);
@@ -157,7 +166,7 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 		id = 2;
 		entry = map_lookup_elem(&scapy_assert_map, &id);
 		assert(entry);
-		assert(scapy_memcmp(entry->exp_buf, BUF(SST_NOT_EXP),
+		assert(scapy_memcmp(entry->exp_buf, sst_rep,
 				    LEN_SST_NOT_EXP) == 0);
 		assert(scapy_memcmp(entry->got_buf, __scapy_null_assert.got_buf,
 				    LEN_SST_EXP) == 0);
@@ -182,8 +191,7 @@ int pktgen_scapy_large_pkts(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(SST_LPKT, sst_lpkt);
-	BUILDER_PUSH_BUF(builder, SST_LPKT);
+	scapy_push_data(&builder, sst_lpkt, sizeof(sst_lpkt));
 
 	pktgen__finish(&builder);
 
@@ -195,11 +203,8 @@ int check_scapy_large_pkts(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	BUF_DECL(SST_LPKT, sst_lpkt);
-
-	/* 1024 byte pkt */
-	ASSERT_CTX_BUF_OFF("assert_lpkt_1", "Ether", ctx, 0, SST_LPKT,
-			   sizeof(BUF(SST_LPKT)));
+	ASSERT_CTX_BUF_OFF("assert_large_1", "Ether", ctx, 0, sst_lpkt,
+			   sizeof(sst_lpkt));
 
 	test_finish();
 
@@ -213,8 +218,7 @@ int pktgen_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(SST_XLPKT, sst_xlpkt);
-	BUILDER_PUSH_BUF(builder, SST_XLPKT);
+	scapy_push_data(&builder, sst_xlpkt, sizeof(sst_xlpkt));
 
 	pktgen__finish(&builder);
 
@@ -226,14 +230,8 @@ int check_scapy_xlarge_pkts(struct __ctx_buff *ctx)
 {
 	test_init();
 
-	BUF_DECL(SST_XLPKT, sst_xlpkt);
-
-	/**
-	 * 1518 byte pkt (two memcpys due to LLVM builtin ~1024 byte limit)
-	 * Note: this is __SCAPY_MAX_BUF size.
-	 */
-	ASSERT_CTX_BUF_OFF("assert_xlpkt_1", "Ether", ctx, 0, SST_XLPKT,
-			   sizeof(BUF(SST_XLPKT)));
+	ASSERT_CTX_BUF_OFF("assert_xl_1", "Ether", ctx, 0, sst_xlpkt,
+			   sizeof(sst_xlpkt));
 
 	test_finish();
 

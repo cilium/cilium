@@ -18,6 +18,16 @@
 
 #include "lib/bpf_host.h"
 
+/* packet defined in ./scapy/tc_l2_announce_pkt_defs.py */
+const __u8 l2_announce_arp_req[] = {
+	SCAPY_BUF_BYTES(l2_announce_arp_req)
+};
+
+/* packet defined in ./scapy/tc_l2_announce_pkt_defs.py */
+const __u8 l2_announce_arp_reply[] = {
+	SCAPY_BUF_BYTES(l2_announce_arp_reply)
+};
+
 ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
 ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
@@ -36,8 +46,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	pktgen__init(&builder, ctx);
 
-	BUF_DECL(ARP_REQ, l2_announce_arp_req);
-	BUILDER_PUSH_BUF(builder, ARP_REQ);
+	scapy_push_data(&builder, l2_announce_arp_req, sizeof(l2_announce_arp_req));
 
 	pktgen__finish(&builder);
 
@@ -77,10 +86,9 @@ int l2_announcement_arp_no_entry_check(__maybe_unused const struct __ctx_buff *c
 
 	assert(*status_code == TC_ACT_OK);
 
-	BUF_DECL(EXPECTED_ARP_REQ, l2_announce_arp_req);
 	ASSERT_CTX_BUF_OFF("arp_req_no_entry_untouched", "Ether", ctx,
-			   sizeof(__u32), EXPECTED_ARP_REQ,
-			   sizeof(BUF(EXPECTED_ARP_REQ)));
+			   sizeof(__u32), l2_announce_arp_req,
+			   sizeof(l2_announce_arp_req));
 	test_finish();
 
 }
@@ -128,9 +136,7 @@ int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff 
 
 	assert(*status_code == TC_ACT_REDIRECT);
 
-	BUF_DECL(EXPECTED_ARP_REP, l2_announce_arp_reply);
-
 	ASSERT_CTX_BUF_OFF("arp_rep_ok", "Ether", ctx, sizeof(__u32),
-			   EXPECTED_ARP_REP, sizeof(BUF(EXPECTED_ARP_REP)));
+			   l2_announce_arp_reply, sizeof(l2_announce_arp_reply));
 	test_finish();
 }
