@@ -45,7 +45,7 @@ runs:
         clusterEndpoints:
             publicAccess: true
             privateAccess: true
-          publicAccessCidrs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
+          publicAccessCIDRs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
 
         managedNodeGroups:
         - name: ng-amd64
