@@ -73,10 +73,15 @@ func stylize(s string) string {
 	return s
 }
 
-// camelCase converts a string like "foo_bar" to "FooBar". It capitalizes the
-// acronyms defined in acronyms.txt.
+// camelCase converts strings like "foo_bar" and "FOO_BAR" to "FooBar". It
+// capitalizes the acronyms defined in acronyms.txt.
 func camelCase(s string) string {
 	var b strings.Builder
+
+	// Ignore existing capitalization. Typically, identifiers are all upper or all
+	// lower; apply our own capitalization rules on them.
+	s = strings.ToLower(s)
+
 	for w := range strings.SplitSeq(s, "_") {
 		w = stylize(w)
 		b.WriteString(cases.Title(language.English, cases.NoLower).String(w))
