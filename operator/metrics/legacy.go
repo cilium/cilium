@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"fmt"
+	"maps"
 
 	dto "github.com/prometheus/client_model/go"
 
@@ -72,9 +73,7 @@ func DumpMetrics(reg *metrics.Registry) ([]*models.Metric, error) {
 					{"0.99", p99},
 				} {
 					labels := make(map[string]string, len(baseLabels)+1)
-					for k, v := range baseLabels {
-						labels[k] = v
-					}
+					maps.Copy(labels, baseLabels)
 					labels["quantile"] = qv.q
 					result = append(result, &models.Metric{
 						Name:   metricName,
@@ -85,9 +84,7 @@ func DumpMetrics(reg *metrics.Registry) ([]*models.Metric, error) {
 			case dto.MetricType_SUMMARY:
 				for _, q := range metricLabel.GetSummary().GetQuantile() {
 					labels := make(map[string]string, len(baseLabels)+1)
-					for k, v := range baseLabels {
-						labels[k] = v
-					}
+					maps.Copy(labels, baseLabels)
 					labels["quantile"] = fmt.Sprintf("%g", q.GetQuantile())
 					result = append(result, &models.Metric{
 						Name:   metricName,

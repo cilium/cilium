@@ -48,13 +48,13 @@ func TestDumpMetrics_Histogram(t *testing.T) {
 		Buckets: prometheus.DefBuckets,
 	})
 	// Observe values that should place p50 < p90 < p99
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		h.Observe(0.01) // 50 fast samples
 	}
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		h.Observe(0.1) // 40 medium samples
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		h.Observe(1.0) // 10 slow samples
 	}
 	require.NoError(t, reg.Register(h))
@@ -112,7 +112,7 @@ func TestDumpMetrics_Summary(t *testing.T) {
 			0.99: 0.001,
 		},
 	})
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		s.Observe(float64(i) * 0.01)
 	}
 	require.NoError(t, reg.Register(s))
