@@ -90,11 +90,11 @@ func runTypes(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("getting BTF type %v: %w", t, err)
 		}
 
-		// Only include structs, unions and typedefs.
+		// Only include certain types of interest.
 		switch typ.(type) {
 		default:
 			continue
-		case *btf.Struct, *btf.Union, *btf.Typedef:
+		case *btf.Struct, *btf.Union, *btf.Typedef, *btf.Enum:
 		}
 
 		cName := typ.TypeName()
