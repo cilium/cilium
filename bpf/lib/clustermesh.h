@@ -4,6 +4,7 @@
 
 #include <bpf/config/node.h>
 
+#include "common.h"
 #include "lib/utils.h"
 
 /*

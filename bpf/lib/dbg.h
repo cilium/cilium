@@ -176,7 +176,6 @@ struct debug_capture_msg {
 
 #if defined(DEBUG) || defined(DEBUG_TAGGED)
 #include "events.h"
-#include "common.h"
 #include "utils.h"
 
 #ifdef DEBUG_TAGGED

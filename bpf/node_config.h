@@ -16,24 +16,6 @@
 
 #define LRU_MEM_FLAVOR 0
 
-#define UNKNOWN_ID 0
-#define HOST_ID 1
-#define WORLD_ID 2
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-# define WORLD_IPV4_ID 9
-# define WORLD_IPV6_ID 10
-#else
-# define WORLD_IPV4_ID 2
-# define WORLD_IPV6_ID 2
-#endif
-#define UNMANAGED_ID 3
-#define HEALTH_ID 4
-#define INIT_ID 5
-#define LOCAL_NODE_ID 6
-#define REMOTE_NODE_ID 6
-#define KUBE_APISERVER_NODE_ID 7
-#define INGRESS_ID 8
-
 #define CT_CONNECTION_LIFETIME_TCP	21600
 #define CT_CONNECTION_LIFETIME_NONTCP	60
 #define CT_SERVICE_LIFETIME_TCP		21600
