@@ -32,6 +32,7 @@ understand the workflow of getting these changes reviewed and merged upstream.
    introducing_new_crds
    bgp_cplane
    renovate
+   plugins
 
 The best way to get help if you get stuck is to ask a question on `Cilium
 Slack`_. With Cilium contributors across the globe, there is almost always
