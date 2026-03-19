@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"errors"
+	"maps"
 	"sync"
 
 	"github.com/cilium/stream"
@@ -15,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -278,17 +280,19 @@ func appendEndpoints(toCIDRSet *api.CIDRRuleSlice, endpoints []api.CIDR) {
 	}
 }
 
-// appendSelector appends the service selector as a generated EndpointSelector
-func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]string, namespace string) {
-	selector := make(map[string]string)
-	for k, v := range svcSelector {
-		selector[k] = v
-	}
-	selector[labels.LabelSourceK8sKeyPrefix+k8sConst.PodNamespaceLabel] = namespace
-	endpointSelector := api.NewESFromMatchRequirements(selector, nil)
+func newEndpointSelectorForServiceSelector(namespace string, svcSelector map[string]string) api.EndpointSelector {
+	selector := maps.Clone(svcSelector)
+	selector[k8sConst.PodNamespaceLabel] = namespace
+
+	endpointSelector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &slim_metav1.LabelSelector{MatchLabels: selector})
 	endpointSelector.Generated = true
 
-	*toEndpoints = append(*toEndpoints, endpointSelector)
+	return endpointSelector
+}
+
+// appendSelector appends the service selector as a generated EndpointSelector
+func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]string, namespace string) {
+	*toEndpoints = append(*toEndpoints, newEndpointSelectorForServiceSelector(namespace, svcSelector))
 }
 
 // processRule parses the ToServices selectors in the provided rule and translates
