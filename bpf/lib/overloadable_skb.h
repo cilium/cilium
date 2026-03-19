@@ -3,9 +3,8 @@
 
 #pragma once
 
-#include "lib/common.h"
-#include "linux/ip.h"
-
+#include <linux/ip.h>
+#include "identity.h"
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
