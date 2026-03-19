@@ -2723,6 +2723,10 @@ func init() {
         "sync-build-endpoint": {
           "description": "Whether to build an endpoint synchronously\n",
           "type": "boolean"
+        },
+        "vlan-id": {
+          "description": "802.1Q VLAN ID for endpoint traffic isolation. When set, VLAN tags are applied at the network boundary for this endpoint. 0 means no VLAN tagging.",
+          "type": "integer"
         }
       }
     },
@@ -8139,6 +8143,10 @@ func init() {
         "sync-build-endpoint": {
           "description": "Whether to build an endpoint synchronously\n",
           "type": "boolean"
+        },
+        "vlan-id": {
+          "description": "802.1Q VLAN ID for endpoint traffic isolation. When set, VLAN tags are applied at the network boundary for this endpoint. 0 means no VLAN tagging.",
+          "type": "integer"
         }
       }
     },

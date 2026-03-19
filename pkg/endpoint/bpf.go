@@ -124,6 +124,10 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		fmt.Fprintf(fw, " * Parent Interface IfIndex: %d\n", e.parentIfIndex)
 	}
 
+	if e.vlanID != 0 {
+		fmt.Fprintf(fw, " * VLAN ID: %d\n", e.vlanID)
+	}
+
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " * IPv6 address: %s\n", e.IPv6.String())
 	}

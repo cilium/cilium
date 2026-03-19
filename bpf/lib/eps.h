@@ -47,7 +47,9 @@ struct endpoint_info {
 	mac_t		node_mac;
 	__u32		sec_id;
 	__u32		parent_ifindex;
-	__u32		pad[2];
+	__u16		vlan_id; /* 802.1Q VLAN ID for trunk ENI, 0 = no VLAN */
+	__u16		pad1;
+	__u32		pad2;
 };
 
 struct {

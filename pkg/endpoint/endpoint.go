@@ -230,6 +230,9 @@ type Endpoint struct {
 	// with the source endpoints IP should egress when that traffic is not masqueraded.
 	parentIfIndex int
 
+	// vlanID is the 802.1Q VLAN ID for trunk ENI mode. 0 means no VLAN tagging.
+	vlanID uint16
+
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
 	// (container name, container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
@@ -560,6 +563,17 @@ func (e *Endpoint) GetIfIndex() int {
 // GetParentIfIndex returns the parentIfIndex for this endpoint.
 func (e *Endpoint) GetParentIfIndex() int {
 	return e.parentIfIndex
+}
+
+// GetVlanID returns the 802.1Q VLAN ID for this endpoint.
+// Returns 0 if no VLAN is configured.
+func (e *Endpoint) GetVlanID() uint16 {
+	return e.vlanID
+}
+
+// SetVlanID sets the 802.1Q VLAN ID for this endpoint.
+func (e *Endpoint) SetVlanID(id uint16) {
+	e.vlanID = id
 }
 
 // LXCMac returns the LXCMac for this endpoint.
