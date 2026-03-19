@@ -17,7 +17,9 @@ triggers:
     - conformance-ingress.yaml
     - conformance-l3-l4.yaml
     - conformance-l7.yaml
-    - conformance-kpr.yaml
+    - conformance-kpr-aks.yaml
+    - conformance-kpr-eks.yaml
+    - conformance-kpr-gke.yaml
     - conformance-multi-pool.yaml
     - conformance-race.yaml
     - conformance-runtime.yaml
@@ -99,9 +101,19 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
-  /ci-kpr:
+  /ci-kpr-aks:
     workflows:
-    - conformance-kpr.yaml
+    - conformance-kpr-aks.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-kpr-eks:
+    workflows:
+    - conformance-kpr-eks.yaml
+    depends-on:
+    - /build-images-dependency
+  /ci-kpr-gke:
+    workflows:
+    - conformance-kpr-gke.yaml
     depends-on:
     - /build-images-dependency
   /ci-kubespray:
@@ -199,7 +211,11 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-ingress.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
-  conformance-kpr.yaml:
+  conformance-kpr-aks.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-kpr-eks.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-kpr-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kubespray.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
