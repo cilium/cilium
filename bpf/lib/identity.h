@@ -4,9 +4,36 @@
 #pragma once
 
 #include <bpf/config/node.h>
+#include "export_type.h"
 
 #include "dbg.h"
 #include "clustermesh.h"
+
+enum identity {
+	UNKNOWN_ID = 0,
+	HOST_ID = 1,
+	WORLD_ID = 2,
+	UNMANAGED_ID = 3,
+	HEALTH_ID = 4,
+	INIT_ID = 5,
+	LOCAL_NODE_ID = 6,
+	REMOTE_NODE_ID = LOCAL_NODE_ID,
+	KUBE_APISERVER_NODE_ID = 7,
+	INGRESS_ID = 8,
+	WORLD_IPV4_ID = 9,
+	WORLD_IPV6_ID = 10,
+};
+
+EXPORT_TYPE(enum identity);
+
+/* TODO(tb): Replace this with a helper, enable_v4/v6 will be runtime configs at
+ * some point.
+ */
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+#else
+# define WORLD_IPV4_ID WORLD_ID
+# define WORLD_IPV6_ID WORLD_ID
+#endif
 
 /**
  * Minimal numeric identity value for a local (CIDR) identity.
@@ -304,6 +331,30 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 static __always_inline bool identity_is_local(__u32 identity)
 {
 	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
+}
+
+static __always_inline __u32 get_tunnel_id(__u32 identity)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+		return WORLD_ID;
+#endif
+	return identity;
+}
+
+static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto  __maybe_unused)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (tunnel_id == WORLD_ID) {
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			return WORLD_IPV4_ID;
+		case bpf_htons(ETH_P_IPV6):
+			return WORLD_IPV6_ID;
+		}
+	}
+#endif
+	return tunnel_id;
 }
 
 /**
