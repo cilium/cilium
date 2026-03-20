@@ -141,11 +141,9 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 
 	var wg sync.WaitGroup
 	for range s.numWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			s.consumeAccessLogs(ctx, msgCh)
-		}()
+		})
 	}
 
 	buf := make([]byte, s.bufferSize)
