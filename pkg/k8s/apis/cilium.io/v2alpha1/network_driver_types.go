@@ -172,6 +172,11 @@ type CiliumNetworkDriverDeviceManagerConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	Dummy *DummyDeviceManagerConfig `json:"dummy,omitempty"`
+
+	// Configuration for the macvlan device manager
+	//
+	// +kubebuilder:validation:Optional
+	Macvlan *MacvlanDeviceManagerConfig `json:"macvlan,omitempty"`
 }
 
 // Configuration for the SR-IOV device manager.
@@ -213,4 +218,39 @@ type DummyDeviceManagerConfig struct {
 	// +kubebuilder:default=false
 	// +kubebuilder:validation:Optional
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Configuration for the macvlan device manager.
+//
+// +deepequal-gen=true
+type MacvlanDeviceManagerConfig struct {
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:Optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=parentIfName
+	Ifaces []MacvlanDeviceConfig `json:"ifaces,omitempty"`
+}
+
+// Configuration for macvlan devices
+type MacvlanDeviceConfig struct {
+	// Number of macvlan sub-interfaces to create for this parent interface.
+	//
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Optional
+	Count int `json:"count"`
+
+	// Parent interface name (kernel ifname)
+	//
+	// +kubebuilder:validation:Required
+	ParentIfName string `json:"parentIfName"`
+
+	// Macvlan mode (private, vepa, bridge, passthru, source). Defaults to bridge.
+	//
+	// +kubebuilder:default="bridge"
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=private;vepa;bridge;passthru;source
+	Mode string `json:"mode,omitempty"`
 }
