@@ -308,6 +308,9 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 				ops.restoredQuarantinedBackends[addr] = backends
 			}
 			for _, slot := range slots[1+master.GetCount():] {
+				if slot == nil {
+					continue
+				}
 				if addr, found := backendIDToAddress[slot.GetBackendID()]; found {
 					backends.Insert(addr)
 				}
