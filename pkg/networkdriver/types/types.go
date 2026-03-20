@@ -55,6 +55,10 @@ const (
 	DeviceManagerLabel = "deviceManager"
 	// PoolNameLabel is the pool name.
 	PoolNameLabel = "pool"
+	// ParentIfNameLabel is the kernel ifname of the parent device.
+	ParentIfNameLabel = "parentIfName"
+	// MacVlanModeLabel is macvlan mode for a macvlan interface.
+	MacVlanModeLabel = "macvlanMode"
 )
 
 var (
@@ -108,13 +112,15 @@ func ValidateInterfaceName(name string) error {
 type DeviceManagerType int
 
 const (
-	sriovDeviceManagerStr = "sr-iov"
-	dummyDeviceManagerStr = "dummy"
+	sriovDeviceManagerStr   = "sr-iov"
+	dummyDeviceManagerStr   = "dummy"
+	macvlanDeviceManagerStr = "macvlan"
 )
 
 const (
 	DeviceManagerTypeSRIOV DeviceManagerType = iota
 	DeviceManagerTypeDummy
+	DeviceManagerTypeMacvlan
 
 	DeviceManagerTypeUnknown
 )
@@ -125,6 +131,8 @@ func (d DeviceManagerType) String() string {
 		return sriovDeviceManagerStr
 	case DeviceManagerTypeDummy:
 		return dummyDeviceManagerStr
+	case DeviceManagerTypeMacvlan:
+		return macvlanDeviceManagerStr
 	}
 
 	return ""
@@ -136,6 +144,8 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 		return json.Marshal(sriovDeviceManagerStr)
 	case DeviceManagerTypeDummy:
 		return json.Marshal(dummyDeviceManagerStr)
+	case DeviceManagerTypeMacvlan:
+		return json.Marshal(macvlanDeviceManagerStr)
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -153,6 +163,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 		*d = DeviceManagerTypeSRIOV
 	case dummyDeviceManagerStr:
 		*d = DeviceManagerTypeDummy
+	case macvlanDeviceManagerStr:
+		*d = DeviceManagerTypeMacvlan
 	default:
 		return errUnknownDeviceManagerType
 	}

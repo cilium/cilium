@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	"github.com/cilium/cilium/pkg/networkdriver/macvlan"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -35,6 +36,15 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 		}
 
 		result[types.DeviceManagerTypeDummy] = dummyMgr
+	}
+
+	if managerConfigs.Macvlan != nil && managerConfigs.Macvlan.Enabled {
+		macvlanMgr, err := macvlan.NewManager(logger, managerConfigs.Macvlan)
+		if err != nil {
+			return nil, err
+		}
+
+		result[types.DeviceManagerTypeMacvlan] = macvlanMgr
 	}
 
 	return result, nil

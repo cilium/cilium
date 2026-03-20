@@ -118,6 +118,43 @@ spec:
                             default: false
                             type: boolean
                         type: object
+                      macvlan:
+                        description: Configuration for the macvlan device manager
+                        properties:
+                          enabled:
+                            default: false
+                            type: boolean
+                          ifaces:
+                            items:
+                              description: Configuration for macvlan devices
+                              properties:
+                                count:
+                                  default: 0
+                                  description: Number of macvlan sub-interfaces to
+                                    create for this parent interface.
+                                  type: integer
+                                mode:
+                                  default: bridge
+                                  description: Macvlan mode (private, vepa, bridge,
+                                    passthru, source). Defaults to bridge.
+                                  enum:
+                                  - private
+                                  - vepa
+                                  - bridge
+                                  - passthru
+                                  - source
+                                  type: string
+                                parentIfName:
+                                  description: Parent interface name (kernel ifname)
+                                  type: string
+                              required:
+                              - parentIfName
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - parentIfName
+                            x-kubernetes-list-type: map
+                        type: object
                       sriov:
                         description: Configuration for the SR-IOV device manager
                         properties:
