@@ -36,7 +36,9 @@ jobs:
     if: ${{ vars.QUAY_BASE_RELEASE_ENABLED == 'true' && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
-    environment: ${{ inputs.environment || 'release-base-images' }}
+    environment:
+      name: 'release-base-images'
+      deployment: false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout base or default branch (trusted)
