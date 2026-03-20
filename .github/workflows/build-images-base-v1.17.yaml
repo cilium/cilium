@@ -27,7 +27,9 @@ jobs:
   has-credentials:
     name: Check for Quay secrets
     runs-on: ubuntu-24.04
-    environment: 'release-base-images'
+    environment:
+      name: 'release-base-images'
+      deployment: false
     timeout-minutes: 2
     outputs:
       present: ${{ steps.secrets.outputs.present }}
@@ -46,7 +48,9 @@ jobs:
     if: ${{ needs.has-credentials.outputs.present && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
-    environment: 'release-base-images'
+    environment:
+      name: 'release-base-images'
+      deployment: false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout default branch (trusted)
@@ -326,7 +330,9 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    environment: 'release-base-images'
+    environment:
+      name: 'release-base-images'
+      deployment: false
     needs: build-and-push
     steps:
       - name: Downloading Image Digests
