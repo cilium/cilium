@@ -46,8 +46,6 @@
 # define CT_REPORT_FLAGS		0xff
 #endif
 
-#define ENABLE_IDENTITY_MARK 1
-
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a

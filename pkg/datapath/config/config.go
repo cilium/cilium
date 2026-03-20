@@ -73,5 +73,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.EnableEndpointRoutes = option.Config.EnableEndpointRoutes
 
+	node.EnableIdentityMark = option.Config.EnableIdentityMark
+
 	return node
 }

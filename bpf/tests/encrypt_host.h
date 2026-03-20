@@ -31,6 +31,8 @@
 #include "lib/ipsec.h"
 #include "lib/node.h"
 
+ASSIGN_CONFIG(bool, enable_identity_mark, true)
+
 static __always_inline
 int v4_build_packet(struct __ctx_buff *ctx)
 {

@@ -475,10 +475,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", cmp.Or(option.Config.CTMapEntriesGlobalTCP, option.CTMapEntriesGlobalTCPDefault))
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", cmp.Or(option.Config.CTMapEntriesGlobalAny, option.CTMapEntriesGlobalAnyDefault))
 
-	if option.Config.EnableIdentityMark {
-		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
-	}
-
 	if option.Config.IPv4Enabled() && option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
 	}

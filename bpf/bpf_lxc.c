@@ -720,13 +720,12 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
 	 * or the endpoint is torn down.
 	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
 		const struct endpoint_info *ep;
@@ -1202,13 +1201,12 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
 	 * or the endpoint is torn down.
 	 */
-	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the

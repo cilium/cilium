@@ -1331,10 +1331,8 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = HOST_ID;
 	else if (magic == MARK_MAGIC_PROXY_EGRESS)
 		src_sec_identity = get_identity(ctx);
-#ifdef ENABLE_IDENTITY_MARK
-	else if (magic == MARK_MAGIC_IDENTITY)
+	else if (CONFIG(enable_identity_mark) && magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
-#endif
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
@@ -1669,14 +1667,12 @@ int cil_to_host(struct __ctx_buff *ctx)
 	check_and_store_ip_trace_id(ctx);
 
 	/* Retrieve values carried only via ctx->mark. */
-#ifdef ENABLE_IDENTITY_MARK
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
-		src_id = get_identity(ctx);
-# ifdef ENABLE_WIREGUARD
-	else if (ctx_is_decrypt(ctx))
-		src_id = get_identity(ctx);
-# endif
-#endif
+	if (CONFIG(enable_identity_mark)) {
+		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
+			src_id = get_identity(ctx);
+		else if (is_defined(ENABLE_WIREGUARD) && ctx_is_decrypt(ctx))
+			src_id = get_identity(ctx);
+	}
 
 	/* Retrieve values carried either via ctx->mark or ctx->cb.
 	 * Prefer ctx->mark when it is set to one of the expected values.

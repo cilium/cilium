@@ -100,9 +100,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 	if (ret != 0)
 		return ret;
 
-#ifdef ENABLE_IDENTITY_MARK
-	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
+
 	return ipv6_host_delivery(ctx, __ETH_HLEN);
 }
 
@@ -221,14 +221,14 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 				    sizeof(*ip4), false))
 		return DROP_INVALID;
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* We must use the MARK_MAGIC_DECRYPT rather than MARK_MAGIC_IDENTITY though,
 	 * as at the beginning of the from-wireguard program we mark the packet as
 	 * decrypted. That has been introduced to support Ingress Strict Mode
 	 * (see https://github.com/cilium/cilium/pull/39239).
 	 */
-	set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_identity_mark(ctx, identity, MARK_MAGIC_DECRYPT);
+
 	return ipv4_host_delivery(ctx, __ETH_HLEN, ip4);
 }
 
@@ -265,10 +265,9 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* mark packet as decrypted by wireguard */
-	set_decrypt_mark(ctx, 0);
-#endif
+	if (CONFIG(enable_identity_mark))
+		set_decrypt_mark(ctx, 0);
 
 #if defined(TUNNEL_MODE) && !(defined(ENABLE_NODEPORT) && defined(ENABLE_NODE_ENCRYPTION))
 	/* In native routing mode we want to deliver packets to local endpoints
