@@ -184,7 +184,7 @@ static __always_inline void setup_test(void)
 	 */
 	__u32 affinity_timeout = 0x2000064;
 
-	__lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, IPPROTO_TCP,
+	__lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP,
 			    LB_MAGLEV_LUT_SIZE, TEST_REVNAT, SVC_FLAG_ROUTABLE, 0,
 			    true, affinity_timeout);
 
