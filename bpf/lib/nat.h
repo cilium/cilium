@@ -1604,7 +1604,8 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			bool has_l4_header, int l4_off,
-			union v6addr *old_addr, union v6addr *new_addr, __u16 addr_off,
+			const union v6addr *old_addr,
+			const union v6addr *new_addr, __u16 addr_off,
 			__be16 old_port, __be16 new_port, __u16 port_off)
 {
 	struct csum_offset csum = {};
