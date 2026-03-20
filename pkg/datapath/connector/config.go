@@ -119,6 +119,27 @@ func canUseNetkit(p connectorParams) error {
 		return fmt.Errorf("netkit devices cannot be used with --%s=true", option.EnableHostLegacyRouting)
 	}
 
+	// early versions of netkit would scrub skb metadata before execution of BPF
+	// programs, meaning identity data stored in skb metadata would not be available
+	// to BPF programs. When using per-endpoint-routes, this can result in network
+	// policy mis-classification.
+	//
+	// A fix in the netkit driver landed in kernel 6.13 [0]. This fix was backported
+	// to stable branches. Cilium was also updated to configure netkit devices with
+	// an appropriate scrubbing attribute [1].
+	//
+	// [0] https://lore.kernel.org/bpf/20241004101335.117711-1-daniel@iogearbox.net
+	// [1] https://github.com/cilium/cilium/pull/35306
+	//
+	// To avoid issues, if we're running with per-endpoint-routes, we probe the host
+	// for scrub attribute support and raise errors if it's missing.
+	if p.DaemonConfig.EnableEndpointRoutes {
+		if err := probes.HaveNetkitScrub(); err != nil {
+			return fmt.Errorf("netkit driver missing scrub attributes, required with --%s=true",
+				option.EnableEndpointRoutes)
+		}
+	}
+
 	// bpf.tproxy requires use of bpf_sk_assign() helper, which at the time of
 	// writing can only be called from TC ingress. However, netkit programs
 	// run at TC egress, so the helper returns -ENOTSUPP and tproxy cannot
@@ -127,7 +148,6 @@ func canUseNetkit(p connectorParams) error {
 	// Until this is resolved we don't tolerate tproxy and netkit.
 	//
 	// GH issue: https://github.com/cilium/cilium/issues/39892
-
 	if p.DaemonConfig.EnableBPFTProxy {
 		return fmt.Errorf("netkit devices cannot be used with --%s=true", option.EnableBPFTProxy)
 	}
