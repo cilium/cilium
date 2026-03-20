@@ -1981,6 +1981,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	__u16 proxy_port = 0;
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
+	bool fast_redirect;
 	int ret;
 
 #ifdef HAVE_ENCAP
@@ -2012,9 +2013,13 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		}
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
+		fast_redirect = should_fast_redirect(ctx, from_host);
+		if (fast_redirect && unlikely(is_icmp6_pmtu(ctx, ip6, ETH_HLEN)))
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_MTU_ERROR_MSG);
+
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
-					  should_fast_redirect(ctx, from_host),
+					  fast_redirect, 
 					  from_tunnel);
 		break;
 	default:

@@ -430,6 +430,20 @@ static __always_inline int icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off,
 }
 
 static __always_inline bool
+is_icmp6_pmtu(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
+{
+	__u8 type;
+
+	if (ip6->nexthdr != IPPROTO_ICMPV6)
+		return false;
+
+	if (icmp6_load_type(ctx, nh_off + sizeof(struct ipv6hdr), &type) < 0)
+		return false;
+
+	return type == ICMPV6_PKT_TOOBIG;
+}
+
+static __always_inline bool
 is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 {
 	__u8 type;
