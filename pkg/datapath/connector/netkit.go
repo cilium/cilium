@@ -136,12 +136,6 @@ func validateNetkitPair(logger *slog.Logger, cfg types.LinkConfig) (netlink.Link
 		return nil, fmt.Errorf("peer link does not appear to be a Netkit device")
 	}
 
-	// Validate the kernel supports Scrub functionality.
-	if !hostDevice.SupportsScrub() || !peerDevice.SupportsScrub() {
-		logger.Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit",
-			logfields.NetkitPair, []string{hostDevice.Name, peerDevice.Name})
-	}
-
 	// Verify we have the correct buffer margins configured. We accept a margin that
 	// is greater than what we requested, just in case it's ever rounded or aligned
 	// within the kernel.
