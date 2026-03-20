@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/renameio/v2"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -63,16 +64,16 @@ func (l *loader) writeNetdevHeader(dir string) error {
 
 func (l *loader) writeNodeConfigHeader(cfg *config.Config) error {
 	nodeConfigPath := option.Config.GetNodeConfigPath()
-	f, err := os.Create(nodeConfigPath)
+	f, err := renameio.TempFile(filepath.Dir(nodeConfigPath), nodeConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to create node configuration file at %s: %w", nodeConfigPath, err)
 	}
-	defer f.Close()
+	defer f.Cleanup()
 
 	if err = l.templateCache.WriteNodeConfig(f, cfg); err != nil {
 		return fmt.Errorf("failed to write node configuration file at %s: %w", nodeConfigPath, err)
 	}
-	return nil
+	return f.CloseAtomicallyReplace()
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
