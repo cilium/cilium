@@ -36,7 +36,7 @@ func (i *BGPInstance) NotifyStateChange() {
 //
 // Canceling the provided context will kill the BGP instance along with calling the
 // underlying Router's Stop() method.
-func NewBGPInstance(ctx context.Context, routerProvider types.RouterProvider, log *slog.Logger, name string, params types.ServerParameters) (*BGPInstance, error) {
+func NewBGPInstance(ctx context.Context, routerProvider types.RouterProvider, log *slog.Logger, params types.ServerParameters) (*BGPInstance, error) {
 	routerCtx, cancel := context.WithCancel(ctx)
 	s, err := routerProvider.NewRouter(routerCtx, log, params)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewBGPInstance(ctx context.Context, routerProvider types.RouterProvider, lo
 	}
 
 	return &BGPInstance{
-		Name:                name,
+		Name:                params.Name,
 		Global:              params.Global,
 		CancelCtx:           cancel,
 		Config:              nil,

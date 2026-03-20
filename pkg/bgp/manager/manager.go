@@ -565,6 +565,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 	}
 
 	globalConfig := types.ServerParameters{
+		Name: c.Name,
 		Global: types.BGPGlobal{
 			ASN:        uint32(localASN),
 			RouterID:   routerID,
@@ -576,7 +577,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
-	i, err := instance.NewBGPInstance(ctx, m.routerProvider, l, c.Name, globalConfig)
+	i, err := instance.NewBGPInstance(ctx, m.routerProvider, l, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP instance: %w", err)
 	}
@@ -602,6 +603,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 
 	m.logger.Info(
 		"Successfully registered BGP instance",
+		types.InstanceLogField, c.Name,
 		types.LocalASNLogField, localASN,
 		types.ListenPortLogField, localPort,
 		types.RouterIDLogField, routerID,
