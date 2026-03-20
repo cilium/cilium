@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sync"
 	"syscall"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -32,9 +33,13 @@ type AccessLogServer struct {
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
 	bufferSize         uint
+	numWorkers         uint
 }
 
-func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint) *AccessLogServer {
+func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessLogger, envoySocketDir string, proxyGID uint, localEndpointStore *LocalEndpointStore, bufferSize uint, numWorkers uint) *AccessLogServer {
+	if numWorkers == 0 {
+		numWorkers = 1
+	}
 	return &AccessLogServer{
 		logger:             logger,
 		accessLogger:       accessLogger,
@@ -42,6 +47,7 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
 		bufferSize:         bufferSize,
+		numWorkers:         numWorkers,
 	}
 }
 
@@ -128,6 +134,20 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		stopCh <- struct{}{}
 	}()
 
+	// msgCh carries ownership of each byte slice from producer to consumers.
+	// Buffer size matches numWorkers so that the producer is rarely blocked
+	// while all workers are busy processing the previous batch.
+	msgCh := make(chan []byte, s.numWorkers)
+
+	var wg sync.WaitGroup
+	for range s.numWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.consumeAccessLogs(ctx, msgCh)
+		}()
+	}
+
 	buf := make([]byte, s.bufferSize)
 	for {
 		n, _, flags, _, err := conn.ReadMsgUnix(buf, nil)
@@ -145,9 +165,27 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			)
 			continue
 		}
+
+		// Copy buf before sending: the underlying array is reused on the next
+		// ReadMsgUnix call, so consumers must receive an independent slice.
+		msg := make([]byte, n)
+		copy(msg, buf[:n])
+		msgCh <- msg
+	}
+
+	// Signal consumers that no more messages will arrive, then wait for them
+	// to drain the channel before this goroutine returns.
+	close(msgCh)
+	wg.Wait()
+}
+
+// consumeAccessLogs reads serialised log entries from msgCh, deserialises them
+// and records the corresponding access-log and proxy statistics.  It returns
+// when msgCh is closed and drained.
+func (s *AccessLogServer) consumeAccessLogs(ctx context.Context, msgCh <-chan []byte) {
+	for msg := range msgCh {
 		pblog := cilium.LogEntry{}
-		err = proto.Unmarshal(buf[:n], &pblog)
-		if err != nil {
+		if err := proto.Unmarshal(msg, &pblog); err != nil {
 			s.logger.Warn("Envoy: Discarded invalid access log message",
 				logfields.Error, err,
 			)
@@ -168,10 +206,9 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			continue
 		}
 
-		// Update proxy stats for the endpoint if it still exists
+		// Update proxy stats for the endpoint if it still exists.
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
 		if localEndpoint != nil {
-			// Update stats for the endpoint.
 			ingress := r.ObservationPoint == accesslog.Ingress
 			request := r.Type == accesslog.TypeRequest
 			port := r.DestinationEndpoint.Port

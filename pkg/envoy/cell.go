@@ -179,6 +179,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 		params.EnvoyProxyConfig.ProxyGID,
 		params.LocalEndpointStore,
 		params.EnvoyProxyConfig.EnvoyAccessLogBufferSize,
+		params.EnvoyProxyConfig.EnvoyAccessLogWorkers,
 	)
 
 	params.Lifecycle.Append(cell.Hook{

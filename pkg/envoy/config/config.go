@@ -15,6 +15,7 @@ type ProxyConfig struct {
 	ProxyAdminPort                      int
 	EnvoyLog                            string
 	EnvoyAccessLogBufferSize            uint
+	EnvoyAccessLogWorkers               uint
 	EnvoyDefaultLogLevel                string
 	EnvoyBaseID                         uint64
 	EnvoyKeepCapNetbindservice          bool
@@ -47,6 +48,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
+	flags.Uint("envoy-access-log-workers", 4, "Number of worker goroutines processing Envoy access log messages per connection")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")
 	flags.Uint64("envoy-base-id", 0, "Envoy base ID")

@@ -2543,6 +2543,12 @@
                 "integer"
               ]
             },
+            "accessLogWorkers": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "defaultLevel": {
               "oneOf": [
                 {

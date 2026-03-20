@@ -95,7 +95,7 @@ func TestEnvoy(t *testing.T) {
 	}()
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096, 4)
 	require.NotNil(t, accessLogServer)
 	go func() {
 		err = accessLogServer.start(t.Context())
@@ -218,7 +218,7 @@ func TestEnvoyNACK(t *testing.T) {
 	}()
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
+	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096, 4)
 	require.NotNil(t, accessLogServer)
 	go func() {
 		err = accessLogServer.start(t.Context())
