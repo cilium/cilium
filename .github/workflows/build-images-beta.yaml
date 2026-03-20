@@ -30,7 +30,9 @@ jobs:
   build-and-push:
     timeout-minutes: 45
     name: Build and Push Images
-    environment: release-beta-images
+    environment:
+      name: release-beta-images
+      deployment: false
     runs-on: ubuntu-24.04
     strategy:
       matrix:

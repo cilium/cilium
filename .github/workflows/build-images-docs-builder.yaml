@@ -28,7 +28,9 @@ jobs:
     name: Build and Push Image
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: docs-builder
+    environment:
+      name: docs-builder
+      deployment: false
     outputs:
       tag: ${{ steps.docs-builder-tag.outputs.tag }}
       digest: ${{ steps.docker-build-docs-builder.outputs.digest }}
@@ -100,7 +102,9 @@ jobs:
     if: needs.build-and-push.outputs.digest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment: docs-builder
+    environment:
+      name: docs-builder
+      deployment: false
     steps:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
