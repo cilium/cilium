@@ -8,15 +8,10 @@ CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_
 
 GO="$(which go 2> /dev/null || :)"
 
-USER_OPTION=()
-USER_PATH="/root"
-
-if [ -z "${RUN_AS_ROOT:-}" ]; then
-	USERID=$(id -u)
-	GROUPID=$(id -g)
-	USER_OPTION=(--user "$USERID:$GROUPID")
-	USER_PATH="/home/ubuntu"
-fi
+USERID=$(id -u)
+GROUPID=$(id -g)
+USER_OPTION=(--user "$USERID:$GROUPID")
+USER_PATH="/home/ubuntu"
 
 # Ensure that the GOCACHE and GOMODCACHE directories exist, create as the
 # current user if not: Docker would create it as root if they don't exist, and
@@ -63,10 +58,8 @@ CONTAINER=$(docker create \
 )
 trap 'docker rm -f "$CONTAINER"' EXIT
 docker start "$CONTAINER"
-if [ -z "${RUN_AS_ROOT:-}" ]; then
-	docker exec "$CONTAINER" groupmod -g "$GROUPID" ubuntu
-	# usermod fixes UIDs, but GIDs need to be fixed manually.
-	docker exec "$CONTAINER" chown -Rhc --from=:1000 :ubuntu /home/ubuntu
-	docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
-fi
+docker exec "$CONTAINER" groupmod -g "$GROUPID" ubuntu
+# usermod fixes UIDs, but GIDs need to be fixed manually.
+docker exec "$CONTAINER" chown -Rhc --from=:1000 :ubuntu /home/ubuntu
+docker exec "$CONTAINER" usermod -u "$USERID" ubuntu
 docker exec "${USER_OPTION[@]}" ${DOCKER_ARGS:+$DOCKER_ARGS} "$CONTAINER" "$@"

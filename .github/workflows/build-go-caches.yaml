@@ -98,11 +98,17 @@ jobs:
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/go
+          sudo chown $USER:$USER -R /tmp/.cache/go
+
       - name: Build all programs
         env:
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
           BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
-          RUN_AS_ROOT: "true"
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' &&
               steps.check.outputs.build != ''
            }}
@@ -115,10 +121,3 @@ jobs:
           contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
           contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
           contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j "$(nproc)" || exit 1
-
-      - name: Reset cache ownership to GitHub runners user
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          sudo du -sh /tmp/.cache/go
-          sudo chown $USER:$USER -R /tmp/.cache/go
