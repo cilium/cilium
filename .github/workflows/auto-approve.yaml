@@ -26,8 +26,10 @@ jobs:
   approve:
     name: Approve
     needs: pre-approve
-    environment: auto-approve
-    runs-on: ubuntu-latest
+    environment:
+      name: auto-approve
+      deployment: false
+    runs-on: ubuntu-24.04
     permissions: {}
     steps:
     - name: Debug
