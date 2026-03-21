@@ -32,7 +32,7 @@ Field                Description
 ==================== ============================================================
 
 .. note:: It is important to run the ``kube-controller-manager`` with the flag
-	  ``--allocate-node-cidrs`` flag to indicate to Kubernetes that PodCIDR
+	  ``--allocate-node-cidrs`` to indicate to Kubernetes that PodCIDR
 	  ranges should be allocated.
 
 **via v1.Node annotation**
