@@ -65,9 +65,9 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.224.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.35.2
+  kubectl_version: v1.35.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 560.0.0
+  gcloud_version: 561.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -515,7 +515,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/export-results@995a08156171644e92e5688b0785b7baf86ce22a # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}

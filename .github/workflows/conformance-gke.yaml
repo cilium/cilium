@@ -106,7 +106,7 @@ env:
   clusterName: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 560.0.0
+  gcloud_version: 561.0.0
 
 jobs:
   echo-inputs:

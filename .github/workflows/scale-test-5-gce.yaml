@@ -65,7 +65,7 @@ env:
   test_name: scale-5
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 560.0.0
+  gcloud_version: 561.0.0
 
 jobs:
   echo-inputs:
@@ -167,7 +167,7 @@ jobs:
           go-version: 1.26.1
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/install-kops@995a08156171644e92e5688b0785b7baf86ce22a # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -219,7 +219,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/create-cluster@995a08156171644e92e5688b0785b7baf86ce22a # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -232,7 +232,7 @@ jobs:
           kube_proxy_enabled: false
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@8535f579142fa598c3b2a895cfb248cd492d7c5a  # main
+        uses: cilium/scale-tests-action/setup-firewall@995a08156171644e92e5688b0785b7baf86ce22a  # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
@@ -263,7 +263,7 @@ jobs:
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/validate-cluster@995a08156171644e92e5688b0785b7baf86ce22a # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -293,7 +293,7 @@ jobs:
             2>&1 | tee cl2-setup.txt
 
       - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/create-instance-group@995a08156171644e92e5688b0785b7baf86ce22a # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -303,7 +303,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/validate-cluster@995a08156171644e92e5688b0785b7baf86ce22a # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -311,7 +311,7 @@ jobs:
           interval: 10s
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/setup-firewall@995a08156171644e92e5688b0785b7baf86ce22a # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           create_native_routing_firewall: 'false'
@@ -363,14 +363,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/cleanup-cluster@995a08156171644e92e5688b0785b7baf86ce22a # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
+        uses: cilium/scale-tests-action/export-results@995a08156171644e92e5688b0785b7baf86ce22a # main
         with:
           test_name: ${{ env.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
