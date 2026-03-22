@@ -167,7 +167,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -410,7 +410,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         id: cache
         with:
           path: /tmp/.ginkgo-build/
