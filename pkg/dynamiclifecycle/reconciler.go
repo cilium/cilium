@@ -33,7 +33,7 @@ type ops struct {
 // If DynamicFeatureName is disabled, the lifecycle is stopped.
 // Currently, there is no dependency checking when stopping feature.
 // If DynamicFeatureName is enabled, the list of dependencies is checked to ensure
-// all dependants are running and if the requirement is met the lifecycle is started.
+// all dependents are running and if the requirement is met the lifecycle is started.
 func (o *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, tl *DynamicFeature) error {
 	// Nothing to do
 	if tl.Enabled == tl.IsRunning {

@@ -697,7 +697,7 @@ func (d *statusCollector) getProbes() []Probe {
 					return backoff.ClusterSizeDependantInterval(2*time.Minute, 0)
 				}
 
-				// The base interval is dependant on the
+				// The base interval is dependent on the
 				// cluster size. One status interval does not
 				// automatically translate to an apiserver
 				// interaction as any regular apiserver
