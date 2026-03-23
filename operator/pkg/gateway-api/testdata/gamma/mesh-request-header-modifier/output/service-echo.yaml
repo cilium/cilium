@@ -30,7 +30,7 @@ spec:
 status:
   conditions:
   - lastTransitionTime: "2025-06-19T03:31:18Z"
-    message: Gamma Service has HTTPRoutes attached
+    message: Gamma Service has routes attached
     reason: Accepted
     status: "True"
     type: gamma.cilium.io/GammaRoutesAttached
