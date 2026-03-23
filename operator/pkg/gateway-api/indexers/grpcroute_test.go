@@ -206,7 +206,7 @@ func Test_IndexGRPCRouteByGammaService(t *testing.T) {
 			},
 		},
 		{
-			name: "not a HTTPRoute",
+			name: "not a GRPCRoute",
 			args: args{
 				obj: &corev1.Service{},
 			},
@@ -218,7 +218,7 @@ func Test_IndexGRPCRouteByGammaService(t *testing.T) {
 			parentIndexFunc := IndexGRPCRouteByGammaService
 
 			if got := parentIndexFunc(tt.args.obj); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getGammaHTTPRouteParentIndexFunc() = %#v, want %#v", got, tt.want)
+				t.Errorf("IndexGRPCRouteByGammaService() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}

@@ -90,7 +90,7 @@ func (r *gammaReconciler) enqueueRequestForOwningHTTPRoute(logger *slog.Logger) 
 	})
 }
 
-// enqueueRequestForOwningGRPCRoute returns an event handler for any changes with HTTP Routes
+// enqueueRequestForOwningGRPCRoute returns an event handler for any changes with GRPC Routes
 // belonging to the given Service
 func (r *gammaReconciler) enqueueRequestForOwningGRPCRoute(logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
@@ -136,7 +136,7 @@ func (r *gammaReconciler) enqueueAll() handler.MapFunc {
 	}
 }
 
-// getGammaReconcileRequestsForRoute returns a list of GAMMA services to be reconciled based on the supplied HTTPRoute.
+// getGammaReconcileRequestsForRoute returns a list of GAMMA services to be reconciled based on the supplied route.
 func getGammaReconcileRequestsForRoute(ctx context.Context, c client.Client, object metav1.Object, route gatewayv1.CommonRouteSpec, logger *slog.Logger, objKind string) []reconcile.Request {
 	var reqs []reconcile.Request
 
