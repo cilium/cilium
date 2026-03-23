@@ -20,7 +20,7 @@ status:
   parents:
     - conditions:
         - lastTransitionTime: "2025-07-01T14:19:43Z"
-          message: Accepted HTTPRoute
+          message: Accepted GRPCRoute
           reason: Accepted
           status: "True"
           type: Accepted
@@ -36,7 +36,7 @@ status:
         sectionName: listener-3
     - conditions:
         - lastTransitionTime: "2025-07-01T14:19:43Z"
-          message: Accepted HTTPRoute
+          message: Accepted GRPCRoute
           reason: Accepted
           status: "True"
           type: Accepted

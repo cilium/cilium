@@ -195,7 +195,7 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionTrue,
 				Reason:  string(gatewayv1.RouteReasonAccepted),
-				Message: "Accepted HTTPRoute",
+				Message: fmt.Sprintf("Accepted %s", i.GetGVK().Kind),
 			})
 
 			// set status to okay, this wil be overwritten in checks if needed

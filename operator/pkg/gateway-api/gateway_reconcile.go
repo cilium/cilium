@@ -798,7 +798,7 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
 			Reason:  string(gatewayv1.RouteReasonAccepted),
-			Message: "Accepted HTTPRoute",
+			Message: fmt.Sprintf("Accepted %s", input.GetGVK().Kind),
 		})
 
 		// set ResolvedRefs to okay, this wil be overwritten in checks if needed
