@@ -95,15 +95,15 @@ jobs:
 
   # Use a separate job for the steps below, to ensure we're no longer logged
   # into Quay.io.
-  update-pr:
-    name: Update Pull Request with new image reference
+  # This job runs the untrusted PR-built container to prepare the update.
+  # No environment/secrets are available here — the result is passed as a
+  # patch artifact to a clean privileged job for pushing.
+  prepare-update:
+    name: Prepare docs-builder image reference update
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment:
-      name: docs-builder
-      deployment: false
     steps:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -136,6 +136,46 @@ jobs:
                        /cilium/Documentation/update-docs-builder-image.sh ${NEW_IMAGE}"
           git commit -sam "ci: update docs-builder"
 
+      - name: Generate patch from update commit
+        run: git format-patch HEAD~1 --stdout > /tmp/update.patch
+
+      - name: Upload patch artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: docs-builder-update-patch
+          path: /tmp/update.patch
+          retention-days: 1
+
+  # Privileged job: applies the update on a fresh runner and pushes.
+  # This runs on a clean workspace that was never touched by the untrusted
+  # container, preventing hook injection or other workspace tampering attacks.
+  push-update:
+    name: Push docs-builder image reference update
+    needs: [build-and-push, prepare-update]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: docs-builder
+    steps:
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up git
+        run: |
+          git config user.name "Cilium Imagebot"
+          git config user.email "noreply@cilium.io"
+
+      - name: Download patch artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-builder-update-patch
+          path: /tmp
+
+      - name: Apply update patch
+        run: git am /tmp/update.patch
+
       - name: Get token
         id: get_token
         uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
@@ -148,7 +188,7 @@ jobs:
           REF: ${{ github.event.pull_request.head.ref }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
+          git push --no-verify https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
 
   image-digest:
     name: Retrieve and display image digest
