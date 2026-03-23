@@ -1909,4 +1909,55 @@ drop_err:
 #endif /* ENABLE_HOST_FIREWALL */
 }
 
+# if defined(ENABLE_HOST_FIREWALL) && defined(ENABLE_NODEPORT)
+#ifdef ENABLE_IPV4
+__declare_tail(CILIUM_CALL_IPV4_NODEPORT_HOST_POLICY)
+static __always_inline
+int tail_nodeport_ipv4_host_policy(struct __ctx_buff *ctx)
+{
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  METRIC_INGRESS);
+
+	ctx->tc_index |= TC_INDEX_F_SKIP_HOST_FIREWALL;
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+	return tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
+}
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+__declare_tail(CILIUM_CALL_IPV6_NODEPORT_HOST_POLICY)
+static __always_inline
+int tail_nodeport_ipv6_host_policy(struct __ctx_buff *ctx)
+{
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+	__s8 ext_err = 0;
+	int ret;
+
+	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  METRIC_INGRESS);
+
+	ctx->tc_index |= TC_INDEX_F_SKIP_HOST_FIREWALL;
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+	return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
+}
+#endif /* ENABLE_IPV6 */
+
+#endif /* ENABLE_HOST_FIREWALL */
+
 BPF_LICENSE("Dual BSD/GPL");

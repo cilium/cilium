@@ -99,7 +99,9 @@
 #define CILIUM_CALL_MULTICAST_EP_DELIVERY		47
 #define CILIUM_CALL_IPV4_POLICY_DENIED			48
 #define CILIUM_CALL_IPV6_POLICY_DENIED			49
-#define CILIUM_CALL_SIZE				50
+#define CILIUM_CALL_IPV4_NODEPORT_HOST_POLICY	        50
+#define CILIUM_CALL_IPV6_NODEPORT_HOST_POLICY	        51
+#define CILIUM_CALL_SIZE				52
 
 /* Private per-EP map for internal tail calls. Its bpffs pin is replaced every
  * time the BPF object is loaded. An existing pinned map is never reused.
