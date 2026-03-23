@@ -114,6 +114,12 @@ func (p Precedence) IsAllow() bool {
 	return !p.IsDeny() && !p.IsPass()
 }
 
+// AllowPrecedence masks away the impact of redirect/listener priority on an
+// allow precedence. Caller must not use this for deny precedences.
+func (p Precedence) AllowPrecedence() Precedence {
+	return (p & ^precedenceByteMask) | precedenceByteAllow
+}
+
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
 func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
 	return p^o <= precedenceByteMask && p.IsDeny() == o.IsDeny()
@@ -272,11 +278,6 @@ func (e MapStateEntry) IsAllow() bool {
 // IsRedirectEntry returns true if the entry redirects to a proxy port
 func (e MapStateEntry) IsRedirectEntry() bool {
 	return e.ProxyPort != 0
-}
-
-// AllowPrecedence masks away the impact of redirect (priority) on the precedence
-func (e MapStateEntry) AllowPrecedence() Precedence {
-	return (e.Precedence & ^precedenceByteMask) | precedenceByteAllow
 }
 
 // AllowEntry returns a MapStateEntry with maximum precedence for an allow entry without a proxy
