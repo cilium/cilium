@@ -439,7 +439,7 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 		// This also needs to reflect the logic in bpf/lib/policy.h __account_and_check().
 		if !entry.AuthRequirement.IsExplicit() &&
 			other.AuthRequirement.AuthType() > entry.AuthRequirement.AuthType() &&
-			other.AllowPrecedence() >= entry.AllowPrecedence() {
+			other.Precedence.AllowPrecedence() >= entry.Precedence.AllowPrecedence() {
 			entry.AuthRequirement = other.AuthRequirement.AsDerived()
 		}
 		return entry
@@ -1519,7 +1519,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, feat
 		if !derived && !newEntryHasExplicitAuth &&
 			!k.PortProtoIsEqual(newKey) &&
 			v.AuthRequirement.IsExplicit() &&
-			v.AllowPrecedence() >= newEntry.AllowPrecedence() {
+			v.Precedence.AllowPrecedence() >= newEntry.Precedence.AllowPrecedence() {
 			// AuthType from the most specific covering key is applied to 'newEntry' as
 			// derived auth type.
 			newEntry.AuthRequirement = v.AuthRequirement.AsDerived()
