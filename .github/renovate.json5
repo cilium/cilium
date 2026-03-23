@@ -743,11 +743,22 @@
       "matchPackageNames": [
         "protocolbuffers/protobuf",
         "protocolbuffers/protobuf-go",
-        "quay.io/goswagger/swagger"
       ],
       "postUpgradeTasks": {
         "commands": [
           "make GO='contrib/scripts/builder.sh go' generate-apis"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make GO='contrib/scripts/builder.sh go' generate-apis",
+          "make generate-k8s-api"
         ],
         "executionMode": "update"
       }
