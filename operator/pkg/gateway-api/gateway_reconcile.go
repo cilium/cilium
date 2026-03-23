@@ -163,7 +163,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Run the TLSRoute route checks here and update the status accordingly.
 	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
 		if err := r.setTLSRouteStatuses(scopedLog, ctx, tlsRouteList, grants); err != nil {
-			scopedLog.ErrorContext(ctx, "Unable to update HTTPRoute Status", logfields.Error, err)
+			scopedLog.ErrorContext(ctx, "Unable to update TLSRoute Status", logfields.Error, err)
 			return controllerruntime.Fail(err)
 		}
 	}
@@ -912,7 +912,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 		tlsr := original.DeepCopy()
 
 		// input for the validators
-		// The validators will mutate the HTTPRoute as required, setting its status correctly.
+		// The validators will mutate the TLSRoute as required, setting its status correctly.
 		i := &routechecks.TLSRouteInput{
 			Ctx:      ctx,
 			Logger:   scopedLog.With(logfields.TLSRoute, tlsr),
@@ -929,7 +929,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateTLSRouteStatus(ctx, scopedLog, &original, tlsr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+			return fmt.Errorf("failed to update TLSRoute status: %w", err)
 		}
 
 		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
@@ -946,7 +946,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 		grpcr := original.DeepCopy()
 
 		// input for the validators
-		// The validators will mutate the HTTPRoute as required, setting its status correctly.
+		// The validators will mutate the GRPCRoute as required, setting its status correctly.
 		i := &routechecks.GRPCRouteInput{
 			Ctx:       ctx,
 			Logger:    scopedLog.With(logfields.GRPCRoute, grpcr),
@@ -963,7 +963,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateGRPCRouteStatus(ctx, scopedLog, &original, grpcr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+			return fmt.Errorf("failed to update GRPCRoute status: %w", err)
 		}
 
 		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
@@ -1271,7 +1271,7 @@ func (r *gatewayReconciler) updateGRPCRouteStatus(ctx context.Context, scopedLog
 	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
 		return nil
 	}
-	scopedLog.Debug("Updating GRPCRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	scopedLog.Debug("Updating GRPCRoute status", grpcRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }
 
