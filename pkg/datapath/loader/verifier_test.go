@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
 
@@ -299,6 +300,7 @@ func loadAndRecordComplexity(
 
 		for _, n := range slices.Sorted(maps.Keys(coll.Programs)) {
 			p := coll.Programs[n]
+			s := spec.Programs[n]
 
 			if *flagFullLog {
 				fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_%s_verifier.log", collection, build, load, n))
@@ -314,9 +316,15 @@ func loadAndRecordComplexity(
 				}
 			}
 
-			p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
+			// The part of the log we are interested in is at the end. And looks like this:
+			//   verification time 355643 usec
+			//   stack depth 144+280+120
+			//   processed 88467 insns (limit 1000000) max_states_per_insn 44 total_states 4141 peak_states 1137 mark_read 56
 
+			// Remove trailing newline so strings.LastIndex finds the newline ahead of the last log line.
+			p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
 			lastLineIndex := strings.LastIndex(p.VerifierLog, "\n")
+
 			// Offset points at the last newline, increment by 1 to skip it.
 			// Turn a -1 into a 0 if there are no newlines in the log.
 			lastOff := lastLineIndex + 1
@@ -328,18 +336,33 @@ func loadAndRecordComplexity(
 				Load:       strconv.Itoa(load),
 				Program:    n,
 			}
+
 			_, err := fmt.Sscanf(p.VerifierLog[lastOff:], "processed %d insns (limit %d) max_states_per_insn %d total_states %d peak_states %d mark_read %d",
 				&r.InsnsProcessed, &r.InsnsLimit, &r.MaxStatesPerInsn, &r.TotalStates, &r.PeakStates, &r.MarkRead)
 			if err != nil {
 				t.Fatalf("Failed to parse verifier log for program %s: %v", n, err)
 			}
 
+			// Extract the second to last line, which looks like:
+			//   stack depth 144+280+120
 			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			_, err = fmt.Sscanf(p.VerifierLog[stackDepthIndex+1:lastOff], "stack depth %d", &r.StackDepth)
-			if err != nil {
-				t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
-			}
+			stackDepthLine := strings.TrimPrefix(strings.TrimSpace(p.VerifierLog[stackDepthIndex+1:lastOff]), "stack depth ")
 
+			// Remove prefix so we are just left with plus separated stack depths, and parse them into ints.
+			//   144+280+120
+			// Split and parse to ints
+			var depths []int
+			for part := range strings.SplitSeq(stackDepthLine, "+") {
+				depth, err := strconv.Atoi(part)
+				if err != nil {
+					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
+				}
+				depths = append(depths, depth)
+			}
+			r.StackDepth = maxStackDepth(s, depths)
+
+			// Extract the third to last line, which looks like:
+			//   verification time 355643 usec
 			verificationTimeIndex := strings.LastIndex(p.VerifierLog[:stackDepthIndex], "\n")
 			_, err = fmt.Sscanf(p.VerifierLog[verificationTimeIndex+1:stackDepthIndex], "verification time %d usec", &r.VerificationTimeMicroseconds)
 			if err != nil {
@@ -356,6 +379,48 @@ func loadAndRecordComplexity(
 			records.Add(r)
 		}
 	}
+}
+
+func maxStackDepth(spec *ebpf.ProgramSpec, stackDepths []int) int {
+	insns := spec.Instructions
+	graph := make(map[string][]string)
+	sizes := make(map[string]int)
+
+	// The stack depths in the verifier log are in the same order as the functions in the instructions.
+	// We iterate through the instructions, and whenever we see a function definition, we take the next stack depth
+	// from the log and associate it with that function. Also record calls to construct a call graph.
+	var cur string
+	for _, insn := range insns {
+		if insn.IsFunctionCall() {
+			graph[cur] = append(graph[cur], insn.Reference())
+			continue
+		}
+		if fn := btf.FuncMetadata(&insn); fn != nil {
+			cur = fn.Name
+			sizes[cur] = stackDepths[0]
+			stackDepths = stackDepths[1:]
+		}
+	}
+
+	// Recursively visit the call graph to calculate the maximum stack depth, by summing the stack sizes of called
+	// functions. This is safe to do since the verifier will have rejected any program with recursive calls, so we know
+	// the graph is acyclic.
+	maxDepth := 0
+	var visit func(callstack []string)
+	visit = func(callstack []string) {
+		depth := 0
+		for _, fn := range callstack {
+			depth += sizes[fn]
+		}
+		maxDepth = max(maxDepth, depth)
+
+		for _, callee := range graph[callstack[len(callstack)-1]] {
+			visit(append(callstack, callee))
+		}
+	}
+	visit([]string{spec.Name})
+
+	return maxDepth
 }
 
 type verifierComplexityRecord struct {
