@@ -175,9 +175,9 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.17@sha256:62374cfd0e87e6541244331ccf477a21c527c3eefa9d841b97af79996939be0c",
 		// renovate: datasource=docker
-		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.2@sha256:94e78424a15839e0953623e2515c3e54f308644946395bc341b25e43f5c2d323",
+		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.3@sha256:37b42d2b340c322edc5f20dc4598373adb6e813e95cc9d4a18f64f9a37c98a4c",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:5dc44a92103afe611c152fca347c524a170e1f3fda2411c29e2894d22a855099",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:376403afeffc040ac30d8f3f67c43f47ccaf4d8916e80bfff2bc5736320abb10",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{

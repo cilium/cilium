@@ -330,7 +330,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)
 	}
 
-	kubeProxyDevices := ""
+	var kubeProxyDevices strings.Builder
 	if sr.Kubernetes != nil {
 		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
 		if sr.Kubernetes.State != models.K8sStatusStateDisabled {
@@ -343,16 +343,16 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		devices := ""
 		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeFalse {
 			for i, dev := range sr.KubeProxyReplacement.DeviceList {
-				kubeProxyDevices += fmt.Sprintf("%s %s", dev.Name, strings.Join(dev.IP, " "))
+				fmt.Fprintf(&kubeProxyDevices, "%s %s", dev.Name, strings.Join(dev.IP, " "))
 				if dev.Name == sr.KubeProxyReplacement.DirectRoutingDevice {
-					kubeProxyDevices += " (Direct Routing)"
+					kubeProxyDevices.WriteString(" (Direct Routing)")
 				}
 				if i+1 != len(sr.KubeProxyReplacement.Devices) {
-					kubeProxyDevices += ", "
+					kubeProxyDevices.WriteString(", ")
 				}
 			}
 			if len(sr.KubeProxyReplacement.DeviceList) > 0 {
-				devices = "[" + kubeProxyDevices + "]"
+				devices = "[" + kubeProxyDevices.String() + "]"
 			}
 		}
 		fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
@@ -765,8 +765,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
 		fmt.Fprintf(tab, "  Socket LB Tracing:\t%s\n", socketLBTracing)
 		fmt.Fprintf(tab, "  Socket LB Coverage:\t%s\n", socketLBCoverage)
-		if kubeProxyDevices != "" {
-			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
+		if kubeProxyDevices.Len() > 0 {
+			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices.String())
 		}
 		if mode != "" {
 			fmt.Fprintf(tab, "  Mode:\t%s\n", mode)

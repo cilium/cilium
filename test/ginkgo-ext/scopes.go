@@ -33,7 +33,7 @@ type scope struct {
 	afterEach     []func()
 	justAfterEach []func()
 	afterFail     []func()
-	started       int32
+	started       atomic.Int32
 	failed        bool
 	normalTests   int
 	focusedTests  int
@@ -436,7 +436,7 @@ func beforeEach(body any, timeout ...float64) bool {
 	}
 	cs := currentScope
 	before := func() {
-		if atomic.CompareAndSwapInt32(&cs.started, 0, 1) && cs.before != nil {
+		if cs.started.CompareAndSwap(0, 1) && cs.before != nil {
 			defer func() {
 				if r := recover(); r != nil {
 					cs.failed = true
