@@ -62,7 +62,7 @@ func IsDuration(str string) bool {
 // Duration stores a period of time as a nanosecond count, with the largest
 // representable duration being approximately 290 years.
 //
-// swagger:[strfmt] duration.
+// swagger:strfmt duration.
 type Duration time.Duration
 
 // MarshalText turns this instance into text.

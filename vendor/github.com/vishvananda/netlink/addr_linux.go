@@ -203,18 +203,20 @@ func AddrList(link Link, family int) ([]Addr, error) {
 func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETADDR, unix.NLM_F_DUMP)
 	msg := nl.NewIfAddrmsg(family)
-	req.AddData(msg)
-
-	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWADDR)
-	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
-		return nil, executeErr
-	}
 
 	indexFilter := 0
 	if link != nil {
 		base := link.Attrs()
 		h.ensureIndex(base)
 		indexFilter = base.Index
+		msg.Index = uint32(indexFilter)
+	}
+
+	req.AddData(msg)
+
+	msgs, executeErr := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWADDR)
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
+		return nil, executeErr
 	}
 
 	var res []Addr

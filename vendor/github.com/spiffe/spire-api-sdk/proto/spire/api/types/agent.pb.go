@@ -37,7 +37,9 @@ type Agent struct {
 	// Output only. Whether or not the agent is banned.
 	Banned bool `protobuf:"varint,6,opt,name=banned,proto3" json:"banned,omitempty"`
 	// Output only. Whether or not the agent can re-attest.
-	CanReattest   bool `protobuf:"varint,7,opt,name=can_reattest,json=canReattest,proto3" json:"can_reattest,omitempty"`
+	CanReattest bool `protobuf:"varint,7,opt,name=can_reattest,json=canReattest,proto3" json:"can_reattest,omitempty"`
+	// Output only. Optional. The version of the agent.
+	AgentVersion  string `protobuf:"bytes,8,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -121,6 +123,13 @@ func (x *Agent) GetCanReattest() bool {
 	return false
 }
 
+func (x *Agent) GetAgentVersion() string {
+	if x != nil {
+		return x.AgentVersion
+	}
+	return ""
+}
+
 type AgentMask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// attestation_type field mask
@@ -134,7 +143,9 @@ type AgentMask struct {
 	// banned field mask
 	Banned bool `protobuf:"varint,6,opt,name=banned,proto3" json:"banned,omitempty"`
 	// can_reattest field mask
-	CanReattest   bool `protobuf:"varint,7,opt,name=can_reattest,json=canReattest,proto3" json:"can_reattest,omitempty"`
+	CanReattest bool `protobuf:"varint,7,opt,name=can_reattest,json=canReattest,proto3" json:"can_reattest,omitempty"`
+	// agent_version field mask
+	AgentVersion  bool `protobuf:"varint,8,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -211,11 +222,18 @@ func (x *AgentMask) GetCanReattest() bool {
 	return false
 }
 
+func (x *AgentMask) GetAgentVersion() bool {
+	if x != nil {
+		return x.AgentVersion
+	}
+	return false
+}
+
 var File_spire_api_types_agent_proto protoreflect.FileDescriptor
 
 const file_spire_api_types_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x1bspire/api/types/agent.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\xb7\x02\n" +
+	"\x1bspire/api/types/agent.proto\x12\x0fspire.api.types\x1a\x1espire/api/types/selector.proto\x1a\x1espire/api/types/spiffeid.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\xdc\x02\n" +
 	"\x05Agent\x12)\n" +
 	"\x02id\x18\x01 \x01(\v2\x19.spire.api.types.SPIFFEIDR\x02id\x12)\n" +
 	"\x10attestation_type\x18\x02 \x01(\tR\x0fattestationType\x124\n" +
@@ -223,14 +241,16 @@ const file_spire_api_types_agent_proto_rawDesc = "" +
 	"\x13x509svid_expires_at\x18\x04 \x01(\x03R\x11x509svidExpiresAt\x127\n" +
 	"\tselectors\x18\x05 \x03(\v2\x19.spire.api.types.SelectorR\tselectors\x12\x16\n" +
 	"\x06banned\x18\x06 \x01(\bR\x06banned\x12!\n" +
-	"\fcan_reattest\x18\a \x01(\bR\vcanReattest\"\xf5\x01\n" +
+	"\fcan_reattest\x18\a \x01(\bR\vcanReattest\x12#\n" +
+	"\ragent_version\x18\b \x01(\tR\fagentVersion\"\x9a\x02\n" +
 	"\tAgentMask\x12)\n" +
 	"\x10attestation_type\x18\x02 \x01(\bR\x0fattestationType\x124\n" +
 	"\x16x509svid_serial_number\x18\x03 \x01(\bR\x14x509svidSerialNumber\x12.\n" +
 	"\x13x509svid_expires_at\x18\x04 \x01(\bR\x11x509svidExpiresAt\x12\x1c\n" +
 	"\tselectors\x18\x05 \x01(\bR\tselectors\x12\x16\n" +
 	"\x06banned\x18\x06 \x01(\bR\x06banned\x12!\n" +
-	"\fcan_reattest\x18\a \x01(\bR\vcanReattestB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
+	"\fcan_reattest\x18\a \x01(\bR\vcanReattest\x12#\n" +
+	"\ragent_version\x18\b \x01(\bR\fagentVersionB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
 
 var (
 	file_spire_api_types_agent_proto_rawDescOnce sync.Once

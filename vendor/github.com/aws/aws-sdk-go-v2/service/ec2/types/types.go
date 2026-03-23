@@ -3356,8 +3356,8 @@ type CreateFleetError struct {
 	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse
 
-	// Indicates if the instance that could not be launched was a Spot Instance or
-	// On-Demand Instance.
+	// Indicates if the instance that could not be launched was a Spot, On-Demand,
+	// Capacity Block, or Interruptible Capacity Reservation instance.
 	Lifecycle InstanceLifecycle
 
 	noSmithyDocumentSerde
@@ -3377,8 +3377,8 @@ type CreateFleetInstance struct {
 	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse
 
-	// Indicates if the instance that was launched is a Spot Instance or On-Demand
-	// Instance.
+	// Indicates if the instance that was launched is a Spot, On-Demand, Capacity
+	// Block, or Interruptible Capacity Reservation instance.
 	Lifecycle InstanceLifecycle
 
 	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
@@ -3841,6 +3841,26 @@ type DeclarativePoliciesReport struct {
 	noSmithyDocumentSerde
 }
 
+// Indicates default conntrack information for the instance type. For more
+// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
+//
+// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
+type DefaultConnectionTrackingConfiguration struct {
+
+	// Default timeout (in seconds) for idle TCP connections in an established state.
+	DefaultTcpEstablishedTimeout *int32
+
+	// Default timeout (in seconds) for idle UDP flows classified as streams which
+	// have seen more than one request-response transaction.
+	DefaultUdpStreamTimeout *int32
+
+	// Default timeout (in seconds) for idle UDP flows that have seen traffic only in
+	// a single direction or a single request-response transaction.
+	DefaultUdpTimeout *int32
+
+	noSmithyDocumentSerde
+}
+
 // Describes an EC2 Fleet error.
 type DeleteFleetError struct {
 
@@ -4103,8 +4123,8 @@ type DescribeFleetError struct {
 	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse
 
-	// Indicates if the instance that could not be launched was a Spot Instance or
-	// On-Demand Instance.
+	// Indicates if the instance that could not be launched was a Spot, On-Demand,
+	// Capacity Block, or Interruptible Capacity Reservation instance.
 	Lifecycle InstanceLifecycle
 
 	noSmithyDocumentSerde
@@ -4124,8 +4144,8 @@ type DescribeFleetsInstances struct {
 	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse
 
-	// Indicates if the instance that was launched is a Spot Instance or On-Demand
-	// Instance.
+	// Indicates if the instance that was launched is a Spot, On-Demand, Capacity
+	// Block, or Interruptible Capacity Reservation instance.
 	Lifecycle InstanceLifecycle
 
 	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
@@ -6159,6 +6179,10 @@ type FleetData struct {
 	//
 	// [EC2 Fleet health checks]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#ec2-fleet-health-checks
 	ReplaceUnhealthyInstances *bool
+
+	// Defines EC2 Fleet preferences for utilizing reserved capacity when
+	// DefaultTargetCapacityType is set to reserved-capacity .
+	ReservedCapacityOptions *ReservedCapacityOptions
 
 	// The configuration of Spot Instances in an EC2 Fleet.
 	SpotOptions *SpotOptions
@@ -15661,6 +15685,9 @@ type NetworkInfo struct {
 	// type, if supported.
 	BandwidthWeightings []BandwidthWeightingType
 
+	// Indicates conntrack information for the instance type
+	ConnectionTrackingConfiguration *DefaultConnectionTrackingConfiguration
+
 	// The index of the default network card, starting at 0.
 	DefaultNetworkCardIndex *int32
 
@@ -18277,6 +18304,37 @@ type ReservationValue struct {
 
 	// The remaining upfront cost of the reservation.
 	RemainingUpfrontValue *string
+
+	noSmithyDocumentSerde
+}
+
+// Defines EC2 Fleet preferences for utilizing reserved capacity when
+// DefaultTargetCapacityType is set to reserved-capacity .
+type ReservedCapacityOptions struct {
+
+	// The types of Capacity Reservations used for fulfilling the EC2 Fleet request.
+	ReservationTypes []FleetReservationType
+
+	noSmithyDocumentSerde
+}
+
+// Defines EC2 Fleet preferences for utilizing reserved capacity when
+// DefaultTargetCapacityType is set to reserved-capacity .
+//
+// This configuration can only be used if the EC2 Fleet is of type instant .
+//
+// When you specify ReservedCapacityOptions , you must also set
+// DefaultTargetCapacityType to reserved-capacity in the
+// TargetCapacitySpecification .
+//
+// For more information about Interruptible Capacity Reservations, see [Launch instances into an Interruptible Capacity Reservation] in the
+// Amazon EC2 User Guide.
+//
+// [Launch instances into an Interruptible Capacity Reservation]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-launch-instances-interruptible-cr-walkthrough.html
+type ReservedCapacityOptionsRequest struct {
+
+	// The types of Capacity Reservations to use for fulfilling the EC2 Fleet request.
+	ReservationTypes []FleetReservationType
 
 	noSmithyDocumentSerde
 }

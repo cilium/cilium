@@ -129,11 +129,7 @@ func (h *defaulterForType[T]) Handle(ctx context.Context, req Request) Response 
 		return Errored(http.StatusBadRequest, err)
 	}
 
-	// Keep a copy of the object if needed
-	var originalObj T
-	if !h.removeUnknownOrOmitableFields {
-		originalObj = obj.DeepCopyObject().(T)
-	}
+	originalObj := obj.DeepCopyObject().(T)
 
 	// Default the object
 	if err := h.defaulter.Default(ctx, obj); err != nil {
@@ -142,6 +138,21 @@ func (h *defaulterForType[T]) Handle(ctx context.Context, req Request) Response 
 			return validationResponseFromStatus(false, apiStatus.Status())
 		}
 		return Denied(err.Error())
+	}
+
+	// If the object is not changed, there's no reason to go through the expensive patch calculation below.
+	// Note: While jsonpatch.CreatePatch short-circuits if both byte arrays are equal this is likely never the case.
+	// * json.Marshal that we use below sorts fields alphabetically
+	// * for builtin types the apiserver also sorts alphabetically (but it seems like it adds an empty line at the end)
+	// * for CRDs the apiserver uses the field order in the OpenAPI schema which very likely is not alphabetically sorted
+	// Note: If removeUnknownOrOmitableFields is set we have to compute a patch to remove unknown or omitable fields even
+	// if the objects are equal
+	if !h.removeUnknownOrOmitableFields && reflect.DeepEqual(originalObj, obj) {
+		return Response{
+			AdmissionResponse: admissionv1.AdmissionResponse{
+				Allowed: true,
+			},
+		}
 	}
 
 	// Create the patch

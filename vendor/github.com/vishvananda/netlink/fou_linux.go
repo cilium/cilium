@@ -163,7 +163,7 @@ func (h *Handle) FouList(fam int) ([]Fou, error) {
 	req.AddRawData(raw)
 
 	msgs, executeErr := req.Execute(unix.NETLINK_GENERIC, 0)
-	if executeErr != nil && !errors.Is(err, ErrDumpInterrupted) {
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
 		return nil, executeErr
 	}
 

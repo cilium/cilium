@@ -27,6 +27,9 @@ message Agent {
 
     // Output only. Whether or not the agent can re-attest.
     bool can_reattest = 7;
+
+    // Output only. Optional. The version of the agent.
+    string agent_version = 8;
 }
 
 message AgentMask {
@@ -47,4 +50,7 @@ message AgentMask {
 
     // can_reattest field mask
     bool can_reattest = 7;
+
+    // agent_version field mask
+    bool agent_version = 8;
 }

@@ -363,6 +363,9 @@ type RdmaResource struct {
 // Returns all rdma devices resource tracking summary on success or returns error
 // otherwise.
 // Equivalent to: `rdma resource'
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
 func RdmaResourceList() ([]*RdmaResource, error) {
 	return pkgHandle.RdmaResourceList()
 }
@@ -371,15 +374,21 @@ func RdmaResourceList() ([]*RdmaResource, error) {
 // Returns all rdma devices resource tracking summary on success or returns error
 // otherwise.
 // Equivalent to: `rdma resource'
+//
+// If the returned error is [ErrDumpInterrupted], results may be inconsistent
+// or incomplete.
 func (h *Handle) RdmaResourceList() ([]*RdmaResource, error) {
 	proto := getProtoField(nl.RDMA_NL_NLDEV, nl.RDMA_NLDEV_CMD_RES_GET)
 	req := h.newNetlinkRequest(proto, unix.NLM_F_ACK|unix.NLM_F_DUMP)
 
-	msgs, err := req.Execute(unix.NETLINK_RDMA, 0)
-	if err != nil {
-		return nil, err
+	msgs, executeErr := req.Execute(unix.NETLINK_RDMA, 0)
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
+		return nil, executeErr
 	}
 	if len(msgs) == 0 {
+		if executeErr != nil {
+			return nil, executeErr
+		}
 		return nil, fmt.Errorf("No valid response from kernel")
 	}
 	var rdmaResources []*RdmaResource
@@ -390,7 +399,7 @@ func (h *Handle) RdmaResourceList() ([]*RdmaResource, error) {
 		}
 		rdmaResources = append(rdmaResources, res)
 	}
-	return rdmaResources, nil
+	return rdmaResources, executeErr
 }
 
 func parseRdmaCounters(counterType uint16, data []byte) (map[string]uint64, error) {

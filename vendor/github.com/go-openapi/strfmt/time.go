@@ -119,6 +119,8 @@ func ParseDateTime(data string) (DateTime, error) {
 // It knows how to read 3 different variations of a RFC3339 date time.
 // Most APIs we encounter want either millisecond or second precision times.
 // This just tries to make it worry-free.
+//
+// swagger:strfmt date-time.
 type DateTime time.Time
 
 // NewDateTime is a representation of the UNIX epoch (January 1, 1970 00:00:00 UTC) for the [DateTime] type.

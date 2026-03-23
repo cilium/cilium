@@ -216,11 +216,14 @@ func (h *Handle) SocketGet(local, remote net.Addr) (*Socket, error) {
 		},
 	})
 
-	msgs, err := req.Execute(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY)
-	if err != nil {
-		return nil, err
+	msgs, executeErr := req.Execute(unix.NETLINK_INET_DIAG, nl.SOCK_DIAG_BY_FAMILY)
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
+		return nil, executeErr
 	}
 	if len(msgs) == 0 {
+		if executeErr != nil {
+			return nil, executeErr
+		}
 		return nil, errors.New("no message nor error from netlink")
 	}
 	if len(msgs) > 2 {
@@ -231,7 +234,7 @@ func (h *Handle) SocketGet(local, remote net.Addr) (*Socket, error) {
 	if err := sock.deserialize(msgs[0]); err != nil {
 		return nil, err
 	}
-	return sock, nil
+	return sock, executeErr
 }
 
 // SocketGet returns the Socket identified by its local and remote addresses.

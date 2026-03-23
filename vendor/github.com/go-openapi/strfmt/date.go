@@ -29,7 +29,7 @@ const (
 
 // Date represents a date from the API.
 //
-// swagger:[strfmt] date.
+// swagger:strfmt date.
 type Date time.Time
 
 // String converts this date into a string.

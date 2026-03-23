@@ -2,9 +2,8 @@
 
 package deadlock
 
-// shouldDisableTimerPool determines if timer pooling should be disabled
-// In Go 1.25, timer pooling is enabled by default for performance. The synctest
-// compatibility fix (skipping channel drain) is handled separately in releaseTimer().
+// shouldDisableTimerPool determines if timer/entry pooling should be disabled.
+// In Go 1.25, pooling is enabled by default for performance.
 func shouldDisableTimerPool() bool {
 	switch Opts.TimerPool {
 	case TimerPoolDefault:

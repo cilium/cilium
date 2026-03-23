@@ -61523,6 +61523,33 @@ func awsEc2query_serializeDocumentReservationFleetInstanceSpecificationList(v []
 	return nil
 }
 
+func awsEc2query_serializeDocumentReservationTypeListRequest(v []types.FleetReservationType, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("ReservationType")
+
+	for i := range v {
+		av := array.Value()
+		av.String(string(v[i]))
+	}
+	return nil
+}
+
+func awsEc2query_serializeDocumentReservedCapacityOptionsRequest(v *types.ReservedCapacityOptionsRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ReservationTypes != nil {
+		objectKey := object.FlatKey("ReservationType")
+		if err := awsEc2query_serializeDocumentReservationTypeListRequest(v.ReservationTypes, objectKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeDocumentReservedInstanceIdSet(v []string, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -67338,6 +67365,13 @@ func awsEc2query_serializeOpDocumentCreateFleetInput(v *CreateFleetInput, value 
 	if v.ReplaceUnhealthyInstances != nil {
 		objectKey := object.Key("ReplaceUnhealthyInstances")
 		objectKey.Boolean(*v.ReplaceUnhealthyInstances)
+	}
+
+	if v.ReservedCapacityOptions != nil {
+		objectKey := object.Key("ReservedCapacityOptions")
+		if err := awsEc2query_serializeDocumentReservedCapacityOptionsRequest(v.ReservedCapacityOptions, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.SpotOptions != nil {

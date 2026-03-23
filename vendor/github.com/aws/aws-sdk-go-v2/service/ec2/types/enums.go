@@ -1910,9 +1910,10 @@ type DefaultTargetCapacityType string
 
 // Enum values for DefaultTargetCapacityType
 const (
-	DefaultTargetCapacityTypeSpot          DefaultTargetCapacityType = "spot"
-	DefaultTargetCapacityTypeOnDemand      DefaultTargetCapacityType = "on-demand"
-	DefaultTargetCapacityTypeCapacityBlock DefaultTargetCapacityType = "capacity-block"
+	DefaultTargetCapacityTypeSpot             DefaultTargetCapacityType = "spot"
+	DefaultTargetCapacityTypeOnDemand         DefaultTargetCapacityType = "on-demand"
+	DefaultTargetCapacityTypeCapacityBlock    DefaultTargetCapacityType = "capacity-block"
+	DefaultTargetCapacityTypeReservedCapacity DefaultTargetCapacityType = "reserved-capacity"
 )
 
 // Values returns all known values for DefaultTargetCapacityType. Note that this
@@ -1924,6 +1925,7 @@ func (DefaultTargetCapacityType) Values() []DefaultTargetCapacityType {
 		"spot",
 		"on-demand",
 		"capacity-block",
+		"reserved-capacity",
 	}
 }
 
@@ -2874,6 +2876,23 @@ func (FleetReplacementStrategy) Values() []FleetReplacementStrategy {
 	}
 }
 
+type FleetReservationType string
+
+// Enum values for FleetReservationType
+const (
+	FleetReservationTypeInterruptibleCapacityReservation FleetReservationType = "interruptible-capacity-reservation"
+)
+
+// Values returns all known values for FleetReservationType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (FleetReservationType) Values() []FleetReservationType {
+	return []FleetReservationType{
+		"interruptible-capacity-reservation",
+	}
+}
+
 type FleetStateCode string
 
 // Enum values for FleetStateCode
@@ -3731,8 +3750,9 @@ type InstanceLifecycle string
 
 // Enum values for InstanceLifecycle
 const (
-	InstanceLifecycleSpot     InstanceLifecycle = "spot"
-	InstanceLifecycleOnDemand InstanceLifecycle = "on-demand"
+	InstanceLifecycleSpot                             InstanceLifecycle = "spot"
+	InstanceLifecycleOnDemand                         InstanceLifecycle = "on-demand"
+	InstanceLifecycleInterruptibleCapacityReservation InstanceLifecycle = "interruptible-capacity-reservation"
 )
 
 // Values returns all known values for InstanceLifecycle. Note that this can be
@@ -3743,6 +3763,7 @@ func (InstanceLifecycle) Values() []InstanceLifecycle {
 	return []InstanceLifecycle{
 		"spot",
 		"on-demand",
+		"interruptible-capacity-reservation",
 	}
 }
 

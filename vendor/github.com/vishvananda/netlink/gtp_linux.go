@@ -89,7 +89,7 @@ func (h *Handle) GTPPDPList() ([]*PDP, error) {
 	req := h.newNetlinkRequest(int(f.ID), unix.NLM_F_DUMP)
 	req.AddData(msg)
 	msgs, executeErr := req.Execute(unix.NETLINK_GENERIC, 0)
-	if executeErr != nil && !errors.Is(err, ErrDumpInterrupted) {
+	if executeErr != nil && !errors.Is(executeErr, ErrDumpInterrupted) {
 		return nil, executeErr
 	}
 	pdps, err := parsePDP(msgs)
