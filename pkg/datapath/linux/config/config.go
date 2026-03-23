@@ -413,16 +413,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 					break
 				}
 			}
-			if ipv4 == 0 {
-				return fmt.Errorf("IPv4 direct routing device IP not found")
-			}
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 		if option.Config.EnableIPv6 {
 			ip := preferredIPv6Address(drd.Addrs)
-			if ip.IsUnspecified() {
-				return fmt.Errorf("IPv6 direct routing device IP not found")
-			}
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = ip.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", ip.AsSlice()))
 		}

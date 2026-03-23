@@ -108,6 +108,14 @@ func newLocalNodeConfig(
 			return config.Config{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
 		}
 
+		// Ensure the device has at least one usable address for the enabled
+		// address families. If not, return the watch channel so we retry as
+		// soon as the device's addresses change.
+		if !directRoutingDeviceHasAddr(drd) {
+			return config.Config{}, directRoutingDevWatch,
+				fmt.Errorf("direct routing device %s has no usable addresses", drd.Name)
+		}
+
 		watchChans = append(watchChans, directRoutingDevWatch)
 		directRoutingDevice = drd
 	}
@@ -218,4 +226,21 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	}
 
 	return ephemeralPortMin, nil
+}
+
+// directRoutingDeviceHasAddr returns true if the device has at least one
+// usable address for the enabled address families.
+func directRoutingDeviceHasAddr(dev *tables.Device) bool {
+	for _, addr := range dev.Addrs {
+		if addr.Addr.IsUnspecified() {
+			continue
+		}
+		if option.Config.EnableIPv4 && addr.Addr.Is4() {
+			return true
+		}
+		if option.Config.EnableIPv6 && addr.Addr.Is6() {
+			return true
+		}
+	}
+	return false
 }
