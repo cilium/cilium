@@ -468,12 +468,12 @@ func (n *Node) getPrimaryAddress() *models.NodeAddressing {
 	}
 
 	return &models.NodeAddressing{
-		IPV4: &models.NodeAddressingElement{
+		IPv4: &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv4,
 			IP:         v4Str,
 			AllocRange: ipv4AllocStr,
 		},
-		IPV6: &models.NodeAddressingElement{
+		IPv6: &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv6,
 			IP:         v6Str,
 			AllocRange: ipv6AllocStr,
@@ -517,11 +517,11 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 	}
 
 	return &models.NodeAddressing{
-		IPV4: &models.NodeAddressingElement{
+		IPv4: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv4,
 			IP:      v4Str,
 		},
-		IPV6: &models.NodeAddressingElement{
+		IPv6: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv6,
 			IP:      v6Str,
 		},
@@ -542,11 +542,11 @@ func (n *Node) getIngressAddresses() *models.NodeAddressing {
 	}
 
 	return &models.NodeAddressing{
-		IPV4: &models.NodeAddressingElement{
+		IPv4: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv4,
 			IP:      v4Str,
 		},
-		IPV6: &models.NodeAddressingElement{
+		IPv6: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv6,
 			IP:      v6Str,
 		},

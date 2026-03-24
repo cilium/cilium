@@ -123,22 +123,22 @@ func nodeElementSliceToNodeMap(nodeElements []*models.NodeElement) nodeMap {
 	nodes := make(nodeMap)
 	for _, n := range nodeElements {
 		if n.PrimaryAddress != nil {
-			if n.PrimaryAddress.IPV4 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV4.IP)] = NewHealthNode(n)
+			if n.PrimaryAddress.IPv4 != nil {
+				nodes[ipString(n.PrimaryAddress.IPv4.IP)] = NewHealthNode(n)
 			}
-			if n.PrimaryAddress.IPV6 != nil {
-				nodes[ipString(n.PrimaryAddress.IPV6.IP)] = NewHealthNode(n)
+			if n.PrimaryAddress.IPv6 != nil {
+				nodes[ipString(n.PrimaryAddress.IPv6.IP)] = NewHealthNode(n)
 			}
 		}
 		for _, addr := range n.SecondaryAddresses {
 			nodes[ipString(addr.IP)] = NewHealthNode(n)
 		}
 		if n.HealthEndpointAddress != nil {
-			if n.HealthEndpointAddress.IPV4 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV4.IP)] = NewHealthNode(n)
+			if n.HealthEndpointAddress.IPv4 != nil {
+				nodes[ipString(n.HealthEndpointAddress.IPv4.IP)] = NewHealthNode(n)
 			}
-			if n.HealthEndpointAddress.IPV6 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPV6.IP)] = NewHealthNode(n)
+			if n.HealthEndpointAddress.IPv6 != nil {
+				nodes[ipString(n.HealthEndpointAddress.IPv6.IP)] = NewHealthNode(n)
 			}
 		}
 	}

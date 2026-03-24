@@ -65,9 +65,9 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 
 	if ipv4Result != nil {
-		resp.Address.IPV4 = ipv4Result.IP.String()
-		resp.Address.IPV4PoolName = ipv4Result.IPPoolName.String()
-		resp.IPV4 = &models.IPAMAddressResponse{
+		resp.Address.IPv4 = ipv4Result.IP.String()
+		resp.Address.IPv4PoolName = ipv4Result.IPPoolName.String()
+		resp.IPv4 = &models.IPAMAddressResponse{
 			Cidrs:           ipv4Result.CIDRs,
 			IP:              ipv4Result.IP.String(),
 			MasterMac:       ipv4Result.PrimaryMAC,
@@ -79,9 +79,9 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 
 	if ipv6Result != nil {
-		resp.Address.IPV6 = ipv6Result.IP.String()
-		resp.Address.IPV6PoolName = ipv6Result.IPPoolName.String()
-		resp.IPV6 = &models.IPAMAddressResponse{
+		resp.Address.IPv6 = ipv6Result.IP.String()
+		resp.Address.IPv6PoolName = ipv6Result.IPPoolName.String()
+		resp.IPv6 = &models.IPAMAddressResponse{
 			Cidrs:           ipv6Result.CIDRs,
 			IP:              ipv6Result.IP.String(),
 			MasterMac:       ipv6Result.PrimaryMAC,
@@ -104,7 +104,7 @@ func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*mod
 	nodeRouterAddressing := &models.NodeAddressing{}
 
 	if r.DaemonConfig.EnableIPv6 {
-		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
+		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    r.DaemonConfig.EnableIPv6,
 			IP:         ln.GetCiliumInternalIP(true).String(),
 			AllocRange: ln.IPv6AllocCIDR.String(),
@@ -112,7 +112,7 @@ func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*mod
 	}
 
 	if r.DaemonConfig.EnableIPv4 {
-		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
+		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    r.DaemonConfig.EnableIPv4,
 			IP:         ln.GetCiliumInternalIP(false).String(),
 			AllocRange: ln.IPv4AllocCIDR.String(),

@@ -24,8 +24,8 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 
 	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: "192.168.1.100",
-			IPV6: "f00d::a10:0:0:abcd",
+			IPv4: "192.168.1.100",
+			IPv6: "f00d::a10:0:0:abcd",
 		},
 		ContainerID:   "ContainerID",
 		ContainerName: "ContainerName",
@@ -68,8 +68,8 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 
 	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: "192.168.1.100",
-			IPV6: "f00d::a10:0:0:abcd",
+			IPv4: "192.168.1.100",
+			IPv6: "f00d::a10:0:0:abcd",
 		},
 		ContainerID:   "ContainerID",
 		ContainerName: "ContainerName",

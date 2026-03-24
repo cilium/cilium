@@ -123,7 +123,7 @@ func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRul
 	}
 
 	if model.Addressing != nil {
-		if ip := model.Addressing.IPV6; ip != "" {
+		if ip := model.Addressing.IPv6; ip != "" {
 			ip6, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
@@ -132,10 +132,10 @@ func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRul
 				return nil, fmt.Errorf("invalid IPv6 address %q", ip)
 			}
 			ep.IPv6 = ip6
-			ep.IPv6IPAMPool = model.Addressing.IPV6PoolName
+			ep.IPv6IPAMPool = model.Addressing.IPv6PoolName
 		}
 
-		if ip := model.Addressing.IPV4; ip != "" {
+		if ip := model.Addressing.IPv4; ip != "" {
 			ip4, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
@@ -144,7 +144,7 @@ func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRul
 				return nil, fmt.Errorf("invalid IPv4 address %q", ip)
 			}
 			ep.IPv4 = ip4
-			ep.IPv4IPAMPool = model.Addressing.IPV4PoolName
+			ep.IPv4IPAMPool = model.Addressing.IPv4PoolName
 		}
 	}
 
@@ -197,10 +197,10 @@ func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifi
 func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
 	return &models.EndpointNetworking{
 		Addressing: []*models.AddressPair{{
-			IPV4:         e.GetIPv4Address(),
-			IPV4PoolName: e.IPv4IPAMPool,
-			IPV6:         e.GetIPv6Address(),
-			IPV6PoolName: e.IPv6IPAMPool,
+			IPv4:         e.GetIPv4Address(),
+			IPv4PoolName: e.IPv4IPAMPool,
+			IPv6:         e.GetIPv6Address(),
+			IPv6PoolName: e.IPv6IPAMPool,
 		}},
 		InterfaceIndex:         int64(e.ifIndex),
 		InterfaceName:          e.ifName,
