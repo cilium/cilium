@@ -50,8 +50,6 @@ struct nat_entry {
 
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
-#define snat_v4_needs_masquerade_hook(ctx, target) 0
-
 static __always_inline __u16
 nat_min_egress()
 {
@@ -631,13 +629,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 {
 	const struct endpoint_info *local_ep __maybe_unused;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
-	int ret;
-
-	ret = snat_v4_needs_masquerade_hook(ctx, target);
-	if (IS_ERR(ret))
-		return ret;
-	if (ret)
-		return NAT_NEEDED;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
