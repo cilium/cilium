@@ -194,6 +194,11 @@ linters:
       - linters:
           - goheader
         path: pkg/hubble/dropeventemitter/fake_recorder.go
+      # Skip goheader check on files in the tools/stackwhere/dwarf package these are copied from delve-go and should
+      # retain the original license header.
+      - linters:
+          - goheader
+        path: tools/stackwhere/dwarf/.+\.go
       - linters:
           - sloglint
         path: tools/.*.go

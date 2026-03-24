@@ -727,6 +727,7 @@ Makefile* @cilium/build
 /tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
+/tools/stackwhere @cilium/loader
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
