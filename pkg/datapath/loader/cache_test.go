@@ -15,7 +15,6 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -81,7 +80,7 @@ func TestObjectCacheParallel(t *testing.T) {
 	wg.Wait()
 }
 
-func configWriterForTest(t testing.TB) types.ConfigWriter {
+func configWriterForTest(t testing.TB) config.Writer {
 	t.Helper()
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{

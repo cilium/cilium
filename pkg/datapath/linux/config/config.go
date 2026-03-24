@@ -47,7 +47,29 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
+// Writer is anything which writes the configuration for various datapath
+// program types.
+type Writer interface {
+	// WriteNodeConfig writes the implementation-specific configuration of
+	// node-wide options into the specified writer.
+	WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error
+
+	// WriteNetdevConfig writes the implementation-specific configuration
+	// of configurable options to the specified writer. Options specified
+	// here will apply to base programs and not to endpoints, though
+	// endpoints may have equivalent configurable options.
+	WriteNetdevConfig(io.Writer, *option.IntOptions) error
+
+	// WriteTemplateConfig writes the implementation-specific configuration
+	// of configurable options for BPF templates to the specified writer.
+	WriteTemplateConfig(w io.Writer, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config) error
+
+	// WriteEndpointConfig writes the implementation-specific configuration
+	// of configurable options for the endpoint to the specified writer.
+	WriteEndpointConfig(w io.Writer, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config) error
+}
+
+// HeaderfileWriter is a wrapper type which implements Writer.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
 	log                *slog.Logger
@@ -59,7 +81,7 @@ type HeaderfileWriter struct {
 	kprCfg             kpr.KPRConfig
 }
 
-func NewHeaderfileWriter(p WriterParams) (datapath.ConfigWriter, error) {
+func NewHeaderfileWriter(p WriterParams) (Writer, error) {
 	merged := make(dpdef.Map)
 	for _, defines := range p.NodeExtraDefines {
 		if err := merged.Merge(defines); err != nil {
