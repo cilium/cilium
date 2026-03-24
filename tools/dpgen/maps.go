@@ -4,8 +4,10 @@
 package main
 
 import (
+	"bytes"
 	_ "embed"
 	"fmt"
+	"go/format"
 	"io"
 	"maps"
 	"os"
@@ -152,7 +154,8 @@ func renderMapSpecs(w io.Writer, outer, inner map[string]*ebpf.MapSpec, pkg stri
 	all := maps.Clone(outer)
 	maps.Copy(all, inner)
 
-	if err := tpl.Execute(w, struct {
+	b := bytes.Buffer{}
+	if err := tpl.Execute(&b, struct {
 		Package   string
 		BTFFile   string
 		OuterMaps []*ebpf.MapSpec
@@ -164,6 +167,15 @@ func renderMapSpecs(w io.Writer, outer, inner map[string]*ebpf.MapSpec, pkg stri
 		sorted(all),
 	}); err != nil {
 		return fmt.Errorf("executing template: %w", err)
+	}
+
+	formatted, err := format.Source(b.Bytes())
+	if err != nil {
+		return fmt.Errorf("formatting generated code: %w", err)
+	}
+
+	if _, err := w.Write(formatted); err != nil {
+		return fmt.Errorf("writing formatted code: %w", err)
 	}
 
 	return nil

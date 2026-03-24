@@ -10,6 +10,8 @@ ARP
 BPF
 CIDR
 CT
+CT4
+CT6
 DAddr
 DPort
 EDT
@@ -25,6 +27,7 @@ IP
 IP4
 IP6
 IPCache
+IPMasq
 IPv4
 IPv6
 LB
@@ -38,11 +41,15 @@ MACAddr
 MTU
 NAT
 NetNS
+PerCPU
 RevNAT
 SAddr
+SNAT
 SPI
 SPort
 SRv6
+TCP4
+TCP6
 V4Addr
 V6Addr
 VRF
