@@ -141,11 +141,12 @@ type RouteSet map[netip.Prefix]AddrSet
 type AddrSet map[netip.Prefix]struct{}
 
 type DeviceConfig struct {
-	IPv4Addr netip.Prefix `json:"ipv4Addr"`
-	IPv6Addr netip.Prefix `json:"ipv6Addr"`
-	IPPool   string       `json:"ip-pool"`
-	Routes   RouteSet
-	Vlan     uint16
+	IPv4Addr  netip.Prefix `json:"ipv4Addr"`
+	IPv6Addr  netip.Prefix `json:"ipv6Addr"`
+	IPPool    string       `json:"ip-pool"`
+	Routes    RouteSet
+	Vlan      uint16
+	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 }
 
 func (d *DeviceConfig) Empty() bool {
@@ -153,7 +154,8 @@ func (d *DeviceConfig) Empty() bool {
 		d.IPv6Addr == (netip.Prefix{}) &&
 		d.IPPool == "" &&
 		d.Routes == nil &&
-		d.Vlan == 0
+		d.Vlan == 0 &&
+		d.PodIfName == ""
 }
 
 type SerializedDevice struct {
