@@ -5,7 +5,7 @@ package main
 
 import (
 	"cmp"
-	_ "embed"
+	"embed"
 	"fmt"
 	"io"
 	"iter"
@@ -25,22 +25,41 @@ import (
 	"github.com/cilium/cilium/pkg/container/set"
 )
 
-//go:embed acronyms.txt
-var _acronyms string
+//go:embed acronyms*.txt
+var acronymsFS embed.FS
 var acronyms = sync.OnceValue(func() map[string]string {
+	entries, err := acronymsFS.ReadDir(".")
+	if err != nil {
+		fmt.Println("listing acronym files:", err)
+		os.Exit(1)
+	}
+
 	m := make(map[string]string)
-	for line := range strings.SplitSeq(_acronyms, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "//") {
+	for _, entry := range entries {
+		if entry.IsDir() {
 			continue
 		}
 
-		lower := strings.ToLower(line)
-		if _, ok := m[lower]; ok {
-			fmt.Println("duplicate acronym:", line)
+		file := entry.Name()
+		data, err := acronymsFS.ReadFile(file)
+		if err != nil {
+			fmt.Println("reading acronym file:", err)
 			os.Exit(1)
 		}
-		m[lower] = line
+
+		for line := range strings.SplitSeq(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "//") {
+				continue
+			}
+
+			lower := strings.ToLower(line)
+			if _, ok := m[lower]; ok {
+				fmt.Printf("duplicate acronym in file %s: %s\n", file, line)
+				os.Exit(1)
+			}
+			m[lower] = line
+		}
 	}
 
 	return m
