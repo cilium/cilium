@@ -20,7 +20,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -46,7 +47,7 @@ import (
 )
 
 type EndpointSuite struct {
-	orchestrator datapath.Orchestrator
+	orchestrator endpoint.Orchestrator
 	repo         policy.PolicyRepository
 	mgr          *cache.CachingIdentityAllocator
 }
@@ -56,7 +57,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	logger := hivetest.Logger(tb)
 
 	s := &EndpointSuite{
-		orchestrator: &fakeTypes.FakeOrchestrator{},
+		orchestrator: &fakeendpoint.FakeOrchestrator{},
 		repo:         policy.NewPolicyRepository(logger, nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop()),
 		mgr:          cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig()),
 	}
@@ -184,7 +185,7 @@ func TestEndpointStatus(t *testing.T) {
 	require.Equal(t, "OK", eps.String())
 }
 
-func createEndpointParams(tb testing.TB, o datapath.Orchestrator, r policy.PolicyRepository) EndpointParams {
+func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.PolicyRepository) EndpointParams {
 	return EndpointParams{
 		Logger:           hivetest.Logger(tb),
 		EPBuildQueue:     &MockEndpointBuildQueue{},

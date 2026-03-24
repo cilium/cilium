@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -67,7 +69,7 @@ var Cell = cell.Module(
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
-		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
+		func() endpoint.Orchestrator { return &fakeendpoint.FakeOrchestrator{} },
 		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
 		func() (nat.NatMap4, nat.NatMap6) {

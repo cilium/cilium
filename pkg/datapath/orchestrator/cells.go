@@ -6,7 +6,7 @@ package orchestrator
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 var Cell = cell.Module(
@@ -17,6 +17,6 @@ var Cell = cell.Module(
 	cell.Provide(NewOrchestrator),
 )
 
-func NewOrchestrator(params orchestratorParams) types.Orchestrator {
+func NewOrchestrator(params orchestratorParams) endpoint.Orchestrator {
 	return newOrchestrator(params)
 }

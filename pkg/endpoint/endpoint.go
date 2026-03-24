@@ -33,6 +33,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -155,7 +156,7 @@ var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 type Endpoint struct {
 	dnsRulesAPI      DNSRulesAPI
 	loader           datapath.Loader
-	orchestrator     datapath.Orchestrator
+	orchestrator     endpoint.Orchestrator
 	compilationLock  datapath.CompilationLock
 	bandwidthManager datapath.BandwidthManager
 	ipTablesManager  datapath.IptablesManager
