@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -29,7 +30,7 @@ type objectCache struct {
 	logger *slog.Logger
 
 	lock.Mutex
-	datapath.ConfigWriter
+	config.Writer
 
 	// The directory used for caching. Must not be accessed by another process.
 	workingDirectory string
@@ -51,10 +52,10 @@ type cachedSpec struct {
 	path string
 }
 
-func newObjectCache(logger *slog.Logger, c datapath.ConfigWriter, workingDir string) *objectCache {
+func newObjectCache(logger *slog.Logger, c config.Writer, workingDir string) *objectCache {
 	return &objectCache{
 		logger:           logger,
-		ConfigWriter:     c,
+		Writer:           c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedSpec),
 	}
@@ -63,7 +64,7 @@ func newObjectCache(logger *slog.Logger, c datapath.ConfigWriter, workingDir str
 // UpdateDatapathHash invalidates the object cache if the configuration of the
 // datapath has changed.
 func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguration) error {
-	newHash, err := hashDatapath(o.ConfigWriter, nodeCfg)
+	newHash, err := hashDatapath(o.Writer, nodeCfg)
 	if err != nil {
 		return fmt.Errorf("hash datapath config: %w", err)
 	}
@@ -145,7 +146,7 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.ConfigWriter.WriteEndpointConfig(f, nodeCfg, cfg); err != nil {
+	if err = o.Writer.WriteEndpointConfig(f, nodeCfg, cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 

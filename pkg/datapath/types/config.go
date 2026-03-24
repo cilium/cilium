@@ -4,35 +4,9 @@
 package types
 
 import (
-	"io"
-
 	"github.com/cilium/cilium/pkg/cidr"
-	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 )
-
-// ConfigWriter is anything which writes the configuration for various datapath
-// program types.
-type ConfigWriter interface {
-	// WriteNodeConfig writes the implementation-specific configuration of
-	// node-wide options into the specified writer.
-	WriteNodeConfig(io.Writer, *LocalNodeConfiguration) error
-
-	// WriteNetdevConfig writes the implementation-specific configuration
-	// of configurable options to the specified writer. Options specified
-	// here will apply to base programs and not to endpoints, though
-	// endpoints may have equivalent configurable options.
-	WriteNetdevConfig(io.Writer, *option.IntOptions) error
-
-	// WriteTemplateConfig writes the implementation-specific configuration
-	// of configurable options for BPF templates to the specified writer.
-	WriteTemplateConfig(w io.Writer, nodeCfg *LocalNodeConfiguration, cfg endpoint.Config) error
-
-	// WriteEndpointConfig writes the implementation-specific configuration
-	// of configurable options for the endpoint to the specified writer.
-	WriteEndpointConfig(w io.Writer, nodeCfg *LocalNodeConfiguration, cfg endpoint.Config) error
-}
 
 // RemoteSNATDstAddrExclusionCIDRv4 returns a CIDR for SNAT exclusion. Any
 // packet sent from a local endpoint to an IP address belonging to the CIDR

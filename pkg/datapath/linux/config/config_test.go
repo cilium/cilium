@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -74,7 +75,7 @@ func (b *badWriter) Write(p []byte) (int, error) {
 	return 0, errors.New("bad write :(")
 }
 
-type writeFn func(io.Writer, datapath.ConfigWriter) error
+type writeFn func(io.Writer, Writer) error
 
 func writeConfig(t *testing.T, header string, write writeFn) {
 	tests := []struct {
@@ -94,7 +95,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 		},
 	}
 	for _, test := range tests {
-		var writer datapath.ConfigWriter
+		var writer Writer
 		t.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
 			provideNodemap,
@@ -108,7 +109,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				func() datapath.IPsecConfig { return fakeTypes.IPsecConfig{} },
 			),
 			kpr.Cell,
-			cell.Invoke(func(writer_ datapath.ConfigWriter) {
+			cell.Invoke(func(writer_ Writer) {
 				writer = writer_
 			}),
 		)
@@ -165,7 +166,7 @@ func TestPrivilegedWriteNodeConfig(t *testing.T) {
 	setupCiliumDummyDevices(t, ns)
 	err := ns.Do(func() error {
 		setupConfigSuite(t)
-		writeConfig(t, "node", func(w io.Writer, dp datapath.ConfigWriter) error {
+		writeConfig(t, "node", func(w io.Writer, dp Writer) error {
 			return dp.WriteNodeConfig(w, &dummyNodeCfg)
 		})
 		return nil
@@ -175,7 +176,7 @@ func TestPrivilegedWriteNodeConfig(t *testing.T) {
 
 func TestPrivilegedWriteNetdevConfig(t *testing.T) {
 	setupConfigSuite(t)
-	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
+	writeConfig(t, "netdev", func(w io.Writer, dp Writer) error {
 		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
 	})
 }

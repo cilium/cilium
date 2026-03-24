@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -49,7 +50,7 @@ type loader struct {
 	sysctl             sysctl.Sysctl
 	prefilter          datapath.PreFilter
 	compilationLock    datapath.CompilationLock
-	configWriter       datapath.ConfigWriter
+	configWriter       config.Writer
 	nodeConfigNotifier *manager.NodeConfigNotifier
 
 	db           *statedb.DB
@@ -66,7 +67,7 @@ type Params struct {
 	Sysctl             sysctl.Sysctl
 	Prefilter          datapath.PreFilter
 	CompilationLock    datapath.CompilationLock
-	ConfigWriter       datapath.ConfigWriter
+	ConfigWriter       config.Writer
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB

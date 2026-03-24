@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -82,7 +83,7 @@ func newTestLoader(tb testing.TB) *loader {
 		registry.Cell,
 		cell.Provide(func() (
 			sysctl.Sysctl,
-			datapath.ConfigWriter,
+			config.Writer,
 			*manager.NodeConfigNotifier,
 			promise.Promise[endpointstate.Restorer],
 			datapath.PreFilter,
