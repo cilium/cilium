@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -141,7 +140,7 @@ func (d *statusCollector) getMasqueradingStatus(ctx context.Context) (*models.Ma
 	if d.statusParams.DaemonConfig.EnableIPv4 {
 		// SnatExclusionCidr is the legacy field, continue to provide
 		// it for the time being
-		addr := datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode)
+		addr := localNode.RemoteSNATDstAddrExclusionCIDRv4()
 		if addr == nil {
 			return s, errors.New("no local node v4 CIDR")
 		}
@@ -151,7 +150,7 @@ func (d *statusCollector) getMasqueradingStatus(ctx context.Context) (*models.Ma
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv6 {
-		addr := datapath.RemoteSNATDstAddrExclusionCIDRv6(localNode)
+		addr := localNode.RemoteSNATDstAddrExclusionCIDRv6()
 		if addr == nil {
 			return s, errors.New("no local node v6 CIDR")
 		}
