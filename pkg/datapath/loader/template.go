@@ -8,7 +8,7 @@ import (
 	"math"
 	"net/netip"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	eptypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -46,7 +46,7 @@ type templateCfg struct {
 	// CompileTimeConfiguration passes through directly to the underlying
 	// endpoint configuration, while the rest of the EndpointConfiguration
 	// interface is implemented directly here through receiver functions.
-	datapath.CompileTimeConfiguration
+	eptypes.CompileTimeConfig
 }
 
 // GetID returns a uint64, but in practice on the datapath side it is
@@ -125,8 +125,8 @@ func (*templateCfg) RequireARPPassthrough() bool {
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
 // template data.
-func wrap(cfg datapath.CompileTimeConfiguration) *templateCfg {
+func wrap(cfg eptypes.CompileTimeConfig) *templateCfg {
 	return &templateCfg{
-		CompileTimeConfiguration: cfg,
+		CompileTimeConfig: cfg,
 	}
 }

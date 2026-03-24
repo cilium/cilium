@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 type FakeOrchestrator struct{}
@@ -27,11 +28,11 @@ func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpo
 	return "", nil
 }
 
-func (f *FakeOrchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+func (f *FakeOrchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
 	return "", nil
 }
 
-func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
+func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
@@ -23,7 +24,7 @@ func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, l
 	panic("implement me")
 }
 
-func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration, _ *datapath.LocalNodeConfiguration) (string, error) {
+func (f *FakeLoader) EndpointHash(cfg endpoint.Config, _ *datapath.LocalNodeConfiguration) (string, error) {
 	panic("implement me")
 }
 
@@ -51,6 +52,6 @@ func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) err
 	return nil
 }
 
-func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) error {
+func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnc *datapath.LocalNodeConfiguration) error {
 	return nil
 }

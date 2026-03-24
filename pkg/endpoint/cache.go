@@ -28,7 +28,7 @@ type epInfoCache struct {
 	id     uint64
 	ifName string
 
-	// For datapath.EndpointConfiguration
+	// For endpoint.Config
 	identity               identity.NumericIdentity
 	mac                    mac.MAC
 	ipv4                   netip.Addr

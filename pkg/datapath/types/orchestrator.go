@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 type Orchestrator interface {
@@ -15,7 +16,7 @@ type Orchestrator interface {
 
 	DatapathInitialized() <-chan struct{}
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) (string, error)
-	EndpointHash(cfg EndpointConfiguration) (string, error)
-	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+	EndpointHash(cfg endpoint.Config) (string, error)
+	WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error
 	Unload(ep Endpoint)
 }

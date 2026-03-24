@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -45,14 +46,14 @@ const (
 
 // epConfigs holds functions that yield a BPF configuration object for
 // an endpoint.
-var epConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) any]
+var epConfigs funcRegistry[func(endpoint.Config, *datapath.LocalNodeConfiguration) any]
 
 // epRenames holds functions that yield the map renames for an endpoint
-var epRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) map[string]string]
+var epRenames funcRegistry[func(endpoint.Config, *datapath.LocalNodeConfiguration) map[string]string]
 
 // endpointConfiguration returns a slice of endpoint configuration objects
 // yielded by all registered config providers.
-func endpointConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (configs []any) {
+func endpointConfiguration(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) (configs []any) {
 	for f := range epConfigs.all() {
 		configs = append(configs, f(ep, lnc))
 	}
@@ -60,7 +61,7 @@ func endpointConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Loca
 }
 
 // endpointMapRenames returns the merged map of endpoint map renames yielded by all registered rename providers.
-func endpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
+func endpointMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) (renames []map[string]string) {
 	for f := range epRenames.all() {
 		renames = append(renames, f(ep, lnc))
 	}
@@ -171,16 +172,16 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
-func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) (string, error) {
+func (l *loader) EndpointHash(cfg endpoint.Config, lnCfg *datapath.LocalNodeConfiguration) (string, error) {
 	return l.templateCache.baseHash.hashEndpoint(l.templateCache, lnCfg, cfg)
 }
 
-func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) error {
+func (l *loader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnCfg *datapath.LocalNodeConfiguration) error {
 	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
 }
 
 // defaultEndpointMapRenames returns map rename operations for an endpoint.
-func defaultEndpointMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) map[string]string {
+func defaultEndpointMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) map[string]string {
 	return map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
