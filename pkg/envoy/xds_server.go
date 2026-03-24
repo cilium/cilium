@@ -1332,19 +1332,38 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 // will be considered after port-specific rules.
 // Returns the set of rules, and if any of them was a deny/allow all rule, and the highest priority
 // of any deny/allow all rule, if any.
-func (s *xdsServer) getWildcardPortNetworkPolicyRules(snapshot policy.SelectorSnapshot,
-	tierBasePriority, tierLastPriority policyTypes.Priority,
-	selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule, wildcardPrecedence policyTypes.Precedence) {
+func (s *xdsServer) getWildcardPortNetworkPolicyRules(ep endpoint.EndpointUpdater,
+	snapshot policy.SelectorSnapshot, tierBasePriority, tierLastPriority policyTypes.Priority,
+	selectors policy.L7DataMap, useFullTLSContext, useSDS bool, policySecretsNamespace string) (rules []*cilium.PortNetworkPolicyRule, wildcardPrecedence policyTypes.Precedence) {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple
 	// selectors
 
 	// Simplified path for one selector, loop to get the sole selector
 	if len(selectors) == 1 {
 		for sel, psp := range selectors {
-			rule := s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
+			var rule *cilium.PortNetworkPolicyRule
+			if psp.IsRedirect() {
+				rule, _ = s.getPortNetworkPolicyRule(ep, snapshot, sel, psp,
+					tierBasePriority, tierLastPriority,
+					useFullTLSContext, useSDS, policySecretsNamespace)
+				if rule == nil {
+					return nil, 0
+				}
+			} else {
+				rule = s.initPortNetworkPolicyRule(psp, tierBasePriority, tierLastPriority)
+			}
 			rules = append(rules, rule)
 			if sel.IsWildcard() {
-				return rules, policyTypes.Precedence(rule.Precedence)
+				precedence := policyTypes.Precedence(rule.Precedence)
+				if psp.IsRedirect() {
+					// a wildcard selector / wildcard port rule with a redirect
+					// is not considered an allow-all rule (as the listener can
+					// restrict the allowed traffic), but it still suppresses
+					// lower-priority rules. For this priority comparison the
+					// listener priority information is masked away.
+					return rules, precedence.AllowPrecedence()
+				}
+				return rules, precedence
 			}
 			selections := sel.GetSelectionsAt(snapshot)
 			if len(selections) == 0 {
@@ -1362,15 +1381,27 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(snapshot policy.SelectorSn
 	var wildcardPolicy *policy.PerSelectorPolicy
 	var haveWildcardPolicy bool
 
+	var redirects map[policyTypes.CachedSelector]*policy.PerSelectorPolicy
+
 	for sel, psp := range selectors {
 		precedence := psp.GetPriority().ToPrecedenceWithListenerPriority(
 			psp.IsDeny(), psp.IsRedirect(), psp.GetListenerPriority())
 
+		// handle redirects separately
 		if psp.IsRedirect() {
-			// Issue a warning if this port-0 rule is a redirect.
-			// Deny rules don't support L7 therefore for the deny case
-			// psp.IsRedirect() will always return false.
-			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
+			if sel.IsWildcard() {
+				// Wildcard selector rule with a redirect. Mask off listener
+				// priority to suppress only lower-priority rules.
+				precedence := precedence.AllowPrecedence()
+				if precedence > wildcardPrecedence {
+					wildcardPrecedence = precedence
+				}
+			}
+			if redirects == nil {
+				redirects = make(map[policyTypes.CachedSelector]*policy.PerSelectorPolicy)
+			}
+			redirects[sel] = psp
+			continue
 		}
 
 		// keep track of the highest precedence wildcard rule
@@ -1427,6 +1458,25 @@ func (s *xdsServer) getWildcardPortNetworkPolicyRules(snapshot policy.SelectorSn
 		}
 	}
 
+	for sel, psp := range redirects {
+		if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+			s.logger.Debug("Wildcard redirect PortNetworkPolicyRule",
+				logfields.EndpointID, ep.GetID(),
+				logfields.Version, snapshot,
+				logfields.Port, "0",
+				logfields.ProxyRedirect, psp.L7Parser,
+				logfields.Listener, psp.Listener,
+				logfields.ListenerPriority, psp.ListenerPriority,
+			)
+		}
+		rule, _ := s.getPortNetworkPolicyRule(ep, snapshot, sel, psp,
+			tierBasePriority, tierLastPriority,
+			useFullTLSContext, useSDS, policySecretsNamespace)
+		if rule != nil && policyTypes.Precedence(rule.Precedence) > wildcardPrecedence {
+			rules = append(rules, rule)
+		}
+	}
+
 	return rules, wildcardPrecedence
 }
 
@@ -1466,7 +1516,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 	// Check for wildcard port policy first, one tier at the time
 	addWildcardPortRules := func(l4 *policy.L4Filter,
 		tierBasePriority, tierLastPriority policyTypes.Priority) policyTypes.Precedence {
-		wildcardPortRules, wildcardSelectorPrecedence := s.getWildcardPortNetworkPolicyRules(selectors, tierBasePriority, tierLastPriority, l4.PerSelectorPolicies)
+		wildcardPortRules, wildcardSelectorPrecedence := s.getWildcardPortNetworkPolicyRules(ep, selectors, tierBasePriority, tierLastPriority, l4.PerSelectorPolicies, useFullTLSContext, useSDS, policySecretsNamespace)
 
 		if debugEnabled {
 			for _, rule := range wildcardPortRules {
