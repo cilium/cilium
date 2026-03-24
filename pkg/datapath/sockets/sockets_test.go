@@ -418,6 +418,8 @@ func TestPrivilegedSocketDestroyers(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	log := hivetest.Logger(t)
 
+	bpf.CheckOrMountFS(log, "")
+
 	socketDestroyers := makeSocketDestroyers(t)
 	servers := map[string][]string{
 		"127.0.0.1:8888": {"udp", "tcp"},
