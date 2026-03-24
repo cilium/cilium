@@ -86,6 +86,10 @@ func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, er
 	obj, gvk, err := Decoder().Decode(bytes, nil, nil)
 	if err == nil {
 		return obj, gvk, err
+	} else if !runtime.IsNotRegisteredError(err) {
+		// If we get a legitimate parse error in a CRD, surface that instead of a generic "unknown
+		// kind" from the fallback below.
+		return nil, nil, err
 	}
 	return DecodeKubernetesObject(bytes)
 }
