@@ -44,7 +44,7 @@ const (
 
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
-func reloadHostEndpoint(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+func reloadHostEndpoint(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint,
 	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
 	if err := attachCiliumHost(logger, reg, ep, lnc, spec); err != nil {
@@ -96,7 +96,7 @@ func defaultCiliumHostMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConf
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
-func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint,
 	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
@@ -175,7 +175,7 @@ func defaultCiliumNetMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfi
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint,
 	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
@@ -247,7 +247,7 @@ func defaultNetdevMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfigur
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
 // devices and the wireguard device. Attaches cil_from_netdev to ingress and
 // optionally cil_to_netdev to egress if enabled features require it.
-func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep endpoint.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	devices := lnc.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
