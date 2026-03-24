@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/health/server"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -73,8 +75,36 @@ func (h *ciliumHealthManager) launchCiliumNodeHealth(ctx context.Context, spec *
 	}
 
 	go ch.runServer(initialized)
+	go h.observeNodeIPChangesForHealth(ctx, ch)
 
 	return ch, nil
+}
+
+// observeNodeIPChangesForHealth watches the LocalNodeStore for IP address
+// changes and rebinds the health HTTP path server when the node IP changes
+// at runtime (e.g. KubeVirt VM migration).
+func (h *ciliumHealthManager) observeNodeIPChangesForHealth(ctx context.Context, ch *CiliumHealth) {
+	var lastAddrs []string
+	var seeded bool
+	h.localNodeStore.Observe(ctx,
+		func(ln node.LocalNode) {
+			addrs := server.GetAddresses(ln)
+			if seeded && !slices.Equal(addrs, lastAddrs) {
+				h.logger.Info("Node IP changed, rebinding health responder",
+					"oldAddresses", lastAddrs,
+					"newAddresses", addrs,
+				)
+				ch.server.RebindHTTPPathServer(addrs)
+			}
+			lastAddrs = addrs
+			seeded = true
+		},
+		func(err error) {
+			if err != nil && ctx.Err() == nil {
+				h.logger.Error("LocalNodeStore observation ended unexpectedly", logfields.Error, err)
+			}
+		},
+	)
 }
 
 func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
@@ -149,3 +179,4 @@ func (ch *CiliumHealth) setStatus(status *models.Status) {
 	ch.status = status
 	ch.mutex.Unlock()
 }
+

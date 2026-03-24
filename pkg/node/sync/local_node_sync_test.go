@@ -6,6 +6,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -358,4 +359,91 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 		}
 	}
 	assert.True(t, foundDeleted, "Node should be marked as being deleted")
+}
+
+// TestLocalNodeSync_IPAddressChange verifies that when a node's IP address
+// changes at runtime (e.g. KubeVirt VM migration), the change is detected
+// by mutableFieldsEqual and propagated through syncFromK8s to the LocalNodeStore.
+// This is a regression test for https://github.com/cilium/cilium/issues/15406.
+func TestLocalNodeSync_IPAddressChange(t *testing.T) {
+	oldIP := "134.209.112.214"
+	newIP := "10.116.0.7"
+
+	eventWithIP := func(ip string) resource.Event[*slim_corev1.Node] {
+		return resource.Event[*slim_corev1.Node]{
+			Kind: resource.Upsert,
+			Key:  resource.Key{Name: "test-node"},
+			Object: &slim_corev1.Node{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:   "test-node",
+					UID:    k8stypes.UID("uid1"),
+					Labels: map[string]string{"env": "test"},
+				},
+				Spec: slim_corev1.NodeSpec{ProviderID: "provider://test"},
+				Status: slim_corev1.NodeStatus{
+					Addresses: []slim_corev1.NodeAddress{
+						{Type: slim_corev1.NodeInternalIP, Address: ip},
+					},
+				},
+			},
+			Done: func(err error) {},
+		}
+	}
+
+	fakeNode := &mockResource[*slim_corev1.Node]{
+		items: []resource.Event[*slim_corev1.Node]{
+			eventWithIP(oldIP), // init event
+			eventWithIP(newIP), // IP change event (same labels/annotations, different IP)
+		},
+	}
+
+	sync := newLocalNodeSynchronizer(localNodeSynchronizerParams{
+		Logger: hivetest.Logger(t),
+		Config: &option.DaemonConfig{
+			IPv4NodeAddr: "auto",
+			IPv6NodeAddr: "auto",
+		},
+		K8sLocalNode: fakeNode,
+		K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
+			items: []resource.Event[*v2.CiliumNode]{
+				{Kind: resource.Sync, Done: func(err error) {}},
+			},
+		},
+		IPsecConfig: fakeTypes.IPsecConfig{},
+	})
+
+	// Initialize with the first event (old IP)
+	local := node.LocalNode{
+		Node: types.Node{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+		Local: &node.LocalNodeInfo{},
+	}
+	require.NoError(t, sync.InitLocalNode(t.Context(), &local))
+	require.Equal(t, net.ParseIP(oldIP), local.GetNodeInternalIPv4())
+
+	store := node.NewTestLocalNodeStore(local)
+
+	// SyncLocalNode processes the second event (new IP)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	updates := stream.ToChannel(ctx, store, stream.WithBufferSize(3))
+	go sync.SyncLocalNode(ctx, store)
+
+	// Wait for the update with the new IP
+	var foundNewIP bool
+	for !foundNewIP {
+		select {
+		case updated := <-updates:
+			if updated.GetNodeInternalIPv4().Equal(net.ParseIP(newIP)) {
+				foundNewIP = true
+			}
+		case <-ctx.Done():
+			t.Fatal("Timeout waiting for IP address change to propagate")
+		}
+	}
+
+	require.True(t, foundNewIP, "LocalNodeStore should reflect the new IP address")
 }

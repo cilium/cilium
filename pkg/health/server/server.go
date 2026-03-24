@@ -392,6 +392,12 @@ func (s *Server) Shutdown() {
 	s.Server.Shutdown()
 }
 
+// RebindHTTPPathServer rebinds the health HTTP responder to the given
+// addresses. This is used when the node IP changes at runtime.
+func (s *Server) RebindHTTPPathServer(addresses []string) {
+	s.httpPathServer.Rebind(addresses)
+}
+
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
 func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi.Server {
@@ -433,14 +439,14 @@ func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, loca
 	server.Client = cl
 	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(localNode), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(GetAddresses(localNode), config.HTTPPathPort)
 
 	return server, nil
 }
 
-// Get internal node ipv4/ipv6 addresses based on config enabled.
-// If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
-func getAddresses(localNode node.LocalNode) []string {
+// GetAddresses returns internal node ipv4/ipv6 addresses based on config enabled.
+// If it fails to get either of internal node address, it returns nil to listen on all addresses.
+func GetAddresses(localNode node.LocalNode) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {

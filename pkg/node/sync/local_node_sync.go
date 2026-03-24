@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 
@@ -100,6 +101,7 @@ func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node
 			if !ini.mutableFieldsEqual(new) {
 				store.Update(func(ln *node.LocalNode) {
 					ini.syncFromK8s(ln, new)
+					ini.syncIPAddresses(ln, new)
 				})
 			}
 		} else if ev.Kind == resource.Delete {
@@ -213,6 +215,7 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 			node.SetNodeExternalIP(addr.IP)
 		}
 	}
+	ini.old.IPAddresses = parsedNode.IPAddresses
 	ini.syncFromK8s(node, parsedNode)
 
 	// In cases where no local CiliumNode exists (such as on a fresh node) we skip restoring
@@ -241,10 +244,13 @@ func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.Lo
 	return nil
 }
 
+func nodeAddressEqual(a, b nodeTypes.Address) bool { return a.DeepEqual(&b) }
+
 func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
 	return maps.Equal(ini.old.Labels, new.Labels) &&
 		maps.Equal(ini.old.Annotations, new.Annotations) &&
-		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID
+		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID &&
+		slices.EqualFunc(ini.old.IPAddresses, new.IPAddresses, nodeAddressEqual)
 }
 
 // syncFromK8s synchronizes the fields that can be mutated at runtime
@@ -291,6 +297,29 @@ func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
 		logfields.UID, ln.Local.UID,
 		logfields.ProviderID, ln.Local.ProviderID,
 	)
+}
+
+// syncIPAddresses syncs node IP addresses if they changed at runtime.
+// This is separate from syncFromK8s because initFromK8s handles the initial
+// IP setup directly — only runtime changes need the Info-level log.
+func (ini *localNodeSynchronizer) syncIPAddresses(ln, new *node.LocalNode) {
+	if slices.EqualFunc(ini.old.IPAddresses, new.IPAddresses, nodeAddressEqual) {
+		return
+	}
+
+	ini.Logger.Info(
+		"Node IP addresses changed, syncing to local node",
+		"oldAddresses", ini.old.IPAddresses,
+		"newAddresses", new.IPAddresses,
+	)
+	for _, addr := range new.IPAddresses {
+		if addr.Type == addressing.NodeInternalIP {
+			ln.SetNodeInternalIP(addr.IP)
+		} else if addr.Type == addressing.NodeExternalIP {
+			ln.SetNodeExternalIP(addr.IP)
+		}
+	}
+	ini.old.IPAddresses = new.IPAddresses
 }
 
 func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node) *node.LocalNode {
