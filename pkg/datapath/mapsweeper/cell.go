@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -33,7 +33,7 @@ type mapSweeperParams struct {
 
 	EndpointRestorerPromise promise.Promise[endpointstate.Restorer]
 	EndpointManager         endpointmanager.EndpointManager
-	BandwidthManager        datapath.BandwidthManager
+	BandwidthManager        bandwidth.Manager
 	LBConfig                loadbalancer.Config
 	KPRConfig               kpr.KPRConfig
 }

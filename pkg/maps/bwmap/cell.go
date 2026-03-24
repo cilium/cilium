@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	bandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/maps/registry"
 )
 
@@ -41,7 +41,7 @@ var Cell = cell.Module(
 // provide provides a throttleMap to the Hive and configures its MapSpec in the
 // MapRegistry.
 func provide(lc cell.Lifecycle, reg *registry.MapRegistry, log *slog.Logger,
-	cfg types.BandwidthConfig, edts statedb.RWTable[Edt], params reconciler.Params) (
+	cfg bandwidth.Config, edts statedb.RWTable[Edt], params reconciler.Params) (
 	out bpf.MaybeMapOut[*throttleMap], err error) {
 	if !cfg.EnableBandwidthManager {
 		// Remove map pin if the map is disabled.

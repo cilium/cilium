@@ -6,6 +6,7 @@ package endpoint
 import (
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -32,7 +33,7 @@ type EndpointParams struct {
 	Loader              datapath.Loader
 	Orchestrator        endpoint.Orchestrator
 	CompilationLock     datapath.CompilationLock
-	BandwidthManager    datapath.BandwidthManager
+	BandwidthManager    bandwidth.Manager
 	IPTablesManager     datapath.IptablesManager
 	IdentityManager     identitymanager.IDManager
 	MonitorAgent        monitoragent.Agent

@@ -21,6 +21,7 @@ import (
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/api"
+	bandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -77,7 +78,7 @@ type configModifyApiHandlerParams struct {
 	MTUConfig       mtu.MTU
 	BigTCPConfig    *bigtcp.Configuration
 	TunnelConfig    tunnel.Config
-	BandwidthConfig datapath.BandwidthConfig
+	BandwidthConfig bandwidth.Config
 	WgConfig        wgTypes.WireguardConfig
 	ConnectorConfig datapath.ConnectorConfig
 	LocalNodeStore  *node.LocalNodeStore
@@ -354,7 +355,7 @@ type getConfigHandler struct {
 	mtuConfig       mtu.MTU
 	bigTCPConfig    *bigtcp.Configuration
 	tunnelConfig    tunnel.Config
-	bandwidthConfig datapath.BandwidthConfig
+	bandwidthConfig bandwidth.Config
 	wgConfig        wgTypes.WireguardConfig
 	connectorConfig datapath.ConnectorConfig
 	localNodeStore  *node.LocalNodeStore
