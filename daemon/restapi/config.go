@@ -369,15 +369,15 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
-			IPV4: option.Config.EnableIPv4Masquerade,
-			IPV6: option.Config.EnableIPv6Masquerade,
+			IPv4: option.Config.EnableIPv4Masquerade,
+			IPv6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat:         option.Config.EgressMultiHomeIPRuleCompat,
 		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
 		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
 		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
-		GROIPV4MaxSize:                      int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
-		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
+		GROIPv4MaxSize:                      int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
+		GSOIPv4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 	}
 

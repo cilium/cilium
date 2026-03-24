@@ -447,24 +447,24 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		FormatStatusResponseRemoteClusters(w, sr.ClusterMesh.Clusters, verbosity)
 	}
 
-	if sr.IPV4BigTCP != nil {
+	if sr.IPv4BigTCP != nil {
 		status := "Disabled"
-		if sr.IPV4BigTCP.Enabled {
-			max := fmt.Sprintf("[%d]", sr.IPV4BigTCP.MaxGSO)
-			if sr.IPV4BigTCP.MaxGRO != sr.IPV4BigTCP.MaxGSO {
-				max = fmt.Sprintf("[%d, %d]", sr.IPV4BigTCP.MaxGRO, sr.IPV4BigTCP.MaxGSO)
+		if sr.IPv4BigTCP.Enabled {
+			max := fmt.Sprintf("[%d]", sr.IPv4BigTCP.MaxGSO)
+			if sr.IPv4BigTCP.MaxGRO != sr.IPv4BigTCP.MaxGSO {
+				max = fmt.Sprintf("[%d, %d]", sr.IPv4BigTCP.MaxGRO, sr.IPv4BigTCP.MaxGSO)
 			}
 			status = fmt.Sprintf("Enabled\t%s", max)
 		}
 		fmt.Fprintf(w, "IPv4 BIG TCP:\t%s\n", status)
 	}
 
-	if sr.IPV6BigTCP != nil {
+	if sr.IPv4BigTCP != nil {
 		status := "Disabled"
-		if sr.IPV6BigTCP.Enabled {
-			max := fmt.Sprintf("[%d]", sr.IPV6BigTCP.MaxGSO)
-			if sr.IPV6BigTCP.MaxGRO != sr.IPV6BigTCP.MaxGSO {
-				max = fmt.Sprintf("[%d, %d]", sr.IPV6BigTCP.MaxGRO, sr.IPV6BigTCP.MaxGSO)
+		if sr.IPv4BigTCP.Enabled {
+			max := fmt.Sprintf("[%d]", sr.IPv4BigTCP.MaxGSO)
+			if sr.IPv4BigTCP.MaxGRO != sr.IPv4BigTCP.MaxGSO {
+				max = fmt.Sprintf("[%d, %d]", sr.IPv4BigTCP.MaxGRO, sr.IPv4BigTCP.MaxGSO)
 			}
 			status = fmt.Sprintf("Enabled\t%s", max)
 		}
@@ -525,7 +525,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 		if sr.Masquerading.EnabledProtocols == nil {
 			status = enabled(sr.Masquerading.Enabled)
-		} else if !sr.Masquerading.EnabledProtocols.IPV4 && !sr.Masquerading.EnabledProtocols.IPV6 {
+		} else if !sr.Masquerading.EnabledProtocols.IPv4 && !sr.Masquerading.EnabledProtocols.IPv6 {
 			status = enabled(false)
 		} else {
 			if sr.Masquerading.Mode == models.MasqueradingModeBPF {
@@ -554,7 +554,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 
 			status = fmt.Sprintf("%s [IPv4: %s, IPv6: %s]", status,
-				enabled(sr.Masquerading.EnabledProtocols.IPV4), enabled(sr.Masquerading.EnabledProtocols.IPV6))
+				enabled(sr.Masquerading.EnabledProtocols.IPv4), enabled(sr.Masquerading.EnabledProtocols.IPv6))
 		}
 		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
 	}

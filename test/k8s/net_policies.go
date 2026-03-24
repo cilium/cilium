@@ -169,7 +169,7 @@ var _ = SkipDescribeIf(func() bool {
 				err = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium-dbg endpoint list -o json").Unmarshal(&endpoints)
 				Expect(err).To(BeNil())
 				for _, ep := range endpoints {
-					if ep.Status.Networking.Addressing[0].IPV4 == app1PodIP {
+					if ep.Status.Networking.Addressing[0].IPv4 == app1PodIP {
 						break
 					}
 				}

@@ -111,27 +111,27 @@ type CmdState struct {
 }
 
 func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
-	if ipam == nil || ipam.Address.IPV6 == "" {
+	if ipam == nil || ipam.Address.IPv6 == "" {
 		return false
 	}
 
-	if ipam.HostAddressing == nil || ipam.HostAddressing.IPV6 == nil {
+	if ipam.HostAddressing == nil || ipam.HostAddressing.IPv6 == nil {
 		return false
 	}
 
-	return ipam.HostAddressing.IPV6.Enabled
+	return ipam.HostAddressing.IPv6.Enabled
 }
 
 func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
-	if ipam == nil || ipam.Address.IPV4 == "" {
+	if ipam == nil || ipam.Address.IPv4 == "" {
 		return false
 	}
 
-	if ipam.HostAddressing == nil || ipam.HostAddressing.IPV4 == nil {
+	if ipam.HostAddressing == nil || ipam.HostAddressing.IPv4 == nil {
 		return false
 	}
 
-	return ipam.HostAddressing.IPV4.Enabled
+	return ipam.HostAddressing.IPv4.Enabled
 }
 
 func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfigurationStatus, error) {
@@ -161,8 +161,8 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs *types.ArgsSpec, 
 
 	releaseFunc := func(context.Context) {
 		if ipam.Address != nil {
-			releaseIP(client, ipam.Address.IPV4, ipam.Address.IPV4PoolName)
-			releaseIP(client, ipam.Address.IPV6, ipam.Address.IPV6PoolName)
+			releaseIP(client, ipam.Address.IPv4, ipam.Address.IPv4PoolName)
+			releaseIP(client, ipam.Address.IPv6, ipam.Address.IPv6PoolName)
 		}
 	}
 
@@ -230,17 +230,18 @@ func allocateIPsWithDelegatedPlugin(
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
 		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
-			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{
+			ipam.Address.IPv4 = ipNet.String()
+
+			ipam.IPv4 = &models.IPAMAddressResponse{
 				IP:              ipv4.String(),
 				Gateway:         ipConfig.Gateway.String(),
 				MasterMac:       masterMac,
 				InterfaceNumber: "0",
 			}
-		} else if conf.Addressing.IPV6 != nil {
+		} else if conf.Addressing.IPv6 != nil {
 			// assign ipam ipv6 address only if agent ipv6 config is enabled
-			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{
+			ipam.Address.IPv6 = ipNet.String()
+			ipam.IPv6 = &models.IPAMAddressResponse{
 				IP:              ipNet.IP.String(),
 				Gateway:         ipConfig.Gateway.String(),
 				MasterMac:       masterMac,
@@ -592,7 +593,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 			veth, peer, tmpIfName, err := connector.SetupVeth(cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep, sysctl)
+				int(conf.GROIPv4MaxSize), int(conf.GSOIPv4MaxSize), ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up veth on host side: %w", err)
 			}
@@ -622,7 +623,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 			netkit, peer, tmpIfName, err := connector.SetupNetkit(cniID, int(conf.DeviceMTU),
 				int(conf.GROMaxSize), int(conf.GSOMaxSize),
-				int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), l2Mode, ep, sysctl)
+				int(conf.GROIPv4MaxSize), int(conf.GSOIPv4MaxSize), l2Mode, ep, sysctl)
 			if err != nil {
 				return fmt.Errorf("unable to set up netkit on host side: %w", err)
 			}
@@ -656,14 +657,14 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ipConfig *cniTypesV1.IPConfig
 			routes   []*cniTypes.Route
 		)
-		if ipv6IsEnabled(ipam) && conf.Addressing.IPV6 != nil {
-			ep.Addressing.IPV6 = ipam.Address.IPV6
-			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
-			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
+		if ipv6IsEnabled(ipam) && conf.Addressing.IPv6 != nil {
+			ep.Addressing.IPv6 = ipam.Address.IPv6
+			ep.Addressing.IPv6PoolName = ipam.Address.IPv6PoolName
+			ep.Addressing.IPv6ExpirationUUID = ipam.IPv6.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPv6, state, int(conf.RouteMTU))
 			if err != nil {
-				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV6, err)
+				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv6, err)
 			}
 			// set the addresses interface index to that of the container-side interface
 			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
@@ -671,14 +672,14 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			res.Routes = append(res.Routes, routes...)
 		}
 
-		if ipv4IsEnabled(ipam) && conf.Addressing.IPV4 != nil {
-			ep.Addressing.IPV4 = ipam.Address.IPV4
-			ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
-			ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
+		if ipv4IsEnabled(ipam) && conf.Addressing.IPv4 != nil {
+			ep.Addressing.IPv4 = ipam.Address.IPv4
+			ep.Addressing.IPv4PoolName = ipam.Address.IPv4PoolName
+			ep.Addressing.IPv4ExpirationUUID = ipam.IPv4.ExpirationUUID
 
-			ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, state, int(conf.RouteMTU))
+			ipConfig, routes, err = prepareIP(ep.Addressing.IPv4, state, int(conf.RouteMTU))
 			if err != nil {
-				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPV4, err)
+				return fmt.Errorf("unable to prepare IP addressing for %s: %w", ep.Addressing.IPv4, err)
 			}
 			// set the addresses interface index to that of the container-side interface
 			ipConfig.Interface = cniTypesV1.Int(len(res.Interfaces))
@@ -687,7 +688,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		if needsEndpointRoutingOnHost(conf) {
-			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+			err = interfaceAdd(ipConfig, ipam.IPv4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
 			}

@@ -565,17 +565,17 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	// The endpoint has been successfully created, stop the expiration
 	// timers of all attached IPs
 	if addressing := epTemplate.Addressing; addressing != nil {
-		if uuid := addressing.IPV4ExpirationUUID; uuid != "" {
-			if ip := net.ParseIP(addressing.IPV4); ip != nil {
-				pool := ipam.PoolOrDefault(addressing.IPV4PoolName)
+		if uuid := addressing.IPv4ExpirationUUID; uuid != "" {
+			if ip := net.ParseIP(addressing.IPv4); ip != nil {
+				pool := ipam.PoolOrDefault(addressing.IPv4PoolName)
 				if err := d.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return d.errorDuringCreation(ep, err)
 				}
 			}
 		}
-		if uuid := addressing.IPV6ExpirationUUID; uuid != "" {
-			if ip := net.ParseIP(addressing.IPV6); ip != nil {
-				pool := ipam.PoolOrDefault(addressing.IPV4PoolName)
+		if uuid := addressing.IPv6ExpirationUUID; uuid != "" {
+			if ip := net.ParseIP(addressing.IPv6); ip != nil {
+				pool := ipam.PoolOrDefault(addressing.IPv4PoolName)
 				if err := d.ipam.StopExpirationTimer(ip, pool, uuid); err != nil {
 					return d.errorDuringCreation(ep, err)
 				}

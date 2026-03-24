@@ -22,9 +22,9 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 
 	var masq bool
 	if ipConfig.Address.IP.To4() != nil {
-		masq = conf.MasqueradeProtocols.IPV4
+		masq = conf.MasqueradeProtocols.IPv4
 	} else {
-		masq = conf.MasqueradeProtocols.IPV6
+		masq = conf.MasqueradeProtocols.IPv6
 	}
 
 	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))

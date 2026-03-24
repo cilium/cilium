@@ -28,8 +28,8 @@ var sampleHealthResponse = &daemon.GetHealthzOK{
 			},
 		},
 		Ipam: &models.IPAMStatus{
-			IPV4: []string{"10.11.0.82", "10.11.0.249", "10.11.0.46"},
-			IPV6: []string{"fd00::9d15", "fd00::f61a", "fd00::7712"},
+			IPv4: []string{"10.11.0.82", "10.11.0.249", "10.11.0.46"},
+			IPv6: []string{"fd00::9d15", "fd00::f61a", "fd00::7712"},
 		},
 	},
 }

@@ -38,8 +38,8 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{
-			IPV4: pair.IPV4,
-			IPV6: pair.IPV6,
+			IPV4: pair.IPv4,
+			IPV6: pair.IPv6,
 		}
 	}
 

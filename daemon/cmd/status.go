@@ -114,8 +114,8 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	s := &models.Masquerading{
 		Enabled: option.Config.MasqueradingEnabled(),
 		EnabledProtocols: &models.MasqueradingEnabledProtocols{
-			IPV4: option.Config.EnableIPv4Masquerade,
-			IPV6: option.Config.EnableIPv6Masquerade,
+			IPv4: option.Config.EnableIPv4Masquerade,
+			IPv6: option.Config.EnableIPv6Masquerade,
 		},
 	}
 
@@ -934,8 +934,8 @@ func (d *Daemon) startStatusCollector(ctx context.Context, cleaner *daemonCleanu
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
-	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
-	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
+	d.statusResponse.IPv6BigTCP = d.getIPV6BigTCPStatus()
+	d.statusResponse.IPv4BigTCP = d.getIPV4BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.Routing = d.getRoutingStatus()

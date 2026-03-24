@@ -20,8 +20,8 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 
 	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: "192.168.1.100",
-			IPV6: "f00d::a10:0:0:abcd",
+			IPv4: "192.168.1.100",
+			IPv6: "f00d::a10:0:0:abcd",
 		},
 		ContainerID:   "ContainerID",
 		ContainerName: "ContainerName",

@@ -186,8 +186,8 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	var disabled = false
 	ep := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: vethIP,
-			IPV6: vethIPv6,
+			IPv4: vethIP,
+			IPv6: vethIPv6,
 		},
 		ContainerID:            pluginCtx.Args.ContainerID,
 		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),

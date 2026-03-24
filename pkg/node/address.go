@@ -340,7 +340,7 @@ func GetNodeAddressing() *models.NodeAddressing {
 	a := &models.NodeAddressing{}
 
 	if option.Config.EnableIPv6 {
-		a.IPV6 = &models.NodeAddressingElement{
+		a.IPv6 = &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv6,
 			IP:         GetIPv6Router().String(),
 			AllocRange: GetIPv6AllocRange().String(),
@@ -348,7 +348,7 @@ func GetNodeAddressing() *models.NodeAddressing {
 	}
 
 	if option.Config.EnableIPv4 {
-		a.IPV4 = &models.NodeAddressingElement{
+		a.IPv4 = &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv4,
 			IP:         GetInternalIPv4Router().String(),
 			AllocRange: GetIPv4AllocRange().String(),

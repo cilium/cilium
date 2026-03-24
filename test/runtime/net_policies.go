@@ -565,17 +565,17 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			// So these pings will be dropped by the policies for both identity 5 and the new identity
 			// for label "somelabel".
 			By("Testing ingress with ping from host to endpoint")
-			res := vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res := vm.Exec(helpers.Ping(endpointIP.IPv4))
 			res.ExpectFail("Unexpectedly able to ping endpoint with no ingress policy")
 
 			By("Testing hubble observe output")
 			err := hubbleRes.WaitUntilMatchFilterLine(
 				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : DROPPED 1`, endpointID, endpointIP.IPV4))
+				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : DROPPED 1`, endpointID, endpointIP.IPv4))
 			Expect(err).To(BeNil(), "Default drop on ingress failed")
 			hubbleRes.ExpectDoesNotContainFilterLine(
 				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
+				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPv4),
 				"Unexpected ingress traffic to endpoint")
 		})
 
@@ -624,7 +624,7 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				endpointID, endpointIP := createEndpoint()
 
 				By("Testing ingress with ping from host to endpoint")
-				res := vm.Exec(helpers.Ping(endpointIP.IPV4))
+				res := vm.Exec(helpers.Ping(endpointIP.IPv4))
 				res.ExpectSuccess("Not able to ping endpoint with no ingress policy")
 
 				// We might start pinging fast enough that the endpoint still has identity "init" / 5.
@@ -635,12 +635,12 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
 					`{.flow.source.identity} -> {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-					fmt.Sprintf(`1 -> %s : AUDIT 5`, endpointIP.IPV4))
+					fmt.Sprintf(`1 -> %s : AUDIT 5`, endpointIP.IPv4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				err = hubbleRes.WaitUntilMatchFilterLine(
 					`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-					fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4))
+					fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPv4))
 				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 
 				By("Testing cilium-dbg monitor output")
@@ -734,19 +734,19 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 			// So these pings will be allowed by the policies for both identity 5 and the new identity
 			// for label "somelabel".
 			By("Testing ingress with ping from host to endpoint")
-			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
+			res = vm.Exec(helpers.Ping(endpointIP.IPv4))
 			res.ExpectSuccess("Cannot ping endpoint with init policy")
 
 			By("Testing hubble observe output")
 			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
 				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict}`,
-				fmt.Sprintf(`1 -> %s %s : FORWARDED`, endpointID, endpointIP.IPV4), 10*time.Second)
+				fmt.Sprintf(`1 -> %s %s : FORWARDED`, endpointID, endpointIP.IPv4), 10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 
 			// Drop Reason 133 is "Policy denied"
 			hubbleRes.ExpectDoesNotContainFilterLine(
 				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
-				fmt.Sprintf(`1 -> %s %s : DROPPED 133`, endpointID, endpointIP.IPV4),
+				fmt.Sprintf(`1 -> %s %s : DROPPED 133`, endpointID, endpointIP.IPv4),
 				"Unexpected drop")
 		})
 

@@ -110,7 +110,7 @@ func NewDriver(ciliumSockPath, dockerHostPath string) (Driver, error) {
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
-			if res.Status.Addressing == nil || (res.Status.Addressing.IPV4 == nil && res.Status.Addressing.IPV6 == nil) {
+			if res.Status.Addressing == nil || (res.Status.Addressing.IPv4 == nil && res.Status.Addressing.IPv6 == nil) {
 				scopedLog.Fatal("Invalid addressing information from daemon")
 			}
 
@@ -216,7 +216,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	driver.routes = []api.StaticRoute{}
 
-	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
+	if driver.conf.Addressing.IPv6 != nil && driver.conf.Addressing.IPv6.Enabled {
 		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.WithError(err).Fatal("Unable to generate IPv6 routes")
 		} else {
@@ -228,7 +228,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 		driver.gatewayIPv6 = connector.IPv6Gateway(driver.conf.Addressing)
 	}
 
-	if driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled {
+	if driver.conf.Addressing.IPv4 != nil && driver.conf.Addressing.IPv4.Enabled {
 		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			log.WithError(err).Fatal("Unable to generate IPv4 routes")
 		} else {
@@ -380,8 +380,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		DockerEndpointID:  create.EndpointID,
 		DockerNetworkID:   create.NetworkID,
 		Addressing: &models.AddressPair{
-			IPV6: create.Interface.AddressIPv6,
-			IPV4: create.Interface.Address,
+			IPv6: create.Interface.AddressIPv6,
+			IPv4: create.Interface.Address,
 		},
 	}
 
@@ -401,7 +401,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		var veth *netlink.Veth
 		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU),
 			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
-			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
+			int(driver.conf.GROIPv4MaxSize), int(driver.conf.GSOIPv4MaxSize), endpoint, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
 		defer removeLinkOnErr(veth)
 	}
 	if err != nil {

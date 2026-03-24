@@ -369,7 +369,7 @@ func TestLookup(t *testing.T) {
 			name: "endpoint by ipv4",
 			cm: &apiv1.EndpointChangeRequest{
 				Addressing: &apiv1.AddressPair{
-					IPV4: "127.0.0.1",
+					IPv4: "127.0.0.1",
 				},
 			},
 			setupArgs: func() args {
@@ -729,7 +729,7 @@ func TestUpdateReferences(t *testing.T) {
 				ContainerID:      "container",
 				DockerEndpointID: "dockerendpointID",
 				Addressing: &apiv1.AddressPair{
-					IPV4: "127.0.0.1",
+					IPv4: "127.0.0.1",
 				},
 				ContainerName: "containername",
 			},

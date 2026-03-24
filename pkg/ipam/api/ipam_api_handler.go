@@ -53,9 +53,9 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 
 	if ipv4Result != nil {
-		resp.Address.IPV4 = ipv4Result.IP.String()
-		resp.Address.IPV4PoolName = ipv4Result.IPPoolName.String()
-		resp.IPV4 = &models.IPAMAddressResponse{
+		resp.Address.IPv4 = ipv4Result.IP.String()
+		resp.Address.IPv4PoolName = ipv4Result.IPPoolName.String()
+		resp.IPv4 = &models.IPAMAddressResponse{
 			Cidrs:           ipv4Result.CIDRs,
 			IP:              ipv4Result.IP.String(),
 			MasterMac:       ipv4Result.PrimaryMAC,
@@ -66,9 +66,9 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 
 	if ipv6Result != nil {
-		resp.Address.IPV6 = ipv6Result.IP.String()
-		resp.Address.IPV6PoolName = ipv6Result.IPPoolName.String()
-		resp.IPV6 = &models.IPAMAddressResponse{
+		resp.Address.IPv6 = ipv6Result.IP.String()
+		resp.Address.IPv6PoolName = ipv6Result.IPPoolName.String()
+		resp.IPv6 = &models.IPAMAddressResponse{
 			Cidrs:           ipv6Result.CIDRs,
 			IP:              ipv6Result.IP.String(),
 			MasterMac:       ipv6Result.PrimaryMAC,

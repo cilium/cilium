@@ -56,11 +56,11 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	}
 
 	if option.Config.EnableIPv4 {
-		status.IPV4 = v4
+		status.IPv4 = v4
 	}
 
 	if option.Config.EnableIPv6 {
-		status.IPV6 = v6
+		status.IPv6 = v6
 	}
 
 	status.Allocations = allocv4
