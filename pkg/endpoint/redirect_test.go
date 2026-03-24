@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -164,7 +165,7 @@ func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
 	return EndpointParams{
 		Logger:           logger,
 		EPBuildQueue:     &MockEndpointBuildQueue{},
-		Orchestrator:     &fakeTypes.FakeOrchestrator{},
+		Orchestrator:     &fakeendpoint.FakeOrchestrator{},
 		PolicyRepo:       s.do.repo,
 		IdentityManager:  s.do.idmgr,
 		NamedPortsGetter: testipcache.NewMockIPCache(),

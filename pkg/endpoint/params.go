@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -29,7 +30,7 @@ type EndpointParams struct {
 	Logger              *slog.Logger
 	EPBuildQueue        EndpointBuildQueue
 	Loader              datapath.Loader
-	Orchestrator        datapath.Orchestrator
+	Orchestrator        endpoint.Orchestrator
 	CompilationLock     datapath.CompilationLock
 	BandwidthManager    datapath.BandwidthManager
 	IPTablesManager     datapath.IptablesManager

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package fake
 
 import (
 	"context"
 	"io"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
+	"github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 type FakeOrchestrator struct{}
@@ -23,16 +23,16 @@ func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
 
-func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat) (string, error) {
 	return "", nil
 }
 
-func (f *FakeOrchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
+func (f *FakeOrchestrator) EndpointHash(cfg types.Config) (string, error) {
 	return "", nil
 }
 
-func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {
+func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg types.Config) error {
 	return nil
 }
 
-func (f *FakeOrchestrator) Unload(ep endpoint.Endpoint) {}
+func (f *FakeOrchestrator) Unload(ep types.Endpoint) {}

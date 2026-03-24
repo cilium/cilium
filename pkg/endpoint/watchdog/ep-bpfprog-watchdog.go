@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -43,7 +43,7 @@ type epBPFProgWatchdogParams struct {
 	RestorerPromise promise.Promise[endpointstate.Restorer]
 
 	EndpointManager endpointmanager.EndpointManager
-	Orchestrator    datapath.Orchestrator
+	Orchestrator    types.Orchestrator
 }
 
 // Cell triggers a job to ensure device tc programs remain loaded.
@@ -90,7 +90,7 @@ type endpointBPFProgWatchdog struct {
 	logger *slog.Logger
 
 	endpointManager endpointmanager.EndpointManager
-	orchestrator    datapath.Orchestrator
+	orchestrator    types.Orchestrator
 }
 
 func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) error {

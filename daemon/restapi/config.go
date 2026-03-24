@@ -27,6 +27,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -122,7 +123,7 @@ type configModifyEventHandlerParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 
-	Orchestrator    datapath.Orchestrator
+	Orchestrator    endpoint.Orchestrator
 	Policy          policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
@@ -177,7 +178,7 @@ type ConfigModifyEventHandler struct {
 	// event queue for serializing configuration updates to the daemon.
 	configModifyQueue *eventqueue.EventQueue
 
-	orchestrator    datapath.Orchestrator
+	orchestrator    endpoint.Orchestrator
 	policy          policy.PolicyRepository
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
