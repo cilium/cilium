@@ -35,6 +35,7 @@ var (
 	flagKernelName     = flag.String("kernel-name", "netnext", "Name of the kernel under test")
 	flagKernelVersion  = flag.String("kernel-version", kernelVersionNetNext.String(), "Kernel version to assume for verifier tests for the purposes of selecting build permutations.")
 	flagResultDir      = flag.String("result-dir", "", "Directory to write verifier complexity results and verifier logs to (temp directory if empty)")
+	flagKeepObject     = flag.Bool("keep-object", false, "Keep compiled object files in the result directory (default: false)")
 	flagFullLog        = flag.Bool("full-log", false, "Write full verifier log to file (default: false)")
 )
 
@@ -189,7 +190,15 @@ func compileAndLoad[T any](perm buildPermutation[T], collection, source, output 
 			))
 			ii++
 		}
+
+		if *flagKeepObject {
+			dst := path.Join(*flagResultDir, fmt.Sprintf("%s_%d.o", collection, build))
+			if err := os.Rename(objFileName, dst); err != nil {
+				t.Fatalf("Failed to move object file to result directory: %v", err)
+			}
+		}
 	}
+
 }
 
 func loadAndRecordComplexity(
