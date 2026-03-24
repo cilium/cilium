@@ -6,11 +6,12 @@ package config
 import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // Endpoint returns a [BPFLXC] for an Endpoint.
-func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) any {
+func Endpoint(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) any {
 	cfg := NewBPFLXC(NodeConfig(lnc))
 
 	if ep.IPv4Address().IsValid() {

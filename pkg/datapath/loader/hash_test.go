@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -99,10 +100,10 @@ func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration) error {
+func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration) error {
+func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }

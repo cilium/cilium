@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
 // datapathHash represents a unique enumeration of the datapath configuration.
@@ -24,7 +25,7 @@ func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigurat
 	return datapathHash(d.Sum(nil)), nil
 }
 
-func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration) (string, error) {
+func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteEndpointConfig(h, nodeCfg, epCfg); err != nil {
@@ -50,7 +51,7 @@ func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.Lo
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (d datapathHash) hashTemplate(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg datapath.EndpointConfiguration) (string, error) {
+func (d datapathHash) hashTemplate(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteTemplateConfig(h, nodeCfg, epCfg); err != nil {

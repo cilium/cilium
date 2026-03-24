@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -372,7 +373,7 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats)
 }
 
-func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+func (o *orchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
 	<-o.dpInitialized
 	return o.params.Loader.EndpointHash(cfg, o.latestLocalNodeConfig.Load())
 }
@@ -382,7 +383,7 @@ func (o *orchestrator) Unload(ep datapath.Endpoint) {
 	o.params.Loader.Unload(ep)
 }
 
-func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
+func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {
 	<-o.dpInitialized
 	return o.params.Loader.WriteEndpointConfig(w, cfg, o.latestLocalNodeConfig.Load())
 }
