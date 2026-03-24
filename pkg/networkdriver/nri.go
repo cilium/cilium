@@ -85,6 +85,22 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 				}
 
 				if err := podNs.Do(func() error {
+					// Rename interface to custom name if specified
+					if a.Config.PodIfName != "" && a.Config.PodIfName != a.Device.KernelIfName() {
+						link, err := safenetlink.LinkByName(a.Device.KernelIfName())
+						if err != nil {
+							return fmt.Errorf("failed to get link by kernel name %s: %w", a.Device.KernelIfName(), err)
+						}
+						if err := netlink.LinkSetName(link, a.Config.PodIfName); err != nil {
+							return fmt.Errorf("failed to rename interface from %s to %s: %w", a.Device.KernelIfName(), a.Config.PodIfName, err)
+						}
+						// Refresh link reference after rename
+						l, err = safenetlink.LinkByName(a.Config.PodIfName)
+						if err != nil {
+							return fmt.Errorf("failed to get link after rename: %w", err)
+						}
+					}
+
 					if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
 						return err
 					}
@@ -145,7 +161,13 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		for _, devices := range alloc {
 			if err := podNs.Do(func() error {
 				for _, a := range devices {
-					l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+					// Determine the interface name in the pod namespace
+					ifName := a.Device.KernelIfName()
+					if a.Config.PodIfName != "" {
+						ifName = a.Config.PodIfName
+					}
+
+					l, err := safenetlink.LinkByName(ifName)
 					if err != nil {
 						return err
 					}
@@ -156,6 +178,18 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 					if err := netlink.LinkSetDown(l); err != nil {
 						return err
+					}
+
+					// Rename back to original kernel name before moving to root namespace
+					if a.Config.PodIfName != "" && a.Config.PodIfName != a.Device.KernelIfName() {
+						if err := netlink.LinkSetName(l, a.Device.KernelIfName()); err != nil {
+							return fmt.Errorf("failed to restore interface name from %s to %s: %w", a.Config.PodIfName, a.Device.KernelIfName(), err)
+						}
+						// Refresh link reference after rename
+						l, err = safenetlink.LinkByName(a.Device.KernelIfName())
+						if err != nil {
+							return fmt.Errorf("failed to get link after restoring name: %w", err)
+						}
 					}
 
 					if err := netlink.LinkSetNsFd(l, 1); err != nil {

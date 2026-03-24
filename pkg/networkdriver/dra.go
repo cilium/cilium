@@ -322,7 +322,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			Conditions: []metav1.Condition{conditionReady(claim)},
 			Data:       &runtime.RawExtension{Raw: dev},
 			NetworkData: &resourceapi.NetworkDeviceData{
-				InterfaceName: thisAlloc.Device.IfName(),
+				InterfaceName: func() string {
+					if thisAlloc.Config.PodIfName != "" {
+						return thisAlloc.Config.PodIfName
+					}
+					return thisAlloc.Device.IfName()
+				}(),
 				IPs: []string{
 					thisAlloc.Config.IPv4Addr.String(),
 					thisAlloc.Config.IPv6Addr.String(),
