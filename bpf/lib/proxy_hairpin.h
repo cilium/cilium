@@ -55,7 +55,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * ctx_redirect_to_proxy_first().
 	 */
 
-	return ctx_redirect(ctx, CONFIG(cilium_net_ifindex), 0);
+	return ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
 }
 
 #ifdef ENABLE_IPV4

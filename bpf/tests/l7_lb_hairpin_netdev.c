@@ -30,6 +30,7 @@ static volatile const __u8 *lb_mac = mac_host;
 
 /* Track ctx_redirect calls */
 static volatile __u32 redirect_ifindex;
+static volatile __u32 redirect_flags;
 
 #define fib_lookup mock_fib_lookup
 
@@ -44,9 +45,10 @@ long mock_fib_lookup(const __maybe_unused void *ctx,
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex, __u32 flags __maybe_unused)
+		  int ifindex, __u32 flags)
 {
 	redirect_ifindex = (__u32)ifindex;
+	redirect_flags = flags;
 	return CTX_ACT_REDIRECT;
 }
 
@@ -98,6 +100,7 @@ int l7_lb_hairpin_v4_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(FRONTEND_IP, 0, 112233, 0, 0);
 
 	redirect_ifindex = 0;
+	redirect_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -123,6 +126,10 @@ int l7_lb_hairpin_v4_check(const struct __ctx_buff *ctx)
 	if (redirect_ifindex != CONFIG(cilium_net_ifindex))
 		test_fatal("expected redirect to cilium_net (ifindex %d), got ifindex %d",
 			   CONFIG(cilium_net_ifindex), redirect_ifindex);
+
+	if (redirect_flags != BPF_F_INGRESS)
+		test_fatal("expected redirect with BPF_F_INGRESS, got flags %u",
+			   redirect_flags);
 
 	test_finish();
 }
@@ -160,6 +167,7 @@ int l7_lb_hairpin_v6_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry((union v6addr *)v6_svc_one, 0, 112233, 0, 0);
 
 	redirect_ifindex = 0;
+	redirect_flags = 0;
 
 	return netdev_receive_packet(ctx);
 }
@@ -185,6 +193,10 @@ int l7_lb_hairpin_v6_check(const struct __ctx_buff *ctx)
 	if (redirect_ifindex != CONFIG(cilium_net_ifindex))
 		test_fatal("expected redirect to cilium_net (ifindex %d), got ifindex %d",
 			   CONFIG(cilium_net_ifindex), redirect_ifindex);
+
+	if (redirect_flags != BPF_F_INGRESS)
+		test_fatal("expected redirect with BPF_F_INGRESS, got flags %u",
+			   redirect_flags);
 
 	test_finish();
 }
