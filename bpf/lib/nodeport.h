@@ -1558,10 +1558,19 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	lb6_fill_key(&key, &tuple);
 
 	svc = lb6_lookup_service(&key, false);
-	if (svc)
+	if (svc) {
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
+		if (!(ctx->tc_index & TC_INDEX_F_SKIP_HOST_FIREWALL)) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+			return tail_call_internal(ctx,
+					CILIUM_CALL_IPV6_NODEPORT_HOST_POLICY,
+					ext_err);
+		}
+#endif
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -2976,10 +2985,24 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, false);
-	if (svc)
+	if (svc) {
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
+		/* Enforce host firewall ingress policy on the pre-DNAT
+		 * packet. First pass: tail-call to a dedicated policy
+		 * program that, on allow, sets TC_INDEX_F_SKIP_HOST_FIREWALL
+		 * and recirculates so we skip straight to DNAT here.
+		 */
+		if (!(ctx->tc_index & TC_INDEX_F_SKIP_HOST_FIREWALL)) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+			return tail_call_internal(ctx,
+					CILIUM_CALL_IPV4_NODEPORT_HOST_POLICY,
+					ext_err);
+		}
+#endif
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
+	}
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
