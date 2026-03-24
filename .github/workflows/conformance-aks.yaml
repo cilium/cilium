@@ -274,7 +274,7 @@ jobs:
           # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --datapath-mode=aks-byocni \
-            --helm-set=cluster.name=${{ env.name }} \
+            --helm-set=cluster.name=cilium \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=azure.resourceGroup=${{ env.name }} \
             --helm-set=ipv4.enabled=true \
