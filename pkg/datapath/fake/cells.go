@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -82,7 +83,7 @@ var Cell = cell.Module(
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
 
-		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
+		func() bigtcp.Features { return &fakebigtcp.UserConfig{} },
 
 		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
 		func() types.ConnectorConfig { return fakeTypes.NewFakeConnectorVeth() },

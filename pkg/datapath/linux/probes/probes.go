@@ -25,8 +25,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
+	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -862,7 +862,7 @@ var HaveBIGTCPTunnel = sync.OnceValue(func() error {
 	// GENEVE, on the other hand, doesn't do netif_inherit_tso_max(), so we
 	// can reliably check its tso_max_size (65536 meaning pre BIG TCP
 	// support; 524280 meaning post BIG TCP support).
-	if link.Attrs().TSOMaxSize > types.GROGSOLegacyMaxSize {
+	if link.Attrs().TSOMaxSize > bigtcp.GROGSOLegacyMaxSize {
 		return nil
 	} else {
 		return ErrNotSupported

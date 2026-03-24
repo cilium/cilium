@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -23,7 +24,7 @@ type mockFeaturesParams struct {
 	CNIChainingMode                     string
 	MutualAuth                          bool
 	BandwidthManager                    bool
-	bigTCPMock                          bigTCPMock
+	bigTCPFeatures                      bigTCPFeatures
 	L2PodAnnouncement                   bool
 	isDynamicConfigSourceKindNodeConfig bool
 	ConnectorConfig                     types.ConnectorConfig
@@ -46,8 +47,8 @@ func (m mockFeaturesParams) IsBandwidthManagerEnabled() bool {
 	return m.BandwidthManager
 }
 
-func (m mockFeaturesParams) BigTCPConfig() types.BigTCPConfig {
-	return m.bigTCPMock
+func (m mockFeaturesParams) BigTCPFeatures() bigtcp.Features {
+	return m.bigTCPFeatures
 }
 
 func (m mockFeaturesParams) IsL2PodAnnouncementEnabled() bool {
@@ -76,16 +77,16 @@ func (m mockFeaturesParams) KernelVersion() string {
 	return m.KernelVersionString
 }
 
-type bigTCPMock struct {
+type bigTCPFeatures struct {
 	ipv4Enabled bool
 	ipv6Enabled bool
 }
 
-func (b bigTCPMock) IsIPv4Enabled() bool {
+func (b bigTCPFeatures) IsIPv4Enabled() bool {
 	return b.ipv4Enabled
 }
 
-func (b bigTCPMock) IsIPv6Enabled() bool {
+func (b bigTCPFeatures) IsIPv6Enabled() bool {
 	return b.ipv6Enabled
 }
 
@@ -1303,7 +1304,7 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
-				bigTCPMock: bigTCPMock{
+				bigTCPFeatures: bigTCPFeatures{
 					ipv4Enabled: tt.enableIPv4,
 					ipv6Enabled: tt.enableIPv6,
 				},

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 
+	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
@@ -23,7 +24,7 @@ type Loader interface {
 	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
 	EndpointHash(cfg endpoint.Config, lnCfg *LocalNodeConfiguration) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
-	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy, bigtcp BigTCPConfiguration) error
+	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy, bigtcp bigtcp.Configuration) error
 	WriteEndpointConfig(w io.Writer, cfg endpoint.Config, lnCfg *LocalNodeConfiguration) error
 }
 

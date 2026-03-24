@@ -14,12 +14,12 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	btcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	bttypes "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -181,7 +181,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int, bigtcp types.BigTCPConfiguration) error {
+func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int, bigtcp bttypes.Configuration) error {
 	switch mode {
 	case tunnel.Geneve:
 		if err := setupGeneveDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
@@ -330,17 +330,17 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 	return nil
 }
 
-func setupTunnelGSOGRO(logger *slog.Logger, device string, bigtcp types.BigTCPConfiguration) error {
+func setupTunnelGSOGRO(logger *slog.Logger, device string, bc bttypes.Configuration) error {
 	// IPv6 goes first, because {gso,gro}_ipv4_max_size gets auto-adjusted
 	// if the new size of {gso,gro}_max_size isn't greater than 64KB for
 	// backwards compatibility.
-	if bigtcp.GetGROIPv6MaxSize() != 0 && bigtcp.GetGSOIPv6MaxSize() != 0 {
+	if bc.GetGROIPv6MaxSize() != 0 && bc.GetGSOIPv6MaxSize() != 0 {
 		logger.Info("Setting IPv6",
 			logfields.Device, device,
-			logfields.GsoMaxSize, bigtcp.GetGSOIPv6MaxSize(),
-			logfields.GroMaxSize, bigtcp.GetGROIPv6MaxSize(),
+			logfields.GsoMaxSize, bc.GetGSOIPv6MaxSize(),
+			logfields.GroMaxSize, bc.GetGROIPv6MaxSize(),
 		)
-		err := btcp.SetGROGSOIPv6MaxSize(logger, device, bigtcp.GetGROIPv6MaxSize(), bigtcp.GetGSOIPv6MaxSize())
+		err := bigtcp.SetGROGSOIPv6MaxSize(logger, device, bc.GetGROIPv6MaxSize(), bc.GetGSOIPv6MaxSize())
 		if err != nil {
 			logger.Warn("Could not modify IPv6 gro_max_size and gso_max_size",
 				logfields.Device, device,
@@ -348,13 +348,13 @@ func setupTunnelGSOGRO(logger *slog.Logger, device string, bigtcp types.BigTCPCo
 			return err
 		}
 	}
-	if bigtcp.GetGROIPv4MaxSize() != 0 && bigtcp.GetGSOIPv4MaxSize() != 0 {
+	if bc.GetGROIPv4MaxSize() != 0 && bc.GetGSOIPv4MaxSize() != 0 {
 		logger.Info("Setting IPv4",
 			logfields.Device, device,
-			logfields.GsoMaxSize, bigtcp.GetGSOIPv4MaxSize(),
-			logfields.GroMaxSize, bigtcp.GetGROIPv4MaxSize(),
+			logfields.GsoMaxSize, bc.GetGSOIPv4MaxSize(),
+			logfields.GroMaxSize, bc.GetGROIPv4MaxSize(),
 		)
-		err := btcp.SetGROGSOIPv4MaxSize(logger, device, bigtcp.GetGROIPv4MaxSize(), bigtcp.GetGSOIPv4MaxSize())
+		err := bigtcp.SetGROGSOIPv4MaxSize(logger, device, bc.GetGROIPv4MaxSize(), bc.GetGSOIPv4MaxSize())
 		if err != nil {
 			logger.Warn("Could not modify IPv4 gro_ipv4_max_size and gso_ipv4_max_size",
 				logfields.Device, device,

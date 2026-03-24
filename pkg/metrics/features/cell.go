@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
@@ -95,7 +96,7 @@ type featuresParams struct {
 	CNIConfigManager    cni.CNIConfigManager
 	MutualAuth          auth.MeshAuthConfig
 	BandwidthManager    bandwidth.Manager
-	BigTCP              types.BigTCPConfig
+	BigTCP              bigtcp.Features
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
 	WgConfig            wgTypes.WireguardConfig
@@ -119,7 +120,7 @@ func (fp *featuresParams) IsBandwidthManagerEnabled() bool {
 	return fp.BandwidthManager.Enabled()
 }
 
-func (fp *featuresParams) BigTCPConfig() types.BigTCPConfig {
+func (fp *featuresParams) BigTCPFeatures() bigtcp.Features {
 	return fp.BigTCP
 }
 
@@ -152,7 +153,7 @@ type enabledFeatures interface {
 	GetChainingMode() string
 	IsMutualAuthEnabled() bool
 	IsBandwidthManagerEnabled() bool
-	BigTCPConfig() types.BigTCPConfig
+	BigTCPFeatures() bigtcp.Features
 	IsL2PodAnnouncementEnabled() bool
 	IsDynamicConfigSourceKindNodeConfig() bool
 	DatapathConfiguredMode() string

@@ -1095,11 +1095,11 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 
 	var bigTCPProto string
 	switch {
-	case params.BigTCPConfig().IsIPv4Enabled() && params.BigTCPConfig().IsIPv6Enabled():
+	case params.BigTCPFeatures().IsIPv4Enabled() && params.BigTCPFeatures().IsIPv6Enabled():
 		bigTCPProto = advConnBigTCPDualStack
-	case params.BigTCPConfig().IsIPv4Enabled():
+	case params.BigTCPFeatures().IsIPv4Enabled():
 		bigTCPProto = advConnBigTCPIPv4
-	case params.BigTCPConfig().IsIPv6Enabled():
+	case params.BigTCPFeatures().IsIPv6Enabled():
 		bigTCPProto = advConnBigTCPIPv6
 	}
 
