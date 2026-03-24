@@ -16,9 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-//go:embed {{ .BTFFile }}
-var _mapKVTypes []byte
-
+// LoadMapSpecs returns the MapSpecs of all pinned BPF maps in the datapath.
 func LoadMapSpecs() (map[string]*ebpf.MapSpec, error) {
 	types, err := btf.LoadSpecFromReader(bytes.NewReader(_mapKVTypes))
 	if err != nil {
@@ -34,6 +32,51 @@ func LoadMapSpecs() (map[string]*ebpf.MapSpec, error) {
 	return out, nil
 }
 
+// Below is a list of BPF map names as they will appear in /sys/fs/bpf as well
+// as their key in the map returned by [LoadMapSpecs]. Use this as the source of
+// truth for map name constants throughout the agent.
+//
+// Extend dpgen/acronyms.txt if any identifiers are incorrectly capitalized.
+const (
+{{ range .AllMaps -}}
+	{{ camelCase .Name }} = "{{ .Name }}"
+{{ end }}
+)
+
+{{ range .AllMaps }}
+func new{{ camelCase .Name }}Spec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name: {{ camelCase .Name }},
+		Type: ebpf.{{ .Type.String }},
+		KeySize: {{ .KeySize }},
+{{- if .Key }}
+		Key: anyTypeByName(btf, "{{ .Key.TypeName }}"),
+{{- end }}
+		ValueSize: {{ .ValueSize }},
+{{- if .Value }}
+		Value: anyTypeByName(btf, "{{ .Value.TypeName }}"),
+{{- end }}
+{{- if .InnerMap }}
+		InnerMap: new{{ camelCase .InnerMap.Name }}Spec(btf),
+{{- end }}
+		MaxEntries: {{ .MaxEntries }},
+		Flags: {{ bpfFlagsToString .Flags }},
+		Pinning: ebpf.{{ .Pinning.String }},
+	}
+}
+{{ end -}}
+
+var _outer []newMapFn = []newMapFn{
+{{- range .OuterMaps }}
+	new{{ camelCase .Name }}Spec,
+{{- end }}
+}
+
+//go:embed {{ .BTFFile }}
+var _mapKVTypes []byte
+
+type newMapFn func(btf *btf.Spec) *ebpf.MapSpec
+
 func anyTypeByName(spec *btf.Spec, name string) btf.Type {
 	typ, err := spec.AnyTypeByName(name)
 	if err != nil {
@@ -41,34 +84,3 @@ func anyTypeByName(spec *btf.Spec, name string) btf.Type {
 	}
 	return typ
 }
-
-// newMapFn is a function that returns a new ebpf.MapSpec.
-type newMapFn func(btf *btf.Spec) *ebpf.MapSpec
-
-var _outer []newMapFn = []newMapFn{
-{{- range .OuterMaps }}
-	new{{ camelCase .Name }}Spec,
-{{- end }}
-}
-{{ range .AllMaps }}
-func new{{ camelCase .Name }}Spec(btf *btf.Spec) *ebpf.MapSpec {
-	return &ebpf.MapSpec{
-		Name:       "{{ .Name }}",
-		Type:       ebpf.{{ .Type.String }},
-		KeySize:    {{ .KeySize }},
-{{- if .Key }}
-		Key:        anyTypeByName(btf, "{{ .Key.TypeName }}"),
-{{- end }}
-		ValueSize:  {{ .ValueSize }},
-{{- if .Value }}
-		Value:      anyTypeByName(btf, "{{ .Value.TypeName }}"),
-{{- end }}
-{{- if .InnerMap }}
-		InnerMap:   new{{ camelCase .InnerMap.Name }}Spec(btf),
-{{- end }}
-		MaxEntries: {{ .MaxEntries }},
-		Flags:      {{ bpfFlagsToString .Flags }},
-		Pinning:    ebpf.{{ .Pinning.String }},
-	}
-}
-{{ end -}}
