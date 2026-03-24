@@ -363,7 +363,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 	return nil
 }
 
-func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (o *orchestrator) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) (string, error) {
 	select {
 	case <-o.dpInitialized:
 	case <-ctx.Done():
@@ -378,7 +378,7 @@ func (o *orchestrator) EndpointHash(cfg endpoint.Config) (string, error) {
 	return o.params.Loader.EndpointHash(cfg, o.latestLocalNodeConfig.Load())
 }
 
-func (o *orchestrator) Unload(ep datapath.Endpoint) {
+func (o *orchestrator) Unload(ep endpoint.Endpoint) {
 	<-o.dpInitialized
 	o.params.Loader.Unload(ep)
 }

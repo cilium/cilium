@@ -81,7 +81,7 @@ func endpointMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
+func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -116,7 +116,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 }
 
 // Unload removes the datapath specific program aspects
-func (l *loader) Unload(ep datapath.Endpoint) {
+func (l *loader) Unload(ep endpoint.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
 			removeEndpointRoute(ep, l.routeManager)
@@ -195,7 +195,7 @@ func defaultEndpointMapRenames(ep endpoint.Config, lnc *datapath.LocalNodeConfig
 // it if necessary.
 func reloadEndpoint(logger *slog.Logger, reg *registry.MapRegistry, db *statedb.DB,
 	devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
-	ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+	ep endpoint.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -298,7 +298,7 @@ func registerRouteInitializer(p Params) {
 	}))
 }
 
-func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
+func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep endpoint.Endpoint, ip netip.Prefix) error {
 	owner, err := rm.GetOrRegisterOwner("endpoint/" + ep.StringID())
 	if err != nil {
 		return fmt.Errorf("getting or registering owner for endpoint %s: %w", ep.StringID(), err)
@@ -339,7 +339,7 @@ func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], 
 	})
 }
 
-func removeEndpointRoute(ep datapath.Endpoint, rm *routeReconciler.DesiredRouteManager) error {
+func removeEndpointRoute(ep endpoint.Endpoint, rm *routeReconciler.DesiredRouteManager) error {
 	owner, err := rm.GetOwner("endpoint/" + ep.StringID())
 	if err != nil {
 		if errors.Is(err, routeReconciler.ErrOwnerDoesNotExist) {

@@ -16,11 +16,11 @@ import (
 // Loader is an interface to abstract out loading of datapath programs.
 type FakeLoader struct{}
 
-func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
@@ -28,7 +28,7 @@ func (f *FakeLoader) EndpointHash(cfg endpoint.Config, _ *datapath.LocalNodeConf
 	panic("implement me")
 }
 
-func (f *FakeLoader) Unload(ep datapath.Endpoint) {
+func (f *FakeLoader) Unload(ep endpoint.Endpoint) {
 }
 
 func (f *FakeLoader) CallsMapPath(id uint16) string {

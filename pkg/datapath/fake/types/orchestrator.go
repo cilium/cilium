@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
@@ -24,7 +23,7 @@ func (f *FakeOrchestrator) Reinitialize(ctx context.Context) error {
 	return nil
 }
 
-func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, stats *metrics.SpanStat) (string, error) {
 	return "", nil
 }
 
@@ -36,4 +35,4 @@ func (f *FakeOrchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config)
 	return nil
 }
 
-func (f *FakeOrchestrator) Unload(ep datapath.Endpoint) {}
+func (f *FakeOrchestrator) Unload(ep endpoint.Endpoint) {}
