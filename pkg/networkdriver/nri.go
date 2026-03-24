@@ -91,9 +91,11 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 						if err != nil {
 							return fmt.Errorf("failed to get link by kernel name %s: %w", a.Device.KernelIfName(), err)
 						}
+
 						if err := netlink.LinkSetName(link, a.Config.PodIfName); err != nil {
 							return fmt.Errorf("failed to rename interface from %s to %s: %w", a.Device.KernelIfName(), a.Config.PodIfName, err)
 						}
+
 						// Refresh link reference after rename
 						l, err = safenetlink.LinkByName(a.Config.PodIfName)
 						if err != nil {
@@ -158,6 +160,13 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		defer podNs.Close()
 
+		// Get the root network namespace to move interfaces back to it
+		rootNs, err := netns.OpenPinned("/proc/1/ns/net")
+		if err != nil {
+			return fmt.Errorf("failed to open root netns: %w", err)
+		}
+		defer rootNs.Close()
+
 		for _, devices := range alloc {
 			if err := podNs.Do(func() error {
 				for _, a := range devices {
@@ -185,6 +194,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 						if err := netlink.LinkSetName(l, a.Device.KernelIfName()); err != nil {
 							return fmt.Errorf("failed to restore interface name from %s to %s: %w", a.Config.PodIfName, a.Device.KernelIfName(), err)
 						}
+
 						// Refresh link reference after rename
 						l, err = safenetlink.LinkByName(a.Device.KernelIfName())
 						if err != nil {
@@ -192,7 +202,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 						}
 					}
 
-					if err := netlink.LinkSetNsFd(l, 1); err != nil {
+					if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
 						return err
 					}
 				}
