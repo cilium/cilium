@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"slices"
 	"strings"
 
@@ -55,11 +54,6 @@ func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
 
 	for _, link := range links {
 		if link.Type() != "dummy" {
-			continue
-		}
-
-		// Skip down interfaces
-		if link.Attrs().Flags&net.FlagUp == 0 {
 			continue
 		}
 
