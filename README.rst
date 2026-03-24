@@ -10,12 +10,12 @@
 Cilium is a networking, observability, and security solution with an eBPF-based
 dataplane. It provides a simple flat Layer 3 network with the ability to span
 multiple clusters in either a native routing or overlay mode. It is L7-protocol
-aware and can enforce network policies on L3-L7 using an identity based security
+aware and can enforce network policies on L3-L7 using an identity-based security
 model that is decoupled from network addressing.
 
 Cilium implements distributed load balancing for traffic between pods and to
 external services, and is able to fully replace kube-proxy, using efficient
-hash tables in eBPF allowing for almost unlimited scale. It also supports
+hash tables in eBPF, allowing for almost unlimited scale. It also supports
 advanced functionality like integrated ingress and egress gateway, bandwidth
 management and service mesh, and provides deep network and security visibility and monitoring.
 
@@ -50,7 +50,7 @@ The Cilium community maintains minor stable releases for the last three minor
 Cilium versions. Older Cilium stable versions from minor releases prior to that
 are considered EOL.
 
-For upgrades to new minor releases please consult the `Cilium Upgrade Guide`_.
+For upgrades to new minor releases, please consult the `Cilium Upgrade Guide`_.
 
 Listed below are the actively maintained release branches along with their latest
 patch release, corresponding image pull tags and their release notes:
@@ -81,8 +81,8 @@ on this is available on `Cilium SBOM`_.
 Development
 ===========
 
-For development and testing purpose, the Cilium community publishes snapshots,
-early release candidates (RC) and CI container images build from the `main
+For development and testing purposes, the Cilium community publishes snapshots,
+early release candidates (RC) and CI container images built from the `main
 branch <https://github.com/cilium/cilium/commits/main>`_. These images are
 not for use in production.
 
@@ -173,8 +173,8 @@ manipulated whenever a container is started anywhere in the cluster.
 In order to avoid this situation which limits scale, Cilium assigns a
 security identity to groups of application containers which share identical
 security policies. The identity is then associated with all network packets
-emitted by the application containers, allowing to validate the identity at
-the receiving node.
+emitted by the application containers, allowing the identity to be validated 
+at the receiving node.
 
 * **Identity-based security** removes reliance on brittle IP addresses.
 
