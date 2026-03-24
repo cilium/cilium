@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
@@ -93,7 +94,8 @@ time=2025-04-08T14:27:09Z level=error msg="bar" serviceID=2 source=/go/src/githu
 			wantFilePath: "cilium-cli/connectivity/tests/errors.go",
 		},
 	} {
-		s := NoErrorsInLogs(tt.version, tt.levels, "one.one.one.one", "k8s.io").(*noErrorsInLogs)
+		var zt time.Time
+		s := NoErrorsInLogs(tt.version, tt.levels, "one.one.one.one", "k8s.io", zt).(*noErrorsInLogs)
 		fails, example := s.findUniqueFailures([]byte(errs))
 		assert.Len(t, fails, tt.wantLen)
 		for wantMsg, wantCount := range tt.wantLogsCount {
