@@ -12,11 +12,12 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -27,7 +28,7 @@ const (
 	bigTCPMaxSize  = 196608
 )
 
-var defaultUserConfig = types.BigTCPUserConfig{
+var defaultUserConfig = UserConfig{
 	EnableIPv6BIGTCP: false,
 	EnableIPv4BIGTCP: false,
 }
@@ -38,24 +39,24 @@ var Cell = cell.Module(
 
 	cell.Config(defaultUserConfig),
 	cell.Provide(newBIGTCP,
-		func(c types.BigTCPUserConfig) types.BigTCPConfig { return c }),
+		func(c UserConfig) Features { return c }),
 	cell.Invoke(func(*Configuration) {}),
 )
 
-func newDefaultConfiguration(userConfig types.BigTCPUserConfig) *Configuration {
+func newDefaultConfiguration(userConfig UserConfig) *Configuration {
 	return &Configuration{
-		BigTCPUserConfig: userConfig,
-		groIPv4MaxSize:   0,
-		gsoIPv4MaxSize:   0,
-		groIPv6MaxSize:   0,
-		gsoIPv6MaxSize:   0,
+		UserConfig:     userConfig,
+		groIPv4MaxSize: 0,
+		gsoIPv4MaxSize: 0,
+		groIPv6MaxSize: 0,
+		gsoIPv6MaxSize: 0,
 	}
 }
 
 // Configuration is the BIG TCP configuration. The values are finalized after
 // BIG TCP has started and must not be read before that.
 type Configuration struct {
-	types.BigTCPUserConfig
+	UserConfig
 
 	// gsoIPv{4,6}MaxSize is the GSO maximum size used when configuring
 	// devices.
@@ -236,15 +237,15 @@ type params struct {
 
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
-	UserConfig   types.BigTCPUserConfig
-	IPsecConfig  types.IPsecConfig
+	UserConfig   UserConfig
+	IPsecConfig  datapath.IPsecConfig
 	LBConfig     loadbalancer.Config
 	TunnelConfig tunnel.Config
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
+func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg datapath.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		// Check all configurations where Cilium creates tunnel devices
 		// that don't support BIG TCP.
@@ -303,11 +304,11 @@ func startBIGTCP(p params, cfg *Configuration) error {
 	deviceNames := tables.DeviceNames(nativeDevices)
 
 	if p.UserConfig.EnableIPv4BIGTCP && !supportsBIGTCPIPv4(p.Log) {
-		p.Log.Warn("Cannot enable --" + types.EnableIPv4BIGTCPFlag + ", needs kernel 6.3 or newer")
+		p.Log.Warn("Cannot enable --" + enableIPv4BIGTCPFlag + ", needs kernel 6.3 or newer")
 		p.UserConfig.EnableIPv4BIGTCP = false
 	}
 	if p.UserConfig.EnableIPv6BIGTCP && !supportsBIGTCPIPv6(p.Log) {
-		p.Log.Warn("Cannot enable --" + types.EnableIPv6BIGTCPFlag + ", needs kernel 5.19 or newer")
+		p.Log.Warn("Cannot enable --" + enableIPv6BIGTCPFlag + ", needs kernel 5.19 or newer")
 		p.UserConfig.EnableIPv6BIGTCP = false
 	}
 
