@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -24,7 +23,7 @@ type ops struct {
 	isEnabled func() bool
 }
 
-func newOps(log *slog.Logger, mgr types.BandwidthManager) reconciler.Operations[*tables.BandwidthQDisc] {
+func newOps(log *slog.Logger, mgr Manager) reconciler.Operations[*tables.BandwidthQDisc] {
 	return &ops{log, mgr.Enabled}
 }
 

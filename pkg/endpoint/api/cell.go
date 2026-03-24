@@ -12,7 +12,7 @@ import (
 
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/cmd/cni"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -63,7 +63,7 @@ type endpointAPIManagerParams struct {
 	EndpointCreations EndpointCreationManager
 	EndpointMetadata  endpointmetadata.EndpointMetadataFetcher
 
-	BandwidthManager datapath.BandwidthManager
+	BandwidthManager bandwidth.Manager
 	Clientset        k8sClient.Clientset
 	CNIConfigManager cni.CNIConfigManager
 	IPAM             *ipam.IPAM

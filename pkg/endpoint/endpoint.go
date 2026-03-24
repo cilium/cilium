@@ -158,7 +158,7 @@ type Endpoint struct {
 	loader           datapath.Loader
 	orchestrator     endpoint.Orchestrator
 	compilationLock  datapath.CompilationLock
-	bandwidthManager datapath.BandwidthManager
+	bandwidthManager bandwidth.Manager
 	ipTablesManager  datapath.IptablesManager
 	identityManager  identitymanager.IDManager
 	monitorAgent     monitoragent.Agent

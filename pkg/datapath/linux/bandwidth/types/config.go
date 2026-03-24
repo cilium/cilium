@@ -11,7 +11,7 @@ const (
 	EnableBBRHostnsOnlyFlag    = "enable-bbr-hostns-only"
 )
 
-type BandwidthConfig struct {
+type Config struct {
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
 
@@ -22,25 +22,8 @@ type BandwidthConfig struct {
 	EnableBBRHostnsOnly bool
 }
 
-func (def BandwidthConfig) Flags(flags *pflag.FlagSet) {
+func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableBandwidthManagerFlag, def.EnableBandwidthManager, "Enable BPF bandwidth manager")
 	flags.Bool(EnableBBRFlag, def.EnableBBR, "Enable BBR for the bandwidth manager")
 	flags.Bool(EnableBBRHostnsOnlyFlag, def.EnableBBRHostnsOnly, "Enable BBR only in the host network namespace.")
-}
-
-var DefaultBandwidthConfig = BandwidthConfig{
-	EnableBandwidthManager: false,
-	EnableBBR:              false,
-	EnableBBRHostnsOnly:    false,
-}
-
-type BandwidthManager interface {
-	BBREnabled() bool
-	Enabled() bool
-
-	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32)
-	DeleteBandwidthLimit(endpointID uint16)
-
-	UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecond uint64)
-	DeleteIngressBandwidthLimit(endpointID uint16)
 }

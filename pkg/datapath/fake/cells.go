@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -62,7 +64,7 @@ var Cell = cell.Module(
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
-		func() types.BandwidthManager { return &fakeTypes.BandwidthManager{} },
+		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
 		func() types.IPsecAgent { return &fakeTypes.IPsecAgent{} },
 		func() types.IPsecConfig { return &fakeTypes.IPsecConfig{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },

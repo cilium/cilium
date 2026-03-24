@@ -18,10 +18,10 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/node"
@@ -63,6 +63,17 @@ const (
 	DirectionEgress  uint8 = 0
 	DirectionIngress uint8 = 1
 )
+
+type Manager interface {
+	BBREnabled() bool
+	Enabled() bool
+
+	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32)
+	DeleteBandwidthLimit(endpointID uint16)
+
+	UpdateIngressBandwidthLimit(endpointID uint16, bytesPerSecond uint64)
+	DeleteIngressBandwidthLimit(endpointID uint16)
+}
 
 type manager struct {
 	enabled bool

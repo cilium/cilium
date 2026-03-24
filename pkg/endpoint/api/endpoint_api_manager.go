@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -57,7 +56,7 @@ type endpointAPIManager struct {
 	endpointCreations EndpointCreationManager
 	endpointMetadata  endpointmetadata.EndpointMetadataFetcher
 
-	bandwidthManager datapath.BandwidthManager
+	bandwidthManager bandwidth.Manager
 	clientset        k8sClient.Clientset
 	cniConfigManager cni.CNIConfigManager
 	ipam             *ipam.IPAM

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -81,7 +82,7 @@ type statusParams struct {
 
 	AuthManager      *auth.AuthManager
 	BigTCPConfig     *bigtcp.Configuration
-	BandwidthManager datapath.BandwidthManager
+	BandwidthManager bandwidth.Manager
 	CiliumHealth     health.CiliumHealthManager
 	KVStoreClient    kvstore.Client
 	Clientset        k8sClient.Clientset
