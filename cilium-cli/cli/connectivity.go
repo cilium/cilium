@@ -220,6 +220,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().MarkHidden("exclude-code-owners")
 	cmd.Flags().StringSliceVar(&params.LogCheckLevels, "log-check-levels", defaults.LogCheckLevels, "Log levels to check for in log messages")
 	cmd.Flags().MarkHidden("log-check-levels")
+	cmd.Flags().BoolVar(&params.LogCheckOnlyTestTime, "log-check-only-test-time", false, "Whether logs should only get checked for the duration of the tests")
 
 	cmd.Flags().BoolVar(&params.FlushCT, "flush-ct", false, "Flush conntrack of Cilium on each node")
 	cmd.Flags().MarkHidden("flush-ct")

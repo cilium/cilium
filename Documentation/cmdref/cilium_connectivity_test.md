@@ -59,6 +59,7 @@ cilium connectivity test [flags]
       --junit-file string                                          Generate junit report and write to file
       --junit-property map                                         Add key=value properties to the generated junit file
       --k8s-version string                                         Kubernetes server version in case auto-detection fails
+      --log-check-only-test-time                                   Whether logs should only get checked for the duration of the tests
       --multi-cluster string                                       Test across clusters to given context
       --namespace-labels map                                       Add labels to the connectivity test namespace
       --node-cidr strings                                          one or more CIDRs that cover all nodes in the cluster

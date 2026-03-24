@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/blang/semver/v4"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,7 @@ func (r regexMatcher) IsMatch(log string) bool {
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string, externalOtherTarget string) check.Scenario {
+func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
@@ -104,6 +105,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		errorMsgsWithExceptions: errorMsgsWithExceptions,
 		ScenarioBase:            check.NewScenarioBase(),
 		ciliumVersion:           ciliumVersion,
+		startTime:               startTime,
 	}
 }
 
@@ -114,6 +116,7 @@ type noErrorsInLogs struct {
 	ciliumVersion           semver.Version
 	mostCommonFailureLog    string
 	mostCommonFailureCount  int
+	startTime               time.Time
 }
 
 func (n *noErrorsInLogs) FilePath() string {
@@ -150,6 +153,9 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	}
 
 	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
+	st := metav1.NewTime(n.startTime)
+	t.Infof("Start time for the check: %s", st.UTC().String())
+	opts.SinceTime = &st
 	prevOpts := opts
 	prevOpts.Previous = true
 	for pod, info := range pods {
