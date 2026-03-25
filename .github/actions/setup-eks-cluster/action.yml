@@ -42,7 +42,9 @@ runs:
           tags:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
-        clusterEndpoints:
+
+        vpc:
+          clusterEndpoints:
             publicAccess: true
             privateAccess: true
           publicAccessCIDRs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
