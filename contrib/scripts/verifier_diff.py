@@ -18,14 +18,18 @@ Usage:
     python verifier_diff.py --help
 """
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import os
 import argparse
 import shutil
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 import datetime
 import logging
+import multiprocessing
 
 from pathlib import Path
 
@@ -68,7 +72,58 @@ def organize_data(data, key: str) -> dict:
     return organized
 
 
-def plot_comparison(file1: str, file2: str, outdir: str, key: str):
+def _plot_group(collection: str, build: str, load: str, programs: str,
+                vals1: list[float], vals2: list[float], key: str, outdir: str):
+    """Plot comparison for a specific collection/build/load group.
+
+    Args:
+        collection (str): Collection name.
+        build (str): Build identifier.
+        load (str): Load identifier.
+        programs (list[str]): List of program names.
+        vals1 (list[float]): Values from the first file.
+        vals2 (list[float]): Values from the second file.
+        key (str): Key being compared.
+        outdir (str): Output directory for the plot.
+    """
+    y_pos = np.arange(len(programs))
+    bar_height = 0.35
+    fig_width = 10
+    fig_height = min(fig_width, max(fig_width // 2,
+                                    bar_height * len(programs)))
+
+    plt.figure(figsize=(fig_width, fig_height))
+    bars1 = plt.barh(y_pos + bar_height / 2, vals1,
+                           bar_height, label="File 1", alpha=0.7)
+    bars2 = plt.barh(y_pos - bar_height / 2, vals2,
+                          bar_height, label="File 2", alpha=0.7)
+
+    plt.yticks(y_pos, programs)
+    plt.xlabel(key)
+    plt.title(f"Collection {collection} - Build {build} - Load {load}")
+    plt.legend()
+
+    max_val = max(vals1 + vals2)
+    for bar in bars1:
+        width = bar.get_width()
+        plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height() / 2,
+                 f"{width}", va="center", ha="left", fontsize=8)
+
+    for bar in bars2:
+        width = bar.get_width()
+        plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height() / 2,
+                 f"{width}", va="center", ha="left", fontsize=8)
+
+    plt.tight_layout()
+    collect_dir = os.path.join(outdir, collection)
+    os.makedirs(collect_dir, exist_ok=True)
+    outfile = os.path.join(collect_dir, f"states-build{build}-load{load}.png")
+    plt.savefig(outfile)
+    plt.close()
+    logging.debug(f"Saved plot: {outfile}")
+
+
+def plot_comparison(file1: str, file2: str, outdir: str, key: str, jobs: int):
     """Plot comparison of eBPF verifier logs.
 
     Args:
@@ -76,6 +131,7 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str):
         file2 (str): Path to the second JSON file.
         outdir (str): Output directory for the plots.
         key (str): Key in the JSON to compare.
+        jobs (int): Number of parallel processes to use.
     """
     data1 = organize_data(load_json(file1), key)
     data2 = organize_data(load_json(file2), key)
@@ -84,8 +140,9 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str):
     groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
         (c, b, l) for c, b, l, _ in data2.keys())
 
-    logging.info(f"Generating plots, handling {len(groups)} combinations.")
+    logging.info(f"Generating plots, handling {len(groups)} combinations ({jobs=}).")
 
+    tasks = []
     for collection, build, load in groups:
         # Collect all programs for this collection/build/load
         programs = sorted(set(
@@ -124,43 +181,10 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str):
                 f"build {build} load {load}, skipping.")
             continue
 
-        # Plot
-        y_pos = np.arange(len(filtered_programs))
-        bar_height = 0.35
-        fig_width = 10
-        fig_height = min(fig_width, max(fig_width//2,
-                                        bar_height * len(filtered_programs)))
+        tasks.append((collection, build, load, filtered_programs, vals1, vals2, key, outdir))
 
-        plt.figure(figsize=(fig_width, fig_height))
-        bars1 = plt.barh(y_pos + bar_height/2, vals1,
-                               bar_height, label="File 1", alpha=0.7)
-        bars2 = plt.barh(y_pos - bar_height/2, vals2,
-                              bar_height, label="File 2", alpha=0.7)
-
-        plt.yticks(y_pos, filtered_programs)
-        plt.xlabel(key)
-        plt.title(f"Collection {collection} - Build {build} - Load {load}")
-        plt.legend()
-
-        # Add text labels at the end of bars
-        max_val = max(vals1 + vals2)
-        for bar in bars1:
-            width = bar.get_width()
-            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                     f"{width}", va="center", ha="left", fontsize=8)
-
-        for bar in bars2:
-            width = bar.get_width()
-            plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
-                     f"{width}", va="center", ha="left", fontsize=8)
-
-        plt.tight_layout()
-        collect_dir = os.path.join(outdir, collection)
-        os.makedirs(collect_dir, exist_ok=True)
-        outfile = os.path.join(collect_dir, f"states-build{build}-load{load}.png")
-        plt.savefig(outfile)
-        plt.close()
-        logging.debug(f"Saved plot: {outfile}")
+    with multiprocessing.Pool(processes=jobs) as pool:
+        pool.starmap(_plot_group, tasks)
 
 
 def setup_output_dir(file1: str, file2: str) -> str:
@@ -207,6 +231,8 @@ def main():
                                  "peak_states", "mark_read",  "stack_depth",
                                  "verification_time_microseconds"],
                         help="Verifier statistic to compare.")
+    parser.add_argument('-j', '--jobs', type=int, default=multiprocessing.cpu_count(),
+                        help="Number of jobs to run simultaneously.")
 
     args = parser.parse_args()
 
@@ -218,7 +244,7 @@ def main():
 
     output_dir = setup_output_dir(args.file1, args.file2)
 
-    plot_comparison(args.file1, args.file2, output_dir, args.key)
+    plot_comparison(args.file1, args.file2, output_dir, args.key, args.jobs)
 
 
 if __name__ == "__main__":
