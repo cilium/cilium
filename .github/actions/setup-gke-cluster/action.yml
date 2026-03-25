@@ -82,5 +82,5 @@ runs:
         native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${{ inputs.zone }}" --format 'value(clusterIpv4Cidr)')
         echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
 
-        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
-        kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+    - name: Patch nodes without Cilium
+      uses: ./.github/actions/nodes-without-cilium
