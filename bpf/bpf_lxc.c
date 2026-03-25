@@ -201,6 +201,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 */
 		if (!ct_has_egress_entry4(get_ct_map4(&tmp), &tmp)) {
 			svc = lb4_lookup_wildcard_nodeport_service(&key);
+			if (svc && !lb4_svc_is_nodeport(svc))
+				svc = NULL;
 			if (svc && !nodeport_uses_dsr4(svc))
 				svc = NULL;
 
@@ -379,6 +381,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		 */
 		if (!ct_has_egress_entry6(get_ct_map6(&tmp), &tmp)) {
 			svc = lb6_lookup_wildcard_nodeport_service(&key);
+			if (svc && !lb6_svc_is_nodeport(svc))
+				svc = NULL;
 			if (svc && !nodeport_uses_dsr6(svc))
 				svc = NULL;
 
