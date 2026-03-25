@@ -81,6 +81,7 @@ type CiliumEgressGatewayPolicySpec struct {
 	// the first node in lexical ordering based on their name will be selected for each entry.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:default={}
 	EgressGateways []EgressGateway `json:"egressGateways,omitempty"`
 }
@@ -122,11 +123,16 @@ type EgressGateway struct {
 	// redirected to the node matching the NodeSelector field and SNATed
 	// with IP address 192.168.1.100.
 	//
+	// When set to "2001:db8::1", matching egress traffic will be
+	// redirected to the node matching the NodeSelector field and SNATed
+	// with IPv6 address 2001:db8::1.
+	//
 	// When none of the Interface or EgressIP fields is specified, the
 	// policy will use the first IPv4 assigned to the interface with the
 	// default route.
 	//
-	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:MaxLength=39
+	// +kubebuilder:validation:XValidation:rule="self == '' || isIP(self)",message="egressIP must be a valid IP address"
 	// +kubebuilder:validation:Optional
 	EgressIP string `json:"egressIP,omitempty"`
 }
