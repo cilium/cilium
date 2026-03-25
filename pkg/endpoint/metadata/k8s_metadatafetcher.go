@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/statedb"
+	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -52,12 +53,22 @@ func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpoint(nsName, p
 		return nil, nil, err
 	}
 
-	if uid != "" && uid != string(p.GetUID()) {
+	if isPodStoreOutdatedForUID(uid, p) {
 		return nil, nil, ErrPodStoreOutdated
 	}
 
 	metadata, err := cemf.FetchK8sMetadataForEndpointFromPod(p)
 	return p, metadata, err
+}
+
+// isPodStoreOutdatedForUID returns true when CNI uid disagrees with the store pod uid such
+// that ErrPodStoreOutdated applies. Mirror pods (static pods; corev1.MirrorPodAnnotationKey) are exempt.
+func isPodStoreOutdatedForUID(uid string, pod *slim_corev1.Pod) bool {
+	if uid == "" || uid == string(pod.GetUID()) {
+		return false
+	}
+	_, mirrorPod := pod.GetAnnotations()[corev1.MirrorPodAnnotationKey]
+	return !mirrorPod
 }
 
 func (cemf *cachedEndpointMetadataFetcher) FetchK8sMetadataForEndpointFromPod(p *slim_corev1.Pod) (*endpoint.K8sMetadata, error) {
