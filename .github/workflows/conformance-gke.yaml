@@ -450,7 +450,7 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
 
-      - name: Add external targets to kind cluster
+      - name: Add external targets to the cluster
         uses: ./../cilium-base-branch/.github/actions/generic-external-targets
         id: external_targets
 
