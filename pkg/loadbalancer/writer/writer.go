@@ -427,10 +427,7 @@ func matchesFrontend(be *loadbalancer.Backend, fe *loadbalancer.Frontend) bool {
 	if fe == nil {
 		return true
 	}
-	if fe.Address.Protocol() != be.Address.Protocol() {
-		return false
-	}
-	if be.Address.IsIPv6() != fe.Address.IsIPv6() {
+	if !be.Address.Compatible(fe.Address) {
 		return false
 	}
 	if fe.PortName != "" && len(be.PortNames) > 0 {

@@ -858,6 +858,21 @@ func (l *L3n4Addr) DeepEqual(other *L3n4Addr) bool {
 	return *l == *other
 }
 
+// Compatible returns true if two instances of an L3n4Addr have the same
+// protocol and address family.
+func (l L3n4Addr) Compatible(other L3n4Addr) bool {
+	lRep := l.rep()
+	otherRep := other.rep()
+
+	if lRep.Protocol != otherRep.Protocol {
+		return false
+	}
+	if lRep.addrCluster.Is6() != otherRep.addrCluster.Is6() {
+		return false
+	}
+	return true
+}
+
 // NewL3n4Addr creates a new L3n4Addr.
 func NewL3n4Addr(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber uint16, scope uint8) L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)

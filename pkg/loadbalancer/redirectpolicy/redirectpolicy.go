@@ -141,6 +141,29 @@ func (lrp *LocalRedirectPolicy) RedirectServiceName() lb.ServiceName {
 	return lrpServiceName(lrp.ID)
 }
 
+// Returns true if an LRP requires port names to match across the LRP FrontendMapping,
+// BackendPorts, as well as a Service and Pod spec.
+func (lrp *LocalRedirectPolicy) requiresPortNameMatch() bool {
+	switch lrp.FrontendType {
+	case svcFrontendAll, svcFrontendSinglePort, addrFrontendSinglePort:
+		return false
+	}
+
+	return true
+}
+
+// Returns true if an LRP is a single-port variant, which is a subtle variation on the
+// requirement to match named ports. Unlike requirePortNameMatch(), this will return false
+// with svcFrontendAll with a single back-end port.
+func (lrp *LocalRedirectPolicy) isSinglePort() bool {
+	switch lrp.FrontendType {
+	case svcFrontendSinglePort, addrFrontendSinglePort:
+		return true
+	}
+
+	return false
+}
+
 // feMapping stores frontend address and a list of associated backend addresses.
 type feMapping struct {
 	feAddr lb.L3n4Addr
