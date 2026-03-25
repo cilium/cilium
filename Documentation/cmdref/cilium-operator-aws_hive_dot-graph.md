@@ -17,6 +17,7 @@ cilium-operator-aws hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag) (default [])
       --aws-enable-prefix-delegation                               Allows operator to allocate prefixes to ENIs instead of individual IP addresses
       --aws-max-results-per-call int32                             Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests
       --aws-release-excess-ips                                     Enable releasing excess free IP addresses from AWS ENI.

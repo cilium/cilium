@@ -19,6 +19,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
 ```
       --alibaba-cloud-release-excess-ips                           Enable releasing excess free IP addresses from Alibaba Cloud ENI.
       --alibaba-cloud-vpc-id string                                Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
+      --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag) (default [])
       --ces-max-ciliumendpoints-per-ces int                        Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                     Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cluster-id uint32                                          Unique identifier of the cluster
