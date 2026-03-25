@@ -128,7 +128,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		if (eth_store_saddr(ctx, fib_params->l.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
 	} else {
-		union macaddr *smac = device_mac(oif);
+		const union macaddr *smac = device_mac(oif);
 		const union macaddr *dmac = NULL;
 
 		if (!smac)
