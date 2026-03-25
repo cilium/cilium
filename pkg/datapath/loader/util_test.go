@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -70,7 +71,7 @@ func newTestLoader(tb testing.TB) *loader {
 
 	var l *loader
 	h := hive.New(
-		cell.Invoke(func(ld datapath.Loader) {
+		cell.Invoke(func(ld types.Loader) {
 			l = ld.(*loader)
 		}),
 		Cell,

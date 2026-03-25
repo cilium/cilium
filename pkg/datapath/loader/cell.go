@@ -6,7 +6,7 @@ package loader
 import (
 	"github.com/cilium/hive/cell"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 )
 
 var Cell = cell.Module(
@@ -18,6 +18,6 @@ var Cell = cell.Module(
 )
 
 // NewLoader returns a new loader.
-func NewLoader(p Params) datapath.Loader {
+func NewLoader(p Params) types.Loader {
 	return newLoader(p)
 }
