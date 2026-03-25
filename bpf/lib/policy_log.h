@@ -14,34 +14,13 @@
 
 #include "common.h"
 #include "ratelimit.h"
+#include "aux.h"
 
 #if defined(IS_BPF_LXC)
 DECLARE_CONFIG(__u32, policy_verdict_log_filter, "The log level for policy verdicts in workload endpoints")
 #define POLICY_VERDICT_LOG_FILTER CONFIG(policy_verdict_log_filter)
 #endif
 
-#ifndef POLICY_VERDICT_EXTENSION
-#define POLICY_VERDICT_EXTENSION
-#define policy_verdict_extension_hook(ctx, msg) do {} while (0)
-#endif
-
-struct policy_verdict_notify {
-	NOTIFY_CAPTURE_HDR
-	__u32	remote_label;
-	__s32	verdict;
-	__u16	dst_port;
-	__u8	proto;
-	__u8	dir:2,
-		ipv6:1,
-		match_type:3,
-		audited:1,
-		l3:1;
-	__u8	auth_type;
-	__u8	pad1[3]; /* align with 64 bits */
-	__u32	cookie;
-	__u32	pad2; /* align with 64 bits */
-	POLICY_VERDICT_EXTENSION
-};
 
 #ifdef POLICY_VERDICT_NOTIFY
 static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
@@ -64,10 +43,9 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_EVENTS_MAP,
 	};
-	struct ratelimit_settings settings = {
-		.topup_interval_ns = NSEC_PER_SEC,
-	};
-	struct policy_verdict_notify msg;
+	struct aux_data *aux = get_aux_data();
+	if (unlikely(!aux))
+		return;
 
 #if defined(IS_BPF_HOST)
 	/* When this function is called in the context of bpf_host (e.g. by
@@ -94,13 +72,14 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		verdict = (int)proxy_port;
 
 	if (CONFIG(events_map_rate_limit) > 0) {
-		settings.bucket_size = CONFIG(events_map_burst_limit);
-		settings.tokens_per_topup = CONFIG(events_map_rate_limit);
-		if (!ratelimit_check_and_take(&rkey, &settings))
+		aux->ratelimit_settings.topup_interval_ns = NSEC_PER_SEC;
+		aux->ratelimit_settings.bucket_size = CONFIG(events_map_burst_limit);
+		aux->ratelimit_settings.tokens_per_topup = CONFIG(events_map_rate_limit);
+		if (!ratelimit_check_and_take(&rkey, &aux->ratelimit_settings))
 			return;
 	}
 
-	msg = (typeof(msg)) {
+	aux->policy_msg = (typeof(aux->policy_msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_CAPTURE_VER),
 		.remote_label	= remote_label,
@@ -116,10 +95,10 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		.l3		= THIS_IS_L3_DEV,
 	};
 
-	policy_verdict_extension_hook(ctx, msg);
+	policy_verdict_extension_hook(ctx, &aux->policy_msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 &aux->policy_msg, sizeof(aux->policy_msg));
 }
 #else
 static __always_inline void

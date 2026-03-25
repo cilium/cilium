@@ -23,6 +23,8 @@
 #include "nat_46x64.h"
 #include "stubs.h"
 #include "trace.h"
+#include "nat_types.h"
+#include "aux.h"
 
 /* Nodeport NAT minimum port value */
 #define NODEPORT_PORT_MIN_NAT CONFIG(nodeport_port_max) + 1
@@ -41,12 +43,6 @@ enum  nat_dir {
 	NAT_DIR_INGRESS = TUPLE_F_IN,
 } __packed;
 
-struct nat_entry {
-	__u64 created;
-	__u64 needs_ct;		/* Only single bit used. */
-	__u64 pad1;		/* Future use. */
-	__u64 pad2;		/* Future use. */
-};
 
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
@@ -1239,20 +1235,7 @@ int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 }
 #endif /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
 
-struct ipv6_nat_entry {
-	struct nat_entry common;
-	union {
-		struct lb6_reverse_nat nat_info;
-		struct {
-			union v6addr to_saddr;
-			__be16       to_sport;
-		};
-		struct {
-			union v6addr to_daddr;
-			__be16       to_dport;
-		};
-	};
-};
+
 
 struct ipv6_nat_target {
 	union v6addr addr;
@@ -1340,23 +1323,26 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple rtuple = {};
-	struct ipv6_nat_entry rstate;
 	__u32 *retries_hist;
 	__u32 retries;
 	int ret;
 	__u16 port;
+	struct aux_data *aux;
 
-	memset(&rstate, 0, sizeof(rstate));
+	aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
+
+	memset(&aux->rstate, 0, sizeof(aux->rstate));
 	memset(ostate, 0, sizeof(*ostate));
 
-	rstate.to_daddr = otuple->saddr;
-	rstate.to_dport = otuple->sport;
+	aux->rstate.to_daddr = otuple->saddr;
+	aux->rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
 	/* .to_sport is selected below */
 
-	set_v6_rtuple(otuple, ostate, &rtuple);
+	set_v6_rtuple(otuple, ostate, &aux->rtuple);
 	/* .dport is selected below */
 
 	port = __snat_try_keep_port(target->min_port,
@@ -1364,14 +1350,14 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 				    bpf_ntohs(otuple->sport));
 
 	ostate->common.needs_ct = needs_ct;
-	rstate.common.needs_ct = needs_ct;
-	rstate.common.created = bpf_mono_now();
+	aux->rstate.common.needs_ct = needs_ct;
+	aux->rstate.common.created = bpf_mono_now();
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		rtuple.dport = bpf_htons(port);
+		aux->rtuple.dport = bpf_htons(port);
 
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
+		if (__snat_create(&cilium_snat_v6_external, &aux->rtuple, &aux->rstate, true) == 0)
 			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
@@ -1392,12 +1378,12 @@ create_nat_entry:
 	if (retries_hist)
 		++*retries_hist;
 
-	ostate->to_sport = rtuple.dport;
-	ostate->common.created = rstate.common.created;
+	ostate->to_sport = aux->rtuple.dport;
+	ostate->common.created = aux->rstate.common.created;
 
 	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
-		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
+		map_delete_elem(&cilium_snat_v6_external, &aux->rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
@@ -1836,36 +1822,41 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv6_nat_entry **state)
 {
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
-	struct ipv6_ct_tuple tuple = {};
-	struct ipv6hdr ip6;
+	// struct ipv6_ct_tuple tuple = {};
+	// struct ipv6hdr ip6;
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
 	__u8 type;
+	struct aux_data *aux;
+
+	aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
 	 * packet in its response.
 	 */
-	if (ctx_load_bytes(ctx, inner_l3_off, &ip6, sizeof(ip6)) < 0)
+	if (ctx_load_bytes(ctx, inner_l3_off, &aux->ip6, sizeof(aux->ip6)) < 0)
 		return DROP_INVALID;
 
 	/* From the embedded IP headers we should be able to determine
 	 * corresponding protocol, IP src/dst of the packet sent to resolve
 	 * the NAT session.
 	 */
-	tuple.nexthdr = ip6.nexthdr;
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6.daddr);
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6.saddr);
-	tuple.flags = NAT_DIR_EGRESS;
+	aux->tuple.nexthdr = aux->ip6.nexthdr;
+	ipv6_addr_copy(&aux->tuple.saddr, (union v6addr *)&aux->ip6.daddr);
+	ipv6_addr_copy(&aux->tuple.daddr, (union v6addr *)&aux->ip6.saddr);
+	aux->tuple.flags = NAT_DIR_EGRESS;
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &aux->tuple.nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 
 	icmpoff = inner_l3_off + hdrlen;
 
-	switch (tuple.nexthdr) {
+	switch (aux->tuple.nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -1874,7 +1865,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		/* No reasons to handle IP fragmentation for this case as it is
 		 * expected that DF isn't set for this particular context.
 		 */
-		if (l4_load_ports(ctx, icmpoff, &tuple.dport) < 0)
+		if (l4_load_ports(ctx, icmpoff, &aux->tuple.dport) < 0)
 			return DROP_INVALID;
 
 		port_off = TCP_DPORT_OFF;
@@ -1894,21 +1885,21 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 		}
 
 		if (ctx_load_bytes(ctx, icmpoff + port_off,
-				   &tuple.sport, sizeof(tuple.sport)) < 0)
+				   &aux->tuple.sport, sizeof(aux->tuple.sport)) < 0)
 			return DROP_INVALID;
 		break;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
 
-	*state = snat_v6_lookup(&tuple);
+	*state = snat_v6_lookup(&aux->tuple);
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
 	/* The embedded packet was RevSNATed on ingress. Reverse it again: */
-	return snat_v6_rewrite_headers(ctx, tuple.nexthdr, inner_l3_off, true, icmpoff,
-				       &tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
-				       tuple.sport, (*state)->to_sport, port_off);
+	return snat_v6_rewrite_headers(ctx, aux->tuple.nexthdr, inner_l3_off, true, icmpoff,
+				       &aux->tuple.saddr, &(*state)->to_saddr, IPV6_DADDR_OFF,
+				       aux->tuple.sport, (*state)->to_sport, port_off);
 }
 
 static __always_inline int

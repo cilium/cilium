@@ -27,6 +27,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "aux.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
@@ -631,7 +632,14 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		.icmp6_mtu	= bpf_htonl(CONFIG(device_mtu) - ohead),
 	};
 	__u64 payload_len = sizeof(*ip6) + sizeof(icmp) + orig_dgram;
-	struct ipv6hdr ip __align_stack_8 = {
+	__s32 l4_dport_offset;
+	struct aux_data *aux;
+	
+	aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
+
+	aux->ip6 = (struct ipv6hdr) {
 		.version	= 6,
 		.priority	= ip6->priority,
 		.flow_lbl[0]	= ip6->flow_lbl[0],
@@ -643,24 +651,22 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		.daddr		= ip6->saddr,
 		.payload_len	= bpf_htons((__u16)payload_len),
 	};
-	struct ipv6hdr inner_ipv6_hdr __align_stack_8 = *ip6;
-	__s32 l4_dport_offset;
 
 	/* DSR changes the destination address from service ip to pod ip and
 	 * destination port from service port to pod port. While resppnding
 	 * back with ICMP error, it is necessary to set it to original ip and
 	 * port.
 	 */
-	ipv6_addr_copy((union v6addr *)&inner_ipv6_hdr.daddr, svc_addr);
+	ipv6_addr_copy((union v6addr *)&aux->ip6.daddr, svc_addr);
 
-	if (inner_ipv6_hdr.nexthdr == IPPROTO_UDP)
+	if (aux->ip6.nexthdr == IPPROTO_UDP)
 		l4_dport_offset = UDP_DPORT_OFF;
-	else if (inner_ipv6_hdr.nexthdr == IPPROTO_TCP)
+	else if (aux->ip6.nexthdr == IPPROTO_TCP)
 		l4_dport_offset = TCP_DPORT_OFF;
 	else
 		goto drop_err;
 
-	if (ctx_load_bytes(ctx, off + sizeof(inner_ipv6_hdr), orig_ipv6_hdr,
+	if (ctx_load_bytes(ctx, off + sizeof(aux->ip6), orig_ipv6_hdr,
 			   (__u32)sizeof(orig_ipv6_hdr)) < 0)
 		goto drop_err;
 	memcpy(orig_ipv6_hdr + l4_dport_offset, &dport, sizeof(dport));
@@ -674,17 +680,17 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	if (unlikely(data + len_new > data_end))
 		goto drop_err;
 
-	wsum = ipv6_pseudohdr_checksum(&ip, IPPROTO_ICMPV6,
-				       bpf_ntohs(ip.payload_len), 0);
+	wsum = ipv6_pseudohdr_checksum(&aux->ip6, IPPROTO_ICMPV6,
+				       bpf_ntohs(aux->ip6.payload_len), 0);
 	icmp.icmp6_cksum = csum_fold(csum_diff(NULL, 0, orig_ipv6_hdr, (__u32)sizeof(orig_ipv6_hdr),
-					       csum_diff(NULL, 0, &inner_ipv6_hdr,
-							 sizeof(inner_ipv6_hdr),
+					       csum_diff(NULL, 0, &aux->ip6,
+							 sizeof(aux->ip6),
 							 csum_diff(NULL, 0, &icmp,
 								   sizeof(icmp), wsum))));
 
 	if (ctx_adjust_troom(ctx, -(__s32)(len_old - len_new)) < 0)
 		goto drop_err;
-	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
+	if (ctx_adjust_hroom(ctx, sizeof(aux->ip6) + sizeof(icmp),
 			     BPF_ADJ_ROOM_NET,
 			     ctx_adjust_hroom_flags()) < 0)
 		goto drop_err;
@@ -695,16 +701,16 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (ctx_store_bytes(ctx, ETH_ALEN * 2, &type, sizeof(type), 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
+	if (ctx_store_bytes(ctx, off, &aux->ip6, sizeof(aux->ip6), 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip), &icmp,
+	if (ctx_store_bytes(ctx, off + sizeof(aux->ip6), &icmp,
 			    sizeof(icmp), 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp), &inner_ipv6_hdr,
-			    sizeof(inner_ipv6_hdr), 0) < 0)
+	if (ctx_store_bytes(ctx, off + sizeof(aux->ip6) + sizeof(icmp), &aux->ip6,
+			    sizeof(aux->ip6), 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, off + sizeof(ip) + sizeof(icmp) +
-			    sizeof(inner_ipv6_hdr) + l4_dport_offset,
+	if (ctx_store_bytes(ctx, off + sizeof(aux->ip6) + sizeof(icmp) +
+			    sizeof(aux->ip6) + l4_dport_offset,
 			    &dport, sizeof(dport), 0) < 0)
 		goto drop_err;
 

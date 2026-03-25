@@ -87,3 +87,4 @@
 #define DROP_NO_EGRESS_IP	-204
 #define DROP_PUNT_PROXY		-205 /* Mapped as drop code, though drop not necessary. */
 #define DROP_NO_DEVICE		-206
+#define DROP_NO_AUX_DATA	-207

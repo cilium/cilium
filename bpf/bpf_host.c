@@ -147,13 +147,18 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err)
 {
-	struct ct_buffer6 __maybe_unused ct_buffer = {};
+	// struct ct_buffer6 __maybe_unused ct_buffer = {};
 	bool __maybe_unused need_hostfw = false;
 	bool __maybe_unused is_host_id = false;
 	bool __maybe_unused skip_host_firewall = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	struct aux_data *aux;
 	int ret;
+
+	aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -212,9 +217,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		goto skip_host_firewall;
 
 	if (from_host) {
-		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &aux->ct_buffer6)) {
+			if (unlikely(aux->ct_buffer6.ret < 0))
+				return aux->ct_buffer6.ret;
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
 		}
@@ -223,16 +228,16 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &aux->ct_buffer6)) {
+			if (unlikely(aux->ct_buffer6.ret < 0))
+				return aux->ct_buffer6.ret;
 			need_hostfw = true;
 		}
 	}
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)
+		if (map_update_elem(&cilium_tail_call_buffer6, &zero, &aux->ct_buffer6, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 #endif /* ENABLE_HOST_FIREWALL */

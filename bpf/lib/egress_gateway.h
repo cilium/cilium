@@ -9,6 +9,7 @@
 
 #include "encap.h"
 #include "eps.h"
+#include "aux.h"
 
 struct egress_gw_policy_key {
 	struct bpf_lpm_trie_key lpm_key;
@@ -81,9 +82,11 @@ static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
 				      __u32 egress_ifindex, __s8 *ext_err)
 {
-	struct bpf_fib_lookup_padded fib_params = {};
 	__u32 oif;
 	int ret;
+	struct aux_data *aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
 	 * Fall back to FIB lookup on older kernels.
@@ -91,7 +94,7 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	if (egress_ifindex && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
-	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
+	ret = (__s8)fib_lookup_v4(ctx, &aux->fib_params, egress_ip, daddr, 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -102,13 +105,13 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 		return DROP_NO_FIB;
 	}
 
-	oif = fib_params.l.ifindex;
+	oif = aux->fib_params.l.ifindex;
 
 	/* Skip redirect in to-netdev if we stay on the same iface: */
 	if (is_defined(IS_BPF_HOST) && oif == ctx_get_ifindex(ctx))
 		return CTX_ACT_OK;
 
-	return fib_do_redirect(ctx, true, &fib_params, false, ret, oif, ext_err);
+	return fib_do_redirect(ctx, true, &aux->fib_params, false, ret, oif, ext_err);
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY

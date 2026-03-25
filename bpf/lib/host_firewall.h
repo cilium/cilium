@@ -143,15 +143,18 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			__u32 ipcache_srcid, struct ipv6hdr *ip6,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_buffer6 ct_buffer = {};
+	// struct ct_buffer6 ct_buffer = {};
+	struct aux_data *aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
-	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip6, &ct_buffer))
+	if (!ipv6_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip6, &aux->ct_buffer6))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
-		return ct_buffer.ret;
+	if (aux->ct_buffer6.ret < 0)
+		return aux->ct_buffer6.ret;
 
 	return __ipv6_host_policy_egress(ctx, src_id == HOST_ID,
-					ip6, &ct_buffer, trace, ext_err);
+					ip6, &aux->ct_buffer6, trace, ext_err);
 }
 
 static __always_inline bool
@@ -280,19 +283,22 @@ static __always_inline int
 ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_buffer6 ct_buffer = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	struct aux_data *aux = get_aux_data();
+
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
+	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &aux->ct_buffer6))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
-		return ct_buffer.ret;
+	if (aux->ct_buffer6.ret < 0)
+		return aux->ct_buffer6.ret;
 
-	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
+	return __ipv6_host_policy_ingress(ctx, ip6, &aux->ct_buffer6, src_sec_identity, trace, ext_err);
 }
 # endif /* ENABLE_IPV6 */
 
@@ -426,14 +432,16 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			__u32 ipcache_srcid, struct iphdr *ip4,
 			struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ct_buffer4 ct_buffer = {};
+	struct aux_data *aux = get_aux_data();
+	if (unlikely(!aux))
+		return DROP_NO_AUX_DATA;
 
-	if (!ipv4_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip4, &ct_buffer))
+	if (!ipv4_host_policy_egress_lookup(ctx, src_id, ipcache_srcid, ip4, &aux->ct_buffer4))
 		return CTX_ACT_OK;
-	if (ct_buffer.ret < 0)
-		return ct_buffer.ret;
+	if (aux->ct_buffer4.ret < 0)
+		return aux->ct_buffer4.ret;
 
-	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, ip4, &ct_buffer, trace, ext_err);
+	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, ip4, &aux->ct_buffer4, trace, ext_err);
 }
 
 static __always_inline bool

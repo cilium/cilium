@@ -15,6 +15,8 @@
 #include "dbg.h"
 #include "l4.h"
 #include "ipfrag.h"
+#include "conntrack_types.h"
+#include "aux.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
 DECLARE_CONFIG(bool, enable_extended_ip_protocols, "Pass traffic with extended IP protocols")
@@ -38,24 +40,6 @@ enum ct_entry_type {
 	CT_ENTRY_SVC		= (1 << 2),
 };
 
-struct ct_state {
-	union v6addr nat_addr;
-	__be16 nat_port;
-	__u16 rev_nat_index;
-	__u16 loopback:1,
-	      node_port:1,
-	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
-	      syn:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved1:1,	/* Was auth_required, not used in production anywhere */
-	      from_tunnel:1,	/* Connection is from tunnel */
-		  closing:1,
-	      reserved:7;
-	__u32 src_sec_id;
-	__u32 backend_id;	/* Backend ID in lb4_backends */
-};
-
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
 {
 #ifdef ENABLE_L7_LB
@@ -64,66 +48,6 @@ static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_stat
 	return false;
 #endif
 }
-
-struct ct_buffer4 {
-	struct ipv4_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-	int l4_off;
-};
-
-struct ct_buffer6 {
-	struct ipv6_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-	int l4_off;
-	fraginfo_t fraginfo;
-};
-
-struct ct_entry {
-	union {
-		/* For CT_EGRESS entry: */
-		union v6addr nat_addr;
-		/* For CT_SERVICE entry: */
-		struct {
-			__u64 reserved0;	/* unused since v1.16 */
-			__u64 backend_id;
-		};
-	};
-	__u64 packets;
-	__u64 bytes;
-	__u32 lifetime;
-	__u16 rx_closing:1,
-	      tx_closing:1,
-	      reserved1:1,	/* unused since v1.12 */
-	      lb_loopback:1,
-	      seen_non_syn:1,
-	      node_port:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved2:1,	/* unused since v1.14 */
-	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved3:5;
-	__u16 rev_nat_index;
-	__be16 nat_port;	/* For CT_EGRESS entry. */
-
-	/* *x_flags_seen represents the OR of all TCP flags seen for the
-	 * transmit/receive direction of this entry.
-	 */
-	__u8  tx_flags_seen;
-	__u8  rx_flags_seen;
-
-	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
-
-	/* last_*x_report is a timestamp of the last time a monitor
-	 * notification was sent for the transmit/receive direction.
-	 */
-	__u32 last_tx_report;
-	__u32 last_rx_report;
-};
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
 {
@@ -1070,43 +994,49 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      const struct ct_state *ct_state, __s8 *ext_err)
 {
 	/* Create entry in original direction */
-	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
+	struct aux_data *aux;
 	int err;
 
+	aux = get_aux_data();
+	if (unlikely(!aux)) {
+		err = DROP_NO_AUX_DATA;
+		goto drop_err;
+	}
+
 	if (ct_state)
-		ct_create_fill_entry(&entry, ct_state, dir);
+		ct_create_fill_entry(&aux->ct_entry, ct_state, dir);
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	ct_update_timeout(&aux->ct_entry, is_tcp, dir, seen_flags);
 
-	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
-		    entry.src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED6, aux->ct_entry.rev_nat_index,
+		    aux->ct_entry.src_sec_id, 0);
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
-		struct ipv6_ct_tuple icmp_tuple __align_stack_8 = {
+		aux->icmp_tuple = (typeof(aux->icmp_tuple)) {
 			.nexthdr = IPPROTO_ICMPV6,
 			.sport = 0,
 			.dport = 0,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
-		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
+		ipv6_addr_copy(&aux->icmp_tuple.daddr, &tuple->daddr);
+		ipv6_addr_copy(&aux->icmp_tuple.saddr, &tuple->saddr);
 
-		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		err = map_update_elem(map_related, &aux->icmp_tuple, &aux->ct_entry, 0);
 		if (unlikely(err < 0))
 			goto drop_err;
 	}
 
 	if (CONFIG(enable_conntrack_accounting)) {
-		entry.packets = 1;
-		entry.bytes = ctx_full_len(ctx);
+		aux->ct_entry.packets = 1;
+		aux->ct_entry.bytes = ctx_full_len(ctx);
 	}
 
-	err = map_update_elem(map_main, tuple, &entry, 0);
+	err = map_update_elem(map_main, tuple, &aux->ct_entry, 0);
 	if (unlikely(err < 0))
 		goto drop_err;
 
@@ -1125,20 +1055,25 @@ static __always_inline int ct_create4(const void *map_main,
 				      const struct ct_state *ct_state,
 				      __s8 *ext_err)
 {
-	/* Create entry in original direction */
-	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
+	struct aux_data *aux;
 	int err;
 
+	aux = get_aux_data();
+	if (unlikely(!aux)) {
+		err = DROP_NO_AUX_DATA;
+		goto drop_err;
+	}
+
 	if (ct_state)
-		ct_create_fill_entry(&entry, ct_state, dir);
+		ct_create_fill_entry(&aux->ct_entry, ct_state, dir);
 
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	ct_update_timeout(&aux->ct_entry, is_tcp, dir, seen_flags);
 
-	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
-		    entry.src_sec_id, 0);
+	cilium_dbg3(ctx, DBG_CT_CREATED4, aux->ct_entry.rev_nat_index,
+		    aux->ct_entry.src_sec_id, 0);
 
 	if (map_related != NULL) {
 		/* Create an ICMP entry to relate errors */
@@ -1151,21 +1086,21 @@ static __always_inline int ct_create4(const void *map_main,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		err = map_update_elem(map_related, &icmp_tuple, &aux->ct_entry, 0);
 		if (unlikely(err < 0))
 			goto drop_err;
 	}
 
 	if (CONFIG(enable_conntrack_accounting)) {
-		entry.packets = 1;
-		entry.bytes = ctx_full_len(ctx);
+		aux->ct_entry.packets = 1;
+		aux->ct_entry.bytes = ctx_full_len(ctx);
 	}
 
 	/* Previous map update succeeded, we could delete it in case
 	 * the below throws an error, but we might as well just let
 	 * it time out.
 	 */
-	err = map_update_elem(map_main, tuple, &entry, 0);
+	err = map_update_elem(map_main, tuple, &aux->ct_entry, 0);
 	if (unlikely(err < 0))
 		goto drop_err;
 
