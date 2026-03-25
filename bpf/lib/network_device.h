@@ -31,7 +31,7 @@ struct {
 	__uint(max_entries, 4096);
 } cilium_devices __section_maps_btf;
 
-static __always_inline struct device_state *
+static __always_inline const struct device_state *
 device_state_lookup(__u32 ifindex)
 {
 	return map_lookup_elem(&cilium_devices, &ifindex);
@@ -40,18 +40,15 @@ device_state_lookup(__u32 ifindex)
 static __always_inline bool
 device_is_l3(__u32 ifindex)
 {
-	struct device_state *state = device_state_lookup(ifindex);
+	const struct device_state *state = device_state_lookup(ifindex);
 
 	return state ? state->l3 : false;
 }
 
-static __always_inline union macaddr
-*device_mac(__u32 ifindex)
+static __always_inline const union macaddr *
+device_mac(__u32 ifindex)
 {
-	struct device_state *state;
+	const struct device_state *state = device_state_lookup(ifindex);
 
-	state = device_state_lookup(ifindex);
-	if (!state)
-		return NULL;
-	return &state->mac;
+	return state ? &state->mac : NULL;
 }
