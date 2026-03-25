@@ -55,34 +55,31 @@ func newIdentityManager(logger *slog.Logger) *IdentityManager {
 // already in the identity manager, the reference count for the identity is
 // incremented.
 func (idm *IdentityManager) Add(identity *identity.Identity) {
-	idm.logger.Debug(
-		"Adding identity to identity manager",
-		logfields.Identity, identity,
-	)
-
-	idm.mutex.Lock()
-	defer idm.mutex.Unlock()
-	idm.add(identity)
-}
-
-func (idm *IdentityManager) add(identity *identity.Identity) {
 	if identity == nil {
 		return
 	}
 
+	idm.mutex.Lock()
+	if idm.addLocked(identity) {
+		idm.notifyObserversLocked(identity, true)
+	}
+	idm.mutex.Unlock()
+}
+
+func (idm *IdentityManager) addLocked(identity *identity.Identity) (added bool) {
+	if identity == nil {
+		return false
+	}
 	idMeta, exists := idm.identities[identity.ID]
 	if !exists {
 		idm.identities[identity.ID] = &identityMetadata{
 			identity: identity,
 			refCount: 1,
 		}
-		for o := range idm.observers {
-			o.LocalEndpointIdentityAdded(identity)
-		}
-
-	} else {
-		idMeta.refCount++
+		return true
 	}
+	idMeta.refCount++
+	return false
 }
 
 // RemoveOldAddNew removes old from the identity manager and inserts new
@@ -90,9 +87,6 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 // Caller must have previously added the old identity with Add().
 // This is a no-op if both identities have the same numeric ID.
 func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
-	idm.mutex.Lock()
-	defer idm.mutex.Unlock()
-
 	if old == nil && new == nil {
 		return
 	}
@@ -102,14 +96,14 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 		return
 	}
 
-	idm.logger.Debug(
-		"removing old and adding new identity",
-		logfields.Old, old,
-		logfields.New, new,
-	)
-
-	idm.remove(old)
-	idm.add(new)
+	idm.mutex.Lock()
+	if idm.removeLocked(old) {
+		idm.notifyObserversLocked(old, false)
+	}
+	if idm.addLocked(new) {
+		idm.notifyObserversLocked(new, true)
+	}
+	idm.mutex.Unlock()
 }
 
 // RemoveAll removes all identities.
@@ -118,7 +112,7 @@ func (idm *IdentityManager) RemoveAll() {
 	defer idm.mutex.Unlock()
 
 	for id := range idm.identities {
-		idm.remove(idm.identities[id].identity)
+		idm.removeLocked(idm.identities[id].identity)
 	}
 }
 
@@ -127,20 +121,35 @@ func (idm *IdentityManager) RemoveAll() {
 // decremented. If the identity is not in the cache, this is a no-op. If the
 // ref count becomes zero, the identity is removed from the cache.
 func (idm *IdentityManager) Remove(identity *identity.Identity) {
+	if identity == nil {
+		return
+	}
+
+	idm.mutex.Lock()
+	if idm.removeLocked(identity) {
+		idm.notifyObserversLocked(identity, false)
+	}
+	idm.mutex.Unlock()
+}
+
+func (idm *IdentityManager) notifyObserversLocked(identity *identity.Identity, added bool) {
+	for o := range idm.observers {
+		if added {
+			o.LocalEndpointIdentityAdded(identity)
+		} else {
+			o.LocalEndpointIdentityRemoved(identity)
+		}
+	}
+}
+func (idm *IdentityManager) removeLocked(identity *identity.Identity) (removed bool) {
+	if identity == nil {
+		return
+	}
+
 	idm.logger.Debug(
 		"Removing identity from identity manager",
 		logfields.Identity, identity,
 	)
-
-	idm.mutex.Lock()
-	defer idm.mutex.Unlock()
-	idm.remove(identity)
-}
-
-func (idm *IdentityManager) remove(identity *identity.Identity) {
-	if identity == nil {
-		return
-	}
 
 	idMeta, exists := idm.identities[identity.ID]
 	if !exists {
@@ -153,11 +162,9 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 	idMeta.refCount--
 	if idMeta.refCount == 0 {
 		delete(idm.identities, identity.ID)
-		for o := range idm.observers {
-			o.LocalEndpointIdentityRemoved(identity)
-		}
+		removed = true
 	}
-
+	return
 }
 
 // Get returns the full identity based on the numeric identity. The returned
