@@ -380,10 +380,8 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	}
 
 	// Port name checks can be skipped in certain cases.
-	switch lrp.FrontendType {
-	case svcFrontendAll, svcFrontendSinglePort, addrFrontendSinglePort:
+	if !lrp.requiresPortNameMatch() {
 		portNameMatches = nil
-
 	}
 
 	// Function to compare whether the new Backend produced in the loop below
