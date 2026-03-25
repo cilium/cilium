@@ -105,8 +105,8 @@ int lxc_hybrid_dsr_service_dnat_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
 	/* Add DSR service with SVC_FLAG_FWD_MODE_DSR */
-	lb_v4_add_service_with_flags(0, NODEPORT_PORT_DSR, IPPROTO_TCP, 1, revnat_id,
-				     SVC_FLAG_ROUTABLE, SVC_FLAG_FWD_MODE_DSR);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT_DSR, IPPROTO_TCP, 1, revnat_id,
+				   SVC_FLAG_FWD_MODE_DSR);
 	lb_v4_add_backend(0, NODEPORT_PORT_DSR, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
@@ -228,8 +228,8 @@ int lxc_hybrid_snat_service_no_dnat_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(REMOTE_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
 	/* Add non-DSR (SNAT) service WITHOUT SVC_FLAG_FWD_MODE_DSR */
-	lb_v4_add_service_with_flags(0, NODEPORT_PORT_SNAT, IPPROTO_TCP, 1, revnat_id,
-				     SVC_FLAG_ROUTABLE, 0);
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT_SNAT, IPPROTO_TCP, 1, revnat_id,
+				   0);
 	lb_v4_add_backend(0, NODEPORT_PORT_SNAT, 1, 126,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
