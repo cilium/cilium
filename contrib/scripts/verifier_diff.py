@@ -5,9 +5,8 @@
 """
 verifier_diff.py
 
-Compares two eBPF verifier log files and visualizes the number of verified
-instructions between the two runs per function and program build.
-This script accepts two JSON files, `main.json` and `patch.json`,
+Compares two eBPF verifier log files and compute statistics and plots between
+the two runs. This script accepts two JSON files, `file1.json` and `file2.json`,
 supposedly run before and after a code change, and creates an output directory
 containing all the plots.
 Running verifier tests locally would output a resulting JSON file under
@@ -30,6 +29,7 @@ import numpy as np
 import datetime
 import logging
 import multiprocessing
+import pandas as pd
 
 from pathlib import Path
 
@@ -133,6 +133,9 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str, jobs: int):
         key (str): Key in the JSON to compare.
         jobs (int): Number of parallel processes to use.
     """
+    outdir = os.path.join(outdir, "plots")
+    os.makedirs(outdir, exist_ok=True)
+
     data1 = organize_data(load_json(file1), key)
     data2 = organize_data(load_json(file2), key)
 
@@ -187,6 +190,86 @@ def plot_comparison(file1: str, file2: str, outdir: str, key: str, jobs: int):
         pool.starmap(_plot_group, tasks)
 
 
+def _store_stats_group(df: pd.DataFrame, output_file: str, fmt: str, key: str, groupby: list[str] = []):
+    """Store comparison for a specific Dataframe.
+
+    Args:
+        df (pd.DataFrame): DataFrame to store.
+        output_file (str): Output file path.
+        fmt (str): Output format.
+        key (str): Key in the JSON to compare.
+        groupby (list[str], optional): Grouping columns. Defaults to [].
+    """
+    y = ['min', 'max', 'mean']
+    df['diff'] = df['file2'] - df['file1']
+
+    if groupby:
+        output_file = os.path.join(output_file, f"groupby_{'_'.join(groupby)}.{fmt}")
+        df = df.groupby(groupby)['diff'].describe(percentiles=[])
+        df_nonzero = df[(df[y] != 0).any(axis=1)]
+        df_nonzero.plot(kind='barh', y=y, figsize=(10, 0.15*len(df)), xlabel=key,
+                title=f"Difference in {key} grouped by {tuple(groupby)}")
+    else:
+        output_file = os.path.join(output_file, f"all.{fmt}")
+        df['diff'].describe(percentiles=[]).loc[y].plot(kind='barh', figsize=(10, 2), xlabel=key,
+                                                        title=f"Overall difference in {key}")
+    
+    plt.tight_layout()
+    plt.savefig(output_file.replace(f".{fmt}", ".png"))
+    plt.close()
+
+    if fmt == "csv":
+        df.to_csv(output_file, index=bool(groupby))
+    elif fmt == "json":
+        df.to_json(output_file, orient="table", indent=2)
+    else:
+        logging.error(f"Unsupported format: {fmt}")
+
+    logging.debug(f"Saved statistics {output_file} ({groupby=})")
+
+
+def store_stats(file1: str, file2: str, outdir: str, key: str, fmt: str, parallel: int):
+    """Store statistics of the differences between two sets of eBPF verifier logs.
+
+    Args:
+        file1 (str): Path to the first JSON file.
+        file2 (str): Path to the second JSON file.
+        outdir (str): Output directory for the statistics.
+        key (str): Key in the JSON to compare.
+        fmt (str): Output format for the statistics.
+        parallel (int): Number of parallel processes to use.
+    """
+    outdir = os.path.join(outdir, "stats")
+    os.makedirs(outdir, exist_ok=True)
+
+    data1 = organize_data(load_json(file1), key)
+    data2 = organize_data(load_json(file2), key)
+
+    rows = []
+    for collection, build, load, program in sorted(set(data1.keys()) | set(data2.keys())):
+        v1 = data1.get((collection, build, load, program), 0)
+        v2 = data2.get((collection, build, load, program), 0)
+        rows.append({
+            "collection": collection,
+            "build": build,
+            "load": load,
+            "program": program,
+            "file1": v1,
+            "file2": v2,
+        })
+
+    df = pd.DataFrame(rows)
+    tasks = [
+        (df, outdir, fmt, key, []),
+        (df, outdir, fmt, key, ["program"]),
+        (df, outdir, fmt, key, ["program", "collection"])]
+    
+    logging.info(f"Saving {len(tasks)} statistics files with different granularities ({parallel=})")
+    
+    with multiprocessing.Pool(processes=parallel) as pool:
+        pool.starmap(_store_stats_group, tasks)
+
+
 def setup_output_dir(file1: str, file2: str) -> str:
     """
     Generates a unique output directory and stores a copy of the log files used.
@@ -225,6 +308,8 @@ def main():
     parser.add_argument("file1", type=str, help="Path to the first JSON file (i.e., before a patch).")
     parser.add_argument("file2", type=str, help="Path to the second JSON file (i.e., after a patch).")
     parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
+    parser.add_argument('-p', '--plot', action='store_true',
+                        help="Generate plots for non-aggregated data.")
     parser.add_argument('-k', '--key', type=str, default="insns_processed",
                         choices=["insns_processed", "insns_limit",
                                  "max_states_per_insn", "total_states",
@@ -233,6 +318,8 @@ def main():
                         help="Verifier statistic to compare.")
     parser.add_argument('-j', '--jobs', type=int, default=multiprocessing.cpu_count(),
                         help="Number of jobs to run simultaneously.")
+    parser.add_argument('--format', type=str, default="csv", choices=["csv", "json"],
+                        help="Output format for statistics.")
 
     args = parser.parse_args()
 
@@ -244,7 +331,10 @@ def main():
 
     output_dir = setup_output_dir(args.file1, args.file2)
 
-    plot_comparison(args.file1, args.file2, output_dir, args.key, args.jobs)
+    store_stats(args.file1, args.file2, output_dir, args.key, args.format, args.jobs)
+
+    if args.plot:
+        plot_comparison(args.file1, args.file2, output_dir, args.key, args.jobs)
 
 
 if __name__ == "__main__":
