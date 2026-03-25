@@ -14,6 +14,12 @@ spec:
         protocol: TCP
       - port: "6443"
         protocol: TCP
+      - port: "30000"
+        endPort: 32767
+        protocol: TCP
+      - port: "30000"
+        endPort: 32767
+        protocol: UDP
   # VXLAN tunnels and health checks
   - fromEntities:
     - remote-node
