@@ -214,7 +214,7 @@ func (a *Agent) Start(cell.HookContext) error {
 }
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (a *Agent) StartBackgroundJobs(handler types.NodeHandler) error {
+func (a *Agent) StartBackgroundJobs(handler node.Handler) error {
 	if !a.Enabled() {
 		return nil
 	}
@@ -1229,7 +1229,7 @@ func (a *Agent) deleteIPsecEncryptRoute() {
 	}
 }
 
-func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler types.NodeHandler, health cell.Health) error {
+func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1306,7 +1306,7 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 	}
 }
 
-func (a *Agent) startKeyfileWatcher(nodeHandler types.NodeHandler) error {
+func (a *Agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 	if !a.config.EnableIPsecKeyWatcher {
 		return nil
 	}

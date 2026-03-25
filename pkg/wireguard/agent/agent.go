@@ -202,7 +202,7 @@ func (a *Agent) Stop(cell.HookContext) error {
 	return a.wgClient.Close()
 }
 
-// Name implements datapath.NodeHandler.
+// Name implements node.Handler.
 func (a *Agent) Name() string {
 	return "wireguard-agent"
 }

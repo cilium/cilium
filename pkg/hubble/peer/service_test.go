@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -735,7 +735,7 @@ func TestService_Notify(t *testing.T) {
 				},
 			}
 			ready := make(chan struct{})
-			cb := func(nh datapath.NodeHandler) {
+			cb := func(nh node.Handler) {
 				ready <- struct{}{}
 			}
 			notif := newNotifier(cb, tt.args.init)
@@ -797,7 +797,7 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 		},
 	}
 	ready := make(chan struct{})
-	cb := func(nh datapath.NodeHandler) {
+	cb := func(nh node.Handler) {
 		ready <- struct{}{}
 	}
 	init := []types.Node{
@@ -844,22 +844,22 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 
 type notifier struct {
 	nodes       []types.Node
-	subscribers map[datapath.NodeHandler]struct{}
-	cb          func(nh datapath.NodeHandler)
+	subscribers map[node.Handler]struct{}
+	cb          func(nh node.Handler)
 	mu          lock.Mutex
 }
 
 var _ manager.Notifier = (*notifier)(nil)
 
-func newNotifier(subCallback func(nh datapath.NodeHandler), nodes []types.Node) *notifier {
+func newNotifier(subCallback func(nh node.Handler), nodes []types.Node) *notifier {
 	return &notifier{
 		nodes:       nodes,
-		subscribers: make(map[datapath.NodeHandler]struct{}),
+		subscribers: make(map[node.Handler]struct{}),
 		cb:          subCallback,
 	}
 }
 
-func (n *notifier) Subscribe(nh datapath.NodeHandler) {
+func (n *notifier) Subscribe(nh node.Handler) {
 	n.mu.Lock()
 	n.subscribers[nh] = struct{}{}
 	n.mu.Unlock()
@@ -871,7 +871,7 @@ func (n *notifier) Subscribe(nh datapath.NodeHandler) {
 	}
 }
 
-func (n *notifier) Unsubscribe(nh datapath.NodeHandler) {
+func (n *notifier) Unsubscribe(nh node.Handler) {
 	n.mu.Lock()
 	delete(n.subscribers, nh)
 	n.mu.Unlock()

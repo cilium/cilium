@@ -29,7 +29,6 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	agentCmd "github.com/cilium/cilium/daemon/cmd"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -37,6 +36,7 @@ import (
 	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
@@ -56,7 +56,7 @@ type ControlPlaneTest struct {
 	clients             *k8sClient.FakeClientset
 	trackers            []trackerAndDecoder
 	agentHandle         *agentHandle
-	FakeNodeHandler     *fakeTypes.FakeNodeHandler
+	FakeNodeHandler     *fakenode.Handler
 	establishedWatchers *lock.Map[string, struct{}]
 }
 

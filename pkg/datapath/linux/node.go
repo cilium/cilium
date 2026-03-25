@@ -80,7 +80,7 @@ type linuxNodeHandler struct {
 }
 
 var (
-	_ datapath.NodeHandler             = (*linuxNodeHandler)(nil)
+	_ node.Handler             = (*linuxNodeHandler)(nil)
 	_ datapath.NodeConfigChangeHandler = (*linuxNodeHandler)(nil)
 	_ datapath.NodeIDHandler           = (*linuxNodeHandler)(nil)
 )
@@ -97,7 +97,7 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent datapath.IPsecAgent,
 	localNodeStore *node.LocalNodeStore,
-) (datapath.NodeHandler, datapath.NodeIDHandler) {
+) (node.Handler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),

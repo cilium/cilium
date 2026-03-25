@@ -31,7 +31,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
@@ -249,12 +248,12 @@ func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
 }
 
 // Subscribe implements manager.NodeManager.
-func (d dummyNodeManager) Subscribe(types.NodeHandler) {
+func (d dummyNodeManager) Subscribe(node.Handler) {
 	panic("unimplemented")
 }
 
 // Unsubscribe implements manager.NodeManager.
-func (d dummyNodeManager) Unsubscribe(types.NodeHandler) {
+func (d dummyNodeManager) Unsubscribe(node.Handler) {
 	panic("unimplemented")
 }
 

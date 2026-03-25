@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
-// handler implements the datapath.NodeHandler interface so that it can be
+// handler implements the node.Handler interface so that it can be
 // subscribed to a node manager and receives update about nodes being
 // added/updated/deleted. Node update information is turned into
 // peerpb.ChangeNotification and sent to the channel C. As this channel is
@@ -47,9 +47,9 @@ func (h *handler) Name() string {
 
 // Ensure that Service implements the NodeHandler interface so that it can be
 // notified of nodes updates by the daemon's node manager.
-var _ datapath.NodeHandler = (*handler)(nil)
+var _ node.Handler = (*handler)(nil)
 
-// NodeAdd implements datapath.NodeHandler.NodeAdd.
+// NodeAdd implements node.Handler.NodeAdd.
 func (h *handler) NodeAdd(n types.Node) error {
 	cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED)
 	select {
@@ -59,7 +59,7 @@ func (h *handler) NodeAdd(n types.Node) error {
 	return nil
 }
 
-// NodeUpdate implements datapath.NodeHandler.NodeUpdate.
+// NodeUpdate implements node.Handler.NodeUpdate.
 func (h *handler) NodeUpdate(o, n types.Node) error {
 	oAddr, nAddr := nodeAddress(o, h.addressPref), nodeAddress(n, h.addressPref)
 	if o.Fullname() == n.Fullname() {
@@ -91,7 +91,7 @@ func (h *handler) NodeUpdate(o, n types.Node) error {
 	return nil
 }
 
-// NodeDelete implements datapath.NodeHandler.NodeDelete.
+// NodeDelete implements node.Handler.NodeDelete.
 func (h *handler) NodeDelete(n types.Node) error {
 	cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_DELETED)
 	select {
@@ -106,7 +106,7 @@ func (h handler) AllNodeValidateImplementation() {
 }
 
 // NodeValidateImplementation implements
-// datapath.NodeHandler.NodeValidateImplementation. It is a no-op.
+// node.Handler.NodeValidateImplementation. It is a no-op.
 func (h handler) NodeValidateImplementation(_ types.Node) error {
 	// no-op
 	return nil

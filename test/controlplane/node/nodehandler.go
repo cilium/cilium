@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -37,7 +37,7 @@ var (
 	}
 )
 
-func validateNodes(fnh *fakeTypes.FakeNodeHandler) error {
+func validateNodes(fnh *fakenode.Handler) error {
 	nodes := fnh.Nodes
 
 	if len(nodes) != 1 {

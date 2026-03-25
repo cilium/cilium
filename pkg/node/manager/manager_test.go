@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
@@ -42,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -511,7 +511,7 @@ func TestMultipleSources(t *testing.T) {
 
 func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	ipcacheMock := newIPcacheMock()
-	dp := fakeTypes.NewNodeHandler()
+	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(b)
 	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, node.NewTestLocalNodeStore(node.LocalNode{}))
@@ -535,7 +535,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
-	dp := fakeTypes.NewNodeHandler()
+	dp := fakenode.NewHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(logger, &option.DaemonConfig{}, tunnel.Config{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, node.NewTestLocalNodeStore(node.LocalNode{}))
 	require.NoError(t, err)
@@ -1055,7 +1055,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 			Name:    "node1",
 			Cluster: "c1",
 		}] = &nodeEntry{node: nodeTypes.Node{Name: "node1", Cluster: "c1"}}
-		m.nodeHandlers = make(map[datapath.NodeHandler]struct{})
+		m.nodeHandlers = make(map[node.Handler]struct{})
 		nh1 = newSignalNodeHandler()
 		nh1.EnableNodeValidateImplementationEvent = true
 		// By default this is a buffered channel, by making it a non-buffered

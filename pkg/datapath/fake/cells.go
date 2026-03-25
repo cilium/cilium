@@ -40,6 +40,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -53,8 +55,8 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, types.NodeHandler, *fakeTypes.FakeNodeHandler) {
-			fakeNodeHandler := fakeTypes.NewNodeHandler()
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, node.Handler, *fakenode.Handler) {
+			fakeNodeHandler := fakenode.NewHandler()
 			nodeManager.Subscribe(fakeNodeHandler)
 			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
 		},

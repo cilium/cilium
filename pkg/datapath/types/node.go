@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
@@ -297,38 +296,6 @@ func (cfg *LocalNodeConfiguration) GetIPv4PodSubnets() []*net.IPNet {
 
 func (cfg *LocalNodeConfiguration) GetIPv6PodSubnets() []*net.IPNet {
 	return cidr.CIDRsToIPNets(cfg.IPv6PodSubnets)
-}
-
-// NodeHandler handles node related events such as addition, update or deletion
-// of nodes or changes to the local node configuration.
-//
-// Node events apply to the local node as well as to remote nodes. The
-// implementation can differ between the own local node and remote nodes by
-// calling node.IsLocal().
-type NodeHandler interface {
-	// Name identifies the handler, this is used in logging/reporting handler
-	// reconciliation errors.
-	Name() string
-
-	// NodeAdd is called when a node is discovered for the first time.
-	NodeAdd(newNode nodeTypes.Node) error
-
-	// NodeUpdate is called when a node definition changes. Both the old
-	// and new node definition is provided. NodeUpdate() is never called
-	// before NodeAdd() is called for a particular node.
-	NodeUpdate(oldNode, newNode nodeTypes.Node) error
-
-	// NodeDelete is called after a node has been deleted
-	NodeDelete(node nodeTypes.Node) error
-
-	// AllNodeValidateImplementation is called to validate the implementation
-	// of all nodes in the node cache.
-	AllNodeValidateImplementation()
-
-	// NodeValidateImplementation is called to validate the implementation of
-	// the node in the datapath. This function is intended to be run on an
-	// interval to ensure that the datapath is consistently converged.
-	NodeValidateImplementation(node nodeTypes.Node) error
 }
 
 type NodeConfigChangeHandler interface {

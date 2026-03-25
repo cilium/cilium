@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -22,7 +23,7 @@ var Cell = cell.Module(
 )
 
 var (
-	_ datapath.NodeHandler             = (*nodeNeighborHandler)(nil)
+	_ node.Handler             = (*nodeNeighborHandler)(nil)
 	_ datapath.NodeConfigChangeHandler = (*nodeNeighborHandler)(nil)
 )
 
