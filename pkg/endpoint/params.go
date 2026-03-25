@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -30,7 +31,7 @@ type EndpointParams struct {
 
 	Logger              *slog.Logger
 	EPBuildQueue        EndpointBuildQueue
-	Loader              datapath.Loader
+	Loader              loader.Loader
 	Orchestrator        endpoint.Orchestrator
 	CompilationLock     datapath.CompilationLock
 	BandwidthManager    bandwidth.Manager

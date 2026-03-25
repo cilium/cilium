@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
@@ -56,7 +57,7 @@ type ciliumHealthManager struct {
 	logger           *slog.Logger
 	healthSpec       *healthApi.Spec
 	sysctl           sysctl.Sysctl
-	loader           datapath.Loader
+	loader           loader.Loader
 	connectorConfig  datapath.ConnectorConfig
 	mtuConfig        mtu.MTU
 	bigTCPConfig     *bigtcp.Configuration
@@ -81,7 +82,7 @@ type ciliumHealthParams struct {
 	JobGroup               job.Group
 	HealthSpec             *healthApi.Spec
 	Sysctl                 sysctl.Sysctl
-	Loader                 datapath.Loader
+	Loader                 loader.Loader
 	ConnectorConfig        datapath.ConnectorConfig
 	MtuConfig              mtu.MTU
 	BigTCPConfig           *bigtcp.Configuration

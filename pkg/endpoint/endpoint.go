@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -155,7 +156,7 @@ var _ notifications.RegenNotificationInfo = (*Endpoint)(nil)
 // purposes is the serializableEndpoint type in this package.
 type Endpoint struct {
 	dnsRulesAPI      DNSRulesAPI
-	loader           datapath.Loader
+	loader           loader.Loader
 	orchestrator     endpoint.Orchestrator
 	compilationLock  datapath.CompilationLock
 	bandwidthManager bandwidth.Manager

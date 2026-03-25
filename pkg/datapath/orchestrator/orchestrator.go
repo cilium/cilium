@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -93,7 +94,7 @@ type orchestratorParams struct {
 
 	Config              Config
 	Log                 *slog.Logger
-	Loader              datapath.Loader
+	Loader              loader.Loader
 	TunnelConfig        tunnel.Config
 	OldMTU              mtu.MTU
 	MTU                 statedb.Table[mtu.RouteMTU]

@@ -23,6 +23,8 @@ import (
 	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
+	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -71,7 +73,7 @@ var Cell = cell.Module(
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },
-		func() types.Loader { return &fakeTypes.FakeLoader{} },
+		func() loaderTypes.Loader { return &fakeloader.Loader{} },
 		func() endpoint.Orchestrator { return &fakeendpoint.FakeOrchestrator{} },
 		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
