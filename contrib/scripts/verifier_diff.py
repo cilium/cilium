@@ -15,7 +15,7 @@ Running verifier tests locally would output a resulting JSON file under
 JSON files can be obtained from CI runs.
 
 Usage:
-    python verifier_diff.py main.json patch.json
+    python verifier_diff.py --help
 """
 
 import os
@@ -26,6 +26,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import logging
+
+from pathlib import Path
 
 
 def load_json(file_path) -> dict:
@@ -54,7 +56,7 @@ def organize_data(data, key: str) -> dict:
     """
     organized = {}
     for entry in data:
-        if not key in entry:
+        if key not in entry:
             logging.error(f"Key '{key}' not found in data.")
             break
         if not isinstance(entry[key], (int, float)) or not str(entry[key]).isnumeric():
@@ -66,13 +68,14 @@ def organize_data(data, key: str) -> dict:
     return organized
 
 
-def plot_comparison(file1: str, file2: str, key: str, outdir: str):
+def plot_comparison(file1: str, file2: str, outdir: str, key: str):
     """Plot comparison of eBPF verifier logs.
 
     Args:
         file1 (str): Path to the first JSON file.
         file2 (str): Path to the second JSON file.
         outdir (str): Output directory for the plots.
+        key (str): Key in the JSON to compare.
     """
     data1 = organize_data(load_json(file1), key)
     data2 = organize_data(load_json(file2), key)
@@ -80,6 +83,8 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
     # Collect all unique (collection, build, load) triples
     groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
         (c, b, l) for c, b, l, _ in data2.keys())
+
+    logging.info(f"Generating plots, handling {len(groups)} combinations.")
 
     for collection, build, load in groups:
         # Collect all programs for this collection/build/load
@@ -96,8 +101,8 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
                 f"build {build}, load {load}, skipping.")
             continue
 
-        before_vals = []
-        after_vals = []
+        vals1 = []
+        vals2 = []
         filtered_programs = []
 
         for prog in programs:
@@ -110,11 +115,11 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
                     f"load {load}, skipping.")
                 continue  # skip unchanged values
             filtered_programs.append(prog)
-            before_vals.append(v1)
-            after_vals.append(v2)
+            vals1.append(v1)
+            vals2.append(v2)
 
         if not filtered_programs:  # skip if all values unchanged
-            logging.info(
+            logging.debug(
                 f"All programs unchanged for collection {collection} "
                 f"build {build} load {load}, skipping.")
             continue
@@ -127,10 +132,10 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
                                         bar_height * len(filtered_programs)))
 
         plt.figure(figsize=(fig_width, fig_height))
-        bars_before = plt.barh(y_pos + bar_height/2, before_vals,
-                               bar_height, label="Before", alpha=0.7)
-        bars_after = plt.barh(y_pos - bar_height/2, after_vals,
-                              bar_height, label="After", alpha=0.7)
+        bars1 = plt.barh(y_pos + bar_height/2, vals1,
+                               bar_height, label="File 1", alpha=0.7)
+        bars2 = plt.barh(y_pos - bar_height/2, vals2,
+                              bar_height, label="File 2", alpha=0.7)
 
         plt.yticks(y_pos, filtered_programs)
         plt.xlabel(key)
@@ -138,13 +143,13 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
         plt.legend()
 
         # Add text labels at the end of bars
-        max_val = max(before_vals + after_vals)
-        for bar in bars_before:
+        max_val = max(vals1 + vals2)
+        for bar in bars1:
             width = bar.get_width()
             plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
                      f"{width}", va="center", ha="left", fontsize=8)
 
-        for bar in bars_after:
+        for bar in bars2:
             width = bar.get_width()
             plt.text(width + max_val * 0.01, bar.get_y() + bar.get_height()/2,
                      f"{width}", va="center", ha="left", fontsize=8)
@@ -155,32 +160,33 @@ def plot_comparison(file1: str, file2: str, key: str, outdir: str):
         outfile = os.path.join(collect_dir, f"states-build{build}-load{load}.png")
         plt.savefig(outfile)
         plt.close()
-        logging.info(f"Saved plot: {outfile}")
+        logging.debug(f"Saved plot: {outfile}")
 
 
-def setup_output_dir(file_after: str, file_before: str) -> str:
+def setup_output_dir(file1: str, file2: str) -> str:
     """
-    Generates a unique output directory name using input file names and current
-    timestamp. Also, stores a copy of the log files in the new directory.
+    Generates a unique output directory and stores a copy of the log files used.
 
     Args:
-        file_after (str): Path to the "after" verifier log.
-        file_before (str): Path to the "before" verifier log.
+        file1 (str): Path to the first JSON file.
+        file2 (str): Path to the second JSON file.
 
     Returns:
         str: Name of the new output directory.
     """
-    base_after = os.path.basename(file_after).replace('.', '_')
-    base_before = os.path.basename(file_before).replace('.', '_')
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = f"insn-diff-{base_after}-wrt-{base_before}-{timestamp}"
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = f"verifier-diff-{timestamp}"
+
+    logging.info(f"Creating output directory {output_dir} and backing up log files.")
 
     os.makedirs(output_dir, exist_ok=True)
-    logging.info(f"Output directory {output_dir} created.")
+    
+    p1 = Path(file1)
+    shutil.copy(file1, os.path.join(output_dir, f"file1-{p1.stem}{p1.suffix}"))
+    
+    p2 = Path(file2)
+    shutil.copy(file2, os.path.join(output_dir, f"file2-{p2.stem}{p2.suffix}"))
 
-    shutil.copy(file_before, output_dir)
-    shutil.copy(file_after, output_dir)
-    logging.info("Log files successfully backed up.")
     return output_dir
 
 
@@ -190,12 +196,17 @@ def main():
     and runs comparison and visualization.
     """
     parser = argparse.ArgumentParser(
-        description="Compare number of verified instructions " +
-        "from eBPF verifier logs.")
-    parser.add_argument("file_before", help="Path to the log before patch")
-    parser.add_argument("file_after", help="Path to the log after patch")
+        description="Compare number of verified instructions from eBPF verifier logs.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("file1", type=str, help="Path to the first JSON file (i.e., before a patch).")
+    parser.add_argument("file2", type=str, help="Path to the second JSON file (i.e., after a patch).")
     parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
-    parser.add_argument('--key', default="insns_processed", help="Verifier statistic to compare (ex., peak_states, verification_time_microseconds).")
+    parser.add_argument('-k', '--key', type=str, default="insns_processed",
+                        choices=["insns_processed", "insns_limit",
+                                 "max_states_per_insn", "total_states",
+                                 "peak_states", "mark_read",  "stack_depth",
+                                 "verification_time_microseconds"],
+                        help="Verifier statistic to compare.")
 
     args = parser.parse_args()
 
@@ -205,9 +216,9 @@ def main():
     logging.basicConfig(level=log_level,
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
-    output_dir = setup_output_dir(args.file_after, args.file_before)
+    output_dir = setup_output_dir(args.file1, args.file2)
 
-    plot_comparison(args.file_before, args.file_after, args.key, output_dir)
+    plot_comparison(args.file1, args.file2, output_dir, args.key)
 
 
 if __name__ == "__main__":
