@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -130,7 +129,7 @@ type manager struct {
 	nodeHandlersMu lock.RWMutex
 	// nodeHandlers has a slice containing all node handlers subscribed to node
 	// events.
-	nodeHandlers map[datapath.NodeHandler]struct{}
+	nodeHandlers map[node.Handler]struct{}
 
 	// group of jobs, tied to the lifecycle of the manager
 	jobGroup job.Group
@@ -181,7 +180,7 @@ type manager struct {
 }
 
 // Subscribe subscribes the given node handler to node events.
-func (m *manager) Subscribe(nh datapath.NodeHandler) {
+func (m *manager) Subscribe(nh node.Handler) {
 	m.nodeHandlersMu.Lock()
 	m.nodeHandlers[nh] = struct{}{}
 	m.nodeHandlersMu.Unlock()
@@ -203,14 +202,14 @@ func (m *manager) Subscribe(nh datapath.NodeHandler) {
 }
 
 // Unsubscribe unsubscribes the given node handler with node events.
-func (m *manager) Unsubscribe(nh datapath.NodeHandler) {
+func (m *manager) Unsubscribe(nh node.Handler) {
 	m.nodeHandlersMu.Lock()
 	delete(m.nodeHandlers, nh)
 	m.nodeHandlersMu.Unlock()
 }
 
 // Iter executes the given function in all subscribed node handlers.
-func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
+func (m *manager) Iter(f func(nh node.Handler)) {
 	m.nodeHandlersMu.RLock()
 	defer m.nodeHandlersMu.RUnlock()
 
@@ -288,7 +287,7 @@ func New(
 		conf:                   c,
 		underlay:               tunnelConf.UnderlayProtocol(),
 		controllerManager:      controller.NewManager(),
-		nodeHandlers:           map[datapath.NodeHandler]struct{}{},
+		nodeHandlers:           map[node.Handler]struct{}{},
 		ipcache:                ipCache,
 		ipsetMgr:               ipsetMgr,
 		ipsetInitializer:       ipsetMgr.NewInitializer(),
@@ -440,7 +439,7 @@ func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime tim
 		entry.mutex.Lock()
 		m.mutex.RUnlock()
 		{
-			m.Iter(func(nh datapath.NodeHandler) {
+			m.Iter(func(nh node.Handler) {
 				if err := nh.NodeValidateImplementation(entry.node); err != nil {
 					m.logger.Error(
 						"Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.",
@@ -860,7 +859,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		entry.node = n
 		if dpUpdate {
 			var errs error
-			m.Iter(func(nh datapath.NodeHandler) {
+			m.Iter(func(nh node.Handler) {
 				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
 					m.logger.Error(
 						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
@@ -893,7 +892,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		m.mutex.Unlock()
 		var errs error
 		if dpUpdate {
-			m.Iter(func(nh datapath.NodeHandler) {
+			m.Iter(func(nh node.Handler) {
 				if err := nh.NodeAdd(entry.node); err != nil {
 					m.logger.Error(
 						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
@@ -1159,7 +1158,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	}
 	m.mutex.Unlock()
 	var errs error
-	m.Iter(func(nh datapath.NodeHandler) {
+	m.Iter(func(nh node.Handler) {
 		if err := nh.NodeDelete(n); err != nil {
 			// For now we log the error and continue. Eventually we will want to encorporate
 			// this into the node managers health status.

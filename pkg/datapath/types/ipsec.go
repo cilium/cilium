@@ -5,13 +5,15 @@ package types
 
 import (
 	"net"
+
+	"github.com/cilium/cilium/pkg/node"
 )
 
 type IPsecAgent interface {
 	Enabled() bool
 	AuthKeySize() int
 	SPI() uint8
-	StartBackgroundJobs(NodeHandler) error
+	StartBackgroundJobs(node.Handler) error
 	UpsertIPsecEndpoint(params *IPSecParameters) (uint8, error)
 	DeleteIPsecEndpoint(nodeID uint16) error
 	DeleteXFRM(reqID int) error

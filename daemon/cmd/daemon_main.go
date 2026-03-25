@@ -1214,7 +1214,7 @@ type daemonParams struct {
 	WGAgent             wgTypes.WireguardAgent
 	LocalNodeStore      *node.LocalNodeStore
 	K8sWatcher          *watchers.K8sWatcher
-	NodeHandler         datapath.NodeHandler
+	NodeHandler         node.Handler
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator

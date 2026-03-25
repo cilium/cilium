@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -26,7 +27,7 @@ func (*IPsecAgent) SPI() uint8 {
 	return 4
 }
 
-func (*IPsecAgent) StartBackgroundJobs(types.NodeHandler) error {
+func (*IPsecAgent) StartBackgroundJobs(node.Handler) error {
 	return nil
 }
 

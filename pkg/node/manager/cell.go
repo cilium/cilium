@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -43,10 +42,10 @@ type Notifier interface {
 	// notified of node changes. Upon call to this method, the NodeHandler is
 	// being notified of all nodes that are already in the cluster by calling
 	// the NodeHandler's NodeAdd callback.
-	Subscribe(datapath.NodeHandler)
+	Subscribe(node.Handler)
 
 	// Unsubscribe removes the given NodeHandler from the list of subscribers.
-	Unsubscribe(datapath.NodeHandler)
+	Unsubscribe(node.Handler)
 }
 
 type NodeManager interface {

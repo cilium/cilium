@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -84,7 +85,7 @@ type paramsOut struct {
 	RemoteIdentityWatcher clustermesh.RemoteIdentityWatcher
 	CacheStatus           k8sSynced.CacheStatus
 	ClusterInfo           cmtypes.ClusterInfo
-	NodeHandler           types.NodeHandler
+	NodeHandler           node.Handler
 	SecretSyncConfig      envoy.SecretSyncConfig
 }
 
@@ -110,7 +111,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 		nodeStore   *node.LocalNodeStore
 		mtuConfig   mtu.MTU
 		encryptMap  encrypt.EncryptMap
-		nodeHandler types.NodeHandler
+		nodeHandler node.Handler
 
 		ctx = t.Context()
 		ns  = netns.NewNetNS(t)
@@ -203,14 +204,14 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 						RemoteIdentityWatcher: nil,
 						CacheStatus:           make(k8sSynced.CacheStatus),
 						ClusterInfo:           cmtypes.DefaultClusterInfo,
-						NodeHandler:           fakeTypes.NewNodeHandler(),
+						NodeHandler:           fakenode.NewHandler(),
 						SecretSyncConfig:      envoy.SecretSyncConfig{},
 					}
 				},
 			),
 
 			cell.Invoke(
-				func(a types.IPsecAgent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n types.NodeHandler) {
+				func(a types.IPsecAgent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n node.Handler) {
 					ipsecAgent = a.(*Agent)
 					nodeStore = s
 					mtuConfig = m
