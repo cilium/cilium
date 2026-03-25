@@ -40,12 +40,14 @@ type ProxyConfig struct {
 	ProxyXffNumTrustedHopsEgress        uint32
 	EnvoyPolicyRestoreTimeout           time.Duration
 	EnvoyHTTPUpstreamLingerTimeout      int
+	EnvoyAccessLogEnabled               bool
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("disable-envoy-version-check", false, "Do not perform Envoy version check")
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
+	flags.Bool("envoy-access-log-enabled", true, "Enable access log forwarding for integration with Hubble.")
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")
