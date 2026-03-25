@@ -105,6 +105,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			policyRestoreTimeout:          params.EnvoyProxyConfig.EnvoyPolicyRestoreTimeout,
 			metrics:                       params.Metrics,
 			httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
+			envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
 		},
 		params.SecretManager)
 

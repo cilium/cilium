@@ -1494,6 +1494,7 @@ data:
 {{- if .Values.envoy.log.defaultLevel }}
   envoy-default-log-level: {{ .Values.envoy.log.defaultLevel | quote }}
 {{- end }}
+  envoy-access-log-enabled: {{ .Values.envoy.log.accessLogEnabled | quote }}
 {{- if .Values.envoy.log.accessLogBufferSize }}
   envoy-access-log-buffer-size: {{ .Values.envoy.log.accessLogBufferSize | quote }}
 {{- end }}

@@ -211,6 +211,7 @@ cilium-agent [flags]
       --eni-subnet-tags stringToString                            List of tags to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level (default [])
       --eni-use-primary-address                                   Whether an ENI's primary address should be available for allocations on the node at the node level
       --envoy-access-log-buffer-size uint                         Envoy access log buffer size in bytes (default 4096)
+      --envoy-access-log-enabled                                  Enable access log forwarding for integration with Hubble. (default true)
       --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
       --envoy-config-timeout duration                             Timeout that determines how long to wait for Envoy to N/ACK CiliumEnvoyConfig resources (default 2m0s)

@@ -2546,6 +2546,9 @@
                 "integer"
               ]
             },
+            "accessLogEnabled": {
+              "type": "boolean"
+            },
             "defaultLevel": {
               "oneOf": [
                 {
