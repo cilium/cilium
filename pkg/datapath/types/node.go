@@ -19,11 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
-type MTUConfiguration interface {
-	GetDeviceMTU() int
-	GetRouteMTU() int
-}
-
 // LocalNodeConfiguration represents the configuration of the local node
 //
 // This configuration struct is immutable even when passed by reference.
