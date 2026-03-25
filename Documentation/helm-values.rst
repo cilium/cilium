@@ -1315,7 +1315,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:60031f39669542b21aedf05a3317d14e8d3ea48255790af039b315a1c9637361","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1773656288-7b052e66eb2cfc5ac130ce0a5be66202a10d83be","useDigest":true}``
+     - ``{"digest":"sha256:4249c48d5b98af65530e04024fec378fd6220f8b0b5e6e298c985cae4fd804cb","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1774363526-9d47d40f80df306891816788b71415813ce49ef3","useDigest":true}``
    * - :spelling:ignore:`envoy.initialFetchTimeoutSeconds`
      - Time in seconds after which the initial fetch on an xDS stream is considered timed out
      - int
