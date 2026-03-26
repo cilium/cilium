@@ -29,10 +29,10 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
@@ -165,7 +165,7 @@ type Endpoint struct {
 	identityManager  identitymanager.IDManager
 	monitorAgent     monitoragent.Agent
 	wgConfig         wgTypes.WireguardConfig
-	ipsecConfig      datapath.IPsecConfig
+	ipsecConfig      ipsec.Config
 	lxcMap           lxcmap.Map
 	localNodeStore   node.NodeGetter
 

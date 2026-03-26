@@ -25,6 +25,8 @@ import (
 	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
@@ -38,7 +40,7 @@ import (
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
-	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
+	fakeencrypt "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
@@ -66,7 +68,7 @@ var Cell = cell.Module(
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
-		func() encrypt.EncryptMap { return fakeencryptmap.NewFakeEncryptMap() },
+		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },
 		func() *egressmap.PolicyMap4 { return nil },
 		func() *egressmap.PolicyMap6 { return nil },
 		func() lxcmap.Map { return nil },
@@ -74,8 +76,8 @@ var Cell = cell.Module(
 		func() iptables.Manager { return fakeiptables.NewManager() },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
-		func() types.IPsecAgent { return &fakeTypes.IPsecAgent{} },
-		func() types.IPsecConfig { return &fakeTypes.IPsecConfig{} },
+		func() ipsec.Agent { return &fakeipsec.Agent{} },
+		func() ipsec.Config { return &fakeipsec.Config{} },
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() wgTypes.WireguardAgent { return &fakeTypes.WireguardAgent{} },
 		func() wgTypes.WireguardConfig { return &fakeTypes.WireguardConfig{} },

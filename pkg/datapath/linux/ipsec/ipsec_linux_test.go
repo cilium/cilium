@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	tnl "github.com/cilium/cilium/pkg/testutils/netlink"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -75,7 +75,7 @@ func testWithFamilies(t *testing.T, f func(t *testing.T, family string)) {
 	}
 }
 
-func mustUpsertIPSecEndpoint(tb testing.TB, ns *netns.NetNS, a *Agent, params *types.IPSecParameters) {
+func mustUpsertIPSecEndpoint(tb testing.TB, ns *netns.NetNS, a *agent, params *types.Parameters) {
 	tb.Helper()
 
 	require.NoError(tb, ns.Do(func() error {
@@ -104,7 +104,7 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 	_, _, err := a.LoadIPSecKeys(keys)
 	require.Error(t, err)
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -205,7 +205,7 @@ func testUpsertIPSecEquals(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -285,7 +285,7 @@ func testUpsertIPSecEndpointOut(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -407,7 +407,7 @@ func testUpsertIPSecEndpointFwd(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -509,7 +509,7 @@ func testUpsertIPSecEndpointIn(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
@@ -599,7 +599,7 @@ func TestPrivilegedUpsertIPSecKeyMissing(t *testing.T) {
 func testUpsertIPSecKeyMissing(t *testing.T, family string) {
 	local, remote := setup(t, family)
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   remoteNodeID,
@@ -647,7 +647,7 @@ func testUpdateExistingIPSecEndpoint(t *testing.T, family string) {
 	a.ipSecKeysGlobal[remote.IP.String()] = key
 	a.ipSecKeysGlobal[""] = key
 
-	params := &types.IPSecParameters{
+	params := &types.Parameters{
 		LocalBootID:    localBootID,
 		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,

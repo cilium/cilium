@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,19 +38,19 @@ type params struct {
 	Log            *slog.Logger
 	JobGroup       job.Group
 	LocalNodeStore *node.LocalNodeStore
-	Config         Config
+	Config         config
 	EncryptMap     encrypt.EncryptMap
 }
 
-// newIPsecAgent returns the [*Agent] as an interface [types.IPsecAgent]
+// newIPsecAgent returns the [*agent] as an interface [Agent]
 // and the map of macros [defines.NodeOut] for datapath compilation.
 func newIPsecAgent(p params) (out struct {
 	cell.Out
-	types.IPsecAgent
+	types.Agent
 	defines.NodeOut
 }) {
-	out.IPsecAgent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
-	if out.IPsecAgent.Enabled() {
+	out.Agent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.Config, p.EncryptMap)
+	if out.Agent.Enabled() {
 		out.NodeDefines = map[string]string{
 			"ENABLE_IPSEC": "1",
 		}
@@ -58,14 +58,14 @@ func newIPsecAgent(p params) (out struct {
 	return
 }
 
-// newIPsecAgent returns the [Config] as an interface [types.IPsecConfig].
-func newIPsecConfig(c Config) types.IPsecConfig {
+// newIPsecConfig returns a new Config.
+func newIPsecConfig(c config) types.Config {
 	return c
 }
 
-// buildConfigFrom creates the [Config] from [UserConfig] and [option.DaemonConfig].
-func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
-	return Config{
+// buildConfigFrom creates the [config] from [UserConfig] and [option.DaemonConfig].
+func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) config {
+	return config{
 		UserConfig: uc,
 
 		EncryptNode: dc.EncryptNode,
@@ -94,29 +94,29 @@ type UserConfig struct {
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	def.EnableConfig.Flags(flags)
-	flags.Bool(types.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
-	flags.Bool(types.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
-	flags.MarkHidden(types.EnableIPSecXfrmStateCaching)
-	flags.MarkDeprecated(types.EnableIPSecEncryptedOverlay, "Encrypted overlay is the default behavior for IPsec.")
-	flags.Bool(types.UseCiliumInternalIPForIPsec, def.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
-	flags.MarkHidden(types.UseCiliumInternalIPForIPsec)
-	flags.Bool(types.DNSProxyInsecureSkipTransparentModeCheck, def.DNSProxyInsecureSkipTransparentModeCheck, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
-	flags.MarkHidden(types.DNSProxyInsecureSkipTransparentModeCheck)
-	flags.String(types.IPSecKeyFile, def.IPsecKeyFile, "Path to IPsec key file")
-	flags.Duration(types.IPsecKeyRotationDuration, def.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
+	flags.Bool(option.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
+	flags.Bool(option.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
+	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
+	flags.MarkDeprecated(option.EnableIPSecEncryptedOverlay, "Encrypted overlay is the default behavior for IPsec.")
+	flags.Bool(option.UseCiliumInternalIPForIPsec, def.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
+	flags.MarkHidden(option.UseCiliumInternalIPForIPsec)
+	flags.Bool(option.DNSProxyInsecureSkipTransparentModeCheck, def.DNSProxyInsecureSkipTransparentModeCheck, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
+	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
+	flags.String(option.IPSecKeyFile, def.IPsecKeyFile, "Path to IPsec key file")
+	flags.Duration(option.IPsecKeyRotationDuration, def.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
 }
 
-type Config struct {
+type config struct {
 	UserConfig
 
 	EncryptNode bool
 }
 
-func (c Config) UseCiliumInternalIP() bool {
+func (c config) UseCiliumInternalIP() bool {
 	return c.UseCiliumInternalIPForIPsec
 }
 
-func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
+func (c config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 	return c.DNSProxyInsecureSkipTransparentModeCheck
 }
 
@@ -125,7 +125,7 @@ func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 // of the key rotation duration to prevent thundering herd on the K8s API server
 // while ensuring agents have sufficient time to load new keys before the old
 // keys are removed.
-func (c Config) MaxKeyRotationJitter() time.Duration {
+func (c config) MaxKeyRotationJitter() time.Duration {
 	return c.IPsecKeyRotationDuration / 10
 }
 
@@ -138,7 +138,7 @@ type EnableConfig struct {
 }
 
 func (def EnableConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
+	flags.Bool(option.EnableIPSec, def.EnableIPsec, "Enable IPsec")
 }
 
 func (c EnableConfig) Enabled() bool {

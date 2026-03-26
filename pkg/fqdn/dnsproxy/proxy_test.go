@@ -30,6 +30,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -176,7 +177,7 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		Logger:           s.logger,
 		IdentityManager:  identitymanager.NewIDManager(s.logger),
 		PolicyRepo:       s.repo,
@@ -911,7 +912,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		Logger:           hivetest.Logger(t),
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		PolicyRepo:       s.repo,
@@ -973,7 +974,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		Logger:           hivetest.Logger(t),
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		PolicyRepo:       s.repo,
@@ -1195,7 +1196,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		WgConfig:         &fakeTypes.WireguardConfig{},
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		Logger:           hivetest.Logger(t),
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		PolicyRepo:       s.repo,

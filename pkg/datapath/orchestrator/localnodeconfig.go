@@ -16,10 +16,10 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
@@ -69,7 +69,7 @@ func newLocalNodeConfig(
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.WireguardAgent,
-	ipsecCfg datapath.IPsecConfig,
+	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 ) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}

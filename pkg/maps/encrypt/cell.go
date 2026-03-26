@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -18,6 +18,6 @@ var Cell = cell.Module(
 )
 
 // newEncryptMap returns the [*encryptMap] as an interface [EncryptMap].
-func newEncryptMap(lc cell.Lifecycle, ipsecCfg types.IPsecConfig, dc *option.DaemonConfig) bpf.MapOut[EncryptMap] {
+func newEncryptMap(lc cell.Lifecycle, ipsecCfg ipsec.Config, dc *option.DaemonConfig) bpf.MapOut[EncryptMap] {
 	return bpf.NewMapOut(EncryptMap(newMap(lc, ipsecCfg, dc)))
 }

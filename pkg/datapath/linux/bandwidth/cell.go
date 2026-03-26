@@ -17,9 +17,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -111,7 +111,7 @@ type bandwidthManagerParams struct {
 	Sysctl       sysctl.Sysctl
 	DB           *statedb.DB
 	EdtTable     statedb.RWTable[bwmap.Edt]
-	IPsecConfig  datapath.IPsecConfig
+	IPsecConfig  ipsec.Config
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {

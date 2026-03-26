@@ -13,8 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/fake/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -43,7 +44,7 @@ type kprConfig struct {
 
 	lbConfig    loadbalancer.Config
 	kprConfig   kpr.KPRConfig
-	ipsecConfig types.IPsecConfig
+	ipsecConfig ipsec.Config
 }
 
 func (cfg *kprConfig) set() (err error) {
@@ -59,7 +60,7 @@ func (cfg *kprConfig) set() (err error) {
 		return err
 	}
 
-	cfg.ipsecConfig = fakeTypes.IPsecConfig{EnableIPsec: cfg.enableIPSec}
+	cfg.ipsecConfig = fakeipsec.Config{EnableIPsec: cfg.enableIPSec}
 	option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade

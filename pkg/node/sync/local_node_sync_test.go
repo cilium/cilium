@@ -17,7 +17,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -128,7 +128,7 @@ func TestLocalNodeSync(t *testing.T) {
 					},
 				},
 			},
-			IPsecConfig: fakeTypes.IPsecConfig{},
+			IPsecConfig: fakeipsec.Config{},
 		})
 	)
 
@@ -192,7 +192,7 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 					},
 				},
 			},
-			IPsecConfig: fakeTypes.IPsecConfig{},
+			IPsecConfig: fakeipsec.Config{},
 			K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
 				items: []resource.Event[*v2.CiliumNode]{
 					{
@@ -319,7 +319,7 @@ func testNodeDeletion(t *testing.T, nodeEvent resource.Event[*slim_corev1.Node])
 			IPv4NodeAddr: "1.2.3.4",
 			IPv6NodeAddr: "fd00::1",
 		},
-		IPsecConfig:  fakeTypes.IPsecConfig{},
+		IPsecConfig:  fakeipsec.Config{},
 		K8sLocalNode: fakeNode,
 		K8sCiliumLocalNode: &mockResource[*v2.CiliumNode]{
 			items: []resource.Event[*v2.CiliumNode]{

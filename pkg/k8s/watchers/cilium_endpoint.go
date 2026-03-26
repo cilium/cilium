@@ -11,7 +11,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
@@ -45,7 +45,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	PolicyUpdater   *policy.Updater
 	IPCache         *ipcache.IPCache
 	WgConfig        wgTypes.WireguardConfig
-	IPSecConfig     datapath.IPsecConfig
+	IPSecConfig     ipsec.Config
 	LocalNodeStore  *node.LocalNodeStore
 }
 
@@ -80,7 +80,7 @@ type K8sCiliumEndpointsWatcher struct {
 	policyManager   policyManager
 	ipcache         ipcacheManager
 	wgConfig        wgTypes.WireguardConfig
-	ipsecConfig     datapath.IPsecConfig
+	ipsecConfig     ipsec.Config
 	localNodeStore  *node.LocalNodeStore
 
 	ciliumSlimEndpoint  resource.Resource[*types.CiliumEndpoint]

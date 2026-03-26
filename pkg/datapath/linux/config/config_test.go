@@ -25,6 +25,8 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -107,7 +109,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
 				NewHeaderfileWriter,
-				func() datapath.IPsecConfig { return fakeTypes.IPsecConfig{} },
+				func() ipsec.Config { return fakeipsec.Config{} },
 			),
 			kpr.Cell,
 			cell.Invoke(func(writer_ Writer) {

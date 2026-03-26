@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -53,7 +53,7 @@ const (
 )
 
 // newMap will construct a bpf.Map that is not open or created yet.
-func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonConfig) *encryptMap {
+func newMap(lc cell.Lifecycle, ipsecCfg ipsec.Config, dc *option.DaemonConfig) *encryptMap {
 	if !ipsecCfg.Enabled() {
 		return &encryptMap{}
 	}

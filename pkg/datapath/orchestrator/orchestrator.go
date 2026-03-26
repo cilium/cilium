@@ -20,12 +20,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -120,7 +120,7 @@ type orchestratorParams struct {
 	SvcRouteConfig      svcrouteconfig.RoutesConfig
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.WireguardAgent
-	IPsecConfig         datapath.IPsecConfig
+	IPsecConfig         ipsec.Config
 	BIGTCPConfig        *bigtcp.Configuration
 	ConnectorConfig     connector.Config
 }

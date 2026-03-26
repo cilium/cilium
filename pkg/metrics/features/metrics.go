@@ -11,9 +11,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -972,11 +972,11 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 }
 
 type featureMetrics interface {
-	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig)
+	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg ipsec.Config)
 	toGatherer() (prometheus.Gatherer, error)
 }
 
-func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) {
+func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg ipsec.Config) {
 	networkMode := networkModeDirectRouting
 	if config.TunnelingEnabled() {
 		switch params.TunnelProtocol() {

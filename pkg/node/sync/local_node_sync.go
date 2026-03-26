@@ -13,8 +13,8 @@ import (
 	"github.com/cilium/hive/cell"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -47,7 +47,7 @@ type localNodeSynchronizerParams struct {
 	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
-	IPsecConfig        datapath.IPsecConfig
+	IPsecConfig        ipsec.Config
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
