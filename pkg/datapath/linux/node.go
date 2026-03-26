@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -54,7 +55,7 @@ type linuxNodeHandler struct {
 
 	mutex             lock.RWMutex
 	isInitialized     bool
-	nodeConfig        datapath.LocalNodeConfiguration
+	nodeConfig        config.Config
 	datapathConfig    DatapathConfiguration
 	nodes             map[nodeTypes.Identity]*nodeTypes.Node
 	ipsecUpdateNeeded map[nodeTypes.Identity]bool
@@ -80,9 +81,9 @@ type linuxNodeHandler struct {
 }
 
 var (
-	_ node.Handler             = (*linuxNodeHandler)(nil)
-	_ datapath.NodeConfigChangeHandler = (*linuxNodeHandler)(nil)
-	_ datapath.NodeIDHandler           = (*linuxNodeHandler)(nil)
+	_ node.Handler           = (*linuxNodeHandler)(nil)
+	_ config.ChangeHandler   = (*linuxNodeHandler)(nil)
+	_ datapath.NodeIDHandler = (*linuxNodeHandler)(nil)
 )
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -132,7 +133,7 @@ func newNodeHandler(
 	return &linuxNodeHandler{
 		log:                  log,
 		datapathConfig:       datapathConfig,
-		nodeConfig:           datapath.LocalNodeConfiguration{},
+		nodeConfig:           config.Config{},
 		nodes:                map[nodeTypes.Identity]*nodeTypes.Node{},
 		localNodeStore:       localNodeStore,
 		nodeMap:              nodeMap,
@@ -689,7 +690,7 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
-func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNodeConfiguration) error {
+func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) error {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 

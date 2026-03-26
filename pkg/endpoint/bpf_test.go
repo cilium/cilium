@@ -12,9 +12,9 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -77,8 +77,8 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	e.Start(uint16(model.ID))
 	b.Cleanup(e.Stop)
 
-	configWriter := &config.HeaderfileWriter{}
-	cfg := datapath.LocalNodeConfiguration{}
+	configWriter := &linuxConfig.HeaderfileWriter{}
+	cfg := config.Config{}
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -81,7 +82,7 @@ type orchestrator struct {
 	initDone              bool
 	dpInitialized         chan struct{}
 	trigger               chan reinitializeRequest
-	latestLocalNodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
+	latestLocalNodeConfig atomic.Pointer[config.Config]
 }
 
 type reinitializeRequest struct {
@@ -313,7 +314,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *datapath.LocalNodeConfiguration) error {
+func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *config.Config) error {
 	if req.ctx != nil {
 		ctx = req.ctx
 	}

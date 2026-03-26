@@ -16,9 +16,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/config"
+	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -30,7 +30,7 @@ type objectCache struct {
 	logger *slog.Logger
 
 	lock.Mutex
-	config.Writer
+	linuxConfig.Writer
 
 	// The directory used for caching. Must not be accessed by another process.
 	workingDirectory string
@@ -52,7 +52,7 @@ type cachedSpec struct {
 	path string
 }
 
-func newObjectCache(logger *slog.Logger, c config.Writer, workingDir string) *objectCache {
+func newObjectCache(logger *slog.Logger, c linuxConfig.Writer, workingDir string) *objectCache {
 	return &objectCache{
 		logger:           logger,
 		Writer:           c,
@@ -63,7 +63,7 @@ func newObjectCache(logger *slog.Logger, c config.Writer, workingDir string) *ob
 
 // UpdateDatapathHash invalidates the object cache if the configuration of the
 // datapath has changed.
-func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguration) error {
+func (o *objectCache) UpdateDatapathHash(nodeCfg *config.Config) error {
 	newHash, err := hashDatapath(o.Writer, nodeCfg)
 	if err != nil {
 		return fmt.Errorf("hash datapath config: %w", err)
@@ -120,7 +120,7 @@ func (o *objectCache) serialize(key string) *cachedSpec {
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, nodeCfg *config.Config, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, hash)
 	dir = &directoryInfo{
@@ -173,7 +173,7 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 // same set of EndpointConfiguration.
 //
 // Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
-func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *config.Config, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
 	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)

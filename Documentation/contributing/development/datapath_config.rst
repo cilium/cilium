@@ -173,7 +173,7 @@ Populate it in the agent through ``pkg/datapath/config.NodeConfig()``:
 
 .. code-block:: go
 
-  func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
+  func NodeConfig(lnc *config.Config) Node {
     ...
     node.Foo = 42
     ...

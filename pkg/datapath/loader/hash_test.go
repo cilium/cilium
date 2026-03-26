@@ -10,14 +10,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var (
-	dummyNodeCfg = datapath.LocalNodeConfiguration{}
+	dummyNodeCfg = config.Config{}
 )
 
 // TestHashDatapath is done in this package just for easy access to dummy
@@ -88,7 +88,7 @@ func TestHashTemplate(t *testing.T) {
 
 type fakeConfigWriter []byte
 
-func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *datapath.LocalNodeConfiguration) error {
+func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *config.Config) error {
 	if lnc == nil {
 		return errors.New("LocalNodeConfiguration is nil")
 	}
@@ -100,10 +100,10 @@ func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg endpoint.Config) error {
+func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *config.Config, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg endpoint.Config) error {
+func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *config.Config, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }

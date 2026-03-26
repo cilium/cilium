@@ -8,19 +8,19 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/config"
 )
 
 // NodeConfigNotifier is used to notify subscribers about changes in the local node configuration.
 // Handlers must be subscribed during hive construction, before the lifecycle starts.
 type NodeConfigNotifier struct {
-	handlers []datapath.NodeConfigChangeHandler
+	handlers []config.ChangeHandler
 	started  bool
 }
 
 func newNodeConfigNotifier(lifecycle cell.Lifecycle) *NodeConfigNotifier {
 	ncn := &NodeConfigNotifier{
-		handlers: make([]datapath.NodeConfigChangeHandler, 0),
+		handlers: make([]config.ChangeHandler, 0),
 	}
 
 	lifecycle.Append(cell.Hook{
@@ -33,7 +33,7 @@ func newNodeConfigNotifier(lifecycle cell.Lifecycle) *NodeConfigNotifier {
 	return ncn
 }
 
-func (n *NodeConfigNotifier) Subscribe(handler datapath.NodeConfigChangeHandler) {
+func (n *NodeConfigNotifier) Subscribe(handler config.ChangeHandler) {
 	if n.started {
 		panic("Cannot subscribe to NodeConfigChangeHandler after lifecycle has started")
 	}
@@ -41,7 +41,7 @@ func (n *NodeConfigNotifier) Subscribe(handler datapath.NodeConfigChangeHandler)
 	n.handlers = append(n.handlers, handler)
 }
 
-func (n *NodeConfigNotifier) Notify(nodeConfig datapath.LocalNodeConfiguration) error {
+func (n *NodeConfigNotifier) Notify(nodeConfig config.Config) error {
 	var errs error
 	for _, handler := range n.handlers {
 		errs = errors.Join(errs, handler.NodeConfigurationChanged(nodeConfig))

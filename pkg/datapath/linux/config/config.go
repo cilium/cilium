@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -52,7 +53,7 @@ import (
 type Writer interface {
 	// WriteNodeConfig writes the implementation-specific configuration of
 	// node-wide options into the specified writer.
-	WriteNodeConfig(io.Writer, *datapath.LocalNodeConfiguration) error
+	WriteNodeConfig(io.Writer, *config.Config) error
 
 	// WriteNetdevConfig writes the implementation-specific configuration
 	// of configurable options to the specified writer. Options specified
@@ -62,11 +63,11 @@ type Writer interface {
 
 	// WriteTemplateConfig writes the implementation-specific configuration
 	// of configurable options for BPF templates to the specified writer.
-	WriteTemplateConfig(w io.Writer, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config) error
+	WriteTemplateConfig(w io.Writer, nodeCfg *config.Config, cfg endpoint.Config) error
 
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
-	WriteEndpointConfig(w io.Writer, nodeCfg *datapath.LocalNodeConfiguration, cfg endpoint.Config) error
+	WriteEndpointConfig(w io.Writer, nodeCfg *config.Config, cfg endpoint.Config) error
 }
 
 // HeaderfileWriter is a wrapper type which implements Writer.
@@ -108,7 +109,7 @@ func writeIncludes(w io.Writer) (int, error) {
 // Deprecated: Future additions to this function will be rejected. The docs at
 // https://docs.cilium.io/en/latest/contributing/development/datapath_config
 // will guide you through adding new configuration.
-func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) error {
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	extraMacrosMap := make(dpdef.Map)
@@ -663,7 +664,7 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 }
 
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
-func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e endpoint.Config) error {
+func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *config.Config, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
@@ -671,7 +672,7 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 	return h.writeTemplateConfig(fw, cfg, e)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *datapath.LocalNodeConfiguration, e endpoint.Config) error {
+func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *config.Config, e endpoint.Config) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -694,7 +695,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *datapath.L
 }
 
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
-func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e endpoint.Config) error {
+func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *config.Config, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, cfg, e)
 }

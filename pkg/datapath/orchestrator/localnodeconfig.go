@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -51,7 +52,7 @@ const (
 // failing condition changes.
 func newLocalNodeConfig(
 	ctx context.Context,
-	config *option.DaemonConfig,
+	daemon *option.DaemonConfig,
 	localNode node.LocalNode,
 	sysctlOps sysctl.Sysctl,
 	tunnelCfg tunnel.Config,
@@ -69,22 +70,22 @@ func newLocalNodeConfig(
 	wgAgent wgTypes.WireguardAgent,
 	ipsecCfg datapath.IPsecConfig,
 	connectorConfig datapath.ConnectorConfig,
-) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
+) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
-	if config.IPv4ServiceRange != AutoCIDR {
-		serviceCIDR, err := cidr.ParseCIDR(config.IPv4ServiceRange)
+	if daemon.IPv4ServiceRange != AutoCIDR {
+		serviceCIDR, err := cidr.ParseCIDR(daemon.IPv4ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
+			return config.Config{}, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", daemon.IPv4ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	if config.IPv6ServiceRange != AutoCIDR {
-		serviceCIDR, err := cidr.ParseCIDR(config.IPv6ServiceRange)
+	if daemon.IPv6ServiceRange != AutoCIDR {
+		serviceCIDR, err := cidr.ParseCIDR(daemon.IPv6ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
+			return config.Config{}, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", daemon.IPv6ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -101,7 +102,7 @@ func newLocalNodeConfig(
 		if drd == nil {
 			// If the direct routing device is not present return the watch channel along with an error.
 			// Watch channel will be closed when there is an update to the DirectRouting device configuration.
-			return datapath.LocalNodeConfiguration{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
+			return config.Config{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
 		}
 
 		watchChans = append(watchChans, directRoutingDevWatch)
@@ -113,38 +114,38 @@ func newLocalNodeConfig(
 		var err error
 		wgIndex, err = wgAgent.IfaceIndex()
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting Wireguard device index: %w", err)
+			return config.Config{}, nil, fmt.Errorf("getting Wireguard device index: %w", err)
 		}
 	}
 
 	ephemeralMin, err := getEphemeralPortRangeMin(sysctlOps)
 	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
+		return config.Config{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
 	hostEndpointID, _ := node.GetEndpointID()
 
 	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
 	if !ok {
-		return datapath.LocalNodeConfiguration{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+		return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
 	watchChans = append(watchChans, hostWatch)
 	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
 	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
+		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
 	}
 
 	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
 	if !ok {
-		return datapath.LocalNodeConfiguration{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+		return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
 	watchChans = append(watchChans, netWatch)
 	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
 	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
+		return config.Config{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
 	}
 
-	return datapath.LocalNodeConfiguration{
+	return config.Config{
 		NodeIPv4:                     ip.AddrFromIP(localNode.GetNodeIP(false)),
 		NodeIPv6:                     ip.AddrFromIP(localNode.GetNodeIP(true)),
 		CiliumInternalIPv4:           ip.AddrFromIP(localNode.GetCiliumInternalIP(false)),
@@ -168,23 +169,23 @@ func newLocalNodeConfig(
 		RouteMTU:                     mtuRoute.RouteMTU,
 		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
 		AuxiliaryPrefixes:            auxPrefixes,
-		EnableIPv4:                   config.EnableIPv4,
-		EnableIPv6:                   config.EnableIPv6,
-		EnableEncapsulation:          config.TunnelingEnabled(),
+		EnableIPv4:                   daemon.EnableIPv4,
+		EnableIPv6:                   daemon.EnableIPv6,
+		EnableEncapsulation:          daemon.TunnelingEnabled(),
 		TunnelProtocol:               tunnelCfg.EncapProtocol().ToDpID(),
 		TunnelPort:                   tunnelCfg.Port(),
-		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
+		EnableAutoDirectRouting:      daemon.EnableAutoDirectRouting,
 		EphemeralMin:                 uint16(ephemeralMin),
-		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
-		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
+		DirectRoutingSkipUnreachable: daemon.DirectRoutingSkipUnreachable,
+		EnableLocalNodeRoute:         daemon.EnableLocalNodeRoute && daemon.IPAM != ipamOption.IPAMENI && daemon.IPAM != ipamOption.IPAMAzure && daemon.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
-		EnablePolicyAccounting:       config.PolicyAccounting,
+		EnablePolicyAccounting:       daemon.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
-		EncryptNode:                  config.EncryptNode,
-		EnableConntrackAccounting:    config.BPFConntrackAccounting,
-		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
-		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
+		EncryptNode:                  daemon.EncryptNode,
+		EnableConntrackAccounting:    daemon.BPFConntrackAccounting,
+		IPv4PodSubnets:               cidr.NewCIDRSlice(daemon.IPv4PodSubnets),
+		IPv6PodSubnets:               cidr.NewCIDRSlice(daemon.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
 		LBConfig:                     lbConfig,
 		KPRConfig:                    kprCfg,

@@ -6,12 +6,11 @@ package config
 import (
 	"github.com/vishvananda/netlink"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // Wireguard returns a [BPFWireguard].
-func Wireguard(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
+func Wireguard(lnc *Config, link netlink.Link) any {
 	cfg := NewBPFWireguard(NodeConfig(lnc))
 
 	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)

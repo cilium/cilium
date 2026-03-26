@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -20,9 +21,9 @@ type Loader interface {
 	Unload(ep endpoint.Endpoint)
 	HostDatapathInitialized() <-chan struct{}
 
-	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *types.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
-	EndpointHash(cfg endpoint.Config, lnCfg *types.LocalNodeConfiguration) (string, error)
+	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *config.Config, stats *metrics.SpanStat) (string, error)
+	EndpointHash(cfg endpoint.Config, lnCfg *config.Config) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
-	Reinitialize(ctx context.Context, cfg *types.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr types.IptablesManager, p types.Proxy, bigtcp bigtcp.Configuration) error
-	WriteEndpointConfig(w io.Writer, cfg endpoint.Config, lnCfg *types.LocalNodeConfiguration) error
+	Reinitialize(ctx context.Context, cfg *config.Config, tunnelConfig tunnel.Config, iptMgr types.IptablesManager, p types.Proxy, bigtcp bigtcp.Configuration) error
+	WriteEndpointConfig(w io.Writer, cfg endpoint.Config, lnCfg *config.Config) error
 }
