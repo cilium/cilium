@@ -370,8 +370,8 @@ func getIpEnableStatuses() (bool, bool) {
 	if _, err := client.Daemon.GetHealthz(params); err == nil {
 		if resp, err := client.ConfigGet(); err == nil {
 			if resp.Status != nil {
-				ipv4 := resp.Status.Addressing.IPV4 != nil && resp.Status.Addressing.IPV4.Enabled
-				ipv6 := resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled
+				ipv4 := resp.Status.Addressing.IPv4 != nil && resp.Status.Addressing.IPv4.Enabled
+				ipv6 := resp.Status.Addressing.IPv6 != nil && resp.Status.Addressing.IPv6.Enabled
 				return ipv4, ipv6
 			}
 		}

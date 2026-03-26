@@ -49,16 +49,16 @@ func (driver *driver) getPoolResponse(req *api.RequestPoolRequest) *api.RequestP
 			PoolID: PoolIPv4,
 			Pool:   "0.0.0.0/0",
 			Data: map[string]string{
-				"com.docker.network.gateway": addr.IPV4.IP + "/32",
+				"com.docker.network.gateway": addr.IPv4.IP + "/32",
 			},
 		}
 	}
 
 	return &api.RequestPoolResponse{
 		PoolID: PoolIPv6,
-		Pool:   addr.IPV6.AllocRange,
+		Pool:   addr.IPv6.AllocRange,
 		Data: map[string]string{
-			"com.docker.network.gateway": addr.IPV6.IP + "/128",
+			"com.docker.network.gateway": addr.IPv6.IP + "/128",
 		},
 	}
 }
@@ -122,16 +122,16 @@ func (driver *driver) requestAddress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &api.RequestAddressResponse{}
-	if addr.IPV6 != "" {
+	if addr.IPv6 != "" {
 		if family != client.AddressFamilyIPv6 {
 			sendError(driver.logger, w, "Requested IPv4, received IPv6 address", http.StatusInternalServerError)
 		}
-		resp.Address = addr.IPV6 + "/128"
-	} else if addr.IPV4 != "" {
+		resp.Address = addr.IPv6 + "/128"
+	} else if addr.IPv4 != "" {
 		if family != client.AddressFamilyIPv4 {
 			sendError(driver.logger, w, "Requested IPv6, received IPv4 address", http.StatusInternalServerError)
 		}
-		resp.Address = addr.IPV4 + "/32"
+		resp.Address = addr.IPv4 + "/32"
 	}
 
 	driver.logger.Debug("Request Address response", logfields.Response, resp)

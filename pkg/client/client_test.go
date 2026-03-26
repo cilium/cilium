@@ -67,7 +67,7 @@ func TestFormStatusResponse(t *testing.T) {
 			sr: &models.StatusResponse{
 				KubeProxyReplacement: &models.KubeProxyReplacement{},
 				Masquerading: &models.Masquerading{
-					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPV4: true},
+					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPv4: true},
 					Enabled:             true,
 					SnatExclusionCidrV4: "10.0.0.0/16",
 					Mode:                models.MasqueradingModeBPF,
@@ -81,7 +81,7 @@ func TestFormStatusResponse(t *testing.T) {
 			sr: &models.StatusResponse{
 				KubeProxyReplacement: &models.KubeProxyReplacement{},
 				Masquerading: &models.Masquerading{
-					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPV6: true},
+					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPv6: true},
 					Enabled:             true,
 					SnatExclusionCidrV6: "fd00::/10",
 					Mode:                models.MasqueradingModeBPF,
@@ -95,7 +95,7 @@ func TestFormStatusResponse(t *testing.T) {
 			sr: &models.StatusResponse{
 				KubeProxyReplacement: &models.KubeProxyReplacement{},
 				Masquerading: &models.Masquerading{
-					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPV4: true, IPV6: true},
+					EnabledProtocols:    &models.MasqueradingEnabledProtocols{IPv4: true, IPv6: true},
 					Enabled:             true,
 					SnatExclusionCidrV6: "fd00::/10",
 					SnatExclusionCidrV4: "10.0.0.0/16",

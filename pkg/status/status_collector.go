@@ -124,8 +124,8 @@ func (d *statusCollector) getMasqueradingStatus(ctx context.Context) (*models.Ma
 	s := &models.Masquerading{
 		Enabled: d.statusParams.DaemonConfig.MasqueradingEnabled(),
 		EnabledProtocols: &models.MasqueradingEnabledProtocols{
-			IPV4: d.statusParams.DaemonConfig.EnableIPv4Masquerade,
-			IPV6: d.statusParams.DaemonConfig.EnableIPv6Masquerade,
+			IPv4: d.statusParams.DaemonConfig.EnableIPv4Masquerade,
+			IPv6: d.statusParams.DaemonConfig.EnableIPv6Masquerade,
 		},
 	}
 
@@ -538,11 +538,11 @@ func (d *statusCollector) dumpIPAM() *models.IPAMStatus {
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv4 {
-		status.IPV4 = v4
+		status.IPv4 = v4
 	}
 
 	if d.statusParams.DaemonConfig.EnableIPv6 {
-		status.IPV6 = v6
+		status.IPv6 = v6
 	}
 
 	status.Allocations = allocv4
@@ -1030,7 +1030,7 @@ func (d *statusCollector) getProbes() []Probe {
 
 				if status.Err == nil {
 					if s, ok := status.Data.(*models.IPV6BigTCP); ok {
-						d.statusResponse.IPV6BigTCP = s
+						d.statusResponse.IPv6BigTCP = s
 					}
 				}
 			},
@@ -1046,7 +1046,7 @@ func (d *statusCollector) getProbes() []Probe {
 
 				if status.Err == nil {
 					if s, ok := status.Data.(*models.IPV4BigTCP); ok {
-						d.statusResponse.IPV4BigTCP = s
+						d.statusResponse.IPv4BigTCP = s
 					}
 				}
 			},

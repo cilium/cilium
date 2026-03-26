@@ -46,13 +46,13 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
 		}
 
-		masq = conf.MasqueradeProtocols.IPV4
+		masq = conf.MasqueradeProtocols.IPv4
 	} else {
 		for _, cidr := range ipv6CIDRs {
 			coalescedCIDRs = append(coalescedCIDRs, cidr.String())
 		}
 
-		masq = conf.MasqueradeProtocols.IPV6
+		masq = conf.MasqueradeProtocols.IPv6
 	}
 
 	routingInfo, err := linuxrouting.NewRoutingInfo(
