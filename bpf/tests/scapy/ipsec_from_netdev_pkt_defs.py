@@ -5,18 +5,16 @@ from scapy.all import *
 
 from pkt_defs_common import *
 
-## Wireguard from netdev (decrypt_host.h)
+## IPSec from netdev (decrypt_host.h)
 
-wireguard_port = 51871
-
-v4_wireguard = (
+v4_ipsec = (
     Ether(dst=mac_two, src=mac_one) /
     IP(src=v4_node_one, dst=v4_node_two) /
-    UDP(sport=wireguard_port, dport=wireguard_port)
+    ESP(spi=0x1, seq=1)
 )
 
-v6_wireguard = (
+v6_ipsec = (
     Ether(dst=mac_two, src=mac_one) /
     IPv6(src=v6_node_one, dst=v6_node_two) /
-    UDP(sport=wireguard_port, dport=wireguard_port)
+    ESP(spi=0x1, seq=1)
 )

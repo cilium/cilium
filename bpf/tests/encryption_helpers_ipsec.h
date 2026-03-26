@@ -22,6 +22,7 @@
 #define SOURCE_IDENTITY (CIDR_IDENTITY_RANGE_START - 1)
 #define DST_IP v4_pod_two
 #define DST_IP_6 v6_pod_two
+#define SOURCE_NODE_ID 0x08b8
 #define DST_NODE_ID 0x08b9
 #define DST_NODE_IP v4_node_two
 #define DST_NODE_IP_6 v6_node_two
