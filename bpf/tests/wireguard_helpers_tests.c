@@ -5,7 +5,6 @@
 #define ENABLE_NODE_ENCRYPTION 1
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define ETH_LEN 14
 
 #define CLUSTER_IDENTITY 0x5555
 
@@ -64,7 +63,7 @@ int check1(struct __ctx_buff *ctx)
 
 	assert((void *)udp + sizeof(struct udphdr) <= data_end)
 
-	l4_off = ETH_LEN + ipv4_hdrlen(ipv4);
+	l4_off = sizeof(struct ethhdr) + ipv4_hdrlen(ipv4);
 	protocol = ipv4->protocol;
 
 	/* Valid Wireguard packet. */
