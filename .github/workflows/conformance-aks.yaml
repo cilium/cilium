@@ -331,12 +331,6 @@ jobs:
           tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
           taints: ${{ env.cost_reduction }}
 
-      - name: Get cluster credentials
-        run: |
-          az aks get-credentials \
-            --resource-group ${{ env.name }} \
-            --name ${{ env.name }}
-
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
         uses: ./.github/actions/get-cloud-kubeconfig

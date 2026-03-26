@@ -67,3 +67,9 @@ runs:
           --generate-ssh-keys \
           --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
 
+    - name: Get cluster credentials
+      shell: bash
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ inputs.cluster_name }} \
+          --name ${{ inputs.cluster_name }}
