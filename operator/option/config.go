@@ -61,22 +61,6 @@ const (
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools = "auto-create-cilium-pod-ip-pools"
 
-	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
-	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
-	ClusterPoolIPv4CIDR = "cluster-pool-ipv4-cidr"
-
-	// ClusterPoolIPv6CIDR is the cluster's IPv6 CIDR to allocate
-	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
-	ClusterPoolIPv6CIDR = "cluster-pool-ipv6-cidr"
-
-	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
-	// per node.
-	NodeCIDRMaskSizeIPv4 = "cluster-pool-ipv4-mask-size"
-
-	// NodeCIDRMaskSizeIPv6 is the IPv6 podCIDR mask size that will be used
-	// per node.
-	NodeCIDRMaskSizeIPv6 = "cluster-pool-ipv6-mask-size"
-
 	// AWS options
 
 	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
@@ -232,22 +216,6 @@ type OperatorConfig struct {
 
 	// IPAM Operator options
 
-	// ClusterPoolIPv4CIDR is the cluster IPv4 podCIDR that should be used to
-	// allocate pods in the node.
-	ClusterPoolIPv4CIDR []string
-
-	// ClusterPoolIPv6CIDR is the cluster IPv6 podCIDR that should be used to
-	// allocate pods in the node.
-	ClusterPoolIPv6CIDR []string
-
-	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
-	// per node.
-	NodeCIDRMaskSizeIPv4 int
-
-	// NodeCIDRMaskSizeIPv6 is the IPv6 podCIDR mask size that will be used
-	// per node.
-	NodeCIDRMaskSizeIPv6 int
-
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
@@ -280,10 +248,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
-	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
-	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
-	c.ClusterPoolIPv4CIDR = vp.GetStringSlice(ClusterPoolIPv4CIDR)
-	c.ClusterPoolIPv6CIDR = vp.GetStringSlice(ClusterPoolIPv6CIDR)
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)

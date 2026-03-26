@@ -153,32 +153,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(vp, option.EnableIPv4Name)
 
-	flags.StringSlice(operatorOption.ClusterPoolIPv4CIDR, []string{},
-		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool,
-			option.EnableIPv4Name, "true"))
-	option.BindEnv(vp, operatorOption.ClusterPoolIPv4CIDR)
-
-	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
-		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool,
-			option.EnableIPv4Name, "true"))
-	option.BindEnv(vp, operatorOption.NodeCIDRMaskSizeIPv4)
-
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(vp, option.EnableIPv6Name)
-
-	flags.StringSlice(operatorOption.ClusterPoolIPv6CIDR, []string{},
-		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool,
-			option.EnableIPv6Name, "true"))
-	option.BindEnv(vp, operatorOption.ClusterPoolIPv6CIDR)
-
-	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
-		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool,
-			option.EnableIPv6Name, "true"))
-	option.BindEnv(vp, operatorOption.NodeCIDRMaskSizeIPv6)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
