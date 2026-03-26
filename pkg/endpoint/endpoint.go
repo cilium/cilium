@@ -520,6 +520,7 @@ func (e *Endpoint) Close() {
 
 	if e.closeHealthReporter != nil {
 		e.closeHealthReporter()
+		e.reporterScope = nil
 	}
 
 	if e.PolicyMapPressureUpdater != nil {
@@ -2505,6 +2506,14 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 // endpoint.mutex must be held in read mode at least
 func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
+}
+
+// IsAlive returns true if endpoint is not disconnecting/disconnected.
+func (e *Endpoint) IsAlive() bool {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	return !e.IsDisconnecting()
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
