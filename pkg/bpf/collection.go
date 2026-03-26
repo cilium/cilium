@@ -11,6 +11,9 @@ import (
 	"os"
 	"path"
 	"strings"
+	"unsafe"
+
+	"golang.org/x/sys/cpu"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
@@ -252,6 +255,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("writing constants: %w", err)
 	}
 
+	if err := modifyAuxData(spec); err != nil {
+		return nil, nil, fmt.Errorf("loading auxiliary data: %w", err)
+	}
+
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
@@ -423,4 +430,48 @@ func logFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[str
 	}
 
 	logger.Debug("No freed maps found after loading Collection")
+}
+
+func modifyAuxData(spec *ebpf.CollectionSpec) error {
+	auxData, found := spec.Maps[".data.aux"]
+	if !found {
+		return nil
+	}
+
+	// Make collections of per-CPU values cache line aligned to prevent false sharing between CPUs.
+	cacheLineSize := uint64(unsafe.Sizeof(cpu.CacheLinePad{}))
+	stride := uint64(auxData.ValueSize)
+	if stride%cacheLineSize != 0 {
+		stride += cacheLineSize - (stride % cacheLineSize)
+	}
+
+	// Communicate the stride to the BPF programs so it can calculate the offset from any variable in the map
+	// to the value for the current CPU.
+	auxStride, found := spec.Variables["_aux_stride"]
+	if !found {
+		return fmt.Errorf("missing _aux_stride variable for .data.aux map")
+	}
+	err := auxStride.Set(stride)
+	if err != nil {
+		return fmt.Errorf("setting _aux_stride: %w", err)
+	}
+
+	// Resize the map so it has a copy of the values for each possible CPU.
+	cpus := ebpf.MustPossibleCPU()
+	valueSize := uint32(cpus) * uint32(stride)
+	auxData.Contents[0] = ebpf.MapKV{Key: uint32(0), Value: make([]byte, valueSize)}
+	auxData.ValueSize = valueSize
+
+	// Communicate the maximum offset of any variable in the map, used to make the verifier happy that we will never
+	// read or write past the end of the map value.
+	auxMaxOff, found := spec.Variables["_aux_max_off"]
+	if !found {
+		return fmt.Errorf("missing _aux_max_off variable for .data.aux map")
+	}
+	err = auxMaxOff.Set(uint64(valueSize) - stride)
+	if err != nil {
+		return fmt.Errorf("setting _aux_max_off: %w", err)
+	}
+
+	return nil
 }
