@@ -4,15 +4,8 @@
 package types
 
 import (
-	"context"
 	"net/netip"
 )
-
-// Proxy is any type which installs rules related to redirecting traffic to
-// a proxy.
-type Proxy interface {
-	ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled, wireguardEnabled bool) error
-}
 
 // IptablesManager manages iptables rules.
 type IptablesManager interface {
