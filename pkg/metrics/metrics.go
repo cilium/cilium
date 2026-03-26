@@ -322,8 +322,8 @@ var (
 	// PolicyRevision is the current policy revision number for this agent
 	PolicyRevision = NoOpGauge
 
-	// PolicyChangeTotal is a count of policy changes by outcome ("success" or
-	// "failure")
+	// PolicyChangeTotal is a count of policy changes by source, operation, and
+	// outcome.
 	PolicyChangeTotal = NoOpCounterVec
 
 	// PolicyEndpointStatus is the number of endpoints with policy labeled by enforcement type

@@ -23,7 +23,7 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 
 	rules, err := k8s.ParseClusterNetworkPolicy(p.log, clusterName, k8sCNP)
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFail).Inc()
 		p.log.Error(
 			"Error while parsing k8s kubernetes ClusterNetworkPolicy",
 			logfields.Error, err,
@@ -47,7 +47,7 @@ func (p *policyWatcher) addK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Cluste
 		DoneChan: dc,
 	})
 
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeSuccess).Inc()
 	p.log.Info(
 		"ClusterNetworkPolicy successfully added",
 		logfields.K8sClusterNetworkPolicyName, k8sCNP.ObjectMeta.Name,
@@ -80,7 +80,7 @@ func (p *policyWatcher) deleteK8sClusterNetworkPolicy(k8sCNP *policyv1alpha2.Clu
 		DoneChan: dc,
 	})
 
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueDeleteOperation, metrics.LabelValueOutcomeSuccess).Inc()
 	p.log.Info(
 		"ClusterNetworkPolicy successfully removed",
 		logfields.K8sClusterNetworkPolicyName, k8sCNP.ObjectMeta.Name,
