@@ -148,7 +148,6 @@ func (d *Config) GetMetricNames() map[string]*MetricConfig {
 }
 
 func ParseStaticMetricsConfig(enabledMetrics []string) (metricConfigs *Config) {
-	//exhaustruct:ignore
 	metricConfigs = &Config{}
 	for _, metric := range enabledMetrics {
 		s := strings.SplitN(metric, ":", 2)

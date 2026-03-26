@@ -11,7 +11,6 @@ linters:
     - depguard
     - err113
     - errorlint
-    - exhaustruct
     - forbidigo
     - goheader
     - gomodguard
@@ -31,16 +30,6 @@ linters:
           deny:
             - pkg: math/rand$
               desc: Use math/rand/v2 instead
-    exhaustruct:
-      include:
-        - .+\.[Cc]onfig
-        - .+[Cc]fg
-      exclude:
-        - .+cache\.Config
-        - .+fqdn\.Config
-        - .+tls\.Config
-        - .+v3\.Config
-        - .+translation\.Config
     forbidigo:
       forbid:
         # List based on https://github.com/vishvananda/netlink/pull/1018
@@ -208,9 +197,6 @@ linters:
       - linters:
           - sloglint
         path: tools/.*.go
-      - linters:
-          - exhaustruct
-        path: .*_test\.go
       - linters:
           - gomodguard
         path: test/

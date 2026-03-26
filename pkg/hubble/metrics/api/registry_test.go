@@ -103,7 +103,6 @@ func TestRegister(t *testing.T) {
 
 		r.Register("test", &testPlugin{handler: handler})
 
-		//exhaustruct:ignore
 		handlers, err := r.ConfigureHandlers(log, nil, &Config{})
 		require.NoError(t, err)
 		assert.Empty(t, *handlers)
