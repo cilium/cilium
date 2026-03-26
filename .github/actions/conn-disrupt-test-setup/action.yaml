@@ -20,6 +20,9 @@ runs:
         if [[ "${{ inputs.include-conn-disrupt-test-l7-traffic }}" == "true" ]]; then
           EXTRA_ARG="--include-conn-disrupt-test-l7-traffic"
         fi
+        if [[ -n "${{ env.CONN_DISRUPT_EXTRA_ARG }}" ]]; then
+          EXTRA_ARG="${EXTRA_ARG} ${{ env.CONN_DISRUPT_EXTRA_ARG }}"
+        fi
 
         # Create pods which establish long lived connections. It will be used by
         # subsequent connectivity tests with --include-conn-disrupt-test to catch any

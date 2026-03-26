@@ -42,9 +42,15 @@ runs:
           TEST_ARG="${{ inputs.tests }}"
         else
           TEST_ARG="no-interrupted-connections,no-ipsec-xfrm-error"
+          if [[ -n "${{ env.CONN_DISRUPT_EXTRA_TEST }}" ]]; then
+            TEST_ARG="${TEST_ARG},${{ env.CONN_DISRUPT_EXTRA_TEST }}"
+          fi
           EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-egw"
           if [[ "${{ inputs.skip-include-conn-disrupt-test-ns-traffic }}" != "true" ]]; then
             EXTRA_ARG="${EXTRA_ARG} --include-conn-disrupt-test-ns-traffic"
+          fi
+          if [[ -n "${{ env.CONN_DISRUPT_EXTRA_ARG }}" ]]; then
+            EXTRA_ARG="${EXTRA_ARG} ${{ env.CONN_DISRUPT_EXTRA_ARG }}"
           fi
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
