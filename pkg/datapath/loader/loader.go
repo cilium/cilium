@@ -17,9 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -50,7 +50,7 @@ type loader struct {
 
 	sysctl             sysctl.Sysctl
 	prefilter          prefilter.PreFilter
-	compilationLock    datapath.CompilationLock
+	compilationLock    types.CompilationLock
 	configWriter       config.Writer
 	nodeConfigNotifier *manager.NodeConfigNotifier
 
@@ -67,7 +67,7 @@ type Params struct {
 	Logger             *slog.Logger
 	Sysctl             sysctl.Sysctl
 	Prefilter          prefilter.PreFilter
-	CompilationLock    datapath.CompilationLock
+	CompilationLock    types.CompilationLock
 	ConfigWriter       config.Writer
 	NodeConfigNotifier *manager.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager

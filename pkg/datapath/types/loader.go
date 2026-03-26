@@ -48,17 +48,3 @@ type IptablesManager interface {
 	AddNoTrackHostPorts(namespace, name string, ports []string)
 	RemoveNoTrackHostPorts(namespace, name string)
 }
-
-// CompilationLock is a interface over a mutex, it is used by both the loader, daemon
-// and endpoint manager to lock the compilation process. This is a bit of a layer violation
-// since certain methods on the loader such as CompileAndLoad and CompileOrLoad expect the
-// lock to be taken before being called.
-//
-// Once we have moved header file generation from the endpoint manager into the loader, we can
-// remove this interface and have the loader manage the lock internally.
-type CompilationLock interface {
-	Lock()
-	Unlock()
-	RLock()
-	RUnlock()
-}

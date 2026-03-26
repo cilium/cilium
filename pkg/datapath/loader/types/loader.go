@@ -27,3 +27,17 @@ type Loader interface {
 	Reinitialize(ctx context.Context, cfg *config.Config, tunnelConfig tunnel.Config, iptMgr types.IptablesManager, p types.Proxy, bigtcp bigtcp.Configuration) error
 	WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error
 }
+
+// CompilationLock is a interface over a mutex, it is used by both the loader, daemon
+// and endpoint manager to lock the compilation process. This is a bit of a layer violation
+// since certain methods on the loader such as CompileAndLoad and CompileOrLoad expect the
+// lock to be taken before being called.
+//
+// Once we have moved header file generation from the endpoint manager into the loader, we can
+// remove this interface and have the loader manage the lock internally.
+type CompilationLock interface {
+	Lock()
+	Unlock()
+	RLock()
+	RUnlock()
+}
