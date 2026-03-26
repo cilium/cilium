@@ -73,8 +73,9 @@ that they are all up-to-date:
 
 .. code-block:: makefile
 
-   check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects
+   check: builder-image api-flaggen update-cmdref update-feature-metrics update-crdlist update-helm-values update-codeowners update-redirects
      ./check-cmdref.sh
+     ./check-feature-metrics.sh
      ./check-helmvalues.sh
      $(DOCKER_RUN) ./check-examples.sh # Runs "cilium policy validate" and "yamllint"
      ./check-codeowners.sh
@@ -95,6 +96,12 @@ run. They are:
   - Runs ``./update-cmdref.sh``
   - Includes running various binaries with ``--cmdref``
   - Generates ``Documentation/cmdref/\*``
+
+- ``update-feature-metrics``
+
+  - Runs ``./update-feature-metrics.sh``
+  - Includes running various binaries with ``metrics dump features`` command
+  - Generates ``Documentation/observability/feature-metrics-agent.txt`` and ``Documentation/observability/feature-metrics-operator.txt``
 
 - ``update-crdlist``
 

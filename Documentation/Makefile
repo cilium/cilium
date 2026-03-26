@@ -80,6 +80,12 @@ update-cmdref: cilium-build ## Update the command reference documents (agent, bu
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
+.PHONY: update-feature-metrics
+update-feature-metrics: cilium-build ## Update the observability feature metrics documents (agent, operator).
+	@$(ECHO_GEN)feature-metrics
+	-$(QUIET)rm -rf observability/cilium*.feature-metrics.prom
+	$(QUIET)$(DOCKER_RUN) ./update-feature-metrics.sh
+
 .PHONY: codeowners.rst
 codeowners.rst:
 	@$(ECHO_GEN)$@
@@ -116,9 +122,11 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
+check: builder-image api-flaggen update-cmdref update-feature-metrics update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
+	@$(ECHO_CHECK) feature-metrics
+	$(QUIET) ./check-feature-metrics.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
 	$(QUIET) ./check-helmvalues.sh
 	@$(ECHO_CHECK) examples
