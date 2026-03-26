@@ -179,7 +179,6 @@ func newConfig(in newConfigIn) (Config, error) {
 
 // NewTestConfig returns a new TunnelConfig for testing purposes.
 func NewTestConfig(proto EncapProtocol) Config {
-	//exhaustruct:ignore // Test code can underspecify the default config
 	cfg := Config{protocol: proto}
 
 	switch proto {

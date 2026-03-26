@@ -166,7 +166,6 @@ func (r *restConfigManager) createConfig(cfg Config, userAgent string) (*rest.Co
 		}
 		config.Host = apiServerURL
 	default:
-		//exhaustruct:ignore
 		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
@@ -372,8 +371,6 @@ func (r *restConfigManager) checkConnToService(host string) error {
 		err    error
 	)
 	if strings.HasPrefix(host, "http") {
-		// Set in tests
-		//exhaustruct:ignore
 		config = &rest.Config{Host: host, Timeout: connTimeout}
 	} else {
 		hostURL := fmt.Sprintf("https://%s", host)

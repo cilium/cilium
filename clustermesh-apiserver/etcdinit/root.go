@@ -248,7 +248,6 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 	}()
 
 	// With the etcd server process launched, we need to construct an etcd client
-	//exhaustruct:ignore // Not all etcd config options are required.
 	config := clientv3.Config{
 		Context:   ctx,
 		Endpoints: []string{loopbackEndpoint},

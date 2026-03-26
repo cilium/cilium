@@ -110,7 +110,6 @@ func (c *FakeClientset) Disable() {
 }
 
 func (c *FakeClientset) Config() k8sclient.Config {
-	//exhaustruct:ignore
 	return k8sclient.Config{
 		ClientParams: k8sclient.ClientParams{},
 		SharedConfig: k8sclient.SharedConfig{
@@ -120,7 +119,6 @@ func (c *FakeClientset) Config() k8sclient.Config {
 }
 
 func (c *FakeClientset) RestConfig() *rest.Config {
-	//exhaustruct:ignore
 	return &rest.Config{}
 }
 

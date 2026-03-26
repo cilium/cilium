@@ -97,7 +97,6 @@ func TestCellConfigError(t *testing.T) {
 			return Config(cfg)
 		}),
 		cell.Provide(NewWatchedServerConfigPromise),
-		//exhaustruct:ignore
 		cell.Config(testConfig{
 			TLS: true,
 		}),
@@ -200,7 +199,6 @@ func TestCellDisabled(t *testing.T) {
 			return Config(cfg)
 		}),
 		cell.Provide(NewWatchedServerConfigPromise),
-		//exhaustruct:ignore
 		cell.Config(testConfig{
 			TLS: false,
 		}),
