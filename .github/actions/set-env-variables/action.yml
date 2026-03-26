@@ -10,6 +10,8 @@ runs:
         # no prod yet
         echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
         echo "EGRESS_GATEWAY_HELM_VALUES=--helm-set=egressGateway.enabled=true" >> $GITHUB_ENV
+        echo "CONN_DISRUPT_EXTRA_ARG=" >> $GITHUB_ENV
+        echo "CONN_DISRUPT_EXTRA_TEST=" >> $GITHUB_ENV
         echo "BGP_CONTROL_PLANE_HELM_VALUES=--helm-set=bgpControlPlane.enabled=true" >> $GITHUB_ENV
         echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
         CILIUM_CLI_VERSION=""
