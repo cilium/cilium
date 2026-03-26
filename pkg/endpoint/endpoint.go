@@ -158,7 +158,7 @@ type Endpoint struct {
 	dnsRulesAPI      DNSRulesAPI
 	loader           loader.Loader
 	orchestrator     endpoint.Orchestrator
-	compilationLock  datapath.CompilationLock
+	compilationLock  loader.CompilationLock
 	bandwidthManager bandwidth.Manager
 	ipTablesManager  datapath.IptablesManager
 	identityManager  identitymanager.IDManager

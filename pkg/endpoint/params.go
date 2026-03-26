@@ -33,7 +33,7 @@ type EndpointParams struct {
 	EPBuildQueue        EndpointBuildQueue
 	Loader              loader.Loader
 	Orchestrator        endpoint.Orchestrator
-	CompilationLock     datapath.CompilationLock
+	CompilationLock     loader.CompilationLock
 	BandwidthManager    bandwidth.Manager
 	IPTablesManager     datapath.IptablesManager
 	IdentityManager     identitymanager.IDManager
