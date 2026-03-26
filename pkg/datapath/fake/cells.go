@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
+	fakemtu "github.com/cilium/cilium/pkg/mtu/fake"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/node/manager"
@@ -79,7 +80,7 @@ var Cell = cell.Module(
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
 		func() ipsec.Agent { return &fakeipsec.Agent{} },
 		func() ipsec.Config { return &fakeipsec.Config{} },
-		func() mtu.MTU { return &fakeTypes.MTU{} },
+		func() mtu.MTU { return &fakemtu.MTU{} },
 		func() wireguard.Agent { return &fakewireguard.Agent{} },
 		func() wireguard.Config { return &fakewireguard.Config{} },
 		func() loaderTypes.Loader { return &fakeloader.Loader{} },
