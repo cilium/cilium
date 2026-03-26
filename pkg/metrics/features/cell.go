@@ -100,7 +100,7 @@ type featuresParams struct {
 	BigTCP              bigtcp.Features
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
-	WgConfig            wgTypes.WireguardConfig
+	WgConfig            wgTypes.Config
 	IPsecConfig         ipsec.Config
 	ConnectorConfig     connector.Config
 }

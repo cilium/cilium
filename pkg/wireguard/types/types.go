@@ -20,16 +20,16 @@ const (
 	StaticEncryptKey = uint8(0xFF)
 )
 
-// WireguardAgent exports the Enabled and Status commands from the agent.
-type WireguardAgent interface {
+// Agent exports the Enabled and Status commands from the agent.
+type Agent interface {
 	Enabled() bool
 	Status(withPeers bool) (*models.WireguardStatus, error)
 	IfaceIndex() (uint32, error)
 	IfaceBufferMargins() (uint16, uint16, error)
 }
 
-// WireguardConfig exports the Enabled method rather than the whole config.
-// This is useful when the whole agent is not needed. See [WireguardAgent] otherwise.
-type WireguardConfig interface {
+// Config exports the Enabled method rather than the whole config.
+// This is useful when the whole agent is not needed. See [Agent] otherwise.
+type Config interface {
 	Enabled() bool
 }

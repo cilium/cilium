@@ -24,15 +24,15 @@ var Cell = cell.Module(
 
 var OperatorCell = cell.Config(defaultEnableConfig)
 
-// newWireguardAgent returns the [*Agent] as an interface [types.WireguardAgent]
+// newWireguardAgent returns the [*Agent] as an interface [types.Agent]
 // and the map of macros [defines.NodeOut] for datapath compilation.
 func newWireguardAgent(p params) (out struct {
 	cell.Out
-	types.WireguardAgent
+	types.Agent
 	defines.NodeOut
 }) {
-	out.WireguardAgent = newAgent(p)
-	if out.WireguardAgent.Enabled() {
+	out.Agent = newAgent(p)
+	if out.Agent.Enabled() {
 		out.NodeDefines = map[string]string{
 			"ENABLE_WIREGUARD": "1",
 		}
@@ -43,8 +43,8 @@ func newWireguardAgent(p params) (out struct {
 	return
 }
 
-// newWireguardConfig returns the [Config] as an interface [types.WireguardConfig].
-func newWireguardConfig(c Config) types.WireguardConfig {
+// newWireguardConfig returns the [Config] as an interface [types.Config].
+func newWireguardConfig(c Config) types.Config {
 	return c
 }
 
@@ -103,7 +103,7 @@ type EnableConfig struct {
 	EnableWireguard bool
 }
 
-// Returns true when enabled. Implements [types.WireguardConfig].
+// Returns true when enabled. Implements [types.Config].
 func (c EnableConfig) Enabled() bool {
 	return c.EnableWireguard
 }

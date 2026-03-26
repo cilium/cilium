@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
@@ -34,6 +33,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
 type RedirectSuite struct {
@@ -171,7 +171,7 @@ func (s *RedirectSuite) createTestEndpointParams(tb testing.TB) EndpointParams {
 		IdentityManager:  s.do.idmgr,
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakeTypes.WireguardConfig{},
+		WgConfig:         fakewireguard.Config{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		LocalNodeStore:   &fakeNodeGetter{},

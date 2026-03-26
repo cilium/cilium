@@ -58,7 +58,7 @@ type mtuParams struct {
 	Log             *slog.Logger
 	DaemonConfig    *option.DaemonConfig
 	LocalCiliumNode k8s.LocalCiliumNodeResource
-	WgConfig        wgTypes.WireguardConfig
+	WgConfig        wgTypes.Config
 
 	Config Config
 }

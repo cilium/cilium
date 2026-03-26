@@ -104,7 +104,7 @@ type statusParams struct {
 	NodeManager      nodemanager.NodeManager
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
-	WireguardAgent   wgTypes.WireguardAgent
+	WireguardAgent   wgTypes.Agent
 	ZtunnelConfig    zconfig.Config
 	ConnectorConfig  connector.Config
 }

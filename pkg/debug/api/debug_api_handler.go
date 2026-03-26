@@ -28,7 +28,7 @@ type GetDebuginfoHandler struct {
 	policyRepo      policy.PolicyRepository
 	db              *statedb.DB
 	frontends       statedb.Table[*loadbalancer.Frontend]
-	wireguardAgent  wgTypes.WireguardAgent
+	wireguardAgent  wgTypes.Agent
 
 	statusCollector status.StatusCollector
 

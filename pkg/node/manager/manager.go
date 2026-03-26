@@ -174,7 +174,7 @@ type manager struct {
 	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 
 	// wireguard configuration used when calling endpointEncryptionKey.
-	wgConfig types.WireguardConfig
+	wgConfig types.Config
 
 	localNodeStore *node.LocalNodeStore
 }
@@ -273,7 +273,7 @@ func New(
 	jobGroup job.Group,
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
-	wgCfg types.WireguardConfig,
+	wgCfg types.Config,
 	localNodeStore *node.LocalNodeStore,
 ) (*manager, error) {
 	if ipsetFilter == nil {

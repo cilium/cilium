@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -20,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
 func TestWriteInformationalComments(t *testing.T) {
@@ -35,7 +35,7 @@ func TestWriteInformationalComments(t *testing.T) {
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakeTypes.WireguardConfig{},
+		WgConfig:         fakewireguard.Config{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 	}
@@ -67,7 +67,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakeTypes.WireguardConfig{},
+		WgConfig:         fakewireguard.Config{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 	}

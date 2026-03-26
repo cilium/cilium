@@ -1196,7 +1196,7 @@ type daemonConfigParams struct {
 	KPRConfig       kpr.KPRConfig
 	KPRInitializer  kprinitializer.KPRInitializer
 	IPSecConfig     ipsec.Config
-	WireguardConfig wgTypes.WireguardConfig
+	WireguardConfig wgTypes.Config
 }
 
 type daemonParams struct {
@@ -1211,7 +1211,7 @@ type daemonParams struct {
 
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
-	WGAgent             wgTypes.WireguardAgent
+	WGAgent             wgTypes.Agent
 	LocalNodeStore      *node.LocalNodeStore
 	K8sWatcher          *watchers.K8sWatcher
 	NodeHandler         node.Handler

@@ -41,7 +41,7 @@ type kprInitializerParams struct {
 	TunnelConfig tunnel.Config
 	LBConfig     loadbalancer.Config
 	KPRCfg       kpr.KPRConfig
-	WireguardCfg wgTypes.WireguardConfig
+	WireguardCfg wgTypes.Config
 }
 
 func newKPRInitializer(params kprInitializerParams) KPRInitializer {

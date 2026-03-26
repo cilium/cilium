@@ -80,7 +80,7 @@ type k8sPodWatcherParams struct {
 	NodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	CGroupManager      cgroup.CGroupManager
 	LBConfig           loadbalancer.Config
-	WgConfig           wgTypes.WireguardConfig
+	WgConfig           wgTypes.Config
 	IPSecConfig        ipsec.Config
 	HostNetworkManager iptables.Manager
 	LocalNodeStore     *node.LocalNodeStore
@@ -131,7 +131,7 @@ type K8sPodWatcher struct {
 	pods               statedb.Table[agentK8s.LocalPod]
 	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	lbConfig           loadbalancer.Config
-	wgConfig           wgTypes.WireguardConfig
+	wgConfig           wgTypes.Config
 	ipsecConfig        ipsec.Config
 	hostNetworkManager hostNetworkManager
 	localNodeStore     *node.LocalNodeStore

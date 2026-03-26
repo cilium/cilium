@@ -44,7 +44,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	PolicyUpdater   *policy.Updater
 	IPCache         *ipcache.IPCache
-	WgConfig        wgTypes.WireguardConfig
+	WgConfig        wgTypes.Config
 	IPSecConfig     ipsec.Config
 	LocalNodeStore  *node.LocalNodeStore
 }
@@ -79,7 +79,7 @@ type K8sCiliumEndpointsWatcher struct {
 	endpointManager endpointManager
 	policyManager   policyManager
 	ipcache         ipcacheManager
-	wgConfig        wgTypes.WireguardConfig
+	wgConfig        wgTypes.Config
 	ipsecConfig     ipsec.Config
 	localNodeStore  *node.LocalNodeStore
 

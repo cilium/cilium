@@ -119,7 +119,7 @@ type orchestratorParams struct {
 	KPRConfig           kpr.KPRConfig
 	SvcRouteConfig      svcrouteconfig.RoutesConfig
 	MaglevConfig        maglev.Config
-	WgAgent             wgTypes.WireguardAgent
+	WgAgent             wgTypes.Agent
 	IPsecConfig         ipsec.Config
 	BIGTCPConfig        *bigtcp.Configuration
 	ConnectorConfig     connector.Config

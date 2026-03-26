@@ -39,7 +39,7 @@ type kprInitializer struct {
 	tunnelConfig tunnel.Config
 	lbConfig     loadbalancer.Config
 	kprCfg       kpr.KPRConfig
-	wgCfg        wgTypes.WireguardConfig
+	wgCfg        wgTypes.Config
 }
 
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {

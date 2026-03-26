@@ -44,7 +44,7 @@ type EndpointParams struct {
 	Allocator           cache.IdentityAllocator
 	CTMapGC             ctmap.GCRunner
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
-	WgConfig            wgTypes.WireguardConfig
+	WgConfig            wgTypes.Config
 	IPSecConfig         ipsec.Config
 	NamedPortsGetter    NamedPortsGetter
 	LxcMap              lxcmap.Map

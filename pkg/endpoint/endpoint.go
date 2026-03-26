@@ -164,7 +164,7 @@ type Endpoint struct {
 	ipTablesManager  iptables.Manager
 	identityManager  identitymanager.IDManager
 	monitorAgent     monitoragent.Agent
-	wgConfig         wgTypes.WireguardConfig
+	wgConfig         wgTypes.Config
 	ipsecConfig      ipsec.Config
 	lxcMap           lxcmap.Map
 	localNodeStore   node.NodeGetter
