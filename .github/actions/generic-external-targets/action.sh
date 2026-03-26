@@ -27,19 +27,21 @@ openssl req -newkey rsa:2048 -nodes \
     -out external-service.cilium.req.pem
 
 # Figure out the addresses of the external nodes.
-IP4TARGET="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
-IP4OTHERTARGET="$(kubectl get nodes -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')"
+mapfile -d ' ' -t IPTARGET < <(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+mapfile -d ' ' -t IPOTHERTARGET < <(kubectl get nodes -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')
 
 # Create a config file to tell openssl how to turn the signing request into a certificate
 # Make sure the key usage is such that we can use the cert for HTTPS traffic.
 # Also make sure both domain names are in the subjectAltName so the certificate works for
 # both external services and the IP addresses without domain name.
+(IFS=''
 cat > v3.ext << EOF
 subjectKeyIdentifier   = hash
 authorityKeyIdentifier = keyid:always,issuer:always
 keyUsage               = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment, keyAgreement, keyCertSign
-subjectAltName         = DNS:$OTHERTARGETNAME, DNS:$TARGETNAME, DNS:fake.external.first.target, DNS:fake.external.second.target, IP:$IP4TARGET, IP:$IP4OTHERTARGET
+subjectAltName         = DNS:$OTHERTARGETNAME, DNS:$TARGETNAME, DNS:fake.external.first.target, DNS:fake.external.second.target${IPTARGET[*]/#/, IP:}${IPOTHERTARGET[*]/#/, IP:}
 EOF
+)
 
 # Turn the certificate signing request into a certificate, signed by our CA
 openssl x509 -req -days 365 -set_serial 01 \
@@ -67,7 +69,11 @@ envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0"
 kubectl -n external rollout status daemonset nginx --timeout 60s
 kubectl -n external-other rollout status daemonset nginx --timeout 60s
 
-echo "ipv4_external_target=$IP4TARGET" >> $GITHUB_OUTPUT
-echo "ipv4_other_external_target=$IP4OTHERTARGET" >> $GITHUB_OUTPUT
+echo "ipv4_external_target=${IPTARGET[0]}" >> $GITHUB_OUTPUT
+echo "ipv4_other_external_target=${IPOTHERTARGET[0]}" >> $GITHUB_OUTPUT
+if [ "${#IPTARGET[@]}" -ge 2 ] && [ "${#IPOTHERTARGET[@]}" -ge 2 ]; then
+	echo "ipv6_external_target=${IPTARGET[1]}" >> $GITHUB_OUTPUT
+	echo "ipv6_other_external_target=${IPOTHERTARGET[1]}" >> $GITHUB_OUTPUT
+fi
 echo "external_target_name=$TARGETNAME" >> $GITHUB_OUTPUT
 echo "other_external_target_name=$OTHERTARGETNAME" >> $GITHUB_OUTPUT
