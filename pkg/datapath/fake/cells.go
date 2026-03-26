@@ -61,7 +61,7 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, node.Handler, *fakenode.Handler) {
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (node.IDHandler, node.Handler, *fakenode.Handler) {
 			fakeNodeHandler := fakenode.NewHandler()
 			nodeManager.Subscribe(fakeNodeHandler)
 			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler

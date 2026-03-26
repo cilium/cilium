@@ -14,11 +14,11 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
@@ -94,7 +94,7 @@ type authManagerParams struct {
 	AuthHandlers []authHandler `group:"authHandlers"`
 
 	SignalManager   signal.SignalManager
-	NodeIDHandler   types.NodeIDHandler
+	NodeIDHandler   node.IDHandler
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
