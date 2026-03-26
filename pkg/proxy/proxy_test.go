@@ -16,8 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
-	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
+	iptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -40,7 +39,7 @@ func proxyForTest(t *testing.T, envoyIntegration *envoyProxyIntegration) *Proxy 
 			drm = m
 		}),
 	).Populate(hivetest.Logger(t))
-	fakeIPTablesManager := &datapath.FakeIptablesManager{}
+	fakeIPTablesManager := iptables.NewManager()
 	ppConfig := proxyports.ProxyPortsConfig{
 		ProxyPortrangeMin:          10000,
 		ProxyPortrangeMax:          20000,
@@ -106,13 +105,12 @@ func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagEnabl
 	socketDir := envoy.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
-	ipTablesManager := &iptables.Manager{}
 	xdsServer := &fakeXdsServer{}
 	envoyIntegrationConfig := EnvoyProxyIntegrationConfig{
 		ProxyUseOriginalSourceAddress: true,
 	}
 	envoyIntegrationParams := envoyProxyIntegrationParams{
-		IptablesManager: ipTablesManager,
+		IptablesManager: iptables.NewManager(),
 		XdsServer:       xdsServer,
 		Cfg:             envoyIntegrationConfig,
 	}
@@ -133,13 +131,12 @@ func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagDisab
 	socketDir := envoy.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
-	ipTablesManager := &iptables.Manager{}
 	xdsServer := &fakeXdsServer{}
 	envoyIntegrationConfig := EnvoyProxyIntegrationConfig{
 		ProxyUseOriginalSourceAddress: false,
 	}
 	envoyIntegrationParams := envoyProxyIntegrationParams{
-		IptablesManager: ipTablesManager,
+		IptablesManager: iptables.NewManager(),
 		XdsServer:       xdsServer,
 		Cfg:             envoyIntegrationConfig,
 	}

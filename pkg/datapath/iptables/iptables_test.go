@@ -77,7 +77,7 @@ func (ipt *mockIptables) checkExpectations() error {
 	return nil
 }
 
-var mockManager = &Manager{
+var mockManager = &manager{
 	haveIp6tables:        false,
 	haveSocketMatch:      true,
 	haveBPFSocketAssign:  false,
@@ -871,7 +871,7 @@ func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
-	mockManager := &Manager{
+	mockManager := &manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
@@ -907,7 +907,7 @@ func TestTunnelGeneveRulesTunnelingEnabled(t *testing.T) {
 func TestTunnelRulesTunnelingDisabled(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
-	mockManager := &Manager{
+	mockManager := &manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
@@ -928,7 +928,7 @@ func TestNoTrackHostPorts(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
-	testMgr := &Manager{
+	testMgr := &manager{
 		haveIp6tables:        false,
 		haveSocketMatch:      true,
 		haveBPFSocketAssign:  false,
@@ -1101,7 +1101,7 @@ func TestEncryptionRules(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
-	testMgr := &Manager{
+	testMgr := &manager{
 		haveSocketMatch:      true,
 		haveBPFSocketAssign:  false,
 		ipEarlyDemuxDisabled: false,
@@ -1188,7 +1188,7 @@ func TestAddNoTrackPodTrafficRules(t *testing.T) {
 		},
 	}
 
-	testMgr := &Manager{
+	testMgr := &manager{
 		sharedCfg: SharedConfig{
 			InstallNoConntrackIptRules: true,
 			EnableIPv4:                 true,

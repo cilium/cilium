@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -160,7 +161,7 @@ type Endpoint struct {
 	orchestrator     endpoint.Orchestrator
 	compilationLock  loader.CompilationLock
 	bandwidthManager bandwidth.Manager
-	ipTablesManager  datapath.IptablesManager
+	ipTablesManager  iptables.Manager
 	identityManager  identitymanager.IDManager
 	monitorAgent     monitoragent.Agent
 	wgConfig         wgTypes.WireguardConfig

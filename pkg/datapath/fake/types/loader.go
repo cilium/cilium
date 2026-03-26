@@ -8,10 +8,10 @@ import (
 	"io"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	proxy "github.com/cilium/cilium/pkg/proxy/types"
 )
@@ -43,7 +43,7 @@ func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p proxy.Proxy, bigtcp bigtcp.Configuration) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr iptables.Manager, p proxy.Proxy, bigtcp bigtcp.Configuration) error {
 	return nil
 }
 
