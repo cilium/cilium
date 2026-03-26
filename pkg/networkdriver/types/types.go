@@ -7,7 +7,9 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/netip"
+	"regexp"
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
@@ -58,6 +60,50 @@ const (
 var (
 	errUnknownDeviceManagerType = errors.New("unknown device manager type")
 )
+
+// Interface name validation constants
+const (
+	// MaxInterfaceNameLength is the maximum length for a Linux interface name (IFNAMSIZ - 1)
+	MaxInterfaceNameLength = 15
+)
+
+var (
+	// validIfNameRegex matches valid interface name characters (alphanumeric, dot, underscore, dash)
+	validIfNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+)
+
+// ValidateInterfaceName validates an interface name according to Linux rules
+func ValidateInterfaceName(name string) error {
+	// Empty name is valid (means no custom rename)
+	if name == "" {
+		return nil
+	}
+
+	// Check length limit (Linux IFNAMSIZ - 1)
+	if len(name) > MaxInterfaceNameLength {
+		return fmt.Errorf(
+			"interface name too long: %q (%d chars, max %d)",
+			name, len(name), MaxInterfaceNameLength)
+	}
+
+	// Check for valid characters
+	if !validIfNameRegex.MatchString(name) {
+		return fmt.Errorf(
+			"interface name contains invalid characters: %q (allowed: a-z A-Z 0-9 . _ -)",
+			name)
+	}
+
+	// Check for reserved names
+	if name == "lo" {
+		return fmt.Errorf("interface name %q is reserved (loopback)", name)
+	}
+
+	if len(name) >= 7 && name[:7] == "cilium_" {
+		return fmt.Errorf("interface name %q is reserved (cilium_ prefix)", name)
+	}
+
+	return nil
+}
 
 type DeviceManagerType int
 
