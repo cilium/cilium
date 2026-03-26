@@ -3,4 +3,5 @@
 
 // Package ipsec provides the Linux datapath specific abstraction and
 // useful helpers to manage IPSec via Linux xfrm.
+// +groupName=maps
 package ipsec

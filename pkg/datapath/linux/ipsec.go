@@ -15,10 +15,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
+	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -200,7 +201,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.IPSecParameters{
+	template := &ipsecTypes.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -210,7 +211,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	for _, cidr := range n.nodeConfig.GetIPv4PodSubnets() {
-		params := types.NewIPSecParameters(template)
+		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR
 		params.DestSubnet = cidr
@@ -224,7 +225,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	// insert fwd rule
-	params := types.NewIPSecParameters(template)
+	params := ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -233,7 +234,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4DoSubnetEncryption(newNode *nodeTypes.
 	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -291,7 +292,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.IPSecParameters{
+	template := &types.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -304,7 +305,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	// since some other ipsec related parameters beside the remote CIDR might have been changed
 	// (e.g: RemoteBootID, RemoteNodeID and so on)
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv4AllocCIDRs()) {
-		params := types.NewIPSecParameters(template)
+		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR
 		params.DestSubnet = remoteCIDR
@@ -333,7 +334,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// insert fwd rule
-	params := types.NewIPSecParameters(template)
+	params := ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -342,7 +343,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	spi, err = n.ipsecAgent.UpsertIPsecEndpoint(params)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "fwd IPv4", params.SourceSubnet, params.DestSubnet, spi, nodeID))
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -372,7 +373,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv4}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv4}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirOut
 	params.SourceSubnet = localOverlayIPExactMatch
 	params.DestSubnet = remoteOverlayIPExactMatch
@@ -384,7 +385,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(oldNode, newNode *nodeTypes.Node, n
 		statesUpdated = false
 	}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR
@@ -480,7 +481,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.IPSecParameters{
+	template := &types.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -490,7 +491,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 	}
 
 	for _, cidr := range n.nodeConfig.GetIPv6PodSubnets() {
-		params := types.NewIPSecParameters(template)
+		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR6
 		params.DestSubnet = cidr
@@ -503,7 +504,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		}
 	}
 
-	params := types.NewIPSecParameters(template)
+	params := ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
@@ -515,7 +516,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 		statesUpdated = false
 	}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
@@ -571,7 +572,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// The common bits which are consistent between XFRM policy/state creation.
-	template := &types.IPSecParameters{
+	template := &types.Parameters{
 		LocalBootID:    node.GetBootID(n.log),
 		RemoteBootID:   newNode.BootID,
 		RemoteNodeID:   nodeID,
@@ -584,7 +585,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	// since some other ipsec related parameters beside the remote CIDR might have been changed
 	// (e.g: RemoteBootID, RemoteNodeID and so on)
 	for _, remoteCIDR := range cidr.CIDRsToIPNets(newNode.GetIPv6AllocCIDRs()) {
-		params := types.NewIPSecParameters(template)
+		params := ipsecTypes.NewParameters(template)
 		params.Dir = ipsec.IPSecDirOut
 		params.SourceSubnet = wildcardCIDR6
 		params.DestSubnet = remoteCIDR
@@ -613,7 +614,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	}
 
 	// insert forward policy
-	params := types.NewIPSecParameters(template)
+	params := ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirFwd
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
@@ -625,7 +626,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		statesUpdated = false
 	}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR6
 	params.DestSubnet = wildcardCIDR6
@@ -655,7 +656,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 	localOverlayIPExactMatch := &net.IPNet{IP: localUnderlayIP, Mask: exactMatchMaskIPv6}
 	remoteOverlayIPExactMatch := &net.IPNet{IP: remoteUnderlayIP, Mask: exactMatchMaskIPv6}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirOut
 	params.SourceSubnet = localOverlayIPExactMatch
 	params.DestSubnet = remoteOverlayIPExactMatch
@@ -667,7 +668,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(oldNode, newNode *nodeTypes.Node, n
 		statesUpdated = false
 	}
 
-	params = types.NewIPSecParameters(template)
+	params = ipsecTypes.NewParameters(template)
 	params.Dir = ipsec.IPSecDirIn
 	params.SourceSubnet = wildcardCIDR
 	params.DestSubnet = wildcardCIDR

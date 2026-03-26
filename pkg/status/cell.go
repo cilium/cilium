@@ -22,9 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/health"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	hubblemetricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
@@ -77,7 +77,7 @@ type statusParams struct {
 	DaemonConfig *option.DaemonConfig
 	LBConfig     loadbalancer.Config
 	KPRConfig    kpr.KPRConfig
-	IPsecConfig  datapath.IPsecConfig
+	IPsecConfig  ipsec.Config
 
 	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 

@@ -14,6 +14,7 @@ import (
 
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -33,7 +34,7 @@ func TestWriteInformationalComments(t *testing.T) {
 		PolicyRepo:       s.repo,
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		WgConfig:         fakeTypes.WireguardConfig{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
@@ -65,7 +66,7 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 		PolicyRepo:       s.repo,
 		IdentityManager:  identitymanager.NewIDManager(logger),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		WgConfig:         fakeTypes.WireguardConfig{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),

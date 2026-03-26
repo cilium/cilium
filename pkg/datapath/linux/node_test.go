@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/ip"
@@ -55,7 +56,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeTypes.IPsecAgent{}, fakeTypes.IPsecConfig{}, lns)
+	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")

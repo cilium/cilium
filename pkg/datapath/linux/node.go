@@ -19,8 +19,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -71,13 +72,13 @@ type linuxNodeHandler struct {
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
-	ipsecAgent           datapath.IPsecAgent
+	ipsecAgent           ipsecTypes.Agent
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
 	kprCfg kpr.KPRConfig
 
-	ipsecCfg datapath.IPsecConfig
+	ipsecCfg ipsecTypes.Config
 }
 
 var (
@@ -96,7 +97,7 @@ func NewNodeHandler(
 	nodeManager manager.NodeManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
-	ipsecAgent datapath.IPsecAgent,
+	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
 ) (node.Handler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
@@ -104,7 +105,7 @@ func NewNodeHandler(
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{}, localNodeStore)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -126,8 +127,8 @@ func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
 	kprCfg kpr.KPRConfig,
-	ipsecAgent datapath.IPsecAgent,
-	ipsecCfg datapath.IPsecConfig,
+	ipsecAgent ipsecTypes.Agent,
+	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{

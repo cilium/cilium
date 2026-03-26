@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -193,7 +194,7 @@ func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.Polic
 		PolicyRepo:       r,
 		IdentityManager:  identitymanager.NewIDManager(hivetest.Logger(tb)),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
-		IPSecConfig:      fakeTypes.IPsecConfig{},
+		IPSecConfig:      fakeipsec.Config{},
 		WgConfig:         fakeTypes.WireguardConfig{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),

@@ -8,8 +8,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -45,7 +45,7 @@ type EndpointParams struct {
 	CTMapGC             ctmap.GCRunner
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 	WgConfig            wgTypes.WireguardConfig
-	IPSecConfig         datapath.IPsecConfig
+	IPSecConfig         ipsec.Config
 	NamedPortsGetter    NamedPortsGetter
 	LxcMap              lxcmap.Map
 	LocalNodeStore      node.NodeGetter

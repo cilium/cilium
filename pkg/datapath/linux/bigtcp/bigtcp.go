@@ -13,11 +13,11 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -238,14 +238,14 @@ type params struct {
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
 	UserConfig   UserConfig
-	IPsecConfig  datapath.IPsecConfig
+	IPsecConfig  ipsec.Config
 	LBConfig     loadbalancer.Config
 	TunnelConfig tunnel.Config
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg datapath.IPsecConfig, dsrDispatch string, bigtcpTunnel bool) error {
+func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg ipsec.Config, dsrDispatch string, bigtcpTunnel bool) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		// Check all configurations where Cilium creates tunnel devices
 		// that don't support BIG TCP.

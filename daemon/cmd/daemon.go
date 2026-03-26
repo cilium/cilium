@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -29,7 +28,7 @@ const (
 func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPSecConfig.Enabled() && params.WireguardConfig.Enabled() {
-		return fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+		return fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSec)
 	}
 
 	if !params.IPSecConfig.DNSProxyInsecureSkipTransparentModeCheckEnabled() {
@@ -60,13 +59,13 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 
 	if params.DaemonConfig.LocalRouterIPv4 != "" || params.DaemonConfig.LocalRouterIPv6 != "" {
 		if params.IPSecConfig.Enabled() {
-			return fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, datapath.EnableIPSec)
+			return fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSec)
 		}
 	}
 
 	if params.IPSecConfig.Enabled() || params.WireguardConfig.Enabled() {
 		if !params.DaemonConfig.EnableCiliumNodeCRD {
-			return fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+			return fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, option.EnableIPSec)
 		}
 	}
 

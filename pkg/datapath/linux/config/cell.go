@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -27,7 +28,7 @@ type WriterParams struct {
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
 	Sysctl             sysctl.Sysctl
 	KPRConfig          kpr.KPRConfig
-	IPSecConfig        datapath.IPsecConfig
+	IPSecConfig        ipsec.Config
 }
 
 var Cell = cell.Module(

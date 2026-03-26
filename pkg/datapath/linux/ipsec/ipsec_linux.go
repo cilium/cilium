@@ -30,10 +30,10 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/common/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,7 +45,7 @@ import (
 )
 
 const (
-	IPSecDirIn types.IPSecDir = 1 << iota
+	IPSecDirIn types.Direction = 1 << iota
 	IPSecDirOut
 	IPSecDirFwd
 
@@ -138,14 +138,14 @@ var (
 
 // Upon starting, the agent will load the ipsec key, set the SPI accordingly,
 // and update the EncryptionKey in the local node object to the SPI.
-type Agent struct {
+type agent struct {
 	ipSecLock lock.RWMutex
 
 	// These are provided in [newAgent].
 	log        *slog.Logger
 	localNode  *node.LocalNodeStore
 	jobs       job.Group
-	config     Config
+	config     config
 	encryptMap encrypt.EncryptMap
 
 	// These are initialized in [newAgent].
@@ -171,8 +171,8 @@ type Agent struct {
 }
 
 // newAgent creates a new IPSec agent.
-func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c Config, em encrypt.EncryptMap) *Agent {
-	ipsec := &Agent{
+func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.LocalNodeStore, c config, em encrypt.EncryptMap) *agent {
+	ipsec := &agent{
 		log:        log,
 		localNode:  lns,
 		jobs:       jg,
@@ -189,7 +189,7 @@ func newAgent(lc cell.Lifecycle, log *slog.Logger, jg job.Group, lns *node.Local
 	return ipsec
 }
 
-func (a *Agent) Start(cell.HookContext) error {
+func (a *agent) Start(cell.HookContext) error {
 	if !a.config.EncryptNode {
 		a.deleteIPsecEncryptRoute()
 	}
@@ -214,7 +214,7 @@ func (a *Agent) Start(cell.HookContext) error {
 }
 
 // StartBackgroundJobs starts the keyfile watcher and stale key reclaimer jobs.
-func (a *Agent) StartBackgroundJobs(handler node.Handler) error {
+func (a *agent) StartBackgroundJobs(handler node.Handler) error {
 	if !a.Enabled() {
 		return nil
 	}
@@ -225,23 +225,23 @@ func (a *Agent) StartBackgroundJobs(handler node.Handler) error {
 	return nil
 }
 
-func (a *Agent) Stop(cell.HookContext) error {
+func (a *agent) Stop(cell.HookContext) error {
 	return nil
 }
 
-func (a *Agent) AuthKeySize() int {
+func (a *agent) AuthKeySize() int {
 	return a.authKeySize
 }
 
-func (a *Agent) SPI() uint8 {
+func (a *agent) SPI() uint8 {
 	return a.spi
 }
 
-func (a *Agent) Enabled() bool {
+func (a *agent) Enabled() bool {
 	return a.config.Enabled()
 }
 
-func (a *Agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
+func (a *agent) getGlobalIPsecKey(ip net.IP) *ipSecKey {
 	a.ipSecLock.RLock()
 	defer a.ipSecLock.RUnlock()
 
@@ -325,7 +325,7 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
 // OUT), and vice versa. And its key automatically resets on each node reboot.
-func (a *Agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID string) (*ipSecKey, error) {
+func (a *agent) getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, srcBootID, dstBootID string) (*ipSecKey, error) {
 	globalKey := a.getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
 		return nil, fmt.Errorf("global IPsec key missing")
@@ -392,7 +392,7 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 // xfrmStateReplace attempts to add a new XFRM state only if one doesn't
 // already exist. If it doesn't but some other XFRM state conflicts, then
 // we attempt to remove the conflicting state before trying to add again.
-func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
+func (a *agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 	states, err := a.xfrmStateCache.XfrmStateList()
 	if err != nil {
 		return fmt.Errorf("Cannot get XFRM state: %w", err)
@@ -455,7 +455,7 @@ func (a *Agent) xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) er
 // Temporarily remove an XFRM state to allow the addition of another,
 // conflicting XFRM state. This function removes the conflicting state and
 // prepares a defer callback to re-add it with proper logging.
-func (a *Agent) xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState, dir string) (error, func()) {
+func (a *agent) xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink.XfrmState, dir string) (error, func()) {
 	stats, err := procfs.NewXfrmStat()
 	errorCnt := 0
 	if err != nil {
@@ -504,7 +504,7 @@ func (a *Agent) xfrmTemporarilyRemoveState(scopedLog *slog.Logger, state netlink
 // to add. To find those conflicting states, we need to use the same logic that
 // the kernel used to reject our check with EEXIST. That logic is upstream in
 // __xfrm_state_lookup.
-func (a *Agent) xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmState) (bool, error) {
+func (a *agent) xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmState) (bool, error) {
 	var (
 		deletedSomething bool
 		errs             = resiliency.NewErrorSet("failed to delete conflicting XFRM states", len(states))
@@ -550,7 +550,7 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
 }
 
-func (a *Agent) ipSecReplaceStateIn(params *types.IPSecParameters) (uint8, error) {
+func (a *agent) ipSecReplaceStateIn(params *types.Parameters) (uint8, error) {
 	key, err := a.getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.RemoteBootID, params.LocalBootID)
 	if err != nil {
 		return 0, err
@@ -578,7 +578,7 @@ func (a *Agent) ipSecReplaceStateIn(params *types.IPSecParameters) (uint8, error
 	return key.Spi, a.xfrmStateReplace(state, params.RemoteRebooted)
 }
 
-func (a *Agent) ipSecReplaceStateOut(params *types.IPSecParameters) (uint8, error) {
+func (a *agent) ipSecReplaceStateOut(params *types.Parameters) (uint8, error) {
 	key, err := a.getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
 	if err != nil {
 		return 0, err
@@ -595,7 +595,7 @@ func (a *Agent) ipSecReplaceStateOut(params *types.IPSecParameters) (uint8, erro
 	return key.Spi, a.xfrmStateReplace(state, params.RemoteRebooted)
 }
 
-func (a *Agent) ipSecReplacePolicyIn(params *types.IPSecParameters) error {
+func (a *agent) ipSecReplacePolicyIn(params *types.Parameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := a.getGlobalIPsecKey(params.DestSubnet.IP)
@@ -612,7 +612,7 @@ func (a *Agent) ipSecReplacePolicyIn(params *types.IPSecParameters) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func (a *Agent) ipsecReplacePolicyFwd(params *types.IPSecParameters) error {
+func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
 	key := a.getGlobalIPsecKey(net.IP{})
@@ -695,7 +695,7 @@ func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	}
 }
 
-func (a *Agent) ipSecReplacePolicyOut(params *types.IPSecParameters) error {
+func (a *agent) ipSecReplacePolicyOut(params *types.Parameters) error {
 	// TODO: Remove old policy pointing to target net
 
 	// We can use the global IPsec key here because we are not going to
@@ -726,7 +726,7 @@ func matchesOnDst(a *net.IPNet, b *net.IPNet) bool {
 	return a.IP.Equal(b.IP) && bytes.Equal(a.Mask, b.Mask)
 }
 
-func (a *Agent) ipsecDeleteXfrmState(nodeID uint16) error {
+func (a *agent) ipsecDeleteXfrmState(nodeID uint16) error {
 	xfrmStateList, err := a.xfrmStateCache.XfrmStateList()
 	if err != nil {
 		a.log.Warn("Failed to list XFRM states for deletion",
@@ -777,7 +777,7 @@ func (a *Agent) ipsecDeleteXfrmState(nodeID uint16) error {
 // xfrm state (e.g. catching 0xd00/0xf00). When both XFRM states coexist,
 // kernel deletes the general XFRM state instead of the specific one, even if
 // the deleting request is for the specific one.
-func (a *Agent) safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.XfrmState) (err error) {
+func (a *agent) safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.XfrmState) (err error) {
 	if getDirFromXfrmMark(state.Mark) == dirIngress && ipsec.GetNodeIDFromXfrmMark(state.Mark) != 0 && oldState != nil {
 
 		errs := resiliency.NewErrorSet("failed to delete old xfrm states", 1)
@@ -805,7 +805,7 @@ func (a *Agent) safeDeleteXfrmState(state *netlink.XfrmState, oldState *netlink.
 	return a.xfrmStateCache.XfrmStateDel(state)
 }
 
-func (a *Agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
+func (a *agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
 	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		a.log.Warn("Failed to list XFRM policies for deletion",
@@ -871,7 +871,7 @@ func (a *Agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func (a *Agent) UpsertIPsecEndpoint(params *types.IPSecParameters) (uint8, error) {
+func (a *agent) UpsertIPsecEndpoint(params *types.Parameters) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -919,7 +919,7 @@ func (a *Agent) UpsertIPsecEndpoint(params *types.IPSecParameters) (uint8, error
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
-func (a *Agent) DeleteIPsecEndpoint(nodeID uint16) error {
+func (a *agent) DeleteIPsecEndpoint(nodeID uint16) error {
 	return errors.Join(a.ipsecDeleteXfrmState(nodeID), a.ipsecDeleteXfrmPolicy(nodeID))
 }
 
@@ -967,7 +967,7 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 //
 // AllReqID can be used for `reqID` to remove all Cilium managed XFRM policies
 // and states.
-func (a *Agent) DeleteXFRM(reqID int) error {
+func (a *agent) DeleteXFRM(reqID int) error {
 	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
@@ -1013,7 +1013,7 @@ policy:
 }
 
 // DeleteXfrmPolicyOut will remove XFRM OUT policies by their node ID and destination subnet.
-func (a *Agent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
+func (a *agent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 	if dst.IP.To4() != nil {
 		return a.deleteXfrmPolicyOutFamily(nodeID, dst, netlink.FAMILY_V4)
 	} else {
@@ -1021,7 +1021,7 @@ func (a *Agent) DeleteXfrmPolicyOut(nodeID uint16, dst *net.IPNet) error {
 	}
 }
 
-func (a *Agent) deleteXfrmPolicyOutFamily(nodeID uint16, dst *net.IPNet, family int) error {
+func (a *agent) deleteXfrmPolicyOutFamily(nodeID uint16, dst *net.IPNet, family int) error {
 	xfrmPolicyList, err := safenetlink.XfrmPolicyList(family)
 	if err != nil {
 		a.log.Warn("Failed to list XFRM OUT policies for deletion", logfields.Error, err)
@@ -1059,7 +1059,7 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 // loadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
-func (a *Agent) loadIPSecKeysFile(path string) (int, uint8, error) {
+func (a *agent) loadIPSecKeysFile(path string) (int, uint8, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
@@ -1068,7 +1068,7 @@ func (a *Agent) loadIPSecKeysFile(path string) (int, uint8, error) {
 	return a.LoadIPSecKeys(file)
 }
 
-func (a *Agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
+func (a *agent) LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
 
@@ -1192,7 +1192,7 @@ func parseSPI(spiStr string) (uint8, int, error) {
 	return uint8(spi), 0, nil
 }
 
-func (a *Agent) setIPSecSPI(spi uint8) error {
+func (a *agent) setIPSecSPI(spi uint8) error {
 	k := encrypt.EncryptKey{Key: 0}
 	v := encrypt.EncryptValue{KeyID: spi}
 	if err := a.encryptMap.Update(k, v); err != nil {
@@ -1206,7 +1206,7 @@ func (a *Agent) setIPSecSPI(spi uint8) error {
 
 // deleteIPsecEncryptRoute removes nodes in main routing table by walking
 // routes and matching route protocol type.
-func (a *Agent) deleteIPsecEncryptRoute() {
+func (a *agent) deleteIPsecEncryptRoute() {
 	filter := &netlink.Route{
 		Protocol: route.EncryptRouteProtocol,
 	}
@@ -1229,7 +1229,7 @@ func (a *Agent) deleteIPsecEncryptRoute() {
 	}
 }
 
-func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) error {
+func (a *agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodeHandler node.Handler, health cell.Health) error {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -1306,7 +1306,7 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 	}
 }
 
-func (a *Agent) startKeyfileWatcher(nodeHandler node.Handler) error {
+func (a *agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 	if !a.config.EnableIPsecKeyWatcher {
 		return nil
 	}
@@ -1334,7 +1334,7 @@ func (a *Agent) startKeyfileWatcher(nodeHandler node.Handler) error {
 // given SPI there are multiple policies and states associated with it), and we
 // don't want to get inconsistent results because we are calling time.Now()
 // directly in this function.
-func (a *Agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
+func (a *agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 	// The SPI associated with the key currently in use should not be reclaimed
 	if spi == a.ipSecCurrentKeySPI {
 		return false
@@ -1362,7 +1362,7 @@ func (a *Agent) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bo
 	return true
 }
 
-func (a *Agent) deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
+func (a *agent) deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
 	xfrmStateList, err := a.xfrmStateCache.XfrmStateList()
 	if err != nil {
 		return err
@@ -1382,7 +1382,7 @@ func (a *Agent) deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
 	return errs.Error()
 }
 
-func (a *Agent) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
+func (a *agent) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
 	xfrmPolicyList, err := safenetlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		return err
@@ -1434,7 +1434,7 @@ func equalDefaultDropPolicy(defaultDropPolicy, p *netlink.XfrmPolicy) bool {
 		p.Dst.String() == defaultDropPolicy.Dst.String()
 }
 
-func (a *Agent) onTimer(ctx context.Context) error {
+func (a *agent) onTimer(ctx context.Context) error {
 	a.ipSecLock.Lock()
 	defer a.ipSecLock.Unlock()
 
@@ -1462,10 +1462,10 @@ func (a *Agent) onTimer(ctx context.Context) error {
 	return nil
 }
 
-func NewTestIPsecAgent(tb testing.TB) *Agent {
+func NewTestIPsecAgent(tb testing.TB) *agent {
 	tb.Helper()
 
-	agent := &Agent{
+	agent := &agent{
 		log:        hivetest.Logger(tb),
 		localNode:  nil,
 		jobs:       nil,

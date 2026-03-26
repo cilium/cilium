@@ -568,7 +568,6 @@ Makefile* @cilium/build
 /pkg/crypto/certificatemanager @cilium/envoy @cilium/sig-servicemesh
 /pkg/crypto/certloader @cilium/sig-hubble
 /pkg/datapath/ @cilium/sig-datapath
-/pkg/datapath/fake/types/ipsec.go @cilium/ipsec
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
@@ -578,7 +577,6 @@ Makefile* @cilium/build
 /pkg/datapath/linux/requirements.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/loader/verifier_load_test.go @cilium/sig-datapath
-/pkg/datapath/types/ipsec.go @cilium/ipsec
 /pkg/datapath/sockets/ @cilium/sig-lb
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent

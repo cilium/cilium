@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -53,7 +54,7 @@ func TestMarkAndSweep(t *testing.T) {
 			Allocator:        testidentity.NewMockIdentityAllocator(nil),
 			CTMapGC:          ctmap.NewFakeGCRunner(),
 			WgConfig:         &fakeTypes.WireguardConfig{},
-			IPSecConfig:      fakeTypes.IPsecConfig{},
+			IPSecConfig:      fakeipsec.Config{},
 			Logger:           logger,
 			IdentityManager:  identitymanager.NewIDManager(logger),
 			PolicyRepo:       s.repo,

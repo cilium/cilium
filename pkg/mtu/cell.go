@@ -15,9 +15,9 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/daemon/k8s"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -47,7 +47,7 @@ type MTU interface {
 type mtuParams struct {
 	cell.In
 
-	IPsec        types.IPsecAgent
+	IPsec        ipsec.Agent
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 

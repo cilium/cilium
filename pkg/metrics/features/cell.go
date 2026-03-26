@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -101,7 +101,7 @@ type featuresParams struct {
 	L2PodAnnouncement   gneigh.L2PodAnnouncementConfig
 	DynamicConfigSource dynamicconfig.ConfigSource
 	WgConfig            wgTypes.WireguardConfig
-	IPsecConfig         types.IPsecConfig
+	IPsecConfig         ipsec.Config
 	ConnectorConfig     connector.Config
 }
 

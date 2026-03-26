@@ -25,10 +25,10 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoy "github.com/cilium/cilium/pkg/envoy/config"
@@ -68,7 +68,7 @@ var (
 type paramsOut struct {
 	cell.Out
 
-	IPSecConfig           Config
+	IPSecConfig           config
 	WireguardConfig       wgTypes.WireguardConfig
 	TunnelConfig          tunnel.Config
 	DaemonConfig          *option.DaemonConfig
@@ -107,7 +107,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 	var (
 		// Local references are updated when starting the Hive.
-		ipsecAgent  *Agent
+		ipsecAgent  *agent
 		nodeStore   *node.LocalNodeStore
 		mtuConfig   mtu.MTU
 		encryptMap  encrypt.EncryptMap
@@ -160,7 +160,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 
 				func() paramsOut {
 					return paramsOut{
-						IPSecConfig: Config{
+						IPSecConfig: config{
 							UserConfig: UserConfig{
 								EnableConfig: EnableConfig{
 									EnableIPsec: ipsecEnabled,
@@ -211,8 +211,8 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 			),
 
 			cell.Invoke(
-				func(a types.IPsecAgent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n node.Handler) {
-					ipsecAgent = a.(*Agent)
+				func(a types.Agent, s *node.LocalNodeStore, m mtu.MTU, e encrypt.EncryptMap, n node.Handler) {
+					ipsecAgent = a.(*agent)
 					nodeStore = s
 					mtuConfig = m
 					nodeHandler = n
@@ -359,7 +359,7 @@ func TestMaxKeyRotationJitter(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			config := Config{
+			config := config{
 				UserConfig: UserConfig{
 					IPsecKeyRotationDuration: tc.rotationDuration,
 				},
