@@ -54,7 +54,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService}
+		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService, gobgpFailedCloseTCP}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -430,6 +430,7 @@ const (
 	failedToReleaseLock  stringMatcher = "Failed to release lock:"
 	nilDetailsForService stringMatcher = "retrieved nil details for Service"                    // from: https://github.com/cilium/cilium/issues/35595
 	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
+	gobgpFailedCloseTCP  stringMatcher = "failed to close existing tcp connection"              // Benign error during BGP peer teardown in ACTIVE state
 
 	// warnings
 	cantEnableJIT                    stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
