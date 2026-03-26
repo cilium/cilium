@@ -9,8 +9,8 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -23,8 +23,8 @@ var Cell = cell.Module(
 )
 
 var (
-	_ node.Handler             = (*nodeNeighborHandler)(nil)
-	_ datapath.NodeConfigChangeHandler = (*nodeNeighborHandler)(nil)
+	_ node.Handler         = (*nodeNeighborHandler)(nil)
+	_ config.ChangeHandler = (*nodeNeighborHandler)(nil)
 )
 
 // NewNodeNeighborHandler initializes the node neighbor handler and
@@ -193,7 +193,7 @@ func (nnh *nodeNeighborHandler) NodeValidateImplementation(node nodeTypes.Node) 
 
 // NodeConfigurationChanged is called when the local node configuration
 // has changed
-func (nnh *nodeNeighborHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
+func (nnh *nodeNeighborHandler) NodeConfigurationChanged(config config.Config) error {
 
 	// `NodeConfigurationChanged` is called by the loader when the datapath is initialized.
 	// We use this event as a signal that `NodeAdd` should have been called for all nodes

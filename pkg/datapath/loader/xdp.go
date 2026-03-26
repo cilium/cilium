@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/maps/registry"
 
@@ -40,15 +39,15 @@ const (
 
 // xdpConfigs holds functions that yield a BPF configuration object for
 // attaching instances of bpf_xdp.c to externally-facing network devices.
-var xdpConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+var xdpConfigs funcRegistry[func(*config.Config, netlink.Link) any]
 
 // xdpRenames holds functions that yield BPF map renames for
 // attaching instances of bpf_xdp.c to externally-facing network devices.
-var xdpRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+var xdpRenames funcRegistry[func(*config.Config, netlink.Link) map[string]string]
 
 // xdpConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [xdpConfigs].
-func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+func xdpConfiguration(lnc *config.Config, link netlink.Link) (configs []any) {
 	for f := range xdpConfigs.all() {
 		configs = append(configs, f(lnc, link))
 	}
@@ -56,14 +55,14 @@ func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (
 }
 
 // xdpMapRenames returns the merged map of XDP map renames yielded by all registered rename providers.
-func xdpMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
+func xdpMapRenames(lnc *config.Config, link netlink.Link) (renames []map[string]string) {
 	for f := range xdpRenames.all() {
 		renames = append(renames, f(lnc, link))
 	}
 	return renames
 }
 
-func defaultXDPMapRenames(lnc *datapath.LocalNodeConfiguration, iface netlink.Link) (renames map[string]string) {
+func defaultXDPMapRenames(lnc *config.Config, iface netlink.Link) (renames map[string]string) {
 	return map[string]string{
 		"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
 	}
@@ -146,7 +145,7 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
 func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
-	reg *registry.MapRegistry, lnc *datapath.LocalNodeConfiguration,
+	reg *registry.MapRegistry, lnc *config.Config,
 	xdpDev string, xdpMode xdp.Mode) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
@@ -231,7 +230,7 @@ func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionS
 
 func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
 	xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec,
-	lnc *datapath.LocalNodeConfiguration) error {
+	lnc *config.Config) error {
 	var (
 		obj    xdpObjects
 		commit func() error

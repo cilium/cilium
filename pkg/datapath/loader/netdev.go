@@ -14,9 +14,9 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -26,7 +26,7 @@ import (
 //
 // If no suitable address is found for the given interface, fall back to
 // searching for addresses on the wildcard device name.
-func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration, enable4, enable6 bool) (masq4, masq6 netip.Addr) {
+func bpfMasqAddrs(ifName string, cfg *config.Config, enable4, enable6 bool) (masq4, masq6 netip.Addr) {
 	if cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = cfg.DeriveMasqIPAddrFromDevice
 	}

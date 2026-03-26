@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
@@ -32,14 +31,14 @@ const (
 
 // overlayConfigs holds functions that yield a BPF configuration object for
 // an overlay (tunneling) network device.
-var overlayConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+var overlayConfigs funcRegistry[func(*config.Config, netlink.Link) any]
 
 // overlayConfigs holds functions that yield BPF map renames for an overlay (tunneling) network device.
-var overlayRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+var overlayRenames funcRegistry[func(*config.Config, netlink.Link) map[string]string]
 
 // overlayConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [overlayConfigs].
-func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+func overlayConfiguration(lnc *config.Config, link netlink.Link) (configs []any) {
 	for f := range overlayConfigs.all() {
 		configs = append(configs, f(lnc, link))
 	}
@@ -47,21 +46,21 @@ func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Lin
 }
 
 // overlayMapRenames returns the merged map of overlay map renames yielded by all registered rename providers.
-func overlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
+func overlayMapRenames(lnc *config.Config, link netlink.Link) (renames []map[string]string) {
 	for f := range overlayRenames.all() {
 		renames = append(renames, f(lnc, link))
 	}
 	return renames
 }
 
-func defaultOverlayMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames map[string]string) {
+func defaultOverlayMapRenames(lnc *config.Config, link netlink.Link) (renames map[string]string) {
 	return map[string]string{
 		"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 	}
 }
 
 func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
+	lnc *config.Config, link netlink.Link) error {
 	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}

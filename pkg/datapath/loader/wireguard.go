@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
@@ -32,15 +31,15 @@ const (
 
 // wireguardConfigs holds functions that yield a BPF configuration object for
 // the wireguard network device.
-var wireguardConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+var wireguardConfigs funcRegistry[func(*config.Config, netlink.Link) any]
 
 // wireguardConfigs holds functions that yield BPF map renames for
 // the wireguard network device.
-var wireguardRenames funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) map[string]string]
+var wireguardRenames funcRegistry[func(*config.Config, netlink.Link) map[string]string]
 
 // wireguardConfiguration returns a slice of BPF configuration objects yielded
 // by all registered config providers of [wireguardConfigs].
-func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+func wireguardConfiguration(lnc *config.Config, link netlink.Link) (configs []any) {
 	for f := range wireguardConfigs.all() {
 		configs = append(configs, f(lnc, link))
 	}
@@ -48,21 +47,21 @@ func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.L
 }
 
 // wireguardMapRenames returns the merged map of wireguard map renames yielded by all registered rename providers.
-func wireguardMapRenames(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (renames []map[string]string) {
+func wireguardMapRenames(lnc *config.Config, link netlink.Link) (renames []map[string]string) {
 	for f := range wireguardRenames.all() {
 		renames = append(renames, f(lnc, link))
 	}
 	return renames
 }
 
-func defaultWireguardMapRenames(lnc *datapath.LocalNodeConfiguration, device netlink.Link) (renames map[string]string) {
+func defaultWireguardMapRenames(lnc *config.Config, device netlink.Link) (renames map[string]string) {
 	return map[string]string{
 		"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
 	}
 }
 
 func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
-	lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
+	lnc *config.Config, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}

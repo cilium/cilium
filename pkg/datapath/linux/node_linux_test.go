@@ -19,6 +19,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -48,7 +49,7 @@ type nodeSuite struct {
 
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
-	nodeConfigTemplate datapath.LocalNodeConfiguration
+	nodeConfigTemplate config.Config
 }
 
 func setup(tb testing.TB, family string) *nodeSuite {
@@ -106,7 +107,7 @@ func setupNodeSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv
 	}
 	devHost := mustSetupDevice(tb, s.ns, hostDevice, ips...)
 
-	s.nodeConfigTemplate = datapath.LocalNodeConfiguration{
+	s.nodeConfigTemplate = config.Config{
 		Devices:             []*tables.Device{devExt, devHost},
 		DirectRoutingDevice: devHost,
 		NodeIPv4:            ip.AddrFromIP(addressing.IPv4().PrimaryExternal()),
@@ -180,7 +181,7 @@ func mustDeleteNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node 
 	}))
 }
 
-func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, nodeConfig datapath.LocalNodeConfiguration) {
+func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, nodeConfig config.Config) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
 		return lnh.NodeConfigurationChanged(nodeConfig)
@@ -684,7 +685,7 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 	testNodeChurnXFRMLeaksWithConfig(t, s, config)
 }
 
-func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config datapath.LocalNodeConfiguration) {
+func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config) {
 	log := hivetest.Logger(t)
 	keys := bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 

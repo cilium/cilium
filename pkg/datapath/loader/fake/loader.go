@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	bigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/types"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -21,11 +22,11 @@ func (f *Loader) CompileOrLoad(ctx context.Context, ep endpoint.Endpoint, stats 
 	panic("implement me")
 }
 
-func (f *Loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *datapath.LocalNodeConfiguration, stats *metrics.SpanStat) (string, error) {
+func (f *Loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *config.Config, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
-func (f *Loader) EndpointHash(cfg endpoint.Config, _ *datapath.LocalNodeConfiguration) (string, error) {
+func (f *Loader) EndpointHash(cfg endpoint.Config, _ *config.Config) (string, error) {
 	panic("implement me")
 }
 
@@ -41,7 +42,7 @@ func (f *Loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *Loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp bigtcp.Configuration) error {
+func (f *Loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp bigtcp.Configuration) error {
 	return nil
 }
 
@@ -53,6 +54,6 @@ func (f *Loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	return nil
 }
 
-func (f *Loader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnc *datapath.LocalNodeConfiguration) error {
+func (f *Loader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnc *config.Config) error {
 	return nil
 }

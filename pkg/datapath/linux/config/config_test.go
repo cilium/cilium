@@ -21,6 +21,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -39,7 +40,7 @@ import (
 )
 
 var (
-	dummyNodeCfg = datapath.LocalNodeConfiguration{
+	dummyNodeCfg = config.Config{
 		NodeIPv4:            ipv4DummyAddr,
 		NodeIPv6:            ipv6DummyAddr,
 		CiliumInternalIPv4:  ipv4DummyAddr,
@@ -478,7 +479,7 @@ var provideNodemap = cell.Provide(func() nodemap.MapV2 {
 // writeNodeConfigToBuffer creates a HeaderfileWriter and writes the node
 // configuration to a buffer. This helper is used by the datapath config
 // defines tests below.
-func writeNodeConfigToBuffer(t *testing.T, nodeCfg *datapath.LocalNodeConfiguration) string {
+func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 	t.Helper()
 	cfg, err := NewHeaderfileWriter(WriterParams{
 		NodeAddressing:     fakeTypes.NewNodeAddressing(),

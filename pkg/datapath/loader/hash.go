@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/config"
+	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
 
@@ -17,7 +17,7 @@ import (
 type datapathHash []byte
 
 // hashDatapath returns a new datapath hash based on the specified datapath.
-func hashDatapath(c config.Writer, nodeCfg *datapath.LocalNodeConfiguration) (datapathHash, error) {
+func hashDatapath(c linuxConfig.Writer, nodeCfg *config.Config) (datapathHash, error) {
 	d := sha256.New()
 	err := c.WriteNodeConfig(d, nodeCfg)
 	if err != nil {
@@ -26,7 +26,7 @@ func hashDatapath(c config.Writer, nodeCfg *datapath.LocalNodeConfiguration) (da
 	return datapathHash(d.Sum(nil)), nil
 }
 
-func (d datapathHash) hashEndpoint(c config.Writer, nodeCfg *datapath.LocalNodeConfiguration, epCfg endpoint.Config) (string, error) {
+func (d datapathHash) hashEndpoint(c linuxConfig.Writer, nodeCfg *config.Config, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteEndpointConfig(h, nodeCfg, epCfg); err != nil {
@@ -52,7 +52,7 @@ func (d datapathHash) hashEndpoint(c config.Writer, nodeCfg *datapath.LocalNodeC
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (d datapathHash) hashTemplate(c config.Writer, nodeCfg *datapath.LocalNodeConfiguration, epCfg endpoint.Config) (string, error) {
+func (d datapathHash) hashTemplate(c linuxConfig.Writer, nodeCfg *config.Config, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
 	if err := c.WriteTemplateConfig(h, nodeCfg, epCfg); err != nil {

@@ -10,7 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -18,7 +17,7 @@ import (
 )
 
 // CiliumHost returns a [BPFHost] for attaching bpf_host.c to cilium_host.
-func CiliumHost(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) any {
+func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg := NewBPFHost(NodeConfig(lnc))
 
 	em := ep.GetNodeMAC()
@@ -65,7 +64,7 @@ func CiliumHost(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration) any {
 }
 
 // CiliumNet returns a [BPFHost] for attaching bpf_host.c to cilium_net.
-func CiliumNet(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
+func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg := NewBPFHost(NodeConfig(lnc))
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
@@ -112,7 +111,7 @@ func CiliumNet(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration, link ne
 
 // Netdev returns a [BPFHost] for attaching bpf_host.c to an externally-facing
 // network device.
-func Netdev(ep endpoint.Config, lnc *datapath.LocalNodeConfiguration, link netlink.Link, masq4, masq6 netip.Addr) any {
+func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 netip.Addr) any {
 	cfg := NewBPFHost(NodeConfig(lnc))
 
 	// External devices can be L2-less, in which case it won't have a MAC address

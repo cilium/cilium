@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -66,7 +65,7 @@ var configDumpPath = filepath.Join(option.Config.StateDir, "bpf", socketConfig)
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
 func Enable(logger *slog.Logger, reg *registry.MapRegistry,
-	sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
+	sysctl sysctl.Sysctl, lnc *config.Config) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}

@@ -19,8 +19,9 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
@@ -35,7 +36,7 @@ import (
 )
 
 var (
-	localNodeConfig = datapath.LocalNodeConfiguration{
+	localNodeConfig = config.Config{
 		NodeIPv4:            netip.AddrFrom4([4]byte(templateIPv4)),
 		CiliumInternalIPv4:  netip.AddrFrom4([4]byte(templateIPv4)),
 		AllocCIDRIPv4:       cidr.MustParseCIDR("10.147.0.0/16"),
@@ -84,7 +85,7 @@ func newTestLoader(tb testing.TB) *loader {
 		registry.Cell,
 		cell.Provide(func() (
 			sysctl.Sysctl,
-			config.Writer,
+			linuxConfig.Writer,
 			*manager.NodeConfigNotifier,
 			promise.Promise[endpointstate.Restorer],
 			datapath.PreFilter,
