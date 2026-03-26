@@ -113,6 +113,7 @@ cilium-operator-alibabacloud hive [flags]
       --operator-prometheus-tls-client-ca-files strings            Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --operator-prometheus-tls-key-file string                    Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
       --parallel-alloc-workers int                                 Maximum number of parallel IPAM workers (default 50)
+      --pod-restart-selector string                                cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --policy-default-local-cluster                               Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                            Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --remove-cilium-node-taints                                  Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)

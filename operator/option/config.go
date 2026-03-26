@@ -43,9 +43,6 @@ const (
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
-	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
-	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
-
 	// IPAM options
 
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
@@ -166,10 +163,6 @@ const (
 	// CiliumPodLabels specifies the pod labels that Cilium pods is running
 	// with.
 	CiliumPodLabels = "cilium-pod-labels"
-
-	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
-	// default values: k8s-app=kube-dns
-	PodRestartSelector = "pod-restart-selector"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -182,9 +175,6 @@ type OperatorConfig struct {
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
-
-	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
-	UnmanagedPodWatcherInterval int
 
 	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
 	// force acquire leadership in Cilium Operator HA deployment.
@@ -238,16 +228,12 @@ type OperatorConfig struct {
 	// CiliumPodLabels specifies the pod labels that Cilium pods is running
 	// with.
 	CiliumPodLabels string
-
-	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
-	PodRestartSelector string
 }
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
-	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
@@ -262,7 +248,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
 	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
-	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
 

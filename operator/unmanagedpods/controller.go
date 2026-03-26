@@ -44,7 +44,7 @@ type params struct {
 
 func registerController(p params) {
 	// Check if the controller is disabled
-	if p.Config.Interval == 0 {
+	if p.Config.UnmanagedPodWatcherInterval == 0 {
 		p.Logger.Info("Unmanaged pods controller disabled (interval set to 0)")
 		return
 	}
@@ -60,10 +60,11 @@ func registerController(p params) {
 	}
 
 	c := &unmanagedPodsController{
-		clientset: p.Clientset,
-		metrics:   p.Metrics,
-		logger:    p.Logger,
-		interval:  p.Config.Interval,
+		clientset:          p.Clientset,
+		metrics:            p.Metrics,
+		logger:             p.Logger,
+		interval:           p.Config.UnmanagedPodWatcherInterval,
+		podRestartSelector: p.Config.PodRestartSelector,
 	}
 
 	p.Lifecycle.Append(cell.Hook{
@@ -73,10 +74,11 @@ func registerController(p params) {
 }
 
 type unmanagedPodsController struct {
-	clientset k8sClient.Clientset
-	metrics   *Metrics
-	logger    *slog.Logger
-	interval  time.Duration
+	clientset          k8sClient.Clientset
+	metrics            *Metrics
+	logger             *slog.Logger
+	interval           time.Duration
+	podRestartSelector string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -102,7 +104,7 @@ func (c *unmanagedPodsController) onStop(_ cell.HookContext) error {
 func (c *unmanagedPodsController) enableUnmanagedController() {
 	// These functions will block until the resources are synced with k8s.
 	watchers.CiliumEndpointsInit(c.ctx, &c.wg, c.clientset)
-	watchers.UnmanagedPodsInit(c.ctx, &c.wg, c.clientset)
+	watchers.UnmanagedPodsInit(c.ctx, &c.wg, c.clientset, c.podRestartSelector)
 
 	mgr := controller.NewManager()
 

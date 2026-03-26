@@ -24,22 +24,23 @@ var Cell = cell.Module(
 	metrics.Metric(NewMetrics),
 )
 
-const (
-	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
-	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
-)
-
 type Config struct {
-	// Interval is the interval between checks for unmanaged pods (0 to disable)
-	Interval time.Duration `mapstructure:"unmanaged-pod-watcher-interval"`
+	// UnmanagedPodWatcherInterval is the interval between checks for unmanaged pods (0 to disable)
+	UnmanagedPodWatcherInterval time.Duration
+
+	// PodRestartSelector is the label selector for pods that should be
+	// restarted if not managed by Cilium.
+	PodRestartSelector string
 }
 
 var defaultConfig = Config{
-	Interval: 15 * time.Second,
+	UnmanagedPodWatcherInterval: 15 * time.Second,
+	PodRestartSelector:          "k8s-app=kube-dns",
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Duration(UnmanagedPodWatcherInterval, def.Interval, "Interval to check for unmanaged kube-dns pods (0 to disable)")
+	flags.Duration("unmanaged-pod-watcher-interval", def.UnmanagedPodWatcherInterval, "Interval to check for unmanaged kube-dns pods (0 to disable)")
+	flags.String("pod-restart-selector", def.PodRestartSelector, "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 }
 
 // SharedConfig contains the configuration that is shared between this module and others.
