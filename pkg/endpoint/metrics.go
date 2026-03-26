@@ -44,9 +44,11 @@ type regenerationStatistics struct {
 	regenReason        regeneration.Reason
 	regenFailureReason regenerationFailureReason
 
-	success                    bool
-	endpointID                 uint16
-	policyStatus               models.EndpointPolicyEnabled
+	success      bool
+	endpointID   uint16
+	policyStatus models.EndpointPolicyEnabled
+
+	buildPermitAcquisition     spanstat.SpanStat
 	totalTime                  spanstat.SpanStat
 	waitingForLock             spanstat.SpanStat
 	waitingForPolicyRepository spanstat.SpanStat
@@ -103,6 +105,7 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		"mapSync":                    &s.mapSync,
 		"prepareBuild":               &s.prepareBuild,
 		"total":                      &s.totalTime,
+		"buildPermitAcquisition":     &s.buildPermitAcquisition,
 	}
 	maps.Copy(result, s.datapathRealization.GetMap())
 	return result
