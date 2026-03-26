@@ -52,6 +52,7 @@ type DaemonConfigForFeatDetection struct {
 	EncryptNode                      bool
 	NodeEncryptionOptOutLabelsString string
 	EnableK8sNetworkPolicy           bool
+	EnableK8sClusterNetworkPolicy    bool
 }
 
 // extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
@@ -95,6 +96,9 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		Enabled: cfg.EnableK8sNetworkPolicy,
 	}
 
+	result[features.KCNP] = features.Status{
+		Enabled: cfg.EnableK8sClusterNetworkPolicy,
+	}
 	return nil
 }
 

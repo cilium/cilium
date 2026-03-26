@@ -34,7 +34,7 @@ func expectation(a *check.Action) (egress, ingress check.Result) {
 	return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 }
 
-func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
+func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]string) {
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	newTest("echo-ingress-l7", ct).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
@@ -78,4 +78,20 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToHostPort()).
 		WithExpectations(expectation)
+
+	newTest("echo-ingress-from-client-tiered-wildcard-pass-l7", ct).
+		WithResources(templates["echoIngressFromClientTieredWildcardPassL7YAML"]).
+		WithCiliumVersion(">=1.20.0").
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.KCNP)).
+		WithScenarios(
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().HasLabel("kind", "echo") && a.Source().HasLabel("name", "client2") {
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
+			}
+			return check.ResultOK, check.ResultOK
+		})
 }
