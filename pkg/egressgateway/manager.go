@@ -634,24 +634,31 @@ func (manager *Manager) onUpsertCES(ces *cilium_api_v2alpha1.CiliumEndpointSlice
 		}
 		ep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(ccep, ces.Namespace)
 		id := endpointID(ces.Namespace + "/" + ccep.Name)
-		currentIDs.Insert(id)
 
-		if err := manager.addEndpointLocked(ep); err != nil && firstErr == nil {
-			firstErr = err
+		if err := manager.addEndpointLocked(ep); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
+		currentIDs.Insert(id)
 	}
 
 	// Diff: remove endpoints that were in the previous version of this slice
-	// but are no longer present.
+	// but are no longer present. Before removing from epDataStore, verify no
+	// other slice still tracks the endpoint (guards against out-of-order
+	// events when an endpoint moves between slices).
 	if prev, ok := manager.cesTrackedEndpoints[ces.Name]; ok {
 		for id := range prev {
 			if !currentIDs.Has(id) {
-				manager.logger.Debug(
-					"Deleted CiliumEndpoint (removed from CES)",
-					logfields.K8sUID, id,
-				)
-				delete(manager.epDataStore, id)
-				manager.setEventBitmap(eventDeleteEndpoint)
+				if !manager.endpointTrackedByOtherCES(id, ces.Name) {
+					manager.logger.Debug(
+						"Deleted CiliumEndpoint (removed from CES)",
+						logfields.K8sUID, id,
+					)
+					delete(manager.epDataStore, id)
+					manager.setEventBitmap(eventDeleteEndpoint)
+				}
 			}
 		}
 	}
@@ -664,18 +671,35 @@ func (manager *Manager) onUpsertCES(ces *cilium_api_v2alpha1.CiliumEndpointSlice
 	return firstErr
 }
 
+// endpointTrackedByOtherCES returns true if the given endpoint ID is tracked by
+// any CES other than the one identified by exclude. The caller MUST hold
+// manager.Mutex.
+func (manager *Manager) endpointTrackedByOtherCES(id endpointID, exclude string) bool {
+	for name, tracked := range manager.cesTrackedEndpoints {
+		if name != exclude && tracked.Has(id) {
+			return true
+		}
+	}
+	return false
+}
+
 // onDeleteCES processes a CiliumEndpointSlice delete event. It removes all
 // endpoints that belonged to the deleted slice from the epDataStore.
 func (manager *Manager) onDeleteCES(ces *cilium_api_v2alpha1.CiliumEndpointSlice) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	if tracked, ok := manager.cesTrackedEndpoints[ces.Name]; ok {
-		for id := range tracked {
+	tracked, ok := manager.cesTrackedEndpoints[ces.Name]
+	if !ok {
+		return
+	}
+
+	for id := range tracked {
+		if !manager.endpointTrackedByOtherCES(id, ces.Name) {
 			delete(manager.epDataStore, id)
 		}
-		delete(manager.cesTrackedEndpoints, ces.Name)
 	}
+	delete(manager.cesTrackedEndpoints, ces.Name)
 
 	manager.setEventBitmap(eventDeleteEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("CES deleted")
