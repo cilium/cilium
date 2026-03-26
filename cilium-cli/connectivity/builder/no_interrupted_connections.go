@@ -14,7 +14,7 @@ type noInterruptedConnections struct{}
 
 func (t noInterruptedConnections) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("no-interrupted-connections", ct).
-		WithCondition(func() bool { return ct.Params().IncludeConnDisruptTest }).
+		WithCondition(func() bool { return ct.ShouldRunConnDisrupt() }).
 		WithScenarios(tests.NoInterruptedConnections()).
 		WithFinalizer(func(ctx context.Context) error {
 			// Delete the test-conn-disrupt pods immediately after the test run

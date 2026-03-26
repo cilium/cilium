@@ -1016,15 +1016,17 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	// Deploy test-conn-disrupt actors (only in the first
 	// test namespace in case of tests concurrent run)
 	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
-		if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
-			testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP, ""); err != nil {
-			return err
-		}
+		if ct.params.IncludeConnDisruptTest {
+			if err := ct.createTestConnDisruptServerDeployAndSvc(ctx, testConnDisruptServerDeploymentName, KindTestConnDisrupt, 3,
+				testConnDisruptServiceName, "test-conn-disrupt-server", false, newConnDisruptCNP, ""); err != nil {
+				return err
+			}
 
-		if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientDeploymentName, KindTestConnDisrupt,
-			"test-conn-disrupt-client", fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
-			5, false, nil, ""); err != nil {
-			return err
+			if err := ct.createTestConnDisruptClientDeployment(ctx, testConnDisruptClientDeploymentName, KindTestConnDisrupt,
+				"test-conn-disrupt-client", fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
+				5, false, nil, ""); err != nil {
+				return err
+			}
 		}
 
 		if ct.ShouldRunConnDisruptNSTraffic() {
@@ -2490,15 +2492,17 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		srcList = append(srcList, client3DeploymentName)
 	}
 
-	if ct.params.IncludeConnDisruptTest && ct.params.TestNamespaceIndex == 0 {
-		// We append the server and client deployment names to two different
-		// lists. This matters when running in multi-cluster mode, because
-		// the server is deployed in the local cluster (targeted by the "src"
-		// client), while the client in the remote one (targeted by the "dst"
-		// client). When running against a single cluster, instead, this does
-		// not matter much, because the two clients are identical.
-		srcList = append(srcList, testConnDisruptServerDeploymentName)
-		dstList = append(dstList, testConnDisruptClientDeploymentName)
+	if ct.params.TestNamespaceIndex == 0 {
+		if ct.params.IncludeConnDisruptTest {
+			// We append the server and client deployment names to two different
+			// lists. This matters when running in multi-cluster mode, because
+			// the server is deployed in the local cluster (targeted by the "src"
+			// client), while the client in the remote one (targeted by the "dst"
+			// client). When running against a single cluster, instead, this does
+			// not matter much, because the two clients are identical.
+			srcList = append(srcList, testConnDisruptServerDeploymentName)
+			dstList = append(dstList, testConnDisruptClientDeploymentName)
+		}
 		if ct.ShouldRunConnDisruptNSTraffic() {
 			srcList = append(srcList, testConnDisruptServerNSTrafficDeploymentName)
 			dstList = append(dstList, ct.testConnDisruptClientNSTrafficDeploymentNames...)

@@ -50,20 +50,22 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 	restartCount := make(map[string]string)
 	for _, client := range ct.Clients() {
-		pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
-		if err != nil {
-			t.Fatalf("Unable to list test-conn-disrupt pods: %s", err)
-		}
-		if len(pods.Items) == 0 {
-			t.Fatal("No test-conn-disrupt-{client,server} pods found")
-		}
+		if ct.Params().IncludeConnDisruptTest {
+			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
+			if err != nil {
+				t.Fatalf("Unable to list test-conn-disrupt pods: %s", err)
+			}
+			if len(pods.Items) == 0 {
+				t.Fatal("No test-conn-disrupt-{client,server} pods found")
+			}
 
-		for _, pod := range pods.Items {
-			restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+			for _, pod := range pods.Items {
+				restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+			}
 		}
 
 		if ct.ShouldRunConnDisruptNSTraffic() {
-			pods, err = client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptNSTraffic})
+			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptNSTraffic})
 			if err != nil {
 				t.Fatalf("Unable to list test-conn-disrupt-ns-traffic pods: %s", err)
 			}
@@ -79,7 +81,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		}
 
 		if ct.ShouldRunConnDisruptL7Traffic() {
-			pods, err = client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptL7Traffic})
+			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptL7Traffic})
 			if err != nil {
 				t.Fatalf("Unable to list test-conn-disrupt-l7-traffic pods: %s", err)
 			}
@@ -95,7 +97,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		}
 
 		if ct.ShouldRunConnDisruptEgressGateway() {
-			pods, err = client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptEgressGateway})
+			pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisruptEgressGateway})
 			if err != nil {
 				t.Fatalf("Unable to list test-conn-disrupt-egw pods: %s", err)
 			}

@@ -1402,6 +1402,13 @@ func (ct *ConnectivityTest) ForEachIPFamily(do func(features.IPFamily)) {
 	}
 }
 
+func (ct *ConnectivityTest) ShouldRunConnDisrupt() bool {
+	return ct.params.IncludeConnDisruptTest ||
+		ct.ShouldRunConnDisruptNSTraffic() ||
+		ct.ShouldRunConnDisruptL7Traffic() ||
+		ct.ShouldRunConnDisruptEgressGateway()
+}
+
 func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
 	return ct.params.IncludeConnDisruptTestNSTraffic &&
 		ct.Features[features.NodeWithoutCilium].Enabled &&

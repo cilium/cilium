@@ -169,10 +169,10 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 				return networkPerformanceTests(connTests[0])
 			},
 		}, nil
-	case params.IncludeConnDisruptTest && params.ConnDisruptTestSetup:
+	case params.ConnDisruptTestSetup:
 		// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
 		// will be used by another invocation of "cli connectivity test"
-		// with include --include-conn-disrupt-test"
+		// with conn-disrupt test flags (e.g. --include-conn-disrupt-test, --include-conn-disrupt-test-egw).
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
 			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				return connDisruptTests(connTests[0])
@@ -181,7 +181,7 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 	case params.TestConcurrency > 1:
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
 			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
-				if connTests[0].Params().IncludeConnDisruptTest {
+				if connTests[0].ShouldRunConnDisrupt() {
 					if err := connDisruptTests(connTests[0]); err != nil {
 						return err
 					}
@@ -201,7 +201,7 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 	default: // fallback to the sequential run
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
 			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
-				if connTests[0].Params().IncludeConnDisruptTest {
+				if connTests[0].ShouldRunConnDisrupt() {
 					if err := connDisruptTests(connTests[0]); err != nil {
 						return err
 					}
