@@ -3,7 +3,12 @@
 
 package node
 
-import "github.com/cilium/cilium/pkg/node/types"
+import (
+	"net"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/node/types"
+)
 
 // Handler handles node related events such as addition, update or deletion
 // of nodes or changes to the local node configuration.
@@ -35,4 +40,19 @@ type Handler interface {
 	// the node in the datapath. This function is intended to be run on an
 	// interval to ensure that the datapath is consistently converged.
 	NodeValidateImplementation(node types.Node) error
+}
+
+type IDHandler interface {
+	// GetNodeIP returns the string node IP that was previously registered as the given node ID.
+	GetNodeIP(uint16) string
+
+	// GetNodeID gets the node ID for the given node IP. If none is found, exists is false.
+	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
+
+	// DumpNodeIDs returns all node IDs and their associated IP addresses.
+	DumpNodeIDs() []*models.NodeID
+
+	// RestoreNodeIDs restores node IDs and their associated IP addresses from the
+	// BPF map and into the node handler in-memory copy.
+	RestoreNodeIDs()
 }

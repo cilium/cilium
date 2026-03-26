@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -82,9 +81,9 @@ type linuxNodeHandler struct {
 }
 
 var (
-	_ node.Handler           = (*linuxNodeHandler)(nil)
-	_ config.ChangeHandler   = (*linuxNodeHandler)(nil)
-	_ datapath.NodeIDHandler = (*linuxNodeHandler)(nil)
+	_ node.Handler         = (*linuxNodeHandler)(nil)
+	_ config.ChangeHandler = (*linuxNodeHandler)(nil)
+	_ node.IDHandler       = (*linuxNodeHandler)(nil)
 )
 
 // NewNodeHandler returns a new node handler to handle node events and
@@ -99,7 +98,7 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
-) (node.Handler, datapath.NodeIDHandler) {
+) (node.Handler, node.IDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),

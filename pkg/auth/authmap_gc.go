@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -25,7 +25,7 @@ import (
 type authMapGarbageCollector struct {
 	logger        *slog.Logger
 	authmap       authMap
-	nodeIDHandler datapathTypes.NodeIDHandler
+	nodeIDHandler node.IDHandler
 	policyRepo    policyRepository
 
 	ciliumNodesMutex      lock.Mutex
@@ -51,7 +51,7 @@ type policyRepository interface {
 	GetAuthTypes(localID, remoteID identity.NumericIdentity) policyTypes.AuthTypes
 }
 
-func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler datapathTypes.NodeIDHandler, policyRepo policyRepository) *authMapGarbageCollector {
+func newAuthMapGC(logger *slog.Logger, authmap authMap, nodeIDHandler node.IDHandler, policyRepo policyRepository) *authMapGarbageCollector {
 	return &authMapGarbageCollector{
 		logger:        logger,
 		authmap:       authmap,

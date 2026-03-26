@@ -10,11 +10,11 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/node"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -29,7 +29,7 @@ func (key signalAuthKey) String() string {
 
 type AuthManager struct {
 	logger                *slog.Logger
-	nodeIDHandler         types.NodeIDHandler
+	nodeIDHandler         node.IDHandler
 	authHandlers          map[policyTypes.AuthType]authHandler
 	authmap               authMapCacher
 	authSignalBackoffTime time.Duration
@@ -57,7 +57,7 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(logger *slog.Logger, authHandlers []authHandler, authmap authMapCacher, nodeIDHandler types.NodeIDHandler, authSignalBackoffTime time.Duration) (*AuthManager, error) {
+func newAuthManager(logger *slog.Logger, authHandlers []authHandler, authmap authMapCacher, nodeIDHandler node.IDHandler, authSignalBackoffTime time.Duration) (*AuthManager, error) {
 	ahs := map[policyTypes.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
