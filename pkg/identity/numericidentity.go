@@ -14,6 +14,7 @@ import (
 	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -99,43 +100,43 @@ var (
 
 const (
 	// IdentityUnknown represents an unknown identity
-	IdentityUnknown NumericIdentity = iota
+	IdentityUnknown = NumericIdentity(datapath.IdentityUnknownID)
 
 	// ReservedIdentityHost represents the local host
-	ReservedIdentityHost
+	ReservedIdentityHost = NumericIdentity(datapath.IdentityHostID)
 
 	// ReservedIdentityWorld represents any endpoint outside of the cluster
-	ReservedIdentityWorld
+	ReservedIdentityWorld = NumericIdentity(datapath.IdentityWorldID)
 
 	// ReservedIdentityUnmanaged represents unmanaged endpoints.
-	ReservedIdentityUnmanaged
+	ReservedIdentityUnmanaged = NumericIdentity(datapath.IdentityUnmanagedID)
 
 	// ReservedIdentityHealth represents the local cilium-health endpoint
-	ReservedIdentityHealth
+	ReservedIdentityHealth = NumericIdentity(datapath.IdentityHealthID)
 
 	// ReservedIdentityInit is the identity given to endpoints that have not
 	// received any labels yet.
-	ReservedIdentityInit
+	ReservedIdentityInit = NumericIdentity(datapath.IdentityInitID)
 
 	// ReservedIdentityRemoteNode is the identity given to all nodes in
 	// local and remote clusters except for the local node.
-	ReservedIdentityRemoteNode
+	ReservedIdentityRemoteNode = NumericIdentity(datapath.IdentityRemoteNodeID)
 
 	// ReservedIdentityKubeAPIServer is the identity given to remote node(s) which
 	// have backend(s) serving the kube-apiserver running.
-	ReservedIdentityKubeAPIServer
+	ReservedIdentityKubeAPIServer = NumericIdentity(datapath.IdentityKubeAPIServerNodeID)
 
 	// ReservedIdentityIngress is the identity given to the IP used as the source
 	// address for connections from Ingress proxies.
-	ReservedIdentityIngress
+	ReservedIdentityIngress = NumericIdentity(datapath.IdentityIngressID)
 
 	// ReservedIdentityWorldIPv4 represents any endpoint outside of the cluster
 	// for IPv4 address only.
-	ReservedIdentityWorldIPv4
+	ReservedIdentityWorldIPv4 = NumericIdentity(datapath.IdentityWorldIPv4ID)
 
 	// ReservedIdentityWorldIPv6 represents any endpoint outside of the cluster
 	// for IPv6 address only.
-	ReservedIdentityWorldIPv6
+	ReservedIdentityWorldIPv6 = NumericIdentity(datapath.IdentityWorldIPv6ID)
 )
 
 // Special identities for well-known cluster components
