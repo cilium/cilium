@@ -530,6 +530,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	}
 
 	scopedLogger := buildLogAttrsWithEventID(cmd.logger, args)
+	defer func() {
+		if err != nil {
+			scopedLogger.Error("CNI ADD failed", logfields.Error, err)
+		} else {
+			scopedLogger.Debug("CNI ADD processing complete")
+		}
+	}()
 
 	if n.EnableDebug {
 		if err := gops.Listen(gops.Options{}); err != nil {
