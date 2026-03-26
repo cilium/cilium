@@ -33,8 +33,8 @@ func getEPTemplate(t *testing.T, ipamManager *ipam.IPAM) *models.EndpointChangeR
 		ContainerName: "foo",
 		State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		Addressing: &models.AddressPair{
-			IPV6: ip6.IP.String(),
-			IPV4: ip4.IP.String(),
+			IPv6: ip6.IP.String(),
+			IPv4: ip4.IP.String(),
 		},
 		Properties: map[string]any{
 			endpoint.PropertySkipBPFRegeneration: true,
@@ -111,7 +111,7 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	initLbl := labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved)
 	expectedLabels := []string{initLbl.String()}
 	// Check that the endpoint has the reserved:init label.
-	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
+	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPv4)
 	require.NoError(t, err)
 	ep, err := ds.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	require.NoError(t, err)

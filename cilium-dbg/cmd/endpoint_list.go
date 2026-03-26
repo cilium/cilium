@@ -76,7 +76,7 @@ func endpointAddressPair(ep *models.Endpoint) (string, string) {
 		return "No address", "No address"
 	}
 
-	return ep.Status.Networking.Addressing[0].IPV6, ep.Status.Networking.Addressing[0].IPV4
+	return ep.Status.Networking.Addressing[0].IPv6, ep.Status.Networking.Addressing[0].IPv4
 }
 
 func endpointState(ep *models.Endpoint) string {

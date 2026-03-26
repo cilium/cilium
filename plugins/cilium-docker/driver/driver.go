@@ -122,7 +122,7 @@ func NewDriver(logger *slog.Logger, ciliumSockPath, dockerHostPath string) (Driv
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
-			if res.Status.Addressing == nil || (res.Status.Addressing.IPV4 == nil && res.Status.Addressing.IPV6 == nil) {
+			if res.Status.Addressing == nil || (res.Status.Addressing.IPv4 == nil && res.Status.Addressing.IPv6 == nil) {
 				logging.Fatal(
 					scopedLog,
 					"Invalid addressing information from daemon",
@@ -232,7 +232,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 
 	driver.routes = []api.StaticRoute{}
 
-	if driver.conf.Addressing.IPV6 != nil && driver.conf.Addressing.IPV6.Enabled {
+	if driver.conf.Addressing.IPv6 != nil && driver.conf.Addressing.IPv6.Enabled {
 		if routes, err := connector.IPv6Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			logging.Fatal(driver.logger, "Unable to generate IPv6 routes", logfields.Error, err)
 		} else {
@@ -244,7 +244,7 @@ func (driver *driver) updateRoutes(addressing *models.NodeAddressing) {
 		driver.gatewayIPv6 = connector.IPv6Gateway(driver.conf.Addressing)
 	}
 
-	if driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled {
+	if driver.conf.Addressing.IPv4 != nil && driver.conf.Addressing.IPv4.Enabled {
 		if routes, err := connector.IPv4Routes(driver.conf.Addressing, int(driver.conf.RouteMTU)); err != nil {
 			logging.Fatal(driver.logger, "Unable to generate IPv4 routes", logfields.Error, err)
 		} else {
@@ -411,8 +411,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		DockerEndpointID:  create.EndpointID,
 		DockerNetworkID:   create.NetworkID,
 		Addressing: &models.AddressPair{
-			IPV6: create.Interface.AddressIPv6,
-			IPV4: create.Interface.Address,
+			IPv6: create.Interface.AddressIPv6,
+			IPv4: create.Interface.Address,
 		},
 	}
 
@@ -433,8 +433,8 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		EndpointID:     create.EndpointID,
 		GROIPv6MaxSize: int(driver.conf.GROMaxSize),
 		GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
-		GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
-		GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
+		GROIPv4MaxSize: int(driver.conf.GROIPv4MaxSize),
+		GSOIPv4MaxSize: int(driver.conf.GSOIPv4MaxSize),
 		DeviceMTU:      int(driver.conf.DeviceMTU),
 	}
 	linkMode := datapath.GetConnectorModeByName(string(driver.conf.DatapathMode))

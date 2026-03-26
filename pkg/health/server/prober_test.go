@@ -24,20 +24,20 @@ func makeHealthNode(nodeIdx, healthIdx int) (healthNode, net.IP, net.IP) {
 		NodeElement: &models.NodeElement{
 			Name: fmt.Sprintf("node-%d", nodeIdx),
 			PrimaryAddress: &models.NodeAddressing{
-				IPV4: &models.NodeAddressingElement{
+				IPv4: &models.NodeAddressingElement{
 					IP:      nodeIP,
 					Enabled: true,
 				},
-				IPV6: &models.NodeAddressingElement{
+				IPv6: &models.NodeAddressingElement{
 					Enabled: false,
 				},
 			},
 			HealthEndpointAddress: &models.NodeAddressing{
-				IPV4: &models.NodeAddressingElement{
+				IPv4: &models.NodeAddressingElement{
 					IP:      healthIP,
 					Enabled: true,
 				},
-				IPV6: &models.NodeAddressingElement{
+				IPv6: &models.NodeAddressingElement{
 					Enabled: false,
 				},
 			},
@@ -53,11 +53,11 @@ func makeHealthNodeNil(nodeIdx, healthIdx int) (healthNode, net.IP, net.IP) {
 			Name:           fmt.Sprintf("node-%d", nodeIdx),
 			PrimaryAddress: nil,
 			HealthEndpointAddress: &models.NodeAddressing{
-				IPV4: &models.NodeAddressingElement{
+				IPv4: &models.NodeAddressingElement{
 					IP:      healthIP,
 					Enabled: true,
 				},
-				IPV6: &models.NodeAddressingElement{
+				IPv6: &models.NodeAddressingElement{
 					Enabled: false,
 				},
 			},
@@ -144,12 +144,12 @@ func TestProbersetNodes(t *testing.T) {
 	require.Equal(t, sortNodes(expected), sortNodes(nodes))
 	// Set result of probing before updating the nodes.
 	// The result should not be deleted after node update.
-	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPV4.IP)]; ok {
+	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPv4.IP)]; ok {
 		elem.Icmp = &ciliumModels.ConnectivityStatus{
 			Status: "Some status",
 		}
 	} else {
-		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
+		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPv4.IP)
 	}
 	// Update node 1. Node 2 should remain unaffected.
 	modifiedNodesOld := nodeMap{
@@ -167,8 +167,8 @@ func TestProbersetNodes(t *testing.T) {
 		IP: node1HealthIP,
 	}}
 	require.Equal(t, sortNodes(expected), sortNodes(nodes))
-	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPV4.IP)]; !ok {
-		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPV4.IP)
+	if elem, ok := prober.results[ipString(node1.NodeElement.PrimaryAddress.IPv4.IP)]; !ok {
+		t.Errorf("expected to find result element for node's ip %s", node1.NodeElement.PrimaryAddress.IPv4.IP)
 	} else {
 		// Check that status was not removed when updating node
 		require.NotNil(t, elem.Icmp)
@@ -208,11 +208,11 @@ func TestProbersetNodes(t *testing.T) {
 	// It should not show up in the prober.
 	node4, _, node4HealthIP := makeHealthNodeNil(4, 4)
 	node4.PrimaryAddress = &models.NodeAddressing{
-		IPV4: &models.NodeAddressingElement{
+		IPv4: &models.NodeAddressingElement{
 			IP:      "",
 			Enabled: true,
 		},
-		IPV6: &models.NodeAddressingElement{
+		IPv6: &models.NodeAddressingElement{
 			Enabled: false,
 		},
 	}

@@ -20,21 +20,21 @@ func NewHealthNode(elem *models.NodeElement) healthNode {
 
 // PrimaryIP returns the primary IP address of the node.
 func (n *healthNode) PrimaryIP() string {
-	if n.NodeElement.PrimaryAddress.IPV4.Enabled {
-		return n.NodeElement.PrimaryAddress.IPV4.IP
+	if n.NodeElement.PrimaryAddress.IPv4.Enabled {
+		return n.NodeElement.PrimaryAddress.IPv4.IP
 	}
-	return n.NodeElement.PrimaryAddress.IPV6.IP
+	return n.NodeElement.PrimaryAddress.IPv6.IP
 }
 
 // SecondaryIPs return a list of IP addresses corresponding to secondary addresses
-// of the node. If both IPV4 and IPV6 is enabled then primary IPV6 is also
-// returned in the list, since in that case we assume that IPV4 is the primary
+// of the node. If both IPv4 and IPv6 is enabled then primary IPv6 is also
+// returned in the list, since in that case we assume that IPv4 is the primary
 // address of the node, see the above function PrimaryIP().
 func (n *healthNode) SecondaryIPs() []string {
 	var addresses []string
 
-	if n.NodeElement.PrimaryAddress.IPV4.Enabled && n.NodeElement.PrimaryAddress.IPV6.Enabled {
-		addresses = append(addresses, n.NodeElement.PrimaryAddress.IPV6.IP)
+	if n.NodeElement.PrimaryAddress.IPv4.Enabled && n.NodeElement.PrimaryAddress.IPv6.Enabled {
+		addresses = append(addresses, n.NodeElement.PrimaryAddress.IPv6.IP)
 	}
 
 	for _, addr := range n.NodeElement.SecondaryAddresses {
@@ -51,10 +51,10 @@ func (n *healthNode) HealthIP() string {
 	if n.NodeElement.HealthEndpointAddress == nil {
 		return ""
 	}
-	if n.NodeElement.HealthEndpointAddress.IPV4.Enabled {
-		return n.NodeElement.HealthEndpointAddress.IPV4.IP
+	if n.NodeElement.HealthEndpointAddress.IPv4.Enabled {
+		return n.NodeElement.HealthEndpointAddress.IPv4.IP
 	}
-	return n.NodeElement.HealthEndpointAddress.IPV6.IP
+	return n.NodeElement.HealthEndpointAddress.IPv6.IP
 }
 
 // SecondaryHealthIPs return a list of IP addresses corresponding to secondary
@@ -66,8 +66,8 @@ func (n *healthNode) SecondaryHealthIPs() []string {
 		return nil
 	}
 
-	if n.NodeElement.HealthEndpointAddress.IPV4.Enabled && n.NodeElement.HealthEndpointAddress.IPV6.Enabled {
-		return []string{n.NodeElement.HealthEndpointAddress.IPV6.IP}
+	if n.NodeElement.HealthEndpointAddress.IPv4.Enabled && n.NodeElement.HealthEndpointAddress.IPv6.Enabled {
+		return []string{n.NodeElement.HealthEndpointAddress.IPv6.IP}
 	}
 
 	return nil
@@ -78,12 +78,12 @@ func (n *healthNode) Addresses() map[*models.NodeAddressingElement]bool {
 	addresses := map[*models.NodeAddressingElement]bool{}
 	if n.NodeElement.PrimaryAddress != nil {
 		addr := n.NodeElement.PrimaryAddress
-		addresses[addr.IPV4] = addr.IPV4.Enabled
-		addresses[addr.IPV6] = addr.IPV6.Enabled
+		addresses[addr.IPv4] = addr.IPv4.Enabled
+		addresses[addr.IPv6] = addr.IPv6.Enabled
 	}
 	if n.NodeElement.HealthEndpointAddress != nil {
-		addresses[n.NodeElement.HealthEndpointAddress.IPV4] = false
-		addresses[n.NodeElement.HealthEndpointAddress.IPV6] = false
+		addresses[n.NodeElement.HealthEndpointAddress.IPv4] = false
+		addresses[n.NodeElement.HealthEndpointAddress.IPv6] = false
 	}
 	for _, elem := range n.NodeElement.SecondaryAddresses {
 		addresses[elem] = false

@@ -412,14 +412,14 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
-			IPV4: option.Config.EnableIPv4Masquerade,
-			IPV6: option.Config.EnableIPv6Masquerade,
+			IPv4: option.Config.EnableIPv4Masquerade,
+			IPv6: option.Config.EnableIPv6Masquerade,
 		},
 		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
 		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
 		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
-		GROIPV4MaxSize:                      int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
-		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
+		GROIPv4MaxSize:                      int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
+		GSOIPv4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
 		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
@@ -444,7 +444,7 @@ func (h *getConfigHandler) getNodeRouterAddressing(ctx context.Context) (*models
 	nodeRouterAddressing := &models.NodeAddressing{}
 
 	if h.daemonConfig.EnableIPv6 {
-		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
+		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv6,
 			IP:         ln.GetCiliumInternalIP(true).String(),
 			AllocRange: ln.IPv6AllocCIDR.String(),
@@ -452,7 +452,7 @@ func (h *getConfigHandler) getNodeRouterAddressing(ctx context.Context) (*models
 	}
 
 	if h.daemonConfig.EnableIPv4 {
-		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
+		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv4,
 			IP:         ln.GetCiliumInternalIP(false).String(),
 			AllocRange: ln.IPv4AllocCIDR.String(),

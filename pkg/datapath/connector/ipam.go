@@ -15,20 +15,20 @@ import (
 // IPv6Gateway returns the IPv6 gateway address for endpoints.
 func IPv6Gateway(addr *models.NodeAddressing) string {
 	// The host's IP is the gateway address
-	return addr.IPV6.IP
+	return addr.IPv6.IP
 }
 
 // IPv4Gateway returns the IPv4 gateway address for endpoints.
 func IPv4Gateway(addr *models.NodeAddressing) string {
 	// The host's IP is the gateway address
-	return addr.IPV4.IP
+	return addr.IPv4.IP
 }
 
 // IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
 func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
-	ip := net.ParseIP(addr.IPV6.IP)
+	ip := net.ParseIP(addr.IPv6.IP)
 	if ip == nil {
-		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV6.IP)
+		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPv6.IP)
 	}
 	return []route.Route{
 		{
@@ -47,9 +47,9 @@ func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error)
 
 // IPv4Routes returns IPv4 routes to be installed in endpoint's networking namespace.
 func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
-	ip := net.ParseIP(addr.IPV4.IP)
+	ip := net.ParseIP(addr.IPv4.IP)
 	if ip == nil {
-		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPV4.IP)
+		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPv4.IP)
 	}
 	return []route.Route{
 		{
@@ -73,11 +73,11 @@ func SufficientAddressing(addr *models.NodeAddressing) error {
 		return fmt.Errorf("Cilium daemon did not provide addressing information")
 	}
 
-	if addr.IPV6 != nil && addr.IPV6.IP != "" {
+	if addr.IPv6 != nil && addr.IPv6.IP != "" {
 		return nil
 	}
 
-	if addr.IPV4 != nil && addr.IPV4.IP != "" {
+	if addr.IPv4 != nil && addr.IPv4.IP != "" {
 		return nil
 	}
 

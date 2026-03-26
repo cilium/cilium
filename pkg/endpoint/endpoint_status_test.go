@@ -18,8 +18,8 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 	p := createTestEndpointParams(t)
 	m := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: "192.168.1.100",
-			IPV6: "f00d::a10:0:0:abcd",
+			IPv4: "192.168.1.100",
+			IPv6: "f00d::a10:0:0:abcd",
 		},
 		ContainerID:   "ContainerID",
 		ContainerName: "ContainerName",
@@ -62,8 +62,8 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 	p := createTestEndpointParams(t)
 	m := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: "192.168.1.100",
-			IPV6: "f00d::a10:0:0:abcd",
+			IPv4: "192.168.1.100",
+			IPv6: "f00d::a10:0:0:abcd",
 		},
 		ContainerID:   "ContainerID",
 		ContainerName: "ContainerName",

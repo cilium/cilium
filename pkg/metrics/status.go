@@ -115,14 +115,14 @@ func (s *statusCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			s.ipAddressesDesc,
 			prometheus.GaugeValue,
-			float64(len(statusResponse.Payload.Ipam.IPV4)),
+			float64(len(statusResponse.Payload.Ipam.IPv4)),
 			"ipv4",
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			s.ipAddressesDesc,
 			prometheus.GaugeValue,
-			float64(len(statusResponse.Payload.Ipam.IPV6)),
+			float64(len(statusResponse.Payload.Ipam.IPv6)),
 			"ipv6",
 		)
 	}
