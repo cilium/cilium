@@ -21,11 +21,11 @@ import (
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	bandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
@@ -80,7 +80,7 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig bandwidth.Config
 	WgConfig        wgTypes.WireguardConfig
-	ConnectorConfig datapath.ConnectorConfig
+	ConnectorConfig connector.Config
 	LocalNodeStore  *node.LocalNodeStore
 
 	EventHandler *ConfigModifyEventHandler
@@ -357,7 +357,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig bandwidth.Config
 	wgConfig        wgTypes.WireguardConfig
-	connectorConfig datapath.ConnectorConfig
+	connectorConfig connector.Config
 	localNodeStore  *node.LocalNodeStore
 }
 

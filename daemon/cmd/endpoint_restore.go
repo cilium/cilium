@@ -20,6 +20,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -94,7 +95,7 @@ type endpointRestorerParams struct {
 	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
 	IPCache             *ipcache.IPCache
 	LXCMap              lxcmap.Map
-	ConnectorConfig     datapath.ConnectorConfig
+	ConnectorConfig     connector.Config
 }
 
 type endpointRestorer struct {
@@ -110,7 +111,7 @@ type endpointRestorer struct {
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
 	lxcMap              lxcmap.Map
-	connectorConfig     datapath.ConnectorConfig
+	connectorConfig     connector.Config
 
 	cacheStatus   k8sSynced.CacheStatus
 	dirReadStatus policyDirectory.DirectoryWatcherReadStatus

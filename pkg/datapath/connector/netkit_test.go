@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -26,7 +25,7 @@ func TestPrivilegedSetupNetkitPair(t *testing.T) {
 	tests := []struct {
 		name              string
 		l2mode            bool
-		cfg               types.LinkConfig
+		cfg               LinkConfig
 		expectedMode      netlink.NetkitMode
 		expectedHwAddrLen int
 		shouldAssertScrub bool

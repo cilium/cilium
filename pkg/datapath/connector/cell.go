@@ -5,8 +5,6 @@ package connector
 
 import (
 	"github.com/cilium/hive/cell"
-
-	"github.com/cilium/cilium/pkg/datapath/types"
 )
 
 var Cell = cell.Module(
@@ -16,6 +14,6 @@ var Cell = cell.Module(
 	cell.Provide(newConnectorConfig),
 )
 
-func newConnectorConfig(p connectorParams) (types.ConnectorConfig, error) {
+func newConnectorConfig(p connectorParams) (Config, error) {
 	return newConfig(p)
 }

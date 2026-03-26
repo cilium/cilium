@@ -13,6 +13,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/connector"
+	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -90,7 +92,7 @@ var Cell = cell.Module(
 		func() bigtcp.Features { return &fakebigtcp.UserConfig{} },
 
 		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
-		func() types.ConnectorConfig { return fakeTypes.NewFakeConnectorVeth() },
+		func() connector.Config { return fakeconnector.NewVeth() },
 	),
 
 	tables.NodeAddressCell,
