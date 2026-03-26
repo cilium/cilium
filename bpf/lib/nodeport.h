@@ -1919,60 +1919,41 @@ dsr_set_opt4(struct __ctx_buff *ctx, struct iphdr *ip4, __be32 svc_addr,
 }
 #     elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int encap_geneve_dsr_opt4(
-	struct __ctx_buff *ctx, int l3_off __maybe_unused, struct iphdr *ip4,
-	__be32 svc_addr, __be16 svc_port, int *ifindex, __be16 *ohead)
+	struct __ctx_buff *ctx, struct iphdr *ip4, __be32 svc_addr,
+	__be16 svc_port, int *ifindex, __be16 *ohead)
 {
-	const struct remote_endpoint_info *info __maybe_unused;
-	struct geneve_dsr_opt4 gopt __align_stack_8;
+	const struct remote_endpoint_info *info;
+	struct geneve_dsr_opt4 gopt __align_stack_8 = {};
 	bool need_opt = true;
 	__u16 encap_len =
 		sizeof(struct iphdr) + sizeof(struct udphdr) +
 		sizeof(struct genevehdr) + ETH_HLEN;
 	__u16 total_len = bpf_ntohs(ip4->tot_len);
 	__u32 src_sec_identity = WORLD_IPV4_ID;
-	__be32 tunnel_endpoint __maybe_unused;
 	__be16 src_port = 0;
+	int l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 #      if __ctx_is == __ctx_xdp
-	bool has_encap = l3_off > ETH_HLEN;
-	struct iphdr *outer_ip4 = ip4;
-	void *data, *data_end;
+	fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
+	struct ipv4_ct_tuple tuple = {};
+	int ret;
 
 	build_bug_on((sizeof(gopt) % 4) != 0);
 
-	if (has_encap) {
-		/* point at the inner IPv4 header */
-		if (!revalidate_data_l3_off(
-			    ctx, &data, &data_end, &ip4, encap_len + ETH_HLEN))
-			return DROP_INVALID;
+	ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
+	if (IS_ERR(ret))
+		return ret;
 
-		encap_len = 0;
-	} else {
-		struct ipv4_ct_tuple tuple = {};
-		fraginfo_t fraginfo;
-		int l4_off, ret;
-
-		fraginfo = ipfrag_encode_ipv4(ip4);
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-		ret = lb4_extract_tuple(ctx, ip4, fraginfo, l4_off, &tuple);
-		if (IS_ERR(ret))
-			return ret;
-
-		src_port = tunnel_gen_src_port_v4(&tuple);
-	}
+	src_port = tunnel_gen_src_port_v4(&tuple);
 #      endif
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	tunnel_endpoint = info->tunnel_endpoint.ip4.be32;
-
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
 
-		if (l4_load_tcp_flags(ctx, l3_off + ipv4_hdrlen(ip4), &tcp_flags) <
-		    0)
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		/* The GENEVE option is required only for the first packet
@@ -1993,68 +1974,6 @@ static __always_inline int encap_geneve_dsr_opt4(
 		*ohead = encap_len;
 		return DROP_FRAG_NEEDED;
 	}
-
-#      if __ctx_is == __ctx_xdp
-	if (has_encap) {
-		int outer_l4_off = ETH_HLEN + ipv4_hdrlen(outer_ip4);
-		__be32 lb_ip = IPV4_DIRECT_ROUTING;
-		__wsum sum = 0;
-
-		/* update outer_ip4 daddr and saddr: */
-		sum = csum_diff(&outer_ip4->daddr, 4, &tunnel_endpoint, 4, 0);
-		if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-				    &tunnel_endpoint, 4, 0) < 0)
-			return DROP_WRITE_ERROR;
-
-		sum = csum_diff(&outer_ip4->saddr, 4, &lb_ip, 4, sum);
-		if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-				    &lb_ip, 4, 0) < 0)
-			return DROP_WRITE_ERROR;
-
-		/* adjust outer_ip4->csum: */
-		if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
-			return DROP_CSUM_L3;
-
-		/* insert the GENEVE-DSR option: */
-		if (need_opt) {
-			__be16 new_length;
-			int ret;
-
-			/* update udp->len */
-			if (ctx_load_bytes(
-				    ctx, outer_l4_off + offsetof(struct udphdr, len),
-				    &new_length, sizeof(new_length)) < 0)
-				return DROP_INVALID;
-
-			new_length =
-				bpf_htons(bpf_ntohs(new_length) + sizeof(gopt));
-
-			if (ctx_store_bytes(
-				    ctx, outer_l4_off + offsetof(struct udphdr, len),
-				    &new_length, sizeof(new_length), 0) < 0)
-				return DROP_WRITE_ERROR;
-
-			/* update outer_ip4->tot_len */
-			new_length = bpf_htons(total_len + sizeof(gopt));
-
-			if (ipv4_csum_update_by_value(
-				    ctx, ETH_HLEN, outer_ip4->tot_len,
-				    new_length, sizeof(new_length)) < 0)
-				return DROP_CSUM_L3;
-
-			if (ctx_store_bytes(
-				    ctx, ETH_HLEN + offsetof(struct iphdr, tot_len),
-				    &new_length, sizeof(new_length), 0) < 0)
-				return DROP_WRITE_ERROR;
-
-			ret = ctx_set_tunnel_opt(ctx, (__u8 *)&gopt, sizeof(gopt));
-			if (ret)
-				return ret;
-		}
-
-		return CTX_ACT_REDIRECT;
-	}
-#      endif
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(
@@ -2289,9 +2208,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_DSR) int tail_nodeport_ipv4_dsr(
 #     elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_opt4(ctx, ip4, addr, port, &ohead);
 #     elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	ret = encap_geneve_dsr_opt4(
-		ctx, ctx_load_meta(ctx, CB_DSR_L3_OFF), ip4, addr, port, &oif,
-		&ohead);
+	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif, &ohead);
 #     else
 #      error "Invalid load balancer DSR encapsulation mode!"
 #     endif
@@ -3063,7 +2980,6 @@ static __always_inline int nodeport_svc_lb4(
 #    elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
-		ctx_store_meta(ctx, CB_DSR_L3_OFF, l3_off);
 #    endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(
 			ctx, CILIUM_CALL_IPV4_NODEPORT_DSR, ext_err);

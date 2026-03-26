@@ -69,13 +69,13 @@ union v4addr {
 
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
-static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
-						      int l2_off, __be16 *proto)
+static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
+					       __be16 *proto)
 {
-	const __u64 tot_len = l2_off + ETH_HLEN;
 	void *data_end = ctx_data_end(ctx);
+	const __u64 tot_len = ETH_HLEN;
 	void *data = ctx_data(ctx);
-	struct ethhdr *eth;
+	struct ethhdr *eth = data;
 
 	if (THIS_IS_L3_DEV) {
 		/* The packet is received on L2-less device. Determine L3
@@ -88,17 +88,9 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	if (data + tot_len > data_end)
 		return false;
 
-	eth = data + l2_off;
-
 	*proto = eth->h_proto;
 
 	return eth_is_supported_ethertype(*proto);
-}
-
-static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
-					       __be16 *proto)
-{
-	return validate_ethertype_l2_off(ctx, 0, proto);
 }
 
 static __always_inline __maybe_unused bool
@@ -160,15 +152,12 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto
 #define revalidate_data_pull(ctx, data, data_end, ip)			\
 	__revalidate_data_pull(ctx, data, data_end, (void **)ip, ETH_HLEN, sizeof(**ip), true)
 
-#define revalidate_data_l3_off(ctx, data, data_end, ip, l3_off)		\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, l3_off, sizeof(**ip), false)
-
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
-	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, ETH_HLEN, sizeof(**ip), false)
 
 /* arp is different from the above as we also want to pull in the payload.
  * Returns true if 'ctx' is long enough to be valid ARP packet, false otherwise.
@@ -355,7 +344,6 @@ enum {
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
 #define CB_SRV6_SID_4		CB_3		/* Alias, non-overlapping */
-#define CB_DSR_L3_OFF		CB_3		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
