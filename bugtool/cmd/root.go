@@ -253,6 +253,8 @@ func runTool() {
 		defer printDisclaimer()
 		runAll(commands, cmdDir)
 
+		removeSensitiveFiles(cmdDir)
+
 		if excludeObjectFiles {
 			removeObjectFiles(cmdDir)
 		}
@@ -390,6 +392,17 @@ func removeObjectFiles(cmdDir string) {
 
 	path := filepath.Join(cmdDir, defaults.StateDir)
 	rmFunc(path)
+}
+
+// removeSensitiveFiles removes sensitive files (e.g. WireGuard private key files) from
+// the copied state directory.
+func removeSensitiveFiles(cmdDir string) {
+	matches, _ := filepath.Glob(filepath.Join(cmdDir, defaults.StateDir, "*.key"))
+	for _, m := range matches {
+		if err := os.Remove(m); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to remove sensitive file: %s\n", err)
+		}
+	}
 }
 
 func execCommand(prompt string) ([]byte, error) {
