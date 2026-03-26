@@ -17,6 +17,7 @@ import (
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
+	fakegneigh "github.com/cilium/cilium/pkg/datapath/gneigh/fake"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
@@ -98,7 +99,7 @@ var Cell = cell.Module(
 
 		func() bigtcp.Features { return &fakebigtcp.UserConfig{} },
 
-		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
+		func() gneigh.L2PodAnnouncementConfig { return &fakegneigh.Config{} },
 		func() connector.Config { return fakeconnector.NewVeth() },
 	),
 
