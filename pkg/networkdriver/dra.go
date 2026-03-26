@@ -227,6 +227,16 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
+	// Validate podIfName in all configs before proceeding
+	for request, cfg := range deviceClaimConfigs {
+		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
+			return kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
+					request, path.Join(claim.Namespace, claim.Name), err),
+			}
+		}
+	}
+
 	var (
 		alloc         []allocation
 		devicesStatus []resourceapi.AllocatedDeviceStatus
