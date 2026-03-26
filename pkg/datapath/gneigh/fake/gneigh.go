@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package fake
 
-// GNeighConfig contains the configuration for the GARP cell.
-type GNeighConfig struct {
+// Config contains the configuration for the GARP cell.
+type Config struct {
 	EnableL2PodAnnouncements bool
 }
 
-func (def GNeighConfig) Enabled() bool {
+func (def Config) Enabled() bool {
 	return def.EnableL2PodAnnouncements
 }
 
