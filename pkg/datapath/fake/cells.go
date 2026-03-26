@@ -17,6 +17,8 @@ import (
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
+	fakeiptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
@@ -69,7 +71,7 @@ var Cell = cell.Module(
 		func() *egressmap.PolicyMap6 { return nil },
 		func() lxcmap.Map { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
-		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
+		func() iptables.Manager { return fakeiptables.NewManager() },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
 		func() types.IPsecAgent { return &fakeTypes.IPsecAgent{} },

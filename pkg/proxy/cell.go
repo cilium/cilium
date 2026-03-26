@@ -13,10 +13,10 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/service"
@@ -134,7 +134,7 @@ func newProxy(params proxyParams) (*Proxy, error) {
 type envoyProxyIntegrationParams struct {
 	cell.In
 
-	IptablesManager datapath.IptablesManager
+	IptablesManager iptables.Manager
 	XdsServer       envoy.XDSServer
 	AdminClient     *envoy.EnvoyAdminClient
 	Cfg             EnvoyProxyIntegrationConfig

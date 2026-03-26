@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -100,7 +101,7 @@ type orchestratorParams struct {
 	TunnelConfig        tunnel.Config
 	OldMTU              mtu.MTU
 	MTU                 statedb.Table[mtu.RouteMTU]
-	IPTablesManager     datapath.IptablesManager
+	IPTablesManager     iptables.Manager
 	Proxy               *proxy.Proxy
 	DB                  *statedb.DB
 	Devices             statedb.Table[*tables.Device]

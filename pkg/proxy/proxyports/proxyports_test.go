@@ -12,14 +12,14 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/require"
 
-	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
+	iptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func proxyPortsForTest(t *testing.T) *ProxyPorts {
-	fakeIPTablesManager := &datapath.FakeIptablesManager{}
+	fakeIPTablesManager := iptables.NewManager()
 	config := ProxyPortsConfig{
 		ProxyPortrangeMin:          10000,
 		ProxyPortrangeMax:          20000,

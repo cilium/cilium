@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -81,7 +82,7 @@ type k8sPodWatcherParams struct {
 	LBConfig           loadbalancer.Config
 	WgConfig           wgTypes.WireguardConfig
 	IPSecConfig        datapath.IPsecConfig
-	HostNetworkManager datapath.IptablesManager
+	HostNetworkManager iptables.Manager
 	LocalNodeStore     *node.LocalNodeStore
 }
 

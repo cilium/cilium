@@ -9,7 +9,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/completion"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -32,7 +32,7 @@ func (dr *envoyRedirect) GetRedirect() *Redirect {
 type envoyProxyIntegration struct {
 	adminClient     *envoy.EnvoyAdminClient
 	xdsServer       envoy.XDSServer
-	iptablesManager datapath.IptablesManager
+	iptablesManager iptables.Manager
 	// Controls if an L7 proxy can use POD's original source address and port in
 	// the upstream connection.
 	proxyUseOriginalSourceAddress bool

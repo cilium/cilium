@@ -52,7 +52,7 @@ var Cell = cell.Module(
 			EnableWireguard:             wgConfig.Enabled(),
 		}
 	}),
-	cell.Provide(newIptablesManager),
+	cell.Provide(newManager),
 )
 
 type Config struct {
