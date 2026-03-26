@@ -79,8 +79,6 @@ var MetricsListCmd = &cobra.Command{
 }
 
 func init() {
-	MetricsCmd.AddCommand(MetricsListCmd)
-
 	MetricsListCmd.Flags().StringVarP(&matchPattern, "match-pattern", "p", "", "Show only metrics whose names match matchpattern")
 	MetricsListCmd.Flags().StringVarP(&operatorAddr, "server-address", "s", api.OperatorAPIServeAddrDefault, "Address of the operator API server")
 	command.AddOutputOption(MetricsListCmd)
