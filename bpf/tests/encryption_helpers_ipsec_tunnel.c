@@ -3,7 +3,7 @@
 
 #define TUNNEL_MODE
 
-#include "ipsec_redirect_generic.h"
+#include "encryption_helpers_ipsec.h"
 
 #include "node_config.h"
 

@@ -5,21 +5,6 @@
 #include "common.h"
 #include "pktgen.h"
 
-/* mock and record calls to ctx_redirect */
-struct ctx_redirect_recorder {
-	int ifindex;
-	__u32 flags;
-} rec;
-int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		      int ifindex, __u32 flags)
-{
-	rec.flags = flags;
-	rec.ifindex = ifindex;
-	return CTX_ACT_REDIRECT;
-}
-
-#define ctx_redirect mock_ctx_redirect
-
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC 1

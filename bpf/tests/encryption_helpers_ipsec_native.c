@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#include "ipsec_redirect_generic.h"
+#include "encryption_helpers_ipsec.h"
 
 #include "lib/bpf_host.h"
 
@@ -10,9 +10,6 @@
 #include "tests/lib/ipcache.h"
 #include "tests/lib/ipsec.h"
 #include "tests/lib/node.h"
-
-const union macaddr cilium_net_mac = { .addr = {0xce, 0x72, 0xa7, 0x03, 0x88, 0x57} };
-ASSIGN_CONFIG(union macaddr, cilium_net_mac, cilium_net_mac)
 
 static __always_inline
 void set_src_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity)
@@ -57,8 +54,13 @@ void set_dst_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity, __u8 spi
 }
 
 static __always_inline
-int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_outer)
+int ipsec_redirect_checks(const struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_outer)
 {
+	test_init();
+
+	__be16 proto = ctx_get_protocol(ctx);
+	int ret = 0;
+
 	if (ipv4_outer)
 		node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
 	else
@@ -70,41 +72,11 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_oute
 	set_src_identity(ipv4_inner, ipv4_outer, SOURCE_IDENTITY);
 	set_dst_identity(ipv4_inner, ipv4_outer, DST_IDENTITY, TARGET_SPI);
 
-	return netdev_send_packet(ctx);
-}
-
-static __always_inline
-int ipsec_redirect_checks(const struct __ctx_buff *ctx)
-{
-	union macaddr expected_l2_addr = CONFIG(cilium_net_mac);
-	__u32 *status_code;
-	struct ethhdr *l2;
-	int i;
-
-	test_init();
-
-	assert(ctx->mark == ipsec_encode_encryption_mark(TARGET_SPI, DST_NODE_ID));
-
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	if (data + sizeof(struct ethhdr) > data_end)
-		test_fatal("packet too small for eth header");
-
-	l2 = data + sizeof(*status_code);
-
-	for (i = 0; i < 6; i++)
-		assert(l2->h_dest[i] == expected_l2_addr.addr[i]);
-
-	/* ctx_redirect should be called with INGRESS flag for hairpin redirect
-	 */
-	assert(rec.flags == BPF_F_INGRESS);
+	TEST("pod-to-pod", {
+		ret = ipsec_maybe_redirect_to_encrypt((struct __ctx_buff *)ctx,
+						      proto, SOURCE_IDENTITY);
+		assert(ret == CTX_ACT_REDIRECT);
+	});
 
 	test_finish();
 }
@@ -182,16 +154,10 @@ int ipsec_redirect4_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, true);
 }
 
-SETUP("tc", "ipsec_redirect4")
-int ipsec_redirect4_setup(struct __ctx_buff *ctx)
-{
-	return ipsec_redirect_setup(ctx, true, true);
-}
-
 CHECK("tc", "ipsec_redirect4")
 int ipsec_redirect4_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx);
+	return ipsec_redirect_checks(ctx, true, true);
 }
 
 PKTGEN("tc", "ipsec_redirect4_over6")
@@ -200,16 +166,10 @@ int ipsec_redirect4_over6_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, true);
 }
 
-SETUP("tc", "ipsec_redirect4_over6")
-int ipsec_redirect4_over6_setup(struct __ctx_buff *ctx)
-{
-	return ipsec_redirect_setup(ctx, true, false);
-}
-
 CHECK("tc", "ipsec_redirect4_over6")
 int ipsec_redirect4_over6_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx);
+	return ipsec_redirect_checks(ctx, true, false);
 }
 
 PKTGEN("tc", "ipsec_redirect6")
@@ -218,16 +178,10 @@ int ipsec_redirect6_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, false);
 }
 
-SETUP("tc", "ipsec_redirect6")
-int ipsec_redirect6_setup(struct __ctx_buff *ctx)
-{
-	return ipsec_redirect_setup(ctx, false, true);
-}
-
 CHECK("tc", "ipsec_redirect6")
 int ipsec_redirect6_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx);
+	return ipsec_redirect_checks(ctx, false, true);
 }
 
 PKTGEN("tc", "ipsec_redirect6_over6")
@@ -236,16 +190,10 @@ int ipsec_redirect6_over6_pktgen(struct __ctx_buff *ctx)
 	return generate_native_packet(ctx, false);
 }
 
-SETUP("tc", "ipsec_redirect6_over6")
-int ipsec_redirect6_over6_setup(struct __ctx_buff *ctx)
-{
-	return ipsec_redirect_setup(ctx, false, false);
-}
-
 CHECK("tc", "ipsec_redirect6_over6")
 int ipsec_redirect6_over6_check(struct __ctx_buff *ctx)
 {
-	return ipsec_redirect_checks(ctx);
+	return ipsec_redirect_checks(ctx, false, false);
 }
 
 PKTGEN("tc", "ipsec_redirect_bad_identities4")
