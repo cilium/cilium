@@ -26,6 +26,7 @@ type EndpointRegenerationEvent struct {
 func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 	e := ev.ep
 	regenContext := ev.regenContext
+	regenContext.Stats = regenerationStatistics{}
 
 	// Compute policy on the first regeneration before acquiring the build permit in
 	// QueueEndpointBuild below
@@ -61,7 +62,10 @@ func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 	// We should only queue the request after we use all the endpoint's
 	// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 	// being deleted at the same time. More info PR-1777.
+	regenContext.Stats.buildPermitAcquisition.Start()
 	doneFunc, err := e.epBuildQueue.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
+	regenContext.Stats.buildPermitAcquisition.End(err == nil)
+
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			e.getLogger().Warn("unable to queue endpoint build", logfields.Error, err)
@@ -71,7 +75,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan any) {
 
 		regenContext.DoneFunc = doneFunc
 
-		err = ev.ep.regenerate(ev.regenContext)
+		err = ev.ep.regenerate(regenContext)
 
 		doneFunc()
 		e.notifyEndpointRegeneration(err)
