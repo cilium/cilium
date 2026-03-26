@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	// EndpointGCIntervalDefault is the default time for the CEP GC
-	EndpointGCIntervalDefault = 5 * time.Minute
-
 	// PprofAddressOperator is the default value for pprof in the operator
 	PprofAddressOperator = "localhost"
 
@@ -34,12 +31,6 @@ const (
 )
 
 const (
-	// EndpointGCInterval is the interval between attempts of the CEP GC
-	// controller.
-	// Note that only one node per cluster should run this, and most iterations
-	// will simply return.
-	EndpointGCInterval = "cilium-endpoint-gc-interval"
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
@@ -167,12 +158,6 @@ const (
 
 // OperatorConfig is the configuration used by the operator.
 type OperatorConfig struct {
-	// EndpointGCInterval is the interval between attempts of the CEP GC
-	// controller.
-	// Note that only one node per cluster should run this, and most iterations
-	// will simply return.
-	EndpointGCInterval time.Duration
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
@@ -232,7 +217,6 @@ type OperatorConfig struct {
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
-	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
 	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)

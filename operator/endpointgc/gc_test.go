@@ -34,9 +34,13 @@ func TestRegisterController(t *testing.T) {
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
+		cell.Provide(func() Config {
+			return Config{
+				CiliumEndpointGCInterval: 10 * time.Second,
+			}
+		}),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
-				Interval:                 10 * time.Second,
 				DisableCiliumEndpointCRD: false,
 			}
 		}),
@@ -72,9 +76,13 @@ func TestRegisterControllerOnce(t *testing.T) {
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
+		cell.Provide(func() Config {
+			return Config{
+				CiliumEndpointGCInterval: 0,
+			}
+		}),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
-				Interval:                 0,
 				DisableCiliumEndpointCRD: false,
 			}
 		}),
@@ -111,9 +119,13 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
+		cell.Provide(func() Config {
+			return Config{
+				CiliumEndpointGCInterval: 100 * time.Millisecond,
+			}
+		}),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
-				Interval:                 100 * time.Millisecond,
 				DisableCiliumEndpointCRD: true,
 			}
 		}),

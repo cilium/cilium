@@ -17,6 +17,7 @@ cilium-operator-aws hive [flags]
       --aws-use-primary-address                                    Allows for using primary address of the ENI for allocations on the node
       --ces-max-ciliumendpoints-per-ces int                        Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                     Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
+      --cilium-endpoint-gc-interval duration                       GC interval for cilium endpoints (default 5m0s)
       --cluster-id uint32                                          Unique identifier of the cluster
       --cluster-name string                                        Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --clustermesh-cache-ttl duration                             The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.

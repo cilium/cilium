@@ -33,6 +33,7 @@ type params struct {
 	CiliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	Pods            resource.Resource[*slim_corev1.Pod]
 
+	Cfg       Config
 	SharedCfg SharedConfig
 
 	Metrics *Metrics
@@ -59,11 +60,11 @@ func registerGC(p params) {
 		return
 	}
 
-	once := p.SharedCfg.Interval == 0 || p.SharedCfg.DisableCiliumEndpointCRD
+	once := p.Cfg.CiliumEndpointGCInterval == 0 || p.SharedCfg.DisableCiliumEndpointCRD
 
 	gc := &GC{
 		logger:          p.Logger,
-		interval:        p.SharedCfg.Interval,
+		interval:        p.Cfg.CiliumEndpointGCInterval,
 		once:            once,
 		clientset:       p.Clientset,
 		ciliumEndpoints: p.CiliumEndpoints,

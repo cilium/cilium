@@ -162,11 +162,9 @@ var (
 		}),
 
 		cell.Provide(func(
-			operatorCfg *operatorOption.OperatorConfig,
 			daemonCfg *option.DaemonConfig,
 		) endpointgc.SharedConfig {
 			return endpointgc.SharedConfig{
-				Interval:                 operatorCfg.EndpointGCInterval,
 				DisableCiliumEndpointCRD: daemonCfg.DisableCiliumEndpointCRD,
 			}
 		}),
@@ -247,7 +245,7 @@ var (
 		cell.Invoke(func(in struct {
 			cell.In
 			IdentityGCCfg identitygc.SharedConfig
-			EndpointGCCfg endpointgc.SharedConfig
+			EndpointGCCfg endpointgc.Config
 			Clientset     k8sClient.Clientset
 			Logger        *slog.Logger
 		}) error {
@@ -258,7 +256,7 @@ var (
 				if !in.Clientset.IsEnabled() {
 					return fmt.Errorf("%s identity allocation mode requires k8s to be configured", mode)
 				}
-				if in.EndpointGCCfg.Interval == 0 {
+				if in.EndpointGCCfg.CiliumEndpointGCInterval == 0 {
 					return fmt.Errorf("cilium identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 				}
 			}

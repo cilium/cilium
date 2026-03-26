@@ -64,9 +64,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableSRv6)
 	option.BindEnv(vp, option.EnableSRv6)
 
-	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
-	option.BindEnv(vp, operatorOption.EndpointGCInterval)
-
 	// Logging flags
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(vp, option.LogDriver)
