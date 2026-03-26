@@ -7,16 +7,24 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4			1
+#define ENABLE_IPV6			1
 
 #define SRC_POD_V4			v4_pod_one
 #define DST_POD_V4			v4_pod_one_on_node_two
 #define DST_POD_CIDR_V4			v4_pod_cidr_on_node_two
+
+#define SRC_POD_V6			((const union v6addr *)v6_pod_one)
+#define DST_POD_V6			((const union v6addr *)v6_pod_one_on_node_two)
+#define DST_POD_CIDR_V6			((const union v6addr *)v6_pod_cidr_on_node_two)
 
 #define SRC_POD_SEC_IDENTITY		(CIDR_IDENTITY_RANGE_START - 2)
 #define DST_POD_SEC_IDENTITY		(CIDR_IDENTITY_RANGE_START - 3)
 
 #define SRC_NODE_V4			v4_node_one
 #define DST_NODE_V4			v4_node_two
+
+#define SRC_NODE_V6			(const union v6addr *)v6_node_one
+#define DST_NODE_V6			(const union v6addr *)v6_node_two
 
 #define ENCRYPT_KEY			0xFF
 
@@ -32,6 +40,27 @@
 #include "lib/node.h"
 
 ASSIGN_CONFIG(bool, enable_identity_mark, true)
+
+static __always_inline
+int check(const struct __ctx_buff *ctx, __u32 expected_result)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == expected_result);
+
+	test_finish();
+}
 
 static __always_inline
 int v4_build_packet(struct __ctx_buff *ctx)
@@ -80,22 +109,7 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 CHECK("tc", "encrypt_v4_1_missing_dst")
 int encrypt_v4_1_missing_dst_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	test_finish();
+	return check(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Validate the behavior for a terminating source endpoint.
@@ -124,22 +138,7 @@ int encrypt_v4_2_src_mark_setup(struct __ctx_buff *ctx)
 CHECK("tc", "encrypt_v4_2_src_mark")
 int encrypt_v4_2_src_mark_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
-
-	test_finish();
+	return check(ctx, CTX_ACT_REDIRECT);
 }
 
 /* Now test *without* the identity in the mark. This should *not* trigger
@@ -160,24 +159,11 @@ int encrypt_v4_3_no_src_mark_setup(struct __ctx_buff *ctx)
 CHECK("tc", "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
-	__u32 expected_result = is_defined(ENCRYPTION_STRICT_MODE_EGRESS) ? CTX_ACT_DROP :
-								     CTX_ACT_OK;
-
-	test_init();
-
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == expected_result);
-
-	test_finish();
+#ifdef ENCRYPTION_STRICT_MODE_EGRESS
+	return check(ctx, CTX_ACT_DROP);
+#else
+	return check(ctx, CTX_ACT_OK);
+#endif
 }
 
 /* Finally test without the mark, but with the endpoint's ipcache entry: */
@@ -199,20 +185,115 @@ int encrypt_v4_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
 CHECK("tc", "encrypt_v4_4_no_src_mark_with_src_entry")
 int encrypt_v4_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 {
-	void *data;
-	void *data_end;
-	__u32 *status_code;
+	return check(ctx, CTX_ACT_REDIRECT);
+}
 
-	test_init();
+/* IPv6 variants of the tests.*/
 
-	data = (void *)(long)ctx->data;
-	data_end = (void *)(long)ctx->data_end;
+static __always_inline
+int v6_build_packet(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct ipv6hdr *l3;
 
-	if (data + sizeof(*status_code) > data_end)
-		test_fatal("status code out of bounds");
+	pktgen__init(&builder, ctx);
 
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)SRC_POD_V6, (__u8 *)DST_POD_V6);
+	if (!l3)
+		return TEST_ERROR;
 
-	test_finish();
+	pktgen__finish(&builder);
+	return 0;
+}
+
+PKTGEN("tc", "encrypt_v6_1_missing_dst")
+int encrypt_v6_1_missing_dst_pktgen(struct __ctx_buff *ctx)
+{
+	return v6_build_packet(ctx);
+}
+
+SETUP("tc", "encrypt_v6_1_missing_dst")
+int encrypt_v6_1_missing_dst_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v6_add_entry_with_mask_size_ipv6_underlay(DST_POD_CIDR_V6, 0, WORLD_ID,
+							  DST_NODE_V6, ENCRYPT_KEY,
+							  v6_pod_cidr_size);
+
+#ifdef ENABLE_IPSEC
+	ipsec_set_encrypt_state(ENCRYPT_KEY);
+	node_v6_add_entry(DST_NODE_V6, 123, ENCRYPT_KEY);
+#endif
+
+	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v6_1_missing_dst")
+int encrypt_v6_1_missing_dst_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_REDIRECT);
+}
+
+PKTGEN("tc", "encrypt_v6_2_src_mark")
+int encrypt_v6_2_src_mark_pktgen(struct __ctx_buff *ctx)
+{
+	return v6_build_packet(ctx);
+}
+
+SETUP("tc", "encrypt_v6_2_src_mark")
+int encrypt_v6_2_src_mark_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v6_add_entry_ipv6_underlay(DST_POD_V6, 0, DST_POD_SEC_IDENTITY,
+					   DST_NODE_V6, ENCRYPT_KEY);
+
+	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v6_2_src_mark")
+int encrypt_v6_2_src_mark_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_REDIRECT);
+}
+
+PKTGEN("tc", "encrypt_v6_3_no_src_mark")
+int encrypt_v6_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
+{
+	return v6_build_packet(ctx);
+}
+
+SETUP("tc", "encrypt_v6_3_no_src_mark")
+int encrypt_v6_3_no_src_mark_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v6_3_no_src_mark")
+int encrypt_v6_3_no_src_mark_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_OK);
+}
+
+PKTGEN("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+int encrypt_v6_4_no_src_mark_with_src_entry_pktgen(struct __ctx_buff *ctx)
+{
+	return v6_build_packet(ctx);
+}
+
+SETUP("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+int encrypt_v6_4_no_src_mark_with_src_entry_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v6_add_entry(SRC_POD_V6, 0, SRC_POD_SEC_IDENTITY,
+			     0, ENCRYPT_KEY);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v6_4_no_src_mark_with_src_entry")
+int encrypt_v6_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_REDIRECT);
 }

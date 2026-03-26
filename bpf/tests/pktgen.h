@@ -78,6 +78,15 @@ volatile const __u8 mac_host[] = host_mac_addr;
 
 #define v4_pod_cidr_size		24
 
+/* Node-specific PodCIDR (IPv6) */
+#define v6_pod_one_on_node_two_addr	{0xfd, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1}
+#define v6_pod_cidr_on_node_two_addr	{0xfd, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}
+
+volatile const __u8 v6_pod_one_on_node_two[] = v6_pod_one_on_node_two_addr;
+volatile const __u8 v6_pod_cidr_on_node_two[] = v6_pod_cidr_on_node_two_addr;
+
+#define v6_pod_cidr_size		112
+
 #define v4_svc_loopback	IPV4(10, 245, 255, 31)
 #define v6_svc_loopback {0xfd, 0x05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 
