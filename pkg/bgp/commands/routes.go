@@ -34,7 +34,6 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 				"table type: \"loc\" (loc-rib), \"in\" (adj-rib-in), or \"out\" (adj-rib-out).",
 				"afi: Address Family Identifier (e.g. ipv4, ipv6).",
 				"safi: Subsequent Address Family Identifier (e.g. unicast).",
-				"peer name: optional, only for adj-rib-in/out.",
 			},
 		},
 		func(s *script.State, args ...string) (script.WaitFunc, error) {
