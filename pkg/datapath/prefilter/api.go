@@ -12,11 +12,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/pkg/api"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 )
 
 type getPrefilterHandler struct {
-	preFilter datapath.PreFilter
+	preFilter PreFilter
 }
 
 func (h *getPrefilterHandler) Handle(_ prefilter.GetPrefilterParams) middleware.Responder {
@@ -41,7 +40,7 @@ func (h *getPrefilterHandler) Handle(_ prefilter.GetPrefilterParams) middleware.
 }
 
 type patchPrefilterHandler struct {
-	preFilter datapath.PreFilter
+	preFilter PreFilter
 }
 
 func (h *patchPrefilterHandler) Handle(params prefilter.PatchPrefilterParams) middleware.Responder {
@@ -68,7 +67,7 @@ func (h *patchPrefilterHandler) Handle(params prefilter.PatchPrefilterParams) mi
 }
 
 type deletePrefilterHandler struct {
-	preFilter datapath.PreFilter
+	preFilter PreFilter
 }
 
 func (h *deletePrefilterHandler) Handle(params prefilter.DeletePrefilterParams) middleware.Responder {

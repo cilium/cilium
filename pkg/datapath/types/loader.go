@@ -5,19 +5,8 @@ package types
 
 import (
 	"context"
-	"io"
-	"net"
 	"net/netip"
 )
-
-// PreFilter an interface for an XDP pre-filter.
-type PreFilter interface {
-	Enabled() bool
-	WriteConfig(fw io.Writer)
-	Dump(to []string) ([]string, int64)
-	Insert(revision int64, cidrs []net.IPNet) error
-	Delete(revision int64, cidrs []net.IPNet) error
-}
 
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.

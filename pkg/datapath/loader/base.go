@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -74,7 +75,7 @@ func (l *loader) writeNodeConfigHeader(cfg *config.Config) error {
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(logger *slog.Logger, preFilter datapath.PreFilter, dir string, devices []string) error {
+func writePreFilterHeader(logger *slog.Logger, preFilter prefilter.PreFilter, dir string, devices []string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	logger.Debug("writing configuration", logfields.Path, headerPath)
 
