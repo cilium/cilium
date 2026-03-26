@@ -7,7 +7,6 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 )
 
 // Cell provides prefilter, a means of configuring XDP pre-filters for DDoS-mitigation.
@@ -27,7 +26,7 @@ type prefilterApiHandlerOut struct {
 	DeletePrefilterHandler prefilter.DeletePrefilterHandler
 }
 
-func newPrefilterApiHandler(prefilter datapath.PreFilter) prefilterApiHandlerOut {
+func newPrefilterApiHandler(prefilter PreFilter) prefilterApiHandlerOut {
 	return prefilterApiHandlerOut{
 		GetPrefilterHandler:    &getPrefilterHandler{preFilter: prefilter},
 		PatchPrefilterHandler:  &patchPrefilterHandler{preFilter: prefilter},

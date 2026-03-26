@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -48,7 +49,7 @@ type loader struct {
 	hostDpInitialized     chan struct{}
 
 	sysctl             sysctl.Sysctl
-	prefilter          datapath.PreFilter
+	prefilter          prefilter.PreFilter
 	compilationLock    datapath.CompilationLock
 	configWriter       config.Writer
 	nodeConfigNotifier *manager.NodeConfigNotifier
@@ -65,7 +66,7 @@ type Params struct {
 	JobGroup           job.Group
 	Logger             *slog.Logger
 	Sysctl             sysctl.Sysctl
-	Prefilter          datapath.PreFilter
+	Prefilter          prefilter.PreFilter
 	CompilationLock    datapath.CompilationLock
 	ConfigWriter       config.Writer
 	NodeConfigNotifier *manager.NodeConfigNotifier

@@ -12,11 +12,19 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+// PreFilter an interface for an XDP pre-filter.
+type PreFilter interface {
+	Enabled() bool
+	WriteConfig(fw io.Writer)
+	Dump(to []string) ([]string, int64)
+	Insert(revision int64, cidrs []net.IPNet) error
+	Delete(revision int64, cidrs []net.IPNet) error
+}
 
 type preFilterMapType int
 
@@ -38,7 +46,7 @@ const (
 type preFilterMaps [mapCount]*cidrmap.CIDRMap
 
 // PreFilter holds global info on related CIDR maps participating in prefilter
-type PreFilter struct {
+type preFilter struct {
 	logger   *slog.Logger
 	maps     preFilterMaps
 	revision int64
@@ -48,7 +56,7 @@ type PreFilter struct {
 }
 
 // WriteConfig dumps the configuration for the corresponding header file
-func (p *PreFilter) WriteConfig(fw io.Writer) {
+func (p *preFilter) WriteConfig(fw io.Writer) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
@@ -61,19 +69,19 @@ func (p *PreFilter) WriteConfig(fw io.Writer) {
 	fmt.Fprintf(fw, "#define CIDR6_LPM_PREFILTER\n")
 }
 
-func (p *PreFilter) dumpOneMap(which preFilterMapType, to []string) []string {
+func (p *preFilter) dumpOneMap(which preFilterMapType, to []string) []string {
 	if p.maps[which] == nil {
 		return to
 	}
 	return p.maps[which].CIDRDump(to)
 }
 
-func (p *PreFilter) Enabled() bool {
+func (p *preFilter) Enabled() bool {
 	return p.enabled
 }
 
 // Dump dumps revision and CIDRs as string slice of all participating maps
-func (p *PreFilter) Dump(to []string) ([]string, int64) {
+func (p *preFilter) Dump(to []string) ([]string, int64) {
 	if !p.enabled {
 		return to, 0
 	}
@@ -86,7 +94,7 @@ func (p *PreFilter) Dump(to []string) ([]string, int64) {
 	return to, p.revision
 }
 
-func (p *PreFilter) selectMap(ones, bits int) preFilterMapType {
+func (p *preFilter) selectMap(ones, bits int) preFilterMapType {
 	if bits == net.IPv4len*8 {
 		if ones == bits {
 			return prefixesV4Fix
@@ -103,7 +111,7 @@ func (p *PreFilter) selectMap(ones, bits int) preFilterMapType {
 }
 
 // Insert inserts slice of CIDRs (doh!) for the latest revision
-func (p *PreFilter) Insert(revision int64, cidrs []net.IPNet) error {
+func (p *preFilter) Insert(revision int64, cidrs []net.IPNet) error {
 	if !p.enabled {
 		return fmt.Errorf("Prefilter is not enabled")
 	}
@@ -144,7 +152,7 @@ func (p *PreFilter) Insert(revision int64, cidrs []net.IPNet) error {
 }
 
 // Delete deletes slice of CIDRs (doh!) for the latest revision
-func (p *PreFilter) Delete(revision int64, cidrs []net.IPNet) error {
+func (p *preFilter) Delete(revision int64, cidrs []net.IPNet) error {
 	if !p.enabled {
 		return fmt.Errorf("Prefilter is not enabled")
 	}
@@ -191,7 +199,7 @@ func (p *PreFilter) Delete(revision int64, cidrs []net.IPNet) error {
 	return ret
 }
 
-func (p *PreFilter) initOneMap(which preFilterMapType) error {
+func (p *preFilter) initOneMap(which preFilterMapType) error {
 	var prefixdyn bool
 	var prefixlen int
 	var maxelems uint32
@@ -228,7 +236,7 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 	return nil
 }
 
-func (p *PreFilter) init() error {
+func (p *preFilter) init() error {
 	for i := range mapCount {
 		if err := p.initOneMap(i); err != nil {
 			return err
@@ -238,8 +246,8 @@ func (p *PreFilter) init() error {
 }
 
 // newPreFilter returns prefilter handle
-func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
-	p := &PreFilter{
+func newPreFilter(logger *slog.Logger, config *option.DaemonConfig, lifecycle cell.Lifecycle) PreFilter {
+	p := &preFilter{
 		logger:   logger,
 		revision: 1,
 		enabled:  config.EnableXDPPrefilter,

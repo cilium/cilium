@@ -25,8 +25,8 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/maps/registry"
@@ -88,7 +88,7 @@ func newTestLoader(tb testing.TB) *loader {
 			linuxConfig.Writer,
 			*manager.NodeConfigNotifier,
 			promise.Promise[endpointstate.Restorer],
-			datapath.PreFilter,
+			prefilter.PreFilter,
 		) {
 			resolver, promise := promise.New[endpointstate.Restorer]()
 			resolver.Resolve(&FakeRestorer{})
