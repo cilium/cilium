@@ -36,6 +36,10 @@ func initializeKLog(logger *slog.Logger) error {
 	// update them from this file.
 	klog.InitFlags(klogFlags)
 
+	// Opt into fixed stderrthreshold behavior (kubernetes/klog#212).
+	klogFlags.Set("legacy_stderr_threshold_behavior", "false")
+	klogFlags.Set("stderrthreshold", "INFO")
+
 	// Make sure klog does not log to stderr as we want it to control the output
 	// of klog so we want klog to log the errors to each writer of each level.
 	klogFlags.Set("logtostderr", "false")
