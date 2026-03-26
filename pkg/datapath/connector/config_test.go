@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -146,25 +145,25 @@ var (
 	tunnelConfigGeneve = tunnel.NewTestConfig(tunnel.Geneve)
 
 	// ConnectorConfigs
-	connectorConfigVeth = ConnectorConfig{
-		configuredMode:  types.ConnectorModeVeth,
-		operationalMode: types.ConnectorModeVeth,
+	connectorConfigVeth = config{
+		configuredMode:  ModeVeth,
+		operationalMode: ModeVeth,
 	}
-	connectorConfigNetkit = ConnectorConfig{
-		configuredMode:  types.ConnectorModeNetkit,
-		operationalMode: types.ConnectorModeNetkit,
+	connectorConfigNetkit = config{
+		configuredMode:  ModeNetkit,
+		operationalMode: ModeNetkit,
 	}
-	connectorConfigNetkitL2 = ConnectorConfig{
-		configuredMode:  types.ConnectorModeNetkitL2,
-		operationalMode: types.ConnectorModeNetkitL2,
+	connectorConfigNetkitL2 = config{
+		configuredMode:  ModeNetkitL2,
+		operationalMode: ModeNetkitL2,
 	}
-	connectorConfigAuto_Veth = ConnectorConfig{
-		configuredMode:  types.ConnectorModeAuto,
-		operationalMode: types.ConnectorModeVeth,
+	connectorConfigAuto_Veth = config{
+		configuredMode:  ModeAuto,
+		operationalMode: ModeVeth,
 	}
-	connectorConfigAuto_Netkit = ConnectorConfig{
-		configuredMode:  types.ConnectorModeAuto,
-		operationalMode: types.ConnectorModeNetkit,
+	connectorConfigAuto_Netkit = config{
+		configuredMode:  ModeAuto,
+		operationalMode: ModeNetkit,
 	}
 )
 
@@ -191,7 +190,7 @@ func TestNewConfig(t *testing.T) {
 		daemonConfig   *option.DaemonConfig
 		wgAgent        *fakeTypes.WireguardAgent
 		tunnelConfig   tunnel.Config
-		expectedConfig *ConnectorConfig
+		expectedConfig *config
 		shouldError    bool
 		shouldSkip     bool
 	}{

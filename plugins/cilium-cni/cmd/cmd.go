@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -668,7 +667,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-		linkConfig := datapath.LinkConfig{
+		linkConfig := connector.LinkConfig{
 			EndpointID:     cniID,
 			PeerIfName:     epConf.IfName(),
 			PeerNamespace:  ns,
@@ -687,7 +686,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			}
 		}
 
-		linkMode := datapath.GetConnectorModeByName(string(conf.DatapathMode))
+		linkMode := connector.ModeByName(string(conf.DatapathMode))
 		linkPair, err := connector.NewLinkPair(scopedLogger, linkMode, linkConfig, sysctl)
 		if err != nil {
 			return fmt.Errorf("unable to set up link on host side: %w", err)

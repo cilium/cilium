@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -416,7 +415,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	removeLinkOnErr := func(linkPair *connector.LinkPair) {
+	removeLinkOnErr := func(linkPair connector.LinkPair) {
 		if err != nil && linkPair != nil {
 			if err := linkPair.Delete(); err != nil {
 				driver.logger.Warn(
@@ -429,7 +428,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	linkConfig := datapath.LinkConfig{
+	linkConfig := connector.LinkConfig{
 		EndpointID:     create.EndpointID,
 		GROIPv6MaxSize: int(driver.conf.GROMaxSize),
 		GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
@@ -437,7 +436,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		GSOIPv4MaxSize: int(driver.conf.GSOIPv4MaxSize),
 		DeviceMTU:      int(driver.conf.DeviceMTU),
 	}
-	linkMode := datapath.GetConnectorModeByName(string(driver.conf.DatapathMode))
+	linkMode := connector.ModeByName(string(driver.conf.DatapathMode))
 	linkPair, err := connector.NewLinkPair(driver.logger, linkMode, linkConfig, ctl)
 	if err != nil {
 		sendError(driver.logger, w, fmt.Sprintf("Error setting up linkpair in %s mode: %s", driver.conf.DatapathMode, err), http.StatusBadRequest)
@@ -490,7 +489,7 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		logfields.Response, del,
 	)
 
-	linkConfig := datapath.LinkConfig{
+	linkConfig := connector.LinkConfig{
 		EndpointID: del.EndpointID,
 	}
 	if err := connector.DeleteLinkPair(linkConfig); err != nil {

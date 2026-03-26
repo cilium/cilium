@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
@@ -120,7 +121,7 @@ type orchestratorParams struct {
 	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
 	BIGTCPConfig        *bigtcp.Configuration
-	ConnectorConfig     datapath.ConnectorConfig
+	ConnectorConfig     connector.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {

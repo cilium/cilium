@@ -16,10 +16,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/daemon/infraendpoints"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -58,7 +58,7 @@ type ciliumHealthManager struct {
 	healthSpec       *healthApi.Spec
 	sysctl           sysctl.Sysctl
 	loader           loader.Loader
-	connectorConfig  datapath.ConnectorConfig
+	connectorConfig  connector.Config
 	mtuConfig        mtu.MTU
 	bigTCPConfig     *bigtcp.Configuration
 	endpointCreator  endpointcreator.EndpointCreator
@@ -83,7 +83,7 @@ type ciliumHealthParams struct {
 	HealthSpec             *healthApi.Spec
 	Sysctl                 sysctl.Sysctl
 	Loader                 loader.Loader
-	ConnectorConfig        datapath.ConnectorConfig
+	ConnectorConfig        connector.Config
 	MtuConfig              mtu.MTU
 	BigTCPConfig           *bigtcp.Configuration
 	EndpointCreator        endpointcreator.EndpointCreator

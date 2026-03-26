@@ -11,16 +11,51 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 )
+
+// LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on
+// both sides of the created veth or netkit pair.
+type LinkConfig struct {
+	// EndpointID defines the container ID to which we are creating a new
+	// linkpair. Set this if you want the connector to generate interface
+	// names itself. Otherwise, set HostIfName and PeerIfName.
+	EndpointID string
+
+	// HostIfName defines the interface name as seen in the host namespace.
+	HostIfName string
+
+	// PeerIfName defines the interface name as seen in the container namespace.
+	PeerIfName string
+
+	// PeerNamespace defines the namespace the peer link should be moved into.
+	PeerNamespace *netns.NetNS
+
+	GROIPv6MaxSize int
+	GSOIPv6MaxSize int
+
+	GROIPv4MaxSize int
+	GSOIPv4MaxSize int
+
+	DeviceMTU      int
+	DeviceHeadroom uint16
+	DeviceTailroom uint16
+}
+
+type LinkPair interface {
+	GetHostLink() netlink.Link
+	GetPeerLink() netlink.Link
+	GetMode() Mode
+	Delete() error
+}
 
 func NewLinkPair(
 	log *slog.Logger,
-	mode types.ConnectorMode,
-	cfg types.LinkConfig,
+	mode Mode,
+	cfg LinkConfig,
 	sysctl sysctl.Sysctl,
-) (*LinkPair, error) {
+) (*linkPair, error) {
 	log.Debug("Creating new linkpair",
 		logfields.LinkConfig, cfg,
 		logfields.DatapathMode, mode,
@@ -43,21 +78,21 @@ func NewLinkPair(
 	var err error
 
 	switch mode {
-	case types.ConnectorModeVeth:
+	case ModeVeth:
 		hostLink, peerLink, err = setupVethPair(
 			log,
 			cfg,
 			sysctl,
 		)
 
-	case types.ConnectorModeNetkit:
+	case ModeNetkit:
 		hostLink, peerLink, err = setupNetkitPair(
 			log,
 			cfg,
 			false,
 			sysctl,
 		)
-	case types.ConnectorModeNetkitL2:
+	case ModeNetkitL2:
 		hostLink, peerLink, err = setupNetkitPair(
 			log,
 			cfg,
@@ -117,7 +152,7 @@ func NewLinkPair(
 		}
 	}
 
-	pair := &LinkPair{
+	pair := &linkPair{
 		hostLink: hostLink,
 		peerLink: peerLink,
 		mode:     mode,
@@ -125,7 +160,7 @@ func NewLinkPair(
 	return pair, nil
 }
 
-func configureLinkPair(hostSide, endpointSide netlink.Link, cfg types.LinkConfig) error {
+func configureLinkPair(hostSide, endpointSide netlink.Link, cfg LinkConfig) error {
 	var err error
 	epIfName := endpointSide.Attrs().Name
 	hostIfName := hostSide.Attrs().Name
@@ -188,7 +223,7 @@ func configureLinkPair(hostSide, endpointSide netlink.Link, cfg types.LinkConfig
 	return nil
 }
 
-func DeleteLinkPair(cfg types.LinkConfig) error {
+func DeleteLinkPair(cfg LinkConfig) error {
 	if cfg.EndpointID != "" {
 		cfg.HostIfName = Endpoint2IfName(cfg.EndpointID)
 	} else if cfg.HostIfName == "" {
@@ -202,30 +237,30 @@ func DeleteLinkPair(cfg types.LinkConfig) error {
 	return nil
 }
 
-type LinkPair struct {
+type linkPair struct {
 	hostLink netlink.Link
 	peerLink netlink.Link
-	mode     types.ConnectorMode
+	mode     Mode
 }
 
-func (lp *LinkPair) GetHostLink() netlink.Link {
+func (lp *linkPair) GetHostLink() netlink.Link {
 	return lp.hostLink
 }
 
-func (lp *LinkPair) GetPeerLink() netlink.Link {
+func (lp *linkPair) GetPeerLink() netlink.Link {
 	return lp.peerLink
 }
 
-func (lp *LinkPair) GetMode() types.ConnectorMode {
+func (lp *linkPair) GetMode() Mode {
 	return lp.mode
 }
 
-func (lp *LinkPair) Delete() error {
+func (lp *linkPair) Delete() error {
 	if lp.hostLink != nil {
 		if err := netlink.LinkDel(lp.hostLink); err != nil {
 			return fmt.Errorf("delete linkpair %q failed: %w", lp.hostLink.Attrs().Name, err)
 		}
-		*lp = LinkPair{}
+		*lp = linkPair{}
 	}
 	return nil
 }

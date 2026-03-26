@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -69,7 +70,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.WireguardAgent,
 	ipsecCfg datapath.IPsecConfig,
-	connectorConfig datapath.ConnectorConfig,
+	connectorConfig connector.Config,
 ) (config.Config, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 

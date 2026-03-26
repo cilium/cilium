@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -41,19 +40,19 @@ var (
 	TestGROMaxSize = int(16384)
 	TestGSOMaxSize = int(8192)
 
-	NamedLinkConfig = types.LinkConfig{
+	NamedLinkConfig = LinkConfig{
 		HostIfName: TestHostIfName,
 		PeerIfName: TestPeerIfName,
 		DeviceMTU:  TestStandardMTU,
 	}
-	NamedLinkConfigTBM = types.LinkConfig{
+	NamedLinkConfigTBM = LinkConfig{
 		HostIfName:     TestHostIfName,
 		PeerIfName:     TestPeerIfName,
 		DeviceMTU:      TestStandardMTU,
 		DeviceHeadroom: TestHeadroom,
 		DeviceTailroom: TestTailroom,
 	}
-	EndpointLinkConfig = types.LinkConfig{
+	EndpointLinkConfig = LinkConfig{
 		EndpointID: TestEndpointID,
 		DeviceMTU:  TestStandardMTU,
 	}
@@ -116,22 +115,22 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		mode        types.ConnectorMode
-		cfg         types.LinkConfig
+		mode        Mode
+		cfg         LinkConfig
 		shouldSkip  bool
 		shouldError bool
 	}{
 		// mode=unspec
 		{
 			name:        "mode-unspec+named",
-			mode:        types.ConnectorModeUnspec,
+			mode:        ModeUnspec,
 			cfg:         NamedLinkConfig,
 			shouldSkip:  false,
 			shouldError: true,
 		},
 		{
 			name:        "mode-unspec+endpoint",
-			mode:        types.ConnectorModeUnspec,
+			mode:        ModeUnspec,
 			cfg:         EndpointLinkConfig,
 			shouldSkip:  false,
 			shouldError: true,
@@ -140,8 +139,8 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=veth, missing names and endpoint ID
 		{
 			name: "mode-veth+no-names-and-endpoint",
-			mode: types.ConnectorModeVeth,
-			cfg: types.LinkConfig{
+			mode: ModeVeth,
+			cfg: LinkConfig{
 				DeviceMTU: TestStandardMTU,
 			},
 			shouldSkip:  false,
@@ -151,8 +150,8 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=veth, only with HostIfName
 		{
 			name: "mode-veth+hostifname-only",
-			mode: types.ConnectorModeVeth,
-			cfg: types.LinkConfig{
+			mode: ModeVeth,
+			cfg: LinkConfig{
 				HostIfName: "hostifnameonly",
 				DeviceMTU:  TestStandardMTU,
 			},
@@ -163,8 +162,8 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=veth, only with PeerIfName
 		{
 			name: "mode-veth+peerifname-only",
-			mode: types.ConnectorModeVeth,
-			cfg: types.LinkConfig{
+			mode: ModeVeth,
+			cfg: LinkConfig{
 				PeerIfName: "peerifnameonly",
 				DeviceMTU:  TestStandardMTU,
 			},
@@ -175,14 +174,14 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=veth
 		{
 			name:        "mode-veth+named",
-			mode:        types.ConnectorModeVeth,
+			mode:        ModeVeth,
 			cfg:         NamedLinkConfig,
 			shouldSkip:  false,
 			shouldError: false,
 		},
 		{
 			name:        "mode-veth+endpoint",
-			mode:        types.ConnectorModeVeth,
+			mode:        ModeVeth,
 			cfg:         EndpointLinkConfig,
 			shouldSkip:  false,
 			shouldError: false,
@@ -191,14 +190,14 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=netkit
 		{
 			name:        "mode-netkit+named",
-			mode:        types.ConnectorModeNetkit,
+			mode:        ModeNetkit,
 			cfg:         NamedLinkConfig,
 			shouldSkip:  !hostSupportsNetkit(),
 			shouldError: false,
 		},
 		{
 			name:        "mode-netkit+endpoint",
-			mode:        types.ConnectorModeNetkit,
+			mode:        ModeNetkit,
 			cfg:         EndpointLinkConfig,
 			shouldSkip:  !hostSupportsNetkit(),
 			shouldError: false,
@@ -207,14 +206,14 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 		// mode=netkit-l2
 		{
 			name:        "mode-netkit-l2+named",
-			mode:        types.ConnectorModeNetkitL2,
+			mode:        ModeNetkitL2,
 			cfg:         NamedLinkConfig,
 			shouldSkip:  !hostSupportsNetkit(),
 			shouldError: false,
 		},
 		{
 			name:        "mode-netkit-l2+endpoint",
-			mode:        types.ConnectorModeNetkitL2,
+			mode:        ModeNetkitL2,
 			cfg:         EndpointLinkConfig,
 			shouldSkip:  !hostSupportsNetkit(),
 			shouldError: false,
@@ -227,7 +226,7 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 				t.Skip()
 			}
 
-			var linkPair *LinkPair
+			var linkPair *linkPair
 
 			ns := netns.NewNetNS(t)
 			require.NoError(t, ns.Do(func() error {
@@ -257,7 +256,7 @@ func TestPrivilegedNewLinkPair(t *testing.T) {
 func TestPrivilegedConfigureLinkPair(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	cfg := types.LinkConfig{
+	cfg := LinkConfig{
 		DeviceMTU:      TestSmallMTU,
 		GROIPv4MaxSize: TestGROMaxSize,
 		GROIPv6MaxSize: TestGROMaxSize,
@@ -288,7 +287,7 @@ func TestPrivilegedConfigureLinkPair(t *testing.T) {
 		return nil
 	}))
 
-	assertLinkConfig := func(attrs *netlink.LinkAttrs, cfg *types.LinkConfig) {
+	assertLinkConfig := func(attrs *netlink.LinkAttrs, cfg *LinkConfig) {
 		// MTU
 		assert.Equal(t, attrs.MTU, cfg.DeviceMTU)
 
@@ -314,20 +313,20 @@ func TestPrivilegedLinkPairDelete(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		mode        types.ConnectorMode
-		cfg         types.LinkConfig
+		mode        Mode
+		cfg         LinkConfig
 		shouldError bool
 	}{
 		// mode=veth
 		{
 			name:        "mode-veth+named",
-			mode:        types.ConnectorModeVeth,
+			mode:        ModeVeth,
 			cfg:         NamedLinkConfig,
 			shouldError: false,
 		},
 		{
 			name:        "mode-veth+endpoint",
-			mode:        types.ConnectorModeVeth,
+			mode:        ModeVeth,
 			cfg:         EndpointLinkConfig,
 			shouldError: false,
 		},
@@ -335,7 +334,7 @@ func TestPrivilegedLinkPairDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var linkPair *LinkPair
+			var linkPair *linkPair
 
 			ns := netns.NewNetNS(t)
 			require.NoError(t, ns.Do(func() error {

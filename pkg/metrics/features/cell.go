@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
@@ -101,7 +102,7 @@ type featuresParams struct {
 	DynamicConfigSource dynamicconfig.ConfigSource
 	WgConfig            wgTypes.WireguardConfig
 	IPsecConfig         types.IPsecConfig
-	ConnectorConfig     types.ConnectorConfig
+	ConnectorConfig     connector.Config
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {

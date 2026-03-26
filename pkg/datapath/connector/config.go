@@ -15,16 +15,25 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
+type Config interface {
+	Reinitialize() error
+	GetPodDeviceHeadroom() uint16
+	GetPodDeviceTailroom() uint16
+	GetConfiguredMode() Mode
+	GetOperationalMode() Mode
+	NewLinkPair(cfg LinkConfig, sysctl sysctl.Sysctl) (LinkPair, error)
+	GetLinkCompatibility(ifName string) (Mode, bool, error)
+}
+
 // Connector configuration. As per BIGTCP, the values here will not be calculated
 // until the Hive has started. This is necessary to allow other dependencies to
 // setup their interfaces etc.
-type ConnectorConfig struct {
+type config struct {
 	log          *slog.Logger
 	wgAgent      wgTypes.WireguardAgent
 	tunnelConfig tunnel.Config
@@ -39,52 +48,52 @@ type ConnectorConfig struct {
 
 	// configuredMode tracks the configured datapath mode of Cilium,
 	// as specified by runtime configuration.
-	configuredMode types.ConnectorMode
+	configuredMode Mode
 
 	// operationalMode tracks the operational datapath mode of Cilium,
 	// which may differ from the configured datapath mode.
-	operationalMode types.ConnectorMode
+	operationalMode Mode
 }
 
-func (cc *ConnectorConfig) Reinitialize() error {
+func (cc *config) Reinitialize() error {
 	return cc.calculateTunedBufferMargins()
 }
 
-func (cc *ConnectorConfig) GetPodDeviceHeadroom() uint16 {
+func (cc *config) GetPodDeviceHeadroom() uint16 {
 	return cc.podDeviceHeadroom
 }
 
-func (cc *ConnectorConfig) GetPodDeviceTailroom() uint16 {
+func (cc *config) GetPodDeviceTailroom() uint16 {
 	return cc.podDeviceTailroom
 }
 
-func (cc *ConnectorConfig) GetConfiguredMode() types.ConnectorMode {
+func (cc *config) GetConfiguredMode() Mode {
 	return cc.configuredMode
 }
 
-func (cc *ConnectorConfig) GetOperationalMode() types.ConnectorMode {
+func (cc *config) GetOperationalMode() Mode {
 	return cc.operationalMode
 }
 
-func (cc *ConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.Sysctl) (types.LinkPair, error) {
+func (cc *config) NewLinkPair(cfg LinkConfig, sysctl sysctl.Sysctl) (LinkPair, error) {
 	return NewLinkPair(cc.log, cc.operationalMode, cfg, sysctl)
 }
 
-func (cc *ConnectorConfig) GetLinkCompatibility(ifName string) (types.ConnectorMode, bool, error) {
+func (cc *config) GetLinkCompatibility(ifName string) (Mode, bool, error) {
 	link, err := safenetlink.LinkByName(ifName)
 	if err != nil {
-		return types.ConnectorModeUnspec, false, err
+		return ModeUnspec, false, err
 	}
 
-	linkMode := types.GetConnectorModeByName(link.Type())
+	linkMode := ModeByName(link.Type())
 
 	// The netkit driver supports both L2 and L3 modes, which we can't identify
 	// by the link type. If the link is operating at L2 mode, the above getter
 	// will return the L3 type. Probe the netkit structure to fix this up.
-	if linkMode == types.ConnectorModeNetkit {
+	if linkMode == ModeNetkit {
 		nk := link.(*netlink.Netkit)
 		if nk.Mode == netlink.NETKIT_MODE_L2 {
-			linkMode = types.ConnectorModeNetkitL2
+			linkMode = ModeNetkitL2
 		}
 	}
 
@@ -95,7 +104,7 @@ func (cc *ConnectorConfig) GetLinkCompatibility(ifName string) (types.ConnectorM
 
 // Returns true if we should actively try and align the connector's netdev buffer
 // margins with that of the host's egress interfaces (e.g. tunnel, wireguard).
-func (cc *ConnectorConfig) useTunedBufferMargins() bool {
+func (cc *config) useTunedBufferMargins() bool {
 	return cc.operationalMode.IsNetkit()
 }
 
@@ -156,24 +165,24 @@ func canUseNetkit(p connectorParams) error {
 }
 
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
-func newConfig(p connectorParams) (*ConnectorConfig, error) {
-	var configuredMode, operationalMode types.ConnectorMode
+func newConfig(p connectorParams) (*config, error) {
+	var configuredMode, operationalMode Mode
 
-	configuredMode = types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
+	configuredMode = ModeByName(p.DaemonConfig.DatapathMode)
 	switch configuredMode {
-	case types.ConnectorModeUnspec:
+	case ModeUnspec:
 		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
 
-	case types.ConnectorModeAuto:
+	case ModeAuto:
 		if err := canUseNetkit(p); err != nil {
 			p.Log.Warn("datapath autodiscovery failed, reverting from netkit to veth",
 				logfields.Error, err)
-			operationalMode = types.ConnectorModeVeth
+			operationalMode = ModeVeth
 		} else {
-			operationalMode = types.ConnectorModeNetkit
+			operationalMode = ModeNetkit
 		}
 
-	case types.ConnectorModeNetkit, types.ConnectorModeNetkitL2:
+	case ModeNetkit, ModeNetkitL2:
 		if err := canUseNetkit(p); err != nil {
 			return nil, fmt.Errorf("netkit connector not available: %w", err)
 		}
@@ -184,7 +193,7 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 		operationalMode = configuredMode
 	}
 
-	cc := &ConnectorConfig{
+	cc := &config{
 		log:             p.Log,
 		wgAgent:         p.WgAgent,
 		tunnelConfig:    p.TunnelConfig,
@@ -207,7 +216,7 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 
 // calculateTunedBufferMargins aims to calculate necessary tuning parameters for pod/workload-facing
 // network device pairs.
-func (cc *ConnectorConfig) calculateTunedBufferMargins() error {
+func (cc *config) calculateTunedBufferMargins() error {
 	if !cc.useTunedBufferMargins() {
 		return nil
 	}

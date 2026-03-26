@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -105,7 +106,7 @@ type statusParams struct {
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent
 	ZtunnelConfig    zconfig.Config
-	ConnectorConfig  datapath.ConnectorConfig
+	ConnectorConfig  connector.Config
 }
 
 // Config is the collector configuration

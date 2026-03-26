@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
@@ -25,7 +24,7 @@ func TestPrivilegedSetupVethPair(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		cfg               types.LinkConfig
+		cfg               LinkConfig
 		expectedHwAddrLen int
 	}{
 		{

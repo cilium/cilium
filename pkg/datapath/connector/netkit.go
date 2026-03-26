@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -20,7 +19,7 @@ import (
 // setupNetkitPair sets up the host-facing interface, the peer interface and fills
 // up some endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer
 // for the created netkit, a pointer for the peer link and error if something fails.
-func setupNetkitPair(defaultLogger *slog.Logger, cfg types.LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	var epHostMAC, epLXCMAC mac.MAC
 	var err error
@@ -113,7 +112,7 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg types.LinkConfig, l2Mode bo
 
 // validateNetkitPair queries the kernel for a copy of the underlying device attributes
 // for both the lxc host interface and the peer interface.
-func validateNetkitPair(logger *slog.Logger, cfg types.LinkConfig) (netlink.Link, error) {
+func validateNetkitPair(logger *slog.Logger, cfg LinkConfig) (netlink.Link, error) {
 	// Query the kernel for the host link attributes, so we can verify the kernel
 	// has applied the configuration we expected.
 	hostLink, err := safenetlink.LinkByName(cfg.HostIfName)

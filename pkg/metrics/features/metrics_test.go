@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/datapath/connector"
+	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
@@ -27,7 +28,7 @@ type mockFeaturesParams struct {
 	bigTCPFeatures                      bigTCPFeatures
 	L2PodAnnouncement                   bool
 	isDynamicConfigSourceKindNodeConfig bool
-	ConnectorConfig                     types.ConnectorConfig
+	ConnectorConfig                     connector.Config
 	KernelVersionString                 string
 }
 
@@ -422,43 +423,43 @@ func TestUpdateCiliumEndpointSlices(t *testing.T) {
 func TestUpdateDeviceMode(t *testing.T) {
 	tests := []struct {
 		name                    string
-		configuredMode          types.ConnectorMode
-		operationalMode         types.ConnectorMode
+		configuredMode          connector.Mode
+		operationalMode         connector.Mode
 		expectedConfiguredMode  string
 		expectedOperationalMode string
 	}{
 		{
 			name:                    "veth/veth",
-			configuredMode:          types.ConnectorModeVeth,
-			operationalMode:         types.ConnectorModeVeth,
+			configuredMode:          connector.ModeVeth,
+			operationalMode:         connector.ModeVeth,
 			expectedConfiguredMode:  datapathOption.DatapathModeVeth,
 			expectedOperationalMode: datapathOption.DatapathModeVeth,
 		},
 		{
 			name:                    "netkit/netkit",
-			configuredMode:          types.ConnectorModeNetkit,
-			operationalMode:         types.ConnectorModeNetkit,
+			configuredMode:          connector.ModeNetkit,
+			operationalMode:         connector.ModeNetkit,
 			expectedConfiguredMode:  datapathOption.DatapathModeNetkit,
 			expectedOperationalMode: datapathOption.DatapathModeNetkit,
 		},
 		{
 			name:                    "netkit-l2/netkit-l2",
-			configuredMode:          types.ConnectorModeNetkitL2,
-			operationalMode:         types.ConnectorModeNetkitL2,
+			configuredMode:          connector.ModeNetkitL2,
+			operationalMode:         connector.ModeNetkitL2,
 			expectedConfiguredMode:  datapathOption.DatapathModeNetkitL2,
 			expectedOperationalMode: datapathOption.DatapathModeNetkitL2,
 		},
 		{
 			name:                    "auto/veth",
-			configuredMode:          types.ConnectorModeAuto,
-			operationalMode:         types.ConnectorModeVeth,
+			configuredMode:          connector.ModeAuto,
+			operationalMode:         connector.ModeVeth,
 			expectedConfiguredMode:  datapathOption.DatapathModeAuto,
 			expectedOperationalMode: datapathOption.DatapathModeVeth,
 		},
 		{
 			name:                    "auto/netkit",
-			configuredMode:          types.ConnectorModeAuto,
-			operationalMode:         types.ConnectorModeNetkit,
+			configuredMode:          connector.ModeAuto,
+			operationalMode:         connector.ModeNetkit,
 			expectedConfiguredMode:  datapathOption.DatapathModeAuto,
 			expectedOperationalMode: datapathOption.DatapathModeNetkit,
 		},
@@ -479,7 +480,7 @@ func TestUpdateDeviceMode(t *testing.T) {
 
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
-				ConnectorConfig: fakeTypes.NewFakeConnectorConfig(tt.configuredMode, tt.operationalMode),
+				ConnectorConfig: fakeconnector.NewConfig(tt.configuredMode, tt.operationalMode),
 			}
 
 			metrics.update(params, config, lbConfig, kpr.KPRConfig{}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
