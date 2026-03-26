@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
+	proxy "github.com/cilium/cilium/pkg/proxy/types"
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
@@ -42,7 +43,7 @@ func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp bigtcp.Configuration) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p proxy.Proxy, bigtcp bigtcp.Configuration) error {
 	return nil
 }
 
