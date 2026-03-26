@@ -207,6 +207,15 @@
 #   configurations within the agent control plane, including Services,
 #   ClusterIP, NodePorts, Maglev, local redirect policies, and
 #   NAT46/NAT64.
+# - @cilium/network-driver:
+#   Maintain the Cilium Network Driver feature, that allows to request and share
+#   networking resources, like SR-IOV devices, among workloads. Responsible for all
+#   interactions between the driver and the Kubelet via the Dynamic Resource
+#   Allocation (DRA) API as well as between the driver and the Container Runtime
+#   via the Node Resource Interface (NRI) API. Ensure the consistency of the
+#   dedicated IPAM modes with the Network Driver resources management.
+#   This code owner is not related to the low level interactions with the Linux
+#   network drivers.
 # - @cilium/sig-policy:
 #   Ensure consistency of semantics for all network policy representations.
 #   Responsible for all policy logic from Kubernetes down to eBPF policymap
@@ -526,6 +535,7 @@ Makefile* @cilium/build
 /operator/pkg/model @cilium/sig-servicemesh
 /operator/pkg/multipool @cilium/sig-ipam
 /operator/pkg/networkpolicy @cilium/sig-policy
+/operator/pkg/networkdriver @cilium/network-driver
 /operator/pkg/nodeipam @cilium/sig-lb
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/workqueuemetrics @cilium/metrics
@@ -652,6 +662,7 @@ Makefile* @cilium/build
 /pkg/multicast @cilium/sig-datapath
 /pkg/murmur3/ @cilium/sig-datapath
 /pkg/netns/ @cilium/sig-datapath @cilium/sig-k8s
+/pkg/networkdriver/ @cilium/network-driver
 /pkg/node @cilium/sig-agent
 /pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
 /pkg/nodediscovery/ @cilium/sig-agent

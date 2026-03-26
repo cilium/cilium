@@ -210,6 +210,15 @@ external software and protocols:
   configurations within the agent control plane, including Services,
   ClusterIP, NodePorts, Maglev, local redirect policies, and
   NAT46/NAT64.
+- `@cilium/network-driver <https://github.com/orgs/cilium/teams/network-driver>`__:
+  Maintain the Cilium Network Driver feature, that allows to request and share
+  networking resources, like SR-IOV devices, among workloads. Responsible for all
+  interactions between the driver and the Kubelet via the Dynamic Resource
+  Allocation (DRA) API as well as between the driver and the Container Runtime
+  via the Node Resource Interface (NRI) API. Ensure the consistency of the
+  dedicated IPAM modes with the Network Driver resources management.
+  This code owner is not related to the low level interactions with the Linux
+  network drivers.
 - `@cilium/sig-policy <https://github.com/orgs/cilium/teams/sig-policy>`__:
   Ensure consistency of semantics for all network policy representations.
   Responsible for all policy logic from Kubernetes down to eBPF policymap
