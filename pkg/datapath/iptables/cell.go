@@ -29,7 +29,7 @@ var Cell = cell.Module(
 		cfg *option.DaemonConfig,
 		tunnelCfg tunnel.Config,
 		ipsecCfg ipsec.Config,
-		wgConfig wgTypes.WireguardConfig,
+		wgConfig wgTypes.Config,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),

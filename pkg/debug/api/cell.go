@@ -35,7 +35,7 @@ type debugAPIHandlerParams struct {
 	Frontends       statedb.Table[*loadbalancer.Frontend]
 	EndpointManager endpointmanager.EndpointManager
 	PolicyRepo      policy.PolicyRepository
-	WireguardAgent  wgTypes.WireguardAgent
+	WireguardAgent  wgTypes.Agent
 
 	StatusCollector status.StatusCollector
 	CellSettings    cellSettings

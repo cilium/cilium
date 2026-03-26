@@ -207,7 +207,7 @@ func (a *Agent) Name() string {
 	return "wireguard-agent"
 }
 
-// Returns true when enabled. Implements [types.WireguardAgent].
+// Returns true when enabled. Implements [types.Agent].
 func (a *Agent) Enabled() bool {
 	return a.config.Enabled()
 }

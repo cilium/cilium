@@ -68,7 +68,7 @@ func newLocalNodeConfig(
 	svcCfg svcrouteconfig.RoutesConfig,
 	maglevConfig maglev.Config,
 	mtuTbl statedb.Table[mtu.RouteMTU],
-	wgAgent wgTypes.WireguardAgent,
+	wgAgent wgTypes.Agent,
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 ) (config.Config, <-chan struct{}, error) {

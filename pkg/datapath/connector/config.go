@@ -35,7 +35,7 @@ type Config interface {
 // setup their interfaces etc.
 type config struct {
 	log          *slog.Logger
-	wgAgent      wgTypes.WireguardAgent
+	wgAgent      wgTypes.Agent
 	tunnelConfig tunnel.Config
 
 	// podDeviceHeadroom tracks the desired headroom buffer margin for the
@@ -114,7 +114,7 @@ type connectorParams struct {
 	Lifecycle    cell.Lifecycle
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
-	WgAgent      wgTypes.WireguardAgent
+	WgAgent      wgTypes.Agent
 	TunnelConfig tunnel.Config
 }
 

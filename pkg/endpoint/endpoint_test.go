@@ -19,7 +19,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
@@ -45,6 +44,7 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
+	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
 
 type EndpointSuite struct {
@@ -195,7 +195,7 @@ func createEndpointParams(tb testing.TB, o endpoint.Orchestrator, r policy.Polic
 		IdentityManager:  identitymanager.NewIDManager(hivetest.Logger(tb)),
 		NamedPortsGetter: testipcache.NewMockIPCache(),
 		IPSecConfig:      fakeipsec.Config{},
-		WgConfig:         fakeTypes.WireguardConfig{},
+		WgConfig:         fakewireguard.Config{},
 		CTMapGC:          ctmap.NewFakeGCRunner(),
 		Allocator:        testidentity.NewMockIdentityAllocator(nil),
 		LocalNodeStore:   node.NewTestLocalNodeStore(node.LocalNode{}),

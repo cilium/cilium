@@ -95,7 +95,7 @@ func newAllNodeManager(in struct {
 	JobGroup       job.Group
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
-	WGConfig       wgTypes.WireguardConfig
+	WGConfig       wgTypes.Config
 	LocalNodeStore *node.LocalNodeStore
 },
 ) (NodeManager, error) {

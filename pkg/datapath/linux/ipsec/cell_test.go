@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -55,7 +54,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 	"github.com/cilium/cilium/pkg/time"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
+	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
+	wireguard "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -69,7 +69,7 @@ type paramsOut struct {
 	cell.Out
 
 	IPSecConfig           config
-	WireguardConfig       wgTypes.WireguardConfig
+	WireguardConfig       wireguard.Config
 	TunnelConfig          tunnel.Config
 	DaemonConfig          *option.DaemonConfig
 	LBConfig              loadbalancer.Config
@@ -174,7 +174,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 							},
 							EncryptNode: false,
 						},
-						WireguardConfig:  fakeTypes.WireguardConfig{},
+						WireguardConfig:  fakewireguard.Config{},
 						TunnelConfig:     tunnel.Config{},
 						DaemonConfig:     option.Config,
 						LBConfig:         loadbalancer.Config{},

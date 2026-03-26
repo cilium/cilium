@@ -79,7 +79,7 @@ type configModifyApiHandlerParams struct {
 	BigTCPConfig    *bigtcp.Configuration
 	TunnelConfig    tunnel.Config
 	BandwidthConfig bandwidth.Config
-	WgConfig        wgTypes.WireguardConfig
+	WgConfig        wgTypes.Config
 	ConnectorConfig connector.Config
 	LocalNodeStore  *node.LocalNodeStore
 
@@ -356,7 +356,7 @@ type getConfigHandler struct {
 	bigTCPConfig    *bigtcp.Configuration
 	tunnelConfig    tunnel.Config
 	bandwidthConfig bandwidth.Config
-	wgConfig        wgTypes.WireguardConfig
+	wgConfig        wgTypes.Config
 	connectorConfig connector.Config
 	localNodeStore  *node.LocalNodeStore
 }
