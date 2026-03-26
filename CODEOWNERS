@@ -403,6 +403,7 @@ Makefile* @cilium/build
 /Documentation/reference-guides/xfrm/ @cilium/ipsec @cilium/docs-structure
 /Documentation/check-build.sh @cilium/docs-structure
 /Documentation/check-cmdref.sh @cilium/docs-structure
+/Documentation/check-feature-metrics.sh @cilium/docs-structure
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
 /Documentation/check-examples.sh @cilium/docs-structure
 /Documentation/check-helmvalues.sh @cilium/docs-structure
@@ -476,6 +477,7 @@ Makefile* @cilium/build
 /Documentation/security/threat-model.rst @cilium/security @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
 /Documentation/update-cmdref.sh @cilium/docs-structure
+/Documentation/update-feature-metrics.sh @cilium/docs-structure
 /Documentation/update-spelling_wordlist.sh @cilium/docs-structure
 /Documentation/yaml.config @cilium/docs-structure
 /examples/ @cilium/docs-structure
