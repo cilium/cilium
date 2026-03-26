@@ -5,6 +5,9 @@ package features
 
 import (
 	"fmt"
+	"reflect"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -970,6 +973,7 @@ func NewMetrics(withDefaults bool, withEnvVersion bool) Metrics {
 
 type featureMetrics interface {
 	update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig)
+	toGatherer() (prometheus.Gatherer, error)
 }
 
 func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) {
@@ -1120,4 +1124,22 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 	if params.IsDynamicConfigSourceKindNodeConfig() {
 		m.ACLBCiliumNodeConfigEnabled.Set(1)
 	}
+}
+
+func (m Metrics) toGatherer() (prometheus.Gatherer, error) {
+	rv := reflect.ValueOf(m)
+	reg := prometheus.NewPedanticRegistry()
+	for i := 0; i < rv.NumField(); i++ {
+		if !rv.Field(i).CanInterface() {
+			continue
+		}
+		c, ok := rv.Field(i).Interface().(prometheus.Collector)
+		if !ok {
+			continue
+		}
+		if err := reg.Register(c); err != nil {
+			return nil, fmt.Errorf("registering metric: %w", err)
+		}
+	}
+	return reg, nil
 }
