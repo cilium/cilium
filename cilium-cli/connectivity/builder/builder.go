@@ -47,6 +47,9 @@ var (
 	//go:embed manifests/echo-ingress-from-other-client.yaml
 	echoIngressFromOtherClientPolicyYAML string
 
+	//go:embed manifests/echo-ingress-from-client-tiered-wildcard-pass-l7.yaml
+	echoIngressFromClientTieredWildcardPassL7PolicyYAML string
+
 	//go:embed manifests/client-egress-to-cidr-cp-host-knp.yaml
 	clientEgressToCIDRCPHostPolicyYAML string
 
@@ -392,6 +395,7 @@ func renderTemplates(clusterNameLocal, clusterNameRemote string, param check.Par
 		"denyCIDRPolicyYAML":                                         denyCIDRPolicyYAML,
 		"ingressfromSpecificNSYAML":                                  ingressfromSpecificNSYAML,
 		"egresstoSpecificNSYAML":                                     egresstoSpecificNSYAML,
+		"echoIngressFromClientTieredWildcardPassL7YAML":              echoIngressFromClientTieredWildcardPassL7PolicyYAML,
 	}
 	if param.K8sLocalHostTest {
 		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML

@@ -90,6 +90,7 @@ const (
 	CNP  Feature = "cilium-network-policy"
 	CCNP Feature = "cilium-clusterwide-network-policy"
 	KNP  Feature = "k8s-network-policy"
+	KCNP Feature = "k8s-cluster-network-policy"
 
 	// Whether or not CIDR selectors can match node IPs
 	CIDRMatchNodes Feature = "cidr-match-nodes"
