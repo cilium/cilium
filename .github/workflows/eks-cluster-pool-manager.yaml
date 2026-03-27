@@ -170,7 +170,7 @@ jobs:
               S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
               if [ -n "${S3_BUCKET}" ]; then
                 echo "Checking if kubeconfig for cluster ${cluster} exists in S3 bucket ${S3_BUCKET}"
-                KUBECONFIG_EXISTS=$(aws s3 ls "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --region ${REGION} | grep -c "${cluster}-" || echo "0")
+                KUBECONFIG_EXISTS=$(aws s3 ls "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --region ${REGION} | grep -c "${cluster}-" || true)
 
                 if [ "${KUBECONFIG_EXISTS}" -eq "0" ]; then
                   echo "Kubeconfig for cluster ${cluster} not found in S3 pool - cluster is being used, skipping deletion"
