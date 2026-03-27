@@ -81,6 +81,12 @@ spec:
         operator: "Equal"
         value: "true"
         effect: "NoExecute"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoSchedule"
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: nginx
