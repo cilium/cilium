@@ -101,8 +101,15 @@ func (p Peer) String() string {
 
 // Equal reports whether the Peer is equal to the provided Peer
 func (p Peer) Equal(o Peer) bool {
-	addrEq := (p.Address == nil && o.Address == nil) ||
-		(p.Address.String() == o.Address.String() && p.Address.Network() == o.Address.Network())
+	var addrEq bool
+	switch {
+	case p.Address == nil && o.Address == nil:
+		addrEq = true
+	case p.Address == nil || o.Address == nil:
+		addrEq = false
+	default:
+		addrEq = p.Address.String() == o.Address.String() && p.Address.Network() == o.Address.Network()
+	}
 	return p.Name == o.Name &&
 		p.TLSEnabled == o.TLSEnabled &&
 		p.TLSServerName == o.TLSServerName &&
