@@ -11,6 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/hive/script"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bgp/agent"
@@ -27,6 +28,7 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 			Flags: func(fs *pflag.FlagSet) {
 				addOutFileFlag(fs)
 				fs.Bool("no-age", false, "Do not show Age column for testing purpose")
+				fs.BoolP("with-attrs", "a", false, "Show path attributes (excluding NEXT_HOP and MP_REACH_NLRI)")
 			},
 			Detail: []string{
 				"List routes in the BGP Control Plane's RIBs",
@@ -59,9 +61,13 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					Safi: safi,
 				},
 			}
-
 			return func(*script.State) (stdout, stderr string, err error) {
 				noAge, err := s.Flags.GetBool("no-age")
+				if err != nil {
+					return "", "", err
+				}
+
+				printAttr, err := s.Flags.GetBool("with-attrs")
 				if err != nil {
 					return "", "", err
 				}
@@ -80,7 +86,7 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 				}
 
 				printPeer := tableType == types.TableTypeAdjRIBIn || tableType == types.TableTypeAdjRIBOut
-				PrintRoutes(tw, res.Instances, printPeer, noAge)
+				PrintRoutes(tw, res.Instances, printPeer, noAge, printAttr)
 				tw.Flush()
 
 				return buf.String(), "", nil
@@ -102,7 +108,7 @@ func parseTableTypeArg(arg string) (types.TableType, error) {
 	}
 }
 
-func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPeer bool, noAge bool) {
+func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPeer, noAge, printAttr bool) {
 	type row struct {
 		Instance string
 		Peer     string
@@ -110,6 +116,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 		NextHop  string
 		Best     string
 		Age      string
+		Attrs    string
 	}
 
 	var rows []row
@@ -123,6 +130,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 					NextHop:  api.NextHopFromPathAttributes(path.PathAttributes),
 					Best:     strconv.FormatBool(path.Best),
 					Age:      time.Duration(path.AgeNanoseconds).Truncate(time.Second).String(),
+					Attrs:    FormatPathAttributes(path.PathAttributes),
 				}
 				if noAge {
 					r.Age = "-"
@@ -151,6 +159,7 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 		NextHop:  "NextHop",
 		Best:     "Best",
 		Age:      "Age",
+		Attrs:    "Attrs",
 	})
 
 	prevInstance := ""
@@ -170,9 +179,15 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 		}
 
 		if printPeer {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Peer, row.Prefix, row.NextHop, row.Age)
 		} else {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", row.Instance, row.Prefix, row.NextHop, row.Best, row.Age)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s", row.Instance, row.Prefix, row.NextHop, row.Best, row.Age)
+		}
+
+		if printAttr {
+			fmt.Fprintf(tw, "\t%s\n", row.Attrs)
+		} else {
+			fmt.Fprintf(tw, "\n")
 		}
 
 		if row.Instance != "" {
@@ -185,4 +200,18 @@ func PrintRoutes(tw *tabwriter.Writer, instances []agent.InstanceRoutes, printPe
 			prevPrefix = row.Prefix
 		}
 	}
+}
+
+func FormatPathAttributes(attrs []bgp.PathAttributeInterface) string {
+	var parts []string
+	for _, attr := range attrs {
+		switch a := attr.(type) {
+		case *bgp.PathAttributeNextHop, *bgp.PathAttributeMpReachNLRI:
+			// Skip NextHop and MpReachNLRI attributes as they are
+			// already printed in separate columns.
+		default:
+			parts = append(parts, a.String())
+		}
+	}
+	return "[" + strings.Join(parts, " ") + "]"
 }
