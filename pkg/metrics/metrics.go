@@ -397,6 +397,9 @@ var (
 	// NatGCSize the number of entries in the nat table
 	NatGCSize = NoOpGaugeVec
 
+	// NatGCDeletedTotal is the number of NAT entries deleted during GC
+	NatGCDeletedTotal = NoOpCounterVec
+
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration = NoOpObserverVec
 
@@ -663,6 +666,7 @@ type LegacyMetrics struct {
 	ConntrackGCKeyFallbacks                 metric.Vec[metric.Counter]
 	ConntrackGCSize                         metric.Vec[metric.Gauge]
 	NatGCSize                               metric.Vec[metric.Gauge]
+	NatGCDeletedTotal                       metric.Vec[metric.Counter]
 	ConntrackGCDuration                     metric.Vec[metric.Observer]
 	ConntrackInterval                       metric.Vec[metric.Gauge]
 	ConntrackDumpResets                     metric.Vec[metric.Counter]
@@ -948,6 +952,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help: "The number of alive and deleted nat entries at the end " +
 				"of a garbage collector run labeled by datapath family.",
 		}, []string{LabelDatapathFamily, LabelDirection, LabelStatus}),
+
+		NatGCDeletedTotal: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_gc_removed_total",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemDatapath,
+			Name:       "nat_gc_removed_total",
+			Help:       "Number of NAT entries removed during garbage collection, labeled by address family and direction.",
+		}, []string{LabelDatapathFamily, LabelDirection}),
 
 		ConntrackGCDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_gc_duration_seconds",
@@ -1338,6 +1350,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackGCKeyFallbacks = lm.ConntrackGCKeyFallbacks
 	ConntrackGCSize = lm.ConntrackGCSize
 	NatGCSize = lm.NatGCSize
+	NatGCDeletedTotal = lm.NatGCDeletedTotal
 	ConntrackGCDuration = lm.ConntrackGCDuration
 	ConntrackInterval = lm.ConntrackInterval
 	ConntrackDumpResets = lm.ConntrackDumpResets

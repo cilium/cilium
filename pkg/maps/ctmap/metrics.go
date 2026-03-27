@@ -156,4 +156,6 @@ func (s *NatGCStats) finish() {
 	metrics.NatGCSize.WithLabelValues(family, metricsIngress, metricsDeleted).Set(float64(s.IngressDeleted))
 	metrics.NatGCSize.WithLabelValues(family, metricsEgress, metricsAlive).Set(float64(s.EgressAlive))
 	metrics.NatGCSize.WithLabelValues(family, metricsEgress, metricsDeleted).Set(float64(s.EgressDeleted))
+	metrics.NatGCDeletedTotal.WithLabelValues(family, metricsIngress).Add(float64(s.IngressDeleted))
+	metrics.NatGCDeletedTotal.WithLabelValues(family, metricsEgress).Add(float64(s.EgressDeleted))
 }
