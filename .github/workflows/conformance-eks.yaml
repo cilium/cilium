@@ -302,10 +302,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ inputs.PR-number }}" == "${{ inputs.context-ref }}" ]]; then
-            BASE_BRANCH="${{ inputs.context-ref }}"
-          else
+          # If PR-number isn't an integer then we use context-ref because branch isn't associated with a PR
+          if [[ "${{ inputs.PR-number }}" =~ ^[0-9]+$ ]]; then
             BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          else
+            BASE_BRANCH="${{ inputs.context-ref }}"
           fi
           echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
           echo "Base branch for PR #${{ inputs.PR-number }}: $BASE_BRANCH"
