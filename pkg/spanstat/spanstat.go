@@ -106,3 +106,12 @@ func (s *SpanStat) Seconds() float64 {
 	total := s.successDuration + s.failureDuration
 	return total.Seconds()
 }
+
+// SetSuccessDuration sets the success duration of the SpanStat directly.
+// This is useful for reconstructing timing data received from an external source
+// (e.g., the standalone DNS proxy sending timing data via gRPC).
+func (s *SpanStat) SetSuccessDuration(d time.Duration) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.successDuration = d
+}
