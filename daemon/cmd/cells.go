@@ -153,7 +153,9 @@ var (
 		store.Cell,
 
 		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
-		cell.Provide(func() k8sSynced.CRDSyncResourceNames { return k8sSynced.AgentCRDResourceNames() }),
+		cell.Provide(func() k8sSynced.CRDSyncResourceNamesOut {
+			return k8sSynced.NewCRDSyncResourceNamesOut(k8sSynced.AgentCRDResourceNames()...)
+		}),
 
 		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
 		// agent have k8sSynced.
