@@ -206,7 +206,6 @@ type ConnectionHandler interface {
 	// NotifyOnMsg notifies the gRPC client about DNS messages received by the standalone DNS proxy
 	// This method is called by the DNS proxy when it receives a DNS message.
 	// It is responsible for sending the DNS message to the Cilium agent for further processing.
-	// Note: This method is intentionally left empty for now. And will be implemented in future PRs.
 	NotifyOnMsg(msg *pb.FQDNMapping) error
 
 	// IsConnected returns the current connection status
