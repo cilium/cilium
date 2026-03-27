@@ -89,6 +89,71 @@ func (ResponseCode) EnumDescriptor() ([]byte, []int) {
 	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{0}
 }
 
+// ProxyErrorType classifies the error that occurred during DNS proxy
+// processing. The agent uses this to reconstruct the correct error type
+// for metrics reporting (metric label, semaphore-rejected counter, etc.)
+// without relying on Go error-type information that is lost during gRPC
+// serialization.
+type ProxyErrorType int32
+
+const (
+	// No error occurred.
+	ProxyErrorType_PROXY_ERROR_TYPE_NONE ProxyErrorType = 0
+	// A generic proxy-side error (e.g. failed to parse, forward, etc.).
+	ProxyErrorType_PROXY_ERROR_TYPE_PROXY ProxyErrorType = 1
+	// An upstream network timeout (e.g. DNS server did not respond).
+	ProxyErrorType_PROXY_ERROR_TYPE_TIMEOUT ProxyErrorType = 2
+	// The DNS proxy concurrency semaphore could not be acquired immediately.
+	ProxyErrorType_PROXY_ERROR_TYPE_SEMAPHORE_FAILED ProxyErrorType = 3
+	// The DNS proxy concurrency semaphore timed out during the grace period.
+	ProxyErrorType_PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT ProxyErrorType = 4
+)
+
+// Enum value maps for ProxyErrorType.
+var (
+	ProxyErrorType_name = map[int32]string{
+		0: "PROXY_ERROR_TYPE_NONE",
+		1: "PROXY_ERROR_TYPE_PROXY",
+		2: "PROXY_ERROR_TYPE_TIMEOUT",
+		3: "PROXY_ERROR_TYPE_SEMAPHORE_FAILED",
+		4: "PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT",
+	}
+	ProxyErrorType_value = map[string]int32{
+		"PROXY_ERROR_TYPE_NONE":                0,
+		"PROXY_ERROR_TYPE_PROXY":               1,
+		"PROXY_ERROR_TYPE_TIMEOUT":             2,
+		"PROXY_ERROR_TYPE_SEMAPHORE_FAILED":    3,
+		"PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT": 4,
+	}
+)
+
+func (x ProxyErrorType) Enum() *ProxyErrorType {
+	p := new(ProxyErrorType)
+	*p = x
+	return p
+}
+
+func (x ProxyErrorType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ProxyErrorType) Descriptor() protoreflect.EnumDescriptor {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_enumTypes[1].Descriptor()
+}
+
+func (ProxyErrorType) Type() protoreflect.EnumType {
+	return &file_standalone_dns_proxy_standalone_dns_proxy_proto_enumTypes[1]
+}
+
+func (x ProxyErrorType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ProxyErrorType.Descriptor instead.
+func (ProxyErrorType) EnumDescriptor() ([]byte, []int) {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{1}
+}
+
 // Ack sent from SDP to Agent on processing DNS policy rules
 type PolicyStateResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -151,6 +216,7 @@ type FQDNMapping struct {
 	SourceIdentity uint32                 `protobuf:"varint,4,opt,name=source_identity,json=sourceIdentity,proto3" json:"source_identity,omitempty"` // Identity of the client making the DNS request
 	SourceIp       []byte                 `protobuf:"bytes,5,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`                    // IP address of the client making the DNS request
 	ResponseCode   uint32                 `protobuf:"varint,6,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`       // DNS Response code as specified in RFC2316
+	MetricsData    *MetricsData           `protobuf:"bytes,7,opt,name=metrics_data,json=metricsData,proto3" json:"metrics_data,omitempty"`           // Metrics and access logging data collected by the standalone DNS proxy.
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -227,6 +293,275 @@ func (x *FQDNMapping) GetResponseCode() uint32 {
 	return 0
 }
 
+func (x *FQDNMapping) GetMetricsData() *MetricsData {
+	if x != nil {
+		return x.MetricsData
+	}
+	return nil
+}
+
+// MetricsData carries the flow context and timing statistics that the agent
+// needs to emit proxy metrics and access log records for DNS events
+// originating from the standalone DNS proxy.
+type MetricsData struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ProcessingStats *ProcessingStats       `protobuf:"bytes,1,opt,name=processing_stats,json=processingStats,proto3" json:"processing_stats,omitempty"`                       // Proxy request processing timing statistics
+	DnsResponseData *DNSResponseData       `protobuf:"bytes,2,opt,name=dns_response_data,json=dnsResponseData,proto3" json:"dns_response_data,omitempty"`                     // DNS response metadata extracted from the DNS message
+	SourcePort      uint32                 `protobuf:"varint,3,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`                                     // Source port of the endpoint making the DNS request
+	ServerAddr      string                 `protobuf:"bytes,4,opt,name=server_addr,json=serverAddr,proto3" json:"server_addr,omitempty"`                                      // IP:port of the destination DNS server as "ip:port" string (e.g., "8.8.8.8:53")
+	ServerIdentity  uint32                 `protobuf:"varint,5,opt,name=server_identity,json=serverIdentity,proto3" json:"server_identity,omitempty"`                         // Security identity of the destination DNS server
+	Protocol        string                 `protobuf:"bytes,6,opt,name=protocol,proto3" json:"protocol,omitempty"`                                                            // L4 protocol used for the DNS request (e.g., "udp", "tcp")
+	Allowed         bool                   `protobuf:"varint,7,opt,name=allowed,proto3" json:"allowed,omitempty"`                                                             // Whether the DNS request was allowed by policy
+	ErrorMessage    string                 `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`                                // Error message if the DNS request encountered an error (empty if no error)
+	ErrorType       ProxyErrorType         `protobuf:"varint,9,opt,name=error_type,json=errorType,proto3,enum=standalonednsproxy.ProxyErrorType" json:"error_type,omitempty"` // Structured error classification for metrics without relying on string matching.
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MetricsData) Reset() {
+	*x = MetricsData{}
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MetricsData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MetricsData) ProtoMessage() {}
+
+func (x *MetricsData) ProtoReflect() protoreflect.Message {
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MetricsData.ProtoReflect.Descriptor instead.
+func (*MetricsData) Descriptor() ([]byte, []int) {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MetricsData) GetProcessingStats() *ProcessingStats {
+	if x != nil {
+		return x.ProcessingStats
+	}
+	return nil
+}
+
+func (x *MetricsData) GetDnsResponseData() *DNSResponseData {
+	if x != nil {
+		return x.DnsResponseData
+	}
+	return nil
+}
+
+func (x *MetricsData) GetSourcePort() uint32 {
+	if x != nil {
+		return x.SourcePort
+	}
+	return 0
+}
+
+func (x *MetricsData) GetServerAddr() string {
+	if x != nil {
+		return x.ServerAddr
+	}
+	return ""
+}
+
+func (x *MetricsData) GetServerIdentity() uint32 {
+	if x != nil {
+		return x.ServerIdentity
+	}
+	return 0
+}
+
+func (x *MetricsData) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *MetricsData) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
+func (x *MetricsData) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *MetricsData) GetErrorType() ProxyErrorType {
+	if x != nil {
+		return x.ErrorType
+	}
+	return ProxyErrorType_PROXY_ERROR_TYPE_NONE
+}
+
+// ProcessingStats carries proxy request timing statistics collected by the
+// standalone DNS proxy. All durations are in nanoseconds.
+// Only fields actually measured by the standalone proxy are included here;
+// agent-side timings (policy generation, dataplane, cache updates, etc.)
+// are measured directly by the agent after receiving the gRPC message.
+type ProcessingStats struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	TotalTimeNs            int64                  `protobuf:"varint,1,opt,name=total_time_ns,json=totalTimeNs,proto3" json:"total_time_ns,omitempty"`
+	ProcessingTimeNs       int64                  `protobuf:"varint,2,opt,name=processing_time_ns,json=processingTimeNs,proto3" json:"processing_time_ns,omitempty"`
+	UpstreamTimeNs         int64                  `protobuf:"varint,3,opt,name=upstream_time_ns,json=upstreamTimeNs,proto3" json:"upstream_time_ns,omitempty"`
+	SemaphoreAcquireTimeNs int64                  `protobuf:"varint,4,opt,name=semaphore_acquire_time_ns,json=semaphoreAcquireTimeNs,proto3" json:"semaphore_acquire_time_ns,omitempty"`
+	PolicyCheckTimeNs      int64                  `protobuf:"varint,5,opt,name=policy_check_time_ns,json=policyCheckTimeNs,proto3" json:"policy_check_time_ns,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ProcessingStats) Reset() {
+	*x = ProcessingStats{}
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessingStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessingStats) ProtoMessage() {}
+
+func (x *ProcessingStats) ProtoReflect() protoreflect.Message {
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessingStats.ProtoReflect.Descriptor instead.
+func (*ProcessingStats) Descriptor() ([]byte, []int) {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ProcessingStats) GetTotalTimeNs() int64 {
+	if x != nil {
+		return x.TotalTimeNs
+	}
+	return 0
+}
+
+func (x *ProcessingStats) GetProcessingTimeNs() int64 {
+	if x != nil {
+		return x.ProcessingTimeNs
+	}
+	return 0
+}
+
+func (x *ProcessingStats) GetUpstreamTimeNs() int64 {
+	if x != nil {
+		return x.UpstreamTimeNs
+	}
+	return 0
+}
+
+func (x *ProcessingStats) GetSemaphoreAcquireTimeNs() int64 {
+	if x != nil {
+		return x.SemaphoreAcquireTimeNs
+	}
+	return 0
+}
+
+func (x *ProcessingStats) GetPolicyCheckTimeNs() int64 {
+	if x != nil {
+		return x.PolicyCheckTimeNs
+	}
+	return 0
+}
+
+// DNSResponseData holds the DNS message details extracted from the response
+// that are needed for access logging on the agent side.
+type DNSResponseData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	IsResponse    bool                   `protobuf:"varint,1,opt,name=is_response,json=isResponse,proto3" json:"is_response,omitempty"`           // Whether this is a DNS response (true) or request (false)
+	Cnames        []string               `protobuf:"bytes,2,rep,name=cnames,proto3" json:"cnames,omitempty"`                                      // CNAME records from the DNS response
+	Qtypes        []uint32               `protobuf:"varint,3,rep,packed,name=qtypes,proto3" json:"qtypes,omitempty"`                              // DNS question types
+	AnswerTypes   []uint32               `protobuf:"varint,4,rep,packed,name=answer_types,json=answerTypes,proto3" json:"answer_types,omitempty"` // DNS answer record types
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DNSResponseData) Reset() {
+	*x = DNSResponseData{}
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DNSResponseData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DNSResponseData) ProtoMessage() {}
+
+func (x *DNSResponseData) ProtoReflect() protoreflect.Message {
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DNSResponseData.ProtoReflect.Descriptor instead.
+func (*DNSResponseData) Descriptor() ([]byte, []int) {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *DNSResponseData) GetIsResponse() bool {
+	if x != nil {
+		return x.IsResponse
+	}
+	return false
+}
+
+func (x *DNSResponseData) GetCnames() []string {
+	if x != nil {
+		return x.Cnames
+	}
+	return nil
+}
+
+func (x *DNSResponseData) GetQtypes() []uint32 {
+	if x != nil {
+		return x.Qtypes
+	}
+	return nil
+}
+
+func (x *DNSResponseData) GetAnswerTypes() []uint32 {
+	if x != nil {
+		return x.AnswerTypes
+	}
+	return nil
+}
+
 // Ack returned by cilium agent to SDP on receiving FQDN-IP mapping update
 type UpdateMappingResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -237,7 +572,7 @@ type UpdateMappingResponse struct {
 
 func (x *UpdateMappingResponse) Reset() {
 	*x = UpdateMappingResponse{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[2]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -249,7 +584,7 @@ func (x *UpdateMappingResponse) String() string {
 func (*UpdateMappingResponse) ProtoMessage() {}
 
 func (x *UpdateMappingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[2]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -262,7 +597,7 @@ func (x *UpdateMappingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMappingResponse.ProtoReflect.Descriptor instead.
 func (*UpdateMappingResponse) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{2}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpdateMappingResponse) GetResponse() ResponseCode {
@@ -284,7 +619,7 @@ type DNSServer struct {
 
 func (x *DNSServer) Reset() {
 	*x = DNSServer{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[3]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +631,7 @@ func (x *DNSServer) String() string {
 func (*DNSServer) ProtoMessage() {}
 
 func (x *DNSServer) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[3]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +644,7 @@ func (x *DNSServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSServer.ProtoReflect.Descriptor instead.
 func (*DNSServer) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{3}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DNSServer) GetDnsServerIdentity() uint32 {
@@ -345,7 +680,7 @@ type DNSPolicy struct {
 
 func (x *DNSPolicy) Reset() {
 	*x = DNSPolicy{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[4]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -357,7 +692,7 @@ func (x *DNSPolicy) String() string {
 func (*DNSPolicy) ProtoMessage() {}
 
 func (x *DNSPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[4]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -370,7 +705,7 @@ func (x *DNSPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSPolicy.ProtoReflect.Descriptor instead.
 func (*DNSPolicy) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{4}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DNSPolicy) GetSourceEndpointId() uint32 {
@@ -408,7 +743,7 @@ type PolicyState struct {
 
 func (x *PolicyState) Reset() {
 	*x = PolicyState{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[5]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +755,7 @@ func (x *PolicyState) String() string {
 func (*PolicyState) ProtoMessage() {}
 
 func (x *PolicyState) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[5]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +768,7 @@ func (x *PolicyState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PolicyState.ProtoReflect.Descriptor instead.
 func (*PolicyState) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{5}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PolicyState) GetEgressL7DnsPolicy() []*DNSPolicy {
@@ -475,7 +810,7 @@ type IdentityToEndpointMapping struct {
 
 func (x *IdentityToEndpointMapping) Reset() {
 	*x = IdentityToEndpointMapping{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[6]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -487,7 +822,7 @@ func (x *IdentityToEndpointMapping) String() string {
 func (*IdentityToEndpointMapping) ProtoMessage() {}
 
 func (x *IdentityToEndpointMapping) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[6]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -500,7 +835,7 @@ func (x *IdentityToEndpointMapping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentityToEndpointMapping.ProtoReflect.Descriptor instead.
 func (*IdentityToEndpointMapping) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{6}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *IdentityToEndpointMapping) GetIdentity() uint32 {
@@ -528,7 +863,7 @@ type EndpointInfo struct {
 
 func (x *EndpointInfo) Reset() {
 	*x = EndpointInfo{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[7]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +875,7 @@ func (x *EndpointInfo) String() string {
 func (*EndpointInfo) ProtoMessage() {}
 
 func (x *EndpointInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[7]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +888,7 @@ func (x *EndpointInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointInfo.ProtoReflect.Descriptor instead.
 func (*EndpointInfo) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{7}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *EndpointInfo) GetId() uint64 {
@@ -581,7 +916,7 @@ type IdentityToPrefixMapping struct {
 
 func (x *IdentityToPrefixMapping) Reset() {
 	*x = IdentityToPrefixMapping{}
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -593,7 +928,7 @@ func (x *IdentityToPrefixMapping) String() string {
 func (*IdentityToPrefixMapping) ProtoMessage() {}
 
 func (x *IdentityToPrefixMapping) ProtoReflect() protoreflect.Message {
-	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +941,7 @@ func (x *IdentityToPrefixMapping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentityToPrefixMapping.ProtoReflect.Descriptor instead.
 func (*IdentityToPrefixMapping) Descriptor() ([]byte, []int) {
-	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{8}
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IdentityToPrefixMapping) GetIdentity() uint32 {
@@ -631,14 +966,40 @@ const file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc = "" +
 	"\x13PolicyStateResponse\x12<\n" +
 	"\bresponse\x18\x01 \x01(\x0e2 .standalonednsproxy.ResponseCodeR\bresponse\x12\x1d\n" +
 	"\n" +
-	"request_id\x18\x02 \x01(\tR\trequestId\"\xbb\x01\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\"\xff\x01\n" +
 	"\vFQDNMapping\x12\x12\n" +
 	"\x04fqdn\x18\x01 \x01(\tR\x04fqdn\x12\x1b\n" +
 	"\trecord_ip\x18\x02 \x03(\fR\brecordIp\x12\x10\n" +
 	"\x03ttl\x18\x03 \x01(\rR\x03ttl\x12'\n" +
 	"\x0fsource_identity\x18\x04 \x01(\rR\x0esourceIdentity\x12\x1b\n" +
 	"\tsource_ip\x18\x05 \x01(\fR\bsourceIp\x12#\n" +
-	"\rresponse_code\x18\x06 \x01(\rR\fresponseCode\"U\n" +
+	"\rresponse_code\x18\x06 \x01(\rR\fresponseCode\x12B\n" +
+	"\fmetrics_data\x18\a \x01(\v2\x1f.standalonednsproxy.MetricsDataR\vmetricsData\"\xb7\x03\n" +
+	"\vMetricsData\x12N\n" +
+	"\x10processing_stats\x18\x01 \x01(\v2#.standalonednsproxy.ProcessingStatsR\x0fprocessingStats\x12O\n" +
+	"\x11dns_response_data\x18\x02 \x01(\v2#.standalonednsproxy.DNSResponseDataR\x0fdnsResponseData\x12\x1f\n" +
+	"\vsource_port\x18\x03 \x01(\rR\n" +
+	"sourcePort\x12\x1f\n" +
+	"\vserver_addr\x18\x04 \x01(\tR\n" +
+	"serverAddr\x12'\n" +
+	"\x0fserver_identity\x18\x05 \x01(\rR\x0eserverIdentity\x12\x1a\n" +
+	"\bprotocol\x18\x06 \x01(\tR\bprotocol\x12\x18\n" +
+	"\aallowed\x18\a \x01(\bR\aallowed\x12#\n" +
+	"\rerror_message\x18\b \x01(\tR\ferrorMessage\x12A\n" +
+	"\n" +
+	"error_type\x18\t \x01(\x0e2\".standalonednsproxy.ProxyErrorTypeR\terrorType\"\xf9\x01\n" +
+	"\x0fProcessingStats\x12\"\n" +
+	"\rtotal_time_ns\x18\x01 \x01(\x03R\vtotalTimeNs\x12,\n" +
+	"\x12processing_time_ns\x18\x02 \x01(\x03R\x10processingTimeNs\x12(\n" +
+	"\x10upstream_time_ns\x18\x03 \x01(\x03R\x0eupstreamTimeNs\x129\n" +
+	"\x19semaphore_acquire_time_ns\x18\x04 \x01(\x03R\x16semaphoreAcquireTimeNs\x12/\n" +
+	"\x14policy_check_time_ns\x18\x05 \x01(\x03R\x11policyCheckTimeNs\"\x85\x01\n" +
+	"\x0fDNSResponseData\x12\x1f\n" +
+	"\vis_response\x18\x01 \x01(\bR\n" +
+	"isResponse\x12\x16\n" +
+	"\x06cnames\x18\x02 \x03(\tR\x06cnames\x12\x16\n" +
+	"\x06qtypes\x18\x03 \x03(\rR\x06qtypes\x12!\n" +
+	"\fanswer_types\x18\x04 \x03(\rR\vanswerTypes\"U\n" +
 	"\x15UpdateMappingResponse\x12<\n" +
 	"\bresponse\x18\x01 \x01(\x0e2 .standalonednsproxy.ResponseCodeR\bresponse\"\x8d\x01\n" +
 	"\tDNSServer\x12.\n" +
@@ -674,7 +1035,13 @@ const file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc = "" +
 	"\x1dRESPONSE_CODE_NOT_IMPLEMENTED\x10\x04\x12(\n" +
 	"$RESPONSE_CODE_ERROR_INVALID_ARGUMENT\x10\x06\x12*\n" +
 	"&RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND\x10\x05\x12\x19\n" +
-	"\x15RESPONSE_CODE_REFUSED\x10\a2\xd5\x01\n" +
+	"\x15RESPONSE_CODE_REFUSED\x10\a*\xb6\x01\n" +
+	"\x0eProxyErrorType\x12\x19\n" +
+	"\x15PROXY_ERROR_TYPE_NONE\x10\x00\x12\x1a\n" +
+	"\x16PROXY_ERROR_TYPE_PROXY\x10\x01\x12\x1c\n" +
+	"\x18PROXY_ERROR_TYPE_TIMEOUT\x10\x02\x12%\n" +
+	"!PROXY_ERROR_TYPE_SEMAPHORE_FAILED\x10\x03\x12(\n" +
+	"$PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT\x10\x042\xd5\x01\n" +
 	"\bFQDNData\x12c\n" +
 	"\x11StreamPolicyState\x12'.standalonednsproxy.PolicyStateResponse\x1a\x1f.standalonednsproxy.PolicyState\"\x00(\x010\x01\x12d\n" +
 	"\x14UpdateMappingRequest\x12\x1f.standalonednsproxy.FQDNMapping\x1a).standalonednsproxy.UpdateMappingResponse\"\x00B4Z2github.com/cilium/cilium/api/v1/standalonednsproxyb\x06proto3"
@@ -691,37 +1058,45 @@ func file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP() []byte {
 	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescData
 }
 
-var file_standalone_dns_proxy_standalone_dns_proxy_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_standalone_dns_proxy_standalone_dns_proxy_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_standalone_dns_proxy_standalone_dns_proxy_proto_goTypes = []any{
 	(ResponseCode)(0),                 // 0: standalonednsproxy.ResponseCode
-	(*PolicyStateResponse)(nil),       // 1: standalonednsproxy.PolicyStateResponse
-	(*FQDNMapping)(nil),               // 2: standalonednsproxy.FQDNMapping
-	(*UpdateMappingResponse)(nil),     // 3: standalonednsproxy.UpdateMappingResponse
-	(*DNSServer)(nil),                 // 4: standalonednsproxy.DNSServer
-	(*DNSPolicy)(nil),                 // 5: standalonednsproxy.DNSPolicy
-	(*PolicyState)(nil),               // 6: standalonednsproxy.PolicyState
-	(*IdentityToEndpointMapping)(nil), // 7: standalonednsproxy.IdentityToEndpointMapping
-	(*EndpointInfo)(nil),              // 8: standalonednsproxy.EndpointInfo
-	(*IdentityToPrefixMapping)(nil),   // 9: standalonednsproxy.IdentityToPrefixMapping
+	(ProxyErrorType)(0),               // 1: standalonednsproxy.ProxyErrorType
+	(*PolicyStateResponse)(nil),       // 2: standalonednsproxy.PolicyStateResponse
+	(*FQDNMapping)(nil),               // 3: standalonednsproxy.FQDNMapping
+	(*MetricsData)(nil),               // 4: standalonednsproxy.MetricsData
+	(*ProcessingStats)(nil),           // 5: standalonednsproxy.ProcessingStats
+	(*DNSResponseData)(nil),           // 6: standalonednsproxy.DNSResponseData
+	(*UpdateMappingResponse)(nil),     // 7: standalonednsproxy.UpdateMappingResponse
+	(*DNSServer)(nil),                 // 8: standalonednsproxy.DNSServer
+	(*DNSPolicy)(nil),                 // 9: standalonednsproxy.DNSPolicy
+	(*PolicyState)(nil),               // 10: standalonednsproxy.PolicyState
+	(*IdentityToEndpointMapping)(nil), // 11: standalonednsproxy.IdentityToEndpointMapping
+	(*EndpointInfo)(nil),              // 12: standalonednsproxy.EndpointInfo
+	(*IdentityToPrefixMapping)(nil),   // 13: standalonednsproxy.IdentityToPrefixMapping
 }
 var file_standalone_dns_proxy_standalone_dns_proxy_proto_depIdxs = []int32{
-	0, // 0: standalonednsproxy.PolicyStateResponse.response:type_name -> standalonednsproxy.ResponseCode
-	0, // 1: standalonednsproxy.UpdateMappingResponse.response:type_name -> standalonednsproxy.ResponseCode
-	4, // 2: standalonednsproxy.DNSPolicy.dns_servers:type_name -> standalonednsproxy.DNSServer
-	5, // 3: standalonednsproxy.PolicyState.egress_l7_dns_policy:type_name -> standalonednsproxy.DNSPolicy
-	7, // 4: standalonednsproxy.PolicyState.identity_to_endpoint_mapping:type_name -> standalonednsproxy.IdentityToEndpointMapping
-	9, // 5: standalonednsproxy.PolicyState.identity_to_prefix_mapping:type_name -> standalonednsproxy.IdentityToPrefixMapping
-	8, // 6: standalonednsproxy.IdentityToEndpointMapping.endpoint_info:type_name -> standalonednsproxy.EndpointInfo
-	1, // 7: standalonednsproxy.FQDNData.StreamPolicyState:input_type -> standalonednsproxy.PolicyStateResponse
-	2, // 8: standalonednsproxy.FQDNData.UpdateMappingRequest:input_type -> standalonednsproxy.FQDNMapping
-	6, // 9: standalonednsproxy.FQDNData.StreamPolicyState:output_type -> standalonednsproxy.PolicyState
-	3, // 10: standalonednsproxy.FQDNData.UpdateMappingRequest:output_type -> standalonednsproxy.UpdateMappingResponse
-	9, // [9:11] is the sub-list for method output_type
-	7, // [7:9] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	0,  // 0: standalonednsproxy.PolicyStateResponse.response:type_name -> standalonednsproxy.ResponseCode
+	4,  // 1: standalonednsproxy.FQDNMapping.metrics_data:type_name -> standalonednsproxy.MetricsData
+	5,  // 2: standalonednsproxy.MetricsData.processing_stats:type_name -> standalonednsproxy.ProcessingStats
+	6,  // 3: standalonednsproxy.MetricsData.dns_response_data:type_name -> standalonednsproxy.DNSResponseData
+	1,  // 4: standalonednsproxy.MetricsData.error_type:type_name -> standalonednsproxy.ProxyErrorType
+	0,  // 5: standalonednsproxy.UpdateMappingResponse.response:type_name -> standalonednsproxy.ResponseCode
+	8,  // 6: standalonednsproxy.DNSPolicy.dns_servers:type_name -> standalonednsproxy.DNSServer
+	9,  // 7: standalonednsproxy.PolicyState.egress_l7_dns_policy:type_name -> standalonednsproxy.DNSPolicy
+	11, // 8: standalonednsproxy.PolicyState.identity_to_endpoint_mapping:type_name -> standalonednsproxy.IdentityToEndpointMapping
+	13, // 9: standalonednsproxy.PolicyState.identity_to_prefix_mapping:type_name -> standalonednsproxy.IdentityToPrefixMapping
+	12, // 10: standalonednsproxy.IdentityToEndpointMapping.endpoint_info:type_name -> standalonednsproxy.EndpointInfo
+	2,  // 11: standalonednsproxy.FQDNData.StreamPolicyState:input_type -> standalonednsproxy.PolicyStateResponse
+	3,  // 12: standalonednsproxy.FQDNData.UpdateMappingRequest:input_type -> standalonednsproxy.FQDNMapping
+	10, // 13: standalonednsproxy.FQDNData.StreamPolicyState:output_type -> standalonednsproxy.PolicyState
+	7,  // 14: standalonednsproxy.FQDNData.UpdateMappingRequest:output_type -> standalonednsproxy.UpdateMappingResponse
+	13, // [13:15] is the sub-list for method output_type
+	11, // [11:13] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_standalone_dns_proxy_standalone_dns_proxy_proto_init() }
@@ -734,8 +1109,8 @@ func file_standalone_dns_proxy_standalone_dns_proxy_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc), len(file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   9,
+			NumEnums:      2,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
