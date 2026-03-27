@@ -151,7 +151,7 @@ jobs:
             jq '[.[] | select(.["test-l7"] == "true") | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
-          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             jq '[.[] | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
@@ -275,7 +275,7 @@ jobs:
             SEQUENTIAL_CONNECTIVITY_TESTS="seq-.*${L7_FILTER},!pod-to-world.*"
             CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS},${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
             echo "::notice::Running L7-only tests ${L7_FILTER}"
-          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
+          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             # Scheduled run (direct trigger): full test suite (L3/L4 AND L7)
             echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
           else
