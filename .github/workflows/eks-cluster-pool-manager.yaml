@@ -62,6 +62,13 @@ jobs:
           echo "empty=false" >> $GITHUB_OUTPUT
 
   cleanup-old-clusters:
+    permissions:
+      # To be able to trigger eks-cluster-delete.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
     name: Cleanup clusters older than 6 hours
     runs-on: ubuntu-24.04
     needs: generate-cleanup-matrix
@@ -76,29 +83,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install eksctl CLI
-        run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
-          rm "eksctl_$(uname -s)_amd64.tar.gz"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
-      - name: Get runner public IP
-        id: get-runner-ip
-        uses: ./.github/actions/get-runner-ip
-        with:
-          source: https://checkip.amazonaws.com
-          parsing: text
 
       - name: List and delete old clusters
         env:
           REGION: ${{ matrix.region }}
           MAX_AGE_HOURS: 6
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
 
@@ -184,14 +180,12 @@ jobs:
                 aws s3 rm "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --exclude "*" --include "${cluster}-*" --region ${REGION} || true
               fi
 
-              eksctl utils update-cluster-vpc-config --cluster ${cluster} \
-                --public-access-cidrs="${{ steps.get-runner-ip.outputs.cidr }}" \
-                --public-access=true --private-access=true --approve || \
-                echo "Failed to update cluster endpoints (may not have permissions)."
-
-              # Delete the cluster
-              eksctl delete cluster --name ${cluster} --region ${REGION} --wait || {
-                echo "Failed to delete cluster ${cluster}, continuing..."
+              # Trigger the eks-cluster-delete workflow to delete the cluster
+              echo "Triggering eks-cluster-delete workflow for cluster ${cluster} in region ${REGION}"
+              gh workflow run eks-cluster-delete.yaml \
+                -f cluster_name="${cluster}" \
+                -f region="${REGION}" || {
+                echo "Failed to trigger delete workflow for cluster ${cluster}, continuing..."
               }
             else
               echo "Cluster ${cluster} is not old enough to delete (age: ${CLUSTER_AGE_HOURS} hours, threshold: ${MAX_AGE_HOURS} hours)"
