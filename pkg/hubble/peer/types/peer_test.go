@@ -382,6 +382,21 @@ func TestEqual(t *testing.T) {
 			equal: false,
 		},
 		{
+			name: "one address nil other non-nil",
+			a: Peer{
+				Name:    "name",
+				Address: nil,
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+			},
+			equal: false,
+		},
+		{
 			name: "TLS enabled and not enabled",
 			a: Peer{
 				Name: "name",
