@@ -51,6 +51,62 @@ message FQDNMapping {
     uint32 source_identity = 4; // Identity of the client making the DNS request
     bytes source_ip = 5; // IP address of the client making the DNS request
     uint32 response_code = 6; // DNS Response code as specified in RFC2316
+    MetricsData metrics_data = 7; // Metrics and access logging data collected by the standalone DNS proxy.
+}
+
+// ProxyErrorType classifies the error that occurred during DNS proxy
+// processing. The agent uses this to reconstruct the correct error type
+// for metrics reporting (metric label, semaphore-rejected counter, etc.)
+// without relying on Go error-type information that is lost during gRPC
+// serialization.
+enum ProxyErrorType {
+    // No error occurred.
+    PROXY_ERROR_TYPE_NONE = 0;
+    // A generic proxy-side error (e.g. failed to parse, forward, etc.).
+    PROXY_ERROR_TYPE_PROXY = 1;
+    // An upstream network timeout (e.g. DNS server did not respond).
+    PROXY_ERROR_TYPE_TIMEOUT = 2;
+    // The DNS proxy concurrency semaphore could not be acquired immediately.
+    PROXY_ERROR_TYPE_SEMAPHORE_FAILED = 3;
+    // The DNS proxy concurrency semaphore timed out during the grace period.
+    PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT = 4;
+}
+
+// MetricsData carries the flow context and timing statistics that the agent
+// needs to emit proxy metrics and access log records for DNS events
+// originating from the standalone DNS proxy.
+message MetricsData {
+    ProcessingStats processing_stats = 1; // Proxy request processing timing statistics
+    DNSResponseData dns_response_data = 2; // DNS response metadata extracted from the DNS message
+    uint32 source_port = 3; // Source port of the endpoint making the DNS request
+    string server_addr = 4; // IP:port of the destination DNS server as "ip:port" string (e.g., "8.8.8.8:53")
+    uint32 server_identity = 5; // Security identity of the destination DNS server
+    string protocol = 6; // L4 protocol used for the DNS request (e.g., "udp", "tcp")
+    bool allowed = 7; // Whether the DNS request was allowed by policy
+    string error_message = 8; // Error message if the DNS request encountered an error (empty if no error)
+    ProxyErrorType error_type = 9; // Structured error classification for metrics without relying on string matching.
+}
+
+// ProcessingStats carries proxy request timing statistics collected by the
+// standalone DNS proxy. All durations are in nanoseconds.
+// Only fields actually measured by the standalone proxy are included here;
+// agent-side timings (policy generation, dataplane, cache updates, etc.)
+// are measured directly by the agent after receiving the gRPC message.
+message ProcessingStats {
+    int64 total_time_ns = 1;
+    int64 processing_time_ns = 2;
+    int64 upstream_time_ns = 3;
+    int64 semaphore_acquire_time_ns = 4;
+    int64 policy_check_time_ns = 5;
+}
+
+// DNSResponseData holds the DNS message details extracted from the response
+// that are needed for access logging on the agent side.
+message DNSResponseData {
+    bool is_response = 1; // Whether this is a DNS response (true) or request (false)
+    repeated string cnames = 2; // CNAME records from the DNS response
+    repeated uint32 qtypes = 3; // DNS question types
+    repeated uint32 answer_types = 4; // DNS answer record types
 }
 
 // Ack returned by cilium agent to SDP on receiving FQDN-IP mapping update

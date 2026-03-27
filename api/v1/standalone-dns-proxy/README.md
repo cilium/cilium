@@ -7,15 +7,19 @@
 
 - [standalone-dns-proxy/standalone-dns-proxy.proto](#standalone-dns-proxy_standalone-dns-proxy-proto)
     - [DNSPolicy](#standalonednsproxy-DNSPolicy)
+    - [DNSResponseData](#standalonednsproxy-DNSResponseData)
     - [DNSServer](#standalonednsproxy-DNSServer)
     - [EndpointInfo](#standalonednsproxy-EndpointInfo)
     - [FQDNMapping](#standalonednsproxy-FQDNMapping)
     - [IdentityToEndpointMapping](#standalonednsproxy-IdentityToEndpointMapping)
     - [IdentityToPrefixMapping](#standalonednsproxy-IdentityToPrefixMapping)
+    - [MetricsData](#standalonednsproxy-MetricsData)
     - [PolicyState](#standalonednsproxy-PolicyState)
     - [PolicyStateResponse](#standalonednsproxy-PolicyStateResponse)
+    - [ProcessingStats](#standalonednsproxy-ProcessingStats)
     - [UpdateMappingResponse](#standalonednsproxy-UpdateMappingResponse)
   
+    - [ProxyErrorType](#standalonednsproxy-ProxyErrorType)
     - [ResponseCode](#standalonednsproxy-ResponseCode)
   
     - [FQDNData](#standalonednsproxy-FQDNData)
@@ -42,6 +46,25 @@ L7 DNS policy specifying which requests are permitted to which DNS server
 | source_endpoint_id | [uint32](#uint32) |  | Endpoint ID of the workload this L7 DNS policy should apply to |
 | dns_pattern | [string](#string) | repeated | Allowed DNS pattern this identity is allowed to resolve. |
 | dns_servers | [DNSServer](#standalonednsproxy-DNSServer) | repeated | List of DNS servers to be allowed to connect. |
+
+
+
+
+
+
+<a name="standalonednsproxy-DNSResponseData"></a>
+
+### DNSResponseData
+DNSResponseData holds the DNS message details extracted from the response
+that are needed for access logging on the agent side.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| is_response | [bool](#bool) |  | Whether this is a DNS response (true) or request (false) |
+| cnames | [string](#string) | repeated | CNAME records from the DNS response |
+| qtypes | [uint32](#uint32) | repeated | DNS question types |
+| answer_types | [uint32](#uint32) | repeated | DNS answer record types |
 
 
 
@@ -95,6 +118,7 @@ FQDN-IP mapping goalstate sent from SDP to agent
 | source_identity | [uint32](#uint32) |  | Identity of the client making the DNS request |
 | source_ip | [bytes](#bytes) |  | IP address of the client making the DNS request |
 | response_code | [uint32](#uint32) |  | DNS Response code as specified in RFC2316 |
+| metrics_data | [MetricsData](#standalonednsproxy-MetricsData) |  | Metrics and access logging data collected by the standalone DNS proxy. |
 
 
 
@@ -127,6 +151,31 @@ Cilium Identity ID to IP prefix mapping
 | ----- | ---- | ----- | ----------- |
 | identity | [uint32](#uint32) |  |  |
 | prefix | [bytes](#bytes) | repeated |  |
+
+
+
+
+
+
+<a name="standalonednsproxy-MetricsData"></a>
+
+### MetricsData
+MetricsData carries the flow context and timing statistics that the agent
+needs to emit proxy metrics and access log records for DNS events
+originating from the standalone DNS proxy.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| processing_stats | [ProcessingStats](#standalonednsproxy-ProcessingStats) |  | Proxy request processing timing statistics |
+| dns_response_data | [DNSResponseData](#standalonednsproxy-DNSResponseData) |  | DNS response metadata extracted from the DNS message |
+| source_port | [uint32](#uint32) |  | Source port of the endpoint making the DNS request |
+| server_addr | [string](#string) |  | IP:port of the destination DNS server as &#34;ip:port&#34; string (e.g., &#34;8.8.8.8:53&#34;) |
+| server_identity | [uint32](#uint32) |  | Security identity of the destination DNS server |
+| protocol | [string](#string) |  | L4 protocol used for the DNS request (e.g., &#34;udp&#34;, &#34;tcp&#34;) |
+| allowed | [bool](#bool) |  | Whether the DNS request was allowed by policy |
+| error_message | [string](#string) |  | Error message if the DNS request encountered an error (empty if no error) |
+| error_type | [ProxyErrorType](#standalonednsproxy-ProxyErrorType) |  | Structured error classification for metrics without relying on string matching. |
 
 
 
@@ -168,6 +217,29 @@ Ack sent from SDP to Agent on processing DNS policy rules
 
 
 
+<a name="standalonednsproxy-ProcessingStats"></a>
+
+### ProcessingStats
+ProcessingStats carries proxy request timing statistics collected by the
+standalone DNS proxy. All durations are in nanoseconds.
+Only fields actually measured by the standalone proxy are included here;
+agent-side timings (policy generation, dataplane, cache updates, etc.)
+are measured directly by the agent after receiving the gRPC message.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| total_time_ns | [int64](#int64) |  |  |
+| processing_time_ns | [int64](#int64) |  |  |
+| upstream_time_ns | [int64](#int64) |  |  |
+| semaphore_acquire_time_ns | [int64](#int64) |  |  |
+| policy_check_time_ns | [int64](#int64) |  |  |
+
+
+
+
+
+
 <a name="standalonednsproxy-UpdateMappingResponse"></a>
 
 ### UpdateMappingResponse
@@ -183,6 +255,25 @@ Ack returned by cilium agent to SDP on receiving FQDN-IP mapping update
 
 
  
+
+
+<a name="standalonednsproxy-ProxyErrorType"></a>
+
+### ProxyErrorType
+ProxyErrorType classifies the error that occurred during DNS proxy
+processing. The agent uses this to reconstruct the correct error type
+for metrics reporting (metric label, semaphore-rejected counter, etc.)
+without relying on Go error-type information that is lost during gRPC
+serialization.
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| PROXY_ERROR_TYPE_NONE | 0 | No error occurred. |
+| PROXY_ERROR_TYPE_PROXY | 1 | A generic proxy-side error (e.g. failed to parse, forward, etc.). |
+| PROXY_ERROR_TYPE_TIMEOUT | 2 | An upstream network timeout (e.g. DNS server did not respond). |
+| PROXY_ERROR_TYPE_SEMAPHORE_FAILED | 3 | The DNS proxy concurrency semaphore could not be acquired immediately. |
+| PROXY_ERROR_TYPE_SEMAPHORE_TIMED_OUT | 4 | The DNS proxy concurrency semaphore timed out during the grace period. |
+
 
 
 <a name="standalonednsproxy-ResponseCode"></a>
