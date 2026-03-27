@@ -17,6 +17,7 @@
 #define CLIENT_PORT_DSR		__bpf_htons(12346)
 
 #define REMOTE_NODE_IP		v4_node_two
+#define HOST_NODE_IP		v4_node_three
 #define LOCAL_NODE_IP		v4_node_one
 #define NODEPORT_PORT		__bpf_htons(30080)
 #define NODEPORT_PORT_HAIRPIN	__bpf_htons(30081)
@@ -894,6 +895,126 @@ int lxc_v4_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != NODEPORT_PORT_UDP)
 		test_fatal("dst port should still be nodeport (CT check should skip wildcard)");
+
+	test_finish();
+}
+
+/*
+ * Test: Pod -> Host NodePort -> Local backend
+ * - Client pod sends packet to a local host address (HOST_ID) NodePort
+ * - The destination has HOST_ID identity in ipcache (e.g., cilium_host IP)
+ * - Wildcard NodePort lookup should match HOST_ID and perform DNAT
+ * - Packet should be DNATed to local backend IP and port
+ */
+PKTGEN("tc", "tc_lxc_v4_host_nodeport_local_backend")
+int lxc_v4_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)node_mac,
+					  CLIENT_IP, HOST_NODE_IP,
+					  CLIENT_PORT, NODEPORT_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_lxc_v4_host_nodeport_local_backend")
+int lxc_v4_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 11;
+
+	ipcache_v4_add_entry(HOST_NODE_IP, 0, HOST_ID, 0, 0);
+
+	lb_v4_add_nodeport_service(0, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id, 0);
+	lb_v4_add_backend(0, NODEPORT_PORT, 1, 131,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112234, 0, 0);
+
+	policy_add_egress_allow_all_entry();
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "tc_lxc_v4_host_nodeport_local_backend")
+int lxc_v4_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed unexpectedly");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed unexpectedly");
+
+	if (l3->daddr != BACKEND_IP_LOCAL)
+		test_fatal("dst IP hasn't been DNATed to local backend IP");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been DNATed to backend port");
+
+	struct ipv4_ct_tuple tuple = {
+		.saddr = BACKEND_IP_LOCAL,
+		.daddr = CLIENT_IP,
+		.sport = CLIENT_PORT,
+		.dport = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = TUPLE_F_OUT,
+	};
+
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	if (ct_entry->nat_addr.p4 != HOST_NODE_IP)
+		test_fatal("CT entry has incorrect nat_addr");
+
+	if (ct_entry->nat_port != NODEPORT_PORT)
+		test_fatal("CT entry has incorrect nat_port");
 
 	test_finish();
 }
