@@ -38,6 +38,23 @@ func (e *ErrNotInRange) Error() string {
 	return fmt.Sprintf("provided IP is not in the valid range. The range of valid IPs is %s", e.ValidRange)
 }
 
+// CIDRRangeOption is a functional option for NewCIDRRange.
+type CIDRRangeOption func(*cidrRangeOptions)
+
+type cidrRangeOptions struct {
+	allowFirstLastIPs bool
+}
+
+// WithAllowFirstLastIPs configures the Range to include the first and last IPs
+// of the CIDR (normally reserved as network and broadcast addresses). This is
+// useful for delegated prefixes (e.g. AWS /28 prefix delegation) where the
+// entire range is exclusively assigned and there is no shared network segment.
+func WithAllowFirstLastIPs() CIDRRangeOption {
+	return func(o *cidrRangeOptions) {
+		o.allowFirstLastIPs = true
+	}
+}
+
 // Range is a contiguous block of IPs that can be allocated atomically.
 //
 // The internal structure of the range is:
@@ -64,15 +81,21 @@ type Range struct {
 	alloc allocator.Interface
 }
 
-// NewCIDRRange creates a Range over a net.IPNet, calling allocator.NewAllocationMap to construct
-// the backing store. Returned Range excludes first (base) and last addresses (max) if provided cidr
-// has more than 2 addresses.
-func NewCIDRRange(cidr *net.IPNet) *Range {
+// NewCIDRRange creates a Range over a net.IPNet, calling allocator.NewAllocationMap
+// to construct the backing store. By default, the first (network) and last
+// (broadcast) addresses are excluded for CIDRs with more than 2 addresses.
+// Pass functional options (e.g. WithAllowFirstLastIPs) to alter this behavior.
+func NewCIDRRange(cidr *net.IPNet, opts ...CIDRRangeOption) *Range {
+	var o cidrRangeOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	base := bigForIP(cidr.IP)
 	size := RangeSize(cidr)
 
 	// for any CIDR other than /32 or /128:
-	if size > 2 {
+	if size > 2 && !o.allowFirstLastIPs {
 		// don't use the network broadcast
 		size = max(0, size-2)
 		// don't use the network base
@@ -142,8 +165,7 @@ func (r *Range) Release(ip net.IP) {
 // ForEach calls the provided function for each allocated IP.
 func (r *Range) ForEach(fn func(net.IP)) {
 	r.alloc.ForEach(func(offset int) {
-		ip, _ := GetIndexedIP(r.net, offset+1) // +1 because Range doesn't store IP 0
-		fn(ip)
+		fn(addIPOffset(r.base, offset))
 	})
 }
 
@@ -185,7 +207,7 @@ func (r *Range) Restore(net *net.IPNet, data []byte) error {
 }
 
 // contains returns true and the offset if the ip is in the range, and false
-// and nil otherwise. The first and last addresses of the CIDR are omitted.
+// and 0 otherwise.
 func (r *Range) contains(ip net.IP) (bool, int) {
 	if !r.net.Contains(ip) {
 		return false, 0
@@ -234,13 +256,4 @@ func RangeSize(subnet *net.IPNet) int64 {
 	} else {
 		return int64(1) << uint(bits-ones)
 	}
-}
-
-// GetIndexedIP returns a net.IP that is subnet.IP + index in the contiguous IP space.
-func GetIndexedIP(subnet *net.IPNet, index int) (net.IP, error) {
-	ip := addIPOffset(bigForIP(subnet.IP), index)
-	if !subnet.Contains(ip) {
-		return nil, fmt.Errorf("can't generate IP with index %d from subnet. subnet too small. subnet: %q", index, subnet)
-	}
-	return ip, nil
 }
