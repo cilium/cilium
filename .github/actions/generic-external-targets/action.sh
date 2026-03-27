@@ -69,6 +69,11 @@ envsubst '$NGINX_CERT_BASE64 $NGINX_KEY_BASE64 $EXTERNAL_NODE' < "$(dirname "$0"
 kubectl -n external rollout status daemonset nginx --timeout 60s
 kubectl -n external-other rollout status daemonset nginx --timeout 60s
 
+# Explicitly check that pods have been deployed to avoid a situation where the
+# above command succeeds with 0 desired pods if tolerations aren't met.
+kubectl -n external wait --for=jsonpath='{.status.numberReady}=1' daemonset/nginx --timeout=60s
+kubectl -n external-other wait --for=jsonpath='{.status.numberReady}=1' daemonset/nginx --timeout=60s
+
 echo "ipv4_external_target=${IPTARGET[0]}" >> $GITHUB_OUTPUT
 echo "ipv4_other_external_target=${IPOTHERTARGET[0]}" >> $GITHUB_OUTPUT
 if [ "${#IPTARGET[@]}" -ge 2 ] && [ "${#IPOTHERTARGET[@]}" -ge 2 ]; then
