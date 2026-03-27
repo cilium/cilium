@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -263,6 +264,12 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
+	}
+	return nil
+}
+
+func validateConfigPostStart(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) error {
+	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		if daemonCfg.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 			return errors.New("BIG TCP is not supported with legacy host routing")
 		}
@@ -270,7 +277,8 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 	return nil
 }
 
-func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
+// We use legacy.DaemonConfigInitialization to make sure that UnsafeDaemonConfigOptions are evaluated earlier
+func newBIGTCP(lc cell.Lifecycle, p params, _ legacy.DaemonConfigInitialization) (*Configuration, error) {
 	bigtcpTunnel := supportsBIGTCPTunnel(p.Log)
 	p.Log.Info("Probed kernel support for BIG TCP for UDP tunnels",
 		logfields.State, bigtcpTunnel,
@@ -282,6 +290,9 @@ func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
 	cfg := newDefaultConfiguration(p.UserConfig)
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+			if err := validateConfigPostStart(cfg.BigTCPUserConfig, p.DaemonConfig); err != nil {
+				return err
+			}
 			return startBIGTCP(p, cfg)
 		},
 	})
