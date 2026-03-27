@@ -162,6 +162,9 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
+		if ipam.config.IPAMMode() == ipamOption.IPAMENI {
+			startENIDeviceConfigurator(ipam.logger, ipam.jg, ipam.nodeResource, ipam.mtuConfig, ipam.sysctl)
+		}
 		if ipam.config.IPv6Enabled() {
 			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
 		}

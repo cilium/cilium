@@ -11,7 +11,6 @@ import (
 	"maps"
 	"net"
 	"reflect"
-	"slices"
 	"strconv"
 	"sync"
 
@@ -366,64 +365,12 @@ func (n *nodeStore) deleteLocalNodeResource() {
 	n.mutex.Unlock()
 }
 
-// validateENIConfig validates the ENI configuration in the CiliumNode resource
-// and returns an error if the configuration is not fully set.
-func validateENIConfig(node *ciliumv2.CiliumNode) error {
-	// Check if the VPC CIDR is set for all ENIs
-	for _, eni := range node.Status.ENI.ENIs {
-		if len(eni.VPC.PrimaryCIDR) == 0 {
-			return fmt.Errorf("VPC Primary CIDR not set for ENI %s", eni.ID)
-		}
-
-		for _, c := range eni.VPC.CIDRs {
-			if len(c) == 0 {
-				return fmt.Errorf("VPC CIDR not set for ENI %s", eni.ID)
-			}
-		}
-	}
-
-	// Check if all pool resource IPs are present in the status
-	eniIPMap := map[string][]string{}
-	for k, v := range node.Spec.IPAM.Pool {
-		eniIPMap[v.Resource] = append(eniIPMap[v.Resource], k)
-	}
-
-	for eni, addresses := range eniIPMap {
-		eniFound := false
-		for _, sENI := range node.Status.ENI.ENIs {
-			if eni == sENI.ID {
-				for _, addr := range addresses {
-					if !slices.Contains(sENI.Addresses, addr) {
-						return fmt.Errorf("ENI %s does not have address %s", eni, addr)
-					}
-				}
-				eniFound = true
-			}
-		}
-
-		if !eniFound {
-			return fmt.Errorf("ENI %s not found in status", eni)
-		}
-	}
-
-	return nil
-}
-
 // updateLocalNodeResource is called when the CiliumNode resource representing
 // the local node has been added or updated. It updates the available IPs based
 // on the custom resource passed into the function.
 func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-
-	if n.conf.IPAMMode() == ipamOption.IPAMENI {
-		if err := validateENIConfig(node); err != nil {
-			n.logger.Info("ENI state is not consistent yet", logfields.Error, err)
-			return
-		}
-
-		configureENIDevices(n.logger, n.ownNode, node, n.mtuConfig, n.sysctl)
-	}
 
 	n.ownNode = node
 	n.allocationPoolSize[IPv4] = 0

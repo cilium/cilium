@@ -4,23 +4,106 @@
 package ipam
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 
+	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// startENIDeviceConfigurator starts a CiliumNode observer that configures ENI
+// network devices independently of the IPAM allocator. This decouples ENI
+// device setup from the allocator implementation.
+func startENIDeviceConfigurator(
+	logger *slog.Logger,
+	jg job.Group,
+	nodeResource agentK8s.LocalCiliumNodeResource,
+	mtuConfig MtuConfiguration,
+	sysctl sysctl.Sysctl,
+) {
+	var prevNode *ciliumv2.CiliumNode
+	jg.Add(
+		job.Observer(
+			"eni-device-configurator",
+			func(ctx context.Context, ev resource.Event[*ciliumv2.CiliumNode]) error {
+				defer ev.Done(nil)
+
+				if ev.Kind != resource.Upsert {
+					return nil
+				}
+
+				if err := validateENIConfig(ev.Object); err != nil {
+					logger.Info("ENI state is not consistent yet", logfields.Error, err)
+					return nil
+				}
+
+				configureENIDevices(logger, prevNode, ev.Object, mtuConfig, sysctl)
+				prevNode = ev.Object
+				return nil
+			},
+			nodeResource,
+		),
+	)
+}
+
+// validateENIConfig validates the ENI configuration in the CiliumNode resource
+// and returns an error if the configuration is not fully set.
+func validateENIConfig(node *ciliumv2.CiliumNode) error {
+	// Check if the VPC CIDR is set for all ENIs
+	for _, eni := range node.Status.ENI.ENIs {
+		if len(eni.VPC.PrimaryCIDR) == 0 {
+			return fmt.Errorf("VPC Primary CIDR not set for ENI %s", eni.ID)
+		}
+
+		for _, c := range eni.VPC.CIDRs {
+			if len(c) == 0 {
+				return fmt.Errorf("VPC CIDR not set for ENI %s", eni.ID)
+			}
+		}
+	}
+
+	// Check if all pool resource IPs are present in the status
+	eniIPMap := map[string][]string{}
+	for k, v := range node.Spec.IPAM.Pool {
+		eniIPMap[v.Resource] = append(eniIPMap[v.Resource], k)
+	}
+
+	for eni, addresses := range eniIPMap {
+		eniFound := false
+		for _, sENI := range node.Status.ENI.ENIs {
+			if eni == sENI.ID {
+				for _, addr := range addresses {
+					if !slices.Contains(sENI.Addresses, addr) {
+						return fmt.Errorf("ENI %s does not have address %s", eni, addr)
+					}
+				}
+				eniFound = true
+			}
+		}
+
+		if !eniFound {
+			return fmt.Errorf("ENI %s not found in status", eni)
+		}
+	}
+
+	return nil
+}
 
 type eniDeviceConfig struct {
 	name         string
