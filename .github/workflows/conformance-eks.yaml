@@ -223,6 +223,16 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
+          # Check if we have a BPF Datapath mode via extra-args
+          # Note we leave the input as a free-form string but validate it to mitigate
+          # any command-line injection issues when this lands in --helm-set
+          BPF_DATAPATH=$(echo "${EXTRA_ARGS}" | jq -r 'select(.["bpf-datapath"] | type == "string") | .["bpf-datapath"]')
+          if [ "${BPF_DATAPATH}" == "netkit" ] || [ "${BPF_DATAPATH}" == "netkit-l2" ]; then
+              echo "::notice::BPFDatapath specified -- setting bpf-datapath=${BPF_DATAPATH} for all matrix entries"
+              jq '.include |= map(. + {"bpf-datapath": "'${BPF_DATAPATH}'"})' /tmp/result.json > /tmp/result.json.tmp
+              mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
@@ -323,6 +333,7 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           VERSION_SANITIZED: ${{ matrix.version }}
           EXTRA_ARGS: ${{ inputs.extra-args }}
+          BPF_DATAPATH: ${{ matrix.bpf-datapath }}
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             OWNER="${PR_NUMBER}"
@@ -368,6 +379,12 @@ jobs:
           WG=$(echo "${EXTRA_ARGS}" | jq -r '.["wireguard"] // false')
           if [[ "$WG" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
+          fi
+
+          # Pass any bpf-datapath values verbatim. Note this is validated as our matrix
+          # is being computed, so we assume this contains a valid datapath mode.
+          if [ "${BPF_DATAPATH}" != "" ]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.datapathMode=${BPF_DATAPATH}"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
