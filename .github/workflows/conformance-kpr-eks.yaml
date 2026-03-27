@@ -135,13 +135,41 @@ jobs:
       extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "wireguard": true}'
       test-concurrency: 2
 
+  conformance-eks-kpr-netkit:
+    name: Conformance EKS with KPR + Netkit
+    if: ${{ github.event_name == 'schedule' }}
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-eks.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 4
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"kpr": true, "bpf-datapath": "netkit", "bpf-masq-v4": true }'
+      test-concurrency: 2
+
+  conformance-eks-kpr-netkit-l2:
+    name: Conformance EKS with KPR + Netkit-L2
+    if: ${{ github.event_name == 'schedule' }}
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-eks.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 5
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"kpr": true, "bpf-datapath": "netkit-l2", "bpf-masq-v4": true }'
+      test-concurrency: 2
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard]
+    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard, conformance-eks-kpr-netkit, conformance-eks-kpr-netkit-l2]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success') }}
+      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success' && needs.conformance-eks-kpr-netkit.result == 'success' && needs.conformance-eks-kpr-netkit-l2.result == 'success') }}
