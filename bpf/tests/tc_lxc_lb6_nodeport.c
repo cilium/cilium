@@ -17,6 +17,7 @@
 #define CLIENT_PORT_DSR		__bpf_htons(12346)
 
 #define REMOTE_NODE_IP		v6_node_two
+#define HOST_NODE_IP		v6_node_three
 #define LOCAL_NODE_IP		v6_node_one
 #define NODEPORT_PORT		__bpf_htons(30080)
 #define NODEPORT_PORT_HAIRPIN	__bpf_htons(30081)
@@ -976,6 +977,139 @@ int lxc_v6_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != NODEPORT_PORT_UDP)
 		test_fatal("dst port should still be nodeport (CT check should skip wildcard)");
+
+	test_finish();
+}
+
+/*
+ * Test: Pod -> Host NodePort -> Local backend
+ * - Client pod sends packet to a local host address (HOST_ID) NodePort
+ * - The destination has HOST_ID identity in ipcache (e.g., cilium_host IP)
+ * - Wildcard NodePort lookup should match HOST_ID and perform DNAT
+ * - Packet should be DNATed to local backend IP and port
+ */
+PKTGEN("tc", "tc_lxc_v6_host_nodeport_local_backend")
+int lxc_v6_host_nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)node_mac,
+					  (__u8 *)CLIENT_IP, (__u8 *)HOST_NODE_IP,
+					  CLIENT_PORT, NODEPORT_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_lxc_v6_host_nodeport_local_backend")
+int lxc_v6_host_nodeport_local_backend_setup(struct __ctx_buff *ctx)
+{
+	union v6addr host_node_ip = {};
+	union v6addr backend_ip = {};
+	union v6addr zero_addr = {};
+	__u16 revnat_id = 11;
+
+	ipv6_addr_copy(&host_node_ip, (const union v6addr *)HOST_NODE_IP);
+	ipv6_addr_copy(&backend_ip, (const union v6addr *)BACKEND_IP_LOCAL);
+
+	ipcache_v6_add_entry(&host_node_ip, 0, HOST_ID, 0, 0);
+
+	lb_v6_add_nodeport_service(&zero_addr, NODEPORT_PORT, IPPROTO_TCP, 1, revnat_id, 0);
+	lb_v6_add_backend(&zero_addr, NODEPORT_PORT, 1, 131,
+			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v6_add_entry(&backend_ip, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	ipcache_v6_add_entry(&backend_ip, 0, 112234, 0, 0);
+
+	policy_add_egress_allow_all_entry();
+
+	return pod_send_packet(ctx);
+}
+
+CHECK("tc", "tc_lxc_v6_host_nodeport_local_backend")
+int lxc_v6_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
+{
+	union v6addr host_node_ip = {};
+	union v6addr backend_ip = {};
+	union v6addr client_ip = {};
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+
+	test_init();
+
+	ipv6_addr_copy(&host_node_ip, (const union v6addr *)HOST_NODE_IP);
+	ipv6_addr_copy(&backend_ip, (const union v6addr *)BACKEND_IP_LOCAL);
+	ipv6_addr_copy(&client_ip, (const union v6addr *)CLIENT_IP);
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct ipv6hdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
+		test_fatal("src IP has changed unexpectedly");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed unexpectedly");
+
+	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &backend_ip))
+		test_fatal("dst IP hasn't been DNATed to local backend IP");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been DNATed to backend port");
+
+	struct ipv6_ct_tuple tuple __align_stack_8 = {
+		.nexthdr = IPPROTO_TCP,
+		.sport = CLIENT_PORT,
+		.dport = BACKEND_PORT,
+		.flags = TUPLE_F_OUT,
+	};
+	ipv6_addr_copy(&tuple.saddr, &backend_ip);
+	ipv6_addr_copy(&tuple.daddr, &client_ip);
+
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	if (!ipv6_addr_equals(&ct_entry->nat_addr, &host_node_ip))
+		test_fatal("CT entry has incorrect nat_addr");
+
+	if (ct_entry->nat_port != NODEPORT_PORT)
+		test_fatal("CT entry has incorrect nat_port");
 
 	test_finish();
 }
