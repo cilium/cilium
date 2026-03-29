@@ -727,42 +727,8 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 
 	switch a.conf.IPAMMode() {
 
-	// In ENI mode, the Resource points to the ENI so we can derive the
-	// master interface and all CIDRs of the VPC
 	case ipamOption.IPAMENI:
-		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
-			if eni.ID == ipInfo.Resource {
-				result.PrimaryMAC = eni.MAC
-				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
-				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
-				// Add manually configured Native Routing CIDR
-				if a.conf.IPv4NativeRoutingCIDR != nil {
-					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
-				}
-				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
-				// Note that the resulting ip rules will not be dynamically regenerated if the
-				// ip-masq-agent configuration changes.
-				if a.conf.EnableIPMasqAgent {
-					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
-					for _, prefix := range nonMasqCidrs {
-						if ip.To4() != nil && prefix.Addr().Is4() {
-							result.CIDRs = append(result.CIDRs, prefix.String())
-						} else if ip.To4() == nil && prefix.Addr().Is6() {
-							result.CIDRs = append(result.CIDRs, prefix.String())
-						}
-					}
-				}
-				if eni.Subnet.CIDR != "" {
-					// The gateway for a subnet and VPC is always x.x.x.1
-					// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
-					result.GatewayIP = deriveGatewayIP(a.logger, eni.Subnet.CIDR, 1)
-				}
-				result.InterfaceNumber = strconv.Itoa(eni.Number)
-
-				return
-			}
-		}
-		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
+		return buildENIAllocationResult(a.logger, ip, a.store.ownNode, a.conf, a.ipMasqAgent)
 
 	// In Azure mode, the Resource points to the azure interface so we can
 	// derive the master interface
