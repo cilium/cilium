@@ -127,7 +127,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 			__u32 dst_ip, __u16 dst_port,
 			bool is_connect)
 {
-	struct trace_sock_notify msg __align_stack_8;
+	struct trace_sock_notify msg __align_stack_8 = {};
 	struct ratelimit_key rkey = {
 		.usage = RATELIMIT_USAGE_SOCKET_EVENTS_MAP,
 	};
@@ -152,16 +152,13 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 			return;
 	}
 
-	msg = (typeof(msg)){
-		.type		 = CILIUM_NOTIFY_TRACE_SOCK,
-		.xlate_point	 = xlate_point,
-		.dst_ip.ip4.be32 = dst_ip,
-		.dst_port	 = dst_port,
-		.sock_cookie	 = sock_local_cookie(ctx),
-		.cgroup_id	 = get_current_cgroup_id(),
-		.l4_proto	 = parse_protocol(ctx->protocol),
-		.ipv6		 = 0,
-	};
+	msg.type = CILIUM_NOTIFY_TRACE_SOCK;
+	msg.xlate_point = xlate_point;
+	msg.dst_ip.ip4.be32 = dst_ip;
+	msg.dst_port = dst_port;
+	msg.sock_cookie = sock_local_cookie(ctx);
+	msg.cgroup_id = get_current_cgroup_id();
+	msg.l4_proto = parse_protocol(ctx->protocol);
 
 	trace_sock_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
