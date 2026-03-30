@@ -13,7 +13,7 @@ k8s/update service.v2.yaml
 ! k8s/update --strict service.v2.yaml
 
 # Updates in strict mode shall succeed if the resource version does match.
-k8s/get v1.services test/echo -o service.v3.yaml
+k8s/get v1.services test/echo --show-redacted=resource-version -o service.v3.yaml
 replace 10.96.1.2 10.96.1.3 service.v3.yaml
 k8s/update --strict service.v3.yaml
 
