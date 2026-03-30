@@ -25,5 +25,5 @@ type Loader interface {
 	EndpointHash(cfg endpoint.Config, lnCfg *config.Config) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
 	Reinitialize(ctx context.Context, cfg *config.Config, tunnelConfig tunnel.Config, iptMgr types.IptablesManager, p types.Proxy, bigtcp bigtcp.Configuration) error
-	WriteEndpointConfig(w io.Writer, cfg endpoint.Config, lnCfg *config.Config) error
+	WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error
 }

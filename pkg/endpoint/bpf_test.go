@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/config"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -78,13 +77,12 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	b.Cleanup(e.Stop)
 
 	configWriter := &linuxConfig.HeaderfileWriter{}
-	cfg := config.Config{}
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)
 	}
 	targetConfig := func(w io.Writer) error {
-		return configWriter.WriteEndpointConfig(w, &cfg, e)
+		return configWriter.WriteEndpointConfig(w, e)
 	}
 
 	var buf bytes.Buffer

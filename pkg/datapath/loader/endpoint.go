@@ -88,7 +88,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, lnc *
 		Output:  ep.StateDir(),
 	}
 
-	spec, hash, err := l.templateCache.fetchOrCompile(ctx, lnc, ep, &dirs, stats)
+	spec, hash, err := l.templateCache.fetchOrCompile(ctx, ep, &dirs, stats)
 	if err != nil {
 		return "", err
 	}
@@ -175,8 +175,8 @@ func (l *loader) EndpointHash(cfg endpoint.Config, lnCfg *config.Config) (string
 	return l.templateCache.baseHash.hashEndpoint(l.templateCache, lnCfg, cfg)
 }
 
-func (l *loader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnCfg *config.Config) error {
-	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
+func (l *loader) WriteEndpointConfig(w io.Writer, e endpoint.Config) error {
+	return l.configWriter.WriteEndpointConfig(w, e)
 }
 
 // defaultEndpointMapRenames returns map rename operations for an endpoint.

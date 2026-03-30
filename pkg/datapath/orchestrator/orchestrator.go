@@ -387,5 +387,5 @@ func (o *orchestrator) Unload(ep endpoint.Endpoint) {
 
 func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {
 	<-o.dpInitialized
-	return o.params.Loader.WriteEndpointConfig(w, cfg, o.latestLocalNodeConfig.Load())
+	return o.params.Loader.WriteEndpointConfig(w, cfg)
 }

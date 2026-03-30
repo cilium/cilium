@@ -54,6 +54,6 @@ func (f *Loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	return nil
 }
 
-func (f *Loader) WriteEndpointConfig(w io.Writer, e endpoint.Config, lnc *config.Config) error {
+func (f *Loader) WriteEndpointConfig(w io.Writer, e endpoint.Config) error {
 	return nil
 }

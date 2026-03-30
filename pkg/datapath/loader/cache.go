@@ -120,7 +120,7 @@ func (o *objectCache) serialize(key string) *cachedSpec {
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, nodeCfg *config.Config, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, hash)
 	dir = &directoryInfo{
@@ -146,7 +146,7 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *config.Config, cfg end
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.Writer.WriteEndpointConfig(f, nodeCfg, cfg); err != nil {
+	if err = o.Writer.WriteEndpointConfig(f, cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
@@ -173,10 +173,10 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *config.Config, cfg end
 // same set of EndpointConfiguration.
 //
 // Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
-func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *config.Config, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
-	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
+	hash, err = o.baseHash.hashTemplate(o, cfg)
 	if err != nil {
 		return nil, "", err
 	}
@@ -213,7 +213,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *config.Config
 		stats = &metrics.SpanStat{}
 	}
 
-	path, err := o.build(ctx, nodeCfg, cfg, stats, dir, hash)
+	path, err := o.build(ctx, cfg, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			o.logger.Error(
