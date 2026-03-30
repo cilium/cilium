@@ -66,7 +66,55 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- include "envoy.initContainers" . | nindent 6 }}
+
+
+      {{- $extraInitContainers := include "envoy.initContainers" . | trim }}
+      {{- if $extraInitContainers }}
+      {{- $extraInitContainers | nindent 6 }}
+      {{- end }}
+      {{- if .Values.envoy.nodeLocality.enabled }}
+      {{- if not $extraInitContainers }}
+      initContainers:
+      {{- end }}
+      - name: lookup-bootstrap-locality
+        image: {{ include "cilium.image" .Values.image }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - /usr/bin/cilium-envoy-bootstrap-locality
+        args:
+          - --output=/var/run/cilium/envoy-locality-config/service-zone
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        {{- if and .Values.k8sServiceHostRef.name .Values.k8sServiceHostRef.key }}
+        - name: KUBERNETES_SERVICE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ .Values.k8sServiceHostRef.name }}
+              key: {{ .Values.k8sServiceHostRef.key }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ include "k8sServicePort" . }}
+        {{- end }}
+        {{- if .Values.k8sServiceHost }}
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ include "k8sServiceHost" . }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ include "k8sServicePort" . }}
+        {{- end }}
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: envoy-config-locality
+          mountPath: /var/run/cilium/envoy-locality-config
+          readOnly: false
+      {{- end }}
       containers:
       - name: cilium-envoy
         image: {{ include "cilium.image" .Values.envoy.image | quote }}
@@ -78,6 +126,10 @@ spec:
         - '--keep-cap-net-bind-service'
         {{- end }}
         - '--'
+        {{- if .Values.envoy.nodeLocality.enabled }}
+        - '--service-zone'
+        - '@/var/run/cilium/envoy-locality-config/service-zone'
+        {{- end }}
         - '-c /var/run/cilium/envoy/bootstrap-config.json'
         - '--base-id {{ int .Values.envoy.baseID }}'
         {{- if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "envoy" ( splitList " " .Values.debug.verbose )) }}
@@ -201,6 +253,11 @@ spec:
           mountPropagation: HostToContainer
         {{- end }}
         {{- include "envoy.volumeMounts.extra" . | nindent 8 }}
+        {{- if .Values.envoy.nodeLocality.enabled }}
+        - mountPath: /var/run/cilium/envoy-locality-config
+          name: envoy-config-locality
+          readOnly: true
+        {{- end }}
         {{- range .Values.envoy.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -262,6 +319,10 @@ spec:
           type: DirectoryOrCreate
       {{- end }}
       {{- include "envoy.hostPathMounts.extra" . | nindent 4 }}
+      {{- if .Values.envoy.nodeLocality.enabled }}
+      - name: envoy-config-locality
+        emptyDir: {}
+      {{- end }}
       {{- range .Values.envoy.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:

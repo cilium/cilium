@@ -20,7 +20,7 @@ endif
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix plugins/cilium-cni
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix tools/envoy-bootstrap-locality plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
 SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver

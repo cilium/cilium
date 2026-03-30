@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -61,6 +62,7 @@ type xdsServerParams struct {
 	Logger             *slog.Logger
 	IPCache            *ipcache.IPCache
 	RestorerPromise    promise.Promise[endpointstate.Restorer]
+	LocalNodeStore     *node.LocalNodeStore
 	LocalEndpointStore *LocalEndpointStore
 
 	EnvoyProxyConfig config.ProxyConfig

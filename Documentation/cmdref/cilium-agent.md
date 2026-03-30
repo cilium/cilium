@@ -219,6 +219,7 @@ cilium-agent [flags]
       --envoy-http-upstream-linger-timeout int                    Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. (default -1)
       --envoy-keep-cap-netbindservice                             Keep capability NET_BIND_SERVICE for Envoy process
       --envoy-log string                                          Path to a separate Envoy log file, if any
+      --envoy-node-locality-enabled                               Enable Envoy node-locality support for zone-aware routing
       --envoy-policy-restore-timeout duration                     Maximum time to wait for endpoint policy restoration before starting serving resources to Envoy (default 3m0s)
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address

@@ -2600,6 +2600,14 @@
         "maxRequestsPerConnection": {
           "type": "integer"
         },
+        "nodeLocality": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "nodeSelector": {
           "properties": {
             "kubernetes.io/os": {

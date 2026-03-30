@@ -488,6 +488,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.maxConnectionDurationSeconds | int | `0` | Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable) |
 | envoy.maxGlobalDownstreamConnections | int | `50000` | Maximum number of global downstream connections |
 | envoy.maxRequestsPerConnection | int | `0` | ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy |
+| envoy.nodeLocality.enabled | bool | `false` | Enable node-locality support for cilium-envoy. When enabled, Cilium looks up the node zone from the topology label and passes it to the Envoy process via `--service-zone`. Startup fails if the zone cannot be resolved or the label is empty. |
 | envoy.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selector for cilium-envoy. |
 | envoy.podAnnotations | object | `{}` | Annotations to be added to envoy pods |
 | envoy.podLabels | object | `{}` | Labels to be added to envoy pods |
