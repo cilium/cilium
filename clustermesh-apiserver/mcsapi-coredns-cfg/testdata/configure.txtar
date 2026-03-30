@@ -30,8 +30,6 @@ metadata:
     k8s-app: kube-dns
   name: coredns
   namespace: kube-system
-  resourceVersion: "408"
-  uid: af12a0f4-1bc0-4e5e-a03d-3cdf981433d2
 spec:
   progressDeadlineSeconds: 600
   replicas: 2
@@ -175,8 +173,6 @@ metadata:
   creationTimestamp: "2025-07-19T20:31:47Z"
   name: coredns
   namespace: kube-system
-  resourceVersion: "491"
-  uid: ce89078b-0a1a-4bce-a61f-1c65d374c1d5
 
 -- configmap-expected.yaml --
 apiVersion: v1
@@ -237,5 +233,3 @@ metadata:
   creationTimestamp: "2025-07-19T20:31:47Z"
   name: coredns
   namespace: kube-system
-  resourceVersion: "3"
-  uid: ce89078b-0a1a-4bce-a61f-1c65d374c1d5
