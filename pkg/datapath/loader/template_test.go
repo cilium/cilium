@@ -23,9 +23,9 @@ func TestWrap(t *testing.T) {
 	cfg := configWriterForTest(t)
 
 	// Write the configuration that should be the same, and verify it is.
-	err := cfg.WriteTemplateConfig(&realEPBuffer, &localNodeConfig, &realEP)
+	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
 	require.NoError(t, err)
-	err = cfg.WriteTemplateConfig(&templateBuffer, &localNodeConfig, template)
+	err = cfg.WriteTemplateConfig(&templateBuffer, template)
 	require.NoError(t, err)
 	require.Equal(t, realEPBuffer.String(), templateBuffer.String())
 }

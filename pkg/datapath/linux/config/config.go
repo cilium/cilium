@@ -63,11 +63,11 @@ type Writer interface {
 
 	// WriteTemplateConfig writes the implementation-specific configuration
 	// of configurable options for BPF templates to the specified writer.
-	WriteTemplateConfig(w io.Writer, nodeCfg *config.Config, cfg endpoint.Config) error
+	WriteTemplateConfig(w io.Writer, cfg endpoint.Config) error
 
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
-	WriteEndpointConfig(w io.Writer, nodeCfg *config.Config, cfg endpoint.Config) error
+	WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error
 }
 
 // HeaderfileWriter is a wrapper type which implements Writer.
@@ -664,15 +664,15 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 }
 
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
-func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *config.Config, e endpoint.Config) error {
+func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
 
-	return h.writeTemplateConfig(fw, cfg, e)
+	return h.writeTemplateConfig(fw, e)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *config.Config, e endpoint.Config) error {
+func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e endpoint.Config) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -695,9 +695,9 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *config.Con
 }
 
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
-func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *config.Config, e endpoint.Config) error {
+func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
-	return h.writeTemplateConfig(fw, cfg, e)
+	return h.writeTemplateConfig(fw, e)
 }
 
 func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {

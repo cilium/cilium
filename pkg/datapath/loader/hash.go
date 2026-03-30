@@ -29,7 +29,7 @@ func hashDatapath(c linuxConfig.Writer, nodeCfg *config.Config) (datapathHash, e
 func (d datapathHash) hashEndpoint(c linuxConfig.Writer, nodeCfg *config.Config, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
-	if err := c.WriteEndpointConfig(h, nodeCfg, epCfg); err != nil {
+	if err := c.WriteEndpointConfig(h, epCfg); err != nil {
 		return "", err
 	}
 
@@ -52,10 +52,10 @@ func (d datapathHash) hashEndpoint(c linuxConfig.Writer, nodeCfg *config.Config,
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (d datapathHash) hashTemplate(c linuxConfig.Writer, nodeCfg *config.Config, epCfg endpoint.Config) (string, error) {
+func (d datapathHash) hashTemplate(c linuxConfig.Writer, epCfg endpoint.Config) (string, error) {
 	h := sha256.New()
 	_, _ = h.Write(d)
-	if err := c.WriteTemplateConfig(h, nodeCfg, epCfg); err != nil {
+	if err := c.WriteTemplateConfig(h, epCfg); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil

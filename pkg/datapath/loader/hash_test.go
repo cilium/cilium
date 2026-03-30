@@ -68,11 +68,11 @@ func TestHashTemplate(t *testing.T) {
 	cfg := configWriterForTest(t)
 
 	// Error from ConfigWriter is forwarded.
-	_, err := base.hashTemplate(fakeConfigWriter{}, nil, nil)
+	_, err := base.hashTemplate(fakeConfigWriter{}, nil)
 	require.Error(t, err)
 
 	// Hashing the endpoint gives a hash distinct from the base.
-	a, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	a, err := base.hashTemplate(cfg, &ep)
 	require.NoError(t, err)
 	require.NotEqual(t, base.String(), a)
 
@@ -81,7 +81,7 @@ func TestHashTemplate(t *testing.T) {
 	// This is the key to avoiding recompilation per endpoint; static
 	// data substitution is performed via pkg/elf instead.
 	ep.Id++
-	b, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	b, err := base.hashTemplate(cfg, &ep)
 	require.NoError(t, err)
 	require.Equal(t, a, b)
 }
@@ -100,10 +100,10 @@ func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOption
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *config.Config, cfg endpoint.Config) error {
+func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }
 
-func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *config.Config, cfg endpoint.Config) error {
+func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, cfg endpoint.Config) error {
 	return errors.New("not implemented")
 }
