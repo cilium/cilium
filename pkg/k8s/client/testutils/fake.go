@@ -448,6 +448,7 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				Args: "resource name",
 				Flags: func(fs *pflag.FlagSet) {
 					fs.StringP("out", "o", "", "File to write to instead of stdout")
+					fs.StringSlice("show-redacted", nil, "Redacted fields to show (supported: resource-version, uid)")
 				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
@@ -479,6 +480,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					for _, tc := range fc.trackers {
 						obj, err := tc.tracker.Get(gvr, ns, name)
 						if err == nil {
+							if err := redact(obj, s.Flags); err != nil {
+								return "", "", fmt.Errorf("redacting fields: %w", err)
+							}
+
 							bs, err := k8sYaml.Marshal(obj)
 							if file != "" {
 								return "", "", os.WriteFile(s.Path(file), bs, 0644)
@@ -502,6 +507,7 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 				Args: "resource namespace",
 				Flags: func(fs *pflag.FlagSet) {
 					fs.StringP("out", "o", "", "File to write to instead of stdout")
+					fs.StringSlice("show-redacted", nil, "Redacted fields to show (supported: resource-version, uid)")
 				},
 			},
 			func(s *script.State, args ...string) (script.WaitFunc, error) {
@@ -527,6 +533,10 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 					for _, tc := range fc.trackers {
 						obj, err := tc.tracker.List(gvr, gvk, args[1])
 						if err == nil {
+							if err := redact(obj, s.Flags); err != nil {
+								return "", "", fmt.Errorf("redacting fields: %w", err)
+							}
+
 							bs, err := k8sYaml.Marshal(obj)
 							if file != "" {
 								return "", "", os.WriteFile(s.Path(file), bs, 0644)
@@ -639,6 +649,42 @@ func FakeClientCommands(fc *FakeClientset) map[string]script.Cmd {
 			},
 		),
 	}
+}
+
+// redact redacts the UID and resource version fields, to make the output more deterministic.
+func redact(obj runtime.Object, flags *pflag.FlagSet) error {
+	show, err := flags.GetStringSlice("show-redacted")
+	if err != nil {
+		return err
+	}
+
+	redactObj := func(obj runtime.Object) error {
+		meta, err := meta.Accessor(obj)
+		if err != nil {
+			return err
+		}
+
+		if !slices.Contains(show, "resource-version") {
+			meta.SetResourceVersion("")
+		}
+
+		if !slices.Contains(show, "uid") {
+			meta.SetUID("")
+		}
+
+		return nil
+	}
+
+	list, err := meta.ListAccessor(obj)
+	if err != nil {
+		return redactObj(obj)
+	}
+
+	if !slices.Contains(show, "resource-version") {
+		list.SetResourceVersion("")
+	}
+
+	return meta.EachListItem(obj, redactObj)
 }
 
 // overrideTracker changes the internal 'tracker' field in the generated
