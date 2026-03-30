@@ -1,0 +1,93 @@
+#!
+
+hive/start
+
+# Add object.
+k8s/add service.v1.yaml
+
+# Update the status, it should not mutate the other fields
+k8s/svc/update-status service.v2.yaml
+k8s/get v1.services test/echo -o actual.yaml
+cmp service-expected.v2.yaml actual.yaml
+
+# Perform a normal update, it will mutate all fields (including the status)
+k8s/update service.v3.yaml
+k8s/get v1.services test/echo -o actual.yaml
+cmp service-expected.v3.yaml actual.yaml
+
+###
+
+-- service.v1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+  labels:
+    foo: bar
+spec:
+  clusterIP: 10.96.1.1
+  type: LoadBalancer
+
+-- service.v2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "2"
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.2.3.4
+
+-- service-expected.v2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    foo: bar
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.1.1
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.2.3.4
+-- EOF --
+
+-- service.v3.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  labels:
+    bar: baz
+spec:
+  clusterIP: 10.96.1.1
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 5.6.7.8
+
+-- service-expected.v3.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    bar: baz
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.1.1
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 5.6.7.8
+-- EOF --

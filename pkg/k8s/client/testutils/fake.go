@@ -225,11 +225,75 @@ type prepender interface {
 }
 
 func prependReactors(cs prepender, ot k8sTesting.ObjectTracker) {
-	cs.PrependReactor("*", "*", k8sTesting.ObjectReaction(ot))
+	cs.PrependReactor("*", "*", reactorFunc(ot))
 	cs.PrependWatchReactor("*", watchReactorFunc(ot))
 
 	// Switch out the tracker to our version.
 	overrideTracker(cs, ot)
+}
+
+func reactorFunc(ot k8sTesting.ObjectTracker) k8sTesting.ReactionFunc {
+	var reactor = k8sTesting.ObjectReaction(ot)
+
+	return func(act k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
+		switch action := act.(type) {
+		case k8sTesting.UpdateActionImpl:
+			if action.Subresource != "" {
+				act, err = subresourceMutator(action, ot)
+				if err != nil {
+					return true, nil, err
+				}
+			}
+		}
+
+		return reactor(act)
+	}
+}
+
+func subresourceMutator(action k8sTesting.UpdateActionImpl, ot k8sTesting.ObjectTracker) (k8sTesting.Action, error) {
+	var copy = func(dst, src runtime.Object, field string) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("setting %s: %v", strings.ToLower(field), r)
+			}
+		}()
+
+		reflect.ValueOf(dst).Elem().FieldByName(field).Set(
+			reflect.ValueOf(src).Elem().FieldByName(field))
+
+		return nil
+	}
+
+	ns, gvr := action.GetNamespace(), action.GetResource()
+	objMeta, err := meta.Accessor(action.GetObject())
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := ot.Get(gvr, ns, objMeta.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	switch action.GetSubresource() {
+	case "status":
+		err = errors.Join(
+			copy(obj, action.GetObject(), "Status"),
+			// Preserve the resource version, to handle optimistic concurrency.
+			copy(obj, action.GetObject(), "ResourceVersion"),
+		)
+	default:
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return k8sTesting.UpdateActionImpl{
+		ActionImpl:    action.ActionImpl.DeepCopy().(k8sTesting.ActionImpl),
+		Object:        obj,
+		UpdateOptions: action.UpdateOptions,
+	}, nil
 }
 
 func watchReactorFunc(ot k8sTesting.ObjectTracker) k8sTesting.WatchReactionFunc {
