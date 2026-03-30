@@ -169,7 +169,6 @@ schedule:
     workflows:
     - conformance-aks.yaml
     - conformance-gateway-api.yaml
-    - conformance-mcs-api.yaml
     - conformance-gke.yaml
     - conformance-ipsec.yaml
     - tests-ces-migrate.yaml
