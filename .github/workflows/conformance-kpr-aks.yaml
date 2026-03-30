@@ -106,7 +106,7 @@ jobs:
       UID: 1
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "advanced-features": true}'
+      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true}'
 
   conformance-aks-kpr-ipsec:
     name: Conformance AKS with KPR + IPsec
@@ -118,7 +118,7 @@ jobs:
       UID: 2
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "advanced-features": true, "ipsec": true}'
+      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "ipsec": true}'
 
   conformance-aks-kpr-wireguard:
     name: Conformance AKS with KPR + WireGuard
@@ -130,7 +130,7 @@ jobs:
       UID: 3
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "advanced-features": true, "wireguard": true}'
+      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "wireguard": true}'
 
   merge-upload-and-status:
     name: Merge Upload and Status
