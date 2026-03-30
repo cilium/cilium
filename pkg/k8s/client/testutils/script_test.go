@@ -5,10 +5,12 @@ package testutils
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"testing"
 
+	uhive "github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/script"
@@ -20,6 +22,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -47,6 +51,34 @@ func TestScript(t *testing.T) {
 						metav1.CreateOptions{},
 					)
 					return err
+				}),
+
+				cell.Provide(func(cs *FakeClientset) uhive.ScriptCmdOut {
+					return uhive.NewScriptCmd("k8s/svc/update-status", script.Command(
+						script.CmdUsage{
+							Summary: "Invoke [Services.UpdateStatus]",
+							Args:    "file",
+						},
+						func(s *script.State, args ...string) (script.WaitFunc, error) {
+							if len(args) != 1 {
+								return nil, script.ErrUsage
+							}
+
+							obj, err := testutils.DecodeFile(s.Path(args[0]))
+							if err != nil {
+								return nil, fmt.Errorf("reading %s: %w", args[0], err)
+							}
+
+							svc, ok := obj.(*slimcorev1.Service)
+							if !ok {
+								return nil, fmt.Errorf("reading %s: not a slim service (%T)", args[0], svc)
+							}
+
+							_, err = cs.SlimFakeClientset.CoreV1().Services(svc.Namespace).
+								UpdateStatus(s.Context(), svc, metav1.UpdateOptions{})
+							return nil, err
+						},
+					))
 				}),
 			)
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
