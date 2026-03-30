@@ -5,6 +5,7 @@
 
 #include "drop.h"
 #include "nodeport.h"
+#include "aux.h"
 
 #ifdef ENABLE_NODEPORT
 
@@ -56,40 +57,29 @@ nodeport_has_nat_conflict_ipv6(const struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
-						  __s8 *ext_err)
+						  __s8 *ext_err, struct snat_v6_args *args)
 {
 	int hdrlen, l4_off, ret = NAT_PUNT_TO_STACK;
-	struct ipv6_nat_target *target;
-	struct ipv6_ct_tuple *tuple;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
-	int zero = 0;
 
-	tuple = map_lookup_elem(&ct_tuple_storage, &zero);
-	if (!tuple)
-		return DROP_INVALID;
-	target = map_lookup_elem(&nat_target_storage, &zero);
-	if (!target)
-		return DROP_INVALID;
-
-	memset(target, 0, sizeof(*target));
-	target->min_port = NODEPORT_PORT_MIN_NAT;
-	target->max_port = NODEPORT_PORT_MAX_NAT;
+	args->target.min_port = NODEPORT_PORT_MIN_NAT;
+	args->target.max_port = NODEPORT_PORT_MAX_NAT;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple->nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
+	args->tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &args->tuple.nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
-	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, tuple);
+	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &args->tuple);
 	l4_off = ETH_HLEN + hdrlen;
 
-	if (lb_is_svc_proto(tuple->nexthdr) &&
-	    nodeport_has_nat_conflict_ipv6(ctx, ip6, target))
+	if (lb_is_svc_proto(args->tuple.nexthdr) &&
+	    nodeport_has_nat_conflict_ipv6(ctx, ip6, &args->target))
 		goto apply_snat;
 
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
@@ -99,25 +89,22 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		goto out;
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (target->egress_gateway) {
+	if (args->target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target->ifindex && target->ifindex == CONFIG(interface_ifindex))
+		if (args->target.ifindex && args->target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
-		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &target->addr,
-							   &tuple->daddr, target->ifindex,
+		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &args->target.addr,
+							   &args->tuple.daddr, args->target.ifindex,
 							   ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
 	}
 #endif
 
 apply_snat:
-	ipv6_addr_copy(saddr, &tuple->saddr);
+	ipv6_addr_copy(saddr, &args->tuple.saddr);
 	ret = snat_v6_nat(ctx, fraginfo, l4_off, ext_err);
 	if (IS_ERR(ret))
 		goto out;
@@ -137,22 +124,18 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	struct trace_ctx *trace;
 	union v6addr saddr = {};
 	int ret;
 	__s8 ext_err = 0;
-	__u32 zero = 0;
+	struct snat_v6_args *args = AUX(snat_v6_args);
 
-	trace = map_lookup_elem(&trace_ctx_storage, &zero);
-	if (!trace)
-		return DROP_INVALID;
-
-	*trace = (struct trace_ctx){
+	memset(args, 0, sizeof(*args));
+	args->trace = (struct trace_ctx){
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &ext_err);
+	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &ext_err, args);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -164,7 +147,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				   &saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
-				   trace->reason, trace->monitor);
+				   args->trace.reason, args->trace.monitor);
 
 	return ret;
 }

@@ -856,6 +856,47 @@ type SkipLB6Key struct {
 	Pad2 uint16
 }
 
+// SNATV6Args is generated from the BPF C type snat_v6_args.
+type SNATV6Args struct {
+	_     structs.HostLayout
+	Tuple struct {
+		_     structs.HostLayout
+		DAddr struct {
+			_    structs.HostLayout
+			Addr [16]uint8
+		}
+		SAddr struct {
+			_    structs.HostLayout
+			Addr [16]uint8
+		}
+		DPort   uint16
+		SPort   uint16
+		Nexthdr uint8
+		Flags   uint8
+	}
+	_      [2]byte
+	Target struct {
+		_    structs.HostLayout
+		Addr struct {
+			_    structs.HostLayout
+			Addr [16]uint8
+		}
+		MinPort           uint16
+		MaxPort           uint16
+		FromLocalEndpoint bool
+		NeedsCT           bool
+		EgressGateway     bool
+		_                 [1]byte
+		IfIndex           uint32
+	}
+	Trace struct {
+		_       structs.HostLayout
+		Reason  uint8
+		_       [3]byte
+		Monitor uint32
+	}
+}
+
 // SRv6PolicyKey4 is generated from the BPF C type srv6_policy_key4.
 type SRv6PolicyKey4 struct {
 	_   structs.HostLayout
