@@ -161,23 +161,35 @@ jobs:
             git config --global --add safe.directory /host
             uname -a
 
+            # Use /var/tmp for Go build temporary files to avoid running out
+            # of disk space on the tmpfs-backed /tmp in the VM.
+            export TMPDIR=/var/tmp
+
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
             CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
 
+            # Free up disk space: remove the pre-installed Go toolchain and
+            # build caches, only go${{ env.go-version }} is needed from now on.
+            go clean -cache -modcache
+            rm -rf /usr/local/go
+
             # The LVH image ships with LLVM taken from a release Cilium version.
             # Replace it with the one extracted from the cilium-builder image.
-            /host/contrib/scripts/extract-llvm.sh /tmp/llvm
-            mv /tmp/llvm/usr/local/bin/{clang,llc} /bin/
-            rm -r /tmp/llvm
+            /host/contrib/scripts/extract-llvm.sh /var/tmp/llvm
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            rm -r /var/tmp/llvm
 
       - name: Run verifier tests
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           provision: 'false'
           cmd: |
-            cd /host/
+            cd /host
+            export TMPDIR=/var/tmp
+            export GOCACHE=/host/gocache
+            mkdir -p /host/datapath-verifier /host/gocache
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 -timeout=20m ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
@@ -188,8 +200,10 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host
-            mkdir datapath-verifier
-            find test/verifier \( -name "*.log" -o -name "*.o" \) -exec cp -v {} datapath-verifier/ \;
+            export TMPDIR=/var/tmp
+            export GOCACHE=/host/gocache
+            mkdir -p /host/datapath-verifier /host/gocache
+            find test/verifier \( -name "*.log" -o -name "*.o" \) -exec cp -v {} /host/datapath-verifier/ \;
 
       - name: Upload artifacts
         if: ${{ !success() }}
