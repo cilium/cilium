@@ -224,19 +224,6 @@ func (t *Test) setup(ctx context.Context) error {
 		return fmt.Errorf("applying network policies: %w", err)
 	}
 
-	if t.installIPRoutesFromOutsideToPodCIDRs {
-		// Attempt to cleanup any leftover routes in case tests previously
-		// didn't cleanup correctly.
-		t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
-		if err := t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "add"); err != nil {
-			return fmt.Errorf("installing static routes: %w", err)
-		}
-
-		t.finalizers = append(t.finalizers, func(context.Context) error {
-			return t.Context().modifyStaticRoutesForNodesWithoutCilium(ctx, "del")
-		})
-	}
-
 	return nil
 }
 
