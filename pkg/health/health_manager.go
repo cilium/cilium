@@ -60,7 +60,7 @@ type ciliumHealthManager struct {
 	loader           loader.Loader
 	connectorConfig  connector.Config
 	mtuConfig        mtu.MTU
-	bigTCPConfig     *bigtcp.Configuration
+	bigTCPConfig     bigtcp.Config
 	endpointCreator  endpointcreator.EndpointCreator
 	endpointManager  endpointmanager.EndpointManager
 	k8sClientSet     k8sClient.Clientset
@@ -85,7 +85,7 @@ type ciliumHealthParams struct {
 	Loader                 loader.Loader
 	ConnectorConfig        connector.Config
 	MtuConfig              mtu.MTU
-	BigTCPConfig           *bigtcp.Configuration
+	BigTCPConfig           bigtcp.Config
 	EndpointCreator        endpointcreator.EndpointCreator
 	EndpointManager        endpointmanager.EndpointManager
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]

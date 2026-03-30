@@ -242,7 +242,7 @@ func (h *ciliumHealthManager) cleanupEndpoint() {
 //
 // cleanupEndpoint() must be called before calling launchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, sysctl sysctl.Sysctl) (*Client, error) {
+func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig bigtcp.Config, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		info = &models.EndpointChangeRequest{
 			ContainerName: ciliumHealth,

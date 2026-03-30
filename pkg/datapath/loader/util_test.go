@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
+	fakebigtcp "github.com/cilium/cilium/pkg/datapath/linux/bigtcp/fake"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -98,8 +99,8 @@ func newTestLoader(tb testing.TB) *loader {
 				promise,
 				&FakePreFilter{}
 		}),
-		cell.Provide(func() *bigtcp.Configuration {
-			return &bigtcp.Configuration{}
+		cell.Provide(func() bigtcp.Config {
+			return &fakebigtcp.Config{}
 		}),
 	)
 	log := hivetest.Logger(tb)

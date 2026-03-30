@@ -76,7 +76,7 @@ type configModifyApiHandlerParams struct {
 	KVStoreConfig   kvstore.Config
 	MonitorAgent    monitorAgent.Agent
 	MTUConfig       mtu.MTU
-	BigTCPConfig    *bigtcp.Configuration
+	BigTCPConfig    bigtcp.Config
 	TunnelConfig    tunnel.Config
 	BandwidthConfig bandwidth.Config
 	WgConfig        wgTypes.Config
@@ -353,7 +353,7 @@ type getConfigHandler struct {
 	kvstoreConfig   kvstore.Config
 	monitorAgent    monitorAgent.Agent
 	mtuConfig       mtu.MTU
-	bigTCPConfig    *bigtcp.Configuration
+	bigTCPConfig    bigtcp.Config
 	tunnelConfig    tunnel.Config
 	bandwidthConfig bandwidth.Config
 	wgConfig        wgTypes.Config

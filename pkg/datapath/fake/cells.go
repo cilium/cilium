@@ -76,7 +76,7 @@ var Cell = cell.Module(
 		func() *egressmap.PolicyMap4 { return nil },
 		func() *egressmap.PolicyMap6 { return nil },
 		func() lxcmap.Map { return nil },
-		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
+		func() bigtcp.Config { return &fakebigtcp.Config{} },
 		func() iptables.Manager { return fakeiptables.NewManager() },
 		func() ipset.Manager { return &fakeipset.IPSet{} },
 		func() bandwidth.Manager { return &fakebandwidth.Manager{} },
