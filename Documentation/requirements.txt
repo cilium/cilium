@@ -1,13 +1,13 @@
 ## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
-Sphinx==7.1.2
+Sphinx==9.0.4
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@77d60dbce4cc93358fa6156cbafd7c49214b3c89
+sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@98b0d4664556de6b5ab94e5abcff5d35246a7c46
 # We use semver to parse Cilium's version in the config file
 semver==3.0.4
 # Sphinx extensions
-myst-parser==2.0.0
+myst-parser==5.0.0
 sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.5
@@ -19,24 +19,24 @@ sphinxext-rediraffe==0.3.0
 rstcheck==6.2.5
 yamllint==1.38.0
 ## The following requirements were added by pip freeze:
-alabaster==0.7.16
+alabaster==1.0.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
-attrs==25.4.0
+attrs==26.1.0
 babel==2.18.0
 certifi==2026.2.25
-charset-normalizer==3.4.5
-click==8.3.1
+charset-normalizer==3.4.7
+click==8.3.2
 colorama==0.4.6
 deepmerge==2.0
-docutils==0.20.1
+docutils==0.22.4
 idna==3.11
 imagesize==2.0.0
 Jinja2==3.1.6
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 livereload==2.7.1
-markdown-it-py==3.0.0
+markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mdit-py-plugins==0.5.0
 mdurl==0.1.2
@@ -47,11 +47,12 @@ picobox==4.0.0
 pydantic==2.12.5
 pydantic_core==2.41.5
 pyenchant==3.3.0
-Pygments==2.19.2
+Pygments==2.20.0
 PyYAML==6.0.3
 referencing==0.37.0
-requests==2.32.5
+requests==2.33.1
 rich==14.3.3
+roman-numerals==4.1.0
 rpds-py==0.30.0
 rstcheck-core==1.2.2
 shellingham==1.5.4
