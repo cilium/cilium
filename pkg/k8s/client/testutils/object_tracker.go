@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -357,6 +358,9 @@ func (s *statedbObjectTracker) Add(obj runtime.Object) error {
 
 	version := s.tbl.Revision(wtxn) + 1
 	objMeta.SetResourceVersion(strconv.FormatUint(version, 10))
+	if objMeta.GetUID() == "" {
+		objMeta.SetUID(types.UID(uuid.NewString()))
+	}
 
 	gvks, _, err := s.scheme.ObjectKinds(obj)
 	if err != nil {
@@ -485,6 +489,10 @@ func (s *statedbObjectTracker) Create(gvr schema.GroupVersionResource, obj runti
 	wtxn := s.db.WriteTxn(s.tbl)
 	version := s.tbl.Revision(wtxn) + 1
 	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
+	if newMeta.GetUID() == "" {
+		newMeta.SetUID(types.UID(uuid.NewString()))
+	}
+
 	old, found, _ := s.tbl.Insert(wtxn, object{
 		objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()),
 		o:        obj,
@@ -670,18 +678,13 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 	defer wtxn.Abort()
 
 	version := s.tbl.Revision(wtxn) + 1
-
-	newRV := newMeta.GetResourceVersion()
-	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
-
 	log := s.log.With(
 		logfieldClientset, s.domain,
 		logfields.Object, obj,
 		logfieldResourceVersion, version)
 
-	oldObj, found, _ := s.tbl.Insert(wtxn,
-		object{objectId: newObjectId(s.domain, gvr, ns, newMeta.GetName()), o: obj, kind: gvk.Kind},
-	)
+	var oid = newObjectId(s.domain, gvr, ns, newMeta.GetName())
+	oldObj, _, found := s.tbl.Get(wtxn, objectIndex.Query(oid))
 	if !found || oldObj.deleted {
 		gr := gvr.GroupResource()
 		err := apierrors.NewNotFound(gr, newMeta.GetName())
@@ -696,6 +699,7 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 	}
 
 	oldRV := oldMeta.GetResourceVersion()
+	newRV := newMeta.GetResourceVersion()
 	if checkConflict && oldRV != newRV {
 		err = apierrors.NewConflict(gvr.GroupResource(), newMeta.GetName(),
 			fmt.Errorf("the object has been modified; resource version mismatch, current %q, got %q", oldRV, newRV),
@@ -703,6 +707,10 @@ func (s *statedbObjectTracker) updateOrPatch(what string, gvr schema.GroupVersio
 		s.log.Debug(what, logfields.Error, err)
 		return err
 	}
+
+	newMeta.SetResourceVersion(strconv.FormatUint(version, 10))
+	newMeta.SetUID(oldMeta.GetUID())
+	s.tbl.Insert(wtxn, object{objectId: oid, o: obj, kind: gvk.Kind})
 
 	wtxn.Commit()
 	log.Debug(what)

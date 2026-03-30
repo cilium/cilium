@@ -1,0 +1,60 @@
+#!
+
+hive/start
+
+# Add object, the provided UID should be preserved.
+k8s/add service.v1.yaml
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=uid
+grep -q 'uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5' actual.yaml
+
+# Update the object, the existing UID cannot be mutated.
+k8s/update service.v2.yaml
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=uid
+grep -q 'uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5' actual.yaml
+
+# Delete the object and re-create it, the UID should have changed.
+k8s/delete service.v2.yaml
+k8s/add service.v2.yaml
+
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=uid
+grep -q 'uid: 19df579f-6133-49bc-a63f-495ce9951fb2' actual.yaml
+
+# Create an object without a UID, a random one should be generated.
+k8s/delete service.v2.yaml
+k8s/add service.v3.yaml
+
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=uid
+grep -q 'uid: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' actual.yaml
+! grep -q 'uid: 19df579f-6133-49bc-a63f-495ce9951fb2' actual.yaml
+! grep -q 'uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5' actual.yaml
+
+###
+
+-- service.v1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+spec:
+  clusterIP: 10.96.1.1
+
+-- service.v2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: 19df579f-6133-49bc-a63f-495ce9951fb2
+spec:
+  clusterIP: 10.96.1.1
+
+-- service.v3.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.1.1
