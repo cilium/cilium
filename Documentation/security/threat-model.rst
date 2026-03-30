@@ -578,6 +578,10 @@ Recommended Controls
 - `Kubernetes RBAC`_ should be configured to only grant necessary permissions
   to users and service accounts. Access to resources in the ``kube-system``
   and ``cilium`` namespaces in particular should be highly limited.
+- Review the :ref:`L7-aware traffic management
+  <gs_l7_traffic_management>` documentation to understand the security
+  implications and implementation details of ``CiliumEnvoyConfig`` (CEC) and
+  ``CiliumClusterwideEnvoyConfig`` (CCEC) use.
 - Kubernetes audit logs should be used to automatically review requests
   made to the API server, and detections should be configured to
   alert on suspicious activity.
