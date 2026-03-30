@@ -177,16 +177,25 @@ jobs:
             git config --global --add safe.directory /host/base
             uname -a
 
+            # Use /var/tmp for Go build temporary files to avoid running out
+            # of disk space on the tmpfs-backed /tmp in the VM.
+            export TMPDIR=/var/tmp
+
             # The LVH image might ship with an arbitrary Go toolchain version,
             # install the same Go toolchain version as current HEAD.
             CGO_ENABLED=0 GOPROXY=direct GOSUMDB= go install golang.org/dl/go${{ env.go-version }}@latest
             go${{ env.go-version }} download
 
+            # Free up disk space: remove the pre-installed Go toolchain and
+            # build caches, only go${{ env.go-version }} is needed from now on.
+            go clean -cache -modcache
+            rm -rf /usr/local/go
+
             # The LVH image ships with LLVM taken from a release Cilium version.
             # Replace it with the one extracted from the cilium-builder image.
-            /host/base/contrib/scripts/extract-llvm.sh /tmp/llvm
-            mv /tmp/llvm/usr/local/bin/{clang,llc} /bin/
-            rm -r /tmp/llvm
+            /host/base/contrib/scripts/extract-llvm.sh /var/tmp/llvm
+            mv /var/tmp/llvm/usr/local/bin/{clang,llc} /bin/
+            rm -r /var/tmp/llvm
 
       - name: Run verifier tests (on base branch)
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
@@ -194,7 +203,9 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/base
-            mkdir -p /host/datapath-verifier
+            export TMPDIR=/var/tmp
+            export GOCACHE=/host/gocache
+            mkdir -p /host/datapath-verifier /host/gocache
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-base.json
@@ -206,7 +217,9 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/pull
-            mkdir -p /host/datapath-verifier
+            export TMPDIR=/var/tmp
+            export GOCACHE=/host/gocache
+            mkdir -p /host/datapath-verifier /host/gocache
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=25m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
             mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
