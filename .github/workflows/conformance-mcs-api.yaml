@@ -21,13 +21,8 @@ on:
         required: false
         default: "{}"
 
-  push:
-    branches:
-      - main
-      - ft/main/**
-    paths-ignore:
-      - "Documentation/**"
-      - "test/**"
+  schedule:
+    - cron: '0 5/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -56,6 +51,7 @@ concurrency:
     ${{ github.event_name }}
     ${{
       (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
