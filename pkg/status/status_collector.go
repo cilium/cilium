@@ -176,7 +176,7 @@ func (d *statusCollector) getSRv6Status() *models.Srv6 {
 
 func (d *statusCollector) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 	s := &models.IPV6BigTCP{
-		Enabled: d.statusParams.BigTCPConfig.EnableIPv6BIGTCP,
+		Enabled: d.statusParams.BigTCPConfig.IsIPv6Enabled(),
 		MaxGRO:  int64(d.statusParams.BigTCPConfig.GetGROIPv6MaxSize()),
 		MaxGSO:  int64(d.statusParams.BigTCPConfig.GetGSOIPv6MaxSize()),
 	}
@@ -186,7 +186,7 @@ func (d *statusCollector) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 
 func (d *statusCollector) getIPV4BigTCPStatus() *models.IPV4BigTCP {
 	s := &models.IPV4BigTCP{
-		Enabled: d.statusParams.BigTCPConfig.EnableIPv4BIGTCP,
+		Enabled: d.statusParams.BigTCPConfig.IsIPv4Enabled(),
 		MaxGRO:  int64(d.statusParams.BigTCPConfig.GetGROIPv4MaxSize()),
 		MaxGSO:  int64(d.statusParams.BigTCPConfig.GetGSOIPv4MaxSize()),
 	}

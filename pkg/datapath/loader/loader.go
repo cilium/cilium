@@ -74,7 +74,7 @@ type Params struct {
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
-	BIGTCPConfig       *bigtcp.Configuration
+	BIGTCPConfig       bigtcp.Config
 
 	// Force map initialisation before loader.
 	bpf.MapGroup

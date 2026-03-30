@@ -121,7 +121,7 @@ type orchestratorParams struct {
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.Agent
 	IPsecConfig         ipsec.Config
-	BIGTCPConfig        *bigtcp.Configuration
+	BIGTCPConfig        bigtcp.Config
 	ConnectorConfig     connector.Config
 }
 

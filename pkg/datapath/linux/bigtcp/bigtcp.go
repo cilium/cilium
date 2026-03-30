@@ -40,11 +40,22 @@ var Cell = cell.Module(
 	cell.Config(defaultUserConfig),
 	cell.Provide(newBIGTCP,
 		func(c UserConfig) Features { return c }),
-	cell.Invoke(func(*Configuration) {}),
+	cell.Invoke(func(Config) {}),
 )
 
-func newDefaultConfiguration(userConfig UserConfig) *Configuration {
-	return &Configuration{
+// Config will never confuse anyone. After all, it is similar but not
+// identical to bigtcp.Config.
+type Config interface {
+	Features
+
+	GetGROIPv6MaxSize() int
+	GetGSOIPv6MaxSize() int
+	GetGROIPv4MaxSize() int
+	GetGSOIPv4MaxSize() int
+}
+
+func newDefaultConfiguration(userConfig UserConfig) *config {
+	return &config{
 		UserConfig:     userConfig,
 		groIPv4MaxSize: 0,
 		gsoIPv4MaxSize: 0,
@@ -55,7 +66,7 @@ func newDefaultConfiguration(userConfig UserConfig) *Configuration {
 
 // Configuration is the BIG TCP configuration. The values are finalized after
 // BIG TCP has started and must not be read before that.
-type Configuration struct {
+type config struct {
 	UserConfig
 
 	// gsoIPv{4,6}MaxSize is the GSO maximum size used when configuring
@@ -79,19 +90,19 @@ type Configuration struct {
 	groIPv6MaxSize int
 }
 
-func (c *Configuration) GetGROIPv6MaxSize() int {
+func (c *config) GetGROIPv6MaxSize() int {
 	return c.groIPv6MaxSize
 }
 
-func (c *Configuration) GetGSOIPv6MaxSize() int {
+func (c *config) GetGSOIPv6MaxSize() int {
 	return c.gsoIPv6MaxSize
 }
 
-func (c *Configuration) GetGROIPv4MaxSize() int {
+func (c *config) GetGROIPv4MaxSize() int {
 	return c.groIPv4MaxSize
 }
 
-func (c *Configuration) GetGSOIPv4MaxSize() int {
+func (c *config) GetGSOIPv4MaxSize() int {
 	return c.gsoIPv4MaxSize
 }
 
@@ -271,7 +282,7 @@ func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg ips
 	return nil
 }
 
-func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
+func newBIGTCP(lc cell.Lifecycle, p params) (Config, error) {
 	bigtcpTunnel := supportsBIGTCPTunnel(p.Log)
 	p.Log.Info("Probed kernel support for BIG TCP for UDP tunnels",
 		logfields.State, bigtcpTunnel,
@@ -297,7 +308,7 @@ type netdevParams struct {
 	groMaxSizeIPv4 int
 }
 
-func startBIGTCP(p params, cfg *Configuration) error {
+func startBIGTCP(p params, cfg *config) error {
 	var err error
 
 	nativeDevices, _ := tables.SelectedDevices(p.Devices, p.DB.ReadTxn())

@@ -82,7 +82,7 @@ type statusParams struct {
 	DaemonConfigPromise promise.Promise[*option.DaemonConfig]
 
 	AuthManager      *auth.AuthManager
-	BigTCPConfig     *bigtcp.Configuration
+	BigTCPConfig     bigtcp.Config
 	BandwidthManager bandwidth.Manager
 	CiliumHealth     health.CiliumHealthManager
 	KVStoreClient    kvstore.Client
