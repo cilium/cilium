@@ -43,6 +43,19 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		return err
 	}
 	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
+
+	var finalize []func(context.Context)
+	for i := range suiteBuilders {
+		if connTests[i].NeedsStaticRoutes() {
+			connTests[i].SetupStaticRoutes(ctx)
+			finalize = append(finalize, func(ctx context.Context) {
+				if err := connTests[i].TeardownStaticRoutes(ctx); err != nil {
+				}
+			})
+			break
+		}
+	}
+
 	for i := range suiteBuilders {
 		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
 			return e
@@ -50,8 +63,14 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		for j := range connTests {
 			connTests[j].PrintTestInfo()
 		}
-		if e := runConnectivityTests(ctx, connTests); e != nil {
-			return e
+		for j := range connTests {
+			if e := connTests[j].SetupStaticRoutes(ctx); e != nil {
+				return e
+			}
+		}
+		runErr := runConnectivityTests(ctx, connTests)
+		if runErr != nil {
+			return runErr
 		}
 		for j := range connTests {
 			junitCollector.Collect(connTests[j])
@@ -61,6 +80,11 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 			connTests[j].Cleanup()
 		}
 	}
+
+	for _, f := range finalize {
+		f(ctx)
+	}
+
 	if err := junitCollector.Write(); err != nil {
 		connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, err)
 	}
