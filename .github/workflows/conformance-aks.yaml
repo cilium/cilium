@@ -297,11 +297,16 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true"
           fi
 
+          BPFMASQV4=$(echo "${EXTRA_ARGS}" | jq -r '.["bpf-masq-v4"] // false')
+          if [[ "${BPFMASQV4}" == "true" ]]; then
+            echo "::notice::BPFMasqV4 enabled - setting {bpf.masquerade=true,enableIPv4Masquerade=true} for all matrix entries"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true"
+          fi
+
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
           if [[ "$ADV_FEAT" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
-              --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicy=true \
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicy=true \
               --helm-set egressGateway.enabled=true"
           fi
 

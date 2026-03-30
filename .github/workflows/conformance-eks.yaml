@@ -353,11 +353,14 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
           fi
 
+          if [[ "${{ matrix.bpf-masq-v4 }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true"
+          fi
+
           ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
           if [[ "$ADV_FEAT" == "true" ]]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
-              --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicies.enabled=true \
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 
