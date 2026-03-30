@@ -104,6 +104,7 @@ type standaloneEnvoyConfig struct {
 	runDir                         string
 	logPath                        string
 	defaultLogLevel                string
+	nodeLocalityEnabled            bool
 	baseID                         uint64
 	keepCapNetBindService          bool
 	connectTimeout                 int64
@@ -150,6 +151,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		maxConcurrentRetries:           config.maxConcurrentRetries,
 		maxConnections:                 config.maxConnections,
 		maxRequests:                    config.maxRequests,
+		nodeLocalityEnabled:            config.nodeLocalityEnabled,
 	})
 
 	o.logger.Debug("Envoy: Starting standalone Envoy")
@@ -373,6 +375,7 @@ type bootstrapConfig struct {
 	maxConcurrentRetries           uint32
 	maxConnections                 uint32
 	maxRequests                    uint32
+	nodeLocalityEnabled            bool
 }
 
 func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
@@ -551,6 +554,16 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 				},
 			}},
 		},
+	}
+
+	if config.nodeLocalityEnabled {
+		zone, err := getLocalNodeZone(o.localNodeStore)
+		if err != nil {
+			o.logger.Warn("Envoy: Failed to resolve local node zone for embedded bootstrap",
+				logfields.Error, err,
+			)
+		}
+		appendEmbeddedLocalityBootstrap(bs, config.connectTimeout, zone)
 	}
 
 	o.logger.Debug("Envoy: Writing Bootstrap config",

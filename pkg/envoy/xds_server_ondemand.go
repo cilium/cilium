@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -21,6 +22,7 @@ type onDemandXdsStarter struct {
 	runDir                         string
 	envoyLogPath                   string
 	envoyDefaultLogLevel           string
+	envoyNodeLocalityEnabled       bool
 	envoyBaseID                    uint64
 	keepCapNetBindService          bool
 	metricsListenerPort            int
@@ -33,6 +35,7 @@ type onDemandXdsStarter struct {
 	maxConcurrentRetries           uint32
 	maxConnections                 uint32
 	maxRequests                    uint32
+	localNodeStore                 *node.LocalNodeStore
 
 	envoyOnce sync.Once
 }
@@ -78,6 +81,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(wg *completion.WaitGroup) erro
 			runDir:                         o.runDir,
 			logPath:                        o.envoyLogPath,
 			defaultLogLevel:                o.envoyDefaultLogLevel,
+			nodeLocalityEnabled:            o.envoyNodeLocalityEnabled,
 			baseID:                         o.envoyBaseID,
 			keepCapNetBindService:          o.keepCapNetBindService,
 			connectTimeout:                 o.connectTimeout,

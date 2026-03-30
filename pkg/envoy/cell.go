@@ -136,6 +136,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			runDir:                         option.Config.RunDir,
 			envoyLogPath:                   params.EnvoyProxyConfig.EnvoyLog,
 			envoyDefaultLogLevel:           params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
+			envoyNodeLocalityEnabled:       params.EnvoyProxyConfig.EnvoyNodeLocalityEnabled,
 			envoyBaseID:                    params.EnvoyProxyConfig.EnvoyBaseID,
 			keepCapNetBindService:          params.EnvoyProxyConfig.EnvoyKeepCapNetbindservice,
 			metricsListenerPort:            params.EnvoyProxyConfig.ProxyPrometheusPort,
@@ -148,6 +149,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxConcurrentRetries:           params.EnvoyProxyConfig.ProxyMaxConcurrentRetries,
 			maxConnections:                 params.EnvoyProxyConfig.ProxyClusterMaxConnections,
 			maxRequests:                    params.EnvoyProxyConfig.ProxyClusterMaxRequests,
+			localNodeStore:                 params.LocalNodeStore,
 		}, nil
 	}
 
