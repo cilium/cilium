@@ -33,6 +33,7 @@ var (
 			Annotations: map[string]string{
 				"cilium.io/baz": "quux",
 			},
+			UID: "c76e1794-d298-4570-a995-fd5ac6f01ec9",
 		},
 		Spec: corev1.NodeSpec{
 			PodCIDR:  podCIDR.String(),
