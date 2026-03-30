@@ -172,23 +172,31 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return err
 	}
 
-	reqFullReconcile := r.modifiedServiceAdvertisements(p, desiredPeerAdverts)
+	metadata := r.getMetadata(p.BGPInstance)
+	reqFullReconcile := r.modifiedServiceAdvertisements(&metadata, desiredPeerAdverts)
 
 	// if frontend changes iterator has not been initialized yet (first reconcile), perform full reconciliation
-	if !r.getMetadata(p.BGPInstance).FrontendChangesInitialized {
+	if !metadata.FrontendChangesInitialized {
 		reqFullReconcile = true
 	}
 
-	err = r.reconcileServices(ctx, p, desiredPeerAdverts, reqFullReconcile)
+	err = r.reconcileServices(ctx, p, &metadata, desiredPeerAdverts, reqFullReconcile)
 
-	if err == nil && reqFullReconcile {
+	if err == nil {
 		// update svc advertisements in metadata only if the reconciliation was successful
-		r.updateServiceAdvertisementsMetadata(p, desiredPeerAdverts)
+		metadata.ServiceAdvertisements = desiredPeerAdverts
+		r.setMetadata(p.BGPInstance, metadata)
 	}
 	return err
 }
 
-func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, fullReconcile bool) error {
+func (r *ServiceReconciler) reconcileServices(
+	ctx context.Context,
+	p ReconcileParams,
+	metadata *ServiceReconcilerMetadata,
+	desiredPeerAdverts PeerAdvertisements,
+	fullReconcile bool,
+) error {
 	var (
 		toReconcile []*loadbalancer.Service
 		toWithdraw  []loadbalancer.ServiceName
@@ -204,7 +212,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 		r.logger.Debug("performing all services reconciliation")
 
 		// get all services to reconcile and to withdraw.
-		toReconcile, toWithdraw, rx, err = r.fullReconciliationServiceList(p)
+		toReconcile, toWithdraw, rx, err = r.fullReconciliationServiceList(metadata)
 		if err != nil {
 			return err
 		}
@@ -213,7 +221,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 
 		// get modified services to reconcile and to withdraw.
 		// Note: we should call svc diff only once in a reconcile loop.
-		toReconcile, rx, err = r.diffReconciliationServiceList(p)
+		toReconcile, rx, err = r.diffReconciliationServiceList(metadata)
 		if err != nil {
 			return err
 		}
@@ -226,7 +234,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	}
 
 	// reconcile service route policies
-	err = r.reconcileSvcRoutePolicies(ctx, p, desiredSvcRoutePolicies)
+	err = r.reconcileSvcRoutePolicies(ctx, p, metadata, desiredSvcRoutePolicies)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile service route policies: %w", err)
 	}
@@ -238,7 +246,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	}
 
 	// reconcile service paths
-	err = r.reconcilePaths(ctx, p, desiredSvcPaths)
+	err = r.reconcilePaths(ctx, p, metadata, desiredSvcPaths)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile service paths: %w", err)
 	}
@@ -246,9 +254,8 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	return nil
 }
 
-func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p ReconcileParams, desiredSvcRoutePolicies ResourceRoutePolicyMap) error {
+func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p ReconcileParams, metadata *ServiceReconcilerMetadata, desiredSvcRoutePolicies ResourceRoutePolicyMap) error {
 	var err error
-	metadata := r.getMetadata(p.BGPInstance)
 	for svcKey, desiredSvcRoutePolicies := range desiredSvcRoutePolicies {
 		currentSvcRoutePolicies, exists := metadata.ServiceRoutePolicies[svcKey]
 		if !exists && len(desiredSvcRoutePolicies) == 0 {
@@ -270,8 +277,6 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Rec
 		}
 		err = errors.Join(err, rErr)
 	}
-	r.setMetadata(p.BGPInstance, metadata)
-
 	return err
 }
 
@@ -342,10 +347,8 @@ func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, desire
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParams, desiredSvcPaths ResourceAFPathsMap) error {
+func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParams, metadata *ServiceReconcilerMetadata, desiredSvcPaths ResourceAFPathsMap) error {
 	var err error
-	metadata := r.getMetadata(p.BGPInstance)
-
 	metadata.ServicePaths, err = ReconcileResourceAFPaths(ReconcileResourceAFPathsParams{
 		Logger:                 r.logger.With(types.InstanceLogField, p.DesiredConfig.Name),
 		Ctx:                    ctx,
@@ -353,32 +356,14 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 		DesiredResourceAFPaths: desiredSvcPaths,
 		CurrentResourceAFPaths: metadata.ServicePaths,
 	})
-
-	r.setMetadata(p.BGPInstance, metadata)
 	return err
 }
 
 // modifiedServiceAdvertisements compares local advertisement state with desiredPeerAdverts, if they differ,
 // returns true signaling that full reconciliation is required.
-func (r *ServiceReconciler) modifiedServiceAdvertisements(p ReconcileParams, desiredPeerAdverts PeerAdvertisements) bool {
-	// current metadata
-	serviceMetadata := r.getMetadata(p.BGPInstance)
-
+func (r *ServiceReconciler) modifiedServiceAdvertisements(metadata *ServiceReconcilerMetadata, desiredPeerAdverts PeerAdvertisements) bool {
 	// check if BGP advertisement configuration modified
-	modified := !PeerAdvertisementsEqual(serviceMetadata.ServiceAdvertisements, desiredPeerAdverts)
-
-	return modified
-}
-
-// updateServiceAdvertisementsMetadata updates the provided ServiceAdvertisements in the reconciler metadata.
-func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(p ReconcileParams, peerAdverts PeerAdvertisements) {
-	// current metadata
-	serviceMetadata := r.getMetadata(p.BGPInstance)
-
-	serviceMetadata.ServiceAdvertisements = peerAdverts
-
-	// update ServiceAdvertisements in the metadata
-	r.setMetadata(p.BGPInstance, serviceMetadata)
+	return !PeerAdvertisementsEqual(metadata.ServiceAdvertisements, desiredPeerAdverts)
 }
 
 // hasBackends loops through Frontend backends and returns:
@@ -396,9 +381,7 @@ func hasBackends(p ReconcileParams, fe *loadbalancer.Frontend) (hasBackends, has
 	return
 }
 
-func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn, err error) {
-	metadata := r.getMetadata(p.BGPInstance)
-
+func (r *ServiceReconciler) fullReconciliationServiceList(metadata *ServiceReconcilerMetadata) (toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn, err error) {
 	// re-init changes interator, so that it contains changes since the last full reconciliation
 	tx := r.db.WriteTxn(r.frontends)
 	metadata.FrontendChanges, err = r.frontends.Changes(tx)
@@ -408,7 +391,6 @@ func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (to
 	}
 	rx = tx.Commit()
 	metadata.FrontendChangesInitialized = true
-	r.setMetadata(p.BGPInstance, metadata)
 
 	// the initial set of changes emits all existing frontends
 	events, _ := metadata.FrontendChanges.Next(rx)
@@ -434,8 +416,7 @@ func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (to
 
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
 // performing partial (diff) service reconciliation.
-func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
-	metadata := r.getMetadata(p.BGPInstance)
+func (r *ServiceReconciler) diffReconciliationServiceList(metadata *ServiceReconcilerMetadata) (toReconcile []*loadbalancer.Service, rx statedb.ReadTxn, err error) {
 	rx = r.db.ReadTxn()
 
 	// list frontends which changed since the last reconciliation (includes frontends with just backend changed)
