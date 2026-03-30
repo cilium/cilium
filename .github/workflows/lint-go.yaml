@@ -26,6 +26,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -45,6 +46,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -66,6 +68,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -94,6 +97,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -123,6 +127,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -146,6 +151,7 @@ jobs:
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.25.8
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
