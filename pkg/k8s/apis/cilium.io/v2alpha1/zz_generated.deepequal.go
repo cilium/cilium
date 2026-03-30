@@ -1423,6 +1423,14 @@ func (in *HTTPOptions) DeepEqual(other *HTTPOptions) bool {
 		}
 	}
 
+	if (in.ForwardClientCertDetails == nil) != (other.ForwardClientCertDetails == nil) {
+		return false
+	} else if in.ForwardClientCertDetails != nil {
+		if *in.ForwardClientCertDetails != *other.ForwardClientCertDetails {
+			return false
+		}
+	}
+
 	return true
 }
 

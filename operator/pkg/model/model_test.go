@@ -191,3 +191,48 @@ func TestModel_GRPCWebTranslationEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestModel_GetForwardClientCertDetails(t *testing.T) {
+	appendForward := "APPEND_FORWARD"
+
+	tests := []struct {
+		name  string
+		model *Model
+		want  *string
+	}{
+		{
+			name: "nil model",
+			want: nil,
+		},
+		{
+			name:  "empty model",
+			model: &Model{},
+			want:  nil,
+		},
+		{
+			name: "nil value in options",
+			model: &Model{
+				HTTPOptions: &HTTPOptions{},
+			},
+			want: nil,
+		},
+		{
+			name: "value set in options",
+			model: &Model{
+				HTTPOptions: &HTTPOptions{
+					ForwardClientCertDetails: &appendForward,
+				},
+			},
+			want: &appendForward,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.model.GetForwardClientCertDetails()
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Model.GetForwardClientCertDetails() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -181,6 +181,38 @@ func WithStreamIdleTimeout(streamIdleTimeoutSeconds int) ListenerMutator {
 	}
 }
 
+func withForwardClientCertDetails(forwardClientCertDetailsString string) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		forwardClientCertDetails, ok := httpConnectionManagerv3.HttpConnectionManager_ForwardClientCertDetails_value[forwardClientCertDetailsString]
+		if !ok {
+			return listener
+		}
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name == httpConnectionManagerType {
+					tc := filter.GetTypedConfig()
+					switch tc.GetTypeUrl() {
+					case envoy.HttpConnectionManagerTypeURL:
+						hcm, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						hcmConfig.ForwardClientCertDetails = httpConnectionManagerv3.HttpConnectionManager_ForwardClientCertDetails(forwardClientCertDetails)
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
+			}
+		}
+		return listener
+	}
+}
+
 func withHostNetworkPort(m *model.Model, ipv4Enabled bool, ipv6Enabled bool) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
 		listener.Address, listener.AdditionalAddresses = getHostNetworkListenerAddresses(m.AllPorts(), ipv4Enabled, ipv6Enabled)
@@ -323,6 +355,10 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
 		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
+	}
+
+	if m.GetForwardClientCertDetails() != nil {
+		res = append(res, withForwardClientCertDetails(*m.GetForwardClientCertDetails()))
 	}
 	return res
 }

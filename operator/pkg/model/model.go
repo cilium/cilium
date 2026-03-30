@@ -22,7 +22,8 @@ type Model struct {
 }
 
 type HTTPOptions struct {
-	GRPCWebTranslation *GRPCWebTranslationConfig `json:"grpc_web_translation,omitempty"`
+	GRPCWebTranslation       *GRPCWebTranslationConfig `json:"grpc_web_translation,omitempty"`
+	ForwardClientCertDetails *string                   `json:"forward_client_cert_details,omitempty"`
 }
 
 type GRPCWebTranslationConfig struct {
@@ -48,6 +49,13 @@ func (m *Model) GRPCWebTranslationEnabled() bool {
 		m.HTTPOptions == nil ||
 		m.HTTPOptions.GRPCWebTranslation == nil ||
 		m.HTTPOptions.GRPCWebTranslation.Enabled
+}
+
+func (m *Model) GetForwardClientCertDetails() *string {
+	if m == nil || m.HTTPOptions == nil {
+		return nil
+	}
+	return m.HTTPOptions.ForwardClientCertDetails
 }
 
 type Listener interface {

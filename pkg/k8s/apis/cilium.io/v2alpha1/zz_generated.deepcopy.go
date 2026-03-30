@@ -1829,6 +1829,11 @@ func (in *HTTPOptions) DeepCopyInto(out *HTTPOptions) {
 		*out = new(GRPCWebTranslationConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ForwardClientCertDetails != nil {
+		in, out := &in.ForwardClientCertDetails, &out.ForwardClientCertDetails
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
