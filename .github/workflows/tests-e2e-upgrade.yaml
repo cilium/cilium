@@ -385,6 +385,7 @@ jobs:
 
       - name: Provision K8s on LVH VM
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
+        timeout-minutes: 10
         id: lvh-kind
         uses: ./.github/actions/lvh-kind
         with:
