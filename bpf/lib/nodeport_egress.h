@@ -51,7 +51,6 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  union v6addr *saddr,
-						  struct trace_ctx *trace,
 						  __s8 *ext_err)
 {
 	int hdrlen, l4_off, ret = NAT_PUNT_TO_STACK;
@@ -114,8 +113,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple->saddr);
-	ret = snat_v6_nat(ctx, tuple, ip6, fraginfo, l4_off,
-			  target, trace, ext_err);
+	ret = snat_v6_nat(ctx, fraginfo, l4_off, ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -134,15 +132,22 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
-	struct trace_ctx trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
+	struct trace_ctx *trace;
 	union v6addr saddr = {};
 	int ret;
 	__s8 ext_err = 0;
+	__u32 zero = 0;
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &trace, &ext_err);
+	trace = map_lookup_elem(&trace_ctx_storage, &zero);
+	if (!trace)
+		return DROP_INVALID;
+
+	*trace = (struct trace_ctx){
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
+
+	ret = nodeport_snat_fwd_ipv6(ctx, &saddr, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
@@ -154,7 +159,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
 				   &saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
-				   trace.reason, trace.monitor);
+				   trace->reason, trace->monitor);
 
 	return ret;
 }

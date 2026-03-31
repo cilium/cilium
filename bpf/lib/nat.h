@@ -1873,6 +1873,12 @@ struct {
 	__type(key, int);
 	__type(value, struct ipv6_nat_target);
 } nat_target_storage __section_maps_btf;
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct trace_ctx);
+} trace_ctx_storage __section_maps_btf;
 
 __noinline __weak int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
@@ -1976,10 +1982,10 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 }
 
 static __always_inline int
-__snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-	      struct ipv6_nat_entry *state, fraginfo_t fraginfo,
-	      int l4_off, bool update_tuple, const struct ipv6_nat_target *target,
-	      __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
+___snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
+	       struct ipv6_nat_entry *state, fraginfo_t fraginfo,
+	       int l4_off, bool update_tuple, const struct ipv6_nat_target *target,
+	       __u16 port_off, struct trace_ctx *trace, __s8 *ext_err)
 {
 	__be16 to_sport = 0;
 	int ret;
@@ -2012,17 +2018,34 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	return ret;
 }
 
-static __always_inline __maybe_unused int
-snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-	    struct ipv6hdr *ip6, fraginfo_t fraginfo,
-	    int off, struct ipv6_nat_target *target,
-	    struct trace_ctx *trace, __s8 *ext_err)
+__noinline __weak __u64
+__snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off)
 {
 	struct ipv6_nat_entry *state = NULL;
+	struct ipv6_nat_target *target;
+	struct ipv6_ct_tuple *tuple;
+	struct trace_ctx *trace;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	__u16 port_off = 0;
+	__s8 ext_err = 0;
+	int zero = 0;
 	int ret;
 
+	tuple = map_lookup_elem(&ct_tuple_storage, &zero);
+	if (!tuple)
+		return DROP_INVALID;
+	target = map_lookup_elem(&nat_target_storage, &zero);
+	if (!target)
+		return DROP_INVALID;
+	trace = map_lookup_elem(&trace_ctx_storage, &zero);
+	if (!trace)
+		return DROP_INVALID;
+
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -2106,8 +2129,19 @@ nat_icmp_v6:
 		return NAT_PUNT_TO_STACK;
 	};
 
-	return __snat_v6_nat(ctx, tuple, state, fraginfo, off, false, target,
-			     port_off, trace, ext_err);
+	ret = ___snat_v6_nat(ctx, tuple, state, fraginfo, off, false, target,
+			     port_off, trace, &ext_err);
+	return ((__u64)ext_err << 32) | ret;
+}
+
+static __always_inline int
+snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
+{
+	__u64 ret;
+
+	ret = __snat_v6_nat(ctx, fraginfo, off);
+	*ext_err = (__s8)(ret >> 32);
+	return (int)ret;
 }
 
 static __always_inline __maybe_unused int
