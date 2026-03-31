@@ -42,6 +42,9 @@ jobs:
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     needs: wait-for-base-images
     strategy:
+      # Only fail-fast on pull_request_target events. For push and merge_group events, we want to run all builds even
+      # if some of them fail, to make sure one of the image is not broken accidentally and the PR is still merged.
+      fail-fast: ${{ github.event_name != 'pull_request_target' }}
       matrix:
         include:
           - name: cilium
