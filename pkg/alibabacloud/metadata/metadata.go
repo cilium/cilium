@@ -62,12 +62,11 @@ func getMetadata(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("metadata service returned status code %d", resp.StatusCode)
 	}
-
-	defer resp.Body.Close()
 	respBytes, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
 	if err != nil {
 		return "", err
