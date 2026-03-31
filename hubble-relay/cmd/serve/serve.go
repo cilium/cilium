@@ -228,7 +228,8 @@ func runServe(vp *viper.Viper) error {
 	if vp.GetBool(keyTLSClientDisabled) {
 		opts = append(opts, server.WithInsecureClient())
 	} else {
-		tlsClientConfig, err := certloader.NewWatchedClientConfig(
+		var err error
+		tlsClientConfig, err = certloader.NewWatchedClientConfig(
 			logger.With(logfields.Config, "tls-to-hubble"),
 			vp.GetStringSlice(keyTLSHubbleServerCAFiles),
 			hubbleClientCertFile(vp),
@@ -245,7 +246,8 @@ func runServe(vp *viper.Viper) error {
 	if vp.GetBool(keyTLSServerDisabled) {
 		opts = append(opts, server.WithInsecureServer())
 	} else {
-		tlsServerConfig, err := certloader.NewWatchedServerConfig(
+		var err error
+		tlsServerConfig, err = certloader.NewWatchedServerConfig(
 			logger.With(logfields.Config, "tls-server"),
 			vp.GetStringSlice(keyTLSRelayClientCAFiles),
 			relayServerCertFile(vp),
