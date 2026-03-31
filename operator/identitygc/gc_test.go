@@ -147,6 +147,50 @@ func TestIdentitiesGC(t *testing.T) {
 	}
 }
 
+func TestIdentitiesGC_Disabled(t *testing.T) {
+	defer testutils.GoleakVerifyNone(
+		t,
+		testutils.GoleakIgnoreTopFunction("time.Sleep"),
+	)
+
+	hive := hive.New(
+		cell.Config(cmtypes.DefaultClusterInfo),
+		metrics.Metric(NewMetrics),
+
+		k8sFakeClient.FakeClientCell(),
+		kvstore.Cell(kvstore.DisabledBackendName),
+		spire.FakeCellClient,
+		k8s.ResourcesCell,
+
+		cell.Provide(func() Config {
+			return Config{
+				Interval: 0,
+
+				RateInterval: time.Minute,
+				RateLimit:    2500,
+			}
+		}),
+		cell.Provide(func() SharedConfig {
+			return SharedConfig{
+				IdentityAllocationMode: option.IdentityAllocationModeCRD,
+			}
+		}),
+
+		cell.Invoke(registerGC),
+	)
+
+	ctx := t.Context()
+	tlog := hivetest.Logger(t)
+
+	if err := hive.Start(tlog, ctx); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	if err := hive.Stop(tlog, ctx); err != nil {
+		t.Fatalf("failed to stop: %s", err)
+	}
+}
+
 func setupK8sNodes(t *testing.T, clientset k8sClient.Clientset) error {
 	nodes := []*corev1.Node{
 		{
