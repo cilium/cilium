@@ -121,6 +121,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
+      timeout: ${{ steps.generate-matrix.outputs.timeout }}
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -151,19 +152,23 @@ jobs:
             jq '[.[] | select(.["test-l7"] == "true") | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
+            echo "timeout=50" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             jq '[.[] | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
+            echo "timeout=110" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # workflow_dispatch is only used on stable branches where GH scheduled doesn't work and ariane does it
             jq '[.[] | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - workflow_dispatch run with full test suite)"
+            echo "timeout=110" >> $GITHUB_OUTPUT
           else
             jq '[.[] | select(.["test-l7"] != "true") | del(."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
+            echo "timeout=40" >> $GITHUB_OUTPUT
           fi
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
@@ -196,7 +201,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
-    timeout-minutes: 55
+    timeout-minutes: ${{ fromJson(needs.generate-matrix.outputs.timeout) }}
     steps:
       - name: Log Matrix Configuration
         run: |
