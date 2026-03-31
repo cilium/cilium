@@ -141,7 +141,9 @@ func registerGC(p params) {
 				gc.allocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
 				gc.allocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore {
 				// CRD mode GC runs in an additional goroutine
-				gc.mgr.RemoveAllAndWait()
+				if gc.mgr != nil {
+					gc.mgr.RemoveAllAndWait()
+				}
 			}
 			gc.rateLimiter.Stop()
 			gc.wp.Close()

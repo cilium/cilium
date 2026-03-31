@@ -145,6 +145,51 @@ func TestIdentitiesGC(t *testing.T) {
 	}
 }
 
+func TestIdentitiesGC_Disabled(t *testing.T) {
+	defer goleak.VerifyNone(
+		t,
+		goleak.IgnoreTopFunction("time.Sleep"),
+	)
+
+	hive := hive.New(
+		cell.Config(cmtypes.DefaultClusterInfo),
+		metrics.Metric(NewMetrics),
+
+		k8sClient.FakeClientCell,
+		spire.FakeCellClient,
+		k8s.ResourcesCell,
+
+		cell.Provide(func() Config {
+			return Config{
+				Interval:         0,
+				HeartbeatTimeout: 50 * time.Millisecond,
+
+				RateInterval: time.Minute,
+				RateLimit:    2500,
+			}
+		}),
+		cell.Provide(func() SharedConfig {
+			return SharedConfig{
+				IdentityAllocationMode: option.IdentityAllocationModeCRD,
+			}
+		}),
+
+		cell.Invoke(registerGC),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	tlog := hivetest.Logger(t)
+
+	if err := hive.Start(tlog, ctx); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	if err := hive.Stop(tlog, ctx); err != nil {
+		t.Fatalf("failed to stop: %s", err)
+	}
+}
+
 func setupK8sNodes(clientset k8sClient.Clientset) error {
 	nodes := []*corev1.Node{
 		{
