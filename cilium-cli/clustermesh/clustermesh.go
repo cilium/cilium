@@ -1417,7 +1417,10 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	var clustersRaw any
 	clustersRaw = clusters
 
-	versionStr := rel.MetadataAsMap()["Version"].(string)
+	versionStr, ok := rel.MetadataAsMap()["Version"].(string)
+	if !ok {
+		return fmt.Errorf("failed to get Helm chart version from release metadata on cluster %s", client.ClusterName())
+	}
 	version, err := versioncheck.Version(versionStr)
 	if err != nil {
 		return fmt.Errorf("Failed to parse Helm chart version %s on cluster %s: %w", versionStr, client.ClusterName(), err)
@@ -1794,11 +1797,10 @@ func getClustersFromValues(values map[string]any) (map[string]any, map[string]an
 		if !ok {
 			return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 		}
-		if _, ok := cluster["name"]; !ok {
+		clusterName, ok := cluster["name"].(string)
+		if !ok {
 			return nil, nil, fmt.Errorf("existing clustermesh.config.clusters is invalid")
 		}
-
-		clusterName := cluster["name"].(string)
 		delete(cluster, "name")
 		clusters[clusterName] = cluster
 	}
