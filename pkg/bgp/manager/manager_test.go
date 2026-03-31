@@ -160,14 +160,13 @@ func TestGetRoutesLegacy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// set up BGPRouterManager with one BGP server
 			srvParams := types.ServerParameters{
-				Name: "test-instance",
 				Global: types.BGPGlobal{
 					ASN:        uint32(testRouterASN),
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
 			}
-			testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), hivetest.Logger(t), srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), hivetest.Logger(t), "test-instance", srvParams)
 			require.NoError(t, err)
 
 			testInstance.Config = &v2.CiliumBGPNodeInstance{

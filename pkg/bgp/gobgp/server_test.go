@@ -17,7 +17,6 @@ import (
 )
 
 var testServerParameters = types.ServerParameters{
-	Name: "test-instance",
 	Global: types.BGPGlobal{
 		ASN:        65000,
 		RouterID:   "127.0.0.1",

@@ -93,7 +93,6 @@ type GoBGPServer struct {
 func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerParameters) (types.Router, error) {
 	logger := NewServerLogger(log, LogParams{
 		AS:        params.Global.ASN,
-		Name:      params.Name,
 		Component: "gobgp.BgpServerInstance",
 		SubSys:    "bgp-control-plane",
 	})

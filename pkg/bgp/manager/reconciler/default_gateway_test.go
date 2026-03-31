@@ -513,7 +513,6 @@ func TestDeviceChangeTrackerObserver(t *testing.T) {
 func setupBGPInstance(logger *slog.Logger) (*instance.BGPInstance, error) {
 	// our test BgpServer with our original router ID and local port
 	srvParams := types.ServerParameters{
-		Name: "test-instance",
 		Global: types.BGPGlobal{
 			ASN:        64125,
 			RouterID:   "127.0.0.1",
@@ -521,7 +520,7 @@ func setupBGPInstance(logger *slog.Logger) (*instance.BGPInstance, error) {
 		},
 	}
 
-	testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), logger, srvParams)
+	testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), logger, "test-instance", srvParams)
 	return testInstance, err
 }
 

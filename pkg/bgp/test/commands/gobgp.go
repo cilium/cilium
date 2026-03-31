@@ -147,7 +147,6 @@ func GoBGPAddServerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			// start new GoBGP server
 			gobgpServer := server.NewBgpServer(server.LoggerOption(gobgp.NewServerLogger(slog.Default(), gobgp.LogParams{
 				AS:        uint32(asn),
-				Name:      args[0],
 				Component: "test",
 				SubSys:    "gobgp",
 			})))

@@ -465,7 +465,6 @@ type GetBGPResponse struct {
 
 // ServerParameters contains information for underlying bgp implementation layer to initializing BGP process.
 type ServerParameters struct {
-	Name              string
 	Global            BGPGlobal
 	StateNotification StateNotificationCh
 }

@@ -296,7 +296,6 @@ func TestGetPeerState(t *testing.T) {
 	}
 	for _, tt := range table {
 		srvParams := types.ServerParameters{
-			Name: "test-instance",
 			Global: types.BGPGlobal{
 				ASN:        tt.localASN,
 				RouterID:   "127.0.0.1",
@@ -396,7 +395,6 @@ func findMatchingPeer(peers []*models.BgpPeer, n *types.Neighbor) *models.BgpPee
 
 func TestGetRoutes(t *testing.T) {
 	testSC, err := NewGoBGPServer(context.Background(), hivetest.Logger(t), types.ServerParameters{
-		Name: "test-instance",
 		Global: types.BGPGlobal{
 			ASN:        65000,
 			RouterID:   "127.0.0.1",

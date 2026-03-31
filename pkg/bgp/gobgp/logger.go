@@ -16,14 +16,12 @@ import (
 type ServerLogger struct {
 	l         *slog.Logger
 	asn       uint32
-	name      string
 	component string
 	subsys    string
 }
 
 type LogParams struct {
 	AS        uint32
-	Name      string
 	Component string
 	SubSys    string
 }
@@ -32,14 +30,13 @@ func NewServerLogger(l *slog.Logger, params LogParams) *ServerLogger {
 	return &ServerLogger{
 		l:         l,
 		asn:       params.AS,
-		name:      params.Name,
 		component: params.Component,
 		subsys:    params.SubSys,
 	}
 }
 
 func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -48,7 +45,6 @@ func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
@@ -57,7 +53,7 @@ func (l *ServerLogger) Panic(msg string, fields gobgpLog.Fields) {
 }
 
 func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -66,7 +62,6 @@ func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
@@ -75,7 +70,7 @@ func (l *ServerLogger) Fatal(msg string, fields gobgpLog.Fields) {
 }
 
 func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -84,7 +79,6 @@ func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
@@ -93,7 +87,7 @@ func (l *ServerLogger) Error(msg string, fields gobgpLog.Fields) {
 }
 
 func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -102,7 +96,6 @@ func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
@@ -111,7 +104,7 @@ func (l *ServerLogger) Warn(msg string, fields gobgpLog.Fields) {
 }
 
 func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -120,7 +113,6 @@ func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
@@ -129,7 +121,7 @@ func (l *ServerLogger) Info(msg string, fields gobgpLog.Fields) {
 }
 
 func (l *ServerLogger) Debug(msg string, fields gobgpLog.Fields) {
-	logAttrs := make([]any, 0, len(fields)+4)
+	logAttrs := make([]any, 0, len(fields)+3)
 	for k, v := range fields {
 		logAttrs = append(
 			logAttrs,
@@ -138,7 +130,6 @@ func (l *ServerLogger) Debug(msg string, fields gobgpLog.Fields) {
 	}
 	logAttrs = append(
 		logAttrs,
-		types.InstanceLogField, l.name,
 		types.LocalASNLogField, l.asn,
 		types.ComponentLogField, l.component,
 		types.SubsysLogField, l.subsys,
