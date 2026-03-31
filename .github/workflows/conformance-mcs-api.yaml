@@ -78,7 +78,7 @@ jobs:
     runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        uses: cilium/cilium/.github/actions/set-commit-status@main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -113,10 +113,9 @@ jobs:
           - name: '1'
     steps:
       - name: Set commit status to pending
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        uses: cilium/cilium/.github/actions/set-commit-status@main
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: pending
 
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
