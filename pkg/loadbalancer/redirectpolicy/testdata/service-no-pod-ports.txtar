@@ -1,0 +1,137 @@
+hive start
+
+# Add the service backend pod, service and EndpointSlice. The pod does not
+# declare any container ports, but the EndpointSlice still carries the
+# resolved backend ports.
+k8s/add pod.yaml service.yaml endpointslice.yaml
+db/cmp services services-before.table
+
+# Add a service-based local redirect policy that selects the same pod.
+k8s/add lrp-svc.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services-after.table
+db/cmp frontends frontends-after.table
+db/cmp backends backends-after.table
+
+-- lrp.table --
+Name           Type     FrontendType                Frontends
+test/lrp-svc   service  all
+
+-- services-before.table --
+Name       Source
+test/echo  k8s
+
+-- services-after.table --
+Name                          Source
+test/echo                     k8s
+test/lrp-svc:local-redirect   k8s
+
+-- frontends-after.table --
+Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+169.254.169.254:7070/UDP   ClusterIP   test/echo     udp        10.244.2.1:70/UDP     test/lrp-svc:local-redirect   Done
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+
+-- backends-after.table --
+Service                      Address            NodeName
+test/echo                    10.244.2.1:70/UDP  testnode
+test/echo                    10.244.2.1:80/TCP  testnode
+test/lrp-svc:local-redirect  10.244.2.1:70/UDP
+test/lrp-svc:local-redirect  10.244.2.1:80/TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: echo
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2019-07-08T09:41:59Z"
+    status: "True"
+    type: Ready
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 169.254.169.254
+  ports:
+  - name: udp
+    port: 7070
+    protocol: UDP
+    targetPort: 70
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-1
+  namespace: test
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: udp
+  port: 70
+  protocol: UDP
+- name: tcp
+  port: 80
+  protocol: TCP
+
+-- lrp-svc.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: lrp-svc
+  namespace: test
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: echo
+      namespace: test
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: echo
+    toPorts:
+      - port: "80"
+        name: "tcp"
+        protocol: TCP
+      - port: "70"
+        name: "udp"
+        protocol: UDP
