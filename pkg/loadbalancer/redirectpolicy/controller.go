@@ -383,7 +383,6 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	switch lrp.FrontendType {
 	case svcFrontendAll, svcFrontendSinglePort, addrFrontendSinglePort:
 		portNameMatches = nil
-
 	}
 
 	// Function to compare whether the new Backend produced in the loop below
@@ -397,19 +396,51 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 
 	// Construct the Backend from matching pods.
 	beps := make([]lb.Backend, 0, len(pods))
-	lrpServiceName := lrp.RedirectServiceName()
+
+	portNumberMatches := func(addr lb.L3n4Addr) bool {
+		return slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
+			return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
+		})
+	}
+
+	appendBackend := func(be lb.Backend) {
+		if portNameMatches != nil && !slices.ContainsFunc(be.PortNames, portNameMatches) {
+			return
+		}
+		if !portNumberMatches(be.Address) {
+			return
+		}
+		beps = append(beps, lb.Backend{
+			Address:   be.Address,
+			State:     be.State,
+			PortNames: slices.Clone(be.PortNames),
+			// NOTE: Update [compareBackendParams] if more fields are added here.
+		})
+	}
+
+	serviceBackendsByAddr := map[cmtypes.AddrCluster][]*lb.Backend{}
+	if lrp.LRPType == lrpConfigTypeSvc {
+		serviceBackends, _ := lb.ListBackendsByServiceName(wtxn, c.p.Writer.Backends(), lrp.ServiceID)
+		preferred := lb.PreferredBackendsByAddress(serviceBackends)
+		for be := range preferred {
+			addrCluster := be.Address.AddrCluster()
+			serviceBackendsByAddr[addrCluster] = append(serviceBackendsByAddr[addrCluster], be)
+		}
+	}
+
+	hasServiceBackendFallback := len(serviceBackendsByAddr) != 0
 	for _, podInfo := range pods {
+		if len(podInfo.addrs) == 0 && hasServiceBackendFallback {
+			for _, podIP := range podInfo.ips {
+				for _, be := range serviceBackendsByAddr[podIP] {
+					appendBackend(*be)
+				}
+			}
+			continue
+		}
+
 		for _, addr := range podInfo.addrs {
-			if portNameMatches != nil && !portNameMatches(addr.portName) {
-				continue
-			}
-			portNumberMatches := slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
-				return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
-			})
-			if !portNumberMatches {
-				continue
-			}
-			beps = append(beps, lb.Backend{
+			appendBackend(lb.Backend{
 				Address: addr.L3n4Addr,
 				State:   lb.BackendStateActive,
 				PortNames: func() []string {
@@ -418,7 +449,6 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 					}
 					return []string{}
 				}(),
-				// NOTE: Update [compareBackendParams] if more fields are added here.
 			})
 		}
 	}
@@ -426,6 +456,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	// Validate whether an update is actually needed to avoid no-op changes to the tables.
 	newCount := len(beps)
 	orphanCount := 0
+	lrpServiceName := lrp.RedirectServiceName()
 	bes, _ := lb.ListBackendsByServiceName(wtxn, c.p.Writer.Backends(), lrpServiceName)
 	preferred := lb.PreferredBackendsByAddress(bes)
 	for be := range preferred {
@@ -616,17 +647,20 @@ type podAddr struct {
 	portName string
 }
 
-func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
+func podAddrs(pod *slim_corev1.Pod) (ips []cmtypes.AddrCluster, addrs []podAddr) {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) == 0 {
 		// IPs not available yet.
-		return nil
+		return nil, nil
 	}
 	for _, podIP := range podIPs {
 		addrCluster, err := cmtypes.ParseAddrCluster(podIP)
 		if err != nil {
 			continue
 		}
+		ips = append(ips, addrCluster)
+	}
+	for _, addrCluster := range ips {
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
 				l4addr := lb.NewL4Addr(lb.L4Type(port.Protocol), uint16(port.ContainerPort))
@@ -643,22 +677,31 @@ func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
 			}
 		}
 	}
-	return
+	return ips, addrs
 }
 
 // podInfo is the condensed data from the pod relevant for the LRP processing.
 type podInfo struct {
 	namespace      string
 	namespacedName string
-	addrs          []podAddr
-	labels         map[string]string
+	// ips identify the selected pod independently of declared container
+	// ports. ServiceMatcher LRPs use these to match selected pods back to
+	// reflected service backends when the pod spec does not declare ports.
+	ips []cmtypes.AddrCluster
+	// addrs are the concrete backend addresses derived from the pod spec.
+	// Address-based LRPs rely on these directly, and ServiceMatcher LRPs use
+	// them when container ports are declared.
+	addrs  []podAddr
+	labels map[string]string
 }
 
 func getPodInfo(pod daemonk8s.LocalPod) podInfo {
+	ips, addrs := podAddrs(pod.Pod)
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
-		addrs:          podAddrs(pod.Pod),
+		ips:            ips,
+		addrs:          addrs,
 		labels:         pod.Labels,
 	}
 }
