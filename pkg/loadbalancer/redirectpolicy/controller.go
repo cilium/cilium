@@ -97,7 +97,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	// objects.
 	const waitTime = 100 * time.Millisecond
 
-	// Grab table init watch channels for the inputs. Once they allclose the
+	// Grab table init watch channels for the inputs. Once they all close the
 	// Table[desiredSkipLB] is marked initialized to allow pruning the BPF map.
 	txn := c.p.DB.ReadTxn()
 	_, podsInitWatch := c.p.Pods.Initialized(txn)
@@ -300,11 +300,13 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 		targetName := lrp.ServiceID
 		fes, watch := c.p.Writer.Frontends().ListWatch(wtxn, lb.FrontendByServiceName(targetName))
 		ws.Add(watch)
+
 		for fe := range fes {
 			// Only ClusterIP services can be redirected.
 			if fe.Type != lb.SVCTypeClusterIP {
 				continue
 			}
+
 			if shouldRedirectFrontend(c.p.Log, lrp, fe, pods) {
 				c.p.Log.Debug("Redirecting frontend",
 					logfields.Frontend, fe,
@@ -395,19 +397,72 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 
 	// Construct the Backend from matching pods.
 	beps := make([]lb.Backend, 0, len(pods))
-	lrpServiceName := lrp.RedirectServiceName()
+
+	lrpIncludesBackendPort := func(addr lb.L3n4Addr) bool {
+		// In the case of a single-port LRP, only compare against the first backend port.
+		if lrp.isSinglePort() {
+			return lrp.BackendPorts[0].l4Addr.Port == addr.Port() &&
+				lrp.BackendPorts[0].l4Addr.Protocol == addr.Protocol()
+		}
+		return slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
+			return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
+		})
+	}
+
+	appendBackend := func(be lb.Backend) {
+		if portNameMatches != nil && !slices.ContainsFunc(be.PortNames, portNameMatches) {
+			return
+		}
+		if !lrpIncludesBackendPort(be.Address) {
+			return
+		}
+
+		bePortNames := []string{}
+
+		// If we're not matching port names, we don't clone the backend port name.
+		// Otherwise, the loadbalancer Writer will include the portName when mapping
+		// backends to our LRP pseudo-service.
+		if portNameMatches != nil {
+			bePortNames = slices.Clone(be.PortNames)
+		}
+
+		beps = append(beps, lb.Backend{
+			Address:   be.Address,
+			State:     be.State,
+			PortNames: bePortNames,
+			// NOTE: Update [compareBackendParams] if more fields are added here.
+		})
+	}
+
 	for _, podInfo := range pods {
+		// If there are no existing ports associated with this Pod, then perhaps
+		// there's no containerPorts in the pod specs. See if we can reconstruct
+		// the backend pod addresses.
+		if len(podInfo.addrs) == 0 {
+			// We only reconstruct backend port information if this is a single
+			// port LRP which doesn't match on port names. This provides
+			// consistency with earlier versions of Cilium.
+			if portNameMatches != nil {
+				continue
+			}
+
+			for _, podIP := range podInfo.ips {
+				beAddr := lb.NewL3n4Addr(
+					lrp.BackendPorts[0].l4Addr.Protocol,
+					podIP,
+					lrp.BackendPorts[0].l4Addr.Port,
+					lb.ScopeExternal)
+				appendBackend(lb.Backend{
+					Address:   beAddr,
+					State:     lb.BackendStateActive,
+					PortNames: []string{},
+				})
+			}
+			continue
+		}
+
 		for _, addr := range podInfo.addrs {
-			if portNameMatches != nil && !portNameMatches(addr.portName) {
-				continue
-			}
-			portNumberMatches := slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
-				return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
-			})
-			if !portNumberMatches {
-				continue
-			}
-			beps = append(beps, lb.Backend{
+			appendBackend(lb.Backend{
 				Address: addr.L3n4Addr,
 				State:   lb.BackendStateActive,
 				PortNames: func() []string {
@@ -416,7 +471,6 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 					}
 					return []string{}
 				}(),
-				// NOTE: Update [compareBackendParams] if more fields are added here.
 			})
 		}
 	}
@@ -424,6 +478,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 	// Validate whether an update is actually needed to avoid no-op changes to the tables.
 	newCount := len(beps)
 	orphanCount := 0
+	lrpServiceName := lrp.RedirectServiceName()
 	bes, _ := lb.ListBackendsByServiceName(wtxn, c.p.Writer.Backends(), lrpServiceName)
 	preferred := lb.PreferredBackendsByAddress(bes)
 	for be := range preferred {
@@ -468,8 +523,8 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 	}
 
 	// 1. First match the frontend based on "RedirectFrontend.ToPorts"
-	// 1.1. All frontends match if no ports are given
-	match := len(lrp.FrontendMappings) == 0
+	// 1.1. All frontends match only when no ports were specified in redirectFrontend.
+	match := lrp.FrontendType == svcFrontendAll
 
 	// 1.2. Frontend matches if the port number matches
 	if !match {
@@ -480,6 +535,7 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 			}
 		}
 	}
+
 	if !match {
 		// RedirectFrontend.ToPorts mismatch, skip.
 		if log != nil {
@@ -497,9 +553,40 @@ func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.F
 	// single port (as that doesn't need to be named).
 	match = len(lrp.BackendPorts) <= 1
 
-	// 2.2. Frontend matches if there is a backend whose port name matches.
+	// 2.2. Frontend matches if there is a single frontend port, which filters multiple backend
+	// ports. The mapping will be made to the first backend entry, ignoring name. Note that the
+	// protocol has already been validated in the LRP parser, but we check it again here
+	// for safety.
 	if !match {
+		match = len(lrp.FrontendMappings) == 1 &&
+			lrp.FrontendMappings[0].feAddr.Protocol() == lrp.BackendPorts[0].l4Addr.Protocol
+	}
+
+	// 2.3. Frontend matches if there is a backend whose port name matches.
+	if !match && lrp.requiresPortNameMatch() {
 		_, match = lrp.BackendPortsByPortName[fe.PortName]
+
+		// The port must also be present in at least one pod to be viable for redirect.
+		// While the check itself is on portName, we verify protocols and address families
+		// too, to ensure we don't redirect across boundaries.
+		//
+		// TODO: This may perform poorly with a large range of pods. Perhaps it would be
+		// better to proactively map enabled ports and protocols when podInfo is being
+		// constructed, that way this linear search could be replaced with a lookup.
+		if match {
+			podIncludesBackendPort := func(pod *podInfo) bool {
+				return slices.ContainsFunc(pod.addrs, func(addr podAddr) bool {
+					return addr.Compatible(fe.Address) &&
+						addr.portName == string(fe.PortName)
+				})
+			}
+			for _, pod := range pods {
+				match = podIncludesBackendPort(&pod)
+				if match {
+					break
+				}
+			}
+		}
 	}
 
 	if !match {
@@ -614,17 +701,20 @@ type podAddr struct {
 	portName string
 }
 
-func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
+func podAddrs(pod *slim_corev1.Pod) (ips []cmtypes.AddrCluster, addrs []podAddr) {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) == 0 {
 		// IPs not available yet.
-		return nil
+		return nil, nil
 	}
 	for _, podIP := range podIPs {
 		addrCluster, err := cmtypes.ParseAddrCluster(podIP)
 		if err != nil {
 			continue
 		}
+		ips = append(ips, addrCluster)
+	}
+	for _, addrCluster := range ips {
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
 				l4addr := lb.NewL4Addr(lb.L4Type(port.Protocol), uint16(port.ContainerPort))
@@ -641,22 +731,31 @@ func podAddrs(pod *slim_corev1.Pod) (addrs []podAddr) {
 			}
 		}
 	}
-	return
+	return ips, addrs
 }
 
 // podInfo is the condensed data from the pod relevant for the LRP processing.
 type podInfo struct {
 	namespace      string
 	namespacedName string
-	addrs          []podAddr
-	labels         map[string]string
+	// ips identify the selected pod independently of declared container
+	// ports. ServiceMatcher LRPs use these to match selected pods back to
+	// reflected service backends when the pod spec does not declare ports.
+	ips []cmtypes.AddrCluster
+	// addrs are the concrete backend addresses derived from the pod spec.
+	// Address-based LRPs rely on these directly, and ServiceMatcher LRPs use
+	// them when container ports are declared.
+	addrs  []podAddr
+	labels map[string]string
 }
 
 func getPodInfo(pod k8sTables.LocalPod) podInfo {
+	ips, addrs := podAddrs(pod.Pod)
 	return podInfo{
 		namespace:      pod.Namespace,
 		namespacedName: pod.Namespace + "/" + pod.Name,
-		addrs:          podAddrs(pod.Pod),
+		ips:            ips,
+		addrs:          addrs,
 		labels:         pod.Labels,
 	}
 }
