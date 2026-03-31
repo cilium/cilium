@@ -39,14 +39,19 @@ type cidrPool struct {
 	ipAllocators []*ipallocator.Range
 	released     map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
 	removed      map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
+	// allowFirstLastIPs, when true, makes the pool include the first and last
+	// IPs of each CIDR (normally reserved as network/broadcast). This is used
+	// for delegated prefixes where the entire range is exclusively assigned.
+	allowFirstLastIPs bool
 }
 
 // newCIDRPool creates a new CIDR pool.
-func newCIDRPool(logger *slog.Logger) *cidrPool {
+func newCIDRPool(logger *slog.Logger, allowFirstLastIPs bool) *cidrPool {
 	return &cidrPool{
-		logger:   logger,
-		released: map[string]struct{}{},
-		removed:  map[string]struct{}{},
+		logger:            logger,
+		released:          map[string]struct{}{},
+		removed:           map[string]struct{}{},
+		allowFirstLastIPs: allowFirstLastIPs,
 	}
 }
 
@@ -294,12 +299,16 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 	}
 
 	// Create and add new IP allocators to newIPAllocators.
+	var rangeOpts []ipallocator.CIDRRangeOption
+	if p.allowFirstLastIPs {
+		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstLastIPs())
+	}
 	for _, cidrNet := range cidrNets {
 		cidrStr := cidrNet.String()
 		if _, ok := existingAllocators[cidrStr]; ok {
 			continue
 		}
-		ipAllocator := ipallocator.NewCIDRRange(cidrNet)
+		ipAllocator := ipallocator.NewCIDRRange(cidrNet, rangeOpts...)
 		if ipAllocator.Free() == 0 {
 			p.logger.Error(
 				"skipping too-small CIDR",

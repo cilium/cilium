@@ -601,10 +601,10 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 	if !ok {
 		pool = &poolPair{}
 		if m.ipv4Enabled {
-			pool.v4 = newCIDRPool(m.logger)
+			pool.v4 = newCIDRPool(m.logger, false)
 		}
 		if m.ipv6Enabled {
-			pool.v6 = newCIDRPool(m.logger)
+			pool.v6 = newCIDRPool(m.logger, false)
 		}
 	}
 
