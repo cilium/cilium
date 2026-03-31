@@ -13,6 +13,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
 jobs:
   merge-upload:
     if: ${{ always() && inputs.result != 'skipped' }}
@@ -59,14 +64,14 @@ jobs:
     steps:
       - name: Set final commit status
         if: ${{ inputs.result != 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        uses: cilium/cilium/.github/actions/set-commit-status@main
         with:
           sha: ${{ inputs.sha }}
           status: ${{ inputs.result == 'abandoned' && 'failure' || inputs.result }}
 
       - name: Set final commit status
         if: ${{ inputs.result == 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        uses: cilium/cilium/.github/actions/set-commit-status@main
         with:
           sha: ${{ inputs.sha }}
           status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
