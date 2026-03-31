@@ -46,6 +46,9 @@ __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto,
 		/* Register with both scopes: */
 		svc_key.proto = proto;
 		svc_key.scope = LB_LOOKUP_SCOPE_INT;
+		/* For external IPs, only the EXT-scope entry has backends. */
+		if (lb4_svc_is_external_ip(&svc_value))
+			svc_value.count = 0;
 		map_update_elem(&cilium_lb4_services_v2, &svc_key, &svc_value, BPF_ANY);
 	}
 }

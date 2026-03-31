@@ -14,6 +14,14 @@
 # define HOOK			netdev_receive_packet
 
 #include "lib/bpf_host.h"
+#elif defined(EAST_WEST_TEST)
+# define ENABLE_SOCKET_LB_HOST_ONLY	1
+# define CLIENT_IP			v4_pod_two
+# define HOOK				pod_send_packet
+
+#include "lib/bpf_lxc.h"
+#else
+# error "Test direction not defined"
 #endif
 
 #define CLIENT_PORT		tcp_src_one
@@ -29,6 +37,7 @@
 #define BACKEND_IFINDEX		11
 #define BACKEND_ID		124
 
+#include "lib/policy.h"
 #include "lib/endpoint.h"
 #include "lib/lb.h"
 #include "scapy.h"
@@ -55,7 +64,17 @@ const __u8 lb4_ns_external_ip_post_dnat[] = {
 	SCAPY_BUF_BYTES(lb4_ns_external_ip_post_dnat)
 };
 
-/* Test that a request for an ExternalIP service is handled correctly */
+/* packet defined in ./scapy/lb_pkt_defs.py */
+const __u8 lb4_ew_external_ip[] = {
+	SCAPY_BUF_BYTES(lb4_ew_external_ip)
+};
+
+/* Test that a request for an ExternalIP service is handled correctly:
+ * - For North-South traffic, the packet should be accepted and DNATed to the
+ *   backend, and a conntrack entry should be created for the connection.
+ * - For East-West traffic, the packet should be dropped and no conntrack entry
+ *   should be created for the connection.
+ */
 PKTGEN("tc", "tc_lb4_external_ips")
 int lb4_external_ips_pktgen(struct __ctx_buff *ctx)
 {
@@ -65,6 +84,8 @@ int lb4_external_ips_pktgen(struct __ctx_buff *ctx)
 
 #ifdef NORTH_SOUTH_TEST
 	scapy_push_data(&builder, lb4_ns_external_ip, sizeof(lb4_ns_external_ip));
+#else
+	scapy_push_data(&builder, lb4_ew_external_ip, sizeof(lb4_ew_external_ip));
 #endif
 
 	pktgen__finish(&builder);
@@ -75,6 +96,8 @@ int lb4_external_ips_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_lb4_external_ips")
 int lb4_external_ips_setup(struct __ctx_buff *ctx)
 {
+	policy_add_egress_allow_all_entry();
+
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
 			      (__u8 *)mac_one, (__u8 *)mac_two);
 	lb_v4_add_service_with_flags(FRONTEND_IP, FRONTEND_PORT,
@@ -118,6 +141,26 @@ int lb4_external_ips_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(ct_entry);
 	assert(ct_entry->packets == 1);
 	assert(ct_entry->bytes == sizeof(lb4_ns_external_ip_post_dnat));
+#else
+	/* Ensure packet is dropped. */
+	assert(*status_code == CTX_ACT_DROP);
+
+	/* Ensure packet is not DNATed. */
+	ASSERT_CTX_BUF_OFF("lb4_ew_external_ip", "Ether", ctx, sizeof(__u32),
+			   lb4_ew_external_ip, sizeof(lb4_ew_external_ip));
+
+	/* Ensure drop metrics are updated accordingly. */
+	struct metrics_key metric_key = {
+		.reason = -DROP_NO_SERVICE,
+		.dir = METRIC_EGRESS,
+	};
+	__u64 count = 1;
+
+	assert_metrics_count(metric_key, count);
+
+	/* Ensure CT entry is not populated (SVC). */
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	assert(!ct_entry);
 #endif
 
 	test_finish();

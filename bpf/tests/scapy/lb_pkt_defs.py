@@ -65,6 +65,22 @@ lb6_ns_external_ip_post_dnat = (
     Raw("S"*1)
 )
 
+# Packets for testing E/W LB path with ExternalIPs.
+
+lb4_ew_external_ip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_two, dst=v4_ext_two) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
+lb6_ew_external_ip = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_two, dst=v6_ext_node_two) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw("S"*1)
+)
+
 # Packets for testing N/S LB path with fragments.
 
 # Create two TCP fragments over IPv4:
