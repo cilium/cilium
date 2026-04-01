@@ -1009,23 +1009,49 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 	return __lb6_lookup_service(key);
 }
 
+/* lb6_lookup_wildcard_service - see lb4_lookup_wildcard_service. */
 static __always_inline const struct lb6_service *
-lb6_lookup_wildcard_nodeport_service(struct lb6_key *key __maybe_unused)
+lb6_lookup_wildcard_service(struct lb6_key *key __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	const struct remote_endpoint_info *info;
+	bool in_nodeport_range;
 	__u16 service_port;
 
-	service_port = bpf_ntohs(key->dport);
-	if (service_port < CONFIG(nodeport_port_min) || service_port > CONFIG(nodeport_port_max))
+	info = lookup_ip6_remote_endpoint(&key->address, 0);
+	if (!info)
 		return NULL;
 
-	info = lookup_ip6_remote_endpoint(&key->address, 0);
-	if (info && (info->sec_identity == HOST_ID ||
-		     (identity_is_remote_node(info->sec_identity) &&
-		      !info->flag_remote_cluster))) {
-		memset(&key->address, 0, sizeof(key->address));
-		return lb6_lookup_service(key, true);
+	service_port = bpf_ntohs(key->dport);
+	in_nodeport_range = service_port >= CONFIG(nodeport_port_min) &&
+			    service_port <= CONFIG(nodeport_port_max);
+
+	if (in_nodeport_range) {
+		/* NodePort: accept HOST_ID and remote nodes */
+		if (info->sec_identity != HOST_ID &&
+		    !(identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))
+			return NULL;
+	} else {
+		/* HostPort: accept HOST_ID only */
+		if (info->sec_identity != HOST_ID)
+			return NULL;
+	}
+
+	memset(&key->address, 0, sizeof(key->address));
+	{
+		const struct lb6_service *svc;
+
+		svc = lb6_lookup_service(key, true);
+		if (!svc)
+			return NULL;
+
+		if (in_nodeport_range && !lb6_svc_is_nodeport(svc))
+			return NULL;
+		if (!in_nodeport_range && !lb6_svc_is_hostport(svc))
+			return NULL;
+
+		return svc;
 	}
 #endif
 
@@ -1753,23 +1779,64 @@ lb4_lookup_service(struct lb4_key *key, const bool east_west)
 	return __lb4_lookup_service(key);
 }
 
+/* lb4_lookup_wildcard_service - Wildcard service lookup for NodePort and HostPort.
+ *
+ * Performs a single ipcache lookup on the destination address, then checks
+ * whether the packet matches either a NodePort or HostPort wildcard service:
+ *
+ * - NodePort: dport is inside the NodePort range, and the destination is a
+ *   local host address (HOST_ID) or a remote node.
+ * - HostPort: dport is outside the NodePort range, and the destination is a
+ *   local host address (HOST_ID) only.
+ *
+ * On match, zeros the address in @key and performs a wildcard service lookup.
+ */
 static __always_inline const struct lb4_service *
-lb4_lookup_wildcard_nodeport_service(struct lb4_key *key __maybe_unused)
+lb4_lookup_wildcard_service(struct lb4_key *key __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	const struct remote_endpoint_info *info;
+	bool in_nodeport_range;
 	__u16 service_port;
 
-	service_port = bpf_ntohs(key->dport);
-	if (service_port < CONFIG(nodeport_port_min) || service_port > CONFIG(nodeport_port_max))
+	info = lookup_ip4_remote_endpoint(key->address, 0);
+	if (!info)
 		return NULL;
 
-	info = lookup_ip4_remote_endpoint(key->address, 0);
-	if (info && (info->sec_identity == HOST_ID ||
-		     (identity_is_remote_node(info->sec_identity) &&
-		      !info->flag_remote_cluster))) {
-		key->address = 0;
-		return lb4_lookup_service(key, true);
+	service_port = bpf_ntohs(key->dport);
+	in_nodeport_range = service_port >= CONFIG(nodeport_port_min) &&
+			    service_port <= CONFIG(nodeport_port_max);
+
+	if (in_nodeport_range) {
+		/* NodePort: accept HOST_ID and remote nodes */
+		if (info->sec_identity != HOST_ID &&
+		    !(identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))
+			return NULL;
+	} else {
+		/* HostPort: accept HOST_ID only */
+		if (info->sec_identity != HOST_ID)
+			return NULL;
+	}
+
+	key->address = 0;
+	{
+		const struct lb4_service *svc;
+
+		svc = lb4_lookup_service(key, true);
+		if (!svc)
+			return NULL;
+
+		/* Validate the service type matches the lookup path: a NodePort
+		 * range port must find a NodePort service, and a non-NodePort
+		 * range port must find a HostPort service.
+		 */
+		if (in_nodeport_range && !lb4_svc_is_nodeport(svc))
+			return NULL;
+		if (!in_nodeport_range && !lb4_svc_is_hostport(svc))
+			return NULL;
+
+		return svc;
 	}
 #endif
 
