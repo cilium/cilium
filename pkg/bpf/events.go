@@ -174,7 +174,7 @@ func (eb *eventsBuffer) eventIsValid(e Event) bool {
 type EventCallbackFunc func(Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
-	eb.buffer.IterateValid(eb.eventIsValid, func(event Event) {
+	for event := range eb.buffer.IterateValid(eb.eventIsValid) {
 		callback(event)
-	})
+	}
 }

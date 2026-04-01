@@ -4,6 +4,7 @@
 package container
 
 import (
+	"iter"
 	"sort"
 )
 
@@ -36,8 +37,8 @@ func (o *OrderedRingBuffer[T]) firstValidIndex(isValid func(T) bool) int {
 // IterateValid calls callback on each element starting from the first element
 // that satisfies isValid. isValid must be monotone (false-then-true) over the
 // insertion-ordered sequence.
-func (o *OrderedRingBuffer[T]) IterateValid(isValid func(T) bool, callback func(T)) {
-	o.IterateFrom(o.firstValidIndex(isValid), callback)
+func (o *OrderedRingBuffer[T]) IterateValid(isValid func(T) bool) iter.Seq[T] {
+	return o.IterateFrom(o.firstValidIndex(isValid))
 }
 
 // Compact removes the invalid prefix from the buffer. It is assumed that if

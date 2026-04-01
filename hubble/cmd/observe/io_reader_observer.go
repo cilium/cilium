@@ -82,7 +82,6 @@ type ioReaderClient struct {
 
 	// Used for --last
 	buffer *container.RingBuffer[*observerpb.GetFlowsResponse]
-	resps  []*observerpb.GetFlowsResponse
 	// Used for --first/--last
 	flowsReturned uint64
 }
@@ -163,24 +162,10 @@ func (c *ioReaderClient) returnedEnoughFlows() bool {
 }
 
 func (c *ioReaderClient) popFromLastBuffer() *observerpb.GetFlowsResponse {
-	// Handle --last by iterating over our FIFO and returning one item each time.
-	if c.isLast() {
-		if len(c.resps) == 0 {
-			// Iterate over the buffer and store them in a slice, because we cannot
-			// index into the ring buffer itself
-			// TODO: Add the ability to index into the ring buffer and we could avoid
-			// this copy.
-			c.buffer.Iterate(func(i *observerpb.GetFlowsResponse) {
-				c.resps = append(c.resps, i)
-			})
-		}
-
-		// return the next element from the buffered results
-		if len(c.resps) > int(c.flowsReturned) {
-			resp := c.resps[c.flowsReturned]
-			c.flowsReturned++
-			return resp
-		}
+	if c.isLast() && int(c.flowsReturned) < c.buffer.Size() {
+		resp := c.buffer.At(int(c.flowsReturned))
+		c.flowsReturned++
+		return resp
 	}
 	return nil
 }

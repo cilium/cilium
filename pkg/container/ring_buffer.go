@@ -3,6 +3,8 @@
 
 package container
 
+import "iter"
+
 // RingBuffer is a generic ring buffer implementation.
 // RingBuffer is implemented using slices. From testing, this should
 // be faster than linked-list implementations, and also allows for efficient
@@ -49,15 +51,19 @@ func (eb *RingBuffer[T]) At(i int) T {
 }
 
 // IterateFrom calls callback on each element starting at logical index startIdx.
-func (eb *RingBuffer[T]) IterateFrom(startIdx int, callback func(T)) {
-	for i := startIdx; i < len(eb.buffer); i++ {
-		callback(eb.buffer[eb.mapIndex(i)])
+func (eb *RingBuffer[T]) IterateFrom(startIdx int) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for i := startIdx; i < len(eb.buffer); i++ {
+			if !yield(eb.buffer[eb.mapIndex(i)]) {
+				return
+			}
+		}
 	}
 }
 
 // Iterate calls callback on each element in insertion order.
-func (eb *RingBuffer[T]) Iterate(callback func(T)) {
-	eb.IterateFrom(0, callback)
+func (eb *RingBuffer[T]) Iterate() iter.Seq[T] {
+	return eb.IterateFrom(0)
 }
 
 // maps index in [0:len(buffer)) to the actual index in buffer.
