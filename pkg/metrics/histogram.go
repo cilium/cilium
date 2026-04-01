@@ -49,6 +49,15 @@ func histogramSampleCount(histogram []histogramBucket) uint64 {
 	return histogram[len(histogram)-1].cumulativeCount
 }
 
+// HistogramQuantiles calculates p50, p90, and p99 quantiles from a Prometheus
+// Histogram proto message. These values are suitable for display and API output.
+func HistogramQuantiles(h *dto.Histogram) (p50, p90, p99 float64) {
+	b := convertHistogram(h)
+	return getHistogramQuantile(b, 0.50),
+		getHistogramQuantile(b, 0.90),
+		getHistogramQuantile(b, 0.99)
+}
+
 // getHistogramQuantile calculates quantile from the Prometheus Histogram message.
 // For example: getHistogramQuantile(h, 0.95) returns the 95th quantile.
 func getHistogramQuantile(histogram []histogramBucket, quantile float64) float64 {
