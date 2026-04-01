@@ -164,6 +164,88 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	}
 }
 
+func TestReadRestoreInventory(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx := t.Context()
+	s := setupEndpointSuite(t)
+	epsWanted, _ := s.createEndpoints(t)
+	tmpDir := t.TempDir()
+
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	var wanted []RestoreInventoryItem
+	for i, ep := range epsWanted {
+		require.NotNil(t, ep)
+
+		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+		require.NoError(t, os.MkdirAll(fullDirName, 0o777))
+
+		if i == 0 {
+			ep.properties[PropertyFakeEndpoint] = true
+		}
+
+		require.NoError(t, ep.writeHeaderfile(fullDirName))
+
+		wanted = append(wanted, RestoreInventoryItem{
+			Directory:    ep.DirectoryPath(),
+			EndpointID:   ep.ID,
+			HostIfName:   ep.ifName,
+			K8sNamespace: ep.K8sNamespace,
+			K8sPodName:   ep.K8sPodName,
+			IsFake:       i == 0,
+		})
+	}
+
+	inventory, err := ReadRestoreInventory(ctx, logger, tmpDir)
+	require.NoError(t, err)
+	require.Len(t, inventory.Items, len(wanted))
+
+	sort.Slice(inventory.Items, func(i, j int) bool {
+		return inventory.Items[i].EndpointID < inventory.Items[j].EndpointID
+	})
+	sort.Slice(wanted, func(i, j int) bool {
+		return wanted[i].EndpointID < wanted[j].EndpointID
+	})
+
+	require.Equal(t, wanted, inventory.Items)
+}
+
+func TestReadRestoreInventoryRemovesIncompleteRestoreDirs(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx := t.Context()
+	s := setupEndpointSuite(t)
+	eps, _ := s.createEndpoints(t)
+	ep := eps[0]
+	require.NotNil(t, ep)
+	tmpDir := t.TempDir()
+
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+	require.NoError(t, os.MkdirAll(fullDirName, 0o777))
+	require.NoError(t, ep.writeHeaderfile(fullDirName))
+
+	nextDir := filepath.Join(tmpDir, ep.NextDirectoryPath())
+	require.NoError(t, os.MkdirAll(nextDir, 0o777))
+	require.NoError(t, ep.writeHeaderfile(nextDir))
+
+	inventory, err := ReadRestoreInventory(ctx, logger, tmpDir)
+	require.NoError(t, err)
+	require.Len(t, inventory.Items, 1)
+	require.Equal(t, ep.DirectoryPath(), inventory.Items[0].Directory)
+	require.NoDirExists(t, nextDir)
+}
+
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	logger := hivetest.Logger(t)
 	s := setupEndpointSuite(t)

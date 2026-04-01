@@ -46,6 +46,107 @@ type EndpointParser interface {
 	ParseEndpoint(epJSON []byte) (*Endpoint, error)
 }
 
+// RestoreInventory contains the lightweight set of restore candidates
+// discovered from persisted endpoint state directories.
+type RestoreInventory struct {
+	Items []RestoreInventoryItem
+}
+
+// RestoreInventoryItem contains the persisted fields needed to reason about a
+// restore candidate without constructing a full Endpoint.
+type RestoreInventoryItem struct {
+	Directory    string
+	EndpointID   uint16
+	HostIfName   string
+	K8sNamespace string
+	K8sPodName   string
+	IsFake       bool
+}
+
+// restoreInventoryEndpoint is a lightweight view of the persisted endpoint
+// state used for restore inventory scanning. Its fields are intentionally
+// aligned with the on-disk serialized endpoint fields so we can decode only
+// the data needed for inventory construction without full Endpoint parsing.
+type restoreInventoryEndpoint struct {
+	ID           uint16
+	IfName       string
+	K8sNamespace string
+	K8sPodName   string
+	Properties   map[string]any
+}
+
+func (rie restoreInventoryEndpoint) toRestoreInventoryItem(directory string) RestoreInventoryItem {
+	return RestoreInventoryItem{
+		Directory:    directory,
+		EndpointID:   rie.ID,
+		HostIfName:   rie.IfName,
+		K8sNamespace: rie.K8sNamespace,
+		K8sPodName:   rie.K8sPodName,
+		IsFake:       isRestoreInventoryEndpointFake(rie.Properties),
+	}
+}
+
+// ReadRestoreInventory returns lightweight restore inventory entries for the
+// endpoint state directories discovered under basePath.
+func ReadRestoreInventory(ctx context.Context, logger *slog.Logger, basePath string) (RestoreInventory, error) {
+	dirFiles, err := os.ReadDir(basePath)
+	if err != nil {
+		return RestoreInventory{}, err
+	}
+
+	eptsDirNames := FilterEPDir(dirFiles)
+	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
+
+	if len(incompleteEPDirNames) > 0 {
+		for _, epDirName := range incompleteEPDirNames {
+			fullDirName := filepath.Join(basePath, epDirName)
+			logger.Info(
+				fmt.Sprintf("Found incomplete restore directory %s. Removing it...", fullDirName),
+				logfields.EndpointID, epDirName,
+			)
+			if err := os.RemoveAll(epDirName); err != nil {
+				logger.Warn(
+					fmt.Sprintf("Error while removing directory %s. Ignoring it...", fullDirName),
+					logfields.Error, err,
+					logfields.EndpointID, epDirName,
+				)
+			}
+		}
+	}
+
+	inventory := RestoreInventory{
+		Items: make([]RestoreInventoryItem, 0, len(completeEPDirNames)),
+	}
+
+	for _, epDirName := range completeEPDirNames {
+		if err := ctx.Err(); err != nil {
+			return RestoreInventory{}, err
+		}
+
+		epDir := filepath.Join(basePath, epDirName)
+		scopedLogger := logger.With(
+			logfields.EndpointID, epDirName,
+			logfields.Path, epDir,
+		)
+
+		state, err := findEndpointState(scopedLogger, epDir)
+		if err != nil {
+			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
+			continue
+		}
+
+		var restored restoreInventoryEndpoint
+		if err := json.Unmarshal(state, &restored); err != nil {
+			scopedLogger.Warn("Unable to parse the endpoint state", logfields.Error, err)
+			continue
+		}
+
+		inventory.Items = append(inventory.Items, restored.toRestoreInventoryItem(epDirName))
+	}
+
+	return inventory, nil
+}
+
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
 func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) (map[uint16]*Endpoint, int) {
@@ -191,6 +292,20 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 	}
 
 	return
+}
+
+func isRestoreInventoryEndpointFake(properties map[string]any) bool {
+	if len(properties) == 0 {
+		return false
+	}
+
+	value, ok := properties[PropertyFakeEndpoint]
+	if !ok {
+		return false
+	}
+
+	fake, ok := value.(bool)
+	return ok && fake
 }
 
 // RegenerateAfterRestore performs the following operations on the specified
