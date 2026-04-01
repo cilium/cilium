@@ -1,5 +1,6 @@
 name: 'Default CLI Test Flags'
 description: "Workflow with Cilium's CLI default test flags"
+
 inputs:
   external-cidr:
     default: "8.0.0.0/8"
@@ -36,27 +37,28 @@ inputs:
     description: "Name of the CA secret for the external target"
     required: false
   external-target-fake-dns:
+    default: "false"
     description: "Use DNS override for external targets in wildcard tests"
     required: false
   flow-validation:
-    default: false
+    default: "false"
     description: "Enable flow validation in the connectivity test"
     required: false
   hubble:
-    default: true
+    default: "true"
     description: "Enable Hubble flow gathering as part of the connectivity test"
     required: false
   include-unsafe-tests:
-    # default: false
+    default: "false"
     description: "Enable tests that perform operations that are unsafe in prod"
     required: false
   test-concurrency:
-    # default: 1
     description: "The number of concurrent test runs to be performed"
     required: false
   tests:
     description: "Comma-separated test filters to determine which tests to run"
     required: false
+
 outputs:
   test_flags:
     description: "Generated values to be used with Cilium CLI"
@@ -68,57 +70,66 @@ runs:
     - id: set-defaults
       shell: bash
       run: |
-        CONNECTIVITY_TEST_DEFAULTS=("--collect-sysdump-on-failure" \
-          "--log-code-owners" \
-          "--code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS}" \
-          "--exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}" \
-          "--external-target=${{ inputs.external-target }}" \
-          "--external-cidr=${{ inputs.external-cidr }}" \
-          "--external-ip=${{ inputs.external-ip }}" \
-          "--external-other-ip=${{ inputs.external-other-ip }}" \
-          "--hubble=${{ inputs.hubble }}" \
+        # Normalize booleans
+        to_bool() {
+          echo "$1" | tr '[:upper:]' '[:lower:]'
+        }
+
+        HUBBLE=$(to_bool "${{ inputs.hubble }}")
+        FLOW_VALIDATION=$(to_bool "${{ inputs.flow-validation }}")
+        INCLUDE_UNSAFE=$(to_bool "${{ inputs.include-unsafe-tests }}")
+        FAKE_DNS=$(to_bool "${{ inputs.external-target-fake-dns }}")
+
+        CONNECTIVITY_TEST_DEFAULTS=(
+          "--collect-sysdump-on-failure"
+          "--log-code-owners"
+          "--code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS}"
+          "--exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}"
+          "--external-target=${{ inputs.external-target }}"
+          "--external-cidr=${{ inputs.external-cidr }}"
+          "--external-ip=${{ inputs.external-ip }}"
+          "--external-other-ip=${{ inputs.external-other-ip }}"
+          "--hubble=${HUBBLE}"
         )
 
-        if [ -n "${{ inputs.external-cidrv6 }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-cidrv6=${{ inputs.external-cidrv6 }}")
-        fi
-        if [ -n "${{ inputs.external-ipv6 }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-ipv6=${{ inputs.external-ipv6 }}")
-        fi
-        if [ -n "${{ inputs.external-other-ipv6 }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-ipv6=${{ inputs.external-other-ipv6 }}")
-        fi
-        if [ -n "${{ inputs.external-other-target }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=${{ inputs.external-other-target }}")
-        fi
-        if [ -n "${{ inputs.external-target-ca-namespace }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-namespace=${{ inputs.external-target-ca-namespace }}")
-        fi
-        if [ -n "${{ inputs.external-target-ca-name }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-name=${{ inputs.external-target-ca-name }}")
-        fi
+        # Optional inputs
+        val="${{ inputs.external-cidrv6 }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-cidrv6=$val")
 
+        val="${{ inputs.external-ipv6 }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-ipv6=$val")
 
-        if [ "${{ inputs.external-target-fake-dns }}" == "true" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--external-target-fake-dns")
-        fi
+        val="${{ inputs.external-other-ipv6 }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-other-ipv6=$val")
 
-        if [ "${{ inputs.include-unsafe-tests }}" == "true" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--include-unsafe-tests")
-        fi
+        val="${{ inputs.external-other-target }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-other-target=$val")
 
-        if [ "${{ inputs.flow-validation }}" == "true" ]; then
+        val="${{ inputs.external-target-ca-namespace }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-namespace=$val")
+
+        val="${{ inputs.external-target-ca-name }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-target-ca-name=$val")
+
+        # Boolean flags
+        [ "$FAKE_DNS" = "true" ] && CONNECTIVITY_TEST_DEFAULTS+=("--external-target-fake-dns")
+        [ "$INCLUDE_UNSAFE" = "true" ] && CONNECTIVITY_TEST_DEFAULTS+=("--include-unsafe-tests")
+
+        if [ "$FLOW_VALIDATION" = "true" ]; then
           CONNECTIVITY_TEST_DEFAULTS+=("--flow-validation=enabled")
         else
           CONNECTIVITY_TEST_DEFAULTS+=("--flow-validation=disabled")
         fi
 
-        if [ -n "${{ inputs.test-concurrency }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--test-concurrency=${{ inputs.test-concurrency }}")
+        # Numeric validation
+        val="${{ inputs.test-concurrency }}"
+        if [[ -n "$val" && "$val" =~ ^[0-9]+$ ]]; then
+          CONNECTIVITY_TEST_DEFAULTS+=("--test-concurrency=$val")
         fi
 
-        if [ -n "${{ inputs.tests }}" ]; then
-          CONNECTIVITY_TEST_DEFAULTS+=("--test=${{ inputs.tests }}")
-        fi
+        # Tests filter
+        val="${{ inputs.tests }}"
+        [ -n "$val" ] && CONNECTIVITY_TEST_DEFAULTS+=("--test=$val")
 
-        echo test_flags=${CONNECTIVITY_TEST_DEFAULTS[*]} >> $GITHUB_OUTPUT
+        # Safe output
+        printf 'test_flags=%s\n' "${CONNECTIVITY_TEST_DEFAULTS[*]}" >> "$GITHUB_OUTPUT"
