@@ -246,9 +246,9 @@ image:
   # type: [null, string]
   # @schema
   override: ~
-  repository: "quay.io/cilium/cilium"
-  tag: "v1.20.0-pre.1"
-  pullPolicy: "IfNotPresent"
+  repository: "quay.io/cilium/cilium-ci"
+  tag: "latest"
+  pullPolicy: "Always"
   # cilium-digest
   digest: ""
   useDigest: false
@@ -1371,7 +1371,7 @@ certgen:
     tag: "v0.4.1"
     digest: "sha256:f0c656830e856d26b24b0e144df1f8b327d3b46748d76a630514111fc365b697"
     useDigest: true
-    pullPolicy: "IfNotPresent"
+    pullPolicy: "Always"
   # @schema
   # type: [null, integer]
   # @schema
@@ -1710,12 +1710,12 @@ hubble:
       # type: [null, string]
       # @schema
       override: ~
-      repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.20.0-pre.1"
+      repository: "quay.io/cilium/hubble-relay-ci"
+      tag: "latest"
       # hubble-relay-digest
       digest: ""
       useDigest: false
-      pullPolicy: "IfNotPresent"
+      pullPolicy: "Always"
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
     # -- Number of replicas run for the hubble-relay deployment.
@@ -1991,7 +1991,7 @@ hubble:
         tag: "v0.13.3"
         digest: "sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953"
         useDigest: true
-        pullPolicy: "IfNotPresent"
+        pullPolicy: "Always"
       # -- Hubble-ui backend security context.
       securityContext:
         # readOnlyRootFilesystem: true
@@ -2024,7 +2024,7 @@ hubble:
         tag: "v0.13.3"
         digest: "sha256:661d5de7050182d495c6497ff0b007a7a1e379648e60830dd68c4d78ae21761d"
         useDigest: true
-        pullPolicy: "IfNotPresent"
+        pullPolicy: "Always"
       # -- Hubble-ui frontend security context.
       securityContext:
         # readOnlyRootFilesystem: true
@@ -2746,7 +2746,7 @@ envoy:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
     tag: "v1.36.5-1774358537-d5f886d03852f66d9afa960ddca364ac5c31d055"
-    pullPolicy: "IfNotPresent"
+    pullPolicy: "Always"
     digest: "sha256:c61f2c4e823d6d2f2b52a2012a29a7e7aedad43719e8f604108ff1764a884616"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
@@ -3131,7 +3131,7 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.20.0-pre.1"
+    tag: "latest"
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -3141,8 +3141,8 @@ operator:
     # operator-alibabacloud-digest
     alibabacloudDigest: ""
     useDigest: false
-    pullPolicy: "IfNotPresent"
-    suffix: ""
+    pullPolicy: "Always"
+    suffix: "-ci"
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
   # -- The priority class to use for cilium-operator
@@ -3380,7 +3380,7 @@ nodeinit:
     tag: "1773335249-e45b074"
     digest: "sha256:bf1944bbdfd073bbb2b8d9c5baa315267a552aec6942102f930d2a7aa7ddc0e1"
     useDigest: true
-    pullPolicy: "IfNotPresent"
+    pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
   priorityClassName: ""
   # -- node-init update strategy
@@ -3467,12 +3467,12 @@ preflight:
     # type: [null, string]
     # @schema
     override: ~
-    repository: "quay.io/cilium/cilium"
-    tag: "v1.20.0-pre.1"
+    repository: "quay.io/cilium/cilium-ci"
+    tag: "latest"
     # cilium-digest
     digest: ""
     useDigest: false
-    pullPolicy: "IfNotPresent"
+    pullPolicy: "Always"
   envoy:
     # -- Envoy pre-flight image.
     image:
@@ -3482,7 +3482,7 @@ preflight:
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
       tag: "v1.36.5-1774358537-d5f886d03852f66d9afa960ddca364ac5c31d055"
-      pullPolicy: "IfNotPresent"
+      pullPolicy: "Always"
       digest: "sha256:c61f2c4e823d6d2f2b52a2012a29a7e7aedad43719e8f604108ff1764a884616"
       useDigest: true
   # -- The priority class to use for the preflight pod.
@@ -3751,12 +3751,12 @@ clustermesh:
       # type: [null, string]
       # @schema
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.20.0-pre.1"
+      repository: "quay.io/cilium/clustermesh-apiserver-ci"
+      tag: "latest"
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false
-      pullPolicy: "IfNotPresent"
+      pullPolicy: "Always"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
     # -- Configuration for the clustermesh-apiserver readiness probe.
@@ -4291,7 +4291,7 @@ authentication:
           tag: "1.37.0"
           digest: "sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f"
           useDigest: true
-          pullPolicy: "IfNotPresent"
+          pullPolicy: "Always"
         # SPIRE agent configuration
         agent:
           # -- The priority class to use for the spire agent
@@ -4306,7 +4306,7 @@ authentication:
             tag: "1.14.4"
             digest: "sha256:f93996a9396ec4042a48042085c2abf1a0f8f0f3b339571e06ebfebbf94bb830"
             useDigest: true
-            pullPolicy: "IfNotPresent"
+            pullPolicy: "Always"
           # -- SPIRE agent service account
           serviceAccount:
             create: true
@@ -4361,7 +4361,7 @@ authentication:
             tag: "1.14.4"
             digest: "sha256:27c7d356768b8641c569745e1121328affeb4aaabe0c974d33ff92dddecf30ef"
             useDigest: true
-            pullPolicy: "IfNotPresent"
+            pullPolicy: "Always"
           # -- SPIRE server service account
           serviceAccount:
             create: true
@@ -4481,4 +4481,4 @@ standaloneDnsProxy:
     tag: ""
     digest: ""
     useDigest: false
-    pullPolicy: "IfNotPresent"
+    pullPolicy: "Always"
