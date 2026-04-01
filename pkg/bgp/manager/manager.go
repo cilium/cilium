@@ -600,7 +600,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		return fmt.Errorf("failed initial reconciliation of BGP instance: %w", err)
 	}
 
-	m.logger.Info(
+	l.Info(
 		"Successfully registered BGP instance",
 		types.LocalASNLogField, localASN,
 		types.ListenPortLogField, localPort,
