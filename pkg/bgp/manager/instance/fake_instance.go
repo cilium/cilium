@@ -4,14 +4,14 @@
 package instance
 
 import (
-	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/bgp/fake"
 )
 
 func NewFakeBGPInstanceWithName(name string) *BGPInstance {
 	return &BGPInstance{
 		Name:   name,
 		Config: nil,
-		Router: types.NewFakeRouter(),
+		Router: fake.NewFakeRouter(),
 	}
 }
 
@@ -20,6 +20,6 @@ func NewFakeBGPInstance() *BGPInstance {
 	return &BGPInstance{
 		Name:   "fake-instance",
 		Config: nil,
-		Router: types.NewFakeRouter(),
+		Router: fake.NewFakeRouter(),
 	}
 }
