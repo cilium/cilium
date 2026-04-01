@@ -4,7 +4,6 @@
 package endpoint
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -88,6 +87,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 
 func TestReadEPsFromDirNames(t *testing.T) {
 	logger := hivetest.Logger(t)
+	ctx := t.Context()
 	s := setupEndpointSuite(t)
 	epsWanted, _ := s.createEndpoints(t)
 	tmpDir := t.TempDir()
@@ -141,7 +141,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	p.Logger = logger
 	p.Orchestrator = s.orchestrator
 	p.PolicyRepo = s.repo
-	eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
+	eps, _ := ReadEPsFromDirNames(ctx, logger, &fakeParser{p: p}, tmpDir, epsNames)
 	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -185,9 +185,7 @@ func TestReadRestoreInventory(t *testing.T) {
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 		require.NoError(t, os.MkdirAll(fullDirName, 0o777))
 
-		if i == 0 {
-			ep.properties[PropertyFakeEndpoint] = true
-		}
+		ep.properties[PropertyFakeEndpoint] = i == 0
 
 		require.NoError(t, ep.writeHeaderfile(fullDirName))
 
@@ -246,8 +244,58 @@ func TestReadRestoreInventoryRemovesIncompleteRestoreDirs(t *testing.T) {
 	require.NoDirExists(t, nextDir)
 }
 
+func TestReadEPsFromRestoreInventory(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx := t.Context()
+	s := setupEndpointSuite(t)
+	epsWanted, _ := s.createEndpoints(t)
+	tmpDir := t.TempDir()
+
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		os.Chdir(cwd)
+	}()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	for _, ep := range epsWanted {
+		require.NotNil(t, ep)
+
+		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+		require.NoError(t, os.MkdirAll(fullDirName, 0o777))
+		require.NoError(t, ep.writeHeaderfile(fullDirName))
+	}
+
+	inventory, err := ReadRestoreInventory(ctx, logger, tmpDir)
+	require.NoError(t, err)
+
+	p := s.createEndpointParams(t)
+	p.Logger = logger
+	p.Orchestrator = s.orchestrator
+	p.PolicyRepo = s.repo
+
+	eps, failed := ReadEPsFromRestoreInventory(ctx, logger, &fakeParser{p: p}, tmpDir, inventory)
+	require.Zero(t, failed)
+	require.Len(t, eps, len(epsWanted))
+
+	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
+	restoredEPs := make([]*Endpoint, 0, len(eps))
+	for _, ep := range eps {
+		restoredEPs = append(restoredEPs, ep)
+	}
+	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
+
+	for i, restoredEP := range restoredEPs {
+		restoredEP.status = nil
+		wanted := epsWanted[i]
+		wanted.status = nil
+		require.Equal(t, wanted.String(), restoredEP.String())
+	}
+}
+
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	logger := hivetest.Logger(t)
+	ctx := t.Context()
 	s := setupEndpointSuite(t)
 
 	eps, _ := s.createEndpoints(t)
@@ -290,7 +338,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	p.Logger = logger
 	p.Orchestrator = s.orchestrator
 	p.PolicyRepo = s.repo
-	epResult, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epNames)
+	epResult, _ := ReadEPsFromDirNames(ctx, logger, &fakeParser{p: p}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -313,6 +361,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 
 func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	logger := hivetest.Logger(b)
+	ctx := b.Context()
 	s := setupEndpointSuite(b)
 
 	// For this benchmark, the real linux datapath is necessary to properly
@@ -347,7 +396,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 		p.Logger = logger
 		p.Orchestrator = s.orchestrator
 		p.PolicyRepo = s.repo
-		eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
+		eps, _ := ReadEPsFromDirNames(ctx, logger, &fakeParser{p: p}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
 }

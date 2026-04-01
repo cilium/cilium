@@ -75,6 +75,13 @@ type restoreInventoryEndpoint struct {
 	Properties   map[string]any
 }
 
+// restoreParseEntry identifies a discovered restore candidate that should be
+// instantiated into a full Endpoint.
+type restoreParseEntry struct {
+	Directory  string
+	EndpointID uint16
+}
+
 func (rie restoreInventoryEndpoint) toRestoreInventoryItem(directory string) RestoreInventoryItem {
 	return RestoreInventoryItem{
 		Directory:    directory,
@@ -169,47 +176,26 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 		}
 	}
 
-	possibleEPs := map[uint16]*Endpoint{}
-	failed := 0
+	parseEntries := make([]restoreParseEntry, 0, len(completeEPDirNames))
 	for _, epDirName := range completeEPDirNames {
-		epDir := filepath.Join(basePath, epDirName)
-
-		scopedLogger := logger.With(
-			logfields.EndpointID, epDirName,
-			logfields.Path, epDir,
-		)
-
-		state, err := findEndpointState(scopedLogger, epDir)
-		if err != nil {
-			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
-			failed++
-			continue
-		}
-
-		ep, err := parser.ParseEndpoint(state)
-		if err != nil {
-			scopedLogger.Warn("Unable to parse the C header file", logfields.Error, err)
-			failed++
-			continue
-		}
-		if _, ok := possibleEPs[ep.ID]; ok {
-			// If the endpoint already exists then give priority to the directory
-			// that contains an endpoint that didn't fail to be build.
-			if strings.HasSuffix(ep.DirectoryPath(), epDirName) {
-				possibleEPs[ep.ID] = ep
-			}
-		} else {
-			possibleEPs[ep.ID] = ep
-		}
-
-		// We need to save the host endpoint ID as we'll need it to regenerate
-		// other endpoints.
-		if ep.IsHost() {
-			node.SetEndpointID(ep.GetID())
-		}
+		parseEntries = append(parseEntries, restoreParseEntry{Directory: epDirName})
 	}
 
-	return possibleEPs, failed
+	return readEPsFromEntries(ctx, logger, parser, basePath, parseEntries)
+}
+
+// ReadEPsFromRestoreInventory returns a mapping of endpoint ID to endpoint
+// from the previously discovered restore inventory.
+func ReadEPsFromRestoreInventory(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, inventory RestoreInventory) (map[uint16]*Endpoint, int) {
+	parseEntries := make([]restoreParseEntry, 0, len(inventory.Items))
+	for _, item := range inventory.Items {
+		parseEntries = append(parseEntries, restoreParseEntry{
+			Directory:  item.Directory,
+			EndpointID: item.EndpointID,
+		})
+	}
+
+	return readEPsFromEntries(ctx, logger, parser, basePath, parseEntries)
 }
 
 // findEndpointState finds the JSON representation of an endpoint's state in
@@ -292,6 +278,55 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 	}
 
 	return
+}
+
+func readEPsFromEntries(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, entries []restoreParseEntry) (map[uint16]*Endpoint, int) {
+	possibleEPs := map[uint16]*Endpoint{}
+	failed := 0
+
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			break
+		}
+
+		epDir := filepath.Join(basePath, entry.Directory)
+
+		scopedLogger := logger.With(logfields.Path, epDir)
+		if entry.EndpointID != 0 {
+			scopedLogger = scopedLogger.With(logfields.EndpointID, entry.EndpointID)
+		}
+
+		state, err := findEndpointState(scopedLogger, epDir)
+		if err != nil {
+			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
+			failed++
+			continue
+		}
+
+		ep, err := parser.ParseEndpoint(state)
+		if err != nil {
+			scopedLogger.Warn("Unable to parse the C header file", logfields.Error, err)
+			failed++
+			continue
+		}
+		if _, ok := possibleEPs[ep.ID]; ok {
+			// If the endpoint already exists then give priority to the directory
+			// that contains an endpoint that didn't fail to be built.
+			if strings.HasSuffix(ep.DirectoryPath(), entry.Directory) {
+				possibleEPs[ep.ID] = ep
+			}
+		} else {
+			possibleEPs[ep.ID] = ep
+		}
+
+		// We need to save the host endpoint ID as we'll need it to regenerate
+		// other endpoints.
+		if ep.IsHost() {
+			node.SetEndpointID(ep.GetID())
+		}
+	}
+
+	return possibleEPs, failed
 }
 
 func isRestoreInventoryEndpointFake(properties map[string]any) bool {

@@ -226,9 +226,10 @@ func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 }
 
 type endpointRestoreState struct {
-	possible map[uint16]*endpoint.Endpoint
-	restored []*endpoint.Endpoint
-	toClean  []*endpoint.Endpoint
+	inventory endpoint.RestoreInventory
+	possible  map[uint16]*endpoint.Endpoint
+	restored  []*endpoint.Endpoint
+	toClean   []*endpoint.Endpoint
 }
 
 // checkLink returns an error if a link with linkName does not exist.
@@ -400,13 +401,13 @@ func (r *endpointRestorer) readOldEndpointsFromDisk(ctx context.Context) error {
 
 	r.logger.Info("Reading old endpoints...")
 
-	dirFiles, err := os.ReadDir(r.stateDir)
+	inventory, err := endpoint.ReadRestoreInventory(ctx, r.logger, r.stateDir)
 	if err != nil {
 		return err
 	}
-	eptsID := endpoint.FilterEPDir(dirFiles)
-
-	r.restoreState.possible, failed = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, r.stateDir, eptsID)
+	r.restoreState.inventory = inventory
+	r.restoreState.possible, failed = endpoint.ReadEPsFromRestoreInventory(ctx, r.logger, r.endpointCreator, r.stateDir, inventory)
+	r.restoreState.inventory = endpoint.RestoreInventory{}
 
 	if len(r.restoreState.possible) == 0 {
 		r.logger.Info("No old endpoints found.")
