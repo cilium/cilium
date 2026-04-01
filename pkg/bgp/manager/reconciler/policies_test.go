@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/bgp/fake"
 	"github.com/cilium/cilium/pkg/bgp/types"
 )
 
@@ -513,14 +514,14 @@ func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
 
 type fakeRouterWithReset struct {
 	t *testing.T
-	*types.FakeRouter
+	*fake.FakeRouter
 	resets map[netip.Addr]types.SoftResetDirection
 }
 
 func newFakeRouterWithReset(t *testing.T) *fakeRouterWithReset {
 	return &fakeRouterWithReset{
 		t:          t,
-		FakeRouter: types.NewFakeRouter().(*types.FakeRouter),
+		FakeRouter: fake.NewFakeRouter(),
 		resets:     make(map[netip.Addr]types.SoftResetDirection),
 	}
 }
