@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"slices"
 	"sync/atomic"
 
@@ -550,6 +551,77 @@ func (n *Node) Pool() (pool ipamTypes.AllocationMap) {
 	maps.Copy(pool, n.ipv4Alloc.available)
 	n.mutex.RUnlock()
 	return
+}
+
+// buildPoolAllocated constructs Spec.IPAM.Pools.Allocated from the ENI state
+// on the CiliumNode.
+//
+// Secondary IPs are represented as /32 CIDRs and delegated prefixes as /28 CIDRs
+// Addresses that are covered by a prefix are omitted to avoid overlap, only addresses
+// outside any prefix (e.g. the ENI primary IP with UsePrimaryAddress) are
+// written as /32 CIDRs.
+//
+// Returns nil if the node has no ENI status (non-ENI IPAM modes).
+func (n *Node) buildPoolAllocated(node *v2.CiliumNode) []ipamTypes.IPAMPoolAllocation {
+	if len(node.Status.ENI.ENIs) == 0 {
+		return nil
+	}
+
+	var cidrs []ipamTypes.IPAMCIDR
+	for _, eni := range node.Status.ENI.ENIs {
+		if eni.IsExcludedBySpec(node.Spec.ENI) {
+			continue
+		}
+
+		var prefixes []netip.Prefix
+		for _, p := range eni.Prefixes {
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(p))
+			if parsed, err := netip.ParsePrefix(p); err == nil {
+				prefixes = append(prefixes, parsed)
+			}
+		}
+
+		// In parseENI (pkg/aws/ec2), we currently use PrefixToIps to flatten each prefixes
+		// into 16 individual IPs and append those IPs to the ENI Addresses field.
+		// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
+		// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)
+		// and not addresses that are already being advertised through a /28 CIDR.
+		for _, addr := range eni.Addresses {
+			if addressCoveredByPrefix(addr, prefixes) {
+				continue
+			}
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(addr+"/32"))
+		}
+	}
+
+	if len(cidrs) == 0 {
+		return nil
+	}
+
+	return []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool:  defaults.IPAMDefaultIPPool,
+			CIDRs: cidrs,
+		},
+	}
+}
+
+// addressCoveredByPrefix returns true if the given IP address string falls
+// within any of the provided prefixes.
+func addressCoveredByPrefix(addr string, prefixes []netip.Prefix) bool {
+	if len(prefixes) == 0 {
+		return false
+	}
+	ip, err := netip.ParseAddr(addr)
+	if err != nil {
+		return false
+	}
+	for _, p := range prefixes {
+		if p.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // ResourceCopy returns a deep copy of the CiliumNode custom resource
@@ -1173,6 +1245,15 @@ func (n *Node) syncToAPIServer() error {
 	for retry := range maxRetries {
 		node.Spec.IPAM.Pool = pool
 		n.logger.Load().Debug("Updating node in apiserver", logfields.PoolSize, len(node.Spec.IPAM.Pool))
+
+		// Dual-write: populate Spec.IPAM.Pools.Allocated alongside
+		// Spec.IPAM.Pool for the ENI multi-pool migration
+		// (https://github.com/cilium/design-cfps/pull/87).
+		// 1.20 agents read CIDRs from Pools.Allocated; 1.19 agents continue
+		// to use Pool. This dual-write will be removed in 1.21
+		if allocated := n.buildPoolAllocated(node); allocated != nil {
+			node.Spec.IPAM.Pools.Allocated = allocated
+		}
 
 		// The PreAllocate value is added here rather than where the CiliumNode
 		// resource is created ((*NodeDiscovery).mutateNodeResource() inside
