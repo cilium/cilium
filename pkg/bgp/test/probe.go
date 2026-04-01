@@ -4,6 +4,7 @@
 package test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -15,7 +16,13 @@ import (
 // TCPMD5SigAvailable probes whether TCP_MD5SIG option can be set on a server socket.
 // Requires CONFIG_TCP_MD5SIG enabled in the kernel.
 func TCPMD5SigAvailable() (bool, error) {
-	listener, err := net.Listen("tcp", "localhost:0")
+	var lc net.ListenConfig
+
+	// Disable Multipath TCP to avoid "protocol not available" error on
+	// kernels without MPTCP support.
+	lc.SetMultipathTCP(false)
+
+	listener, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		return false, fmt.Errorf("listen failed: %w", err)
 	}
