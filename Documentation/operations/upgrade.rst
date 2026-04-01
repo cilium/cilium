@@ -374,6 +374,12 @@ Added Metrics
 Changed Metrics
 ###############
 
+* The Cilium Operator REST API endpoint ``/v1/metrics`` (``DumpMetrics``) now
+  returns per-quantile values for histogram and summary metrics instead of a
+  raw sample sum. Histogram metrics now emit three entries with quantile labels
+  ``0.5``, ``0.9``, and ``0.99``. Summary metrics emit one entry per declared
+  quantile. This aligns the operator metrics API output with the behavior of
+  ``cilium-dbg metrics list``.
 * The ``cilium_feature_np_other_l7_policies_total`` metric no longer counts
   Kafka policies, as Kafka-aware network policy support has been removed.
 * The metric ``policy_change_total`` now reports additional ``source`` (directory, k8s, custom, generated)
