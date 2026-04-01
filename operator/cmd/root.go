@@ -346,12 +346,8 @@ var (
 		// Cilium L7 LoadBalancing with Envoy.
 		ciliumenvoyconfig.Cell,
 
-		// Informational policy validation.
+		// All network policy functions
 		networkpolicy.Cell,
-
-		// Synchronizes Secrets referenced in CiliumNetworkPolicy to the configured secret
-		// namespace.
-		networkpolicy.SecretSyncCell,
 
 		// The feature Cell will retrieve information from all other cells /
 		// configuration to describe, in form of prometheus metrics, which

@@ -14,7 +14,6 @@ var Cell = cell.Module(
 	"policy-derivative",
 	"CNP and CCNP derivative policy watcher",
 
-	cell.Invoke(registerLabelPrefixConfig),
 	cell.Invoke(registerWatchers),
 )
 

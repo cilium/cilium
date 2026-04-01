@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package networkpolicy
+package secretsync
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/operator/pkg/networkpolicy/helpers"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -28,9 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// SecretSyncCell manages the Network Policy related controllers.
-var SecretSyncCell = cell.Module(
-	"netpol-secretsync-watcher",
+var Cell = cell.Module(
+	"secretsync-watcher",
 	"Watches network policy updates for TLS secrets to sync",
 
 	cell.Config(secretSyncDefaultConfig),
@@ -138,12 +136,12 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 		var reqs []reconcile.Request
 		for _, rule := range specs {
 			for _, egress := range rule.Egress {
-				reqs = append(reqs, helpers.GetReferencedTLSSecretsFromPortRules(egress.ToPorts, scopedLog)...)
-				reqs = append(reqs, helpers.GetReferencedSecretsFromHeaderRules(egress.ToPorts, scopedLog)...)
+				reqs = append(reqs, GetReferencedTLSSecretsFromPortRules(egress.ToPorts, scopedLog)...)
+				reqs = append(reqs, GetReferencedSecretsFromHeaderRules(egress.ToPorts, scopedLog)...)
 			}
 			for _, ingress := range rule.Ingress {
-				reqs = append(reqs, helpers.GetReferencedTLSSecretsFromPortRules(ingress.ToPorts, scopedLog)...)
-				reqs = append(reqs, helpers.GetReferencedSecretsFromHeaderRules(ingress.ToPorts, scopedLog)...)
+				reqs = append(reqs, GetReferencedTLSSecretsFromPortRules(ingress.ToPorts, scopedLog)...)
+				reqs = append(reqs, GetReferencedSecretsFromHeaderRules(ingress.ToPorts, scopedLog)...)
 			}
 		}
 		return reqs
@@ -180,12 +178,12 @@ func IsReferencedByCiliumNetworkPolicy(ctx context.Context, c client.Client, log
 
 		for _, rule := range rules {
 			for _, egress := range rule.Egress {
-				if helpers.IsSecretReferencedByPortRule(egress.ToPorts, scopedLog, secretName) {
+				if IsSecretReferencedByPortRule(egress.ToPorts, scopedLog, secretName) {
 					return true
 				}
 			}
 			for _, ingress := range rule.Ingress {
-				if helpers.IsSecretReferencedByPortRule(ingress.ToPorts, scopedLog, secretName) {
+				if IsSecretReferencedByPortRule(ingress.ToPorts, scopedLog, secretName) {
 					return true
 				}
 			}
@@ -224,12 +222,12 @@ func IsReferencedByCiliumClusterwideNetworkPolicy(ctx context.Context, c client.
 
 		for _, rule := range rules {
 			for _, egress := range rule.Egress {
-				if helpers.IsSecretReferencedByPortRule(egress.ToPorts, scopedLog, secretName) {
+				if IsSecretReferencedByPortRule(egress.ToPorts, scopedLog, secretName) {
 					return true
 				}
 			}
 			for _, ingress := range rule.Ingress {
-				if helpers.IsSecretReferencedByPortRule(ingress.ToPorts, scopedLog, secretName) {
+				if IsSecretReferencedByPortRule(ingress.ToPorts, scopedLog, secretName) {
 					return true
 				}
 			}
