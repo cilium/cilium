@@ -5,7 +5,6 @@ package reconciler
 
 import (
 	"cmp"
-	"context"
 	"net/netip"
 	"slices"
 	"testing"
@@ -512,35 +511,6 @@ func SortRouteStatementsByName(statements []*types.RoutePolicyStatement) {
 	})
 }
 
-type fakeRouterWithReset struct {
-	t *testing.T
-	*fake.FakeRouter
-	resets map[netip.Addr]types.SoftResetDirection
-}
-
-func newFakeRouterWithReset(t *testing.T) *fakeRouterWithReset {
-	return &fakeRouterWithReset{
-		t:          t,
-		FakeRouter: fake.NewFakeRouter(),
-		resets:     make(map[netip.Addr]types.SoftResetDirection),
-	}
-}
-
-func (f *fakeRouterWithReset) ResetNeighbor(ctx context.Context, r types.ResetNeighborRequest) error {
-	if r.Soft {
-		f.resets[r.PeerAddress] = r.SoftResetDirection
-	}
-	return nil
-}
-
-func (f *fakeRouterWithReset) ResetAllNeighbors(ctx context.Context, r types.ResetAllNeighborsRequest) error {
-	if r.Soft {
-		// Use an invalid address to indicate the all reset
-		f.resets[netip.Addr{}] = r.SoftResetDirection
-	}
-	return nil
-}
-
 func TestRoutePolicySoftReset(t *testing.T) {
 	logger := hivetest.Logger(t)
 	peer0 := netip.MustParseAddr("10.0.0.1")
@@ -991,7 +961,7 @@ func TestRoutePolicySoftReset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := require.New(t)
-			router := newFakeRouterWithReset(t)
+			router := fake.NewFakeRouter()
 
 			current := RoutePolicyMap{}
 			for _, policy := range tt.currentPolicies {
@@ -1051,7 +1021,7 @@ func TestRoutePolicySoftReset(t *testing.T) {
 			req.NoError(err)
 
 			// Check if the reset happened for expected peers
-			req.Equal(tt.expectedResets, router.resets)
+			req.Equal(tt.expectedResets, router.GetResets())
 		})
 	}
 }
