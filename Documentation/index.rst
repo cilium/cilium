@@ -82,7 +82,7 @@ get started and experiment with Cilium.
    network/vtep
    network/l2-announcements
    network/node-ipam
-   network/pod-mac-address
+   network/pod-annotations
    network/multicast
 
 .. toctree::
