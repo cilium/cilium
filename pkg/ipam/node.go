@@ -388,6 +388,19 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 	return
 }
 
+// poolRequestedIPv4 returns the total IPv4 address demand from the "default"
+// pool in Spec.IPAM.Pools.Requested, if present. This field is written by
+// agents using the multi-pool allocator. Agents using the CRD allocator do
+// not populate this field.
+func poolRequestedIPv4(resource *v2.CiliumNode) (int, bool) {
+	for _, req := range resource.Spec.IPAM.Pools.Requested {
+		if req.Pool == defaults.IPAMDefaultIPPool {
+			return req.Needed.IPv4Addrs, true
+		}
+	}
+	return 0, false
+}
+
 func (n *Node) requirePoolMaintenance() {
 	n.mutex.Lock()
 	n.ipv4Alloc.waitingForPoolMaintenance = true
@@ -485,16 +498,34 @@ func (n *Node) recalculate(ctx context.Context) {
 	}
 
 	n.ipv4Alloc.available = a
-	n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
 	if stats.AssignedStaticIP != "" {
 		n.stats.IPv4.AssignedStaticIP = stats.AssignedStaticIP
 	}
 
 	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
-	n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
-	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
+
+	// Starting with 1.20, agents use the multi-pool allocator in ENI IPAM mode
+	// and write their demand to Spec.IPAM.Pools.Requested (and stop writing
+	// Status.IPAM.Used).
+	//
+	// 1.19 agents still use the CRD allocator and communicate their IP usage via
+	// Status.IPAM.Used.
+	//
+	// Both those logic branches exist in order to offer a smooth upgrade/downgrade path
+	// between 1.19 and 1.20: an operator upgraded to 1.20 will still honor the API
+	// contract expected by 1.19 agents.
+	if requested, ok := poolRequestedIPv4(n.resource); ok && len(n.resource.Status.IPAM.Used) == 0 {
+		// The agent's demand is computed as inUse + preAllocate (linear
+		// pre-allocation). Subtracting preAllocate recovers exact usage.
+		n.stats.IPv4.UsedIPs = max(0, requested-n.getPreAllocate())
+	} else {
+		n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
+	}
+	n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
+	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+
 	scopedLog.Debug(
 		"Recalculated needed addresses",
 		logfields.Available, n.stats.IPv4.AvailableIPs,
