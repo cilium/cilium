@@ -50,6 +50,11 @@ type config struct {
 	// as specified by runtime configuration.
 	configuredMode Mode
 
+	// restorationMode tracks the datapath mode inferred from endpoint restore
+	// state. This is used with configuredMode=auto to calibrate the operationalMode
+	// to the underlying datapath of any endpoints being restored.
+	restorationMode Mode
+
 	// operationalMode tracks the operational datapath mode of Cilium,
 	// which may differ from the configured datapath mode.
 	operationalMode Mode
@@ -80,9 +85,25 @@ func (cc *config) NewLinkPair(cfg LinkConfig, sysctl sysctl.Sysctl) (LinkPair, e
 }
 
 func (cc *config) GetLinkCompatibility(ifName string) (Mode, bool, error) {
-	link, err := safenetlink.LinkByName(ifName)
+	linkMode, err := getLinkMode(ifName)
 	if err != nil {
 		return ModeUnspec, false, err
+	}
+	linkCompatible := cc.operationalMode == linkMode
+
+	return linkMode, linkCompatible, nil
+}
+
+// Returns true if we should actively try and align the connector's netdev buffer
+// margins with that of the host's egress interfaces (e.g. tunnel, wireguard).
+func (cc *config) useTunedBufferMargins() bool {
+	return cc.operationalMode.IsNetkit()
+}
+
+func getLinkMode(ifName string) (Mode, error) {
+	link, err := safenetlink.LinkByName(ifName)
+	if err != nil {
+		return ModeUnspec, err
 	}
 
 	linkMode := ModeByName(link.Type())
@@ -97,15 +118,7 @@ func (cc *config) GetLinkCompatibility(ifName string) (Mode, bool, error) {
 		}
 	}
 
-	linkCompatible := cc.operationalMode == linkMode
-
-	return linkMode, linkCompatible, nil
-}
-
-// Returns true if we should actively try and align the connector's netdev buffer
-// margins with that of the host's egress interfaces (e.g. tunnel, wireguard).
-func (cc *config) useTunedBufferMargins() bool {
-	return cc.operationalMode.IsNetkit()
+	return linkMode, nil
 }
 
 type connectorParams struct {

@@ -9,12 +9,14 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -446,6 +448,44 @@ func TestUseTunedBufferMargins(t *testing.T) {
 			assert.Equal(t, tt.expectedResult, result)
 		})
 	}
+}
+
+func TestPrivilegedGetLinkMode(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	ns := netns.NewNetNS(t)
+	require.NoError(t, ns.Do(func() error {
+		h, err := netlink.NewHandle()
+		require.NoError(t, err)
+		defer h.Close()
+
+		createFakePair(t, h, TestHostIfName, TestPeerIfName)
+
+		mode, err := getLinkMode(TestHostIfName)
+		require.NoError(t, err)
+		require.Equal(t, types.ConnectorModeVeth, mode)
+
+		if hostSupportsNetkit() {
+			ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+			linkConfig := types.LinkConfig{
+				HostIfName: TestEndpointFinalIfName,
+				PeerIfName: TestPeerIfName,
+				DeviceMTU:  TestStandardMTU,
+			}
+
+			linkPair, err := NewLinkPair(logger, types.ConnectorModeNetkitL2, linkConfig, ctl)
+			require.NoError(t, err)
+			defer linkPair.Delete()
+
+			// Netkit L2 exercises the extra mode disambiguation in getLinkMode().
+			mode, err = getLinkMode(TestEndpointFinalIfName)
+			require.NoError(t, err)
+			require.Equal(t, types.ConnectorModeNetkitL2, mode)
+		}
+
+		return nil
+	}))
 }
 
 type ifBufferMargin struct {
