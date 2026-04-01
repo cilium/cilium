@@ -1047,7 +1047,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			if (ret != CTX_ACT_OK)
 				break;
 			/* Verifier invalidates ip6 for some reason.. sigh*/
-			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 				ret = DROP_INVALID;
 				goto drop_err_ingress;
 			}
