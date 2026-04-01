@@ -123,7 +123,7 @@ Datapath Mode Value     Description
 ``veth`` (default)      Use veth devices operating at Layer2.
 ``netkit``              Use netkit in Layer3 mode. Cilium will error on startup if unsupported.
 ``netkit-l2``           Use netkit in Layer2 mode. Cilium will error on startup if unsupported.
-``auto``                Auto-detect at runtime: use netkit (Layer3) if kernel support is present, fallback to veth.
+``auto``                Auto-detect at runtime: prefer datapath mode of existing workloads; otherwise use netkit (Layer3) if kernel support is present, fallback to veth.
 ======================= =======================================================================================
 
 .. note::
@@ -131,14 +131,20 @@ Datapath Mode Value     Description
     possible since the CNI plugin cannot simply replace veth with netkit after
     Pod creation. Also, running both flavors in parallel is currently not supported.
 
-    This restriction also applies to auto-detection: if you have existing
-    Pods using veth, then switch to ``bpf.datapathMode=auto`` and netkit support
-    is detected when restarting, Cilium will error.
+    When ``bpf.datapathMode=auto`` is used, Cilium will continue operating with
+    the datapath mode of any existing workloads that are restored on agent restart.
+    For example, if a node restarts with existing Pods using veth, Cilium will
+    retain veth mode, it will not switch those workloads to netkit. This prevents
+    Cilium from failing to start during configuration updates.
+
+    If restored workloads require a concrete datapath mode that is no longer
+    supported by the current node configuration, Cilium will error on startup.
 
     The best way to consume this for an existing cluster is to utilize per-node
-    configuration for enabling netkit on newly spawned nodes which join the
-    cluster. Alternatively, cordon and drain existing nodes before modifying
-    the configuration. See the :ref:`per-node-configuration` page for more details.
+    configuration for enabling netkit or auto-detect mode on newly spawned nodes
+    which join the cluster. Alternatively, cordon and drain existing nodes before
+    modifying the configuration. See the :ref:`per-node-configuration` page for
+    more details.
 
 **Requirements:**
 

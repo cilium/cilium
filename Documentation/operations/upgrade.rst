@@ -320,8 +320,10 @@ The following options have been introduced in this version of Cilium:
   the underlying host for netkit support and, if found, netkit mode will be selected at
   runtime. Otherwise, Cilium will default back to the standard veth mode. This has the
   side effect of splitting the datapath-mode into "configured mode" and "operational mode"
-  in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
-  but may change in future releases.
+  in status outputs, where they differ. 
+  When restarting a node with existing workloads, Cilium will attempt to retain the
+  existing datapath mode. See :ref:`datapath_config` for further details.
+  The default remains ``bpf.datapathMode=veth`` but may change in future releases.
 
 Changed Options
 ###############
@@ -331,7 +333,9 @@ differently than in prior releases:
 
 * ``bpf.tproxy=true`` is incompatible with netkit datapath mode. If netkit is also enabled,
   Cilium will fail to start. If auto-detect datapath mode is used, Cilium will revert to
-  veth mode, even if netkit support is present.
+  veth mode when probing on a fresh start, even if netkit support is present. If restored
+  workloads require netkit, Cilium will fail to start instead of switching those workloads
+  to veth in place.
 
 Deprecated Options
 ##################
