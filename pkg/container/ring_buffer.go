@@ -3,15 +3,10 @@
 
 package container
 
-import (
-	"sort"
-)
-
-// RingBuffer is a generic ring buffer implementation that contains
-// sequential data (i.e. such as time ordered data).
+// RingBuffer is a generic ring buffer implementation.
 // RingBuffer is implemented using slices. From testing, this should
-// be fast than linked-list implementations, and also allows for efficient
-// indexing of ordered data.
+// be faster than linked-list implementations, and also allows for efficient
+// random access of ordered data.
 type RingBuffer[T any] struct {
 	buffer  []T
 	next    int // index of ring buffer head.
@@ -48,105 +43,56 @@ func (eb *RingBuffer[T]) Add(e T) {
 	eb.buffer = append(eb.buffer, e)
 }
 
-func (eb *RingBuffer[T]) dumpWithCallback(callback func(v T)) {
-	for i := range eb.buffer {
-		callback(eb.at(i))
-	}
-}
-
-func (eb *RingBuffer[T]) at(i int) T {
+// At returns the element at logical index i, where 0 is the oldest element.
+func (eb *RingBuffer[T]) At(i int) T {
 	return eb.buffer[eb.mapIndex(i)]
 }
 
-// firstValidIndex returns the first **absolute** index in the buffer that satisfies
-// isValid.
-// note: this value needs to be mapped before indexing the buffer.
-func (eb *RingBuffer[T]) firstValidIndex(isValid func(T) bool) int {
-	return sort.Search(len(eb.buffer), func(i int) bool {
-		return isValid(eb.at(i))
-	})
+// IterateFrom calls callback on each element starting at logical index startIdx.
+func (eb *RingBuffer[T]) IterateFrom(startIdx int, callback func(T)) {
+	for i := startIdx; i < len(eb.buffer); i++ {
+		callback(eb.buffer[eb.mapIndex(i)])
+	}
 }
 
-// IterateValid calls the callback on each element of the buffer, starting with
-// the first element in the buffer that satisfies "isValid".
-func (eb *RingBuffer[T]) IterateValid(isValid func(T) bool, callback func(T)) {
-	startIndex := eb.firstValidIndex(isValid)
-	l := len(eb.buffer) - startIndex
-	for i := range l {
-		index := eb.mapIndex(startIndex + i)
-		callback(eb.buffer[index])
-	}
+// Iterate calls callback on each element in insertion order.
+func (eb *RingBuffer[T]) Iterate(callback func(T)) {
+	eb.IterateFrom(0, callback)
 }
 
 // maps index in [0:len(buffer)) to the actual index in buffer.
 func (eb *RingBuffer[T]) mapIndex(indexOffset int) int {
-	ret := (eb.next + indexOffset) % len(eb.buffer)
-	return ret
+	return (eb.next + indexOffset) % len(eb.buffer)
 }
 
-// Compact clears out invalidated elements in the buffer.
-// This may require copying the entire buffer.
-// It is assumed that if buffer[i] is invalid then every entry [0...i-1] is also not valid.
-func (eb *RingBuffer[T]) Compact(isValid func(T) bool) {
-	if len(eb.buffer) == 0 {
+// Size returns the number of elements in the buffer.
+func (eb *RingBuffer[T]) Size() int {
+	return len(eb.buffer)
+}
+
+// Drain removes the first n oldest elements from the buffer.
+// If n >= Size(), the buffer is cleared.
+func (eb *RingBuffer[T]) Drain(n int) {
+	if n <= 0 {
 		return
 	}
-	startIndex := eb.firstValidIndex(isValid)
-	// In this case, we compact the entire buffer.
-	if startIndex >= len(eb.buffer) {
+	if n >= eb.Size() {
 		eb.buffer = []T{}
 		eb.next = 0
 		return
 	}
-
-	mappedStart := eb.mapIndex(startIndex) // mapped start is the new index 0 of our buffer.
-	// new length will be how long the current buffer is, minus the absolute starting index.
-	newBufferLength := len(eb.buffer) - startIndex
-	// case where the head index is to the left of the tail index.
-	// e.x. [... head, tail, ...]
-	// mappedStart + newBufferLength is the upper bound of the new buffer list
-	// if we don't have to worry about mapping.
-	//
-	// e.x. [mappedStart:mappedStart+newBufferLength] <- this is our new buffer.
-	//
-	// If this value is less than or equal to the length then we don't need
-	// to worry about any part of the list wrapping around.
-	if mappedStart+newBufferLength > len(eb.buffer) {
-		// now we can find the actual end index, by offsetting the startIndex
-		// by the length and mapping it.
-		// [... startIndex+newBufferLen ... startIndex ...]
-		end := eb.mapIndex(startIndex + newBufferLength)
-		tmp := make([]T, len(eb.buffer[:end]))
-		copy(tmp, eb.buffer[:end])
-
-		eb.buffer = eb.buffer[mappedStart:]
-		eb.buffer = append(eb.buffer, tmp...)
-
-		// at this point the buffer is such that the 0th element
-		// maps to the 0th index in the buffer array.
-		eb.next = len(eb.buffer)
-		if eb.isFull() {
-			eb.next = eb.next % eb.maxSize
-		}
-		return
+	mappedStart := eb.mapIndex(n)
+	newLen := eb.Size() - n
+	if mappedStart+newLen > len(eb.buffer) {
+		// Retained segment wraps: [mappedStart:] ++ [:next]
+		tmp := make([]T, eb.next)
+		copy(tmp, eb.buffer[:eb.next])
+		eb.buffer = append(eb.buffer[mappedStart:], tmp...)
+	} else {
+		eb.buffer = eb.buffer[mappedStart : mappedStart+newLen]
 	}
-	// otherwise, the head is to the right of the tail.
-	begin := mappedStart
-	end := mappedStart + newBufferLength
-	eb.buffer = eb.buffer[begin:end]
 	eb.next = len(eb.buffer)
 	if eb.isFull() {
 		eb.next = eb.next % eb.maxSize
 	}
-}
-
-// Iterate is a convenience function over IterateValid that iterates
-// all elements in the buffer.
-func (eb *RingBuffer[T]) Iterate(callback func(T)) {
-	eb.IterateValid(func(e T) bool { return true }, callback)
-}
-
-// Size returns the size of the buffer.
-func (eb *RingBuffer[T]) Size() int {
-	return len(eb.buffer)
 }

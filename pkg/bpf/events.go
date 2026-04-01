@@ -89,7 +89,7 @@ func (e Event) GetDesiredAction() DesiredAction {
 func newEventsBuffer(logger *slog.Logger, name string, bufSize int, ttl time.Duration) *eventsBuffer {
 	b := &eventsBuffer{
 		logger:   logger,
-		buffer:   container.NewRingBuffer[Event](bufSize),
+		buffer:   container.NewOrderedRingBuffer[Event](bufSize),
 		eventTTL: ttl,
 	}
 	b.observe, b.next, b.done = stream.Multicast[Event]()
@@ -127,7 +127,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 // purposes.
 type eventsBuffer struct {
 	logger   *slog.Logger
-	buffer   *container.RingBuffer[Event]
+	buffer   *container.OrderedRingBuffer[Event]
 	eventTTL time.Duration
 
 	observe stream.Observable[Event]

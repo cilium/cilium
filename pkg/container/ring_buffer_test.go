@@ -10,39 +10,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func dumpBuffer(b *RingBuffer[int]) []int {
+func iterateAll(b *RingBuffer[int]) []int {
 	acc := []int{}
-	b.dumpWithCallback(func(n int) {
+	b.Iterate(func(n int) {
 		acc = append(acc, n)
 	})
 	return acc
-}
-
-func dumpFunc(b *RingBuffer[int]) func() []int {
-	return func() []int {
-		acc := []int{}
-		b.Iterate(func(i int) {
-			acc = append(acc, i)
-		})
-		return acc
-	}
 }
 
 func TestRingBuffer_AddingAndIterating(t *testing.T) {
 	assert := assert.New(t)
 	bufferSize := 5
 	buffer := NewRingBuffer[int](bufferSize)
-	dumpAll := dumpFunc(buffer)
 	for i := 1; i <= 10; i++ {
 		buffer.Add(i)
 	}
 	assert.Len(buffer.buffer, bufferSize)
-	acc := dumpAll()
+	acc := iterateAll(buffer)
 	assert.IsIncreasing(acc)
 	assert.Equal([]int{6, 7, 8, 9, 10}, acc)
 
 	buffer.Add(11)
-	acc = dumpAll()
+	acc = iterateAll(buffer)
 	assert.Equal([]int{7, 8, 9, 10, 11}, acc)
 
 	d := []int{}
@@ -51,203 +40,132 @@ func TestRingBuffer_AddingAndIterating(t *testing.T) {
 	})
 	assert.IsNonDecreasing(d)
 	assert.Equal([]int{7, 8, 9, 10, 11}, d)
-	acc = []int{}
-	buffer.IterateValid(func(n int) bool {
-		return n >= 9
-	}, func(n int) {
-		acc = append(acc, n)
-	})
-	assert.Equal([]int{9, 10, 11}, acc)
 
-	acc = []int{}
-	buffer.IterateValid(func(n int) bool {
-		return n >= 0
-	}, func(n int) {
-		acc = append(acc, n)
-	})
-	assert.Equal([]int{7, 8, 9, 10, 11}, acc)
-
-	acc = []int{}
-	buffer.IterateValid(func(n int) bool {
-		return n >= 11
-	}, func(n int) {
-		acc = append(acc, n)
-	})
-	assert.Equal([]int{11}, acc)
-
-	acc = []int{}
-	buffer.IterateValid(func(n int) bool {
-		return n > 11
-	}, func(n int) {
-		acc = append(acc, n)
-	})
-	assert.Empty(acc)
-
-	// Test empty buffer.
 	buffer = NewRingBuffer[int](0)
-	acc = dumpBuffer(buffer)
-	assert.Empty(acc)
 	assert.Empty(buffer.buffer)
 	buffer.Add(123)
 	assert.Empty(buffer.buffer)
-
 }
 
-func TestEventBuffer_GC(t *testing.T) {
-	assert := assert.New(t)
-	for range 3 {
-		buffer := NewRingBuffer[int](100)
-		for i := 1; i <= 102; i++ {
-			buffer.Add(i)
-		}
-		buffer.Compact(func(n int) bool {
-			return n > 95
-		})
-		df := dumpFunc(buffer)
-		assert.Equal([]int{96, 97, 98, 99, 100, 101, 102}, df())
-
-		buffer.Compact(func(n int) bool { return true })
-		assert.Equal(7, buffer.Size(), "always valid shouldn't clear anything")
-		buffer.Compact(func(n int) bool { return false })
-		assert.Equal(0, buffer.Size(), "nothing valid should empty buffer")
-		buffer.Compact(func(n int) bool { return true })
-		assert.Equal(0, buffer.Size(), "test gc empty buffer")
-	}
-}
-
-func TestEventBuffer_GC2(t *testing.T) {
-	assert := assert.New(t)
-	buffer := NewRingBuffer[int](3)
-	df := dumpFunc(buffer)
-	buffer.buffer = []int{3, 1, 2}
-	buffer.next = 1
-	buffer.Compact(func(n int) bool {
-		return n >= 2
-	})
-	assert.Equal([]int{2, 3}, df())
-	buffer.Compact(func(n int) bool {
-		return n >= 2 // noop
-	})
-	assert.Equal([]int{2, 3}, df())
-	buffer.Compact(func(n int) bool {
-		return n >= 3
-	})
-	assert.Equal([]int{3}, df())
-}
-
-func TestEventBuffer_GCFullBufferWithOverlap(t *testing.T) {
+func TestRingBuffer_At(t *testing.T) {
 	assert := assert.New(t)
 	buffer := NewRingBuffer[int](5)
-	buffer.Add(1)
-	buffer.Add(2)
-	buffer.Add(3)
-	buffer.Add(4)
-	buffer.Add(5)
-	buffer.Add(6)
-	buffer.Add(7)
-	df := dumpFunc(buffer)
-	assert.Equal([]int{3, 4, 5, 6, 7}, df())
-	assert.True(buffer.isFull(), "this is a full buffer, which has gone around past its tail")
-	assert.Equal([]int{6, 7, 3, 4, 5}, buffer.buffer)
-	assert.Equal(2, buffer.next)
-	buffer.Compact(func(n int) bool {
-		return n >= 5 // -> 5, 6, 7
-	})
-	acc := dumpBuffer(buffer)
-	assert.Equal([]int{5, 6, 7}, acc)
-}
-
-func TestEventBuffer_GCFullBuffer(t *testing.T) {
-	assert := assert.New(t)
-	buffer := NewRingBuffer[int](5)
-	buffer.Add(1)
-	buffer.Add(2)
-	buffer.Add(3)
-	buffer.Add(4)
-	buffer.Add(5)
-	assert.Equal([]int{1, 2, 3, 4, 5}, buffer.buffer)
-	assert.True(buffer.isFull())
-	buffer.Compact(func(n int) bool {
-		return n >= 2
-	})
-	assert.Equal([]int{2, 3, 4, 5}, buffer.buffer)
-}
-
-func TestEventBuffer_GCNotFullBuffer(t *testing.T) {
-	assert := assert.New(t)
-	buffer := NewRingBuffer[int](5)
-	buffer.Add(1)
-	buffer.Add(2)
-	buffer.Add(3)
-	buffer.Add(4)
-	assert.Equal([]int{1, 2, 3, 4}, buffer.buffer)
-	assert.False(buffer.isFull())
-	i := buffer.firstValidIndex(func(n int) bool {
-		return n > 3
-	})
-	assert.Equal(3, i)
-	i = buffer.firstValidIndex(func(n int) bool {
-		return n > 4
-	})
-	assert.Equal(4, i, "should be out of bounds")
-	buffer.Compact(func(n int) bool {
-		return n > 4
-	})
-	assert.Equal([]int{}, buffer.buffer)
-	buffer.Add(1)
-	buffer.Add(1)
-	buffer.Add(1)
-	buffer.Add(1)
-	buffer.Add(1)
-	i = buffer.firstValidIndex(func(n int) bool {
-		return n >= 1
-	})
-	assert.Equal(0, i)
-	buffer.Compact(func(n int) bool {
-		return n > 0
-	})
-	assert.Equal([]int{1, 1, 1, 1, 1}, buffer.buffer)
-	buffer.Compact(func(n int) bool {
-		return false
-	})
-	assert.Empty(buffer.buffer)
-}
-
-func Test_firstValidIndex(t *testing.T) {
-	assert := assert.New(t)
-	buffer := NewRingBuffer[int](4)
-	df := dumpFunc(buffer)
-	for i := range 5 {
+	for i := 1; i <= 7; i++ {
 		buffer.Add(i)
 	}
-	assert.IsNonDecreasing(df())
-	for i := 1; i <= 4; i++ {
-		assert.Equal(i, buffer.firstValidIndex(func(ii int) bool {
-			return ii > i
-		}))
+	acc := iterateAll(buffer)
+	for i, v := range acc {
+		assert.Equal(v, buffer.At(i))
 	}
-	assert.Equal(4, buffer.firstValidIndex(func(ii int) bool { return ii > 4 }))
-	assert.Equal(4, buffer.firstValidIndex(func(ii int) bool { return false }))
-	assert.Equal(0, buffer.firstValidIndex(func(ii int) bool { return true }))
 }
 
-func Test_firstValidIndex2(t *testing.T) {
+func TestRingBuffer_IterateFrom(t *testing.T) {
 	assert := assert.New(t)
-	for i := 0; i <= 1000; i++ {
-		s := rand.IntN(1000)
-		buffer := NewRingBuffer[int](s)
-		df := dumpFunc(buffer)
-		for i := range s + 1 {
+	buffer := NewRingBuffer[int](5)
+	for i := 1; i <= 7; i++ {
+		buffer.Add(i)
+	}
+
+	acc := []int{}
+	buffer.IterateFrom(2, func(n int) { acc = append(acc, n) })
+	assert.Equal([]int{5, 6, 7}, acc)
+
+	acc = []int{}
+	buffer.IterateFrom(0, func(n int) { acc = append(acc, n) })
+	assert.Equal(iterateAll(buffer), acc)
+
+	acc = []int{}
+	buffer.IterateFrom(5, func(n int) { acc = append(acc, n) })
+	assert.Empty(acc)
+}
+
+func TestRingBuffer_Drain(t *testing.T) {
+	assert := assert.New(t)
+
+	// Drain from a non-wrapping buffer.
+	buf := NewRingBuffer[int](5)
+	for i := 1; i <= 4; i++ {
+		buf.Add(i)
+	}
+	buf.Drain(2)
+	assert.Equal([]int{3, 4}, iterateAll(buf))
+
+	// Drain from a full buffer with a wrapped head.
+	buf = NewRingBuffer[int](4)
+	for i := 1; i <= 6; i++ {
+		buf.Add(i) // [5,6,3,4] next=2 → logical [3,4,5,6]
+	}
+	buf.Drain(1)
+	assert.Equal([]int{4, 5, 6}, iterateAll(buf))
+
+	// Drain all elements.
+	buf = NewRingBuffer[int](4)
+	for i := 1; i <= 4; i++ {
+		buf.Add(i)
+	}
+	buf.Drain(4)
+	assert.Equal(0, buf.Size())
+	assert.Empty(iterateAll(buf))
+
+	// Drain more than Size clears the buffer.
+	buf = NewRingBuffer[int](4)
+	buf.Add(1)
+	buf.Drain(10)
+	assert.Equal(0, buf.Size())
+
+	// Drain(0) is a no-op.
+	buf = NewRingBuffer[int](4)
+	for i := 1; i <= 3; i++ {
+		buf.Add(i)
+	}
+	buf.Drain(0)
+	assert.Equal([]int{1, 2, 3}, iterateAll(buf))
+
+	// Buffer remains usable after Drain.
+	buf = NewRingBuffer[int](4)
+	for i := 1; i <= 4; i++ {
+		buf.Add(i)
+	}
+	buf.Drain(2)
+	buf.Add(5)
+	buf.Add(6)
+	assert.Equal([]int{3, 4, 5, 6}, iterateAll(buf))
+}
+
+func TestRingBuffer_Drain_Randomized(t *testing.T) {
+	assert := assert.New(t)
+	for range 1000 {
+		size := rand.IntN(10) + 1
+		adds := rand.IntN(size * 2)
+		buf := NewRingBuffer[int](size)
+		for i := range adds {
+			buf.Add(i)
+		}
+		all := iterateAll(buf)
+		n := rand.IntN(len(all) + 1)
+		buf.Drain(n)
+		assert.Equal(all[n:], iterateAll(buf))
+	}
+}
+
+func TestRingBuffer_AtIterateFrom_Randomized(t *testing.T) {
+	assert := assert.New(t)
+	for range 1000 {
+		size := rand.IntN(20) + 1
+		adds := rand.IntN(size * 2)
+		buffer := NewRingBuffer[int](size)
+		for i := range adds {
 			buffer.Add(i)
 		}
-		assert.IsNonDecreasing(df())
-		for i := 1; i <= s; i++ {
-			assert.Equal(i, buffer.firstValidIndex(func(ii int) bool {
-				return ii > i
-			}))
+		all := iterateAll(buffer)
+		for i, v := range all {
+			assert.Equal(v, buffer.At(i))
 		}
-		assert.Equal(s, buffer.firstValidIndex(func(ii int) bool { return ii > s }))
-		assert.Equal(s, buffer.firstValidIndex(func(ii int) bool { return false }))
-		assert.Equal(0, buffer.firstValidIndex(func(ii int) bool { return true }))
+		if len(all) > 0 {
+			start := rand.IntN(len(all))
+			acc := []int{}
+			buffer.IterateFrom(start, func(n int) { acc = append(acc, n) })
+			assert.Equal(all[start:], acc)
+		}
 	}
 }
