@@ -4,7 +4,11 @@
 package connector
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -14,12 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -161,11 +167,129 @@ var (
 	}
 	connectorConfigAuto_Veth = config{
 		configuredMode:  ModeAuto,
+		restorationMode: ModeUnspec,
 		operationalMode: ModeVeth,
 	}
 	connectorConfigAuto_Netkit = config{
 		configuredMode:  ModeAuto,
+		restorationMode: ModeUnspec,
 		operationalMode: ModeNetkit,
+	}
+
+	restoreInventoryItemMissingLink = endpoint.RestoreInventoryItem{
+		Directory:    "123",
+		EndpointID:   123,
+		HostIfName:   "missing-link",
+		K8sNamespace: "default",
+		K8sPodName:   "missing-link",
+	}
+	restoreInventoryItemFake = endpoint.RestoreInventoryItem{
+		Directory:  "123",
+		EndpointID: 123,
+		HostIfName: "missing-link",
+		IsFake:     true,
+	}
+	restoreInventoryItemHostIfOnly = endpoint.RestoreInventoryItem{
+		Directory:  "124",
+		EndpointID: 124,
+		HostIfName: "missing-link",
+	}
+	restoreInventoryItemPodWithoutHostLink = endpoint.RestoreInventoryItem{
+		Directory:    "125",
+		EndpointID:   125,
+		K8sNamespace: "default",
+		K8sPodName:   "pod-a",
+	}
+	restoreInventoryItemVethA = endpoint.RestoreInventoryItem{
+		Directory:    "123",
+		EndpointID:   123,
+		HostIfName:   "lxc-veth-a",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-a",
+	}
+	restoreInventoryItemMissingPodB = endpoint.RestoreInventoryItem{
+		Directory:    "124",
+		EndpointID:   124,
+		HostIfName:   "missing-link",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-b",
+	}
+	restoreInventoryItemFakeVethC = endpoint.RestoreInventoryItem{
+		Directory:    "125",
+		EndpointID:   125,
+		HostIfName:   "lxc-veth-a",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-c",
+		IsFake:       true,
+	}
+	restoreInventoryItemNetkitL2 = endpoint.RestoreInventoryItem{
+		Directory:    "126",
+		EndpointID:   126,
+		HostIfName:   "lxc-netkit-l2",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-d",
+	}
+	restoreInventoryItemMixedVeth = endpoint.RestoreInventoryItem{
+		Directory:    "127",
+		EndpointID:   127,
+		HostIfName:   "lxc-veth-mixed",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-e",
+	}
+	restoreInventoryItemMixedNetkit = endpoint.RestoreInventoryItem{
+		Directory:    "128",
+		EndpointID:   128,
+		HostIfName:   "lxc-nk-mixed",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-f",
+	}
+	restoreInventoryItemAutoVeth = endpoint.RestoreInventoryItem{
+		Directory:    "123",
+		EndpointID:   123,
+		HostIfName:   "lxc-auto-veth",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-a",
+	}
+	restoreInventoryItemAutoNetkitL2 = endpoint.RestoreInventoryItem{
+		Directory:    "124",
+		EndpointID:   124,
+		HostIfName:   "lxc-auto-nkl2",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-b",
+	}
+	restoreInventoryItemAutoMissing = endpoint.RestoreInventoryItem{
+		Directory:    "125",
+		EndpointID:   125,
+		HostIfName:   "missing-link",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-c",
+	}
+	restoreInventoryItemAutoIgnoredFake = endpoint.RestoreInventoryItem{
+		Directory:  "126",
+		EndpointID: 126,
+		HostIfName: "lxc-ignored",
+		IsFake:     true,
+	}
+	restoreInventoryItemAutoMixedVeth = endpoint.RestoreInventoryItem{
+		Directory:    "127",
+		EndpointID:   127,
+		HostIfName:   "lxc-auto-mvth",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-d",
+	}
+	restoreInventoryItemAutoMixedNetkit = endpoint.RestoreInventoryItem{
+		Directory:    "128",
+		EndpointID:   128,
+		HostIfName:   "lxc-auto-mnkt",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-e",
+	}
+	restoreInventoryItemAutoUnsupportedNetkit = endpoint.RestoreInventoryItem{
+		Directory:    "129",
+		EndpointID:   129,
+		HostIfName:   "lxc-auto-nkbad",
+		K8sNamespace: "default",
+		K8sPodName:   "pod-f",
 	}
 )
 
@@ -394,6 +518,7 @@ func TestNewConfig(t *testing.T) {
 				assert.Equal(t, tt.expectedConfig.podDeviceHeadroom, connector.podDeviceHeadroom)
 				assert.Equal(t, tt.expectedConfig.podDeviceTailroom, connector.podDeviceTailroom)
 				assert.Equal(t, tt.expectedConfig.configuredMode, connector.configuredMode)
+				assert.Equal(t, tt.expectedConfig.restorationMode, connector.restorationMode)
 				assert.Equal(t, tt.expectedConfig.operationalMode, connector.operationalMode)
 			}
 		})
@@ -464,28 +589,313 @@ func TestPrivilegedGetLinkMode(t *testing.T) {
 
 		mode, err := getLinkMode(TestHostIfName)
 		require.NoError(t, err)
-		require.Equal(t, types.ConnectorModeVeth, mode)
+		require.Equal(t, ModeVeth, mode)
 
 		if hostSupportsNetkit() {
 			ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-			linkConfig := types.LinkConfig{
+			linkConfig := LinkConfig{
 				HostIfName: TestEndpointFinalIfName,
-				PeerIfName: TestPeerIfName,
+				PeerIfName: "tmp-nk-peer",
 				DeviceMTU:  TestStandardMTU,
 			}
 
-			linkPair, err := NewLinkPair(logger, types.ConnectorModeNetkitL2, linkConfig, ctl)
+			// Create a netkit-L2 link pair so we can exercise the netkit
+			// mode checking in getLinkMode(), which is embedded in the
+			// underlying netkit structure in netlink.
+			linkPair, err := NewLinkPair(logger, ModeNetkitL2, linkConfig, ctl)
 			require.NoError(t, err)
 			defer linkPair.Delete()
 
-			// Netkit L2 exercises the extra mode disambiguation in getLinkMode().
 			mode, err = getLinkMode(TestEndpointFinalIfName)
 			require.NoError(t, err)
-			require.Equal(t, types.ConnectorModeNetkitL2, mode)
+			require.Equal(t, ModeNetkitL2, mode)
 		}
 
 		return nil
 	}))
+}
+
+func TestPrivilegedDeriveRestorationMode(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	logger := hivetest.Logger(t)
+
+	tests := []struct {
+		name           string
+		shouldSkip     bool
+		inventoryItems []endpoint.RestoreInventoryItem
+		linkSetups     []testConnectorLink
+		expectedMode   Mode
+		shouldError    bool
+	}{
+		{
+			name:           "missing-link-only",
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemMissingLink},
+			expectedMode:   ModeUnspec,
+		},
+		{
+			name: "non-relevant-items-only",
+			inventoryItems: []endpoint.RestoreInventoryItem{
+				restoreInventoryItemFake,
+				restoreInventoryItemHostIfOnly,
+				restoreInventoryItemPodWithoutHostLink,
+			},
+			expectedMode: ModeUnspec,
+		},
+		{
+			name: "veth-with-ignored-items",
+			inventoryItems: []endpoint.RestoreInventoryItem{
+				restoreInventoryItemVethA,
+				restoreInventoryItemMissingPodB,
+				restoreInventoryItemFakeVethC,
+			},
+			linkSetups: []testConnectorLink{
+				{mode: ModeVeth, hostIfName: "lxc-veth-a", peerIfName: "tmp-veth-a"},
+			},
+			expectedMode: ModeVeth,
+		},
+		{
+			name:           "netkit-l2",
+			shouldSkip:     !hostSupportsNetkit(),
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemNetkitL2},
+			linkSetups: []testConnectorLink{
+				{mode: ModeNetkitL2, hostIfName: "lxc-netkit-l2", peerIfName: "tmp-netkit-l2"},
+			},
+			expectedMode: ModeNetkitL2,
+		},
+		{
+			name:       "mixed-modes",
+			shouldSkip: !hostSupportsNetkit(),
+			inventoryItems: []endpoint.RestoreInventoryItem{
+				restoreInventoryItemMixedVeth,
+				restoreInventoryItemMixedNetkit,
+			},
+			linkSetups: []testConnectorLink{
+				{mode: ModeVeth, hostIfName: "lxc-veth-mixed", peerIfName: "tmp-veth-mixed"},
+				{mode: ModeNetkitL2, hostIfName: "lxc-nk-mixed", peerIfName: "tmp-nk-mixed"},
+			},
+			shouldError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
+
+			ns := netns.NewNetNS(t)
+			require.NoError(t, ns.Do(func() error {
+				for _, link := range tt.linkSetups {
+					if err := createTestConnectorLink(t, logger, link); err != nil {
+						return err
+					}
+				}
+
+				mode, err := deriveRestorationMode(endpoint.RestoreInventory{
+					Items: tt.inventoryItems,
+				})
+				if tt.shouldError {
+					require.Error(t, err)
+					require.Equal(t, ModeUnspec, mode)
+					return nil
+				}
+
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedMode, mode)
+				return nil
+			}))
+		})
+	}
+}
+
+func TestPrivilegedNewConfigAutoRestorationMode(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	logger := hivetest.Logger(t)
+
+	tests := []struct {
+		name                string
+		shouldSkip          bool
+		daemonConfig        *option.DaemonConfig
+		inventoryItems      []endpoint.RestoreInventoryItem
+		linkSetups          []testConnectorLink
+		expectedRestoreMode Mode
+		expectedOperMode    Mode
+		shouldError         bool
+	}{
+		{
+			name:           "restored-veth-overrides-netkit-probe",
+			shouldSkip:     !hostSupportsNetkit(),
+			daemonConfig:   &daemonConfigAuto,
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemAutoVeth},
+			linkSetups: []testConnectorLink{
+				{mode: ModeVeth, hostIfName: "lxc-auto-veth", peerIfName: "tmp-auto-veth"},
+			},
+			expectedRestoreMode: ModeVeth,
+			expectedOperMode:    ModeVeth,
+		},
+		{
+			name:           "restored-netkit-l2-is-selected",
+			shouldSkip:     !hostSupportsNetkit(),
+			daemonConfig:   &daemonConfigAuto,
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemAutoNetkitL2},
+			linkSetups: []testConnectorLink{
+				{mode: ModeNetkitL2, hostIfName: "lxc-auto-nkl2", peerIfName: "tmp-auto-nkl2"},
+			},
+			expectedRestoreMode: ModeNetkitL2,
+			expectedOperMode:    ModeNetkitL2,
+		},
+		{
+			name:                "missing-link-falls-back-to-probe",
+			shouldSkip:          !hostSupportsNetkit(),
+			daemonConfig:        &daemonConfigAuto,
+			inventoryItems:      []endpoint.RestoreInventoryItem{restoreInventoryItemAutoMissing},
+			expectedRestoreMode: ModeUnspec,
+			expectedOperMode:    ModeNetkit,
+		},
+		{
+			name:           "non-relevant-inventory-falls-back-to-probe",
+			shouldSkip:     !hostSupportsNetkit(),
+			daemonConfig:   &daemonConfigAuto,
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemAutoIgnoredFake},
+			linkSetups: []testConnectorLink{
+				{mode: ModeVeth, hostIfName: "lxc-ignored", peerIfName: "tmp-ignored"},
+			},
+			expectedRestoreMode: ModeUnspec,
+			expectedOperMode:    ModeNetkit,
+		},
+		{
+			name:         "mixed-restored-modes-error",
+			shouldSkip:   !hostSupportsNetkit(),
+			daemonConfig: &daemonConfigAuto,
+			inventoryItems: []endpoint.RestoreInventoryItem{
+				restoreInventoryItemAutoMixedVeth,
+				restoreInventoryItemAutoMixedNetkit,
+			},
+			linkSetups: []testConnectorLink{
+				{mode: ModeVeth, hostIfName: "lxc-auto-mvth", peerIfName: "tmp-auto-mvth"},
+				{mode: ModeNetkitL2, hostIfName: "lxc-auto-mnkt", peerIfName: "tmp-auto-mnkt"},
+			},
+			shouldError: true,
+		},
+		{
+			name:       "unsupported-restored-netkit-errors",
+			shouldSkip: !hostSupportsNetkit(),
+			// Use TProxy to force an invalid netkit configuration.
+			daemonConfig:   &daemonConfigAutoTproxy,
+			inventoryItems: []endpoint.RestoreInventoryItem{restoreInventoryItemAutoUnsupportedNetkit},
+			linkSetups: []testConnectorLink{
+				{mode: ModeNetkitL2, hostIfName: "lxc-auto-nkbad", peerIfName: "tmp-auto-nkbad"},
+			},
+			shouldError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldSkip {
+				t.Skip()
+			}
+
+			tmpDir := t.TempDir()
+			daemonConfig := *tt.daemonConfig
+			daemonConfig.StateDir = tmpDir
+
+			ns := netns.NewNetNS(t)
+			require.NoError(t, ns.Do(func() error {
+				for _, link := range tt.linkSetups {
+					if err := createTestConnectorLink(t, logger, link); err != nil {
+						return err
+					}
+				}
+				for _, item := range tt.inventoryItems {
+					require.NoError(t, writeRestoreInventoryState(tmpDir, item.Directory, item))
+				}
+
+				p := connectorParams{
+					Lifecycle:    &cell.DefaultLifecycle{},
+					Log:          logger,
+					DaemonConfig: &daemonConfig,
+					WgAgent:      fakewireguard.NewTestAgent(wgConfigDisabled),
+					TunnelConfig: tunnelConfigNative,
+				}
+
+				connector, err := newConfig(p)
+				if tt.shouldError {
+					require.Error(t, err)
+					require.Nil(t, connector)
+					return nil
+				}
+
+				require.NoError(t, err)
+				require.NotNil(t, connector)
+				require.Equal(t, tt.expectedRestoreMode, connector.restorationMode)
+				require.Equal(t, tt.expectedOperMode, connector.operationalMode)
+				return nil
+			}))
+		})
+	}
+}
+
+func writeRestoreInventoryState(basePath, directory string, item endpoint.RestoreInventoryItem) error {
+	stateDir := filepath.Join(basePath, directory)
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		return err
+	}
+
+	state, err := json.Marshal(map[string]any{
+		"ID":           item.EndpointID,
+		"IfName":       item.HostIfName,
+		"K8sNamespace": item.K8sNamespace,
+		"K8sPodName":   item.K8sPodName,
+		"Properties": map[string]any{
+			endpoint.PropertyFakeEndpoint: item.IsFake,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(stateDir, common.EndpointStateFileName), state, 0o644)
+}
+
+type testConnectorLink struct {
+	mode       Mode
+	hostIfName string
+	peerIfName string
+}
+
+func createTestConnectorLink(tb testing.TB, logger *slog.Logger, link testConnectorLink) error {
+	tb.Helper()
+
+	switch link.mode {
+	case ModeVeth:
+		h, err := netlink.NewHandle()
+		if err != nil {
+			return err
+		}
+		defer h.Close()
+
+		createFakePair(tb, h, link.hostIfName, link.peerIfName)
+		return nil
+	case ModeNetkit, ModeNetkitL2:
+		ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+		linkConfig := LinkConfig{
+			HostIfName: link.hostIfName,
+			PeerIfName: link.peerIfName,
+			DeviceMTU:  TestStandardMTU,
+		}
+
+		linkPair, err := NewLinkPair(logger, link.mode, linkConfig, ctl)
+		if err != nil {
+			return err
+		}
+		_ = linkPair
+		return nil
+	default:
+		return fmt.Errorf("unsupported test link mode: %s", link.mode)
+	}
 }
 
 type ifBufferMargin struct {

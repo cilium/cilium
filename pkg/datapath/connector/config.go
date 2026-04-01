@@ -4,6 +4,8 @@
 package connector
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -15,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -121,6 +124,56 @@ func getLinkMode(ifName string) (Mode, error) {
 	return linkMode, nil
 }
 
+func deriveRestorationMode(inv endpoint.RestoreInventory) (Mode, error) {
+	var restorationMode Mode
+
+	for _, item := range inv.Items {
+		if !isRelevantRestoreInventoryItem(item) {
+			continue
+		}
+
+		linkMode, err := getLinkMode(item.HostIfName)
+		if err != nil {
+			if errors.As(err, &netlink.LinkNotFoundError{}) {
+				continue
+			}
+			return ModeUnspec, fmt.Errorf("inspect restored endpoint %d link %q: %w",
+				item.EndpointID, item.HostIfName, err)
+		}
+		if linkMode == ModeUnspec {
+			return ModeUnspec, fmt.Errorf("restored endpoint %d link %q uses an unknown datapath mode",
+				item.EndpointID, item.HostIfName)
+		}
+
+		if restorationMode == ModeUnspec {
+			restorationMode = linkMode
+			continue
+		}
+		if restorationMode != linkMode {
+			return ModeUnspec, fmt.Errorf("restored endpoints use multiple datapath modes: %s and %s",
+				restorationMode, linkMode)
+		}
+	}
+
+	return restorationMode, nil
+}
+
+func isRelevantRestoreInventoryItem(item endpoint.RestoreInventoryItem) bool {
+	return item.K8sNamespace != "" &&
+		item.K8sPodName != "" &&
+		item.HostIfName != "" &&
+		!item.IsFake
+}
+
+func validateOperationalMode(mode Mode, p connectorParams) error {
+	switch mode {
+	case ModeNetkit, ModeNetkitL2:
+		return canUseNetkit(p)
+	default:
+		return nil
+	}
+}
+
 type connectorParams struct {
 	cell.In
 
@@ -180,6 +233,7 @@ func canUseNetkit(p connectorParams) error {
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
 func newConfig(p connectorParams) (*config, error) {
 	var configuredMode, operationalMode Mode
+	var restorationMode Mode
 
 	configuredMode = ModeByName(p.DaemonConfig.DatapathMode)
 	switch configuredMode {
@@ -187,6 +241,35 @@ func newConfig(p connectorParams) (*config, error) {
 		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
 
 	case ModeAuto:
+		// We need to probe into the Cilium state dir and see if we have existing
+		// endpoints to restore. If we do, we take the operational mode from said
+		// endpoints to avoid datapath incompatibility.
+		if p.DaemonConfig.StateDir != "" {
+			inventory, err := endpoint.ReadRestoreInventory(context.Background(), p.Log, p.DaemonConfig.StateDir)
+			if err != nil {
+				return nil, fmt.Errorf("read restore inventory: %w", err)
+			}
+
+			restorationMode, err = deriveRestorationMode(inventory)
+			if err != nil {
+				return nil, fmt.Errorf("derive restoration mode: %w", err)
+			}
+		}
+
+		// If we detect a restorationMode, we validate it and implement it as our
+		// operational mode if everything checks out.
+		if restorationMode != ModeUnspec {
+			if err := validateOperationalMode(restorationMode, p); err != nil {
+				return nil, fmt.Errorf("cannot restore datapath mode %s: %w",
+					restorationMode, err)
+			}
+
+			operationalMode = restorationMode
+			break
+		}
+
+		// With no existing restore mode we can proceed to probe for netkit support
+		// and enable it if present, falling bath to veth mode otherwise.
 		if err := canUseNetkit(p); err != nil {
 			p.Log.Warn("datapath autodiscovery failed, reverting from netkit to veth",
 				logfields.Error, err)
@@ -211,6 +294,7 @@ func newConfig(p connectorParams) (*config, error) {
 		wgAgent:         p.WgAgent,
 		tunnelConfig:    p.TunnelConfig,
 		configuredMode:  configuredMode,
+		restorationMode: restorationMode,
 		operationalMode: operationalMode,
 	}
 
@@ -222,7 +306,22 @@ func newConfig(p connectorParams) (*config, error) {
 		p.DaemonConfig.EnableTCX = true
 	}
 
-	p.Log.Info("Datapath connector ready", logfields.DatapathMode, cc.operationalMode)
+	var sourceMsg string
+	switch {
+	case cc.operationalMode == cc.restorationMode:
+		// Must have been restored from endpoint inventory,
+		// must also be auto-discovery!
+		sourceMsg = "auto-discovery-restored"
+	case cc.operationalMode != cc.configuredMode:
+		// Must be auto-discovery
+		sourceMsg = "auto-discovery"
+	default:
+		// Must be explicit configuration
+		sourceMsg = "configuration"
+	}
+	p.Log.Info("Datapath connector ready",
+		logfields.DatapathMode, cc.operationalMode,
+		logfields.Source, sourceMsg)
 
 	return cc, nil
 }
