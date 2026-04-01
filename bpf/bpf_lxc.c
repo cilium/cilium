@@ -1804,6 +1804,8 @@ int cil_from_container(struct __ctx_buff *ctx)
 	 */
 	ctx->queue_mapping = 0;
 
+	edt_set_aggregate(ctx, LXC_ID);
+
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
@@ -1816,14 +1818,12 @@ int cil_from_container(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		edt_set_aggregate(ctx, LXC_ID);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		edt_set_aggregate(ctx, LXC_ID);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
