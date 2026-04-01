@@ -349,7 +349,7 @@ github.com/cilium/linters/slowg
 # github.com/cilium/lumberjack/v2 v2.4.2
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20260307131108-8e1339459051
+# github.com/cilium/proxy v0.0.0-20260401135853-01f43852f361
 ## explicit; go 1.25.0
 github.com/cilium/proxy/go/cilium/api
 # github.com/cilium/statedb v0.7.0
@@ -1924,7 +1924,7 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # gomodules.xyz/jsonpatch/v2 v2.5.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171
+# google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations

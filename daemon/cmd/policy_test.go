@@ -337,9 +337,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	}
 	slices.Sort(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
-		EndpointId:       uint64(eQABar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
+		EndpointId:  uint64(eQABar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
@@ -380,9 +379,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	slices.Sort(expectedRemotePolicies)
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
-		EndpointIps:      []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},
-		EndpointId:       uint64(eProdBar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{ProdIPv6Addr.String(), ProdIPv4Addr.String()},
+		EndpointId:  uint64(eProdBar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
@@ -476,9 +474,8 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
-		EndpointId:       uint64(eQABar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
+		EndpointId:  uint64(eQABar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
@@ -567,9 +564,8 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
-		EndpointId:       uint64(eQABar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
+		EndpointId:  uint64(eQABar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
@@ -660,9 +656,8 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
-		EndpointId:       uint64(eQABar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
+		EndpointId:  uint64(eQABar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
@@ -847,9 +842,8 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	}, time.Second*1)
 	require.NoError(t, err)
 	require.EqualExportedValues(t, &cilium.NetworkPolicy{
-		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
-		EndpointId:       uint64(eQABar.ID),
-		ConntrackMapName: "global",
+		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
+		EndpointId:  uint64(eQABar.ID),
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,

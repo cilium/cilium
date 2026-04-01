@@ -1295,7 +1295,6 @@ func TestGetNetworkPolicy(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1309,7 +1308,6 @@ func TestGetNetworkPolicyWildcard(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12Wildcard,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1323,7 +1321,6 @@ func TestGetNetworkPolicyDeny(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1337,7 +1334,6 @@ func TestGetNetworkPolicyWildcardDeny(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1351,7 +1347,6 @@ func TestGetNetworkPolicyNil(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: nil,
 		EgressPerPortPolicies:  nil,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1365,7 +1360,6 @@ func TestGetNetworkPolicyIngressNotEnforced(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: allowAllPortNetworkPolicy,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies1,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -1379,7 +1373,6 @@ func TestGetNetworkPolicyEgressNotEnforced(t *testing.T) {
 		EndpointId:             uint64(ep.GetID()),
 		IngressPerPortPolicies: ExpectedPerPortPolicies12RequiresV2,
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
-		ConntrackMapName:       "global",
 	}
 	require.Equal(t, expected, obtained)
 }
@@ -2072,7 +2065,6 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 				EndpointId:             uint64(ep.GetID()),
 				IngressPerPortPolicies: tt.wantIngress,
 				EgressPerPortPolicies:  tt.wantEgress,
-				ConntrackMapName:       "global",
 			}
 			require.Equal(t, expected, obtained)
 		})

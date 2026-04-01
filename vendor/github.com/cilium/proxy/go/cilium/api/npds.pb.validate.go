@@ -18,7 +18,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
-	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 // ensure the imports are used
@@ -36,7 +36,7 @@ var (
 	_ = anypb.Any{}
 	_ = sort.Sort
 
-	_ = v3.SocketAddress_Protocol(0)
+	_ = corev3.SocketAddress_Protocol(0)
 )
 
 // Validate checks the field values on NetworkPolicy with the rules defined in
@@ -157,8 +157,6 @@ func (m *NetworkPolicy) validate(all bool) error {
 		}
 
 	}
-
-	// no validation rules for ConntrackMapName
 
 	if len(errors) > 0 {
 		return NetworkPolicyMultiError(errors)
