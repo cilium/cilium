@@ -157,20 +157,23 @@ jobs:
           jq -s "add" ${destination_directory}/*.json > "${destination_directory}/gke.json"
 
       - name: Generate Matrix
+        env:
+          PR_NUMBER: ${{ inputs.PR-number }}
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
           cd /tmp/generated/gke
 
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
-          VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
-          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
-          WG=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
-          KPR=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
-          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
+          VERSIONS=$(echo "${EXTRA_ARGS}" | awk -F'=' '{print $2}')
+          IPSEC=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          WG=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
+          KPR=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
+          ADV_FEAT=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
 
           # shellcheck disable=SC2193
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
+          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* || "$VERSIONS" == "all" ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
@@ -223,8 +226,10 @@ jobs:
 
       - name: Filter Matrix
         id: set-matrix
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
-          CHANNEL=$(echo ${{ inputs.extra-args }} | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
+          CHANNEL=$(echo "${EXTRA_ARGS}" | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
           if [ "$CHANNEL" == "" ];then
             FILTER="channels.channel=REGULAR"
           elif [ "$CHANNEL" == "NONE" ];then
