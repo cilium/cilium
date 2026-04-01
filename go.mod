@@ -24,7 +24,7 @@ require (
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v1.0.1
 	github.com/cilium/lumberjack/v2 v2.4.2
-	github.com/cilium/proxy v0.0.0-20260307131108-8e1339459051
+	github.com/cilium/proxy v0.0.0-20260401135853-01f43852f361
 	github.com/cilium/statedb v0.7.0
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.3.0
@@ -313,7 +313,7 @@ require (
 	golang.org/x/telemetry v0.0.0-20260311193753-579e4da9a98c // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
