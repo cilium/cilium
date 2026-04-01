@@ -195,3 +195,49 @@ func TestBuildPoolAllocated(t *testing.T) {
 		require.Contains(t, result[0].CIDRs, ipamTypes.IPAMCIDR("10.0.0.2/32"))
 	})
 }
+
+func TestPoolRequestedIPv4(t *testing.T) {
+	t.Run("returns demand from default pool", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 24},
+			},
+		}
+		requested, ok := poolRequestedIPv4(cn)
+		require.True(t, ok)
+		require.Equal(t, 24, requested)
+	})
+
+	t.Run("returns false when no Requested entries", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		_, ok := poolRequestedIPv4(cn)
+		require.False(t, ok)
+	})
+
+	t.Run("returns false when default pool not in Requested", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   "other-pool",
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 10},
+			},
+		}
+		_, ok := poolRequestedIPv4(cn)
+		require.False(t, ok)
+	})
+
+	t.Run("returns zero demand when agent requests zero", func(t *testing.T) {
+		cn := &v2.CiliumNode{}
+		cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+			{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 0},
+			},
+		}
+		requested, ok := poolRequestedIPv4(cn)
+		require.True(t, ok)
+		require.Equal(t, 0, requested)
+	})
+}
