@@ -7,7 +7,6 @@
 package cilium
 
 import (
-	context "context"
 	_ "github.com/envoyproxy/go-control-plane/envoy/annotations"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v31 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -15,9 +14,6 @@ import (
 	v32 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
-	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -159,13 +155,8 @@ type NetworkPolicy struct {
 	// combination.
 	// Optional. If empty, all flows in this direction are denied.
 	EgressPerPortPolicies []*PortNetworkPolicy `protobuf:"bytes,4,rep,name=egress_per_port_policies,json=egressPerPortPolicies,proto3" json:"egress_per_port_policies,omitempty"`
-	// Name of the conntrack map to use with this policy.
-	// The paths to various Cilium conntrack maps are derived using this name.
-	// Optional. If empty, ipcache or hostmap lookup is used instead of conntrack
-	// map.
-	ConntrackMapName string `protobuf:"bytes,5,opt,name=conntrack_map_name,json=conntrackMapName,proto3" json:"conntrack_map_name,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *NetworkPolicy) Reset() {
@@ -224,13 +215,6 @@ func (x *NetworkPolicy) GetEgressPerPortPolicies() []*PortNetworkPolicy {
 		return x.EgressPerPortPolicies
 	}
 	return nil
-}
-
-func (x *NetworkPolicy) GetConntrackMapName() string {
-	if x != nil {
-		return x.ConntrackMapName
-	}
-	return ""
 }
 
 // A network policy to whitelist flows to a specific destination L4 port,
@@ -1195,15 +1179,14 @@ var File_cilium_api_npds_proto protoreflect.FileDescriptor
 
 const file_cilium_api_npds_proto_rawDesc = "" +
 	"\n" +
-	"\x15cilium/api/npds.proto\x12\x06cilium\x1a\"envoy/config/core/v3/address.proto\x1a,envoy/config/route/v3/route_components.proto\x1a*envoy/service/discovery/v3/discovery.proto\x1a$envoy/type/matcher/v3/metadata.proto\x1a\x1cgoogle/api/annotations.proto\x1a envoy/annotations/resource.proto\x1a\x17validate/validate.proto\"\xbd\x02\n" +
+	"\x15cilium/api/npds.proto\x12\x06cilium\x1a\"envoy/config/core/v3/address.proto\x1a,envoy/config/route/v3/route_components.proto\x1a*envoy/service/discovery/v3/discovery.proto\x1a$envoy/type/matcher/v3/metadata.proto\x1a\x1cgoogle/api/annotations.proto\x1a envoy/annotations/resource.proto\x1a\x17validate/validate.proto\"\x95\x02\n" +
 	"\rNetworkPolicy\x123\n" +
 	"\fendpoint_ips\x18\x01 \x03(\tB\x10\xfaB\r\x92\x01\n" +
 	"\b\x01\x10\x02\"\x04r\x02\x10\x01R\vendpointIps\x12\x1f\n" +
 	"\vendpoint_id\x18\x02 \x01(\x04R\n" +
 	"endpointId\x12T\n" +
 	"\x19ingress_per_port_policies\x18\x03 \x03(\v2\x19.cilium.PortNetworkPolicyR\x16ingressPerPortPolicies\x12R\n" +
-	"\x18egress_per_port_policies\x18\x04 \x03(\v2\x19.cilium.PortNetworkPolicyR\x15egressPerPortPolicies\x12,\n" +
-	"\x12conntrack_map_name\x18\x05 \x01(\tR\x10conntrackMapName\"\xd7\x01\n" +
+	"\x18egress_per_port_policies\x18\x04 \x03(\v2\x19.cilium.PortNetworkPolicyR\x15egressPerPortPoliciesJ\x04\b\x05\x10\x06\"\xd7\x01\n" +
 	"\x11PortNetworkPolicy\x12\x1d\n" +
 	"\x04port\x18\x01 \x01(\rB\t\xfaB\x06*\x04\x18\xff\xff\x03R\x04port\x12$\n" +
 	"\bend_port\x18\x04 \x01(\rB\t\xfaB\x06*\x04\x18\xff\xff\x03R\aendPort\x12H\n" +
@@ -1387,153 +1370,4 @@ func file_cilium_api_npds_proto_init() {
 	File_cilium_api_npds_proto = out.File
 	file_cilium_api_npds_proto_goTypes = nil
 	file_cilium_api_npds_proto_depIdxs = nil
-}
-
-// Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConnInterface
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
-
-// NetworkPolicyDiscoveryServiceClient is the client API for NetworkPolicyDiscoveryService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type NetworkPolicyDiscoveryServiceClient interface {
-	StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error)
-	FetchNetworkPolicies(ctx context.Context, in *v33.DiscoveryRequest, opts ...grpc.CallOption) (*v33.DiscoveryResponse, error)
-}
-
-type networkPolicyDiscoveryServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewNetworkPolicyDiscoveryServiceClient(cc grpc.ClientConnInterface) NetworkPolicyDiscoveryServiceClient {
-	return &networkPolicyDiscoveryServiceClient{cc}
-}
-
-func (c *networkPolicyDiscoveryServiceClient) StreamNetworkPolicies(ctx context.Context, opts ...grpc.CallOption) (NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_NetworkPolicyDiscoveryService_serviceDesc.Streams[0], "/cilium.NetworkPolicyDiscoveryService/StreamNetworkPolicies", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &networkPolicyDiscoveryServiceStreamNetworkPoliciesClient{stream}
-	return x, nil
-}
-
-type NetworkPolicyDiscoveryService_StreamNetworkPoliciesClient interface {
-	Send(*v33.DiscoveryRequest) error
-	Recv() (*v33.DiscoveryResponse, error)
-	grpc.ClientStream
-}
-
-type networkPolicyDiscoveryServiceStreamNetworkPoliciesClient struct {
-	grpc.ClientStream
-}
-
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Send(m *v33.DiscoveryRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesClient) Recv() (*v33.DiscoveryResponse, error) {
-	m := new(v33.DiscoveryResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *networkPolicyDiscoveryServiceClient) FetchNetworkPolicies(ctx context.Context, in *v33.DiscoveryRequest, opts ...grpc.CallOption) (*v33.DiscoveryResponse, error) {
-	out := new(v33.DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// NetworkPolicyDiscoveryServiceServer is the server API for NetworkPolicyDiscoveryService service.
-type NetworkPolicyDiscoveryServiceServer interface {
-	StreamNetworkPolicies(NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error
-	FetchNetworkPolicies(context.Context, *v33.DiscoveryRequest) (*v33.DiscoveryResponse, error)
-}
-
-// UnimplementedNetworkPolicyDiscoveryServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedNetworkPolicyDiscoveryServiceServer struct {
-}
-
-func (*UnimplementedNetworkPolicyDiscoveryServiceServer) StreamNetworkPolicies(NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamNetworkPolicies not implemented")
-}
-func (*UnimplementedNetworkPolicyDiscoveryServiceServer) FetchNetworkPolicies(context.Context, *v33.DiscoveryRequest) (*v33.DiscoveryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchNetworkPolicies not implemented")
-}
-
-func RegisterNetworkPolicyDiscoveryServiceServer(s *grpc.Server, srv NetworkPolicyDiscoveryServiceServer) {
-	s.RegisterService(&_NetworkPolicyDiscoveryService_serviceDesc, srv)
-}
-
-func _NetworkPolicyDiscoveryService_StreamNetworkPolicies_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(NetworkPolicyDiscoveryServiceServer).StreamNetworkPolicies(&networkPolicyDiscoveryServiceStreamNetworkPoliciesServer{stream})
-}
-
-type NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer interface {
-	Send(*v33.DiscoveryResponse) error
-	Recv() (*v33.DiscoveryRequest, error)
-	grpc.ServerStream
-}
-
-type networkPolicyDiscoveryServiceStreamNetworkPoliciesServer struct {
-	grpc.ServerStream
-}
-
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Send(m *v33.DiscoveryResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *networkPolicyDiscoveryServiceStreamNetworkPoliciesServer) Recv() (*v33.DiscoveryRequest, error) {
-	m := new(v33.DiscoveryRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _NetworkPolicyDiscoveryService_FetchNetworkPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v33.DiscoveryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NetworkPolicyDiscoveryServiceServer).FetchNetworkPolicies(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/cilium.NetworkPolicyDiscoveryService/FetchNetworkPolicies",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetworkPolicyDiscoveryServiceServer).FetchNetworkPolicies(ctx, req.(*v33.DiscoveryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _NetworkPolicyDiscoveryService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "cilium.NetworkPolicyDiscoveryService",
-	HandlerType: (*NetworkPolicyDiscoveryServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "FetchNetworkPolicies",
-			Handler:    _NetworkPolicyDiscoveryService_FetchNetworkPolicies_Handler,
-		},
-	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "StreamNetworkPolicies",
-			Handler:       _NetworkPolicyDiscoveryService_StreamNetworkPolicies_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
-	Metadata: "cilium/api/npds.proto",
 }

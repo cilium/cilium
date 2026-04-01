@@ -1785,9 +1785,8 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, selectors poli
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool, policySecretsNamespace string,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
-		EndpointIps:      names,
-		EndpointId:       ep.GetID(),
-		ConntrackMapName: "global",
+		EndpointIps: names,
+		EndpointId:  ep.GetID(),
 	}
 
 	if l4Policy != nil {

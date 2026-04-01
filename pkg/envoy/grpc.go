@@ -39,7 +39,7 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 
 	// xdsServer optionally pauses serving any resources until endpoints have been restored
 	xdsServer := xds.NewServer(s.logger, config, s.restorerPromise, s.config.metrics)
-	dsServer := (*xdsGRPCServer)(xdsServer)
+	dsServer := &xdsGRPCServer{Server: xdsServer}
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
 	// Implement IncrementalAggregatedResources to support Incremental xDS.
@@ -92,12 +92,16 @@ func (s *xdsServer) startXDSGRPCServer(ctx context.Context, config map[string]*x
 
 // xdsGRPCServer handles gRPC streaming discovery requests for the
 // resource types supported by Cilium.
-type xdsGRPCServer xds.Server
+type xdsGRPCServer struct {
+	*xds.Server
+	cilium.UnimplementedNetworkPolicyDiscoveryServiceServer
+	cilium.UnimplementedNetworkPolicyHostsDiscoveryServiceServer
+}
 
 // TODO: https://github.com/cilium/cilium/issues/5051
 // Implement IncrementalAggregatedResources also to support Incremental xDS.
 // func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-//	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
+//	return s.Server.HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
 // }
 
 func (s *xdsGRPCServer) DeltaListeners(stream envoy_service_listener.ListenerDiscoveryService_DeltaListenersServer) error {
@@ -106,7 +110,7 @@ func (s *xdsGRPCServer) DeltaListeners(stream envoy_service_listener.ListenerDis
 
 func (s *xdsGRPCServer) StreamListeners(stream envoy_service_listener.ListenerDiscoveryService_StreamListenersServer) error {
 	// Listeners should start serving only after Clusters have been ACKed.
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL, ClusterTypeURL)
+	return s.Server.HandleRequestStream(stream.Context(), stream, ListenerTypeURL, ClusterTypeURL)
 }
 
 func (s *xdsGRPCServer) FetchListeners(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -120,7 +124,7 @@ func (s *xdsGRPCServer) DeltaRoutes(stream envoy_service_route.RouteDiscoverySer
 }
 
 func (s *xdsGRPCServer) StreamRoutes(stream envoy_service_route.RouteDiscoveryService_StreamRoutesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, RouteTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, RouteTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchRoutes(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -134,7 +138,7 @@ func (s *xdsGRPCServer) DeltaClusters(stream envoy_service_cluster.ClusterDiscov
 }
 
 func (s *xdsGRPCServer) StreamClusters(stream envoy_service_cluster.ClusterDiscoveryService_StreamClustersServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ClusterTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, ClusterTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchClusters(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -148,7 +152,7 @@ func (s *xdsGRPCServer) DeltaEndpoints(stream envoy_service_endpoint.EndpointDis
 }
 
 func (s *xdsGRPCServer) StreamEndpoints(stream envoy_service_endpoint.EndpointDiscoveryService_StreamEndpointsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, EndpointTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, EndpointTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchEndpoints(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -162,7 +166,7 @@ func (s *xdsGRPCServer) DeltaSecrets(stream envoy_service_secret.SecretDiscovery
 }
 
 func (s *xdsGRPCServer) StreamSecrets(stream envoy_service_secret.SecretDiscoveryService_StreamSecretsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, SecretTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, SecretTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -172,7 +176,7 @@ func (s *xdsGRPCServer) FetchSecrets(ctx context.Context, req *envoy_service_dis
 }
 
 func (s *xdsGRPCServer) StreamNetworkPolicies(stream cilium.NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
@@ -182,7 +186,7 @@ func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_ser
 }
 
 func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error {
-	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
+	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
 }
 
 func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
