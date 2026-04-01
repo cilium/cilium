@@ -57,7 +57,6 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 	result[types.VendorLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Vendor)}
 	result[types.PFNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PfName)}
 	result[types.PCIAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Addr)}
-	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
 	result[types.KernelIfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.KernelIfName())}
 
 	return result
@@ -65,9 +64,9 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 
 // IfName returns a name for this sr-iov VF. Does not match kernel interface name since it is not
 // guaranteed that we have a kernel interface for this device.
-// constructed with <pfName>vf<vfID>
+// derived from the PCI address.
 func (d PciDevice) IfName() string {
-	return fmt.Sprintf("%svf%d", d.PfName, d.VfID)
+	return strings.ReplaceAll(strings.ReplaceAll(d.Addr, ":", "-"), ".", "-")
 }
 
 func (d PciDevice) KernelIfName() string {
