@@ -148,6 +148,8 @@ jobs:
           yq -o=json "${work_dir}/k8s-versions.yaml" | jq . > "${destination_directory}/azure.json"
 
       - name: Generate Matrix
+        env:
+          PR_NUMBER: ${{ inputs.PR-number }}
         run: |
           cd /tmp/generated/azure
 
@@ -155,7 +157,7 @@ jobs:
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           # shellcheck disable=SC2193
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* ]];then
+          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* ]];then
             jq '{ "include": [ .include[] | select(.disabled==null) ] }' azure.json > /tmp/matrix.json
           else
             jq '{ "include": [ .include[] | select(.default) ] }' azure.json > /tmp/matrix.json
@@ -241,9 +243,11 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Override cluster name
+        env:
+          INDEX: ${{ matrix.index }}
         run: |
           # Extend default name with matrix index to avoid cluster name conflicts
-          NAME=${{ env.name }}-${{ matrix.index }}
+          NAME="${{ env.name }}-${INDEX}"
           echo "name=${NAME}" >> "$GITHUB_ENV"
 
       - name: Get Cilium's default values
@@ -255,12 +259,15 @@ jobs:
 
       - name: Set up job variables
         id: vars
+        env:
+          PR_NUMBER: ${{ inputs.PR-number }}
+          REF_NAME: ${{ github.ref_name }}
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            OWNER="${{ inputs.PR-number }}"
+            OWNER="${PR_NUMBER}"
           else
-            OWNER="${{ github.ref_name }}"
-            OWNER="${OWNER//[.\/]/-}"
+            OWNER="${REF_NAME//[.\/]/-}"
           fi
 
           # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
@@ -276,7 +283,7 @@ jobs:
             --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
 
           # Check if ipsec is requested via extra-args
-          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          IPSEC=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
           if [[ "$IPSEC" == "true" ]]; then
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true \
@@ -284,13 +291,13 @@ jobs:
           fi
 
           # Check if KPR is requested via extra-args
-          KPR=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
+          KPR=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
           if [[ "$KPR" == "true" ]]; then
             echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true"
           fi
 
-          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
+          ADV_FEAT=$(echo "${EXTRA_ARGS}" | jq -r '.["advanced-features"] // false')
           if [[ "$ADV_FEAT" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
@@ -298,7 +305,7 @@ jobs:
               --helm-set egressGateway.enabled=true"
           fi
 
-          WG=$(echo '${{ inputs.extra-args }}' | jq -r '.["wireguard"] // false')
+          WG=$(echo "${EXTRA_ARGS}" | jq -r '.["wireguard"] // false')
           if [[ "$WG" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
