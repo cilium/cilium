@@ -691,6 +691,7 @@ qdisc
 qdiscs
 qede
 qemu
+quantile
 queryable
 queueing
 rST
