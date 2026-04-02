@@ -527,10 +527,6 @@ type CiliumNodeList struct {
 func (n *CiliumNode) InstanceID() (instanceID string) {
 	if n != nil {
 		instanceID = n.Spec.InstanceID
-		// OBSOLETE: This fallback can be removed in Cilium 1.9
-		if instanceID == "" {
-			instanceID = n.Spec.ENI.InstanceID
-		}
 	}
 	return
 }

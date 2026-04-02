@@ -16,54 +16,10 @@ import (
 // custom resource along with an ENI specification when the node registers
 // itself to the Kubernetes cluster.
 type ENISpec struct {
-	// InstanceID is the AWS InstanceId of the node. The InstanceID is used
-	// to retrieve AWS metadata for the node.
-	//
-	// OBSOLETE: This field is obsolete, please use Spec.InstanceID
-	//
-	// +kubebuilder:validation:Optional
-	InstanceID string `json:"instance-id,omitempty"`
-
 	// InstanceType is the AWS EC2 instance type, e.g. "m5.large"
 	//
 	// +kubebuilder:validation:Optional
 	InstanceType string `json:"instance-type,omitempty"`
-
-	// MinAllocate is the minimum number of IPs that must be allocated when
-	// the node is first bootstrapped. It defines the minimum base socket
-	// of addresses that must be available. After reaching this watermark,
-	// the PreAllocate and MaxAboveWatermark logic takes over to continue
-	// allocating IPs.
-	//
-	// OBSOLETE: This field is obsolete, please use Spec.IPAM.MinAllocate
-	//
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Optional
-	MinAllocate int `json:"min-allocate,omitempty"`
-
-	// PreAllocate defines the number of IP addresses that must be
-	// available for allocation in the IPAMspec. It defines the buffer of
-	// addresses available immediately without requiring cilium-operator to
-	// get involved.
-	//
-	// OBSOLETE: This field is obsolete, please use Spec.IPAM.PreAllocate
-	//
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Optional
-	PreAllocate int `json:"pre-allocate,omitempty"`
-
-	// MaxAboveWatermark is the maximum number of addresses to allocate
-	// beyond the addresses needed to reach the PreAllocate watermark.
-	// Going above the watermark can help reduce the number of API calls to
-	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
-	// IPs as possible are allocated. Limiting the amount can help reduce
-	// waste of IPs.
-	//
-	// OBSOLETE: This field is obsolete, please use Spec.IPAM.MaxAboveWatermark
-	//
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Optional
-	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 
 	// FirstInterfaceIndex is the index of the first ENI to use for IP
 	// allocation, e.g. if the node has eth0, eth1, eth2 and

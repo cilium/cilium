@@ -67,9 +67,6 @@ func (in *AzureInterface) DeepEqual(other *AzureInterface) bool {
 	if in.SecurityGroup != other.SecurityGroup {
 		return false
 	}
-	if in.GatewayIP != other.GatewayIP {
-		return false
-	}
 	if in.Gateway != other.Gateway {
 		return false
 	}

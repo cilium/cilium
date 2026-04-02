@@ -347,10 +347,7 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 						if subnet.CIDR.IsValid() {
 							i.CIDR = subnet.CIDR.String()
 						}
-						if gateway := deriveGatewayIP(subnet.CIDR.Addr()); gateway != "" {
-							i.GatewayIP = gateway
-							i.Gateway = gateway
-						}
+						i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
 					}
 				}
 

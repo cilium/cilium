@@ -104,13 +104,6 @@ type AzureInterface struct {
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
 
-	// GatewayIP is the interface's subnet's default route
-	//
-	// OBSOLETE: This field is obsolete, please use Gateway field instead.
-	//
-	// +optional
-	GatewayIP string `json:"GatewayIP"`
-
 	// Gateway is the interface's subnet's default route
 	//
 	// +optional

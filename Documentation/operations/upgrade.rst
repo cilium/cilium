@@ -404,6 +404,17 @@ Removed Metrics
 
 * ``cilium_agent_bootstrap_seconds`` has been removed. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
 
+Removed CRD Fields
+~~~~~~~~~~~~~~~~~~~
+
+The following obsolete fields have been removed from the ``CiliumNode`` CRD:
+
+* ``spec.eni.instance-id``: Use ``spec.instance-id`` instead. Deprecated since v1.8.
+* ``spec.eni.min-allocate``: Use ``spec.ipam.min-allocate`` instead. Deprecated since v1.8.
+* ``spec.eni.pre-allocate``: Use ``spec.ipam.pre-allocate`` instead. Deprecated since v1.8.
+* ``spec.eni.max-above-watermark``: Use ``spec.ipam.max-above-watermark`` instead. Deprecated since v1.8.
+* ``status.azure.interfaces[].GatewayIP``: Use ``status.azure.interfaces[].gateway`` instead. Deprecated since v1.10.
+
 Advanced
 ========
 

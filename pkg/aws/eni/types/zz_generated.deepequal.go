@@ -177,19 +177,7 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		return false
 	}
 
-	if in.InstanceID != other.InstanceID {
-		return false
-	}
 	if in.InstanceType != other.InstanceType {
-		return false
-	}
-	if in.MinAllocate != other.MinAllocate {
-		return false
-	}
-	if in.PreAllocate != other.PreAllocate {
-		return false
-	}
-	if in.MaxAboveWatermark != other.MaxAboveWatermark {
 		return false
 	}
 	if (in.FirstInterfaceIndex == nil) != (other.FirstInterfaceIndex == nil) {

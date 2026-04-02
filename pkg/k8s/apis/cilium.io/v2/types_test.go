@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -579,8 +578,6 @@ func TestCiliumNodeInstanceID(t *testing.T) {
 	require.Empty(t, (*CiliumNode)(nil).InstanceID())
 	require.Empty(t, (&CiliumNode{}).InstanceID())
 	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID())
-	require.Equal(t, "foo", (&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())
-	require.Equal(t, "bar", (&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID())
 }
 
 func BenchmarkSpecEquals(b *testing.B) {
