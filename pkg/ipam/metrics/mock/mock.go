@@ -18,8 +18,6 @@ type mockMetrics struct {
 	ipAllocations         map[string]int64
 	ipReleases            map[string]int64
 	interfaceAllocations  map[string]int64
-	allocatedIPs          map[string]int
-	availableInterfaces   int
 	interfaceCandidates   int
 	emptyInterfaceSlots   int
 	availableIPsPerSubnet map[string]int
@@ -43,7 +41,6 @@ func NewMockMetrics() *mockMetrics {
 		interfaceAllocations:  map[string]int64{},
 		ipAllocations:         map[string]int64{},
 		ipReleases:            map[string]int64{},
-		allocatedIPs:          map[string]int{},
 		nodes:                 map[string]int{},
 		availableIPsPerSubnet: map[string]int{},
 		nodeIPAvailable:       map[string]int{},
@@ -99,30 +96,6 @@ func (m *mockMetrics) AddIPAllocation(subnetID string, allocated int64) {
 func (m *mockMetrics) AddIPRelease(subnetID string, released int64) {
 	m.mutex.Lock()
 	m.ipReleases["subnetId="+subnetID] += released
-	m.mutex.Unlock()
-}
-
-func (m *mockMetrics) AllocatedIPs(typ string) int {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.allocatedIPs[typ]
-}
-
-func (m *mockMetrics) SetAllocatedIPs(typ string, allocated int) {
-	m.mutex.Lock()
-	m.allocatedIPs[typ] = allocated
-	m.mutex.Unlock()
-}
-
-func (m *mockMetrics) AvailableInterfaces() int {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.availableInterfaces
-}
-
-func (m *mockMetrics) SetAvailableInterfaces(available int) {
-	m.mutex.Lock()
-	m.availableInterfaces = available
 	m.mutex.Unlock()
 }
 

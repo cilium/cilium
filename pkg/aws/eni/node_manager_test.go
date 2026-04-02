@@ -808,13 +808,6 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	require.Equal(t, 0, metricsapi.Nodes("in-deficit"))
 	require.Equal(t, 0, metricsapi.Nodes("at-capacity"))
 
-	if allocated := metricsapi.AllocatedIPs("available"); allocated < numNodes*minAllocate {
-		t.Errorf("IP allocation shortage. expected at least: %d, allocated: %d", numNodes*minAllocate, allocated)
-		t.Fail()
-	}
-	require.Equal(t, 0, metricsapi.AllocatedIPs("needed"))
-	require.Equal(t, 0, metricsapi.AllocatedIPs("used"))
-
 	// All subnets must have been used for allocation
 	for _, subnet := range subnets {
 		require.NotEqual(t, 0, metricsapi.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID))
@@ -822,7 +815,6 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	}
 
 	require.NotEqual(t, 0, metricsapi.ResyncCount())
-	require.NotEqual(t, 0, metricsapi.AvailableInterfaces())
 }
 
 // TestNodeManagerInstanceNotRunning verifies that allocation correctly detects

@@ -403,6 +403,8 @@ Removed Metrics
 ###############
 
 * ``cilium_agent_bootstrap_seconds`` has been removed. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
+* ``cilium_operator_ipam_ips`` has been removed. Use per-node ``cilium_operator_ipam_available_ips``, ``cilium_operator_ipam_used_ips``, and ``cilium_operator_ipam_needed_ips`` instead.
+* ``cilium_operator_ipam_available_interfaces`` has been removed. Use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
 
 Removed CRD Fields
 ~~~~~~~~~~~~~~~~~~~

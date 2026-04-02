@@ -358,17 +358,12 @@ func TestIpamManyNodes(t *testing.T) {
 			require.Equal(t, 0, metrics.Nodes("in-deficit"))
 			require.Equal(t, 0, metrics.Nodes("at-capacity"))
 
-			require.Equal(t, numNodes*minAllocate, metrics.AllocatedIPs("available"))
-			require.Equal(t, 0, metrics.AllocatedIPs("needed"))
-			require.Equal(t, 0, metrics.AllocatedIPs("used"))
-
 			// All subnets must have been used for allocation
 			for _, subnet := range subnets {
 				require.NotEqual(t, 0, metrics.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID))
 				require.NotEqual(t, 0, metrics.IPAllocations(subnet.ID))
 			}
 			require.NotEqual(t, 0, metrics.ResyncCount())
-			require.NotEqual(t, 0, metrics.AvailableInterfaces())
 		})
 
 	}

@@ -23,10 +23,6 @@ type Metrics struct {
 	UsedIPs      metric.DeletableVec[metric.Gauge]
 	NeededIPs    metric.DeletableVec[metric.Gauge]
 
-	// Deprecated, will be removed in version 1.15.
-	// Use AvailableIPs, UsedIPs and NeededIPs instead.
-	IPsAllocated metric.Vec[metric.Gauge]
-
 	// IP and interface allocation counters
 	AllocateIpOps        metric.Vec[metric.Counter]
 	ReleaseIpOps         metric.Vec[metric.Counter]
@@ -36,10 +32,6 @@ type Metrics struct {
 	InterfaceCandidates   metric.Gauge
 	EmptyInterfaceSlots   metric.Gauge
 	AvailableIPsPerSubnet metric.Vec[metric.Gauge]
-
-	// Deprecated, will be removed in version 1.14:
-	// Use InterfaceCandidates and EmptyInterfaceSlots instead
-	AvailableInterfaces metric.Gauge
 
 	// Node category counts
 	Nodes metric.Vec[metric.Gauge]
@@ -98,13 +90,6 @@ func NewMetrics() *Metrics {
 			Help:      "Number of IPs that are needed on the Node to satisfy IPAM allocation requests",
 		}, []string{LabelTargetNodeName}),
 
-		IPsAllocated: metric.NewGaugeVec(metric.GaugeOpts{
-			Namespace: ns,
-			Subsystem: ipamSubsystem,
-			Name:      "ips",
-			Help:      "Number of IPs allocated",
-		}, []string{"type"}),
-
 		AllocateIpOps: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: ns,
 			Subsystem: ipamSubsystem,
@@ -125,13 +110,6 @@ func NewMetrics() *Metrics {
 			Name:      "interface_creation_ops",
 			Help:      "Number of interfaces allocated",
 		}, []string{"subnet_id"}),
-
-		AvailableInterfaces: metric.NewGauge(metric.GaugeOpts{
-			Namespace: ns,
-			Subsystem: ipamSubsystem,
-			Name:      "available_interfaces",
-			Help:      "Number of interfaces with addresses available",
-		}),
 
 		InterfaceCandidates: metric.NewGauge(metric.GaugeOpts{
 			Namespace: ns,
@@ -257,14 +235,6 @@ func (m *Metrics) AddIPAllocation(subnetID string, allocated int64) {
 
 func (m *Metrics) AddIPRelease(subnetID string, released int64) {
 	m.ReleaseIpOps.WithLabelValues(subnetID).Add(float64(released))
-}
-
-func (m *Metrics) SetAllocatedIPs(typ string, allocated int) {
-	m.IPsAllocated.WithLabelValues(typ).Set(float64(allocated))
-}
-
-func (m *Metrics) SetAvailableInterfaces(available int) {
-	m.AvailableInterfaces.Set(float64(available))
 }
 
 func (m *Metrics) SetInterfaceCandidates(interfaceCandidates int) {

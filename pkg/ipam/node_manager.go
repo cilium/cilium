@@ -144,8 +144,6 @@ type MetricsAPI interface {
 	IncInterfaceAllocation(subnetID string)
 	AddIPAllocation(subnetID string, allocated int64)
 	AddIPRelease(subnetID string, released int64)
-	SetAllocatedIPs(typ string, allocated int)
-	SetAvailableInterfaces(available int)
 	SetInterfaceCandidates(interfaceCandidates int)
 	SetEmptyInterfaceSlots(emptyInterfaceSlots int)
 	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
@@ -559,10 +557,6 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	// complete and thus blocks until all nodes are synced
 	sem.Acquire(ctx, n.parallelWorkers)
 
-	n.metricsAPI.SetAllocatedIPs("used", stats.ipv4.totalUsed)
-	n.metricsAPI.SetAllocatedIPs("available", stats.ipv4.totalAvailable)
-	n.metricsAPI.SetAllocatedIPs("needed", stats.ipv4.totalNeeded)
-	n.metricsAPI.SetAvailableInterfaces(stats.ipv4.remainingInterfaces)
 	n.metricsAPI.SetInterfaceCandidates(stats.ipv4.interfaceCandidates)
 	n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
 	n.metricsAPI.SetNodes("total", stats.ipv4.nodes)

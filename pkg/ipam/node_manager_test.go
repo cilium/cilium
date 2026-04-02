@@ -812,10 +812,6 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	require.Equal(t, 0, metricsapi.Nodes("in-deficit"))
 	require.Equal(t, 0, metricsapi.Nodes("at-capacity"))
 
-	require.Equal(t, numNodes*minAllocate, metricsapi.AllocatedIPs("available"))
-	require.Equal(t, 0, metricsapi.AllocatedIPs("needed"))
-	require.Equal(t, 0, metricsapi.AllocatedIPs("used"))
-
 	require.NotEqual(t, 0, metricsapi.ResyncCount())
 }
 
