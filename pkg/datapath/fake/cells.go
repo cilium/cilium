@@ -28,6 +28,7 @@ import (
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	fakesyctl "github.com/cilium/cilium/pkg/datapath/linux/sysctl/fake"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	fakeloader "github.com/cilium/cilium/pkg/datapath/loader/fake"
 	loaderTypes "github.com/cilium/cilium/pkg/datapath/loader/types"
@@ -86,7 +87,7 @@ var Cell = cell.Module(
 		func() loaderTypes.Loader { return &fakeloader.Loader{} },
 		func() endpoint.Orchestrator { return &fakeendpoint.FakeOrchestrator{} },
 		loader.NewCompilationLock,
-		func() sysctl.Sysctl { return &Sysctl{} },
+		func() sysctl.Sysctl { return &fakesyctl.Sysctl{} },
 		func() (nat.NatMap4, nat.NatMap6) {
 			return nil, nil
 		},

@@ -15,8 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 )
 
-// AddressingCell provides the [Addressing] interface that provides access to
-// local node addressing information. This will be eventually superceded by
+// AddressingCell provides the [node.Addressing] interface that provides access
+// to local node addressing information. This will be eventually superseded by
 // Table[NodeAddress].
 var AddressingCell = cell.Module(
 	"node-addressing",
