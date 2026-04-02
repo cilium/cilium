@@ -119,6 +119,11 @@ const (
 	CRIPPluralName     = "ciliumresourceippools"
 	CRIPKindDefinition = "CiliumResourceIPPool"
 	CRIPName           = CRIPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumResourceNetworkConfig (CRNC)
+	CRNCPluralName     = "ciliumresourcenetworkconfigs"
+	CRNCKindDefinition = "CiliumResourceNetworkConfig"
+	CRNCName           = CRNCPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -174,6 +179,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNodeConfigList{},
 		&CiliumResourceIPPool{},
 		&CiliumResourceIPPoolList{},
+		&CiliumResourceNetworkConfig{},
+		&CiliumResourceNetworkConfigList{},
 
 		// new BGP types
 		&CiliumBGPClusterConfig{},

@@ -34,3 +34,5 @@ type CiliumNodeConfigExpansion interface{}
 type CiliumPodIPPoolExpansion interface{}
 
 type CiliumResourceIPPoolExpansion interface{}
+
+type CiliumResourceNetworkConfigExpansion interface{}
