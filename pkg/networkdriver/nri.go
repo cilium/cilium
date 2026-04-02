@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/netip"
 	"path"
 
@@ -16,12 +18,15 @@ import (
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
+	"golang.org/x/sys/unix"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
+	linuxRoute "github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -102,7 +107,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 						return fmt.Errorf("failed to set interface name: %w", err)
 					}
 
-					if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+					if err := driver.configureIPs(l, add, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+						return err
+					}
+					if err := driver.configureRoutes(log, l, add, a.Config.Routes); err != nil {
 						return err
 					}
 					if err := netlink.LinkSetUp(l); err != nil {
@@ -183,7 +191,11 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 						return err
 					}
 
-					if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+					if err := driver.configureIPs(l, del, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+						return err
+					}
+
+					if err := driver.configureRoutes(log, l, del, a.Config.Routes); err != nil {
 						return err
 					}
 
@@ -224,7 +236,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 	return err
 }
 
-func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6 netip.Prefix) error {
+func (driver *Driver) configureIPs(l netlink.Link, act action, ipv4, ipv6 netip.Prefix) error {
 	var (
 		addrs []netlink.Addr
 		errs  []error
@@ -242,18 +254,44 @@ func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6
 	}
 
 	for _, addr := range addrs {
-		switch action {
-		case addrAdd:
+		switch act {
+		case add:
 			if err := netlink.AddrAdd(l, &addr); err != nil {
 				errs = append(errs, fmt.Errorf("failed to add addr %s to device %s: %w", addr.String(), l.Attrs().Name, err))
 			}
-		case addrDel:
+		case del:
 			if err := netlink.AddrDel(l, &addr); err != nil {
 				errs = append(errs, fmt.Errorf("failed to delete addr %s to device %s: %w", addr.String(), l.Attrs().Name, err))
 			}
 		}
 	}
 
+	return errors.Join(errs...)
+}
+
+func (driver *Driver) configureRoutes(logger *slog.Logger, l netlink.Link, act action, routes []types.Route) error {
+	var errs []error
+	for _, r := range routes {
+		nextHop := net.IP(r.Gateway.AsSlice())
+		route := linuxRoute.Route{
+			Prefix:  *netipx.PrefixIPNet(r.Destination),
+			Nexthop: &nextHop,
+			Device:  l.Attrs().Name,
+			Table:   unix.RT_TABLE_MAIN,
+			Proto:   unix.RTPROT_STATIC,
+		}
+
+		switch act {
+		case add:
+			if err := linuxRoute.Upsert(logger, route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to add static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		case del:
+			if err := linuxRoute.Delete(route); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete static route [%s via %s dev %s]: %w", r.Destination, r.Gateway, l.Attrs().Name, err))
+			}
+		}
+	}
 	return errors.Join(errs...)
 }
 

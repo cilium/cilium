@@ -37,11 +37,11 @@ const (
 	ResourceIPAMMultiPoolPreAllocation = "resource-ipam-multi-pool-pre-allocation"
 )
 
-type ipamAction string
+type action string
 
 const (
-	addrAdd ipamAction = "add"
-	addrDel ipamAction = "del"
+	add action = "add"
+	del action = "del"
 )
 
 var resourceIPAM = cell.Group(
