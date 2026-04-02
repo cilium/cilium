@@ -23,6 +23,7 @@ to learn how to level up through the project.
  * [Dylan Reimerink] (Isovalent)
  * [Fabio Falzoi] (Isovalent)
  * [Glib Smaga] (Isovalent)
+ * [Hadrien Patte] (Datadog)
  * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
  * [Joe Stringer] (Isovalent)
@@ -99,6 +100,7 @@ project.
 [Fabio Falzoi]: https://github.com/pippolo84
 [Gilberto Bertin]: https://github.com/jibi
 [Glib Smaga]: https://github.com/glibsm
+[Hadrien Patte]: https://github.com/HadrienPatte
 [Hemanth Malla]: https://github.com/hemanthmalla
 [Ian Vernon]: https://github.com/ianvernon
 [Ilya Dmitrichenko]: https://github.com/errordeveloper
