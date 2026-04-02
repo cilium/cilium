@@ -20,6 +20,7 @@
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+#include "lib/metrics.h"
 
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node.
@@ -108,12 +109,7 @@ int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
-	struct metrics_key key = {
-		.reason = (__u8)-DROP_NO_EGRESS_GATEWAY,
-		.dir = METRIC_EGRESS,
-	};
-
-	map_delete_elem(&cilium_metrics, &key);
+	metrics_del_entry((__u8)-DROP_NO_EGRESS_GATEWAY, METRIC_EGRESS);
 	ipcache_v4_add_world_entry();
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY,
@@ -165,12 +161,7 @@ int egressgw_drop_no_egress_ip_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_drop_no_egress_ip")
 int egressgw_drop_no_egress_ip_setup(struct __ctx_buff *ctx)
 {
-	struct metrics_key key = {
-		.reason = (__u8)-DROP_NO_EGRESS_IP,
-		.dir = METRIC_EGRESS,
-	};
-
-	map_delete_elem(&cilium_metrics, &key);
+	metrics_del_entry((__u8)-DROP_NO_EGRESS_IP, METRIC_EGRESS);
 	ipcache_v4_add_world_entry();
 	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST, 0, 0, NULL, NULL);
 
@@ -312,15 +303,11 @@ int egressgw_skip_no_gateway_redirect_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect_v6")
 int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 {
-	struct metrics_key key = {
-		.reason = (__u8)-DROP_NO_EGRESS_GATEWAY,
-		.dir = METRIC_EGRESS,
-	};
-
-	map_delete_elem(&cilium_metrics, &key);
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
+
+	metrics_del_entry((__u8)-DROP_NO_EGRESS_GATEWAY, METRIC_EGRESS);
 
 	ipcache_v6_add_world_entry();
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
@@ -375,15 +362,10 @@ int egressgw_drop_no_egress_ip_pktgen_v6(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_drop_no_egress_ip_v6")
 int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 {
-	struct metrics_key key = {
-		.reason = (__u8)-DROP_NO_EGRESS_IP,
-		.dir = METRIC_EGRESS,
-	};
-
-	map_delete_elem(&cilium_metrics, &key);
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 
+	metrics_del_entry((__u8)-DROP_NO_EGRESS_IP, METRIC_EGRESS);
 	ipcache_v6_add_world_entry();
 	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST, 0, 0, NULL, NULL);
 
