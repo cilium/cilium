@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewNodeAddressing(t *testing.T) {
+func TestNewAddressing(t *testing.T) {
 	fna := NewAddressing()
 
 	require.NotNil(t, fna.IPv6().Router())
