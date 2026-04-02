@@ -13,3 +13,9 @@ cilium_device_add_entry(__u32 ifindex, const __u8 *mac, __u8 l3)
 
 	map_update_elem(&cilium_devices, &ifindex, &state, BPF_ANY);
 }
+
+static __always_inline void
+cilium_device_del_entry(__u32 ifindex)
+{
+	map_delete_elem(&cilium_devices, &ifindex);
+}
