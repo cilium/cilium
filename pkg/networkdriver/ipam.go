@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/daemon/k8s"
+	daemonK8s "github.com/cilium/cilium/daemon/k8s"
 	driverIPAM "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -64,7 +64,7 @@ func (cfg IPAMConfig) Flags(flags *pflag.FlagSet) {
 func newMultiPoolManager(
 	Logger *slog.Logger,
 	DaemonCfg *option.DaemonConfig,
-	LocalNode k8s.LocalCiliumNodeResource,
+	LocalNode daemonK8s.LocalCiliumNodeResource,
 	ClientSet k8sClient.Clientset,
 	JobGroup job.Group,
 	Cfg IPAMConfig,
