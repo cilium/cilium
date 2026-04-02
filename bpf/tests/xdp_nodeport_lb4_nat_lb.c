@@ -553,6 +553,8 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 CHECK("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")
 int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *ctx)
 {
+	cilium_device_del_entry(DEFAULT_IFACE);
+
 	return check_reply(ctx);
 }
 
