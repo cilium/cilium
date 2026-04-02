@@ -81,8 +81,8 @@ var Cell = cell.Module(
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,
 
-	// Provides the legacy accessor for the above, the NodeAddressing interface.
-	NodeAddressingCell,
+	// Provides the legacy accessor for the above, the [node.Addressing] interface.
+	node.AddressingCell,
 
 	// Provides the DirectRoutingDevice selection logic.
 	tables.DirectRoutingDeviceCell,

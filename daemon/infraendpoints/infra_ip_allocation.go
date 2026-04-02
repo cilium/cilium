@@ -27,7 +27,6 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -51,7 +50,7 @@ type infraIPAllocatorParams struct {
 	DB             *statedb.DB
 	Routes         statedb.Table[*datapathTables.Route]
 	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
-	NodeAddressing datapath.NodeAddressing
+	NodeAddressing node.Addressing
 	LocalNodeStore *node.LocalNodeStore
 	MTU            mtu.MTU
 	IPAM           *ipam.IPAM
@@ -72,7 +71,7 @@ type infraIPAllocator struct {
 	config         config
 	db             *statedb.DB
 	routes         statedb.Table[*datapathTables.Route]
-	nodeAddressing datapath.NodeAddressing
+	nodeAddressing node.Addressing
 	localNodeStore *node.LocalNodeStore
 	mtuManager     mtu.MTU
 	ipAllocator    ipamAllocator
@@ -112,7 +111,7 @@ func (r *infraIPAllocator) GetHealthEndpointRouting() *linuxrouting.RoutingInfo 
 	return r.healthEndpointRouting
 }
 
-func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if r.daemonConfig.LocalRouterIPv4 != "" {
 		routerIP := net.ParseIP(r.daemonConfig.LocalRouterIPv4)
 		if routerIP == nil {
@@ -127,7 +126,7 @@ func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapa
 	return r.reallocateRouterIPs(ctx, family, fromK8s, fromFS)
 }
 
-func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if r.daemonConfig.LocalRouterIPv6 != "" {
 		routerIP := net.ParseIP(r.daemonConfig.LocalRouterIPv6)
 		if routerIP == nil {
@@ -250,7 +249,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
 }
 
-func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
+func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	r.ipAllocator.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
 

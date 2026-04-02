@@ -20,20 +20,19 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -56,11 +55,11 @@ type nodeSuite struct {
 func setup(tb testing.TB, family string) *nodeSuite {
 	switch family {
 	case "IPv4":
-		return setupNodeSuite(tb, fakeTypes.NewIPv4OnlyNodeAddressing(), false, true)
+		return setupNodeSuite(tb, fakenode.NewIPv4OnlyAddressing(), false, true)
 	case "IPv6":
-		return setupNodeSuite(tb, fakeTypes.NewIPv6OnlyNodeAddressing(), true, false)
+		return setupNodeSuite(tb, fakenode.NewIPv6OnlyAddressing(), true, false)
 	case "dual":
-		return setupNodeSuite(tb, fakeTypes.NewNodeAddressing(), true, true)
+		return setupNodeSuite(tb, fakenode.NewAddressing(), true, true)
 	}
 
 	tb.Fatalf("unknown family: %s", family)
@@ -75,7 +74,7 @@ const (
 
 var families = []string{"IPv4", "IPv6", "dual"}
 
-func setupNodeSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *nodeSuite {
+func setupNodeSuite(tb testing.TB, addressing node.Addressing, enableIPv6, enableIPv4 bool) *nodeSuite {
 	testutils.PrivilegedTest(tb)
 
 	rlimit.RemoveMemlock()

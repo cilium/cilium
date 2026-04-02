@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package node
 
 import (
 	"net"
@@ -9,9 +9,9 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 )
 
-// NodeAddressingFamily is the node addressing information for a particular
-// address family
-type NodeAddressingFamily interface {
+// AddressingFamily is the node addressing information for a particular address
+// family
+type AddressingFamily interface {
 	// Router is the address that will act as the router on each node where
 	// an agent is running on. Endpoints have a default route that points
 	// to this address.
@@ -26,8 +26,8 @@ type NodeAddressingFamily interface {
 	AllocationCIDR() *cidr.CIDR
 }
 
-// NodeAddressing implements addressing of a node
-type NodeAddressing interface {
-	IPv6() NodeAddressingFamily
-	IPv4() NodeAddressingFamily
+// Addressing implements addressing of a node
+type Addressing interface {
+	IPv6() AddressingFamily
+	IPv4() AddressingFamily
 }

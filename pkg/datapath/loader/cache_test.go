@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -85,7 +85,7 @@ func configWriterForTest(t testing.TB) config.Writer {
 
 	cfg, err := config.NewHeaderfileWriter(config.WriterParams{
 		NodeMap:        fakeNodeMap.NewFakeNodeMapV2(),
-		NodeAddressing: fakeTypes.NewNodeAddressing(),
+		NodeAddressing: fakenode.NewAddressing(),
 		Sysctl:         nil,
 	})
 	if err != nil {

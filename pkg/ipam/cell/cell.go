@@ -15,7 +15,6 @@ import (
 	ipamrestapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -74,7 +73,7 @@ type ipamParams struct {
 
 	AgentConfig *option.DaemonConfig
 
-	NodeAddressing      datapathTypes.NodeAddressing
+	NodeAddressing      node.Addressing
 	LocalNodeStore      *node.LocalNodeStore
 	K8sEventReporter    *watchers.K8sEventReporter
 	NodeResource        k8s.LocalCiliumNodeResource

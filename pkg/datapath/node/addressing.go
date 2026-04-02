@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package datapath
+package node
 
 import (
 	"context"
@@ -12,39 +12,38 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 )
 
-// NodeAddressingCell provides the [NodeAddressing] interface that provides
-// access to local node addressing information. This will be eventually
-// superceded by Table[NodeAddress].
-var NodeAddressingCell = cell.Module(
+// AddressingCell provides the [Addressing] interface that provides access to
+// local node addressing information. This will be eventually superceded by
+// Table[NodeAddress].
+var AddressingCell = cell.Module(
 	"node-addressing",
 	"Accessors for looking up local node IP addresses",
 
-	cell.Provide(NewNodeAddressing),
+	cell.Provide(NewAddressing),
 )
 
-func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices statedb.Table[*tables.Device]) types.NodeAddressing {
-	return &nodeAddressing{
+func NewAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devices statedb.Table[*tables.Device]) node.Addressing {
+	return &addressing{
 		localNode: localNode,
 		db:        db,
 		devices:   devices,
 	}
 }
 
-type nodeAddressing struct {
+type addressing struct {
 	localNode *node.LocalNodeStore
 	db        *statedb.DB
 	devices   statedb.Table[*tables.Device]
 }
 
-func (n *nodeAddressing) IPv6() types.NodeAddressingFamily {
+func (n *addressing) IPv6() node.AddressingFamily {
 	return addressFamily{n, ipv6}
 }
 
-func (n *nodeAddressing) IPv4() types.NodeAddressingFamily {
+func (n *addressing) IPv4() node.AddressingFamily {
 	return addressFamily{n, ipv4}
 }
 
@@ -76,12 +75,11 @@ func (a addressFamily) AllocationCIDR() *cidr.CIDR {
 type getFlags int
 
 const (
-	ipv4     getFlags = 1 << 0
-	ipv6     getFlags = 1 << 1
-	nodePort getFlags = 1 << 2
+	ipv4 getFlags = 1 << 0
+	ipv6 getFlags = 1 << 1
 )
 
 type addressFamily struct {
-	*nodeAddressing
+	*addressing
 	flags getFlags
 }

@@ -14,7 +14,6 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -99,7 +98,7 @@ type Allocator interface {
 type IPAM struct {
 	logger *slog.Logger
 
-	nodeAddressing types.NodeAddressing
+	nodeAddressing node.Addressing
 	config         *option.DaemonConfig
 
 	ipv6Allocator Allocator
