@@ -35,6 +35,7 @@ var Cell = cell.Module(
 	"Cilium Network Driver",
 
 	cell.ProvidePrivate(
+		newResourceNetworkConfigTableAndReflector,
 		ciliumNetworkDriverConfigResource,
 		resourceClaimResource,
 		podResource,
