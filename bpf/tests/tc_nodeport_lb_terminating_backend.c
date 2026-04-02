@@ -148,6 +148,8 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -231,6 +233,9 @@ int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+
 	/* Remove the service's last backend, and flip the backend to
 	 * 'terminating' state.
 	 */
@@ -251,6 +256,8 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

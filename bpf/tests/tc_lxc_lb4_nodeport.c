@@ -134,6 +134,8 @@ int lxc_v4_remote_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -242,6 +244,8 @@ int lxc_v4_remote_nodeport_local_backend_reply_check(const struct __ctx_buff *ct
 
 	test_init();
 
+	endpoint_v4_del_entry(CLIENT_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -343,6 +347,8 @@ int lxc_v4_remote_nodeport_dsr_local_backend_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -452,6 +458,8 @@ int lxc_v4_remote_nodeport_dsr_local_backend_reply_check(const struct __ctx_buff
 
 	test_init();
 
+	endpoint_v4_del_entry(CLIENT_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -551,6 +559,8 @@ int lxc_v4_remote_nodeport_hairpin_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(CLIENT_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -656,6 +666,8 @@ int lxc_v4_remote_nodeport_hairpin_reply_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(CLIENT_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -858,6 +870,8 @@ int lxc_v4_existing_conn_udp_second_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -961,6 +975,8 @@ int lxc_v4_host_nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

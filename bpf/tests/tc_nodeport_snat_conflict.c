@@ -147,6 +147,9 @@ CHECK("tc", "tc_nodeport_snat_conflict_host_ipv4")
 int tc_nodeport_snat_conflict_host_ipv4_check(struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v4_del_entry(NODE_IP);
+
 	assert(tc_nodeport_snat_conflict_assert_status(ctx));
 	assert(tc_nodeport_snat_conflict_assert_ipv4());
 	test_finish();
@@ -245,6 +248,9 @@ CHECK("tc", "tc_nodeport_snat_conflict_egressproxy_ipv4")
 int tc_nodeport_snat_conflict_egressproxy_ipv4_check(struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v4_del_entry(NODE_IP);
+
 	assert(tc_nodeport_snat_conflict_assert_status(ctx));
 	assert(tc_nodeport_snat_conflict_assert_ipv4());
 	test_finish();
@@ -354,6 +360,9 @@ int tc_nodeport_snat_conflict_pod_ipv4_check(struct __ctx_buff *ctx)
 	};
 
 	test_init();
+
+	endpoint_v4_del_entry(POD_IP);
+
 	assert(tc_nodeport_snat_conflict_assert_status(ctx));
 
 	/* Pod traffic should NOT create a conntrack entry */

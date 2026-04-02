@@ -92,6 +92,8 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 

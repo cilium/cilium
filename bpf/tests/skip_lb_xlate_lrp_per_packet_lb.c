@@ -88,6 +88,9 @@ int v4_local_backend_to_service_check(__maybe_unused const struct __ctx_buff *ct
 	struct tcphdr *l4;
 
 	test_init();
+
+	endpoint_v4_del_entry(V4_BACKEND_IP);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 	if (data + sizeof(__u32) > data_end)

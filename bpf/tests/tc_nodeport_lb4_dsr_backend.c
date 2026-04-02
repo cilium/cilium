@@ -188,6 +188,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -435,6 +437,9 @@ int nodeport_dsr_backend_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_dsr_backend_redirect")
 int nodeport_dsr_backend_redirect_setup(struct __ctx_buff *ctx)
 {
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -449,6 +454,8 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

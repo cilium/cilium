@@ -215,6 +215,8 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -389,6 +391,9 @@ int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_local_backend_redirect")
 int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
 {
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -402,6 +407,8 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -582,6 +589,9 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 2;
 
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, IPPROTO_UDP, 1, revnat_id);
 	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
@@ -599,6 +609,8 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 	struct iphdr *l3;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP_LOCAL);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

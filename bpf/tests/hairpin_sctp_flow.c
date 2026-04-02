@@ -98,6 +98,8 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(v4_pod_one);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
@@ -234,6 +236,8 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 	struct sctphdr *l4;
 
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
+
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
@@ -267,6 +271,8 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	struct sctphdr *l4;
 
 	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;

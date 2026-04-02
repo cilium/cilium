@@ -96,6 +96,8 @@ int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP);
+
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 	status_code = data;
@@ -147,6 +149,9 @@ int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_lb4_fragments_2")
 int nodeport_lb4_fragments_2_setup(struct __ctx_buff *ctx)
 {
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
+			      (__u8 *)mac_one, (__u8 *)mac_two);
+
 	return netdev_receive_packet(ctx);
 }
 
@@ -162,6 +167,8 @@ int nodeport_lb4_fragments_2_check(struct __ctx_buff *ctx)
 	__u64 count = 2;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP);
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);

@@ -82,6 +82,8 @@ int host_bpf_masq_v4_1_udp_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(NODE_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -570,6 +572,8 @@ int host_bpf_masq_v4_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(v4_pod_one);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 	if (data + sizeof(__u32) > data_end)
@@ -694,6 +698,8 @@ int host_bpf_masq_v4_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
 	__u32 *status_code;
 
 	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
