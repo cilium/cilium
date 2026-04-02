@@ -95,6 +95,8 @@ int ipv6_from_netdev_ns_pod_check(const struct __ctx_buff *ctx)
 {
 	test_init();
 
+	endpoint_v6_del_entry((union v6addr *)v6_pod_three);
+
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	BUF_DECL(V6_NDP_POD_NA_LLOPT, v6_ndp_pod_na_llopt);
@@ -132,6 +134,8 @@ CHECK("tc", "011_ipv6_from_netdev_ns_pod_noopt")
 int ipv6_from_netdev_ns_pod_check_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v6_del_entry((union v6addr *)v6_pod_three);
 
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
@@ -182,6 +186,8 @@ int ipv6_from_netdev_ns_pod_check_mcast(const struct __ctx_buff *ctx)
 {
 	test_init();
 
+	endpoint_v6_del_entry((union v6addr *)v6_pod_three);
+
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
 	/* Note we always return NA with llopt */
@@ -219,6 +225,8 @@ CHECK("tc", "012_ipv6_from_netdev_ns_pod_mcast_noopt")
 int ipv6_from_netdev_ns_pod_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v6_del_entry((union v6addr *)v6_pod_three);
 
 	assert(__check_ret_code(ctx, CTX_ACT_REDIRECT));
 
@@ -275,6 +283,8 @@ int ipv6_from_netdev_ns_node_ip_check(const struct __ctx_buff *ctx)
 {
 	test_init();
 
+	endpoint_v6_del_entry((union v6addr *)v6_node_one);
+
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
@@ -314,6 +324,8 @@ CHECK("tc", "0212_ipv6_from_netdev_ns_node_ip_noopt")
 int ipv6_from_netdev_ns_node_ip_check_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v6_del_entry((union v6addr *)v6_node_one);
 
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
@@ -364,6 +376,8 @@ int ipv6_from_netdev_ns_node_ip_check_mcast(const struct __ctx_buff *ctx)
 {
 	test_init();
 
+	endpoint_v6_del_entry((union v6addr *)v6_node_one);
+
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 
 	/* Packet should not be modified */
@@ -402,6 +416,8 @@ CHECK("tc", "022_ipv6_from_netdev_ns_node_ip_mcast_noopt")
 int ipv6_from_netdev_ns_node_ip_check_mcast_noopt(const struct __ctx_buff *ctx)
 {
 	test_init();
+
+	endpoint_v6_del_entry((union v6addr *)v6_node_one);
 
 	assert(__check_ret_code(ctx, CTX_ACT_OK));
 

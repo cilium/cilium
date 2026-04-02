@@ -138,6 +138,11 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 
 	test_init();
 
+	if (v4)
+		endpoint_v4_del_entry(SRC_IPV4);
+	else
+		endpoint_v6_del_entry((union v6addr *)SRC_IPV6);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 

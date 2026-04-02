@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 static __always_inline void
 endpoint_add_entry(struct endpoint_key *key, __u32 ifindex, __u16 lxc_id, __u32 flags, __u32 sec_id,
 		   __u32 parent_ifindex, const __u8 *ep_mac_addr, const __u8 *node_mac_addr)
@@ -58,4 +60,16 @@ endpoint_v6_add_entry(const union v6addr *addr, __u32 ifindex, __u16 lxc_id,
 
 	endpoint_add_entry(&key, ifindex, lxc_id, flags, sec_id, 0,
 			   ep_mac_addr, node_mac_addr);
+}
+
+static __always_inline void
+endpoint_v6_del_entry(const union v6addr *addr)
+{
+	struct endpoint_key key = {
+		.family = ENDPOINT_KEY_IPV6,
+	};
+
+	memcpy(&key.ip6, addr, sizeof(*addr));
+
+	map_delete_elem(&cilium_lxc, &key);
 }

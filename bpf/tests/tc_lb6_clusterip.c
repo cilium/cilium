@@ -146,6 +146,8 @@ int lb6_routable_clusterip_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v6_del_entry((union v6addr *)BACKEND_IP);
+
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
 	status_code = data;
