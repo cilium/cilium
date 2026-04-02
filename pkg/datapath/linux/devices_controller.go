@@ -646,9 +646,17 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		return false, fmt.Sprintf("excluded flag set (mask=0x%x, flags=0x%x)", excludedIfFlagsMask, d.RawFlags)
 	}
 
-	// Ignore bridge and bonding slave devices
+	// Ignore bridge and bonding children devices, but allow VRF device children.
 	if d.MasterIndex != 0 {
-		return false, fmt.Sprintf("bridged or bonded to ifindex %d", d.MasterIndex)
+		masterDevice, _, ok := dc.params.DeviceTable.Get(txn, tables.DeviceIDIndex.Query(d.MasterIndex))
+		if !ok {
+			return false, fmt.Sprintf("device has parent but parent device could not be found: %d", d.MasterIndex)
+		}
+
+		// allow VRF children devices.
+		if masterDevice.Type != "vrf" {
+			return false, fmt.Sprintf("bridged or bonded to ifindex %d", d.MasterIndex)
+		}
 	}
 
 	// Never consider devices with any of the excluded devices.
