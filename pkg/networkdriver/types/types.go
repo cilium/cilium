@@ -194,15 +194,16 @@ type DeviceManagerConfig interface {
 	IsEnabled() bool
 }
 
-type RouteSet map[netip.Prefix]AddrSet
-
-type AddrSet map[netip.Prefix]struct{}
+type Route struct {
+	Destination netip.Prefix
+	Gateway     netip.Addr
+}
 
 type DeviceConfig struct {
 	IPv4Addr  netip.Prefix `json:"ipv4Addr"`
 	IPv6Addr  netip.Prefix `json:"ipv6Addr"`
 	IPPool    string       `json:"ip-pool"`
-	Routes    RouteSet
+	Routes    []Route      `json:"routes"`
 	Vlan      uint16
 	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 }
