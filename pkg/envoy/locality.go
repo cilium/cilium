@@ -20,7 +20,7 @@ const localityClusterName = "/cilium-locality-cluster"
 
 func getLocalNodeZone(localNodeStore *node.LocalNodeStore) (string, error) {
 	if localNodeStore == nil {
-		return "", nil
+		return "", fmt.Errorf("local node store is unavailable")
 	}
 
 	localNode, err := localNodeStore.Get(context.Background())
