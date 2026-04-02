@@ -77,6 +77,8 @@ ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 # include "lib/endpoint.h"
 #endif
 
+#include "lib/metrics.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -183,17 +185,13 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 	void *data = (void *)(long)ctx->data;
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
-	struct metrics_key key = {
-#if defined(IS_BPF_HOST)
-		.reason = is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
-#endif
-#if defined(IS_BPF_WIREGUARD)
-		.reason = is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
-#endif
-		.dir = is_ingress ? METRIC_INGRESS : METRIC_EGRESS,
-	};
 
-	map_delete_elem(&cilium_metrics, &key);
+	if (is_defined(IS_BPF_HOST))
+		metrics_del_entry(is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
+				  is_ingress ? METRIC_INGRESS : METRIC_EGRESS);
+	if (is_defined(IS_BPF_WIREGUARD))
+		metrics_del_entry(is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
+				  is_ingress ? METRIC_INGRESS : METRIC_EGRESS);
 
 	if (is_ipv4)
 		if (is_host)

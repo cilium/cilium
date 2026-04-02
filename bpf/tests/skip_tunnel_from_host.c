@@ -68,6 +68,7 @@ ASSIGN_CONFIG(union macaddr, cilium_net_mac, cilium_net_mac)
  * Include test helpers
  */
 #include "lib/ipcache.h"
+#include "lib/metrics.h"
 #include "lib/subnet.h"
 
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, true)
@@ -112,12 +113,7 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 	 * Otherwise, the metric we want to check would increase by one
 	 * after each test.
 	 */
-	struct metrics_key key = {};
-
-	key.reason = REASON_FORWARDED;
-	key.dir = METRIC_EGRESS;
-
-	map_delete_elem(&cilium_metrics, &key);
+	metrics_del_entry(REASON_FORWARDED, METRIC_EGRESS);
 
 	if (v4)
 		ipcache_v4_add_entry_with_flags(DST_IPV4,
