@@ -14,18 +14,17 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/node"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func fakeIPv4AllocCIDRIP(fakeAddressing types.NodeAddressing) netip.Addr {
+func fakeIPv4AllocCIDRIP(fakeAddressing node.Addressing) netip.Addr {
 	return netip.MustParseAddr(fakeAddressing.IPv4().AllocationCIDR().IP.String())
 }
 
-func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) netip.Addr {
+func fakeIPv6AllocCIDRIP(fakeAddressing node.Addressing) netip.Addr {
 	return netip.MustParseAddr(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 }
 
@@ -120,7 +119,7 @@ func (f fakePoolAllocator) Capacity() uint64 {
 func (f fakePoolAllocator) RestoreFinished() {}
 
 func TestLock(t *testing.T) {
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(NewIPAMParams{
 		Logger:         hivetest.Logger(t),
@@ -153,7 +152,7 @@ func TestLock(t *testing.T) {
 }
 
 func TestExcludeIP(t *testing.T) {
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	ipam := NewIPAM(NewIPAMParams{
 		Logger:         hivetest.Logger(t),
@@ -195,7 +194,7 @@ func TestDeriveFamily(t *testing.T) {
 }
 
 func TestIPAMMetadata(t *testing.T) {
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
 		// use namespace to determine pool name
@@ -278,7 +277,7 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	// IPAM pools. We assert that in this scenario, the pool returned in the
 	// AllocationResult is always set to PoolDefault(), regardless of the requested
 	// pool
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
 	ipam := NewIPAM(NewIPAMParams{

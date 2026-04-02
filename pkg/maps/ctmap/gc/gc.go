@@ -23,13 +23,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -65,7 +65,7 @@ type parameters struct {
 	DaemonConfig            *option.DaemonConfig
 	EndpointRestorerPromise promise.Promise[endpointstate.Restorer]
 	EndpointManager         EndpointManager
-	NodeAddressing          types.NodeAddressing
+	NodeAddressing          node.Addressing
 	SignalManager           SignalHandler
 	CTMaps                  ctmap.CTMaps
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package fake
 
 import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 var (
@@ -31,32 +31,32 @@ var (
 	}
 )
 
-type fakeNodeAddressing struct {
+type nodeAddressing struct {
 	ipv6 addressFamily
 	ipv4 addressFamily
 }
 
-// NewIPv6OnlyNodeAddressing returns a new fake node addressing where IPv4 is
+// NewIPv6OnlyAddressing returns a new fake node addressing where IPv4 is
 // disabled
-func NewIPv6OnlyNodeAddressing() types.NodeAddressing {
-	return &fakeNodeAddressing{
+func NewIPv6OnlyAddressing() node.Addressing {
+	return &nodeAddressing{
 		ipv4: addressFamily{},
 		ipv6: fakeIPv6,
 	}
 }
 
-// NewIPv4OnlyNodeAddressing returns a new fake node addressing where IPv6 is
+// NewIPv4OnlyAddressing returns a new fake node addressing where IPv6 is
 // disabled
-func NewIPv4OnlyNodeAddressing() types.NodeAddressing {
-	return &fakeNodeAddressing{
+func NewIPv4OnlyAddressing() node.Addressing {
+	return &nodeAddressing{
 		ipv4: fakeIPv4,
 		ipv6: addressFamily{},
 	}
 }
 
-// NewNodeAddressing returns a new fake node addressing
-func NewNodeAddressing() types.NodeAddressing {
-	return &fakeNodeAddressing{
+// NewAddressing returns a new fake node addressing
+func NewAddressing() node.Addressing {
+	return &nodeAddressing{
 		ipv4: fakeIPv4,
 		ipv6: fakeIPv6,
 	}
@@ -84,10 +84,10 @@ func (a *addressFamily) DirectRouting() (int, net.IP, bool) {
 	return 0, nil, false
 }
 
-func (n *fakeNodeAddressing) IPv6() types.NodeAddressingFamily {
+func (n *nodeAddressing) IPv6() node.AddressingFamily {
 	return &n.ipv6
 }
 
-func (n *fakeNodeAddressing) IPv4() types.NodeAddressingFamily {
+func (n *nodeAddressing) IPv4() node.AddressingFamily {
 	return &n.ipv4
 }

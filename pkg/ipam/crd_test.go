@@ -21,7 +21,6 @@ import (
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -29,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -102,7 +102,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = dummyResource
 	}
 
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	conf := testConfigurationCRD
 	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
 	sharedNodeStore = newFakeNodeStore(conf, t)
@@ -174,7 +174,7 @@ func TestIPMasq(t *testing.T) {
 		},
 	}
 
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	conf := testConfigurationCRD
 	conf.IPAM = ipamOption.IPAMENI
 	conf.EnableIPMasqAgent = true
@@ -256,7 +256,7 @@ func TestAzureIPMasq(t *testing.T) {
 		},
 	}
 
-	fakeAddressing := fakeTypes.NewNodeAddressing()
+	fakeAddressing := fakenode.NewAddressing()
 	conf := testConfigurationCRD
 	conf.IPAM = ipamOption.IPAMAzure
 	conf.EnableIPMasqAgent = true

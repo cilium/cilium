@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package types
+package fake
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewNodeAddressing(t *testing.T) {
-	fna := NewNodeAddressing()
+	fna := NewAddressing()
 
 	require.NotNil(t, fna.IPv6().Router())
 	require.NotNil(t, fna.IPv4().Router())
