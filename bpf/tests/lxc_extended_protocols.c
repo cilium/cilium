@@ -103,6 +103,8 @@ int lxc_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(CLIENT_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -184,6 +186,8 @@ int lxc_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(CLIENT_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -262,6 +266,8 @@ int lxc_igmp_egress_policy_deny_check(const struct __ctx_buff *ctx)
 	__u32 *status_code;
 
 	test_init();
+
+	endpoint_v4_del_entry(CLIENT_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

@@ -130,6 +130,8 @@ int srv6_decap_to_pod_ipv4_check(const struct __ctx_buff *ctx __maybe_unused)
 
 	test_init();
 
+	endpoint_v4_del_entry(POD_IPV4);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
@@ -406,6 +408,8 @@ int srv6_decap_to_service_ipv4_check(const struct __ctx_buff *ctx __maybe_unused
 	memcpy(sid.addr, (const void *)SID, sizeof(sid.addr));
 
 	test_init();
+
+	endpoint_v4_del_entry(POD_IPV4);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;

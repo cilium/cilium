@@ -193,6 +193,8 @@ int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(v4_pod_one);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 

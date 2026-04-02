@@ -145,6 +145,8 @@ int eni_nlb_symetric_routing_egress_v4_setup_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(v4_pod_one);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
@@ -255,6 +257,8 @@ int eni_nlb_symetric_routing_egress_v4_setup_icmp_check(const struct __ctx_buff 
 	__u32 *redirect_ifindex;
 
 	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;

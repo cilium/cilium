@@ -186,6 +186,8 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(BACKEND_IP);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -341,6 +343,9 @@ int from_overlay_ack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "03_from_overlay_ack")
 int from_overlay_ack_setup(struct __ctx_buff *ctx)
 {
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
+			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
+
 	return overlay_receive_packet(ctx);
 }
 
@@ -355,6 +360,8 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	__u32 meta;
 
 	test_init();
+
+	endpoint_v4_del_entry(BACKEND_IP);
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;

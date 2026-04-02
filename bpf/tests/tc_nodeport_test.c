@@ -110,6 +110,8 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_init();
 
+	endpoint_v4_del_entry(v4_pod_one);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
@@ -332,6 +334,8 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 {
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
+
 	return pod_send_packet(ctx);
 }
 
@@ -345,6 +349,8 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	struct tcphdr *l4;
 
 	test_init();
+
+	endpoint_v4_del_entry(v4_pod_one);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;

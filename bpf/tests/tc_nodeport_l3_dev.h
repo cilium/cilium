@@ -249,6 +249,13 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 
 	test_init();
 
+	if (is_ipv4) {
+		if (is_host)
+			endpoint_v4_del_entry(TEST_IP_NODE_LOCAL);
+		else
+			endpoint_v4_del_entry(TEST_IP_LOCAL);
+	}
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
