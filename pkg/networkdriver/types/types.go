@@ -200,16 +200,18 @@ type Route struct {
 }
 
 type DeviceConfig struct {
-	IPv4Addr  netip.Prefix `json:"ipv4Addr"`
-	IPv6Addr  netip.Prefix `json:"ipv6Addr"`
-	IPPool    string       `json:"ip-pool"`
-	Routes    []Route      `json:"routes"`
-	Vlan      uint16
-	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+	NetworkConfig string       `json:"networkConfig,omitempty"`
+	IPv4Addr      netip.Prefix `json:"ipv4Addr"`
+	IPv6Addr      netip.Prefix `json:"ipv6Addr"`
+	IPPool        string       `json:"ip-pool"`
+	Routes        []Route      `json:"routes"`
+	Vlan          uint16
+	PodIfName     string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 }
 
 func (d *DeviceConfig) Empty() bool {
-	return d.IPv4Addr == (netip.Prefix{}) &&
+	return d.NetworkConfig == "" &&
+		d.IPv4Addr == (netip.Prefix{}) &&
 		d.IPv6Addr == (netip.Prefix{}) &&
 		d.IPPool == "" &&
 		d.Routes == nil &&

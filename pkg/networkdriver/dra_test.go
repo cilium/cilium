@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	resourceapi "k8s.io/api/resource/v1"
 	v1 "k8s.io/api/resource/v1"
@@ -26,10 +27,14 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -244,9 +249,17 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		ipv4MaskSize = 24
 		ipv6CIDR     = "fd00:200:1::/48"
 		ipv6MaskSize = 64
+
+		networkConfigName = "test-network-config"
+		v4NetMask         = 24
+		v4RouteDst        = "10.10.100.0/24"
+		v4RouteGw         = "10.10.100.254"
+		v6NetMask         = 96
+		v6RouteDst        = "fd00:200:1::/96"
+		v6RouteGw         = "fd00:200:1::1"
 	)
 
-	rawParam, err := json.Marshal(map[string]string{"ip-pool": ipPoolName})
+	rawParam, err := json.Marshal(map[string]string{"networkConfig": networkConfigName})
 	assert.NoError(t, err)
 
 	claims := []*resourceapi.ResourceClaim{
@@ -314,17 +327,61 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		},
 	}
 
+	resourceNetCfg := v2alpha1.CiliumResourceNetworkConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: networkConfigName,
+		},
+		Spec: []v2alpha1.CiliumResourceNetworkConfigSpec{
+			{
+				NodeSelector: &slimv1.LabelSelector{
+					MatchLabels: map[string]slimv1.MatchLabelsValue{
+						"kubernetes.io/hostname": localNodeName,
+					},
+				},
+				IPPool: ipPoolName,
+				IPv4: &v2alpha1.IPv4NetworkConfigSpec{
+					NetMask: uint8(v4NetMask),
+					StaticRoutes: []v2alpha1.IPv4StaticRouteSpec{
+						{
+							Destination: v4RouteDst,
+							Gateway:     v4RouteGw,
+						},
+					},
+				},
+				IPv6: &v2alpha1.IPv6NetworkConfigSpec{
+					NetMask: uint8(v6NetMask),
+					StaticRoutes: []v2alpha1.IPv6StaticRouteSpec{
+						{
+							Destination: v6RouteDst,
+							Gateway:     v6RouteGw,
+						},
+					},
+				},
+			},
+		},
+	}
+
 	var (
-		mgr *ipam.MultiPoolManager
-		cs  *k8sClient.FakeClientset
+		mgr             *ipam.MultiPoolManager
+		cs              *k8sClient.FakeClientset
+		db              *statedb.DB
+		resourceNetCfgs statedb.Table[resourceNetworkConfig]
 	)
 
 	hive := hive.New(
 		k8sClient.FakeClientCell(),
 		k8s.ResourcesCell,
-		cell.Provide(func() *option.DaemonConfig {
-			return daemonCfg
-		}),
+		cell.Provide(
+			func() *option.DaemonConfig {
+				return daemonCfg
+			},
+			func() promise.Promise[synced.CRDSync] {
+				r, p := promise.New[synced.CRDSync]()
+				r.Resolve(synced.CRDSync{})
+				return p
+			},
+			newResourceNetworkConfigTableAndReflector,
+		),
 		operatoripam.Cell,
 		resourceIPAM,
 
@@ -338,23 +395,46 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 			_, err := c.CiliumFakeClientset.CiliumV2alpha1().CiliumResourceIPPools().Create(t.Context(), &resourceIPPool, metav1.CreateOptions{})
 			assert.NoError(t, err)
 
+			_, err = c.CiliumFakeClientset.CiliumV2alpha1().CiliumResourceNetworkConfigs().Create(t.Context(), &resourceNetCfg, metav1.CreateOptions{})
+			assert.NoError(t, err)
+
 			nodetypes.SetName(localNodeName)
 			localNode := v2.CiliumNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: localNodeName,
+					Labels: map[string]string{
+						"kubernetes.io/hostname": "test-local-node",
+					},
 				},
 			}
 			_, err = c.CiliumFakeClientset.CiliumV2().CiliumNodes().Create(t.Context(), &localNode, metav1.CreateOptions{})
 			assert.NoError(t, err)
 		}),
-		cell.Invoke(func(m *ipam.MultiPoolManager, c *k8sClient.FakeClientset) {
+		cell.Invoke(func(
+			m *ipam.MultiPoolManager,
+			c *k8sClient.FakeClientset,
+			d *statedb.DB,
+			netCfgs statedb.Table[resourceNetworkConfig],
+		) {
 			mgr = m
 			cs = c
+			db = d
+			resourceNetCfgs = netCfgs
 		}),
 	)
 
 	tlog := hivetest.Logger(t)
 	assert.NoError(t, hive.Start(tlog, t.Context()))
+
+	// wait for the reflector to propagate CiliumResourceNetworkConfig upsert into stateDB
+	var found bool
+	for !found {
+		_, _, watch, found := resourceNetCfgs.GetWatch(db.ReadTxn(), ResourceNetworkConfigByName(networkConfigName))
+		if found {
+			break
+		}
+		<-watch
+	}
 
 	driver := &Driver{
 		logger:     tlog,
@@ -369,10 +449,20 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 				},
 			},
 		},
-		allocations:  make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
-		multiPoolMgr: mgr,
-		ipv4Enabled:  daemonCfg.IPv4Enabled(),
-		ipv6Enabled:  daemonCfg.IPv6Enabled(),
+		allocations:            make(map[kubetypes.UID]map[kubetypes.UID][]allocation),
+		multiPoolMgr:           mgr,
+		ipv4Enabled:            daemonCfg.IPv4Enabled(),
+		ipv6Enabled:            daemonCfg.IPv6Enabled(),
+		db:                     db,
+		resourceNetworkConfigs: resourceNetCfgs,
+		localNodeStore: node.NewTestLocalNodeStore(node.LocalNode{
+			Node: nodetypes.Node{
+				Name: localNodeName,
+				Labels: map[string]string{
+					"kubernetes.io/hostname": "test-local-node",
+				},
+			},
+		}),
 	}
 
 	if driver.ipv4Enabled {
@@ -432,12 +522,23 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	var alloc allocation
 	assert.NoError(t, json.Unmarshal(claim.Status.Devices[0].Data.Raw, &alloc))
 	assert.Equal(t, ipPoolName, alloc.Config.IPPool)
-	assert.Equal(t, 32, alloc.Config.IPv4Addr.Bits())
+
+	assert.Equal(t, v4NetMask, alloc.Config.IPv4Addr.Bits())
 	assert.True(t, v4PoolCIDR.Contains(alloc.Config.IPv4Addr.Masked().Addr()))
 	assert.True(t, v4NodeCIDR.Contains(alloc.Config.IPv4Addr.Masked().Addr()))
-	assert.Equal(t, 128, alloc.Config.IPv6Addr.Bits())
+
+	assert.Equal(t, v6NetMask, alloc.Config.IPv6Addr.Bits())
 	assert.True(t, v6PoolCIDR.Contains(alloc.Config.IPv6Addr.Masked().Addr()))
 	assert.True(t, v6NodeCIDR.Contains(alloc.Config.IPv6Addr.Masked().Addr()))
+
+	assert.Len(t, alloc.Config.Routes, 2)
+	assert.ElementsMatch(t,
+		[]types.Route{
+			{Destination: netip.MustParsePrefix(v4RouteDst), Gateway: netip.MustParseAddr(v4RouteGw)},
+			{Destination: netip.MustParsePrefix(v6RouteDst), Gateway: netip.MustParseAddr(v6RouteGw)},
+		},
+		alloc.Config.Routes,
+	)
 
 	assert.Equal(t, device, claim.Status.Devices[0].NetworkData.InterfaceName)
 	addrs := []string{alloc.Config.IPv4Addr.String(), alloc.Config.IPv6Addr.String()}
