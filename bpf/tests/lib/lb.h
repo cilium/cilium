@@ -101,6 +101,15 @@ lb_v4_add_nodeport_service(__be32 addr, __be16 port, __u8 proto,
 }
 
 static __always_inline void
+lb_v4_add_hostport_service(__be32 addr, __be16 port, __u8 proto,
+			   __u16 backend_count, __u16 rev_nat_index,
+			   __u8 flags2)
+{
+	__lb_v4_add_service(addr, port, proto, backend_count, rev_nat_index,
+			    SVC_FLAG_ROUTABLE | SVC_FLAG_HOSTPORT, flags2, false, 0);
+}
+
+static __always_inline void
 lb_v4_add_l7_service(__be32 addr, __be16 port, __u8 proto,
 		     __u16 rev_nat_index, __u32 proxy_port)
 {
@@ -234,6 +243,15 @@ lb_v6_add_nodeport_service(const union v6addr *addr, __be16 port, __u8 proto,
 {
 	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index,
 			    SVC_FLAG_ROUTABLE | SVC_FLAG_NODEPORT, flags2);
+}
+
+static __always_inline void
+lb_v6_add_hostport_service(const union v6addr *addr, __be16 port, __u8 proto,
+			   __u16 backend_count, __u16 rev_nat_index,
+			   __u8 flags2)
+{
+	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index,
+			    SVC_FLAG_ROUTABLE | SVC_FLAG_HOSTPORT, flags2);
 }
 
 static __always_inline void
