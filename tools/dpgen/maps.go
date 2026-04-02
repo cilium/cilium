@@ -101,7 +101,7 @@ func runMaps(cmd *cobra.Command, args []string) error {
 		objsDone.Insert(objName)
 	}
 
-	btfBlob, err := bb.Marshal(nil, nil)
+	btfBlob, err := marshalSorted(bb)
 	if err != nil {
 		return fmt.Errorf("marshaling combined BTF: %w", err)
 	}
