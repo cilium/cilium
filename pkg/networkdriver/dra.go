@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"path"
+	"slices"
 
 	"go4.org/netipx"
 	resourceapi "k8s.io/api/resource/v1"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
@@ -146,17 +148,90 @@ func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi
 	return devicesCfg, nil
 }
 
-func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg types.DeviceConfig, v4Needed, v6Needed bool) (netip.Addr, netip.Addr, error) {
-	var v4Addr, v6Addr netip.Addr
+type netDevConfig struct {
+	ipPool string
+	ipv4   netip.Prefix
+	ipv6   netip.Prefix
+	routes []route
+}
 
-	if cfg.IPPool == "" {
-		return netip.Addr{}, netip.Addr{}, fmt.Errorf("no IP pool found in config for device %s", device)
+func (driver *Driver) netConfigForDevice(ctx context.Context, device string, cfg types.DeviceConfig) (netDevConfig, error) {
+	var devCfg netDevConfig
+
+	devCfg.ipv4 = cfg.IPv4Addr
+	devCfg.ipv6 = cfg.IPv6Addr
+
+	if cfg.NetworkConfig == "" {
+		return devCfg, nil
 	}
+
+	netCfg, _, found := driver.resourceNetworkConfigs.Get(driver.db.ReadTxn(), ResourceNetworkConfigByName(cfg.NetworkConfig))
+	if !found {
+		return devCfg, fmt.Errorf("no network config %s found for device %s", cfg.NetworkConfig, device)
+	}
+
+	node, err := driver.localNodeStore.Get(ctx)
+	if err != nil {
+		return devCfg, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	targetIdx := slices.IndexFunc(netCfg.Specs, func(cfgSpec spec) bool {
+		return cfgSpec.NodeSelector.Matches(labels.Set(node.Labels))
+	})
+	if targetIdx < 0 {
+		return devCfg, fmt.Errorf("no spec matching current node found in network config %s for device %s", cfg.NetworkConfig, device)
+	}
+	targetCfg := &netCfg.Specs[targetIdx]
+
+	devCfg.routes = make([]route, 0, len(targetCfg.IPv4Routes)+len(targetCfg.IPv6Routes))
+	devCfg.routes = append(targetCfg.IPv4Routes, targetCfg.IPv6Routes...)
+
+	// just like the static IP addresses, if a pool is configured in the claim
+	// itself it takes precedence over the one in the CiliumResourceNetworkConfig
+	pool := cfg.IPPool
+	if pool == "" {
+		pool = targetCfg.IPPool
+	}
+
+	v4FromPool := !cfg.IPv4Addr.IsValid() && pool != ""
+	v6FromPool := !cfg.IPv6Addr.IsValid() && pool != ""
+
+	if v4FromPool || v6FromPool {
+		if v4FromPool && !driver.ipv4Enabled {
+			return devCfg, fmt.Errorf("unable to allocate an IPv4 address from resource pool %s for device %s: IPv4 support is not enabled", pool, device)
+		}
+		if v6FromPool && !driver.ipv6Enabled {
+			return devCfg, fmt.Errorf("unable to allocate an IPv6 address from resource pool %s for device %s: IPv6 support is not enabled", pool, device)
+		}
+
+		devCfg.ipPool = pool
+
+		v4PoolAddr, v6PoolAddr, err := driver.addrsForDevice(ctx, device, ipam.Pool(pool), v4FromPool, v6FromPool)
+
+		// persist allocated addresses into device config even in case of error:
+		// this way the addresses will be released during rollback, if needed
+		if v4FromPool {
+			devCfg.ipv4 = netip.PrefixFrom(v4PoolAddr, targetCfg.IPv4NetMask)
+		}
+		if v6FromPool {
+			devCfg.ipv6 = netip.PrefixFrom(v6PoolAddr, targetCfg.IPv6NetMask)
+		}
+
+		if err != nil {
+			return devCfg, err
+		}
+	}
+
+	return devCfg, nil
+}
+
+func (driver *Driver) addrsForDevice(ctx context.Context, device string, pool ipam.Pool, v4Needed, v6Needed bool) (netip.Addr, netip.Addr, error) {
+	var v4Addr, v6Addr netip.Addr
 
 	if err := resiliency.Retry(ctx, AddrAddRetryInterval, AddrAddMaxRetries, func(ctx context.Context, retries int) (bool, error) {
 		var errs []error
 		if v4Needed && !v4Addr.IsValid() {
-			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(cfg.IPPool), ipam.IPv4, true)
+			res, err := driver.multiPoolMgr.AllocateNext(device, pool, ipam.IPv4, true)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -168,7 +243,7 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg typ
 			}
 		}
 		if v6Needed && !v6Addr.IsValid() {
-			res, err := driver.multiPoolMgr.AllocateNext(device, ipam.Pool(cfg.IPPool), ipam.IPv6, true)
+			res, err := driver.multiPoolMgr.AllocateNext(device, pool, ipam.IPv6, true)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -183,25 +258,14 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg typ
 			driver.logger.WarnContext(
 				ctx, "failed to get IP addresses for device, will retry",
 				logfields.Device, device,
-				logfields.PoolName, cfg.IPPool,
+				logfields.PoolName, pool,
 				logfields.Error, errors.Join(errs...),
 			)
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		errs := []error{err}
-		if v4Addr.IsValid() {
-			if err := driver.multiPoolMgr.ReleaseIP(v4Addr.AsSlice(), ipam.Pool(cfg.IPPool), ipam.IPv4, true); err != nil {
-				errs = append(errs, fmt.Errorf("failed to release IPv4 address %s: %w", v4Addr, err))
-			}
-		}
-		if v6Addr.IsValid() {
-			if err := driver.multiPoolMgr.ReleaseIP(v6Addr.AsSlice(), ipam.Pool(cfg.IPPool), ipam.IPv6, true); err != nil {
-				errs = append(errs, fmt.Errorf("failed to release IPv6 address %s: %w", v6Addr, err))
-			}
-		}
-		return netip.Addr{}, netip.Addr{}, fmt.Errorf("failed to get IP addresses for device %s from pool %s: %w", device, cfg.IPPool, errors.Join(errs...))
+		return v4Addr, v6Addr, fmt.Errorf("failed to get IP addresses for device %s from pool %s: %w", device, pool, err)
 	}
 	return v4Addr, v6Addr, nil
 }
@@ -266,11 +330,6 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	for _, result := range claim.Status.Allocation.Devices.Results {
 		var thisAlloc allocation
 
-		cfg, ok := deviceClaimConfigs[result.Request]
-		if ok {
-			thisAlloc.Config = cfg
-		}
-
 		var found bool
 
 		for mgr, devices := range driver.devices {
@@ -291,35 +350,52 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			}
 		}
 
-		var (
-			v4Addr, v6Addr, zeroAddr netip.Addr
-		)
-
-		// if static IP addresses are not specified, request addresses from the referenced pool
-		v4Needed := driver.ipv4Enabled && thisAlloc.Config.IPv4Addr.Addr() == zeroAddr
-		v6Needed := driver.ipv6Enabled && thisAlloc.Config.IPv6Addr.Addr() == zeroAddr
-		if v4Needed || v6Needed {
-			v4Addr, v6Addr, err = driver.addrsForDevice(ctx, result.Device, cfg, v4Needed, v6Needed)
-			if err != nil {
-				driver.logger.ErrorContext(
-					ctx, "failed to get IP addresses for device",
-					logfields.Device, result.Device,
-					logfields.PoolName, cfg.IPPool,
-					logfields.Error, err,
-				)
-
-				err = fmt.Errorf("failed to get IP addresses for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err)
-				return kubeletplugin.PrepareResult{
-					Err: err,
-				}
+		cfg, found := deviceClaimConfigs[result.Request]
+		if !found {
+			err = fmt.Errorf("%w with ifname %s for %s", errDeviceClaimConfigNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
+			return kubeletplugin.PrepareResult{
+				Err: err,
 			}
 		}
+		thisAlloc.Config = cfg
 
-		if v4Needed {
-			thisAlloc.Config.IPv4Addr = netip.PrefixFrom(v4Addr, v4Addr.BitLen())
+		var devCfg netDevConfig
+		devCfg, err = driver.netConfigForDevice(ctx, result.Device, cfg)
+
+		// persist addresses from pool into thisAlloc, in order to release them in case of error
+		thisAlloc.Config.IPv4Addr = devCfg.ipv4
+		thisAlloc.Config.IPv6Addr = devCfg.ipv6
+		thisAlloc.Config.IPPool = devCfg.ipPool
+
+		thisAlloc.Config.Routes = make([]types.Route, 0, len(devCfg.routes))
+		for _, r := range devCfg.routes {
+			thisAlloc.Config.Routes = append(thisAlloc.Config.Routes, types.Route{
+				Destination: r.Destination,
+				Gateway:     r.Gateway,
+			})
 		}
-		if v6Needed {
-			thisAlloc.Config.IPv6Addr = netip.PrefixFrom(v6Addr, v6Addr.BitLen())
+
+		if err != nil {
+			driver.logger.ErrorContext(
+				ctx, "failed to get valid network configuration for device",
+				logfields.Device, result.Device,
+				logfields.PoolName, cfg.IPPool,
+				logfields.Error, err,
+			)
+
+			// thisAlloc is not yet appended to alloc, so release its IPs
+			// explicitly before rolling back the already-set-up devices.
+			if releaseErr := driver.releaseAddrs(thisAlloc.Config); releaseErr != nil {
+				driver.logger.Warn("failed to release addresses for failed device during rollback",
+					logfields.Device, thisAlloc.Device.IfName(),
+					logfields.Error, releaseErr,
+				)
+			}
+
+			err = fmt.Errorf("failed to get valid network configuration for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err)
+			return kubeletplugin.PrepareResult{
+				Err: err,
+			}
 		}
 
 		if setupErr := thisAlloc.Device.Setup(thisAlloc.Config); setupErr != nil {
