@@ -281,11 +281,14 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 #else
 	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
 #endif
+	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 	void *data;
 	void *data_end;
 	__u32 *status_code;
 
 	test_init();
+
+	endpoint_v6_del_entry(&pod_ip);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;

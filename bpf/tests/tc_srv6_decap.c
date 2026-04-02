@@ -268,6 +268,8 @@ int srv6_decap_to_pod_ipv6_check(const struct __ctx_buff *ctx __maybe_unused)
 
 	test_init();
 
+	endpoint_v6_del_entry((const union v6addr *)POD_IPV6);
+
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
@@ -551,6 +553,8 @@ int srv6_decap_to_service_ipv6_check(const struct __ctx_buff *ctx __maybe_unused
 	memcpy(sid.addr, (const void *)SID, sizeof(sid.addr));
 
 	test_init();
+
+	endpoint_v6_del_entry((const union v6addr *)POD_IPV6);
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
