@@ -293,7 +293,13 @@ notes carefully below to understand what to do during upgrade.
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
 
-* TODO
+* CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy resources that specify
+  neither ``spec`` nor ``specs`` are now rejected at admission time by the
+  Kubernetes API server via a CEL validation rule. Previously, such empty
+  policies were accepted and only flagged later by the Cilium agent with a
+  warning log. Existing empty policies already present in the cluster are not
+  affected, but any create or update that results in an empty policy will be
+  rejected.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~

@@ -21,6 +21,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".status.conditions[?(@.type=='Valid')].status",name="Valid",type=string
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:validation:XValidation:rule="has(self.spec) || has(self.specs)",message="spec or specs must be provided"
 
 // CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an
 // modified version of CiliumNetworkPolicy which is cluster scoped rather than

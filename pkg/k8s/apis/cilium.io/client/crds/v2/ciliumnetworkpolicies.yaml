@@ -6409,6 +6409,9 @@ spec:
         required:
         - metadata
         type: object
+        x-kubernetes-validations:
+        - message: spec or specs must be provided
+          rule: has(self.spec) || has(self.specs)
     served: true
     storage: true
     subresources:
