@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"embed"
 	"fmt"
@@ -244,6 +245,48 @@ func addType(bb *btf.Builder, added *set.Set[string], typ btf.Type) error {
 		added.Insert(name)
 	}
 	return nil
+}
+
+// marshalSorted marshals the BTF types in the builder into a byte slice,
+// ensuring the types are sorted by name in the resulting BTF blob for
+// more deterministic output.
+func marshalSorted(bb *btf.Builder) ([]byte, error) {
+	b, err := bb.Marshal(nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling BTF before sort: %w", err)
+	}
+
+	spec, err := btf.LoadSpecFromReader(bytes.NewReader(b))
+	if err != nil {
+		return nil, fmt.Errorf("loading marshaled BTF: %w", err)
+	}
+
+	var types []btf.Type
+	for t, err := range spec.All() {
+		if err != nil {
+			return nil, fmt.Errorf("iterating BTF types: %w", err)
+		}
+
+		// Can't sort anonymous types. These are typically referred to by named
+		// types, so they will be included by dependency when adding named types to
+		// the builder.
+		if t.TypeName() == "" {
+			continue
+		}
+
+		types = append(types, t)
+	}
+
+	slices.SortStableFunc(types, func(a, b btf.Type) int {
+		return strings.Compare(a.TypeName(), b.TypeName())
+	})
+
+	bb, err = btf.NewBuilder(types, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating BTF builder: %w", err)
+	}
+
+	return bb.Marshal(nil, nil)
 }
 
 // bpfFlagsToString converts BPF map flags into a string representation
