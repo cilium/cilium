@@ -193,3 +193,9 @@ annotations:
       displayName: Cilium Resource IP Pool
       description: |
         CiliumResourceIPPool defines an IP pool that can be used for pooled DRA resources IPAM (i.e. the multi-pool resource IPAM mode).
+    - kind: CiliumResourceNetworkConfig
+      version: v2alpha1
+      name: ciliumresourcenetworkconfigs.cilium.io
+      displayName: Cilium Resource Network Config
+      description: |
+        CiliumResourceNetworkConfig defines the network parameters to configure a network resource claimed from a workload.

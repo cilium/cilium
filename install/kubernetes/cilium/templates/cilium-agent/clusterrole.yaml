@@ -198,4 +198,14 @@ rules:
   - list
   - watch
 {{- end }}
+{{- if .Values.networkDriver.enabled }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumresourcenetworkconfigs
+  verbs:
+  - list
+  - watch
+  - get
+{{- end }}
 {{- end }}
