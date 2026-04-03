@@ -12,6 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	// Configure global netlink handle with default settings.
+	_ "github.com/cilium/cilium/pkg/datapath/inl"
+
 	"github.com/cilium/cilium/cilium-dbg/cmd/troubleshoot"
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/cmdref"
