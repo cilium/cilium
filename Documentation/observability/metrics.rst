@@ -479,8 +479,8 @@ Name                                         Labels                             
 ``endpoint_restoration_endpoints``           ``phase``, ``outcome``                             Enabled    Number of restored endpoints labeled by phase and outcome
 ``endpoint_restoration_duration_seconds``    ``phase``                                          Enabled    Duration of restoration phases in seconds
 ``endpoint_regenerations_total``             ``reason``, ``outcome``, ``error``                 Enabled    Count of all endpoint regenerations that have completed, tagged by reason, outcome and error
-``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Endpoint regeneration time stats
-``endpoint_state``                           ``state``                                          Enabled    Count of all endpoints
+``endpoint_regeneration_time_stats_seconds`` ``scope``, ``status``                              Enabled    Endpoint regeneration time stats
+``endpoint_state``                           ``endpoint_state``                                 Enabled    Count of all endpoints
 ============================================ ================================================== ========== ========================================================
 
 Services
@@ -489,7 +489,7 @@ Services
 ========================================== ================================================== ========== ========================================================
 Name                                       Labels                                             Default    Description
 ========================================== ================================================== ========== ========================================================
-``services_events_total``                                                                     Enabled    Number of services events labeled by action type
+``services_events_total``                   ``action``                                         Enabled    Number of services events labeled by action type
 ``service_implementation_delay``           ``action``                                         Enabled    Duration in seconds to propagate the data plane programming of a service, its network and endpoints from the time the service or the service pod was changed excluding the event queue latency
 ========================================== ================================================== ========== ========================================================
 
@@ -536,10 +536,10 @@ Datapath
 Name                                          Labels                                             Default    Description
 ============================================= ================================================== ========== ========================================================
 ``datapath_conntrack_dump_resets_total``      ``area``, ``name``, ``family``                     Enabled    Number of conntrack dump resets. Happens when a BPF entry gets removed while dumping the map is in progress.
-``datapath_conntrack_gc_runs_total``          ``status``                                         Enabled    Number of times that the conntrack garbage collector process was run
-``datapath_conntrack_gc_key_fallbacks_total``                                                    Enabled    The number of alive and deleted conntrack entries at the end of a garbage collector run labeled by datapath family
-``datapath_conntrack_gc_entries``             ``family``                                         Enabled    The number of alive and deleted conntrack entries at the end of a garbage collector run
-``datapath_conntrack_gc_duration_seconds``    ``status``                                         Enabled    Duration in seconds of the garbage collector process
+``datapath_conntrack_gc_runs_total``          ``family``, ``protocol``, ``status``               Enabled    Number of times that the conntrack garbage collector process was run
+``datapath_conntrack_gc_key_fallbacks_total`` ``family``, ``protocol``                           Enabled    Number of times a key fallback was needed when iterating over the BPF map
+``datapath_conntrack_gc_entries``             ``family``, ``protocol``, ``status``               Enabled    The number of alive and deleted conntrack entries at the end of a garbage collector run
+``datapath_conntrack_gc_duration_seconds``    ``family``, ``protocol``, ``status``               Enabled    Duration in seconds of the garbage collector process
 ============================================= ================================================== ========== ========================================================
 
 IPsec
@@ -597,7 +597,7 @@ Name                                       Labels                               
 ``policy``                                                                                    Enabled    Number of policies currently loaded
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
 ``policy_change_total``                    ``source``, ``operation``, ``outcome``             Enabled    Number of policy changes by source, operation and outcome
-``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
+``policy_endpoint_enforcement_status``     ``enforcement``                                    Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ``policy_selector_match_count_max``        ``class``                                          Enabled    The maximum number of identities selected by a network policy selector
 ``policy_incremental_update_duration``     ``scope``                                          Enabled    The time taken for newly learned identities to be added to the policy system, including BPF policy maps and L7 proxies.
@@ -610,7 +610,7 @@ Policy L7 (HTTP/FQDN)
 ======================================== ================================================== ========== ========================================================
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
-``proxy_redirects``                      ``protocol``                                       Enabled    Number of redirects installed for endpoints
+``proxy_redirects``                      ``protocol_l7``                                    Enabled    Number of redirects installed for endpoints
 ``proxy_upstream_reply_seconds``         ``error``, ``protocol_l7``, ``scope``              Enabled    Seconds waited for upstream server to reply to a request
 ``proxy_datapath_update_timeout_total``                                                     Disabled   Number of total datapath update timeouts due to FQDN IP updates
 ``policy_l7_total``                      ``rule``, ``proxy_type``                           Enabled    Number of total L7 requests/responses
@@ -619,20 +619,20 @@ Name                                     Labels                                 
 Identity
 ~~~~~~~~
 
-======================================== ================================================== ========== ========================================================
-Name                                     Labels                                             Default    Description
-======================================== ================================================== ========== ========================================================
-``identity``                             ``type``                                           Enabled    Number of identities currently allocated
-``identity_label_sources``               ``source``                                         Enabled    Number of identities which contain at least one label from the given label source
-``identity_gc_entries``                  ``identity_type``                                  Enabled    Number of alive and deleted identities at the end of a garbage collector run
-``identity_gc_runs``                     ``outcome``, ``identity_type``                     Enabled    Number of times identity garbage collector has run
-``identity_gc_latency``                  ``outcome``, ``identity_type``                     Enabled    Duration of the last successful identity GC run
-``ipcache_errors_total``                 ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
-``ipcache_events_total``                 ``type``                                           Enabled    Number of events interacting with the ipcache
-``identity_cache_timer_duration``        ``name``                                           Enabled    Seconds required to execute periodic policy processes. ``name="id-alloc-update-policy-maps"`` is the time taken to apply incremental updates to the BPF policy maps.
-``identity_cache_timer_trigger_latency`` ``name``                                           Enabled    Seconds spent waiting for a previous process to finish before starting the next round. ``name="id-alloc-update-policy-maps"`` is the time waiting before applying incremental updates to the BPF policy maps.
-``identity_cache_timer_trigger_folds``   ``name``                                           Enabled    Number of timer triggers that were coalesced in to one execution. ``name="id-alloc-update-policy-maps"`` applies the incremental updates to the BPF policy maps.
-======================================== ================================================== ========== ========================================================
+============================================ ================================================== ========== ========================================================
+Name                                         Labels                                             Default    Description
+============================================ ================================================== ========== ========================================================
+``identity``                                 ``type``                                           Enabled    Number of identities currently allocated
+``identity_label_sources``                   ``source``                                         Enabled    Number of identities which contain at least one label from the given label source
+``identity_gc_entries``                      ``status``, ``identity_type``                      Enabled    Number of alive and deleted identities at the end of a garbage collector run
+``identity_gc_runs``                         ``outcome``, ``identity_type``                     Enabled    Number of times identity garbage collector has run
+``identity_gc_latency``                      ``outcome``, ``identity_type``                     Enabled    Duration of the last successful identity GC run
+``ipcache_errors_total``                     ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
+``ipcache_events_total``                     ``type``                                           Disabled   Number of events interacting with the ipcache
+``identity_updater_timer_duration``          ``name``                                           Enabled    Seconds required to execute periodic policy processes. ``name="id-alloc-update-policy-maps"`` is the time taken to apply incremental updates to the BPF policy maps.
+``identity_updater_timer_trigger_latency``   ``name``                                           Enabled    Seconds spent waiting for a previous process to finish before starting the next round. ``name="id-alloc-update-policy-maps"`` is the time waiting before applying incremental updates to the BPF policy maps.
+``identity_updater_timer_trigger_folds``     ``name``                                           Enabled    Number of timer triggers that were coalesced in to one execution. ``name="id-alloc-update-policy-maps"`` applies the incremental updates to the BPF policy maps.
+============================================ ================================================== ========== ========================================================
 
 Events external to Cilium
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -640,7 +640,7 @@ Events external to Cilium
 ======================================== ================================================== ========== ========================================================
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
-``event_ts``                             ``source``                                         Enabled    Last timestamp when Cilium received an event from a control plane source, per resource and per action
+``event_ts``                             ``source``, ``scope``, ``action``                  Enabled    Last timestamp when Cilium received an event from a control plane source, per resource and per action
 ``k8s_event_lag_seconds``                ``source``                                         Disabled   Lag for Kubernetes events - computed value between receiving a CNI ADD event from kubelet and a Pod event received from kube-api-server
 ======================================== ================================================== ========== ========================================================
 
@@ -681,9 +681,8 @@ Kubernetes
 Name                                        Labels                                             Default    Description
 =========================================== ================================================== ========== ========================================================
 ``kubernetes_resource_sync_duration``       ``scope``                                          Enabled    Duration in seconds of a specific Kubernetes resource sync
-``kubernetes_events_received_total``        ``scope``, ``action``, ``validity``, ``equal``     Enabled    Number of Kubernetes events received
-``kubernetes_events_total``                 ``scope``, ``action``, ``outcome``                 Enabled    Number of Kubernetes events processed
-``k8s_cnp_status_completion_seconds``       ``attempts``, ``outcome``                          Enabled    Duration in seconds in how long it took to complete a CNP status update
+``kubernetes_events_received_total``        ``scope``, ``action``, ``valid``, ``equal``        Enabled    Number of Kubernetes events received
+``kubernetes_events_total``                 ``scope``, ``action``, ``status``                  Enabled    Number of Kubernetes events processed
 ``k8s_terminating_endpoints_events_total``                                                     Enabled    Number of terminating endpoint events received from Kubernetes
 =========================================== ================================================== ========== ========================================================
 
@@ -720,7 +719,7 @@ IPAM
 Name                                     Labels                                       Default    Description
 ======================================== ============================================ ========== ========================================================
 ``ipam_capacity``                        ``family``, ``cidr``                         Enabled    Total number of IPs in the IPAM pool labeled by family
-``ipam_events_total``                                                                 Enabled    Number of IPAM events received labeled by action and datapath family type
+``ipam_events_total``                    ``action``, ``family``                       Enabled    Number of IPAM events received labeled by action and datapath family type
 ``ip_addresses``                         ``family``                                   Enabled    Number of allocated IP addresses
 ======================================== ============================================ ========== ========================================================
 
@@ -741,11 +740,11 @@ Name                                     Labels                                 
 Agent
 ~~~~~
 
-================================ ================================ ========== ========================================================
-Name                             Labels                           Default    Description
-================================ ================================ ========== ========================================================
-``api_process_time_seconds``                                      Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
-================================ ================================ ========== ========================================================
+======================================== ======================================= ========== ========================================================
+Name                                     Labels                                  Default    Description
+======================================== ======================================= ========== ========================================================
+``api_process_time_seconds``             ``path``, ``method``, ``return_code``   Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
+======================================== ======================================= ========== ========================================================
 
 FQDN
 ~~~~
@@ -775,16 +774,6 @@ Name                                                Labels                      
 ``hive_jobs_timer_run_duration_seconds``            ``module``, ``job_name``         Enabled      Histogram of timer job run duration
 =================================================== ================================ ============ ========================================================
 
-CIDRGroups
-~~~~~~~~~~
-
-=================================================== ===================== =============================
-Name                                                Labels                Default    Description
-=================================================== ===================== =============================
-``cidrgroups_referenced``                                                 Enabled    Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup. CNPs with empty or non-existing CIDRGroupRefs are not considered
-``cidrgroup_translation_time_stats_seconds``                              Disabled   CIDRGroup translation time stats
-=================================================== ===================== =============================
-
 .. _metrics_api_rate_limiting:
 
 API Rate Limiting
@@ -797,7 +786,7 @@ Name                                           Labels                           
 ``api_limiter_processed_requests_total``       ``api_call``, ``outcome``, ``return_code`` Enabled    Total number of API requests processed
 ``api_limiter_processing_duration_seconds``    ``api_call``, ``value``                    Enabled    Mean and estimated processing duration in seconds
 ``api_limiter_rate_limit``                     ``api_call``, ``value``                    Enabled    Current rate limiting configuration (limit and burst)
-``api_limiter_requests_in_flight``             ``api_call``  ``value``                    Enabled    Current and maximum allowed number of requests in flight
+``api_limiter_requests_in_flight``             ``api_call``, ``value``                    Enabled    Current and maximum allowed number of requests in flight
 ``api_limiter_wait_duration_seconds``          ``api_call``, ``value``                    Enabled    Mean, min, and max wait duration
 ``api_limiter_wait_history_duration_seconds``  ``api_call``                               Disabled   Histogram of wait duration per API call processed
 ============================================== ========================================== ========== ========================================================
@@ -946,9 +935,9 @@ CiliumEndpointSlices (CES)
 Name                                           Labels                           Description
 ============================================== ================================ ========================================================
 ``number_of_ceps_per_ces``                                                      The number of CEPs batched in a CES
-``number_of_cep_changes_per_ces``              ``opcode``, ``failure_type``     The number of changed CEPs in each CES update
-``ces_sync_total``                             ``outcome``                      The number of completed CES syncs by outcome
-``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
+``number_of_cep_changes_per_ces``              ``opcode``                       The number of changed CEPs in each CES update
+``ces_sync_total``                             ``outcome``, ``failure_type``    The number of completed CES syncs by outcome
+``ces_queueing_delay_seconds``                 ``queue``                        CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
 
 Note that the CES controller has multiple internal queues for handling CES updates.
@@ -1393,7 +1382,7 @@ This is dynamic hubble exporter metric.
 ==================================== ======================================== ========== ==================================================
 Name                                 Labels                                   Default    Description
 ==================================== ======================================== ========== ==================================================
-``dynamic_exporter_exporters_total`` ``source``                               Enabled    Number of configured hubble exporters
+``dynamic_exporter_exporters_total`` ``status``                               Enabled    Number of configured hubble exporters
 ==================================== ======================================== ========== ==================================================
 
 Labels
@@ -1411,7 +1400,7 @@ This is dynamic hubble exporter metric.
 ==================================== ======================================== ========== ==================================================
 Name                                 Labels                                   Default    Description
 ==================================== ======================================== ========== ==================================================
-``dynamic_exporter_up``              ``source``                               Enabled    Status of exporter (1 - active, 0 - inactive)
+``dynamic_exporter_up``              ``name``                                 Enabled    Status of exporter (1 - active, 0 - inactive)
 ==================================== ======================================== ========== ==================================================
 
 Labels
@@ -1514,8 +1503,8 @@ Name                                           Labels                           
 ``api_limiter_processed_requests_total``       ``api_call``, ``outcome``, ``return_code`` Total number of API requests processed
 ``api_limiter_processing_duration_seconds``    ``api_call``, ``value``                    Mean and estimated processing duration in seconds
 ``api_limiter_rate_limit``                     ``api_call``, ``value``                    Current rate limiting configuration (limit and burst)
-``api_limiter_requests_in_flight``             ``api_call``  ``value``                    Current and maximum allowed number of requests in flight
-``api_limiter_wait_duration_seconds``          ``api_call``, ``value``                     Mean, min, and max wait duration
+``api_limiter_requests_in_flight``             ``api_call``, ``value``                    Current and maximum allowed number of requests in flight
+``api_limiter_wait_duration_seconds``          ``api_call``, ``value``                    Mean, min, and max wait duration
 ============================================== ========================================== ========================================================
 
 Controllers
@@ -1610,7 +1599,7 @@ Name                                           Labels                           
 ``api_limiter_processed_requests_total``       ``api_call``, ``outcome``, ``return_code`` Total number of API requests processed
 ``api_limiter_processing_duration_seconds``    ``api_call``, ``value``                    Mean and estimated processing duration in seconds
 ``api_limiter_rate_limit``                     ``api_call``, ``value``                    Current rate limiting configuration (limit and burst)
-``api_limiter_requests_in_flight``             ``api_call``  ``value``                    Current and maximum allowed number of requests in flight
+``api_limiter_requests_in_flight``             ``api_call``, ``value``                    Current and maximum allowed number of requests in flight
 ``api_limiter_wait_duration_seconds``          ``api_call``, ``value``                    Mean, min, and max wait duration
 ============================================== ========================================== ========================================================
 
