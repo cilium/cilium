@@ -27,6 +27,9 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	// Configure global netlink handle with default settings.
+	_ "github.com/cilium/cilium/pkg/datapath/inl"
+
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
