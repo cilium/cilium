@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 
+	// Configure global netlink handle with default settings.
+	_ "github.com/cilium/cilium/pkg/datapath/inl"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
