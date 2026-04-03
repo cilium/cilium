@@ -39,27 +39,27 @@ func getNetworkNamespace(pod *api.PodSandbox) string {
 // It configures the allocated network devices for the pod based on its network namespace.
 func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSandbox) error {
 	err := driver.withLock(func() error {
-		l := driver.logger.With(
+		log := driver.logger.With(
 			logfields.K8sNamespace, podSandbox.GetNamespace(),
 			logfields.K8sPodName, podSandbox.GetName(),
 			logfields.UID, podSandbox.GetUid(),
 		)
 
-		l.DebugContext(ctx, "RunPodSandbox request received")
+		log.DebugContext(ctx, "RunPodSandbox request received")
 
 		networkNamespace := getNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices
 		// nothing for us here
 		if networkNamespace == "" {
-			l.DebugContext(ctx, "RunPodSandbox pod using host network cannot claim host devices")
+			log.DebugContext(ctx, "RunPodSandbox pod using host network cannot claim host devices")
 			return nil
 		}
 
-		l = l.With(logfields.NetNamespace, networkNamespace)
+		log = log.With(logfields.NetNamespace, networkNamespace)
 
 		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
 		if !ok {
-			l.DebugContext(ctx, "no allocation found")
+			log.DebugContext(ctx, "no allocation found")
 			// allocation not found/doesn't exist
 			return nil
 		}
@@ -111,6 +111,9 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 					return nil
 				}); err != nil {
+					log.ErrorContext(ctx, "failed to configure device",
+						logfields.Device, a.Device.IfName,
+						logfields.Error, err)
 					return err
 				}
 			}
@@ -126,26 +129,26 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 // It cleans up the allocated network devices for the pod.
 func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSandbox) error {
 	err := driver.withLock(func() error {
-		l := driver.logger.With(
+		log := driver.logger.With(
 			logfields.K8sNamespace, podSandbox.GetNamespace(),
 			logfields.K8sPodName, podSandbox.GetName(),
 			logfields.UID, podSandbox.GetUid(),
 		)
 
-		l.DebugContext(ctx, "StopPodSandbox request received")
+		log.DebugContext(ctx, "StopPodSandbox request received")
 
 		networkNamespace := getNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices because it impacts the host
 		if networkNamespace == "" {
-			l.DebugContext(ctx, "StopPodSandbox pod using host network cannot claim host devices")
+			log.DebugContext(ctx, "StopPodSandbox pod using host network cannot claim host devices")
 			return nil
 		}
 
-		l = l.With(logfields.NetNamespace, networkNamespace)
+		log = log.With(logfields.NetNamespace, networkNamespace)
 
 		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
 		if !ok {
-			l.DebugContext(ctx, "no allocation found")
+			log.DebugContext(ctx, "no allocation found")
 			// allocation not found/doesn't exist
 			return nil
 		}
