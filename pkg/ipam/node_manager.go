@@ -122,11 +122,11 @@ type AllocationImplementation interface {
 	// Resync is called periodically to give the IPAM implementation a
 	// chance to resync its own state with external APIs or systems. It is
 	// also called when the IPAM layer detects that state got out of sync.
-	Resync(ctx context.Context) time.Time
+	Resync(ctx context.Context) (time.Time, error)
 
 	// InstanceSync is called to sync the state of the specified instance with
 	// external APIs or systems.
-	InstanceSync(ctx context.Context, instanceID string) time.Time
+	InstanceSync(ctx context.Context, instanceID string) (time.Time, error)
 
 	// HasInstance returns whether the instance is in instances
 	HasInstance(instanceID string) bool
@@ -216,19 +216,18 @@ func NewNodeManager(logger *slog.Logger, instancesAPI AllocationImplementation, 
 	return mngr, nil
 }
 
-func (n *NodeManager) instancesAPIResync(ctx context.Context) (time.Time, bool) {
-	syncTime := n.instancesAPI.Resync(ctx)
-	success := !syncTime.IsZero()
-	n.SetInstancesAPIReadiness(success)
-	return syncTime, success
+func (n *NodeManager) instancesAPIResync(ctx context.Context) (time.Time, error) {
+	syncTime, err := n.instancesAPI.Resync(ctx)
+	n.SetInstancesAPIReadiness(err == nil)
+	return syncTime, err
 }
 
 // Start kicks of the NodeManager by performing the initial state
 // synchronization and starting the background sync goroutine
 func (n *NodeManager) Start(ctx context.Context) error {
 	// Trigger the initial resync in a blocking manner
-	if _, ok := n.instancesAPIResync(ctx); !ok {
-		return fmt.Errorf("Initial synchronization with instances API failed")
+	if _, err := n.instancesAPIResync(ctx); err != nil {
+		return fmt.Errorf("initial synchronization with instances API failed: %w", err)
 	}
 
 	// Start an interval based  background resync for safety, it will
@@ -243,13 +242,13 @@ func (n *NodeManager) Start(ctx context.Context) error {
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
 					start := time.Now()
-					syncTime, ok := n.instancesAPIResync(ctx)
-					if ok {
-						n.metricsAPI.ObserveBackgroundSync(success, time.Since(start))
-						n.Resync(ctx, syncTime)
-					} else {
+					syncTime, err := n.instancesAPIResync(ctx)
+					if err != nil {
 						n.metricsAPI.ObserveBackgroundSync(failed, time.Since(start))
+						return err
 					}
+					n.metricsAPI.ObserveBackgroundSync(success, time.Since(start))
+					n.Resync(ctx, syncTime)
 					return nil
 				},
 			})
@@ -309,8 +308,8 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		ctx, cancel := context.WithCancel(context.Background())
 		// InstanceAPI is stale and the instances API is stable then do resync instancesAPI to sync instances
 		if !n.instancesAPI.HasInstance(resource.InstanceID()) && n.stableInstancesAPI {
-			if syncTime := n.instancesAPI.InstanceSync(ctx, resource.InstanceID()); syncTime.IsZero() {
-				node.logger.Load().Warn("Failed to resync the instance from the API after new node was found")
+			if _, err := n.instancesAPI.InstanceSync(ctx, resource.InstanceID()); err != nil {
+				node.logger.Load().Warn("Failed to resync the instance from the API after new node was found", logfields.Error, err)
 				n.stableInstancesAPI = false
 			} else {
 				n.stableInstancesAPI = true
@@ -374,9 +373,12 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			MinInterval:     10 * time.Millisecond,
 			MetricsObserver: n.metricsAPI.ResyncTrigger(),
 			TriggerFunc: func(reasons []string) {
-				if syncTime, ok := node.instanceAPISync(ctx, resource.InstanceID()); ok {
-					node.manager.Resync(ctx, syncTime)
+				syncTime, err := node.manager.instancesAPI.InstanceSync(ctx, resource.InstanceID())
+				if err != nil {
+					node.logger.Load().Warn("Unable to sync instance", logfields.Error, err)
+					return
 				}
+				node.manager.Resync(ctx, syncTime)
 			},
 		})
 		if err != nil {

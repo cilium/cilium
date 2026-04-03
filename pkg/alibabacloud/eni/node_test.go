@@ -66,7 +66,8 @@ func TestCreateInterface(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(t.Context())
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 
 	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
@@ -120,7 +121,8 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(t.Context())
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 
 	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
@@ -152,7 +154,8 @@ func TestPrepareIPAllocation(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	instances.Resync(t.Context())
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 
 	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)

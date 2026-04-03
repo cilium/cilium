@@ -61,12 +61,12 @@ func (a *allocationImplementationMock) GetPoolQuota() ipamTypes.PoolQuotaMap {
 	}
 }
 
-func (a *allocationImplementationMock) Resync(ctx context.Context) time.Time {
-	return time.Now()
+func (a *allocationImplementationMock) Resync(ctx context.Context) (time.Time, error) {
+	return time.Now(), nil
 }
 
-func (a *allocationImplementationMock) InstanceSync(ctx context.Context, instanceID string) time.Time {
-	return time.Now()
+func (a *allocationImplementationMock) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
+	return time.Now(), nil
 }
 
 func (a *allocationImplementationMock) HasInstance(instanceID string) bool {

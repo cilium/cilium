@@ -105,7 +105,8 @@ func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 	})
 
 	api.UpdateInstances(instances)
-	mngr.Resync(t.Context())
+	_, err := mngr.Resync(t.Context())
+	require.NoError(t, err)
 }
 
 func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
@@ -162,7 +163,8 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 	})
 
 	api.UpdateInstances(instances)
-	mngr.Resync(t.Context())
+	_, err := mngr.Resync(t.Context())
+	require.NoError(t, err)
 }
 
 func TestSubnetDiscovery(t *testing.T) {

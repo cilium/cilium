@@ -423,12 +423,6 @@ func (n *Node) InstanceID() (id string) {
 	return
 }
 
-func (n *Node) instanceAPISync(ctx context.Context, instanceID string) (time.Time, bool) {
-	syncTime := n.manager.instancesAPI.InstanceSync(ctx, instanceID)
-	success := !syncTime.IsZero()
-	return syncTime, success
-}
-
 // UpdatedResource is called when an update to the CiliumNode has been
 // received. The IPAM layer will attempt to immediately resolve any IP deficits
 // and also trigger the background sync to continue working in the background

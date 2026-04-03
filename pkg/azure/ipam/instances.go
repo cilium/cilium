@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -86,8 +87,8 @@ func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
 
 // Resync fetches the list of instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
-// started or time.Time{} if it did not complete.
-func (m *InstancesManager) Resync(ctx context.Context) time.Time {
+// started or an error if it did not complete.
+func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 	// Full API resync should block the instance incremental resync from all nodes.
 	m.resyncLock.Lock()
 	defer m.resyncLock.Unlock()
@@ -97,17 +98,13 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 // resyncInstance only resyncs a given instance
 // Note: This function uses GetInstance directly (not optimized with separate fetch/parse)
 // because it already queries per-instance APIs which are relatively lightweight
-func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string) time.Time {
+func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string) (time.Time, error) {
 	resyncStart := time.Now()
 
 	// First get the instance with empty subnet map to extract subnet IDs
 	instance, err := m.api.GetInstance(ctx, ipamTypes.SubnetMap{}, instanceID)
 	if err != nil {
-		m.logger.Warn("Unable to synchronize Azure instance interface list",
-			logfields.Error, err,
-			logfields.InstanceID, instanceID,
-		)
-		return time.Time{}
+		return time.Time{}, fmt.Errorf("synchronize Azure instance %s interface list: %w", instanceID, err)
 	}
 
 	// Extract subnet IDs from this instance
@@ -130,11 +127,7 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 	if len(subnets) > 0 {
 		instance, err = m.api.GetInstance(ctx, subnets, instanceID)
 		if err != nil {
-			m.logger.Warn("Unable to re-synchronize Azure instance with subnet details",
-				logfields.Error, err,
-				logfields.InstanceID, instanceID,
-			)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("re-synchronize Azure instance %s with subnet details: %w", instanceID, err)
 		}
 	}
 
@@ -150,7 +143,7 @@ func (m *InstancesManager) resyncInstance(ctx context.Context, instanceID string
 	m.instances.UpdateInstance(instanceID, instance)
 	m.subnets = subnets
 
-	return resyncStart
+	return resyncStart, nil
 }
 
 // extractSubnetIDs extracts unique subnet IDs from node network interfaces
@@ -170,14 +163,13 @@ func (m *InstancesManager) extractSubnetIDs(instances *ipamTypes.InstanceMap) []
 
 // resyncInstances performs a full sync of all instances using three-phase strategy
 // Optimization: Fetches network interfaces once from Azure, then parses them twice
-func (m *InstancesManager) resyncInstances(ctx context.Context) time.Time {
+func (m *InstancesManager) resyncInstances(ctx context.Context) (time.Time, error) {
 	resyncStart := time.Now()
 
 	// Phase 1: Fetch network interfaces once from Azure API
 	networkInterfaces, err := m.api.ListAllNetworkInterfaces(ctx)
 	if err != nil {
-		m.logger.Warn("Unable to fetch Azure network interfaces", logfields.Error, err)
-		return time.Time{}
+		return time.Time{}, fmt.Errorf("fetch Azure network interfaces: %w", err)
 	}
 
 	// Phase 2: Parse with empty subnets to discover which subnets are actually in use
@@ -213,10 +205,10 @@ func (m *InstancesManager) resyncInstances(ctx context.Context) time.Time {
 	m.instances = instances
 	m.subnets = subnets
 
-	return resyncStart
+	return resyncStart, nil
 }
 
-func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) time.Time {
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
 	// Instance incremental resync from different nodes should be executed in parallel,
 	// but must block the full API resync.
 	m.resyncLock.RLock()

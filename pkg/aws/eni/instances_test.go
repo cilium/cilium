@@ -195,14 +195,16 @@ var (
 
 func iteration1(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
 	api.UpdateENIs(enis)
-	mngr.Resync(t.Context())
+	_, err := mngr.Resync(t.Context())
+	require.NoError(t, err)
 }
 
 func iteration2(t *testing.T, api *ec2mock.API, mngr *InstancesManager) {
 	api.UpdateSubnets(subnets2)
 	api.UpdateSecurityGroups(securityGroups2)
 	api.UpdateENIs(enis2)
-	mngr.Resync(t.Context())
+	_, err := mngr.Resync(t.Context())
+	require.NoError(t, err)
 }
 
 func TestGetSubnet(t *testing.T) {
@@ -352,7 +354,8 @@ func TestGetSecurityGroupByTags(t *testing.T) {
 	require.Equal(t, reqTags, sgGroups[0].Tags)
 
 	// iteration 3
-	mngr.Resync(t.Context())
+	_, err = mngr.Resync(t.Context())
+	require.NoError(t, err)
 	reqTags = ipamTypes.Tags{
 		"k3": "v3",
 	}

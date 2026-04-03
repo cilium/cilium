@@ -171,7 +171,8 @@ func TestIpamPreAllocate8(t *testing.T) {
 	})
 	api.UpdateInstances(m)
 
-	instances.Resync(t.Context())
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 
 	k8sapi := newK8sMock()
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
@@ -234,7 +235,8 @@ func TestIpamMinAllocate10(t *testing.T) {
 	})
 	api.UpdateInstances(m)
 
-	instances.Resync(t.Context())
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 
 	k8sapi := newK8sMock()
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
@@ -327,7 +329,8 @@ func TestIpamManyNodes(t *testing.T) {
 			}
 
 			api.UpdateInstances(allInstances)
-			instances.Resync(t.Context())
+			_, err = instances.Resync(t.Context())
+			require.NoError(t, err)
 
 			for i := range state {
 				state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}
@@ -404,7 +407,8 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	}
 
 	api.UpdateInstances(allInstances)
-	instances.Resync(b.Context())
+	_, err = instances.Resync(b.Context())
+	require.NoError(b, err)
 
 	for i := range state {
 		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i)}

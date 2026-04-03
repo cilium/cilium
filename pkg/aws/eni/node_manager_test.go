@@ -153,7 +153,8 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -199,7 +200,8 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -270,7 +272,8 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -332,7 +335,8 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -390,7 +394,8 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -416,7 +421,8 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
 	mngr.Upsert(updateCiliumNode(cn, 10, 10))
-	syncTime := instances.Resync(t.Context())
+	syncTime, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
@@ -456,7 +462,8 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, true, 2, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -512,14 +519,16 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	node.UpdatedResource(obj)
 
 	// Excess timestamps should be registered after this
-	syncTime := instances.Resync(t.Context())
+	syncTime, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
 
 	// Acknowledge release IPs after 3 secs
 	time.AfterFunc(3*time.Second, func() {
 		// Excess delay duration should have elapsed by now, trigger resync again.
 		// IPs should be marked as excess
-		syncTime := instances.Resync(t.Context())
+		syncTime, err := instances.Resync(t.Context())
+		require.NoError(t, err)
 		mngr.Resync(t.Context(), syncTime)
 		time.Sleep(1 * time.Second)
 		node.PopulateIPReleaseStatus(obj)
@@ -527,7 +536,8 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 		testipam.FakeAcknowledgeReleaseIps(obj)
 		node.UpdatedResource(obj)
 		// Resync one more time to process acknowledgements.
-		syncTime = instances.Resync(t.Context())
+		syncTime, err = instances.Resync(t.Context())
+		require.NoError(t, err)
 		mngr.Resync(t.Context(), syncTime)
 	})
 
@@ -565,7 +575,8 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -593,7 +604,9 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 
 	// Use 7 out of 8 IPs
 	mngr.Upsert(updateCiliumNode(cn, 8, 7))
-	mngr.Resync(t.Context(), instances.Resync(t.Context()))
+	syncTime, err := instances.Resync(t.Context())
+	require.NoError(t, err)
+	mngr.Resync(t.Context(), syncTime)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -630,7 +643,8 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -650,7 +664,8 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 	// assigned the remaining 3 that the t2.xlarge instance type supports
 	// (3x15 - 3 = 42 max)
 	mngr.Upsert(updateCiliumNode(cn, 42, 40))
-	syncTime := instances.Resync(t.Context())
+	syncTime, err := instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
@@ -690,7 +705,8 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -762,7 +778,8 @@ func TestNodeManagerManyNodes(t *testing.T) {
 		require.NoError(t, err)
 		_, err = ec2api.AttachNetworkInterface(t.Context(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
 		require.NoError(t, err)
-		instancesManager.Resync(t.Context())
+		_, err = instancesManager.Resync(t.Context())
+		require.NoError(t, err)
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-testNodeManagerManyNodes-%d", i)}
 		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("c3.xlarge"),
 			withFirstInterfaceIndex(1), withIPAMPreAllocate(1), withIPAMMinAllocate(minAllocate))
@@ -827,7 +844,8 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	require.NoError(t, err)
@@ -878,7 +896,8 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, eniID2)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -903,7 +922,8 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	err = ec2api.DeleteNetworkInterface(t.Context(), eniID2)
 	require.NoError(t, err)
 	// Resync instances from mocked AWS
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	// Use 2 out of 9 IPs
 	mngr.Upsert(updateCiliumNode(cn, 9, 2))
 
@@ -935,7 +955,8 @@ func TestNodeManagerStaticIP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -983,7 +1004,8 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 	require.NoError(t, err)
 	staticIP, err := ec2api.AssociateEIP(t.Context(), eniID1, make(ipamTypes.Tags))
 	require.NoError(t, err)
-	instances.Resync(t.Context())
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
 	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -1023,7 +1045,8 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 		require.NoError(b, err)
 		_, err = ec2api.AttachNetworkInterface(b.Context(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
 		require.NoError(b, err)
-		instances.Resync(b.Context())
+		_, err = instances.Resync(b.Context())
+		require.NoError(b, err)
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-benchmarkAllocWorker-%d", i)}
 		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("m4.large"),
 			withIPAMPreAllocate(1), withIPAMMinAllocate(10))

@@ -5,6 +5,7 @@ package eni
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 
@@ -86,8 +87,8 @@ func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 
 // Resync fetches the list of ECS instances and vSwitches and updates the local
 // cache in the instanceManager. It returns the time when the resync has
-// started or time.Time{} if it did not complete.
-func (m *InstancesManager) Resync(ctx context.Context) time.Time {
+// started or an error if it did not complete.
+func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 	// Full API resync should block the instance incremental resync from all nodes.
 	m.resyncLock.Lock()
 	defer m.resyncLock.Unlock()
@@ -97,8 +98,8 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 
 // InstanceSync fetches the ECS instance by the given ID and vSwitches and updates the local
 // cache in the instanceManager. It returns the time when the resync has
-// started or time.Time{} if it did not complete.
-func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) time.Time {
+// started or an error if it did not complete.
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
 	// Instance incremental resync from different nodes should be executed in parallel,
 	// but must block the full API resync.
 	m.resyncLock.RLock()
@@ -106,25 +107,22 @@ func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) 
 	return m.resync(ctx, instanceID)
 }
 
-func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
+func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
 	resyncStart := time.Now()
 
 	vpcs, err := m.api.GetVPCs(ctx)
 	if err != nil {
-		m.logger.Warn("Unable to synchronize VPC list", logfields.Error, err)
-		return time.Time{}
+		return time.Time{}, fmt.Errorf("synchronize VPC list: %w", err)
 	}
 
 	vSwitches, err := m.api.GetVSwitches(ctx)
 	if err != nil {
-		m.logger.Warn("Unable to retrieve VPC vSwitches list", logfields.Error, err)
-		return time.Time{}
+		return time.Time{}, fmt.Errorf("retrieve VPC vSwitches list: %w", err)
 	}
 
 	securityGroups, err := m.api.GetSecurityGroups(ctx)
 	if err != nil {
-		m.logger.Warn("Unable to retrieve ECS security group list", logfields.Error, err)
-		return time.Time{}
+		return time.Time{}, fmt.Errorf("retrieve ECS security group list: %w", err)
 	}
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
@@ -133,8 +131,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	if instanceID == "" {
 		instances, err := m.api.GetInstances(ctx, vpcs, vSwitches)
 		if err != nil {
-			m.logger.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("synchronize ECS interface list: %w", err)
 		}
 
 		m.logger.Info(
@@ -151,8 +148,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	} else {
 		instance, err := m.api.GetInstance(ctx, vpcs, vSwitches, instanceID)
 		if err != nil {
-			m.logger.Warn("Unable to synchronize ECS interface list", logfields.Error, err)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("synchronize ECS interface list for instance %s: %w", instanceID, err)
 		}
 
 		m.logger.Info(
@@ -172,7 +168,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	m.vpcs = vpcs
 	m.securityGroups = securityGroups
 
-	return resyncStart
+	return resyncStart, nil
 }
 
 // GetVSwitches returns all the tracked vSwitches

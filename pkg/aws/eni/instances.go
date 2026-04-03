@@ -7,6 +7,7 @@ package eni
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"slices"
@@ -210,8 +211,8 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 
 // Resync fetches the list of EC2 instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
-// started or time.Time{} if it did not complete.
-func (m *InstancesManager) Resync(ctx context.Context) time.Time {
+// started or an error if it did not complete.
+func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 	// Full API resync should block the instance incremental resync from all nodes.
 	m.resyncLock.Lock()
 	defer m.resyncLock.Unlock()
@@ -219,7 +220,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	return m.resync(ctx, "")
 }
 
-func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
+func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
 	resyncStart := time.Now()
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
@@ -228,8 +229,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	if instanceID == "" {
 		// Only sync infrastructure in full resync.
 		if err := m.syncInfrastructure(ctx); err != nil {
-			m.logger.Warn("Unable to synchronize infrastructure", logfields.Error, err)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("synchronize infrastructure: %w", err)
 		}
 		m.mutex.RLock()
 		vpcs := m.vpcs
@@ -239,8 +239,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.mutex.RUnlock()
 		instances, err := m.ec2api.GetInstances(ctx, vpcs, subnets)
 		if err != nil {
-			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("synchronize EC2 interface list: %w", err)
 		}
 
 		m.logger.Info(
@@ -261,8 +260,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.mutex.RUnlock()
 		instance, err := m.ec2api.GetInstance(ctx, vpcs, subnets, instanceID)
 		if err != nil {
-			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
-			return time.Time{}
+			return time.Time{}, fmt.Errorf("synchronize EC2 interface list for instance %s: %w", instanceID, err)
 		}
 
 		m.logger.Info(
@@ -275,10 +273,10 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.instances.UpdateInstance(instanceID, instance)
 	}
 
-	return resyncStart
+	return resyncStart, nil
 }
 
-func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) time.Time {
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
 	// Instance incremental resync from different nodes should be executed in parallel,
 	// but must block the full API resync.
 	m.resyncLock.RLock()
