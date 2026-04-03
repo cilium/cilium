@@ -154,7 +154,8 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		}
 
 		if params.DaemonConfig.IPAM == ipamOption.IPAMClusterPool ||
-			params.DaemonConfig.IPAM == ipamOption.IPAMMultiPool {
+			params.DaemonConfig.IPAM == ipamOption.IPAMMultiPool ||
+			params.DaemonConfig.IPAM == ipamOption.IPAMENI {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			params.NodeDiscovery.UpdateCiliumNodeResource()

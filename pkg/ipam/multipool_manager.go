@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -235,6 +236,16 @@ type MultiPoolManagerParams struct {
 	PoolsFromResource ciliumv2.PoolsFromResourceFunc
 
 	SkipMasqueradeForPool SkipMasqueradeForPoolFn
+
+	// AllowFirstLastIPs makes CIDR pools include the first and last IPs.
+	// Used for ENI prefix delegation where the entire /28 is allocatable.
+	AllowFirstLastIPs bool
+
+	// LinearPreAlloc uses a simple inUse + preAlloc formula for demand
+	// computation instead of the multi-pool's neededIPCeil rounding. This
+	// matches the CRD allocator's calculateNeededIPs behavior and allows
+	// the operator to recover exact usage from the demand signal.
+	LinearPreAlloc bool
 }
 
 type multiPoolManager struct {
@@ -263,6 +274,9 @@ type multiPoolManager struct {
 
 	poolsFromResource     ciliumv2.PoolsFromResourceFunc
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
+
+	allowFirstLastIPs bool
+	linearPreAlloc    bool
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -284,6 +298,8 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 			close(localNodeUpdated)
 		}),
 		poolsFromResource: p.PoolsFromResource,
+		allowFirstLastIPs: p.AllowFirstLastIPs,
+		linearPreAlloc:    p.LinearPreAlloc,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -389,9 +405,15 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
-	pools := m.poolsFromResource(newNode)
-	for _, pool := range pools.Allocated {
+	for _, pool := range m.poolsFromResource(newNode).Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
+	}
+
+	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
+	// the agent writes it during node discovery and the operator may adjust
+	// it. For standard multi-pool mode this field is unset (0).
+	if newNode.Spec.IPAM.PreAllocate > 0 {
+		m.preallocatedIPsPerPool[Pool(defaults.IPAMDefaultIPPool)] = newNode.Spec.IPAM.PreAllocate
 	}
 
 	// node will only be nil the first time this callback is invoked
@@ -474,12 +496,27 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	// + preAllocIPs
 	for poolName, preAlloc := range m.preallocatedIPsPerPool {
 		ipv4Addrs := demand[poolName].IPv4Addrs
-		if m.ipv4Enabled {
-			ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
-		}
 		ipv6Addrs := demand[poolName].IPv6Addrs
-		if m.ipv6Enabled {
-			ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
+
+		if m.linearPreAlloc {
+			// Linear pre-allocation: inUse + preAlloc. This matches the
+			// CRD allocator's calculateNeededIPs formula and allows the
+			// operator to recover exact usage as requested - preAllocate.
+			if m.ipv4Enabled {
+				ipv4Addrs += preAlloc
+			}
+			if m.ipv6Enabled {
+				ipv6Addrs += preAlloc
+			}
+		} else {
+			// Standard multi-pool rounding: rounds up to ensure at least
+			// one full preAlloc buffer above usage.
+			if m.ipv4Enabled {
+				ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
+			}
+			if m.ipv6Enabled {
+				ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
+			}
 		}
 
 		demand[poolName] = types.IPAMPoolDemand{
@@ -568,25 +605,45 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
-	newPools := m.poolsFromResource(newNode)
-
 	sort.Slice(requested, func(i, j int) bool {
 		return requested[i].Pool < requested[j].Pool
 	})
 	sort.Slice(allocated, func(i, j int) bool {
 		return allocated[i].Pool < allocated[j].Pool
 	})
-	newPools.Requested = requested
-	newPools.Allocated = allocated
+	newNode.Spec.IPAM.Pools.Requested = requested
+	// Only write Allocated once local pools have been populated. Before
+	// that, the agent has no CIDRs of its own and writing an empty
+	// Allocated would clear CIDRs that may still be in use from a
+	// previous agent run. Once the agent has observed at least one CIDR
+	// (from Status.ENI.ENIs in ENI mode, or from Pools.Allocated in
+	// standard multi-pool mode), it writes Allocated to communicate
+	// in-use CIDRs back to the operator.
+	if len(m.pools) > 0 {
+		newNode.Spec.IPAM.Pools.Allocated = allocated
+	}
 
 	m.poolsMutex.Unlock()
 
-	pools := m.poolsFromResource(curNode)
-
-	if !newPools.DeepEqual(pools) {
-		_, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
+	if !newNode.Spec.IPAM.Pools.DeepEqual(&curNode.Spec.IPAM.Pools) {
+		updatedNode, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)
+		}
+		newNode = updatedNode
+	}
+
+	// Clear stale Status.IPAM.Used left by the previous CRD allocator.
+	// This is needed so the operator detects the agent as multi-pool
+	// (the detection heuristic checks len(Status.IPAM.Used) == 0).
+	//
+	// This only happens when an agent starts on a node that was previously
+	// running a 1.19 agent.
+	// TODO: Remove with 1.21.
+	if len(newNode.Status.IPAM.Used) > 0 {
+		newNode.Status.IPAM.Used = nil
+		if _, err := m.cnClient.UpdateStatus(ctx, newNode, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to clear stale Status.IPAM.Used: %w", err)
 		}
 	}
 
@@ -600,10 +657,10 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 	if !ok {
 		pool = &poolPair{}
 		if m.ipv4Enabled {
-			pool.v4 = newCIDRPool(m.logger, false)
+			pool.v4 = newCIDRPool(m.logger, m.allowFirstLastIPs)
 		}
 		if m.ipv6Enabled {
-			pool.v6 = newCIDRPool(m.logger, false)
+			pool.v6 = newCIDRPool(m.logger, m.allowFirstLastIPs)
 		}
 	}
 

@@ -712,7 +712,7 @@ func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.
 	switch a.conf.IPAMMode() {
 
 	case ipamOption.IPAMENI:
-		return buildENIAllocationResult(a.logger, addr, a.store.ownNode, a.conf, a.ipMasqAgent)
+		return buildENIAllocationResult(a.logger, addr, "", a.store.ownNode.Status.ENI.ENIs, a.conf, a.ipMasqAgent)
 
 	// In Azure mode, the Resource points to the azure interface so we can
 	// derive the master interface

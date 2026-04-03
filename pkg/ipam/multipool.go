@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"sync"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -77,10 +78,13 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
 
-	startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
+	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
 
 	// wait for local node to be updated to avoid propagating spurious updates.
 	waitForLocalNodeUpdate(p.Logger, mgr)
+	// Independently wait for the alloc-CIDR observer: it runs in its own job
+	// and is not synchronized with mgr.localNodeUpdated().
+	waitForLocalNodeAllocCIDRs(p.Logger, allocCIDRsReady)
 
 	return &multiPoolAllocator{
 			manager: mgr,
@@ -186,12 +190,50 @@ func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {
 	}
 }
 
+// waitForLocalNodeAllocCIDRs blocks until the multi-pool-local-node-syncer
+// observer has processed its first CiliumNode upsert event. This synchronizes
+// the observer with the multi-pool manager's own CN-events handler so callers
+// that subsequently read the local node store see state derived from at least
+// the same first event the manager saw.
+//
+// Aborts the agent with a fatal log if no CiliumNode event is received within
+// waitForLocalNodeAllocCIDRsTimeout.
+func waitForLocalNodeAllocCIDRs(logger *slog.Logger, ready <-chan struct{}) {
+	deadline := time.After(waitForLocalNodeAllocCIDRsTimeout)
+	for {
+		select {
+		case <-ready:
+			return
+		case <-deadline:
+			logging.Fatal(logger,
+				"Timed out waiting for the multi-pool local node syncer to process the first CiliumNode event",
+				logfields.Duration, waitForLocalNodeAllocCIDRsTimeout,
+			)
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for the multi-pool local node syncer to process the first CiliumNode event")
+		}
+	}
+}
+
+const waitForLocalNodeAllocCIDRsTimeout = 5 * time.Minute
+
+// startLocalNodeAllocCIDRsSync starts a CiliumNode observer that mirrors the
+// alloc CIDRs (Spec.IPAM.PodCIDRs / Spec.IPAM.Pools.Allocated) into the local
+// node store.
+//
+// The returned channel is closed once the observer has processed its first
+// Upsert event. Callers must wait on it before reading the local node store,
+// otherwise they may race with this observer (which runs in a separate job
+// from the multi-pool manager and is not synchronized with
+// mgr.localNodeUpdated()).
 func startLocalNodeAllocCIDRsSync(
 	enableIPv4, enableIPv6 bool,
 	jobGroup job.Group,
 	localNode agentK8s.LocalCiliumNodeResource,
 	localNodeStore *node.LocalNodeStore,
-) {
+) <-chan struct{} {
+	ready := make(chan struct{})
+	var once sync.Once
 	jobGroup.Add(
 		job.Observer(
 			"multi-pool-local-node-syncer",
@@ -214,9 +256,11 @@ func startLocalNodeAllocCIDRsSync(
 					}
 				})
 
+				once.Do(func() { close(ready) })
 				return nil
 			},
 			localNode,
 		),
 	)
+	return ready
 }

@@ -283,6 +283,9 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 		if _, ok := existingAllocators[prefix]; ok {
 			continue
 		}
+		if _, ok := p.released[prefix]; ok {
+			continue
+		}
 		ipAllocator := ipallocator.NewCIDRRange(prefix, rangeOpts...)
 		if ipAllocator.Free() == 0 {
 			p.logger.Error(

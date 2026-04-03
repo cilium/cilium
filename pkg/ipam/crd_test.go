@@ -4,23 +4,18 @@
 package ipam
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/hive/job"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
-	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -154,14 +149,15 @@ func (m ipMasqMapDummy) Dump() ([]netip.Prefix, error) { return []netip.Prefix{}
 
 func TestIPMasq(t *testing.T) {
 	cn := newCiliumNode("node1", 4, 4, 0)
-	dummyResource := ipamTypes.AllocationIP{Resource: "eni-1"}
-	cn.Spec.IPAM.Pool["10.1.1.226"] = dummyResource
 	cn.Status.ENI.ENIs = map[string]eniTypes.ENI{
 		"eni-1": {
 			ID: "eni-1",
 			Addresses: []string{
 				"10.1.1.226",
 				"10.1.1.229",
+			},
+			Subnet: eniTypes.AwsSubnet{
+				CIDR: "10.1.1.0/24",
 			},
 			VPC: eniTypes.AwsVPC{
 				ID:          "vpc-1",
@@ -173,43 +169,13 @@ func TestIPMasq(t *testing.T) {
 		},
 	}
 
-	fakeAddressing := fakenode.NewAddressing()
 	conf := testConfigurationCRD
-	conf.IPAM = ipamOption.IPAMENI
 	conf.EnableIPMasqAgent = true
 	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
 	err := ipMasqAgent.Start()
 	require.NoError(t, err)
 
-	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
-	sharedNodeStore = newFakeNodeStore(conf, t)
-	sharedNodeStore.ownNode = cn
-
-	var jg job.Group
-	h := hive.New(
-		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
-	)
-	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
-	require.NoError(t, h.Start(tlog, t.Context()))
-	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
-
-	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakeAddressing,
-		AgentConfig:    conf,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: localNodeStore,
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-		IPMasqAgent:    ipMasqAgent,
-		JobGroup:       jg,
-	})
-	ipam.ConfigureAllocator()
-
-	epipv4 := netip.MustParseAddr("10.1.1.226")
-	result, err := ipam.ipv4Allocator.Allocate(epipv4, "test1", PoolDefault())
+	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("10.1.1.226"), "", cn.Status.ENI.ENIs, conf, ipMasqAgent)
 	require.NoError(t, err)
 	// The resulting CIDRs should contain the VPC CIDRs and the default ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
 	require.ElementsMatch(
