@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
@@ -935,6 +936,23 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	ct.clients = c
 
 	return nil
+}
+
+func (ct *ConnectivityTest) RolloutRestartCiliumPods(ctx context.Context) error {
+	patch := fmt.Sprintf(
+		`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":%q}}}}}`,
+		time.Now().Format(time.RFC3339),
+	)
+	_, err := ct.client.PatchDaemonSet(ctx, ct.params.CiliumNamespace, ct.params.AgentDaemonSetName,
+		types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	return err
+}
+
+// RefreshCiliumPods re-fetches the Cilium agent pods, replacing any stale
+// entries. This is needed after a Cilium restart, where pod names change.
+func (ct *ConnectivityTest) RefreshCiliumPods(ctx context.Context) error {
+	ct.ciliumPods = make(map[string]Pod)
+	return ct.initCiliumPods(ctx)
 }
 
 // initCiliumPods fetches the Cilium agent pod information from all clients

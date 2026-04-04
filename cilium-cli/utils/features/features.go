@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/blang/semver/v4"
 	v1 "k8s.io/api/core/v1"
@@ -128,6 +129,14 @@ const (
 	Ztunnel Feature = "enable-ztunnel"
 
 	DefaultGlobalNamespace Feature = "clustermesh-default-global-namespace"
+
+	// The following two features are required by the seq-fqdn-restore-after-restart
+	// test to verify that FQDN policy survives a Cilium restart:
+	//   - FQDNProxyMinTTL: prevents DNS entries from expiring during the restart window.
+	//   - FQDNProxyIdleConnectionGracePeriod: keeps existing connections alive while
+	//     Cilium is restarting.
+	FQDNProxyMinTTL                    Feature = "fqdn-proxy-min-ttl"
+	FQDNProxyIdleConnectionGracePeriod Feature = "fqdn-proxy-idle-connection-grace-period"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -428,6 +437,15 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[DefaultGlobalNamespace] = Status{
 		Enabled: cm.Data[string(DefaultGlobalNamespace)] == "true",
+	}
+
+	fs[FQDNProxyMinTTL] = Status{
+		Enabled: cm.Data["tofqdns-min-ttl"] != "",
+	}
+
+	gracePeriod, _ := time.ParseDuration(cm.Data["tofqdns-idle-connection-grace-period"])
+	fs[FQDNProxyIdleConnectionGracePeriod] = Status{
+		Enabled: gracePeriod > 0,
 	}
 }
 

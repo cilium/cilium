@@ -428,6 +428,51 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	}
 }
 
+func TestSelectorIsolation(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           t.Context(),
+		Logger:            logger,
+		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+		IdentityUpdater:   &dummyIdentityUpdater{},
+	})
+	ipc.TriggerLabelInjection()
+	defer ipc.Shutdown()
+	nameManager := New(ManagerParams{
+		Logger: logger,
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          option.Config.StateDir,
+		},
+		IPCache: ipc,
+	})
+
+	err := ipc.WaitForRevision(t.Context(), nameManager.RegisterFQDNSelector(ciliumIOSel))
+	require.NoError(t, err)
+	err = ipc.WaitForRevision(t.Context(), nameManager.RegisterFQDNSelector(githubSel))
+	require.NoError(t, err)
+
+	// Simulate lookups for both selectors
+	ciliumPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
+	<-nameManager.UpdateGenerateDNS(t.Context(), time.Now(), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{ciliumPrefix.AsPrefix().Addr()}})
+	githubPrefix := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("2.2.2.2/32"))
+	<-nameManager.UpdateGenerateDNS(t.Context(), time.Now(), dns.FQDN("github.com"), &fqdn.DNSIPRecords{TTL: 60, IPs: []netip.Addr{githubPrefix.AsPrefix().Addr()}})
+
+	// Cilium prefix should only have cilium.io selector label
+	id, found := ipc.LookupByPrefix(ciliumPrefix.String())
+	require.True(t, found)
+	ident := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+
+	// Github prefix should only have github.com selector label
+	id, found = ipc.LookupByPrefix(githubPrefix.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+}
+
 func Test_deriveLabelsForNames(t *testing.T) {
 	ciliumIORe, err := ciliumIOSel.ToRegex()
 	require.NoError(t, err)

@@ -80,6 +80,29 @@ func WaitForDaemonSet(ctx context.Context, log Logger, client *k8s.Client, names
 	}
 }
 
+// WaitForCiliumPodGone waits until the named Cilium pod no longer exists
+func WaitForCiliumPodGone(ctx context.Context, log Logger, client *k8s.Client, namespace, podName string) error {
+	log.Logf("⌛ [%s] Waiting for Cilium pod %s/%s to be terminated...", client.ClusterName(), namespace, podName)
+
+	ctx, cancel := context.WithTimeout(ctx, LongTimeout)
+	defer cancel()
+	for {
+		_, err := client.GetPod(ctx, namespace, podName, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-time.After(PollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for Cilium pod %s/%s to be terminated", namespace, podName)
+		}
+	}
+}
+
 // WaitForPodDNS waits until src can query the DNS server on dst successfully.
 func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
 	log.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...",

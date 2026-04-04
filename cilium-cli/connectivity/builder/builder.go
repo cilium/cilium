@@ -348,6 +348,9 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		clientEgressL7TlsHeaders{},
 		egresstoSpecificNamespace{},
 		ingressfromSpecificNamespace{},
+		// fqdnRestoreAfterRestart must run last among sequential tests: it
+		// restarts all Cilium pods, which would disrupt any test running after it.
+		fqdnRestoreAfterRestart{},
 	}
 	return injectTests(tests, ct)
 }

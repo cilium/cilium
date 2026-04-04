@@ -10,7 +10,9 @@
   egress-gateway: 'true'
   host-fw: 'true'
   ingress-controller: 'true'
-  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  misc: 'bpfClockProbe=false,cni.uninstall=false,dnsProxy.minTtl=300,dnsProxy.idleConnectionGracePeriod=5m'
+  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing.
+  # dnsProxy.minTtl and dnsProxy.idleConnectionGracePeriod are set to enable seq-fqdn-restore-after-restart.
   test-l7: 'true'
 - name: 'lb-2'
   kernel: '6.1'

@@ -2121,6 +2121,241 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	}
 }
 
+// Ensure isolation between FQDN selectors on different policies
+func Test_MultiSpecFQDNSelectorIsolation(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+	SetPolicyEnabled(option.DefaultEnforcement)
+
+	identityApp2 := identity.NumericIdentity(200)
+	identityApp3 := identity.NumericIdentity(201)
+	labelsApp2 := labels.ParseSelectLabelArray("id=app2")
+	labelsApp3 := labels.ParseSelectLabelArray("id=app3")
+
+	identityCache := identity.IdentityMap{
+		identityApp2: labelsApp2,
+		identityApp3: labelsApp3,
+	}
+	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
+		identityCache[ni] = id.Labels.LabelArray()
+	})
+
+	nginxSel := api.FQDNSelector{MatchName: "nginx-ci.cilium.rocks"}
+	ciliumIOSel := api.FQDNSelector{MatchName: "cilium.io"}
+	// Assign explicit local-scoped IDs so we can simulate their addition to the selector cache later
+	idNginx := identity.IdentityScopeLocal
+	idCiliumIO := identity.IdentityScopeLocal + 1
+	nginxLabel := nginxSel.IdentityLabel()
+	nginxFqdnIds := identity.IdentityMap{idNginx: labels.Labels{nginxLabel.Key: nginxLabel}.LabelArray()}
+	ciliumIOLabel := ciliumIOSel.IdentityLabel()
+	ciliumIOFqdnIds := identity.IdentityMap{idCiliumIO: labels.Labels{ciliumIOLabel.Key: ciliumIOLabel}.LabelArray()}
+
+	selectorCache := testNewSelectorCache(t, logger, identityCache)
+
+	rules := api.Rules{
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app2")),
+			Egress: []api.EgressRule{
+				{ToFQDNs: api.FQDNSelectorSlice{nginxSel}},
+			},
+		},
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app3")),
+			Egress: []api.EgressRule{
+				{ToFQDNs: api.FQDNSelectorSlice{ciliumIOSel}},
+			},
+		},
+	}
+
+	repo := newPolicyDistillery(t, selectorCache)
+	repo.MustAddList(rules)
+
+	app2Identity := identity.NewIdentityFromLabelArray(identityApp2, labelsApp2)
+	app3Identity := identity.NewIdentityFromLabelArray(identityApp3, labelsApp3)
+	repo.idMgr.Add(app2Identity)
+	defer repo.idMgr.Remove(app2Identity)
+	repo.idMgr.Add(app3Identity)
+	defer repo.idMgr.Remove(app3Identity)
+
+	// Distill endpoint policies before FQDN identities are resolved.
+	epp2, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app2Identity)
+	require.NoError(t, err)
+	epp3, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app3Identity)
+	require.NoError(t, err)
+
+	// Inject both FQDN identities, simulating DNS lookup
+	allFqdnIds := maps.Clone(nginxFqdnIds)
+	maps.Copy(allFqdnIds, ciliumIOFqdnIds)
+	wg := &sync.WaitGroup{}
+	selectorCache.UpdateIdentities(allFqdnIds, nil, wg)
+	wg.Wait()
+
+	// App2's incremental changes should include the nginx identity but not cilium.io.
+	closer2, changes2 := epp2.ConsumeMapChanges()
+	app2Adds := MapStateMap{}
+	for k := range changes2.Adds {
+		app2Adds[k] = epp2.policyMapState.entries[k].MapStateEntry
+	}
+	closer2()
+	assert.Contains(t, app2Adds, egressL3OnlyKey(idNginx), "app2 should allow nginx-ci.cilium.rocks identity")
+	assert.NotContains(t, app2Adds, egressL3OnlyKey(idCiliumIO), "app2 must not allow cilium.io identity")
+
+	// App3's incremental changes should include the cilium.io identity but not nginx.
+	closer3, changes3 := epp3.ConsumeMapChanges()
+	app3Adds := MapStateMap{}
+	for k := range changes3.Adds {
+		app3Adds[k] = epp3.policyMapState.entries[k].MapStateEntry
+	}
+	closer3()
+	assert.Contains(t, app3Adds, egressL3OnlyKey(idCiliumIO), "app3 should allow cilium.io identity")
+	assert.NotContains(t, app3Adds, egressL3OnlyKey(idNginx), "app3 must not allow nginx-ci.cilium.rocks identity")
+
+	epp2.Ready()
+	epp2.Detach(logger)
+	epp3.Ready()
+	epp3.Detach(logger)
+}
+
+// Simulates going from v1 of a policy to v2, and asserts no bleeding of identities between policies
+func Test_FQDNPolicyUpdatePreservesExistingSelectors(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+	SetPolicyEnabled(option.DefaultEnforcement)
+
+	identityApp2 := identity.NumericIdentity(200)
+	identityApp3 := identity.NumericIdentity(201)
+	labelsApp2 := labels.ParseSelectLabelArray("id=app2")
+	labelsApp3 := labels.ParseSelectLabelArray("id=app3")
+
+	identityCache := identity.IdentityMap{
+		identityApp2: labelsApp2,
+		identityApp3: labelsApp3,
+	}
+	identity.IterateReservedIdentities(func(ni identity.NumericIdentity, id *identity.Identity) {
+		identityCache[ni] = id.Labels.LabelArray()
+	})
+
+	nginxSel := api.FQDNSelector{MatchName: "nginx-ci.cilium.rocks"}
+	ciliumIOSel := api.FQDNSelector{MatchName: "cilium.io"}
+	wwwCiliumIOSel := api.FQDNSelector{MatchName: "www.cilium.io"}
+
+	idNginx := identity.IdentityScopeLocal
+	idCiliumIO := identity.IdentityScopeLocal + 1
+	idWwwCiliumIO := identity.IdentityScopeLocal + 2
+
+	nginxLabel := nginxSel.IdentityLabel()
+	nginxFqdnIds := identity.IdentityMap{idNginx: labels.Labels{nginxLabel.Key: nginxLabel}.LabelArray()}
+	ciliumIOLabel := ciliumIOSel.IdentityLabel()
+	ciliumIOFqdnIds := identity.IdentityMap{idCiliumIO: labels.Labels{ciliumIOLabel.Key: ciliumIOLabel}.LabelArray()}
+	wwwLabel := wwwCiliumIOSel.IdentityLabel()
+	wwwCiliumIOFqdnIds := identity.IdentityMap{idWwwCiliumIO: labels.Labels{wwwLabel.Key: wwwLabel}.LabelArray()}
+
+	selectorCache := testNewSelectorCache(t, logger, identityCache)
+
+	v1Rules := api.Rules{
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app2")),
+			Egress:           []api.EgressRule{{ToFQDNs: api.FQDNSelectorSlice{nginxSel}}},
+		},
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app3")),
+			Egress:           []api.EgressRule{{ToFQDNs: api.FQDNSelectorSlice{ciliumIOSel}}},
+		},
+	}
+
+	repo := newPolicyDistillery(t, selectorCache)
+	repo.MustAddList(v1Rules)
+
+	app2Identity := identity.NewIdentityFromLabelArray(identityApp2, labelsApp2)
+	app3Identity := identity.NewIdentityFromLabelArray(identityApp3, labelsApp3)
+	repo.idMgr.Add(app2Identity)
+	defer repo.idMgr.Remove(app2Identity)
+	repo.idMgr.Add(app3Identity)
+	defer repo.idMgr.Remove(app3Identity)
+
+	// Distill and inject nginx + ciliumIO identities, verify they are isolated per endpoint.
+	epp2v1, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app2Identity)
+	require.NoError(t, err)
+	epp3v1, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app3Identity)
+	require.NoError(t, err)
+
+	wg := &sync.WaitGroup{}
+	allPhase1Ids := maps.Clone(nginxFqdnIds)
+	maps.Copy(allPhase1Ids, ciliumIOFqdnIds)
+	selectorCache.UpdateIdentities(allPhase1Ids, nil, wg)
+	wg.Wait()
+
+	closer, changes := epp2v1.ConsumeMapChanges()
+	app2v1Adds := MapStateMap{}
+	for k := range changes.Adds {
+		app2v1Adds[k] = epp2v1.policyMapState.entries[k].MapStateEntry
+	}
+	closer()
+	assert.Contains(t, app2v1Adds, egressL3OnlyKey(idNginx), "v1: app2 should allow nginx identity")
+	assert.NotContains(t, app2v1Adds, egressL3OnlyKey(idCiliumIO), "v1: app2 must not allow cilium.io identity")
+
+	epp2v1.Ready()
+	epp2v1.Detach(logger)
+	epp3v1.Ready()
+	epp3v1.Detach(logger)
+
+	// Update policy: app2 now allows www.cilium.io instead of cilium.io, app3 unchanged.
+	v2Rules := api.Rules{
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app2")),
+			Egress:           []api.EgressRule{{ToFQDNs: api.FQDNSelectorSlice{nginxSel, wwwCiliumIOSel}}},
+		},
+		&api.Rule{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app3")),
+			Egress:           []api.EgressRule{{ToFQDNs: api.FQDNSelectorSlice{ciliumIOSel}}},
+		},
+	}
+	repo.MustAddList(v2Rules)
+
+	epp2v2, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app2Identity)
+	require.NoError(t, err)
+	epp3v2, err := repo.distillEndpointPolicy(logger, DummyOwner{logger: logger}, app3Identity)
+	require.NoError(t, err)
+
+	_, nginxInApp2 := epp2v2.policyMapState.entries[egressL3OnlyKey(idNginx)]
+	assert.True(t, nginxInApp2, "v2: nginx identity must still be allowed for app2 after policy update")
+	_, ciliumIOInApp2 := epp2v2.policyMapState.entries[egressL3OnlyKey(idCiliumIO)]
+	assert.False(t, ciliumIOInApp2, "v2: cilium.io must not be allowed for app2 after adding www.cilium.io")
+
+	// Inject the new www.cilium.io identity, simulating its first DNS resolution.
+	wg = &sync.WaitGroup{}
+	selectorCache.UpdateIdentities(wwwCiliumIOFqdnIds, nil, wg)
+	wg.Wait()
+
+	closer2, changes2 := epp2v2.ConsumeMapChanges()
+	app2v2Adds := MapStateMap{}
+	for k := range changes2.Adds {
+		app2v2Adds[k] = epp2v2.policyMapState.entries[k].MapStateEntry
+	}
+	closer2()
+	assert.Contains(t, app2v2Adds, egressL3OnlyKey(idWwwCiliumIO), "v2: app2 should allow www.cilium.io identity")
+	assert.NotContains(t, app2v2Adds, egressL3OnlyKey(idCiliumIO), "v2: app2 must not gain cilium.io via www.cilium.io update")
+
+	// app3's policy is unchanged: ciliumIO allowed, nginx and www.ciliumIO not.
+	closer3, changes3 := epp3v2.ConsumeMapChanges()
+	app3v2Adds := MapStateMap{}
+	for k := range changes3.Adds {
+		app3v2Adds[k] = epp3v2.policyMapState.entries[k].MapStateEntry
+	}
+	closer3()
+	assert.NotContains(t, app3v2Adds, egressL3OnlyKey(idNginx), "v2: app3 must not gain nginx identity")
+	assert.NotContains(t, app3v2Adds, egressL3OnlyKey(idWwwCiliumIO), "v2: app3 must not gain www.cilium.io identity")
+
+	epp2v2.Ready()
+	epp2v2.Detach(logger)
+	epp3v2.Ready()
+	epp3v2.Detach(logger)
+}
+
 func TestEgressPortRangePrecedence(t *testing.T) {
 	type portRange struct {
 		startPort, endPort uint16
