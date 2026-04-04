@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -415,5 +416,77 @@ func eniContainsIP(eni eniTypes.ENI, addr netip.Addr) bool {
 		}
 	}
 
+	return false
+}
+
+// eniPoolsFromResource returns the pool specification for ENI IPAM mode.
+// Unlike the standard multi-pool mode which reads Allocated CIDRs from
+// Spec.IPAM.Pools.Allocated, ENI mode derives them from Status.ENI.ENIs
+// which is maintained by the operator. This allows the agent to be the
+// sole writer of Spec.IPAM.Pools.Allocated while reading CIDRs from a
+// different source.
+//
+// Secondary IPs are represented as /32 CIDRs and delegated prefixes as /28 CIDRs.
+func eniPoolsFromResource(node *ciliumv2.CiliumNode) *ipamTypes.IPAMPoolSpec {
+	pools := &ipamTypes.IPAMPoolSpec{
+		Requested: node.Spec.IPAM.Pools.Requested,
+		Allocated: node.Spec.IPAM.Pools.Allocated,
+	}
+
+	if len(node.Status.ENI.ENIs) == 0 {
+		return pools
+	}
+
+	var cidrs []ipamTypes.IPAMCIDR
+	for _, eni := range node.Status.ENI.ENIs {
+		if eni.IsExcludedBySpec(node.Spec.ENI) {
+			continue
+		}
+
+		var prefixes []netip.Prefix
+		for _, p := range eni.Prefixes {
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(p))
+			if parsed, err := netip.ParsePrefix(p); err == nil {
+				prefixes = append(prefixes, parsed)
+			}
+		}
+
+		// In parseENI (pkg/aws/ec2), we currently use PrefixToIps to flatten each prefixes
+		// into 16 individual IPs and append those IPs to the ENI Addresses field.
+		// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
+		// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)
+		// and not addresses that are already being advertised through a /28 CIDR.
+		for _, addrStr := range eni.Addresses {
+			parsed, err := netip.ParseAddr(addrStr)
+			if err != nil {
+				continue
+			}
+			if addressCoveredByPrefix(parsed, prefixes) {
+				continue
+			}
+			cidrs = append(cidrs, ipamTypes.IPAMCIDR(addrStr+"/32"))
+		}
+	}
+
+	if len(cidrs) > 0 {
+		pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+			{
+				Pool:  defaults.IPAMDefaultIPPool,
+				CIDRs: cidrs,
+			},
+		}
+	}
+
+	return pools
+}
+
+// addressCoveredByPrefix returns true if the given IP address falls
+// within any of the provided prefixes.
+func addressCoveredByPrefix(addr netip.Addr, prefixes []netip.Prefix) bool {
+	for _, p := range prefixes {
+		if p.Contains(addr) {
+			return true
+		}
+	}
 	return false
 }
