@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/ipmasq"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -342,6 +343,60 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.32"), "", node.Status.ENI.ENIs, conf, nil)
 		require.Error(t, err)
 	})
+}
+
+func TestBuildENIAllocationResultIPMasq(t *testing.T) {
+	enis := map[string]eniTypes.ENI{
+		"eni-1": {
+			ID: "eni-1",
+			Addresses: []string{
+				"10.1.1.226",
+				"10.1.1.229",
+			},
+			Subnet: eniTypes.AwsSubnet{
+				CIDR: "10.1.1.0/24",
+			},
+			VPC: eniTypes.AwsVPC{
+				ID:          "vpc-1",
+				PrimaryCIDR: "10.1.0.0/16",
+				CIDRs: []string{
+					"10.2.0.0/16",
+				},
+			},
+		},
+	}
+
+	conf := &option.DaemonConfig{EnableIPMasqAgent: true}
+	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
+	require.NoError(t, ipMasqAgent.Start())
+	defer ipMasqAgent.Stop()
+
+	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("10.1.1.226"), "", enis, conf, ipMasqAgent)
+	require.NoError(t, err)
+	// The resulting CIDRs should contain the VPC CIDRs and the default
+	// ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
+	require.ElementsMatch(
+		t,
+		[]netip.Prefix{
+			// VPC CIDRs
+			netip.MustParsePrefix("10.1.0.0/16"),
+			netip.MustParsePrefix("10.2.0.0/16"),
+			// Default ip-masq-agent CIDRs
+			netip.MustParsePrefix("10.0.0.0/8"),
+			netip.MustParsePrefix("172.16.0.0/12"),
+			netip.MustParsePrefix("192.168.0.0/16"),
+			netip.MustParsePrefix("100.64.0.0/10"),
+			netip.MustParsePrefix("192.0.0.0/24"),
+			netip.MustParsePrefix("192.0.2.0/24"),
+			netip.MustParsePrefix("192.88.99.0/24"),
+			netip.MustParsePrefix("198.18.0.0/15"),
+			netip.MustParsePrefix("198.51.100.0/24"),
+			netip.MustParsePrefix("203.0.113.0/24"),
+			netip.MustParsePrefix("240.0.0.0/4"),
+			netip.MustParsePrefix("169.254.0.0/16"),
+		},
+		result.CIDRs,
+	)
 }
 
 func TestEniContainsIP(t *testing.T) {

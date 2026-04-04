@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -146,63 +145,6 @@ func (m ipMasqMapDummy) Update(netip.Prefix) error { return nil }
 func (m ipMasqMapDummy) Delete(netip.Prefix) error { return nil }
 
 func (m ipMasqMapDummy) Dump() ([]netip.Prefix, error) { return []netip.Prefix{}, nil }
-
-func TestIPMasq(t *testing.T) {
-	cn := newCiliumNode("node1", 4, 4, 0)
-	cn.Status.ENI.ENIs = map[string]eniTypes.ENI{
-		"eni-1": {
-			ID: "eni-1",
-			Addresses: []string{
-				"10.1.1.226",
-				"10.1.1.229",
-			},
-			Subnet: eniTypes.AwsSubnet{
-				CIDR: "10.1.1.0/24",
-			},
-			VPC: eniTypes.AwsVPC{
-				ID:          "vpc-1",
-				PrimaryCIDR: "10.1.0.0/16",
-				CIDRs: []string{
-					"10.2.0.0/16",
-				},
-			},
-		},
-	}
-
-	conf := testConfigurationCRD
-	conf.EnableIPMasqAgent = true
-	ipMasqAgent := ipmasq.NewIPMasqAgent(hivetest.Logger(t), "", ipMasqMapDummy{})
-	err := ipMasqAgent.Start()
-	require.NoError(t, err)
-
-	result, err := buildENIAllocationResult(hivetest.Logger(t), netip.MustParseAddr("10.1.1.226"), "", cn.Status.ENI.ENIs, conf, ipMasqAgent)
-	require.NoError(t, err)
-	// The resulting CIDRs should contain the VPC CIDRs and the default ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
-	require.ElementsMatch(
-		t,
-		[]netip.Prefix{
-			// VPC CIDRs
-			netip.MustParsePrefix("10.1.0.0/16"),
-			netip.MustParsePrefix("10.2.0.0/16"),
-			// Default ip-masq-agent CIDRs
-			netip.MustParsePrefix("10.0.0.0/8"),
-			netip.MustParsePrefix("172.16.0.0/12"),
-			netip.MustParsePrefix("192.168.0.0/16"),
-			netip.MustParsePrefix("100.64.0.0/10"),
-			netip.MustParsePrefix("192.0.0.0/24"),
-			netip.MustParsePrefix("192.0.2.0/24"),
-			netip.MustParsePrefix("192.88.99.0/24"),
-			netip.MustParsePrefix("198.18.0.0/15"),
-			netip.MustParsePrefix("198.51.100.0/24"),
-			netip.MustParsePrefix("203.0.113.0/24"),
-			netip.MustParsePrefix("240.0.0.0/4"),
-			netip.MustParsePrefix("169.254.0.0/16"),
-		},
-		result.CIDRs,
-	)
-
-	ipMasqAgent.Stop()
-}
 
 func TestAzureIPMasq(t *testing.T) {
 	cn := newCiliumNode("node1", 4, 4, 0)
