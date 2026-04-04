@@ -111,8 +111,13 @@ kernel. This means that the packet will be routed as if a local process would
 have emitted the packet. As a result, the network connecting the cluster nodes
 must be capable of routing PodCIDRs.
 
-Cilium automatically enables IP forwarding in the Linux kernel when native
-routing is configured.
+Cilium enables IP forwarding in the Linux kernel through the iptables manager,
+which runs in both native and tunnel (encapsulation) routing modes. The
+sysctls set are ``net.ipv4.ip_forward``, ``net.ipv4.conf.all.forwarding`` and,
+when IPv6 is enabled, ``net.ipv6.conf.all.forwarding``. These are host-wide
+settings on the node, not per-routing-mode toggles. They persist across
+routing mode changes until explicitly reconfigured, so operators should leave
+them set by Cilium rather than overriding them.
 
 Requirements on the network
 ---------------------------
