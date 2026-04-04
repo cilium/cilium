@@ -18,6 +18,7 @@ import (
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -59,6 +60,8 @@ type mtuParams struct {
 	DaemonConfig    *option.DaemonConfig
 	LocalCiliumNode k8s.LocalCiliumNodeResource
 	WgConfig        wgTypes.Config
+
+	LBConfig     loadbalancer.Config
 
 	Config Config
 }
@@ -133,12 +136,17 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 		OnStart: func(ctx cell.HookContext) error {
 			tunnelOverIPv6 := option.Config.RoutingMode == option.RoutingModeTunnel &&
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
+			dsrOverhead := 0
+			if p.LBConfig.LoadBalancerUsesDSR() && p.LBConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve {
+				dsrOverhead = DsrTunnelOverhead
+			}
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
 				p.IPsec.Enabled(),
 				p.TunnelConfig.ShouldAdaptMTU(),
 				p.WgConfig.Enabled(),
 				tunnelOverIPv6,
+				dsrOverhead,
 			)
 
 			configuredMTU := cc.MTU

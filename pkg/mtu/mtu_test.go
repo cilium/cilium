@@ -11,62 +11,111 @@ import (
 
 func TestNewConfiguration(t *testing.T) {
 	// Add routes with no encryption or tunnel
-	conf := NewConfiguration(0, false, false, false, false)
+	conf := NewConfiguration(0, false, false, false, false, 0)
 	require.NotEqual(t, 0, conf.getDeviceMTU(0))
 	require.Equal(t, conf.getDeviceMTU(0), conf.getRouteMTU(0))
 
 	// Add routes with no encryption or tunnel and set MTU
-	conf = NewConfiguration(0, false, false, false, false)
+	conf = NewConfiguration(0, false, false, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400), conf.getRouteMTU(1400))
 
 	// Add routes with tunnel
-	conf = NewConfiguration(0, false, true, false, false)
+	conf = NewConfiguration(0, false, true, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-TunnelOverheadIPv4, conf.getRouteMTU(1400))
 
 	// Add routes with tunnel over IPv6
-	conf = NewConfiguration(0, false, true, false, true)
+	conf = NewConfiguration(0, false, true, false, true, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-TunnelOverheadIPv6, conf.getRouteMTU(1400))
 
 	// Add routes with tunnel and set MTU
-	conf = NewConfiguration(0, false, true, false, false)
+	conf = NewConfiguration(0, false, true, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-TunnelOverheadIPv4, conf.getRouteMTU(1400))
 
 	// Add routes with encryption and set MTU using standard 128bit, larger 256bit and smaller 96bit ICVlen keys
-	conf = NewConfiguration(16, true, false, false, false)
+	conf = NewConfiguration(16, true, false, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-EncryptionIPsecOverhead, conf.getRouteMTU(1400))
 
-	conf = NewConfiguration(32, true, false, false, false)
+	conf = NewConfiguration(32, true, false, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(EncryptionIPsecOverhead+16), conf.getRouteMTU(1400))
 
-	conf = NewConfiguration(12, true, false, false, false)
+	conf = NewConfiguration(12, true, false, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(EncryptionIPsecOverhead-4), conf.getRouteMTU(1400))
 
 	// Add routes with encryption and tunnels using standard 128bit, larger 256bit and smaller 96bit ICVlen keys
-	conf = NewConfiguration(16, true, true, false, false)
+	conf = NewConfiguration(16, true, true, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(TunnelOverheadIPv4+EncryptionIPsecOverhead), conf.getRouteMTU(1400))
 
-	conf = NewConfiguration(32, true, true, false, false)
+	conf = NewConfiguration(32, true, true, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(TunnelOverheadIPv4+EncryptionIPsecOverhead+16), conf.getRouteMTU(1400))
 
-	conf = NewConfiguration(32, true, true, false, false)
+	conf = NewConfiguration(32, true, true, false, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(TunnelOverheadIPv4+EncryptionIPsecOverhead+16), conf.getRouteMTU(1400))
 
 	// Add routes with WireGuard enabled
-	conf = NewConfiguration(32, false, false, true, false)
+	conf = NewConfiguration(32, false, false, true, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-WireguardOverhead, conf.getRouteMTU(1400))
 
-	conf = NewConfiguration(32, false, true, true, false)
+	conf = NewConfiguration(32, false, true, true, false, 0)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(WireguardOverhead+TunnelOverheadIPv4), conf.getRouteMTU(1400))
+
+	// Add routes with DSR Geneve overhead
+	conf = NewConfiguration(0, false, false, false, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, conf.getDeviceMTU(1400)-DsrTunnelOverhead, conf.getRouteMTU(1400))
+
+	// Add routes with tunnel + DSR Geneve overhead
+	conf = NewConfiguration(0, false, true, false, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, conf.getDeviceMTU(1400)-(TunnelOverheadIPv4+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// Add routes with encryption + DSR Geneve overhead
+	conf = NewConfiguration(16, true, false, false, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, conf.getDeviceMTU(1400)-(EncryptionIPsecOverhead+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// No DSR overhead (default)
+	conf = NewConfiguration(0, false, false, false, false, 0)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, conf.getRouteMTU(1400), 1400)
+}
+
+func TestDSROverheadCombinations(t *testing.T) {
+	// WireGuard + DSR Geneve
+	conf := NewConfiguration(0, false, false, true, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, 1400-(WireguardOverhead+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// WireGuard + tunnel + DSR Geneve
+	conf = NewConfiguration(0, false, true, true, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, 1400-(WireguardOverhead+TunnelOverheadIPv4+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// Tunnel + encryption + DSR Geneve
+	conf = NewConfiguration(16, true, true, false, false, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, 1400-(TunnelOverheadIPv4+EncryptionIPsecOverhead+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// Tunnel IPv6 + DSR Geneve
+	conf = NewConfiguration(0, false, true, false, true, DsrTunnelOverhead)
+	require.Equal(t, 1400, conf.getDeviceMTU(1400))
+	require.Equal(t, 1400-(TunnelOverheadIPv6+DsrTunnelOverhead), conf.getRouteMTU(1400))
+
+	// DSR overhead with low baseMTU (boundary: overhead exceeds base)
+	conf = NewConfiguration(0, false, true, false, false, DsrTunnelOverhead)
+	routeMTU := conf.getRouteMTU(50)
+	// TunnelOverheadIPv4(50) + DsrTunnelOverhead(12) = 62 > 50, so tunnelMTU <= 0 fallback fires
+	// Result: EthernetMTU(1500) - TunnelOverheadIPv4(50) - DsrTunnelOverhead(12) = 1438
+	require.Equal(t, EthernetMTU-TunnelOverheadIPv4-DsrTunnelOverhead, routeMTU)
 }

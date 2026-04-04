@@ -84,11 +84,12 @@ type Configuration struct {
 	encryptEnabled   bool
 	wireguardEnabled bool
 	tunnelOverhead   int
+	dsrOverhead      int
 }
 
 // NewConfiguration returns a new MTU configuration which is used to calculate
 // MTU values from a base MTU based on the config.
-func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEnabled, tunnelOverIPv6 bool, dsrOverhead int) Configuration {
 	tunnelOverhead := TunnelOverheadIPv4
 	if tunnelOverIPv6 {
 		tunnelOverhead = TunnelOverheadIPv6
@@ -99,6 +100,7 @@ func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEn
 		encryptEnabled:   encryptEnabled,
 		wireguardEnabled: wireguardEnabled,
 		tunnelOverhead:   tunnelOverhead,
+		dsrOverhead:      dsrOverhead,
 	}
 }
 
@@ -119,13 +121,13 @@ func (c Configuration) Calculate(baseMTU int) RouteMTU {
 func (c *Configuration) getRouteMTU(baseMTU int) int {
 	if c.wireguardEnabled {
 		if c.encapEnabled {
-			return c.getDeviceMTU(baseMTU) - (WireguardOverhead + c.tunnelOverhead)
+			return c.getDeviceMTU(baseMTU) - (WireguardOverhead + c.tunnelOverhead) - c.dsrOverhead
 		}
-		return c.getDeviceMTU(baseMTU) - WireguardOverhead
+		return c.getDeviceMTU(baseMTU) - WireguardOverhead - c.dsrOverhead
 	}
 
 	if !c.encapEnabled && !c.encryptEnabled {
-		return c.getDeviceMTU(baseMTU)
+		return c.getDeviceMTU(baseMTU) - c.dsrOverhead
 	}
 
 	encryptOverhead := 0
@@ -139,20 +141,20 @@ func (c *Configuration) getRouteMTU(baseMTU int) int {
 	if c.encryptEnabled && !c.encapEnabled {
 		preEncryptMTU := baseMTU - encryptOverhead
 		if preEncryptMTU == 0 {
-			return EthernetMTU - EncryptionIPsecOverhead
+			return EthernetMTU - EncryptionIPsecOverhead - c.dsrOverhead
 		}
-		return preEncryptMTU
+		return preEncryptMTU - c.dsrOverhead
 	}
 
 	tunnelMTU := baseMTU - (c.tunnelOverhead + encryptOverhead)
 	if tunnelMTU <= 0 {
 		if c.encryptEnabled {
-			return EthernetMTU - (c.tunnelOverhead + EncryptionIPsecOverhead)
+			return EthernetMTU - (c.tunnelOverhead + EncryptionIPsecOverhead) - c.dsrOverhead
 		}
-		return EthernetMTU - c.tunnelOverhead
+		return EthernetMTU - c.tunnelOverhead - c.dsrOverhead
 	}
 
-	return tunnelMTU
+	return tunnelMTU - c.dsrOverhead
 }
 
 // getDeviceMTU returns the MTU to be used on workload facing devices.
