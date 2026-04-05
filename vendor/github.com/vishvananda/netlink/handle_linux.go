@@ -13,8 +13,9 @@ import (
 var pkgHandle = &Handle{}
 
 type HandleOptions struct {
-	lookupByDump  bool
-	collectVFInfo bool
+	lookupByDump     bool
+	collectVFInfo    bool
+	retryInterrupted bool
 }
 
 // Handle is a handle for the netlink requests on a
@@ -29,6 +30,14 @@ type Handle struct {
 // DisableVFInfoCollection configures the handle to skip VF information fetching
 func (h *Handle) DisableVFInfoCollection() *Handle {
 	h.options.collectVFInfo = false
+	return h
+}
+
+// RetryInterrupted configures the Handle to automatically retry dump operations
+// a number of times if they fail with EINTR before finally returning
+// [ErrDumpInterrupted].
+func (h *Handle) RetryInterrupted() *Handle {
+	h.options.retryInterrupted = true
 	return h
 }
 
@@ -197,5 +206,7 @@ func (h *Handle) newNetlinkRequest(proto, flags int) *nl.NetlinkRequest {
 			Flags: unix.NLM_F_REQUEST | uint16(flags),
 		},
 		Sockets: h.sockets,
+
+		RetryInterrupted: h.options.retryInterrupted,
 	}
 }

@@ -16,8 +16,11 @@ import (
 // During bundling, only the root device volume (C:\) is bundled. Data on other
 // instance store volumes is not preserved.
 //
-// This action is not applicable for Linux/Unix instances or Windows instances
-// that are backed by Amazon EBS.
+// This action is no longer supported. To create an AMI, use [CreateImage]. For more
+// information, see [Create an Amazon EBS-backed AMI]in the Amazon EC2 User Guide.
+//
+// [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
+// [CreateImage]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html
 func (c *Client) BundleInstance(ctx context.Context, params *BundleInstanceInput, optFns ...func(*Options)) (*BundleInstanceOutput, error) {
 	if params == nil {
 		params = &BundleInstanceInput{}

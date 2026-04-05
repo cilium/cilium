@@ -202,7 +202,7 @@ func testClusterIPServiceImport() {
 		)
 	})
 
-	SpecifyWithSpecRef("An IP should be allocated for a ClusterSetIP ServiceImport",
+	SpecifyWithSpecRef("An IP should be allocated for a ClusterSetIP ServiceImport for each IP family",
 		"https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#clustersetip",
 		Label(RequiredLabel), func() {
 			serviceImport := t.awaitServiceImport(&clients[0], t.helloService.Name, false,
@@ -210,8 +210,19 @@ func testClusterIPServiceImport() {
 					g.Expect(serviceImport.Spec.IPs).ToNot(BeEmpty(), reportNonConformant(""))
 				})
 
-			Expect(net.ParseIP(serviceImport.Spec.IPs[0])).ToNot(BeNil(),
-				reportNonConformant(fmt.Sprintf("The value %q is not a valid IP", serviceImport.Spec.IPs[0])))
+			Expect(serviceImport.Spec.IPs).To(HaveLen(len(serviceImport.Spec.IPFamilies)), reportNonConformant(
+				"The ServiceImport IPs field must have the same number of IPs as ServiceImport IPFamilies"))
+
+			// Verify the IPs are valid and are in the same order as IPFamilies.
+			for i := range serviceImport.Spec.IPs {
+				Expect(net.ParseIP(serviceImport.Spec.IPs[i])).ToNot(BeNil(),
+					reportNonConformant(fmt.Sprintf("The value %q is not a valid IP", serviceImport.Spec.IPs[i])))
+
+				Expect(ipFamilyOf(serviceImport.Spec.IPs[i])).To(Equal(serviceImport.Spec.IPFamilies[i]),
+					reportNonConformant(fmt.Sprintf(
+						"The IP family of ServiceImport.Spec.IPs[%d] (%q) must match ServiceImport.Spec.IPFamilies[%d] (%q)",
+						i, serviceImport.Spec.IPs[i], i, serviceImport.Spec.IPFamilies[i])))
+			}
 		})
 
 	SpecifyWithSpecRef("The ports for a ClusterSetIP ServiceImport should match those of the exported service",
@@ -316,6 +327,7 @@ func testExternalNameService() {
 	BeforeEach(func() {
 		t.helloService.Spec.Type = corev1.ServiceTypeExternalName
 		t.helloService.Spec.ExternalName = "example.com"
+		t.helloService.Spec.IPFamilyPolicy = nil
 	})
 
 	SpecifyWithSpecRef("Exporting an ExternalName service should set ServiceExport Valid condition to False",

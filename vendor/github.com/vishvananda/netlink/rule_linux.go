@@ -297,10 +297,10 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 		if filter != nil {
 			switch {
 			case filterMask&RT_FILTER_SRC != 0 &&
-				(rule.Src == nil || rule.Src.String() != filter.Src.String()):
+				!ruleIPNetEqual(rule.Src, filter.Src):
 				continue
 			case filterMask&RT_FILTER_DST != 0 &&
-				(rule.Dst == nil || rule.Dst.String() != filter.Dst.String()):
+				!ruleIPNetEqual(rule.Dst, filter.Dst):
 				continue
 			case filterMask&RT_FILTER_TABLE != 0 &&
 				filter.Table != unix.RT_TABLE_UNSPEC && rule.Table != filter.Table:
@@ -375,4 +375,26 @@ func (r Rule) typeString() string {
 	default:
 		return fmt.Sprintf("type(0x%x)", r.Type)
 	}
+}
+
+// ruleIPNetEqual compares two *net.IPNet for rule filtering purposes.
+// Unlike ipNetEqual in route.go, this treats a nil IPNet as equivalent
+// to 0.0.0.0/0 or ::/0, which is how the kernel represents "from all" /
+// "to all" rules (it omits FRA_SRC/FRA_DST when prefix length is 0).
+// Two /0 prefixes are always equal regardless of IP (e.g. 0.0.0.0/0 == 1.2.3.4/0).
+func ruleIPNetEqual(a, b *net.IPNet) bool {
+	aIsDefault := a == nil || prefixLen(a) == 0
+	bIsDefault := b == nil || prefixLen(b) == 0
+	if aIsDefault && bIsDefault {
+		return true
+	}
+	if aIsDefault != bIsDefault {
+		return false
+	}
+	return ipNetEqual(a, b)
+}
+
+func prefixLen(ipNet *net.IPNet) int {
+	ones, _ := ipNet.Mask.Size()
+	return ones
 }

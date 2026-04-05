@@ -37,14 +37,18 @@ var _ = Describe("", func() {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services")
 			By("attempting to access the remote service", func() {
 				By("issuing a request from all clusters", func() {
-					command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.%s 42",
-						t.helloService.Name, t.namespace, dnsDomain)}
+					serviceFQDN := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
 
-					// Run on all clusters
-					for _, client := range clients {
-						// Repeat multiple times
-						for i := 0; i < 20; i++ {
-							Expect(t.execCmdOnRequestPod(&client, command)).NotTo(ContainSubstring("pod ip"), reportNonConformant(""))
+					// Test all IP families for completeness
+					for _, ipFamily := range t.helloService.Spec.IPFamilies {
+						command := []string{"sh", "-c", ncCommand(ipFamily, serviceFQDN, 42)}
+
+						// Run on all clusters
+						for _, client := range clients {
+							// Repeat multiple times
+							for i := 0; i < 20; i++ {
+								Expect(t.execCmdOnRequestPod(&client, command)).NotTo(ContainSubstring("pod ip"), reportNonConformant(""))
+							}
 						}
 					}
 				})
