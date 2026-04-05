@@ -63,11 +63,11 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.224.0
+  eksctl_version: v0.225.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.35.3
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 562.0.0
+  gcloud_version: 563.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -238,7 +238,7 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.26.1
