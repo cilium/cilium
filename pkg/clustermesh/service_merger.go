@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"context"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -98,27 +99,44 @@ func ClusterServiceToBackendParams(service *serviceStore.ClusterService) (beps [
 			backendZone = ptr.To(zone.ToLBBackendZone())
 		}
 
+		currentIdx := len(beps)
 		for name, l4 := range portConfig {
-			portNames := []string(nil)
+			currentBeps := beps[currentIdx:]
+			// Cilium loadbalancer needs to encode a Service with multiple port names
+			// for the same target port with a single loadbalancer.Backend with multiple
+			// port names. The clustermesh service data on the other end contains all the
+			// ports as distinct entries so we need to de-duplicate those.
+			idx := slices.IndexFunc(currentBeps, func(b loadbalancer.Backend) bool {
+				return b.Address.Protocol() == l4.Protocol && b.Address.Port() == l4.Port
+			})
+			// No existing backend for this L4 address, create a new one.
+			if idx == -1 {
+				beps = append(beps, loadbalancer.Backend{
+					Address: loadbalancer.NewL3n4Addr(
+						l4.Protocol,
+						addrCluster,
+						l4.Port,
+						loadbalancer.ScopeExternal,
+					),
+					Weight:    loadbalancer.DefaultBackendWeight,
+					NodeName:  "",
+					ClusterID: service.ClusterID,
+					State:     loadbalancer.BackendStateActive,
+					Zone:      backendZone,
+				})
+				idx = len(currentBeps)
+			}
 			if name != "" {
-				portNames = []string{name}
+				beps[currentIdx+idx].PortNames = append(beps[currentIdx+idx].PortNames, name)
 			}
-			bep := loadbalancer.Backend{
-				Address: loadbalancer.NewL3n4Addr(
-					l4.Protocol,
-					addrCluster,
-					l4.Port,
-					loadbalancer.ScopeExternal,
-				),
-				PortNames: portNames,
-				Weight:    loadbalancer.DefaultBackendWeight,
-				NodeName:  "",
-				ClusterID: service.ClusterID,
-				State:     loadbalancer.BackendStateActive,
-				Zone:      backendZone,
-			}
-			beps = append(beps, bep)
 		}
 	}
+
+	// Sort port names to ensure a stable order since map iteration is
+	// non-deterministic, which is required for DeepEqual comparisons.
+	for _, bep := range beps {
+		slices.Sort(bep.PortNames)
+	}
+
 	return
 }
