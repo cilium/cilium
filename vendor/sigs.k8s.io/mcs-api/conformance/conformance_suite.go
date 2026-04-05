@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	rest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsclient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
@@ -179,7 +180,7 @@ func newTestDriver() *testDriver {
 		}
 
 		// Set up the remote service (the first cluster is considered to be the remote)
-		t.deployHelloService(&clients[0], t.helloService)
+		t.helloService = t.deployHelloService(&clients[0], t.helloService)
 
 		// Start the request pod on all clusters
 		for _, client := range clients {
@@ -219,7 +220,7 @@ func (t *testDriver) deleteServiceExport(c *clusterClients) {
 	By(fmt.Sprintf("Service \"%s/%s\" unexported on cluster %q", t.namespace, helloServiceName, c.name))
 }
 
-func (t *testDriver) deployHelloService(c *clusterClients, service *corev1.Service) {
+func (t *testDriver) deployHelloService(c *clusterClients, service *corev1.Service) *corev1.Service {
 	if t.helloDeployment != nil {
 		_, err := c.k8s.AppsV1().Deployments(t.namespace).Create(ctx, t.helloDeployment, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -228,7 +229,10 @@ func (t *testDriver) deployHelloService(c *clusterClients, service *corev1.Servi
 	deployed, err := c.k8s.CoreV1().Services(t.namespace).Create(ctx, service, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	By(fmt.Sprintf("Service \"%s/%s\" deployed on cluster %q", deployed.Namespace, deployed.Name, c.name))
+	By(fmt.Sprintf("Service \"%s/%s\" with IP families %v deployed on cluster %q", deployed.Namespace, deployed.Name,
+		deployed.Spec.IPFamilies, c.name))
+
+	return deployed
 }
 
 func (t *testDriver) getServiceImport(c *clusterClients, name string) *v1alpha1.ServiceImport {
@@ -246,6 +250,8 @@ func (t *testDriver) getServiceImport(c *clusterClients, name string) *v1alpha1.
 func (t *testDriver) awaitServiceImport(c *clusterClients, name string, reportNonConformanceOnMissing bool,
 	verify func(Gomega, *v1alpha1.ServiceImport)) *v1alpha1.ServiceImport {
 	var serviceImport *v1alpha1.ServiceImport
+
+	By(fmt.Sprintf("Retrieving ServiceImport for %q on cluster %q", name, c.name))
 
 	Eventually(func(g Gomega) {
 		si := t.getServiceImport(c, name)
@@ -270,6 +276,16 @@ func (t *testDriver) awaitServiceImport(c *clusterClients, name string, reportNo
 	}).Within(20 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 
 	return serviceImport
+}
+
+func (t *testDriver) awaitServiceImportIPFamilies(c *clusterClients) []corev1.IPFamily {
+	serviceImport := t.awaitServiceImport(c, t.helloService.Name, false,
+		func(g Gomega, serviceImport *v1alpha1.ServiceImport) {
+			g.Expect(serviceImport.Spec.IPFamilies).NotTo(BeEmpty(),
+				"ServiceImport on cluster %q does not contain an IP family", c.name)
+		})
+
+	return serviceImport.Spec.IPFamilies
 }
 
 func (t *testDriver) awaitNoServiceImport(c *clusterClients, name, nonConformanceMsg string) {
@@ -373,13 +389,15 @@ func (t *testDriver) awaitServicePodIP(c *clusterClients) string {
 }
 
 func (t *testDriver) execPortConnectivityCommand(port int, matchStr string, nIter int) {
-	command := []string{"sh", "-c", fmt.Sprintf("echo hi | nc %s.%s.svc.%s %d",
-		t.helloService.Name, t.namespace, dnsDomain, port)}
-
 	for _, client := range clients {
-		By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
+		for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
+			serviceFQDN := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
+			command := []string{"sh", "-c", ncCommand(ipFamily, serviceFQDN, port)}
 
-		t.awaitCmdOutputMatches(&client, command, matchStr, nIter, reportNonConformant(""))
+			By(fmt.Sprintf("Executing %s command %q on cluster %q", ipFamily, strings.Join(command, " "), client.name))
+
+			t.awaitCmdOutputMatches(&client, command, matchStr, nIter, reportNonConformant(""))
+		}
 	}
 }
 
@@ -448,4 +466,53 @@ func requireTwoClusters() {
 	if len(clients) < 2 {
 		Skip("This test requires at least 2 clusters - skipping")
 	}
+}
+
+func addressTypeOf(f corev1.IPFamily) discoveryv1.AddressType {
+	if f == corev1.IPv4Protocol {
+		return discoveryv1.AddressTypeIPv4
+	}
+
+	return discoveryv1.AddressTypeIPv6
+}
+
+func dnsRecordTypeOf(f corev1.IPFamily) string {
+	if f == corev1.IPv4Protocol {
+		return "A"
+	}
+
+	return "AAAA"
+}
+
+func ipFamilyOf(ip string) corev1.IPFamily {
+	f := k8snet.IPFamilyOfString(ip)
+	Expect(f).NotTo(Equal(k8snet.IPFamilyUnknown))
+
+	if f == k8snet.IPv4 {
+		return corev1.IPv4Protocol
+	}
+
+	return corev1.IPv6Protocol
+}
+
+// ncCommand creates a shell command that connects to a service using nc with the specified IP family.
+// The netshoot image provides nc which supports -4/-6 flags for forcing IP family.
+func ncCommand(ipFamily corev1.IPFamily, serviceFQDN string, port int) string {
+	ipFlag := "-4"
+	if ipFamily == corev1.IPv6Protocol {
+		ipFlag = "-6"
+	}
+
+	// For IPv6, nc -6 with hostname seems to hang in IPv6-only environments
+	// Fall back to explicit DNS resolution and pass IP directly to nc
+	if ipFamily == corev1.IPv6Protocol {
+		fqdnWithDot := serviceFQDN + "."
+		return fmt.Sprintf(
+			"addr=$(nslookup -type=AAAA %s 2>&1 | grep '^Address:' | grep -v '#' | tail -1 | awk '{print $2}'); "+
+				"if [ -z \"$addr\" ]; then echo 'No IPv6 address found'; exit 1; fi; "+
+				"echo hi | nc -v -w 2 $addr %d 2>&1",
+			fqdnWithDot, port)
+	}
+
+	return fmt.Sprintf("echo hi | nc -v -w 2 %s %s %d 2>&1", ipFlag, serviceFQDN, port)
 }

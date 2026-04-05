@@ -49,19 +49,22 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 		"ready endpoint addresses of all the backing pods", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
-		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)}
-
-		endpoints := t.awaitK8sEndpoints(&clients[0], discovery.AddressTypeIPv4)
-
-		var addresses []string
-		for _, ep := range endpoints {
-			addresses = append(addresses, ep.address)
-		}
-
 		for _, client := range clients {
-			By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
+			for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
+				command := []string{"sh", "-c", fmt.Sprintf("nslookup -type=%s %s.%s.svc.%s.", dnsRecordTypeOf(ipFamily),
+					t.helloService.Name, t.namespace, dnsDomain)}
 
-			t.awaitCmdOutputMatches(&client, command, HaveAddresses(addresses), 1, reportNonConformant(""))
+				endpoints := t.awaitK8sEndpoints(&clients[0], addressTypeOf(ipFamily))
+
+				var addresses []string
+				for _, ep := range endpoints {
+					addresses = append(addresses, ep.address)
+				}
+
+				By(fmt.Sprintf("Executing %s command %q on cluster %q", ipFamily, strings.Join(command, " "), client.name))
+
+				t.awaitCmdOutputMatches(&client, command, HaveAddresses(addresses), 1, reportNonConformant(""))
+			}
 		}
 	})
 
@@ -80,35 +83,39 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 			AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
 			for _, client := range clients {
-				eps := t.awaitMCSEndpointSlice(&client, discovery.AddressTypeIPv4, func(g Gomega, eps *discovery.EndpointSlice) {
-					g.Expect(eps.Endpoints).To(HaveLen(replicas),
-						"the MCS EndpointSlice %q does not contain the expected number of endpoints %d",
-						eps.Name, replicas)
+				for _, ipFamily := range t.awaitServiceImportIPFamilies(&client) {
+					eps := t.awaitMCSEndpointSlice(&client, addressTypeOf(ipFamily), func(g Gomega, eps *discovery.EndpointSlice) {
+						g.Expect(eps.Endpoints).To(HaveLen(replicas),
+							"the MCS EndpointSlice %q does not contain the expected number of endpoints %d",
+							eps.Name, replicas)
+
+						for i := range eps.Endpoints {
+							ep := eps.Endpoints[i]
+
+							g.Expect(ptr.Deref(ep.Conditions.Ready, true)).To(BeTrue(),
+								"the endpoint address %s in the MCS EndpointSlice %q is not ready",
+								strings.Join(ep.Addresses, ","), eps.Name)
+
+							g.Expect(ptr.Deref(ep.Hostname, "")).ToNot(BeEmpty(),
+								"the hostname field for endpoint address %s in the MCS EndpointSlice %q is not set",
+								strings.Join(ep.Addresses, ","), eps.Name)
+						}
+					}, "an MCS EndpointSlice was not found on cluster %q", client.name)
+
+					clusterID := eps.Labels[v1alpha1.LabelSourceCluster]
 
 					for i := range eps.Endpoints {
-						ep := eps.Endpoints[i]
+						ep := &eps.Endpoints[i]
 
-						g.Expect(ptr.Deref(ep.Conditions.Ready, true)).To(BeTrue(),
-							"the endpoint address %s in the MCS EndpointSlice %q is not ready",
-							strings.Join(ep.Addresses, ","), eps.Name)
+						// Add trailing dot to prevent search domain from being appended
+						command := []string{"sh", "-c", fmt.Sprintf("nslookup -type=%s %s.%s.%s.%s.svc.%s.",
+							dnsRecordTypeOf(ipFamily), ptr.Deref(ep.Hostname, ""), clusterID, t.helloService.Name,
+							t.namespace, dnsDomain)}
 
-						g.Expect(ptr.Deref(ep.Hostname, "")).ToNot(BeEmpty(),
-							"the hostname field for endpoint address %s in the MCS EndpointSlice %q is not set",
-							strings.Join(ep.Addresses, ","), eps.Name)
+						By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
+
+						t.awaitCmdOutputMatches(&client, command, HaveAddresses(ep.Addresses), 1, reportNonConformant(""))
 					}
-				}, "an MCS EndpointSlice was not found on cluster %q", client.name)
-
-				clusterID := eps.Labels[v1alpha1.LabelSourceCluster]
-
-				for i := range eps.Endpoints {
-					ep := &eps.Endpoints[i]
-
-					command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.%s.%s.svc.%s",
-						ptr.Deref(ep.Hostname, ""), clusterID, t.helloService.Name, t.namespace, dnsDomain)}
-
-					By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
-
-					t.awaitCmdOutputMatches(&client, command, HaveAddresses(ep.Addresses), 1, reportNonConformant(""))
 				}
 			}
 		})
@@ -118,17 +125,20 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 		"records", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
-		endpoints := t.awaitK8sEndpoints(&clients[0], discovery.AddressTypeIPv4)
+		// Collect endpoints for all IP families in the service (for dual-stack support)
+		var allEndpoints []endpointInfo
+		for _, ipFamily := range t.helloService.Spec.IPFamilies {
+			endpoints := t.awaitK8sEndpoints(&clients[0], addressTypeOf(ipFamily))
+			allEndpoints = append(allEndpoints, endpoints...)
+		}
 
 		domainName := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
 
 		for _, client := range clients {
-			srvRecs := t.expectSRVRecords(&client, domainName)
+			srvRecs := t.expectSRVRecords(&client, domainName, len(allEndpoints))
 
-			Expect(srvRecs).To(HaveLen(len(endpoints)), reportNonConformant(
-				fmt.Sprintf("Expected %d SRV records. Received %d: %v", len(endpoints), len(srvRecs), srvRecs)))
-
-			for _, ep := range endpoints {
+			// Verify each endpoint has a corresponding SRV record
+			for _, ep := range allEndpoints {
 				index := slices.IndexFunc(srvRecs, func(r srvRecord) bool {
 					return strings.HasPrefix(r.domainName, ep.hostName)
 				})
@@ -153,7 +163,7 @@ func (e endpointInfo) String() string {
 }
 
 func (t *testDriver) awaitK8sEndpoints(c *clusterClients, addressType discovery.AddressType) []endpointInfo {
-	By(fmt.Sprintf("Retrieving K8s endpoint addresses for the service on cluster %q", c.name))
+	By(fmt.Sprintf("Retrieving %s K8s endpoint addresses for the service on cluster %q", addressType, c.name))
 
 	var endpoints []endpointInfo
 

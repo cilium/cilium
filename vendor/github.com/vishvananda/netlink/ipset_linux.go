@@ -303,13 +303,11 @@ func buildEntryData(entry *IPSetEntry) (*nl.RtAttr, error) {
 		data.AddChild(nl.NewRtAttr(nl.IPSET_ATTR_CIDR2, nl.Uint8Attr(entry.CIDR2)))
 	}
 
-	if entry.Port != nil {
-		if entry.Protocol == nil {
-			// use tcp protocol as default
-			val := uint8(unix.IPPROTO_TCP)
-			entry.Protocol = &val
-		}
+	if entry.Protocol != nil {
 		data.AddChild(nl.NewRtAttr(nl.IPSET_ATTR_PROTO, nl.Uint8Attr(*entry.Protocol)))
+	}
+
+	if entry.Port != nil {
 		buf := make([]byte, 2)
 		binary.BigEndian.PutUint16(buf, *entry.Port)
 		data.AddChild(nl.NewRtAttr(int(nl.IPSET_ATTR_PORT|nl.NLA_F_NET_BYTEORDER), buf))

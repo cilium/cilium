@@ -36,24 +36,24 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 		"clusterset IP", func() {
 		AddReportEntry(SpecRefReportEntry, "https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#dns")
 
-		By("Retrieving ServiceImport")
-
-		serviceImports := []*v1alpha1.ServiceImport{}
 		for _, client := range clients {
 			serviceImport := t.awaitServiceImport(&client, t.helloService.Name, false,
 				func(g Gomega, serviceImport *v1alpha1.ServiceImport) {
 					g.Expect(serviceImport.Spec.IPs).ToNot(BeEmpty(), "ServiceImport on cluster %q does not contain an IP", client.name)
 				})
-			serviceImports = append(serviceImports, serviceImport)
-		}
 
-		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)}
-		for i, client := range clients {
-			clusterSetIP := serviceImports[i].Spec.IPs[0]
-			By(fmt.Sprintf("Found ServiceImport on cluster %q with clusterset IP %q", client.name, clusterSetIP))
-			By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), client.name))
+			By(fmt.Sprintf("Found ServiceImport on cluster %q with clusterset IPs %v",
+				client.name, strings.Join(serviceImport.Spec.IPs, ",")))
 
-			t.awaitCmdOutputMatches(&client, command, clusterSetIP, 1, reportNonConformant(""))
+			for _, clusterSetIP := range serviceImport.Spec.IPs {
+				command := []string{"sh", "-c", fmt.Sprintf("nslookup -type=%s %s.%s.svc.%s.",
+					dnsRecordTypeOf(ipFamilyOf(clusterSetIP)), t.helloService.Name, t.namespace, dnsDomain)}
+
+				By(fmt.Sprintf("Executing %s command %q on cluster %q", ipFamilyOf(clusterSetIP),
+					strings.Join(command, " "), client.name))
+
+				t.awaitCmdOutputMatches(&client, command, clusterSetIP, 1, reportNonConformant(""))
+			}
 		}
 	})
 
@@ -64,12 +64,12 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 		domainName := fmt.Sprintf("%s.%s.svc.%s", t.helloService.Name, t.namespace, dnsDomain)
 
 		for _, client := range clients {
-			srvRecs := t.expectSRVRecords(&client, domainName)
-
 			expSRVRecs := []srvRecord{{
 				port:       t.helloService.Spec.Ports[0].Port,
 				domainName: domainName,
 			}}
+
+			srvRecs := t.expectSRVRecords(&client, domainName, len(expSRVRecs))
 
 			Expect(srvRecs).To(Equal(expSRVRecs), reportNonConformant(
 				fmt.Sprintf("Received SRV records %v do not match the expected records %v", srvRecs, expSRVRecs)))
@@ -95,7 +95,9 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 
 		By(fmt.Sprintf("Found local Service cluster IP %q", resolvedIP))
 
-		command := []string{"sh", "-c", fmt.Sprintf("nslookup %s.%s.svc.cluster.local", t.helloService.Name, t.namespace)}
+		// Add trailing dot to prevent search domain from being appended
+		command := []string{"sh", "-c", fmt.Sprintf("nslookup -type=%s %s.%s.svc.cluster.local.",
+			dnsRecordTypeOf(ipFamilyOf(resolvedIP)), t.helloService.Name, t.namespace)}
 
 		By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), clients[0].name))
 
@@ -103,17 +105,19 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 	})
 })
 
-func (t *testDriver) expectSRVRecords(c *clusterClients, domainName string) []srvRecord {
-	command := []string{"sh", "-c", "nslookup -type=SRV " + domainName}
+func (t *testDriver) expectSRVRecords(c *clusterClients, domainName string, expectedCount int) []srvRecord {
+	// Add trailing dot to prevent search domain from being appended
+	command := []string{"sh", "-c", "nslookup -type=SRV " + domainName + "."}
 
 	By(fmt.Sprintf("Executing command %q on cluster %q", strings.Join(command, " "), c.name))
 
 	var srvRecs []srvRecord
 
-	Eventually(func() []srvRecord {
+	Eventually(func(g Gomega) {
 		srvRecs = parseSRVRecords(t.execCmdOnRequestPod(c, command))
-		return srvRecs
-	}, 20, 1).ShouldNot(BeEmpty(), reportNonConformant(""))
+		g.Expect(srvRecs).To(HaveLen(expectedCount),
+			fmt.Sprintf("Expected %d SRV records but got %d: %v", expectedCount, len(srvRecs), srvRecs))
+	}, 20, 1).Should(Succeed(), reportNonConformant(""))
 
 	return srvRecs
 }
@@ -141,9 +145,12 @@ func parseSRVRecords(str string) []srvRecord {
 	for i := range matches {
 		// First match at index 0 is the full text that was matched; index 1 is the port and index 2 is the domain name.
 		port, _ := strconv.ParseInt(matches[i][1], 10, 32)
+		domainName := matches[i][2]
+		// Strip trailing period from FQDN (some nslookup versions include it)
+		domainName = strings.TrimSuffix(domainName, ".")
 		recs = append(recs, srvRecord{
 			port:       int32(port),
-			domainName: matches[i][2],
+			domainName: domainName,
 		})
 	}
 
