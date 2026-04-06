@@ -6,8 +6,8 @@
 #include <linux/bpf.h>
 
 #include "compiler.h"
-#include "helpers.h"
 #include "features_xdp.h"
+#include "helpers.h"
 
 /* Only used helpers in Cilium go below. */
 

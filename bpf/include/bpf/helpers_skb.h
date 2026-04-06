@@ -6,8 +6,8 @@
 #include <linux/bpf.h>
 
 #include "compiler.h"
-#include "helpers.h"
 #include "features_skb.h"
+#include "helpers.h"
 
 /* Only used helpers in Cilium go below. */
 
