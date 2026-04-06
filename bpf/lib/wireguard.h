@@ -7,6 +7,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "encrypt.h"
 #include "overloadable.h"
 #include "identity.h"
 
@@ -147,28 +148,9 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (magic == MARK_MAGIC_PROXY_INGRESS ||
 	    magic == MARK_MAGIC_SKIP_TPROXY)
 		goto maybe_encrypt;
-
-	/* Unless node encryption is enabled, we don't want to encrypt
-	 * traffic from the hostns (an exception - L7 proxy traffic).
-	 *
-	 * NB: if iptables has SNAT-ed the packet, its sec id is HOST_ID.
-	 * This means that the packet won't be encrypted. This is fine,
-	 * as with --encrypt-node=false we encrypt only pod-to-pod packets.
-	 */
-	if (src_sec_identity == HOST_ID)
-		goto out;
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
-	/* We don't want to encrypt any traffic that originates from outside
-	 * the cluster. This check excludes DSR traffic from the LB node to a remote backend.
-	 */
-	if (!identity_is_cluster(src_sec_identity))
-		goto out;
-
-	/* If source is remote node we should treat it like outside traffic.
-	 * This is possible when connection is done from pod to load balancer with DSR enabled.
-	 */
-	if (identity_is_remote_node(src_sec_identity))
+	if (!encrypt_src_matches_policy(src_sec_identity))
 		goto out;
 
 maybe_encrypt: __maybe_unused

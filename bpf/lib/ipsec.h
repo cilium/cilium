@@ -174,19 +174,6 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), 0);
 }
 
-/* checks whether a IPsec redirect should be performed for the source
- */
-static __always_inline int
-ipsec_redirect_sec_id_ok(__u32 src_sec_id) {
-	if (src_sec_id == HOST_ID)
-		return 0;
-	if (!identity_is_cluster(src_sec_id))
-		return 0;
-	if (identity_is_remote_node(src_sec_id))
-		return 0;
-	return 1;
-}
-
 static __always_inline int
 ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				__u32 src_sec_identity)
@@ -281,7 +268,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	if (!dst || !dst->flag_has_tunnel_ep || !dst->key)
 		return CTX_ACT_OK;
 
-	if (!ipsec_redirect_sec_id_ok(src_sec_identity))
+	if (!encrypt_src_matches_policy(src_sec_identity))
 		return CTX_ACT_OK;
 
 #  if defined(TUNNEL_MODE)
