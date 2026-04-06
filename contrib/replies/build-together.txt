@@ -1,0 +1,5 @@
+Thank you for your attention on this. As an open source project, Cilium relies
+on the contributions from participants in the community to develop
+functionality that is useful for everyone. If this is critical to you, I'd
+encourage you to work on this, or find someone you can work with on this in
+order to extend the functionality to support this use case.
