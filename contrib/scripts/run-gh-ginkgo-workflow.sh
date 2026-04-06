@@ -265,7 +265,8 @@ if ! check_cmd ginkgo; then
     install_ginkgo
 fi
 
-YQ_IMAGE="docker.io/mikefarah/yq:4.27.3@sha256:495c1e1db2d653cce61a06da52cfca0c7d68d6249cc6e61b2a134d92c609c016"
+# renovate: datasource=docker
+YQ_IMAGE="docker.io/mikefarah/yq@sha256:495c1e1db2d653cce61a06da52cfca0c7d68d6249cc6e61b2a134d92c609c016" # 4.27.3
 yq="docker run --rm -v ${PWD}:/workdir --user $(id -u):$(id -g) $YQ_IMAGE"
 
 # Retrieve kernel and kubernetes image tags
