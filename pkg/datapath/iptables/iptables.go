@@ -1438,8 +1438,6 @@ func (m *Manager) installMasqueradeRules(
 	// If this option is enabled, then it takes precedence over the catch-all
 	// MASQUERADE further below.
 	if m.sharedCfg.EnableMasqueradeRouteSource {
-		var defaultRoutes []netlink.Route
-
 		if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
 			devices = m.sharedCfg.MasqueradeInterfaces
 		}
@@ -1447,86 +1445,9 @@ func (m *Manager) installMasqueradeRules(
 		if prog == m.ip6tables {
 			family = netlink.FAMILY_V6
 		}
-		initialPass := true
 		if routes, err := safenetlink.RouteList(nil, family); err == nil {
-		nextPass:
-			for _, r := range routes {
-				var link netlink.Link
-				match := false
-				if r.LinkIndex > 0 {
-					link, err = netlink.LinkByIndex(r.LinkIndex)
-					if err != nil {
-						continue
-					}
-					// Routes are dedicated to the specific interface, so we
-					// need to install the SNAT rules also for that interface
-					// via -o. If we cannot correlate to anything because no
-					// devices were specified, we need to bail out.
-					if len(devices) == 0 {
-						return fmt.Errorf("cannot correlate source route device for generating masquerading rules")
-					}
-					for _, device := range devices {
-						filter := tables.DeviceFilter{device}
-						m, reverse := filter.Match(link.Attrs().Name)
-						if m {
-							match = !reverse
-							break
-						}
-					}
-				} else {
-					// There might be next hop groups where ifindex is zero
-					// and the underlying next hop devices might not be known
-					// to Cilium. In this case, assume match and don't encode
-					// -o device.
-					match = true
-				}
-				_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
-				if !match || r.Src == nil || (err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
-					continue
-				}
-				if initialPass && cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
-					defaultRoutes = append(defaultRoutes, r)
-					continue
-				}
-				progArgs := []string{
-					"-t", "nat",
-					"-A", ciliumPostNatChain,
-					"-s", allocRange,
-				}
-				if cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
-					progArgs = append(
-						progArgs,
-						"!", "-d", snatDstExclusionCIDR)
-				} else {
-					progArgs = append(
-						progArgs,
-						"-d", r.Dst.String())
-				}
-				if link != nil {
-					progArgs = append(
-						progArgs,
-						"-o", link.Attrs().Name)
-				} else {
-					progArgs = append(
-						progArgs,
-						"!", "-o", "cilium_+")
-				}
-				progArgs = append(
-					progArgs,
-					"-m", "comment", "--comment", "cilium snat non-cluster via source route",
-					"-j", "SNAT",
-					"--to-source", r.Src.String())
-				if m.cfg.IPTablesRandomFully {
-					progArgs = append(progArgs, "--random-fully")
-				}
-				if err := prog.runProg(progArgs); err != nil {
-					return err
-				}
-			}
-			if initialPass {
-				initialPass = false
-				routes = defaultRoutes
-				goto nextPass
+			if err := m.installMasqueradeRouteSourceRules(prog, routes, netlink.LinkByIndex, devices, snatDstExclusionCIDR, allocRange); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -1640,6 +1561,93 @@ func (m *Manager) installMasqueradeRules(
 		}
 	}
 
+	return nil
+}
+
+func (m *Manager) installMasqueradeRouteSourceRules(
+	prog runnable, routes []netlink.Route, linkByIndex func(int) (netlink.Link, error),
+	devices []string, snatDstExclusionCIDR, allocRange string,
+) error {
+	slices.SortFunc(routes, func(a, b netlink.Route) int {
+		aPfx, bPfx := 0, 0
+		if a.Dst != nil {
+			aPfx, _ = a.Dst.Mask.Size()
+		}
+		if b.Dst != nil {
+			bPfx, _ = b.Dst.Mask.Size()
+		}
+		return bPfx - aPfx
+	})
+	for _, r := range routes {
+		var link netlink.Link
+		match := false
+		if r.LinkIndex > 0 {
+			var err error
+			link, err = linkByIndex(r.LinkIndex)
+			if err != nil {
+				continue
+			}
+			// Routes are dedicated to the specific interface, so we
+			// need to install the SNAT rules also for that interface
+			// via -o. If we cannot correlate to anything because no
+			// devices were specified, we need to bail out.
+			if len(devices) == 0 {
+				return fmt.Errorf("cannot correlate source route device for generating masquerading rules")
+			}
+			for _, device := range devices {
+				filter := tables.DeviceFilter{device}
+				m, reverse := filter.Match(link.Attrs().Name)
+				if m {
+					match = !reverse
+					break
+				}
+			}
+		} else {
+			// There might be next hop groups where ifindex is zero
+			// and the underlying next hop devices might not be known
+			// to Cilium. In this case, assume match and don't encode
+			// -o device.
+			match = true
+		}
+		_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
+		if !match || r.Src == nil || (err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+			continue
+		}
+		progArgs := []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", allocRange,
+		}
+		if cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
+			progArgs = append(
+				progArgs,
+				"!", "-d", snatDstExclusionCIDR)
+		} else {
+			progArgs = append(
+				progArgs,
+				"-d", r.Dst.String())
+		}
+		if link != nil {
+			progArgs = append(
+				progArgs,
+				"-o", link.Attrs().Name)
+		} else {
+			progArgs = append(
+				progArgs,
+				"!", "-o", "cilium_+")
+		}
+		progArgs = append(
+			progArgs,
+			"-m", "comment", "--comment", "cilium snat non-cluster via source route",
+			"-j", "SNAT",
+			"--to-source", r.Src.String())
+		if m.cfg.IPTablesRandomFully {
+			progArgs = append(progArgs, "--random-fully")
+		}
+		if err := prog.runProg(progArgs); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

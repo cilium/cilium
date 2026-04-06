@@ -5,11 +5,13 @@ package iptables
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 )
 
 type expectation struct {
@@ -1121,7 +1123,6 @@ func TestEncryptionRules(t *testing.T) {
 		ip6tables: mockIp6tables,
 	}
 	t.Run("test adding iptables rules for wireguard encryption", func(t *testing.T) {
-
 		mockIp4tables.expectations = []expectation{
 			{args: "-t filter -A CILIUM_INPUT -m mark --mark 0x00000e00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from filter CILIUM_INPUT chain -j ACCEPT"},
 			{args: "-t filter -A CILIUM_INPUT -m mark --mark 0x00000d00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from filter CILIUM_INPUT chain -j ACCEPT"},
@@ -1170,4 +1171,38 @@ func TestEncryptionRules(t *testing.T) {
 		assert.NoError(t, mockIp4tables.checkExpectations())
 		assert.NoError(t, mockIp6tables.checkExpectations())
 	})
+}
+
+func TestInstallMasqueradeRouteSourceRules(t *testing.T) {
+	routes := []netlink.Route{
+		{Dst: mustParseCIDR("0.0.0.0/0"), Src: net.ParseIP("198.18.4.4"), LinkIndex: 0, Family: 2},
+		{Dst: mustParseCIDR("10.0.0.0/16"), Src: net.ParseIP("10.0.0.1"), LinkIndex: 5, Family: 2},
+		{Dst: mustParseCIDR("10.0.1.0/24"), Src: net.ParseIP("10.0.1.1"), LinkIndex: 5, Family: 2},
+	}
+
+	mockProg := &mockIptables{t: t, prog: "iptables", expectations: []expectation{
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 -d 10.0.1.0/24 -o eth0 -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 10.0.1.1"},
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 -d 10.0.0.0/16 -o eth0 -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 10.0.0.1"},
+		{args: "-t nat -A CILIUM_POST_nat -s 11.0.0.0/24 ! -d 11.0.0.0/24 ! -o cilium_+ -m comment --comment cilium snat non-cluster via source route -j SNAT --to-source 198.18.4.4"},
+	}}
+
+	linkByIndex := func(index int) (netlink.Link, error) {
+		return &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "eth0", Index: 5}}, nil
+	}
+
+	mgr := &Manager{}
+	err := mgr.installMasqueradeRouteSourceRules(
+		mockProg, routes, linkByIndex,
+		[]string{"eth0"}, "11.0.0.0/24", "11.0.0.0/24",
+	)
+	require.NoError(t, err)
+	require.NoError(t, mockProg.checkExpectations())
+}
+
+func mustParseCIDR(s string) *net.IPNet {
+	_, n, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return n
 }
