@@ -29,27 +29,27 @@ var (
 var (
 	// AllNodesIfcLocalMaddr is the multicast address that identifies the group of
 	// all IPv6 nodes, within scope 1 (interface-local)
-	AllNodesIfcLocalMaddr net.IP = net.ParseIP("ff01::1")
+	AllNodesIfcLocalMaddr = netip.MustParseAddr("ff01::1")
 
 	// AllNodesLinkLocalMaddr is the multicast address that identifies the group of
 	// all IPv6 nodes, within scope 2 (link-local)
-	AllNodesLinkLocalMaddr net.IP = net.ParseIP("ff02::1")
+	AllNodesLinkLocalMaddr = netip.MustParseAddr("ff02::1")
 
 	// AllRoutersIfcLocalMaddr is the multicast address that identifies the group of
 	// all IPv6 routers, within scope 1 (interface-local)
-	AllRoutersIfcLocalMaddr net.IP = net.ParseIP("ff01::2")
+	AllRoutersIfcLocalMaddr = netip.MustParseAddr("ff01::2")
 
 	// AllRoutersLinkLocalMaddr is the multicast address that identifies the group of
 	// all IPv6 routers, within scope 2 (link-local)
-	AllRoutersLinkLocalMaddr net.IP = net.ParseIP("ff02::2")
+	AllRoutersLinkLocalMaddr = netip.MustParseAddr("ff02::2")
 
 	// AllRoutersSiteLocalMaddr is the multicast address that identifies the group of
 	// all IPv6 routers, within scope 5 (site-local)
-	AllRoutersSiteLocalMaddr net.IP = net.ParseIP("ff05::2")
+	AllRoutersSiteLocalMaddr = netip.MustParseAddr("ff05::2")
 
 	// SolicitedNodeMaddrPrefix is the prefix of the multicast address that is used
 	// as part of NDP
-	SolicitedNodeMaddrPrefix net.IP = net.ParseIP("ff02::1:ff00:0")
+	SolicitedNodeMaddrPrefix = netip.MustParseAddr("ff02::1:ff00:0")
 )
 
 func initSocket(logger *slog.Logger) error {
@@ -154,7 +154,8 @@ func (a Address) SolicitedNodeMaddr() netip.Addr {
 	}
 
 	maddr := make([]byte, 16)
-	copy(maddr[:13], SolicitedNodeMaddrPrefix[:13])
+	prefix := SolicitedNodeMaddrPrefix.As16()
+	copy(maddr[:13], prefix[:13])
 	copy(maddr[13:], ipv6.AsSlice()[13:])
 
 	return netip.AddrFrom16([16]byte(maddr))
