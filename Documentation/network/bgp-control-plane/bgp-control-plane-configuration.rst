@@ -916,7 +916,7 @@ Labels were then configured using:
 .. code-block:: shell-session
 
     kubectl label service hello-world vpc1=true
-    kubectl label service hello-world vpc1=true
+    kubectl label service hello-world vpc2=true
 
 The resulting BGP advertisement set both communities ``1111:1111:1111`` and ``2222:2222:2222``.
 All possible combinations of communities (``Standard``, ``Large``, ``WellKnown``) are 
