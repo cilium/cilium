@@ -203,28 +203,25 @@ sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline const struct lb4_service *
-sock4_wildcard_lookup(struct lb4_key *key, const bool include_remote_hosts,
-		      const bool inv_match, const bool in_hostns)
+sock4_wildcard_lookup(struct lb4_key *key)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if ((service_port < CONFIG(nodeport_port_min) ||
-	     service_port > CONFIG(nodeport_port_max)) ^ inv_match)
+	if (service_port < CONFIG(nodeport_port_min) ||
+	    service_port > CONFIG(nodeport_port_max))
 		return NULL;
 
 	/* When connecting to node port services in our cluster that
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (in_hostns && is_v4_loopback(key->address))
+	if (is_v4_loopback(key->address))
 		goto wildcard_lookup;
 
 	info = lookup_ip4_remote_endpoint(key->address, 0);
-	if (info && (info->sec_identity == HOST_ID ||
-		     (include_remote_hosts && identity_is_remote_node(info->sec_identity) &&
-		      !info->flag_remote_cluster)))
+	if (info && info->sec_identity == HOST_ID)
 		goto wildcard_lookup;
 
 	return NULL;
@@ -499,7 +496,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 		 * tries to bind to loopback or an address with host identity
 		 * (without remote hosts).
 		 */
-		svc = sock4_wildcard_lookup(&key, false, false, true);
+		svc = sock4_wildcard_lookup(&key);
 	}
 
 	/* If the sockaddr of this socket overlaps with a NodePort,
@@ -773,28 +770,25 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline __maybe_unused const struct lb6_service *
-sock6_wildcard_lookup(struct lb6_key *key, const bool include_remote_hosts,
-		      const bool inv_match, const bool in_hostns)
+sock6_wildcard_lookup(struct lb6_key *key)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if ((service_port < CONFIG(nodeport_port_min) ||
-	     service_port > CONFIG(nodeport_port_max)) ^ inv_match)
+	if (service_port < CONFIG(nodeport_port_min) ||
+	    service_port > CONFIG(nodeport_port_max))
 		return NULL;
 
 	/* When connecting to node port services in our cluster that
 	 * have either {REMOTE_NODE,HOST}_ID or loopback address, we
 	 * do a wild-card lookup with IP of 0.
 	 */
-	if (in_hostns && is_v6_loopback(&key->address))
+	if (is_v6_loopback(&key->address))
 		goto wildcard_lookup;
 
 	info = lookup_ip6_remote_endpoint(&key->address, 0);
-	if (info && (info->sec_identity == HOST_ID ||
-		     (include_remote_hosts && identity_is_remote_node(info->sec_identity) &&
-		      !info->flag_remote_cluster)))
+	if (info && info->sec_identity == HOST_ID)
 		goto wildcard_lookup;
 
 	return NULL;
@@ -924,7 +918,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	svc = lb6_lookup_service(&key, true);
 	if (!svc) {
-		svc = sock6_wildcard_lookup(&key, false, false, true);
+		svc = sock6_wildcard_lookup(&key);
 		if (!svc)
 			return sock6_post_bind_v4_in_v6(ctx);
 	}
