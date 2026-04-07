@@ -192,18 +192,7 @@ func (s *xdsGRPCServer) StreamNetworkPolicies(stream cilium.NetworkPolicyDiscove
 	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyTypeURL, "")
 }
 
-func (s *xdsGRPCServer) FetchNetworkPolicies(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
-	// The Fetch methods are only called via the REST API, which is not
-	// implemented in Cilium. Only the Stream methods are called over gRPC.
-	return nil, ErrNotImplemented
-}
-
 func (s *xdsGRPCServer) StreamNetworkPolicyHosts(stream cilium.NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error {
 	return s.Server.HandleRequestStream(stream.Context(), stream, NetworkPolicyHostsTypeURL, "")
 }
 
-func (s *xdsGRPCServer) FetchNetworkPolicyHosts(ctx context.Context, req *envoy_service_discovery.DiscoveryRequest) (*envoy_service_discovery.DiscoveryResponse, error) {
-	// The Fetch methods are only called via the REST API, which is not
-	// implemented in Cilium. Only the Stream methods are called over gRPC.
-	return nil, ErrNotImplemented
-}
