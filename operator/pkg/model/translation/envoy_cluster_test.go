@@ -110,6 +110,46 @@ func Test_httpClusterWithTLSOriginationAllowsTLS13(t *testing.T) {
 	require.Equal(t, envoy_config_tls.TlsParameters_TLSv1_3, tlsContext.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion)
 }
 
+func Test_withTLSOrigination(t *testing.T) {
+	tls := &model.BackendTLSOrigination{
+		SNI: "my-backend.svc.cluster.local",
+		CACertRef: &model.FullyQualifiedResource{
+			Name:      "my-ca-configmap",
+			Namespace: "my-namespace",
+		},
+	}
+
+	t.Run("uses configured secrets namespace in SDS name", func(t *testing.T) {
+		fn := withTLSOrigination("my-secrets-ns", tls)
+		cluster := fn(&envoy_config_cluster_v3.Cluster{})
+		require.NotNil(t, cluster.TransportSocket)
+
+		upstreamTLS := &envoy_config_tls.UpstreamTlsContext{}
+		err := proto.Unmarshal(cluster.TransportSocket.GetTypedConfig().GetValue(), upstreamTLS)
+		require.NoError(t, err)
+
+		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
+		require.NotNil(t, combined)
+		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
+		require.Equal(t, "my-secrets-ns/my-namespace-cfgmap-my-ca-configmap", sdsName)
+	})
+
+	t.Run("default secrets namespace produces correct SDS name", func(t *testing.T) {
+		fn := withTLSOrigination("cilium-secrets", tls)
+		cluster := fn(&envoy_config_cluster_v3.Cluster{})
+		require.NotNil(t, cluster.TransportSocket)
+
+		upstreamTLS := &envoy_config_tls.UpstreamTlsContext{}
+		err := proto.Unmarshal(cluster.TransportSocket.GetTypedConfig().GetValue(), upstreamTLS)
+		require.NoError(t, err)
+
+		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
+		require.NotNil(t, combined)
+		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
+		require.Equal(t, "cilium-secrets/my-namespace-cfgmap-my-ca-configmap", sdsName)
+	})
+}
+
 func Test_tcpCluster(t *testing.T) {
 	c := &cecTranslator{}
 	res, err := c.httpCluster("dummy-name", "dummy-name", false, "", nil)
