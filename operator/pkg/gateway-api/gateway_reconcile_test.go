@@ -58,6 +58,7 @@ var (
 func Test_Conformance(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cecTranslator := translation.NewCECTranslator(translation.Config{
+		SecretsNamespace: "cilium-secrets",
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
 		},
