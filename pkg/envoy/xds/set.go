@@ -20,28 +20,36 @@ type ResourceSource interface {
 	// Should not be blocking.
 	GetResources(typeURL string, lastVersion uint64, resourceNames []string) *VersionedResources
 
-	// EnsureVersion increases this resource set's version to be at least the
-	// given version. If the current version is already higher than the
-	// given version, this has no effect.
+	// EnsureVersion increases this resource set's version to be past the
+	// given version. If the current version is already higher than that, this has no effect.
 	EnsureVersion(typeURL string, version uint64)
+}
+
+// VersionedResource is a single protobuf-encoded resource along with it's version.
+type VersionedResource struct {
+	// Name is the name of a resource. May be empty.
+	Name string
+	// Version is the version of this specific resource.
+	// Zero if not tracked.
+	// Must be non-zero for Delta xDS
+	Version uint64
+	// Resource is the protobuf resource.
+	Resource proto.Message
 }
 
 // VersionedResources is a set of protobuf-encoded resources along with their
 // version.
 type VersionedResources struct {
-	// Version is the version of the resources.
+	// Version is the version of the xDS cache for these resources.
 	Version uint64
 
-	// ResourceNames is the list of names of resources.
+	// VersionedResources is a set of versioned resources
 	// May be empty.
-	ResourceNames []string
-
-	// Resources is the list of protobuf-encoded resources.
-	// May be empty. Must be of the same length as ResourceNames.
-	Resources []proto.Message
+	VersionedResources []VersionedResource
 
 	// Canary indicates whether the client should only do a dry run of
 	// using  the resources.
+	// Only used for state-of-the-world xDS
 	Canary bool
 }
 
