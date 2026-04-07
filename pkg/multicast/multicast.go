@@ -149,7 +149,7 @@ func (a Address) Key() int32 {
 // SolicitedNodeMaddr returns solicited node multicast address
 func (a Address) SolicitedNodeMaddr() netip.Addr {
 	ipv6 := netip.Addr(a)
-	if !ipv6.IsValid() {
+	if !ipv6.Is6() {
 		return netip.Addr{}
 	}
 
