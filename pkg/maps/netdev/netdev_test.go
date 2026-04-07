@@ -77,8 +77,7 @@ func TestPrivilegedNetDevMap(t *testing.T) {
 	require.Equal(t, state1, seen[1])
 	require.Equal(t, state2, seen[2])
 
-	require.NoError(t, dm.Clear(2))
-	got2, err = dm.Lookup(2)
-	require.NoError(t, err)
-	require.Equal(t, DeviceState{}, *got2)
+	require.NoError(t, dm.Delete(2))
+	_, err = dm.Lookup(2)
+	require.Error(t, err)
 }

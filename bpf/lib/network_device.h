@@ -24,11 +24,11 @@ struct device_state {
  * verifier.
  */
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u32);
 	__type(value, struct device_state);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 4096);
+	__uint(max_entries, 512);
 } cilium_devices __section_maps_btf;
 
 static __always_inline const struct device_state *

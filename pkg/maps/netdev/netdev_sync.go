@@ -94,8 +94,8 @@ func pruneStaleDevices(p netDevMapSyncParams, desired map[uint32]DeviceState) {
 		p.Logger.Warn("Failed to iterate network devices map", logfields.Error, err)
 	}
 	for _, ifindex := range stale {
-		if err := p.DeviceMap.Clear(ifindex); err != nil {
-			p.Logger.Warn("Failed to clear stale network devices map entry",
+		if err := p.DeviceMap.Delete(ifindex); err != nil {
+			p.Logger.Warn("Failed to delete stale network devices map entry",
 				logfields.Error, err,
 				logfields.Interface, ifindex,
 			)

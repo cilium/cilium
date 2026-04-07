@@ -20,7 +20,7 @@ type Map interface {
 
 	IterateWithCallback(cb IterateCallback) error
 
-	Clear(ifindex uint32) error
+	Delete(ifindex uint32) error
 }
 
 type netDevMap struct {
@@ -32,10 +32,10 @@ func newNetDevMap() *netDevMap {
 	return &netDevMap{
 		Map: bpf.NewMap(
 			"cilium_devices",
-			ebpf.Array,
+			ebpf.Hash,
 			&index,
 			&DeviceState{},
-			4096,
+			512,
 			0,
 		),
 	}
@@ -64,12 +64,10 @@ func (m *netDevMap) IterateWithCallback(cb IterateCallback) error {
 	})
 }
 
-var zeroDeviceState = DeviceState{}
-
-// Clear resets an entry to the zero value.
-func (m *netDevMap) Clear(ifindex uint32) error {
+// Delete removes an entry from the map.
+func (m *netDevMap) Delete(ifindex uint32) error {
 	key := Index(ifindex)
-	return m.Map.Update(&key, &zeroDeviceState)
+	return m.Map.Delete(&key)
 }
 
 func (m *netDevMap) init() error {
