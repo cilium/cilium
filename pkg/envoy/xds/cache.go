@@ -241,18 +241,21 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 	// Return all resources of given typeURL.
 	// TODO: return nil if no changes since the last version?
 	if len(resourceNames) == 0 {
-		res.ResourceNames = make([]string, 0, len(c.resources))
-		res.Resources = make([]proto.Message, 0, len(c.resources))
+		res.VersionedResources = make([]VersionedResource, 0, len(c.resources))
 		for k, v := range c.resources {
 			if k.typeURL != typeURL {
 				continue
 			}
-			res.ResourceNames = append(res.ResourceNames, k.resourceName)
-			res.Resources = append(res.Resources, v.resource)
+			res.VersionedResources = append(res.VersionedResources,
+				VersionedResource{
+					Name:     k.resourceName,
+					Version:  v.lastModifiedVersion,
+					Resource: v.resource,
+				})
 		}
 		scopedLog.Debug(
 			"no resource names requested",
-			logfields.Resources, len(res.Resources),
+			logfields.Resources, len(res.VersionedResources),
 			logfields.Type, typeURL,
 		)
 		return res
@@ -266,8 +269,7 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 	// anyway, because we don't know whether the missing resource was deleted
 	// after the lastVersion, so we can't optimize in this case.
 
-	res.ResourceNames = make([]string, 0, len(resourceNames))
-	res.Resources = make([]proto.Message, 0, len(resourceNames))
+	res.VersionedResources = make([]VersionedResource, 0, len(resourceNames))
 
 	k := cacheKey{typeURL: typeURL}
 
@@ -291,8 +293,12 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
 				updatedSinceLastVersion = true
 			}
-			res.ResourceNames = append(res.ResourceNames, name)
-			res.Resources = append(res.Resources, v.resource)
+			res.VersionedResources = append(res.VersionedResources,
+				VersionedResource{
+					Name:     k.resourceName,
+					Version:  v.lastModifiedVersion,
+					Resource: v.resource,
+				})
 		} else {
 			scopedLog.Debug(
 				"resource not found",
@@ -307,11 +313,19 @@ func (c *Cache) GetResources(typeURL string, lastVersion uint64, resourceNames [
 		return nil
 	}
 
-	slices.Sort(res.ResourceNames)
+	slices.SortFunc(res.VersionedResources, func(a, b VersionedResource) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
 
 	scopedLog.Debug(
 		"returning resources",
-		logfields.ReturningResources, len(res.Resources),
+		logfields.ReturningResources, len(res.VersionedResources),
 		logfields.RequestedResources, len(resourceNames),
 	)
 	return res
@@ -328,18 +342,29 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 			logfields.XDSAckedVersion, version,
 		)
 
+		// bump the lastUpdatedVersion of each resource
+		for k, v := range c.resources {
+			if k.typeURL != typeURL {
+				continue
+			}
+			// use the forced version for each resource to force full update
+			c.resources[k] = cacheValue{
+				resource:            v.resource,
+				lastModifiedVersion: version,
+			}
+		}
+
 		c.version = version
 		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
 	}
 }
 
 // Lookup finds the resource corresponding to the specified typeURL and resourceName,
-// if available, and returns it. Otherwise, returns nil. If an error occurs while
-// fetching the resource, also returns the error.
+// if available, and returns it. Otherwise, returns nil.
 func (c *Cache) Lookup(typeURL string, resourceName string) proto.Message {
 	res := c.GetResources(typeURL, 0, []string{resourceName})
-	if res == nil || len(res.Resources) == 0 {
+	if res == nil || len(res.VersionedResources) == 0 {
 		return nil
 	}
-	return res.Resources[0]
+	return res.VersionedResources[0].Resource
 }

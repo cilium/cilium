@@ -35,7 +35,9 @@ func (sotw *sotw) transport(ctx context.Context, client discoverypb.AggregatedDi
 func (sotw *sotw) prepareObsReq(obsReq *observeRequest, node *corepb.Node, get getter) *discoverypb.DiscoveryRequest {
 	curr := get(obsReq.typeUrl)
 	reqResourceNames := sets.Set[string]{}
-	reqResourceNames.Insert(curr.ResourceNames...)
+	for i := range curr.VersionedResources {
+		reqResourceNames.Insert(curr.VersionedResources[i].Name)
+	}
 	reqResourceNames.Insert(obsReq.resourceNames...)
 
 	return &discoverypb.DiscoveryRequest{
@@ -71,8 +73,9 @@ func (sotw *sotw) tx(resp *discoverypb.DiscoveryResponse, get getter) (txs, erro
 
 func findMissing(typeUrl string, curr nameToResource, get getter) []string {
 	old := get(typeUrl)
-	deletedResources := make([]string, 0, len(old.ResourceNames))
-	for _, name := range old.ResourceNames {
+	deletedResources := make([]string, 0, len(old.VersionedResources))
+	for i := range old.VersionedResources {
+		name := old.VersionedResources[i].Name
 		if _, ok := curr[name]; ok {
 			continue
 		}
