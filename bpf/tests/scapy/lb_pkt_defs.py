@@ -106,3 +106,63 @@ lb6_ns_nodeport_fragment2_post_dnat = (
     IPv6ExtHdrFragment(offset=(20+1)//8, m=0, id=256, nh=6) /
     Raw(load="S" * 1)
 )
+
+# Packets for testing East/West LB path with fragments.
+# Same as before, but with the source IP of a pod instead of an external node.
+
+lb4_ew_nodeport_fragment1 = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_two, dst=v4_svc_one, flags='MF', frag=0, id=256, proto=6) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(load="S" * 1)
+)
+
+lb4_ew_nodeport_fragment1_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_two, dst=v4_pod_one, flags='MF', frag=0, id=256, proto=6) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(load="S" * 1)
+)
+
+lb4_ew_nodeport_fragment2 = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_two, dst=v4_svc_one, flags='', frag=(20+1)//8, id=256, proto=6) /
+    Raw(load="S" * 1)
+)
+
+lb4_ew_nodeport_fragment2_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_two, dst=v4_pod_one, flags='', frag=(20+1)//8, id=256, proto=6) /
+    Raw(load="S" * 1)
+)
+
+lb6_ew_nodeport_fragment1 = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_two, dst=v6_svc_one, nh=44) /
+    IPv6ExtHdrFragment(offset=0, m=1, id=256, nh=6) /
+    TCP(sport=tcp_src_one, dport=tcp_svc_one) /
+    Raw(load="S" * 1)
+)
+
+lb6_ew_nodeport_fragment1_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_two, dst=v6_pod_one, nh=44) /
+    IPv6ExtHdrFragment(offset=0, m=1, id=256, nh=6) /
+    TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+    Raw(load="S" * 1)
+)
+
+lb6_ew_nodeport_fragment2 = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_two, dst=v6_svc_one, nh=44) /
+    IPv6ExtHdrFragment(offset=(20+1)//8, m=0, id=256, nh=6) /
+    Raw(load="S" * 1)
+)
+
+lb6_ew_nodeport_fragment2_post_dnat = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_two, dst=v6_pod_one, nh=44) /
+    IPv6ExtHdrFragment(offset=(20+1)//8, m=0, id=256, nh=6) /
+    Raw(load="S" * 1)
+)
+

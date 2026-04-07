@@ -14,14 +14,21 @@
 # define HOOK		netdev_receive_packet
 
 # include "lib/bpf_host.h"
+#elif defined(EAST_WEST_TEST)
+# define ENABLE_SOCKET_LB_HOST_ONLY 1
+# define CLIENT_IP	v4_pod_two
+# define HOOK		pod_send_packet
+
+# include "lib/bpf_lxc.h"
 #else
-# error "Needs to be included with NORTH_SOUTH_TEST defined"
+# error "Needs to be included with either NORTH_SOUTH_TEST or EAST_WEST_TEST defined"
 #endif
 
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 
 #include "lib/endpoint.h"
+#include "lib/policy.h"
 #include "lib/lb.h"
 #include "scapy.h"
 
@@ -59,7 +66,7 @@ ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 	.reason = REASON_FRAG_PACKET, \
 	.dir = METRIC_SERVICE }
 
-/* Test that the 1st fragment of an external-to-nodeport request is handled correctly */
+/* Test that the 1st fragment is handled correctly */
 PKTGEN("tc", "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 {
@@ -70,6 +77,9 @@ int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 #ifdef NORTH_SOUTH_TEST
 	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT1, lb4_ns_nodeport_fragment1);
 	BUILDER_PUSH_BUF(builder, LB4_NS_NODEPORT_FRAGMENT1);
+#else
+	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1, lb4_ew_nodeport_fragment1);
+	BUILDER_PUSH_BUF(builder, LB4_EW_NODEPORT_FRAGMENT1);
 #endif
 
 	pktgen__finish(&builder);
@@ -80,6 +90,8 @@ int nodeport_lb4_fragments_1_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_nodeport_lb4_fragments_1")
 int nodeport_lb4_fragments_1_setup(struct __ctx_buff *ctx)
 {
+	policy_add_egress_allow_all_entry();
+
 	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, 0,
 			      (__u8 *)mac_one, (__u8 *)mac_two);
 	lb_v4_add_service_with_flags(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, BACKEND_COUNT,
@@ -132,6 +144,12 @@ int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 			   LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT,
 			   sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT)));
 	bytes = sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT));
+#else
+	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ew_nodeport_fragment1_post_dnat);
+	ASSERT_CTX_BUF_OFF("lb4_ew_nodeport_fragment1_post_dnat", "Ether", ctx, sizeof(__u32),
+			   LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT,
+			   sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT)));
+	bytes = sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT));
 #endif
 
 	/* Ensure CT entry is updated accordingly (SVC). */
@@ -143,7 +161,7 @@ int nodeport_lb4_fragments_1_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-/* Test that the 2nd fragment of an external-to-nodeport request is handled correctly */
+/* Test that the 2nd fragment is handled correctly */
 PKTGEN("tc", "tc_nodeport_lb4_fragments_2")
 int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 {
@@ -154,6 +172,9 @@ int nodeport_lb4_fragments_2_pktgen(struct __ctx_buff *ctx)
 #ifdef NORTH_SOUTH_TEST
 	BUF_DECL(LB4_NS_NODEPORT_FRAGMENT2, lb4_ns_nodeport_fragment2);
 	BUILDER_PUSH_BUF(builder, LB4_NS_NODEPORT_FRAGMENT2);
+#else
+	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT2, lb4_ew_nodeport_fragment2);
+	BUILDER_PUSH_BUF(builder, LB4_EW_NODEPORT_FRAGMENT2);
 #endif
 
 	pktgen__finish(&builder);
@@ -206,6 +227,14 @@ int nodeport_lb4_fragments_2_check(struct __ctx_buff *ctx)
 			   sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT)));
 	bytes = sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT1_POST_DNAT)) +
 		sizeof(BUF(LB4_NS_NODEPORT_FRAGMENT2_POST_DNAT));
+#else
+	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT, lb4_ew_nodeport_fragment1_post_dnat);
+	BUF_DECL(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT, lb4_ew_nodeport_fragment2_post_dnat);
+	ASSERT_CTX_BUF_OFF("lb4_ew_nodeport_fragment2_post_dnat", "Ether", ctx, sizeof(__u32),
+			   LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT,
+			   sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT)));
+	bytes = sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT1_POST_DNAT)) +
+		sizeof(BUF(LB4_EW_NODEPORT_FRAGMENT2_POST_DNAT));
 #endif
 
 	/* Ensure CT entry is updated accordingly (SVC). */
