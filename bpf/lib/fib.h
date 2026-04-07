@@ -34,9 +34,7 @@ add_l2_hdr(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
-		 __u32 ifindex __maybe_unused,
-		 bool *l2_hdr_required __maybe_unused)
+maybe_add_l2_hdr(struct __ctx_buff *ctx, __u32 ifindex, bool *l2_hdr_required)
 {
 	if (device_is_l3(ifindex)) {
 		/* The packet is going to be redirected to L3 dev, so
@@ -167,8 +165,8 @@ fib_lookup_skip_neigh() {
 
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
-	     struct bpf_fib_lookup_padded *fib_params __maybe_unused,
-	     bool use_neigh_map, __s8 *ext_err __maybe_unused, int *oif)
+	     struct bpf_fib_lookup_padded *fib_params, bool use_neigh_map,
+	     __s8 *ext_err, int *oif)
 {
 	int ret;
 
@@ -247,8 +245,7 @@ fib_lookup_src_v6(struct __ctx_buff *ctx, struct in6_addr *src,
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
-		__u32 tbid)
+		bool allow_neigh_map, __s8 *ext_err, int *oif, __u32 tbid)
 {
 	int ret;
 	struct bpf_fib_lookup_padded fib_params = {0};
@@ -330,8 +327,7 @@ fib_lookup_src_v4(struct __ctx_buff *ctx, __be32 *src, const __be32 dst)
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
-		bool allow_neigh_map, __s8 *ext_err __maybe_unused, int *oif,
-		__u32 tbid)
+		bool allow_neigh_map, __s8 *ext_err, int *oif, __u32 tbid)
 {
 	int ret;
 	struct bpf_fib_lookup_padded fib_params = {0};
