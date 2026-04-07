@@ -58,7 +58,7 @@ func TestGetResource(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			// Ignore version and nodeID they does not impact GetResource logic.
+			// Ignore version as it does not impact GetResource logic.
 			// Ignore error since it always returns nil.
 			got := c.GetResources(tc.typeURL, tc.version, tc.getNames)
 			gotNilResponse := got == nil
@@ -68,8 +68,12 @@ func TestGetResource(t *testing.T) {
 			if got == nil {
 				return
 			}
-			slices.Sort(got.ResourceNames)
-			if diff := cmp.Diff(got.ResourceNames, tc.wantNames); diff != "" {
+			names := make([]string, 0, len(got.VersionedResources))
+			for _, vr := range got.VersionedResources {
+				names = append(names, vr.Name)
+			}
+			slices.Sort(names)
+			if diff := cmp.Diff(names, tc.wantNames); diff != "" {
 				t.Fatalf("returned resources mismatch (-got/+want): %v", diff)
 			}
 		})

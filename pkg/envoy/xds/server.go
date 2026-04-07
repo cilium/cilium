@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -320,15 +321,20 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 			// In case of xDS server restart (cilium-agent),
 			// Envoy will send a request with VersionInfo set to the last ACKed version
 			// it received. Additionally, nonce will be empty.
-			var lastAppliedVersion uint64
+
+			// lastAckedVersion is the latest version the client has successfully
+			// applied.
+			var lastAckedVersion uint64
 			if req.GetVersionInfo() != "" {
 				var err error
-				lastAppliedVersion, err = strconv.ParseUint(req.VersionInfo, 10, 64)
+				lastAckedVersion, err = strconv.ParseUint(req.VersionInfo, 10, 64)
 				if err != nil {
 					requestLog.Error("invalid version info in xDS request, not a uint64")
 					return ErrInvalidVersionInfo
 				}
 			}
+			// lastReceivedVersion is the last version the client has seen from us;
+			// it may be ACKed of NACKed.
 			var lastReceivedVersion uint64
 			if req.GetResponseNonce() != "" {
 				var err error
@@ -370,19 +376,19 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				clientReceivedFirstResponse = true
 			}
 
-			if clientReceivedFirstResponse && lastAppliedVersion == lastReceivedVersion {
+			if clientReceivedFirstResponse && lastAckedVersion == lastReceivedVersion {
 				// Once we get the first ACK,
 				// we can start using versionInfo for ACKing observers.
 				responseAcked = true
 			}
 
-			if lastAppliedVersion > 0 && firstRequest {
+			if lastAckedVersion > 0 && firstRequest {
 				requestLog.Info("xDS was restarted",
-					logfields.Previous, lastAppliedVersion,
+					logfields.Previous, lastAckedVersion,
 				)
 			}
 
-			if lastAppliedVersion > lastReceivedVersion && clientReceivedFirstResponse {
+			if lastAckedVersion > lastReceivedVersion && clientReceivedFirstResponse {
 				requestLog.Warn("received invalid nonce in xDS request")
 				return ErrInvalidResponseNonce
 			}
@@ -399,14 +405,14 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 						// as last acked version.
 						ackObserver.HandleResourceVersionAck(0, lastReceivedVersion, nodeIP, state.resourceNames, typeURL, detail)
 					} else {
-						ackObserver.HandleResourceVersionAck(lastAppliedVersion, lastReceivedVersion, nodeIP, state.resourceNames, typeURL, detail)
+						ackObserver.HandleResourceVersionAck(lastAckedVersion, lastReceivedVersion, nodeIP, state.resourceNames, typeURL, detail)
 					}
 				} else {
 					requestLog.Info("ACK received but no observers are waiting for ACKs")
 				}
 			}
 
-			if lastAppliedVersion < lastReceivedVersion && clientReceivedFirstResponse {
+			if lastAckedVersion < lastReceivedVersion && clientReceivedFirstResponse {
 				s.metrics.IncreaseNACK(typeURL)
 				// versions after lastAppliedVersion, upto and including lastReceivedVersion are NACKed
 				requestLog.Warn(
@@ -432,7 +438,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				"starting watch resources",
 				logfields.Resources, len(req.GetResourceNames()),
 			)
-			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAppliedVersion, req.GetResourceNames(), respCh)
+			go watcher.WatchResources(ctx, typeURL, lastReceivedVersion, lastAckedVersion, req.GetResourceNames(), respCh)
 			firstRequest = false
 
 		default: // Pending watch response.
@@ -471,16 +477,16 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				logfields.XDSNonce, resp.Version,
 			)
 
-			resources := make([]*anypb.Any, len(resp.Resources))
+			resources := make([]*anypb.Any, len(resp.VersionedResources))
 
 			// Marshall the resources into protobuf's Any type.
-			for i, res := range resp.Resources {
-				any, err := anypb.New(res)
+			for i := range resp.VersionedResources {
+				any, err := anypb.New(resp.VersionedResources[i].Resource)
 				if err != nil {
 					responseLog.Error(
 						"error marshalling xDS response with resources",
 						logfields.Error, err,
-						logfields.Resources, len(resp.Resources),
+						logfields.Resources, len(resp.VersionedResources),
 					)
 					return err
 				}
@@ -489,7 +495,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 			responseLog.Debug(
 				"sending xDS response with resources",
-				logfields.Resources, len(resp.Resources),
+				logfields.Resources, len(resp.VersionedResources),
 			)
 
 			versionStr := strconv.FormatUint(resp.Version, 10)
@@ -505,7 +511,12 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				return err
 			}
 
-			state.resourceNames = resp.ResourceNames
+			names := make([]string, 0, len(resp.VersionedResources))
+			for _, vr := range resp.VersionedResources {
+				names = append(names, vr.Name)
+			}
+			slices.Sort(names)
+			state.resourceNames = names
 		}
 	}
 }
