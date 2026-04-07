@@ -2095,7 +2095,7 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		httpLingerConfig: -1,
 	}
 
-	t.Run("ADS disabled: UseNphds not set", func(t *testing.T) {
+	t.Run("ADS disabled: CiliumConfigSource not set, no NPHDS", func(t *testing.T) {
 		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeSplit)
 		defer envoy.SetXDSMode("")
 
@@ -2106,10 +2106,10 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
 		assert.False(t, meta.UseNphds)
-		assert.Nil(t, meta.NpdsConfig)
+		assert.Nil(t, meta.CiliumConfigSource) // not set for the legacy SotW mode
 	})
 
-	t.Run("ADS enabled: NpdsConfig set to ADS without NPHDS", func(t *testing.T) {
+	t.Run("ADS enabled: CiliumConfigSource set to ADS without NPHDS", func(t *testing.T) {
 		envoy.SetXDSMode(envoyconfig.EnvoyXDSModeADS)
 		defer envoy.SetXDSMode("")
 
@@ -2120,8 +2120,8 @@ func TestGetBPFMetadataListenerFilterADSMode(t *testing.T) {
 		meta, ok := msg.(*cilium.BpfMetadata)
 		require.True(t, ok)
 		assert.False(t, meta.UseNphds)
-		require.NotNil(t, meta.NpdsConfig)
-		assert.NotNil(t, meta.NpdsConfig.GetAds(), "NpdsConfig should use ADS aggregated source")
-		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.NpdsConfig.ResourceApiVersion)
+		require.NotNil(t, meta.CiliumConfigSource)
+		assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
+		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
 	})
 }

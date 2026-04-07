@@ -604,7 +604,7 @@ func (r *CECResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 		// Keep NPHDS disabled in production. Envoy can resolve identities from
 		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
 		// for environments without datapath maps.
-		conf.NpdsConfig = envoy.NewCiliumXdsWithAdsConfigSource()
+		conf.CiliumConfigSource = envoy.NewCiliumXdsWithAdsConfigSource()
 	}
 
 	if isHTTPListener && r.httpLingerConfig >= 0 {
