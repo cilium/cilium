@@ -13,35 +13,6 @@ This implementation adds a macvlan device manager to the Cilium Network Driver, 
 - **Device Discovery**: Automatically discovers and lists existing macvlan interfaces
 - **Resource Attributes**: Exposes parent interface name, MAC address, MTU, and macvlan mode as device attributes
 
-## Architecture
-
-### Files Added/Modified
-
-1. **pkg/networkdriver/types/types.go**
-   - Added `DeviceManagerTypeMacvlan` enum value
-   - Added macvlan string constant
-   - Updated String(), MarshalText(), and UnmarshalText() methods
-
-2. **pkg/networkdriver/macvlan/macvlan.go** (NEW)
-   - `MacvlanManager`: Main device manager implementation
-   - `MacvlanDevice`: Device representation
-   - Interface creation and management logic
-
-3. **pkg/networkdriver/macvlan/macvlan_test.go** (NEW)
-   - Comprehensive unit tests for device manager
-   - Tests for device attributes, matching, serialization, and listing
-
-4. **pkg/networkdriver/devicemanagers/managers.go**
-   - Added macvlan manager initialization
-
-5. **pkg/k8s/apis/cilium.io/v2alpha1/network_driver_types.go**
-   - Added `MacvlanDeviceManagerConfig` type
-   - Added `MacvlanDeviceConfig` type
-   - Added macvlan field to `CiliumNetworkDriverDeviceManagerConfig`
-
-6. **examples/networkdriver/macvlan-example.yaml** (NEW)
-   - Example configuration showing how to use the macvlan device manager
-
 ## Configuration
 
 ### CRD Configuration
@@ -88,19 +59,6 @@ spec:
 4. **Passthru Mode**: Allows a single macvlan device to be connected to the parent interface. The macvlan device inherits the parent's MAC address.
 
 5. **Source Mode**: Allows filtering based on a list of allowed source MAC addresses.
-
-## Device Attributes
-
-Each macvlan device exposes the following attributes in Kubernetes DRA:
-
-- `ifName`: The interface name (e.g., "eth0.0")
-- `kernelIfName`: The kernel interface name (same as ifName)
-- `mac_address`: Hardware address of the device
-- `mtu`: Maximum transmission unit
-- `flags`: Interface flags (e.g., "up|broadcast|running")
-- `parentIfName`: Name of the parent interface (e.g., "eth0")
-- `macvlanMode`: Configured macvlan mode (e.g., "bridge")
-- `deviceManager`: Always "macvlan"
 
 ## Usage Example
 
@@ -174,34 +132,6 @@ spec:
           - name: network
 ```
 
-## Implementation Details
-
-### Interface Creation
-
-The macvlan manager creates sub-interfaces during initialization:
-
-1. Verifies parent interface exists
-2. Creates macvlan link with specified mode
-3. Brings the interface up
-4. Logs success or errors
-
-Interfaces are named as `<parent>.<index>` starting from 0.
-
-### Device Discovery
-
-The `ListDevices()` method:
-1. Lists all network links
-2. Filters for macvlan type
-3. Skips down interfaces
-4. Resolves parent interface name
-5. Returns device list with full attributes
-
-### Device Lifecycle
-
-- **Setup**: Currently a no-op (interface already exists)
-- **Free**: Currently a no-op (interface persists)
-- **Restore**: Deserializes device from stored state
-
 ### Filtering
 
 Devices can be filtered by:
@@ -210,42 +140,13 @@ Devices can be filtered by:
 - Parent interface name (`parentIfName`)
 - Macvlan mode (`macvlanMode`)
 
-## Testing
-
-Run the test suite:
-
-```bash
-go test -v ./pkg/networkdriver/macvlan/...
-```
-
-Tests cover:
-- Device attribute retrieval
-- Filter matching logic
-- Binary serialization/deserialization
-- Device manager type
-- Device restoration
-- Device listing with mocked netlink
-
-## Comparison with Other Device Managers
-
-| Feature | SR-IOV | Dummy | Macvlan |
-|---------|--------|-------|---------|
-| Hardware Support Required | Yes (SR-IOV NIC) | No | No |
-| Sub-interface Creation | PCI VFs | Manual | Automatic |
-| Configuration Complexity | High | Low | Medium |
-| Performance | Highest | Lowest | Medium-High |
-| Isolation | Hardware | None | Software |
-| Use Case | Production workloads | Testing | Multi-tenant networks |
-
 ## Future Enhancements
 
 Potential improvements:
 1. **VLAN support**: Add VLAN tagging to macvlan interfaces
-2. **IP configuration**: Pre-configure IP addresses on interfaces
-3. **MTU configuration**: Allow MTU override per sub-interface
-4. **Deletion support**: Clean up interfaces on pod deletion
-5. **Source filtering**: Implement source mode with MAC filtering
-6. **Statistics**: Expose interface statistics as metrics
+2. **MTU configuration**: Allow MTU override per sub-interface
+3. **Source filtering**: Implement source mode with MAC filtering
+4. **Statistics**: Expose interface statistics as metrics
 
 ## References
 
