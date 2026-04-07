@@ -91,34 +91,6 @@ func TestMacvlanDevice_Match(t *testing.T) {
 	}
 }
 
-func TestMacvlanDevice_MarshalUnmarshal(t *testing.T) {
-	dev := MacvlanDevice{
-		Name:            "eth0-0",
-		ParentName:      "eth0",
-		KernelIfaceName: "eth0.0",
-		HWAddr:          "00:11:22:33:44:55",
-		MTU:             1500,
-		Flags:           "up|broadcast|running",
-		Mode:            netlink.MACVLAN_MODE_BRIDGE,
-	}
-
-	data, err := dev.MarshalBinary()
-	require.NoError(t, err)
-	require.NotNil(t, data)
-
-	var restored MacvlanDevice
-	err = restored.UnmarshalBinary(data)
-	require.NoError(t, err)
-
-	require.Equal(t, dev.Name, restored.Name)
-	require.Equal(t, dev.ParentName, restored.ParentName)
-	require.Equal(t, dev.KernelIfaceName, restored.KernelIfaceName)
-	require.Equal(t, dev.HWAddr, restored.HWAddr)
-	require.Equal(t, dev.MTU, restored.MTU)
-	require.Equal(t, dev.Flags, restored.Flags)
-	require.Equal(t, dev.Mode, restored.Mode)
-}
-
 func TestMacvlanManager_Type(t *testing.T) {
 	mgr := &MacvlanManager{
 		logger: slog.Default(),
@@ -151,9 +123,7 @@ func TestMacvlanManager_RestoreDevice(t *testing.T) {
 
 	restoredDev, ok := restored.(*MacvlanDevice)
 	require.True(t, ok)
-	require.Equal(t, dev.Name, restoredDev.Name)
-	require.Equal(t, dev.ParentName, restoredDev.ParentName)
-	require.Equal(t, dev.KernelIfaceName, restoredDev.KernelIfaceName)
+	require.Equal(t, dev, *restoredDev)
 }
 
 func TestMacvlanManager_ListDevices(t *testing.T) {
