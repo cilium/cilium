@@ -36,7 +36,7 @@ func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string, tl
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
-		withTLSOrigination(tls),
+		withTLSOrigination(i.Config.SecretsNamespace, tls),
 	}
 	if grpcService {
 		res = append(res, withProtocol(HTTPVersion2))
