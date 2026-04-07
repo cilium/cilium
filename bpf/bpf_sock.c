@@ -239,14 +239,43 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
-	/* Save the original address, as the sock4_wildcard_lookup zeroes it */
 	bool loopback = is_v4_loopback(key->address);
-	__u32 orig_addr = key->address;
+	const struct remote_endpoint_info *info;
 	const struct lb4_service *svc;
+	bool in_nodeport_range;
+	__u16 service_port;
 
-	svc = sock4_wildcard_lookup(key, true, false, in_hostns);
-	if (svc && lb4_svc_is_nodeport(svc))
-		return svc;
+	service_port = bpf_ntohs(key->dport);
+	in_nodeport_range = service_port >= CONFIG(nodeport_port_min) &&
+			    service_port <= CONFIG(nodeport_port_max);
+
+	if (in_hostns && loopback)
+		goto lookup;
+
+	info = lookup_ip4_remote_endpoint(key->address, 0);
+	if (!info)
+		return NULL;
+
+	if (in_nodeport_range) {
+		/* NodePort: accept HOST_ID and remote nodes */
+		if (info->sec_identity != HOST_ID &&
+		    !(identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))
+			return NULL;
+	} else {
+		/* HostPort: accept HOST_ID only */
+		if (info->sec_identity != HOST_ID)
+			return NULL;
+	}
+
+lookup:
+	key->address = 0;
+	svc = lb4_lookup_service(key, true);
+	if (!svc)
+		return NULL;
+
+	if (in_nodeport_range)
+		return lb4_svc_is_nodeport(svc) ? svc : NULL;
 
 	/*
 	 * We perform a wildcard hostport lookup. If the SVC_FLAG_LOOPBACK
@@ -254,10 +283,8 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	 * using a loopback IP address, in which case we only want to allow
 	 * connections to loopback addresses
 	 */
-	key->address = orig_addr;
-	svc = sock4_wildcard_lookup(key, false, true, in_hostns);
-	if (svc && lb4_svc_is_hostport(svc) && (!lb4_svc_is_loopback(svc) || loopback))
-		return svc;
+	return (lb4_svc_is_hostport(svc) &&
+		(!lb4_svc_is_loopback(svc) || loopback)) ? svc : NULL;
 #endif /* ENABLE_NODEPORT */
 
 	return NULL;
@@ -782,22 +809,46 @@ sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
-	/* Save the original address, as the sock6_wildcard_lookup zeroes it */
 	bool loopback = is_v6_loopback(&key->address);
-	union v6addr orig_address;
+	const struct remote_endpoint_info *info;
 	const struct lb6_service *svc;
+	bool in_nodeport_range;
+	__u16 service_port;
 
-	memcpy(&orig_address, &key->address, sizeof(orig_address));
-	svc = sock6_wildcard_lookup(key, true, false, in_hostns);
-	if (svc && lb6_svc_is_nodeport(svc))
-		return svc;
+	service_port = bpf_ntohs(key->dport);
+	in_nodeport_range = service_port >= CONFIG(nodeport_port_min) &&
+			    service_port <= CONFIG(nodeport_port_max);
 
-	/* See a corresponding commment in sock4_wildcard_lookup_full */
-	memcpy(&key->address, &orig_address, sizeof(orig_address));
-	svc = sock6_wildcard_lookup(key, false, true, in_hostns);
-	if (svc && lb6_svc_is_hostport(svc) && (!lb6_svc_is_loopback(svc) || loopback))
-		return svc;
+	if (in_hostns && loopback)
+		goto lookup;
 
+	info = lookup_ip6_remote_endpoint(&key->address, 0);
+	if (!info)
+		return NULL;
+
+	if (in_nodeport_range) {
+		/* NodePort: accept HOST_ID and remote nodes */
+		if (info->sec_identity != HOST_ID &&
+		    !(identity_is_remote_node(info->sec_identity) &&
+		      !info->flag_remote_cluster))
+			return NULL;
+	} else {
+		/* HostPort: accept HOST_ID only */
+		if (info->sec_identity != HOST_ID)
+			return NULL;
+	}
+
+lookup:
+	memset(&key->address, 0, sizeof(key->address));
+	svc = lb6_lookup_service(key, true);
+	if (!svc)
+		return NULL;
+
+	if (in_nodeport_range)
+		return lb6_svc_is_nodeport(svc) ? svc : NULL;
+
+	return (lb6_svc_is_hostport(svc) &&
+		(!lb6_svc_is_loopback(svc) || loopback)) ? svc : NULL;
 #endif /* ENABLE_NODEPORT */
 	return NULL;
 }
