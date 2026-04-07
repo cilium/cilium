@@ -85,7 +85,7 @@ var ADS_RESOURCES = xds.Resources{
 						ProxyId:  15,
 						IsL7Lb:   true,
 						UseNphds: true,
-						NpdsConfig: &envoy_config_core_v3.ConfigSource{
+						CiliumConfigSource: &envoy_config_core_v3.ConfigSource{
 							ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
 								Ads: &envoy_config_core_v3.AggregatedConfigSource{},
 							},

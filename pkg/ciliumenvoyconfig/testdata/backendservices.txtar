@@ -289,24 +289,24 @@ SVC: ID=5 ADDR=3.0.0.1:9080/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+n
 policy-trigger-count:
   1
 endpoints:test/backend:9080:
-  cluster_name: "test/backend:9080"
-  endpoints: {
-    lb_endpoints: {
-      endpoint: {
-        address: {
-          socket_address: {
-            address: "2.1.0.1"
-            port_value: 9080
+  cluster_name:  "test/backend:9080"
+  endpoints:  {
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "2.1.0.1"
+            port_value:  9080
           }
         }
       }
     }
-    lb_endpoints: {
-      endpoint: {
-        address: {
-          socket_address: {
-            address: "2.1.0.2"
-            port_value: 9080
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "2.1.0.2"
+            port_value:  9080
           }
         }
       }
@@ -314,14 +314,14 @@ endpoints:test/backend:9080:
   }
   
 endpoints:test/backend_unnamed_port:9080:
-  cluster_name: "test/backend_unnamed_port:9080"
-  endpoints: {
-    lb_endpoints: {
-      endpoint: {
-        address: {
-          socket_address: {
-            address: "3.1.0.1"
-            port_value: 9080
+  cluster_name:  "test/backend_unnamed_port:9080"
+  endpoints:  {
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "3.1.0.1"
+            port_value:  9080
           }
         }
       }
@@ -329,14 +329,14 @@ endpoints:test/backend_unnamed_port:9080:
   }
   
 endpoints:test/frontend:80:
-  cluster_name: "test/frontend:80"
-  endpoints: {
-    lb_endpoints: {
-      endpoint: {
-        address: {
-          socket_address: {
-            address: "1.1.0.1"
-            port_value: 8080
+  cluster_name:  "test/frontend:80"
+  endpoints:  {
+    lb_endpoints:  {
+      endpoint:  {
+        address:  {
+          socket_address:  {
+            address:  "1.1.0.1"
+            port_value:  8080
           }
         }
       }
@@ -344,36 +344,36 @@ endpoints:test/frontend:80:
   }
   
 listener:test/ingress/listener:
-  name: "test/ingress/listener"
-  address: {
-    socket_address: {
-      address: "127.0.0.1"
-      port_value: 1000
+  name:  "test/ingress/listener"
+  address:  {
+    socket_address:  {
+      address:  "127.0.0.1"
+      port_value:  1000
     }
   }
-  additional_addresses: {
-    address: {
-      socket_address: {
-        address: "::1"
-        port_value: 1000
+  additional_addresses:  {
+    address:  {
+      socket_address:  {
+        address:  "::1"
+        port_value:  1000
       }
     }
   }
-  listener_filters: {
-    name: "cilium.bpf_metadata"
-    typed_config: {
-      [type.googleapis.com/cilium.BpfMetadata]: {
-        bpf_root: "/sys/fs/bpf"
-        use_original_source_address: true
-        is_l7lb: true
-        proxy_id: 1000
-        ipcache_name: "cilium_ipcache_v2"
-        npds_config: {
-          ads: {}
-          initial_fetch_timeout: {
-            nanos: 1000000
+  listener_filters:  {
+    name:  "cilium.bpf_metadata"
+    typed_config:  {
+      [type.googleapis.com/cilium.BpfMetadata]:  {
+        bpf_root:  "/sys/fs/bpf"
+        use_original_source_address:  true
+        is_l7lb:  true
+        proxy_id:  1000
+        ipcache_name:  "cilium_ipcache_v2"
+        cilium_config_source:  {
+          ads:  {}
+          initial_fetch_timeout:  {
+            nanos:  1000000
           }
-          resource_api_version: V3
+          resource_api_version:  V3
         }
       }
     }
