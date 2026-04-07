@@ -2975,7 +2975,11 @@
    * - :spelling:ignore:`k8s`
      - Configure Kubernetes specific configuration
      - object
-     - ``{"requireIPv4PodCIDR":false,"requireIPv6PodCIDR":false}``
+     - ``{"apiServerURLs":null,"requireIPv4PodCIDR":false,"requireIPv6PodCIDR":false}``
+   * - :spelling:ignore:`k8s.apiServerURLs`
+     - A space separated list of Kubernetes API server URLs to use with the client. For example "https://192.168.0.1:6443 https://192.168.0.2:6443"
+     - string
+     - ``nil``
    * - :spelling:ignore:`k8s.requireIPv4PodCIDR`
      - requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR range via the Kubernetes node resource
      - bool
