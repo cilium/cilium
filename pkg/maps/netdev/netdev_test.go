@@ -30,7 +30,7 @@ func TestNewDeviceState(t *testing.T) {
 		mac := net.HardwareAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 		state := NewDeviceState(mac)
 
-		require.False(t, state.IsL3())
+		require.Equal(t, DeviceStateL3(0x00), state.L3&deviceStateL3Mask)
 		require.Equal(t, types.MACAddr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}, state.MAC)
 	})
 
@@ -38,7 +38,7 @@ func TestNewDeviceState(t *testing.T) {
 		mac := net.HardwareAddr{0xaa, 0xbb, 0xcc, 0xdd, 0xee}
 		state := NewDeviceState(mac)
 
-		require.True(t, state.IsL3())
+		require.Equal(t, deviceStateL3Mask, state.L3&deviceStateL3Mask)
 		require.Equal(t, types.MACAddr{}, state.MAC)
 	})
 }

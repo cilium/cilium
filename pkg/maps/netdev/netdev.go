@@ -111,9 +111,8 @@ func NewDeviceState(mac net.HardwareAddr) DeviceState {
 	state := DeviceState{}
 	if len(mac) == len(state.MAC) {
 		copy(state.MAC[:], mac)
-	}
-	if len(mac) != 6 {
-		state.SetL3(true)
+	} else {
+		state.L3 |= deviceStateL3Mask
 	}
 	return state
 }
@@ -129,16 +128,4 @@ func (s *DeviceState) New() bpf.MapValue {
 
 func (s *DeviceState) String() string {
 	return fmt.Sprintf("%s %b", s.MAC.String(), s.L3)
-}
-
-func (s *DeviceState) IsL3() bool {
-	return s.L3&deviceStateL3Mask != 0
-}
-
-func (s *DeviceState) SetL3(enabled bool) {
-	if enabled {
-		s.L3 |= deviceStateL3Mask
-		return
-	}
-	s.L3 &^= deviceStateL3Mask
 }
