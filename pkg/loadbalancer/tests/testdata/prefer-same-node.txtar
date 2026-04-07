@@ -25,10 +25,21 @@ db/cmp frontends frontends-remote.table
 k8s/add endpointslice.yaml
 db/cmp frontends frontends-local.table
 
+# Test case: Local backend exists but has wrong port name.
+# It should fall back to remote backend.
+k8s/update endpointslice-wrong-port.yaml
+db/cmp frontends frontends-remote.table
+
+# Revert to original state
+k8s/update endpointslice.yaml
+db/cmp frontends frontends-local.table
+
 # Disable PreferSameNode by removing trafficDistribution. All backends selected.
 sed 'PreferSameNode' 'Disabled' service.yaml
 k8s/update service.yaml
 db/cmp frontends frontends-all.table
+
+
 
 #####
 
@@ -116,3 +127,26 @@ ports:
 - name: http
   port: 80
   protocol: TCP
+
+-- endpointslice-wrong-port.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: wrong-port
+  port: 80
+  protocol: TCP
+
