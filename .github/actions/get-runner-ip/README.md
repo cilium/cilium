@@ -30,6 +30,18 @@ This composite action fetches the runner public IP address from a provided `sour
   - `data.ip`
   - `data.address`
 
+- **`backup-source`** (optional, default: `https://whatismyip.akamai.com`)
+
+  A backup URL used to cross-validate the IP returned by the primary `source`. If both sources return different IPs, the action fails. Set to an empty string to disable cross-validation.
+
+- **`backup-parsing`** (optional, default: `text`)
+
+  Parsing mode for the backup source response. Same values as `parsing`.
+
+- **`backup-json-key`** (optional)
+
+  Optional JSON key for the backup source when `backup-parsing` is `json`.
+
 ## Outputs
 
 - **`ip`**
@@ -46,14 +58,14 @@ This composite action fetches the runner public IP address from a provided `sour
 
 ## Examples
 
-### Parse plain text
+### Parse plain text (recommended)
 
 ```yaml
 - name: Get runner IP
   id: runner-ip
   uses: ./.github/actions/get-runner-ip
   with:
-    source: https://api.ipify.org
+    source: https://checkip.amazonaws.com
     parsing: text
 
 - name: Print
@@ -63,17 +75,7 @@ This composite action fetches the runner public IP address from a provided `sour
     echo "Runner CIDR: ${{ steps.runner-ip.outputs.cidr }}"
 ```
 
-### Parse JSON using a known key
-
-```yaml
-- name: Get runner IP
-  id: runner-ip
-  uses: ./.github/actions/get-runner-ip
-  with:
-    source: https://httpbin.org/ip
-    parsing: json
-    json-key: origin
-```
+The IP is automatically cross-validated against `https://whatismyip.akamai.com` (the default `backup-source`).
 
 ## Behavior and error handling
 
@@ -84,3 +86,4 @@ This composite action fetches the runner public IP address from a provided `sour
   - `parsing: json` is selected but the response is not valid JSON
   - no IP-like value can be extracted
   - the extracted value does not look like an IPv4 or IPv6 address
+  - `backup-source` is set and the backup request fails or returns a different IP than the primary source

@@ -11,6 +11,17 @@ inputs:
   json-key:
     description: Optional JSON key (dot-separated) to extract the IP from when parsing is 'json'. If not set, common keys are tried.
     required: false
+  backup-source:
+    description: Optional backup URL to cross-validate the IP against a second trusted provider. Set to empty string to disable.
+    required: false
+    default: https://whatismyip.akamai.com
+  backup-parsing:
+    description: Parsing mode for the backup source response. Supported values are 'text' and 'json'.
+    required: false
+    default: text
+  backup-json-key:
+    description: Optional JSON key for the backup source when backup-parsing is 'json'.
+    required: false
 outputs:
   ip:
     description: The parsed and validated runner public IP address.
@@ -124,6 +135,25 @@ runs:
           }
 
           const ip = result.ip;
+
+          // Cross-validate against backup source if configured
+          const backupSource = `${{ inputs['backup-source'] }}`.trim();
+          if (backupSource) {
+            const backupParsing = `${{ inputs['backup-parsing'] }}`.trim().toLowerCase() || 'text';
+            const backupJsonKey = `${{ inputs['backup-json-key'] }}`.trim();
+            core.info(`Cross-validating IP against backup source: ${backupSource}`);
+            const backupResult = await fetchIp(backupSource, backupParsing, backupJsonKey);
+            if (backupResult.error) {
+              core.setFailed(`Backup validation failed: ${backupResult.error}`);
+              return;
+            }
+            if (ip !== backupResult.ip) {
+              core.setFailed(`IP mismatch: primary source returned '${ip}' but backup source '${backupSource}' returned '${backupResult.ip}'`);
+              return;
+            }
+            core.info(`Cross-validation passed: both sources agree on IP ${ip}`);
+          }
+
           core.setOutput('ip', ip);
           const mask = net.isIPv6(ip) ? "128" : "32";
           core.setOutput('mask', mask);
