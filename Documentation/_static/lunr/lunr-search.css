@@ -1,0 +1,251 @@
+/* Copyright Authors of Cilium
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * DocSearch-like modal search UI for Cilium documentation.
+ * Activated by Ctrl/Cmd+K or the "/" key.
+ */
+
+/* ── Overlay ──────────────────────────────────────────────────────────────── */
+#lunr-search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(9, 10, 17, 0.64);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  padding: 6vh 16px 16px;
+  box-sizing: border-box;
+  /* Fade-in */
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#lunr-search-overlay.lunr-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#lunr-search-overlay.lunr-visible {
+  opacity: 1;
+}
+
+/* ── Modal panel ──────────────────────────────────────────────────────────── */
+#lunr-search-modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(9, 10, 17, 0.24),
+    0 2px 8px rgba(9, 10, 17, 0.1);
+  width: 100%;
+  max-width: 680px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(-12px);
+  transition: transform 0.15s ease;
+}
+
+#lunr-search-overlay.lunr-visible #lunr-search-modal {
+  transform: translateY(0);
+}
+
+/* ── Input row ────────────────────────────────────────────────────────────── */
+#lunr-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+#lunr-search-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+}
+
+#lunr-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #111827;
+  background: transparent;
+  min-width: 0;
+}
+
+#lunr-search-input::placeholder {
+  color: #9ca3af;
+}
+
+#lunr-search-close-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+
+#lunr-search-close-hint:hover {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+/* ── Results list ─────────────────────────────────────────────────────────── */
+#lunr-search-results {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+  scroll-behavior: smooth;
+}
+
+#lunr-search-results:empty {
+  display: none;
+}
+
+/* ── Empty / status messages ──────────────────────────────────────────────── */
+#lunr-search-status {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* ── Individual result item ───────────────────────────────────────────────── */
+.lunr-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  border-left: 3px solid transparent;
+  transition:
+    background 0.08s ease,
+    border-color 0.08s ease;
+}
+
+.lunr-result-item:hover,
+.lunr-result-item.lunr-selected {
+  background: #f0f7ff;
+  border-left-color: #1a73e8;
+}
+
+.lunr-result-item:focus {
+  outline: none;
+  background: #f0f7ff;
+  border-left-color: #1a73e8;
+}
+
+.lunr-result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lunr-result-item.lunr-selected .lunr-result-title,
+.lunr-result-item:hover .lunr-result-title {
+  color: #1a73e8;
+}
+
+.lunr-result-breadcrumb {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lunr-result-snippet {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.5;
+  /* Clamp to two lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Highlighted match terms ──────────────────────────────────────────────── */
+.lunr-highlight {
+  background: #fef08a;
+  color: #78350f;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ── Footer bar ───────────────────────────────────────────────────────────── */
+#lunr-search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid #e9ecef;
+  flex-shrink: 0;
+  background: #f9fafb;
+}
+
+.lunr-kbd-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.lunr-kbd-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: inherit;
+  box-shadow: 0 1px 0 #d1d5db;
+  color: #374151;
+}
+
+/* ── Section dividers within results ─────────────────────────────────────── */
+.lunr-section-label {
+  padding: 6px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+/* ── Responsive adjustments ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  #lunr-search-overlay {
+    padding: 0;
+  }
+
+  #lunr-search-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}

@@ -169,6 +169,21 @@ update-redirects: builder-image ## Build and serve the documentation locally.
 		$(DOCS_BUILDER_IMG) \
 		sphinx-build -M rediraffewritediff . _preview
 
+##@ Lunr Search Index
+
+.PHONY: lunr-index
+LUNR_INDEX_SCRIPT := $(CURDIR)/_scripts/build_lunr_index.py
+LUNR_INDEX_OUTDIR := $(CURDIR)/_build/dirhtml
+lunr-index: ## Build the Lunr search index from the local dirhtml output.
+	@$(ECHO_GEN)_build/dirhtml/_static/lunr/
+	python3 $(LUNR_INDEX_SCRIPT) $(LUNR_INDEX_OUTDIR)
+
+# Build dirhtml then immediately regenerate the search index
+dirhtml-with-index: builder-image ## Render dirhtml docs and build the Lunr index.
+	@$(ECHO_GEN)_build/dirhtml
+	$(QUIET)$(DOCKER_RUN) ./check-build.sh dirhtml $(SPHINX_OPTS)
+	$(QUIET)python3 $(LUNR_INDEX_SCRIPT) $(LUNR_INDEX_OUTDIR)
+
 ##@ Development
 
 update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.

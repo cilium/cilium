@@ -1,4 +1,8 @@
 ## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
+# Search index builder
+beautifulsoup4==4.12.3
+lxml==5.2.1
+lunr==0.7.0.post1
 Sphinx==7.1.2
 sphinx-autobuild==2021.3.14
 

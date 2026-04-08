@@ -17,6 +17,11 @@ sphinxcontrib-spelling==8.0.2
 sphinxcontrib-websupport==1.2.4
 sphinxext-rediraffe==0.3.0
 
+# Search index builder
+beautifulsoup4
+lxml
+lunr
+
 # Linters
 rstcheck==6.2.5
 yamllint==1.38.0
