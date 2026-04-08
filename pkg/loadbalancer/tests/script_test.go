@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -146,7 +146,7 @@ func testScript(t *testing.T) {
 			// Expand $WORK in args. Used by testdata/file.txtar.
 			// This works by creating a new temporary directory for this test (e.g. /tmp/<tempdir/002)
 			// and replacing the directory with /001 which is the temp directory that scripttest created.
-			tempDir := path.Join(path.Dir(t.TempDir()), "001")
+			tempDir := filepath.Join(filepath.Dir(t.TempDir()), "001")
 			for i := range args {
 				args[i] = strings.ReplaceAll(args[i], "$WORK", tempDir)
 			}
