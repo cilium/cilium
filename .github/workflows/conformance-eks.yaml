@@ -409,6 +409,8 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo eks_zone_1=${{ matrix.region }}b >> $GITHUB_OUTPUT
+          echo eks_zone_2=${{ matrix.region }}c >> $GITHUB_OUTPUT
 
       - name: Install kubectl
         run: |
@@ -437,6 +439,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ matrix.region }}
+          zones: "${{ steps.vars.outputs.eks_zone_1 }} ${{ steps.vars.outputs.eks_zone_2 }}"
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           addons: "coredns kube-proxy"
@@ -483,10 +486,28 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Determine the native routing CIDR
+        id: native_cidr
+        run: |
+          # Retrieve the CIDR associated with the availability zone where the cluster
+          # is deployed, and configure it as native routing CIDR. Otherwise, Cilium
+          # would default to the VPC CIDR, but we want to masquerade traffic towards
+          # the external destination (which is located in the same VPC, but different
+          # availability zone), to reflect the most common type of real deployments.
+          NATIVE_CIDR=$(aws ec2 describe-subnets --region ${{ matrix.region }} \
+            --filters Name=availability-zone,Values=${{ steps.vars.outputs.eks_zone_1 }} \
+                Name=tag:alpha.eksctl.io/cluster-name,Values=${{ steps.vars.outputs.cluster_name }} \
+                Name=map-public-ip-on-launch,Values=false \
+            --query 'Subnets[*].CidrBlock' --output text)
+          echo "ipv4_native_cidr=$NATIVE_CIDR" >> $GITHUB_OUTPUT
+          echo "Native routing CIDR: $NATIVE_CIDR"
+
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --nodes-without-cilium \
+          --set=ipv4NativeRoutingCIDR="${{ steps.native_cidr.outputs.ipv4_native_cidr }}"
 
       # Wait for Cilium to be ready after install (before creating nodegroups)
       # since the nodegroups creation depends on Cilium being ready.
@@ -498,6 +519,9 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           spot: false
+          nodes_without_cilium: 2
+          az_cluster: ${{ steps.vars.outputs.eks_zone_1 }}
+          az_external: ${{ steps.vars.outputs.eks_zone_2 }}
 
       - name: Wait for Cilium to be ready
         run: |
