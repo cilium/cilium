@@ -42,6 +42,8 @@
     docsStore: null, // Array<{id,url,title,breadcrumb,snippet}>
     selectedIdx: -1,
     worker: null, // Worker | null
+    querySeq: 0,
+    latestRenderedSeq: 0,
     // Callbacks waiting for the worker/index to be ready
     _pendingResolve: null,
   };
@@ -72,10 +74,68 @@
 
   // ── DOM references (populated after inject) ──────────────────────────────
   var $overlay, $input, $results, $status, $closeHint;
+  var _prewarmDone = false;
+  var _scrollLock = {
+    locked: false,
+    y: 0,
+    htmlOverflow: "",
+    bodyOverflow: "",
+    bodyPosition: "",
+    bodyTop: "",
+    bodyLeft: "",
+    bodyRight: "",
+    bodyWidth: "",
+  };
+
+  function _lockBackgroundScroll(lock) {
+    if (lock) {
+      if (_scrollLock.locked) return;
+      _scrollLock.locked = true;
+      _scrollLock.y = window.scrollY || document.documentElement.scrollTop || 0;
+
+      _scrollLock.htmlOverflow = document.documentElement.style.overflow;
+      _scrollLock.bodyOverflow = document.body.style.overflow;
+      _scrollLock.bodyPosition = document.body.style.position;
+      _scrollLock.bodyTop = document.body.style.top;
+      _scrollLock.bodyLeft = document.body.style.left;
+      _scrollLock.bodyRight = document.body.style.right;
+      _scrollLock.bodyWidth = document.body.style.width;
+
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = -_scrollLock.y + "px";
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+      return;
+    }
+
+    if (!_scrollLock.locked) return;
+    _scrollLock.locked = false;
+
+    document.documentElement.style.overflow = _scrollLock.htmlOverflow;
+    document.body.style.overflow = _scrollLock.bodyOverflow;
+    document.body.style.position = _scrollLock.bodyPosition;
+    document.body.style.top = _scrollLock.bodyTop;
+    document.body.style.left = _scrollLock.bodyLeft;
+    document.body.style.right = _scrollLock.bodyRight;
+    document.body.style.width = _scrollLock.bodyWidth;
+    window.scrollTo(0, _scrollLock.y);
+  }
 
   // ── Inject modal into DOM ────────────────────────────────────────────────
   function _inject() {
-    if (document.getElementById("lunr-search-overlay")) return;
+    if (!document.body) return false;
+    if (document.getElementById("lunr-search-overlay")) {
+      $overlay = document.getElementById("lunr-search-overlay");
+      $input = document.getElementById("lunr-search-input");
+      $results = document.getElementById("lunr-search-results");
+      $status = document.getElementById("lunr-search-status");
+      $closeHint = document.getElementById("lunr-search-close-hint");
+      return Boolean($overlay && $input && $results && $status && $closeHint);
+    }
+
     var wrapper = document.createElement("div");
     wrapper.innerHTML = MODAL_HTML;
     document.body.appendChild(wrapper.firstElementChild);
@@ -95,12 +155,14 @@
 
     $input.addEventListener("input", _onInput);
     $input.addEventListener("keydown", _onInputKeydown);
+
+    return true;
   }
 
   // ── Open / Close ─────────────────────────────────────────────────────────
   function _open() {
     if (_state.open) return;
-    _inject();
+    if (!_inject()) return;
     _state.open = true;
     $overlay.classList.add("lunr-open");
 
@@ -108,15 +170,16 @@
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         $overlay.classList.add("lunr-visible");
+        // Lock scroll after the first visible frame to avoid blocking open paint.
+        _lockBackgroundScroll(true);
       });
     });
 
     $input.focus();
     $input.select();
-    document.body.style.overflow = "hidden";
 
-    // Kick off lazy load
-    _ensureReady();
+    // Kick off load in the next task to keep open animation snappy.
+    setTimeout(_ensureReady, 0);
 
     var prev = $input.value.trim();
     if (prev.length > 0) {
@@ -137,8 +200,15 @@
       overlay.classList.remove("lunr-open");
     });
 
-    document.body.style.overflow = "";
+    _lockBackgroundScroll(false);
     _state.selectedIdx = -1;
+  }
+
+  function _prewarmSearch() {
+    if (_prewarmDone || _state.ready || _state.loading) return;
+    if (!_inject()) return;
+    _prewarmDone = true;
+    _ensureReady();
   }
 
   // ── Lazy loading ─────────────────────────────────────────────────────────
@@ -242,7 +312,7 @@
     }
 
     if (msg.type === "RESULTS") {
-      _renderResults(msg.results, msg.query);
+      _renderResults(msg.results, msg.query, msg.seq || 0);
       return;
     }
 
@@ -254,6 +324,8 @@
 
   // ── Query execution ───────────────────────────────────────────────────────
   var _queryDebounce = null;
+  var _DEBOUNCE_MS = 80;
+  var _MIN_QUERY_LEN = 2;
 
   function _onInput() {
     clearTimeout(_queryDebounce);
@@ -264,9 +336,17 @@
       _setStatus("");
       return;
     }
+
+    if (q.length < _MIN_QUERY_LEN) {
+      $results.innerHTML = "";
+      _state.selectedIdx = -1;
+      _setStatus("Type at least " + _MIN_QUERY_LEN + " characters.");
+      return;
+    }
+
     _queryDebounce = setTimeout(function () {
       _runQuery(q);
-    }, 120);
+    }, _DEBOUNCE_MS);
   }
 
   function _runQuery(query) {
@@ -275,8 +355,15 @@
       return;
     }
 
+    if (query.length < _MIN_QUERY_LEN) {
+      return;
+    }
+
+    _state.querySeq += 1;
+    var seq = _state.querySeq;
+
     if (_state.worker) {
-      _state.worker.postMessage({ type: "SEARCH", query: query });
+      _state.worker.postMessage({ type: "SEARCH", query: query, seq: seq });
       return;
     }
 
@@ -288,7 +375,7 @@
       console.warn("[lunr-search] Search error:", e);
       hits = [];
     }
-    _renderResults(hits, query);
+    _renderResults(hits, query, seq);
   }
 
   function _inlineSearch(query) {
@@ -302,8 +389,8 @@
     // Lunr pre-built index – shape query with term boosts
     var lunrQuery = terms
       .map(function (t) {
-        // Title field boost + wildcard for partial match
-        return "+title:" + t + "^10 +" + t + "* " + t + "~1";
+        // Keep query shaping lightweight for responsiveness.
+        return "+title:" + t + "^8 +" + t + "*";
       })
       .join(" ");
 
@@ -356,7 +443,14 @@
   }
 
   // ── Result rendering ──────────────────────────────────────────────────────
-  function _renderResults(hits, query) {
+  function _renderResults(hits, query, seq) {
+    if (seq && seq < _state.latestRenderedSeq) {
+      return;
+    }
+    if (seq) {
+      _state.latestRenderedSeq = seq;
+    }
+
     $results.innerHTML = "";
     _state.selectedIdx = -1;
 
@@ -504,6 +598,38 @@
     return escaped;
   }
 
+  function _bindSearchTrigger() {
+    document.addEventListener("click", function (e) {
+      if (!e.target || !e.target.closest) return;
+      var trigger = e.target.closest("#lunr-search-trigger");
+      if (!trigger) return;
+      e.preventDefault();
+      _open();
+    });
+
+    // Start loading before click to make opening feel immediate.
+    document.addEventListener("mousedown", function (e) {
+      if (!e.target || !e.target.closest) return;
+      if (e.target.closest("#lunr-search-trigger")) {
+        _prewarmSearch();
+      }
+    });
+
+    document.addEventListener("touchstart", function (e) {
+      if (!e.target || !e.target.closest) return;
+      if (e.target.closest("#lunr-search-trigger")) {
+        _prewarmSearch();
+      }
+    }, { passive: true });
+
+    document.addEventListener("focusin", function (e) {
+      if (!e.target || !e.target.closest) return;
+      if (e.target.closest("#lunr-search-trigger")) {
+        _prewarmSearch();
+      }
+    });
+  }
+
   // ── Global hotkeys ────────────────────────────────────────────────────────
   document.addEventListener("keydown", function (e) {
     // Ctrl/Cmd+K
@@ -539,4 +665,28 @@
   window.addEventListener("popstate", function () {
     if (_state.open) _close();
   });
+
+  // Start loading the search index during browser idle time so it is ready
+  // before the user ever touches the search trigger.
+  function _idleWarm() {
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(function () { _ensureReady(); }, { timeout: 2000 });
+    } else {
+      // Safari / older browsers: small delay keeps page-load paint unblocked.
+      setTimeout(_ensureReady, 200);
+    }
+  }
+
+  // Pre-create the modal DOM so opening does not incur first-use DOM cost,
+  // then immediately queue the idle warm-up.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      _inject();
+      _idleWarm();
+    }, { once: true });
+  } else {
+    _inject();
+    _idleWarm();
+  }
+  _bindSearchTrigger();
 })();

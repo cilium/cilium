@@ -12,8 +12,6 @@
   inset: 0;
   z-index: 9998;
   background: rgba(9, 10, 17, 0.64);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   padding: 6vh 16px 16px;
   box-sizing: border-box;
   /* Fade-in */
@@ -225,6 +223,56 @@
   font-family: inherit;
   box-shadow: 0 1px 0 #d1d5db;
   color: #374151;
+}
+
+/* ── Sidebar trigger replacing the legacy Algolia field ─────────────────── */
+#lunr-search-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: rgba(90, 94, 154, 0.08);
+  color: #5a5e9a;
+  opacity: 1;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease, border-color 0.1s ease, opacity 0.1s ease;
+}
+
+#lunr-search-trigger svg {
+  color: #5a5e9a;
+}
+
+#lunr-search-trigger:hover,
+#lunr-search-trigger:focus {
+  background: rgba(90, 94, 154, 0.14);
+  opacity: 1;
+  outline: none;
+}
+
+.lunr-search-trigger-label {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lunr-search-trigger-shortcut {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #5a5e9a;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .lunr-search-trigger-shortcut {
+    display: none;
+  }
 }
 
 /* ── Section dividers within results ─────────────────────────────────────── */

@@ -22,6 +22,8 @@ var _lunrIndex = null;
 var _simpleIndex = null;
 var _simpleMode = false;
 var _docsStore = []; // flat array, id is array index
+var _docsMap = {};
+var _simpleTokens = [];
 var _base = "";
 
 // ── Load ─────────────────────────────────────────────────────────────────────
@@ -55,9 +57,14 @@ function _load(base) {
       var docs = data[1];
 
       _docsStore = docs;
+      _docsMap = {};
+      _docsStore.forEach(function (d) {
+        _docsMap[String(d.id)] = d;
+      });
 
       if (rawIndex._format === "simple-inverted") {
         _simpleIndex = rawIndex.inverted;
+        _simpleTokens = Object.keys(_simpleIndex);
         _simpleMode = true;
       } else {
         _lunrIndex = lunr.Index.load(rawIndex);
@@ -72,10 +79,10 @@ function _load(base) {
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
-function _search(query) {
+function _search(query, seq) {
   var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) {
-    self.postMessage({ type: "RESULTS", results: [], query: query });
+    self.postMessage({ type: "RESULTS", results: [], query: query, seq: seq });
     return;
   }
 
@@ -87,13 +94,13 @@ function _search(query) {
     hits = [];
   }
 
-  self.postMessage({ type: "RESULTS", results: hits, query: query });
+  self.postMessage({ type: "RESULTS", results: hits, query: query, seq: seq });
 }
 
 function _lunrSearch(terms) {
   var lunrQuery = terms
     .map(function (t) {
-      return "+title:" + t + "^10 +" + t + "* " + t + "~1";
+      return "+title:" + t + "^8 +" + t + "*";
     })
     .join(" ");
 
@@ -104,16 +111,10 @@ function _lunrSearch(terms) {
     raw = _lunrIndex.search(terms.join(" "));
   }
 
-  // Build id → doc lookup
-  var idMap = {};
-  _docsStore.forEach(function (d) {
-    idMap[String(d.id)] = d;
-  });
-
   return raw
     .slice(0, 20)
     .map(function (r) {
-      return idMap[r.ref];
+      return _docsMap[r.ref];
     })
     .filter(Boolean);
 }
@@ -152,7 +153,7 @@ function _simpleSearch(terms) {
         scores[id] = (scores[id] || 0) + 2;
       });
     }
-    Object.keys(inv).forEach(function (token) {
+    _simpleTokens.forEach(function (token) {
       if (token !== term && token.indexOf(term) === 0) {
         Object.keys(inv[token]).forEach(function (id) {
           scores[id] = (scores[id] || 0) + 1;
@@ -161,18 +162,13 @@ function _simpleSearch(terms) {
     });
   });
 
-  var idMap = {};
-  _docsStore.forEach(function (d) {
-    idMap[String(d.id)] = d;
-  });
-
   return Object.keys(scores)
     .sort(function (a, b) {
       return scores[b] - scores[a];
     })
     .slice(0, 20)
     .map(function (id) {
-      return idMap[id];
+      return _docsMap[id];
     })
     .filter(Boolean);
 }
@@ -188,7 +184,7 @@ self.addEventListener("message", function (e) {
   }
 
   if (msg.type === "SEARCH") {
-    _search(msg.query);
+    _search(msg.query, msg.seq || 0);
     return;
   }
 });

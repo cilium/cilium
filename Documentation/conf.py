@@ -45,10 +45,14 @@ extensions = ['myst_parser',
               'sphinx_tabs.tabs',
               'sphinxcontrib.googleanalytics',
               'sphinxcontrib.spelling',
-              'versionwarning.extension',
               "sphinxext.rediraffe",
               'cilium_helm_directive',
 ]
+
+# The versionwarning extension can emit noisy client-side errors on local
+# previews. Keep it enabled on RTD builds, where version metadata is available.
+if os.environ.get("READTHEDOCS", "") == "True":
+    extensions.append('versionwarning.extension')
 
 rediraffe_redirects = 'redirects.txt'
 # rediraffe_branch is the base for which rediraffe compares the current HEAD to
@@ -170,7 +174,7 @@ extlinks = {
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.venv-docs']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -227,7 +231,11 @@ html_static_path = ['images', '_static']
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
-html_extra_path = ['robots/robots.txt']
+html_extra_path = ['robots/robots.txt', 'robots/favicon.ico']
+
+# Provide an explicit favicon link to avoid browsers falling back to /favicon.ico
+# heuristics whenever possible.
+html_favicon = 'images/logo-solo.svg'
 
 # -- Options for HTMLHelp output ------------------------------------------
 
