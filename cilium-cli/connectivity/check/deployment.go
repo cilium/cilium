@@ -954,7 +954,9 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 			name: "cilium-test-ccnp1",
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp1",
+					Name:        "cilium-test-ccnp1",
+					Annotations: ct.params.NamespaceAnnotations,
+					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 				},
 			},
 		},
@@ -962,7 +964,9 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 			name: "cilium-test-ccnp2",
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp2",
+					Name:        "cilium-test-ccnp2",
+					Annotations: ct.params.NamespaceAnnotations,
+					Labels:      labels.Merge(ct.params.NamespaceLabels, appLabels),
 				},
 			},
 		},
