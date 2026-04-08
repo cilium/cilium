@@ -58,7 +58,7 @@ This composite action fetches the runner public IP address from a provided `sour
 
 ## Examples
 
-### Parse plain text (recommended)
+### Parse plain text
 
 ```yaml
 - name: Get runner IP
