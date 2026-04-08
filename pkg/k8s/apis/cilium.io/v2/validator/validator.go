@@ -110,15 +110,16 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 	if errs := validation.ValidateCustomResource(nil, &cnp, n.cnpValidator); len(errs) > 0 {
 		return errs.ToAggregate()
 	}
-
 	if err := detectUnknownFields(n.logger, cnp); err != nil {
 		return err
 	}
-
 	if err := checkInitLabelsPolicy(n.logger, cnp); err != nil {
 		return err
 	}
-
+	// ADDED: Check for disallowed namespace label
+	if err := checkDisallowedNamespaceLabels(n.logger, cnp); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -127,11 +128,9 @@ func (n *NPValidator) ValidateCCNP(ccnp *unstructured.Unstructured) error {
 	if errs := validation.ValidateCustomResource(nil, &ccnp, n.ccnpValidator); len(errs) > 0 {
 		return errs.ToAggregate()
 	}
-
 	if err := detectUnknownFields(n.logger, ccnp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -140,19 +139,16 @@ func checkInitLabelsPolicy(logger *slog.Logger, cnp *unstructured.Unstructured) 
 	if err != nil {
 		return err
 	}
-
 	resCNP := cilium_v2.CiliumNetworkPolicy{}
 	err = json.Unmarshal(cnpBytes, &resCNP)
 	if err != nil {
 		return err
 	}
-
 	for _, spec := range append(resCNP.Specs, resCNP.Spec) {
 		if spec == nil {
 			continue
 		}
 		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
-
 		if err := spec.EndpointSelector.Sanitize(); err != nil {
 			return err
 		}
@@ -166,6 +162,31 @@ func checkInitLabelsPolicy(logger *slog.Logger, cnp *unstructured.Unstructured) 
 			return errInitPolicyCNP
 		}
 	}
+	return nil
+}
 
+// checkDisallowedNamespaceLabels checks if the policy's endpointSelector contains a
+// namespace label, which is not allowed.
+func checkDisallowedNamespaceLabels(logger *slog.Logger, cnp *unstructured.Unstructured) error {
+	cnpBytes, err := cnp.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	resCNP := cilium_v2.CiliumNetworkPolicy{}
+	err = json.Unmarshal(cnpBytes, &resCNP)
+	if err != nil {
+		return err
+	}
+	for _, spec := range append(resCNP.Specs, resCNP.Spec) {
+		if spec == nil {
+			continue
+		}
+		// Check for the forbidden namespace label
+		if spec.EndpointSelector.HasKey("k8s:io.kubernetes.pod.namespace") ||
+			spec.EndpointSelector.HasKey("io.kubernetes.pod.namespace") {
+			return fmt.Errorf("CiliumNetworkPolicy contains illegal namespace match in EndpointSelector. " +
+				"EndpointSelector always applies in namespace of the policy resource, removing illegal namespace match")
+		}
+	}
 	return nil
 }
