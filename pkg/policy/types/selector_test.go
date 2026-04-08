@@ -126,10 +126,16 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			rule: api.CIDRRule{CIDRGroupSelector: api.EndpointSelector{LabelSelector: &v1.LabelSelector{
 				MatchLabels: map[string]v1.MatchLabelsValue{"foo": "bar"},
 			}}},
-			expected:   selectors("cidrgroup:foo=bar"),
+			expected: Selectors{&CIDRSelector{
+				key: "&LabelSelector{MatchLabels:map[string]string{cidrgroup:foo: bar,},MatchExpressions:[]LabelSelectorRequirement{},}",
+				requirements: Requirements{
+					NewEqualsRequirement(labels.NewLabel("foo", "bar", labels.LabelSourceCIDRGroup)),
+				},
+				encoded: true,
+			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:foo=bar"},
-			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz"},
+			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz"},
 		},
 		{
 			name: "cidr group ls with exceptions",
@@ -143,10 +149,11 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 					NewExceptRequirement(labels.NewLabel("1.1.1.1/32", "", labels.LabelSourceCIDR)),
 					NewExceptRequirement(labels.NewLabel("192.168.0.0/16", "", labels.LabelSourceCIDR)),
 				},
+				encoded: true,
 			}},
 			enableIPv4: true, enableIPv6: true,
-			matchesLabels:    []string{"cidrgroup:foo=bar"},
-			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.1681.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz"},
+			matchesLabels:    []string{"cidrgroup:foo=bar;cidrgroup:foo+bar"},
+			notMatchesLabels: []string{"cidr:1.1.1.1/32;reserved:world-ipv4", "cidr:192.1681.1.1/32;reserved:world-ipv4", "cidrgroup:foo=baz;cidrgroup:foo+baz"},
 		},
 		{
 			name: "world v4 ss",

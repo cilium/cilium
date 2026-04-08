@@ -246,6 +246,42 @@ func MatchesRequirements[T labels.LabelMatcher](reqs Requirements, ls T) bool {
 	return true
 }
 
+// matchesEncodedRequirements is like MatchesRequirements but checks for
+// encoded key+value labels. Used by CIDRGroupSelector.
+func matchesEncodedRequirements(reqs Requirements, ls labels.LabelArray) bool {
+	for i := range reqs {
+		if !matchesEncodedRequirement(&reqs[i], ls) {
+			return false
+		}
+	}
+	return true
+}
+
+// matchesEncodedRequirement converts value-match operators into existence
+// checks on encoded key+value labels. Exists/DoesNotExist pass through.
+func matchesEncodedRequirement(r *Requirement, ls labels.LabelArray) bool {
+	encodedValueExists := func() bool {
+		for val := range r.values.Members() {
+			encoded := labels.EncodedCIDRGroupLabel(r.key.Key, val, r.key.Source)
+			if _, exists := ls.LookupLabel(&encoded); exists {
+				return true
+			}
+		}
+		return false
+	}
+
+	switch r.operator {
+	case selection.In, selection.Equals, selection.DoubleEquals:
+		return encodedValueExists()
+	case selection.NotIn, selection.NotEquals:
+		return !encodedValueExists()
+	case selection.Exists, selection.DoesNotExist:
+		return MatchesRequirement(r, ls)
+	default:
+		return false
+	}
+}
+
 // GetFirstK8sMatch checks for a match on the specified k8s key, and returns the values that the key
 // must match, and true. If a match cannot be found, or is with operator other than "In", "Equals",
 // or "DoubleEquals", returns nil, false.  Note: The values of first requirement with the given k8s

@@ -156,6 +156,10 @@ const (
 	// LabelSourceCIDRGroupKeyPrefix is the source as a k8s selector key prefix
 	LabelSourceCIDRGroupKeyPrefix = LabelSourceCIDRGroup + SourceDelimiter
 
+	// CIDRGroupEncodedSep is the separator for encoded key+value CIDRGroup labels.
+	// Safe because K8s label keys/values cannot contain "+".
+	CIDRGroupEncodedSep = "+"
+
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
@@ -171,6 +175,12 @@ const (
 	// LabelSourceDirectory is the label source for policies read from files
 	LabelSourceDirectory = "directory"
 )
+
+// EncodedCIDRGroupLabel builds a label with the value baked into the key,
+// used for collision-free matching of CIDRGroup labels.
+func EncodedCIDRGroupLabel(key, val, source string) Label {
+	return Label{Key: key + CIDRGroupEncodedSep + val, Source: source}
+}
 
 type labelSourceDelimiter rune
 
