@@ -108,6 +108,7 @@ func New(options ...Option) (*Server, error) {
 	if opts.serverTLSConfig != nil {
 		tlsConfig := opts.serverTLSConfig.ServerConfig(&tls.Config{
 			MinVersion: MinTLSVersion,
+			NextProtos: []string{"h2"},
 		})
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
