@@ -615,12 +615,16 @@
       }
     });
 
-    document.addEventListener("touchstart", function (e) {
-      if (!e.target || !e.target.closest) return;
-      if (e.target.closest("#lunr-search-trigger")) {
-        _prewarmSearch();
-      }
-    }, { passive: true });
+    document.addEventListener(
+      "touchstart",
+      function (e) {
+        if (!e.target || !e.target.closest) return;
+        if (e.target.closest("#lunr-search-trigger")) {
+          _prewarmSearch();
+        }
+      },
+      { passive: true },
+    );
 
     document.addEventListener("focusin", function (e) {
       if (!e.target || !e.target.closest) return;
@@ -670,7 +674,12 @@
   // before the user ever touches the search trigger.
   function _idleWarm() {
     if (typeof requestIdleCallback !== "undefined") {
-      requestIdleCallback(function () { _ensureReady(); }, { timeout: 2000 });
+      requestIdleCallback(
+        function () {
+          _ensureReady();
+        },
+        { timeout: 2000 },
+      );
     } else {
       // Safari / older browsers: small delay keeps page-load paint unblocked.
       setTimeout(_ensureReady, 200);
@@ -680,10 +689,14 @@
   // Pre-create the modal DOM so opening does not incur first-use DOM cost,
   // then immediately queue the idle warm-up.
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      _inject();
-      _idleWarm();
-    }, { once: true });
+    document.addEventListener(
+      "DOMContentLoaded",
+      function () {
+        _inject();
+        _idleWarm();
+      },
+      { once: true },
+    );
   } else {
     _inject();
     _idleWarm();

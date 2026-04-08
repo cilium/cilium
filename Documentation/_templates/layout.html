@@ -1,13 +1,8 @@
-{% extends "!layout.html" %}
-
-{#
-  Disable the theme-bundled Algolia DocSearch bootstrap.
-  The parent theme still emits a trailing `docsearch({...})` call, so redefine
-  the global symbol to a no-op immediately before that script executes.
-#}
-{% block footer %}
-  {{ super() }}
-  <script>
-    window.docsearch = function () {};
-  </script>
+{% extends "!layout.html" %} {# Disable the theme-bundled Algolia DocSearch
+bootstrap. The parent theme still emits a trailing `docsearch({...})` call, so
+redefine the global symbol to a no-op immediately before that script executes.
+#} {% block footer %} {{ super() }}
+<script>
+  window.docsearch = function () {};
+</script>
 {% endblock %}
