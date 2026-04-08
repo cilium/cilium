@@ -26,6 +26,16 @@ inputs:
     description: 'eksctl create nodegroup timeout (e.g. 15m). If empty, no --timeout flag is passed.'
     required: false
     default: ''
+  nodes_without_cilium:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 0
+  az_cluster:
+    description: 'Availability zone of nodes belonging to the cluster'
+    required: false
+  az_external:
+    description: 'Availability zone of nodes without Cilium'
+    required: false
 runs:
   using: composite
   steps:
@@ -33,11 +43,33 @@ runs:
       if: ${{ inputs.node_groups_override == '' }}
       shell: bash
       run: |
+        if [ -n "${{ inputs.az_external }}" ]; then
+          SUBNET_IDS=$(aws eks describe-cluster \
+            --name ${{ inputs.cluster_name }} \
+            --region ${{ inputs.region }} \
+            --query 'cluster.resourcesVpcConfig.subnetIds' \
+            --output text)
+          SUBNET=$(aws ec2 describe-subnets \
+            --region ${{ inputs.region }} \
+            --subnet-ids $SUBNET_IDS \
+            --filters "Name=availability-zone,Values=${{ inputs.az_external }}" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)
+        fi
+
         cat <<EOF > nodegroup-details.yaml
         managedNodeGroups:
         - name: ng-amd64
           instanceTypes:
            - t3a.medium
+        EOF
+        if [ -n "${{ inputs.az_cluster }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          availabilityZones:
+          - ${{ inputs.az_cluster }}
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
           desiredCapacity: 2
           spot: ${{ inputs.spot }}
           privateNetworking: true
@@ -47,9 +79,45 @@ runs:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
              effect: "NoExecute"
+        - name: ng-amd64-external
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: ${{ inputs.nodes_without_cilium }}
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+        EOF
+        if [ -n "${{ inputs.az_external }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          subnets:
+           - $SUBNET
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
+          taints:
+           - key: "cilium.io/no-schedule"
+             value: "true"
+             effect: "NoSchedule"
+          labels:
+            cilium.io/no-schedule: "true"
+          # Manually inject a dummy CNI configuration to let the Kubelet turn
+          # ready. This is necessary as otherwise the node creation would
+          # never complete, given that Cilium is intentionally not scheduled
+          # on these nodes.
+          preBootstrapCommands:
+           - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
         - name: ng-arm64
           instanceTypes:
            - t4g.medium
+        EOF
+        if [ -n "${{ inputs.az_cluster }}" ]; then
+          cat <<EOF >> nodegroup-details.yaml
+          availabilityZones:
+          - ${{ inputs.az_cluster }}
+        EOF
+        fi
+        cat <<EOF >> nodegroup-details.yaml
           desiredCapacity: 1
           spot: ${{ inputs.spot }}
           privateNetworking: true
