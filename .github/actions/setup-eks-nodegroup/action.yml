@@ -26,6 +26,10 @@ inputs:
     description: 'eksctl create nodegroup timeout (e.g. 15m). If empty, no --timeout flag is passed.'
     required: false
     default: ''
+  nodes_without_cilium:
+    description: 'How many nodes will not run Cilium'
+    required: false
+    default: 0
 runs:
   using: composite
   steps:
@@ -47,6 +51,26 @@ runs:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
              effect: "NoExecute"
+        - name: ng-amd64-external
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: ${{ inputs.nodes_without_cilium }}
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 25
+          taints:
+           - key: "cilium.io/no-schedule"
+             value: "true"
+             effect: "NoSchedule"
+          labels:
+            cilium.io/no-schedule: "true"
+          # Manually inject a dummy CNI configuration to let the Kubelet turn
+          # ready. This is necessary as otherwise the node creation would
+          # never complete, given that Cilium is intentionally not scheduled
+          # on these nodes.
+          preBootstrapCommands:
+           - "echo '{ \"cniVersion\": \"0.3.1\", \"name\": \"dummy\", \"type\": \"dummy-cni\", \"log-file\": \"/var/run/dummy.log\" }' > /etc/cni/net.d/05-dummy.conf"
         - name: ng-arm64
           instanceTypes:
            - t4g.medium

@@ -484,7 +484,8 @@ jobs:
       - name: Install Cilium
         id: install-cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --nodes-without-cilium
 
       # Wait for Cilium to be ready after install (before creating nodegroups)
       # since the nodegroups creation depends on Cilium being ready.
@@ -496,6 +497,7 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           spot: false
+          nodes_without_cilium: 2
 
       - name: Wait for Cilium to be ready
         run: |
