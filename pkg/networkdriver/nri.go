@@ -113,22 +113,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 				}
 
 				if err := podNs.Do(func() error {
-					// Rename interface to custom name if specified
-					if a.Config.PodIfName != "" && a.Config.PodIfName != a.Device.KernelIfName() {
-						link, err := safenetlink.LinkByName(a.Device.KernelIfName())
-						if err != nil {
-							return fmt.Errorf("failed to get link by kernel name %s: %w", a.Device.KernelIfName(), err)
-						}
-
-						if err := netlink.LinkSetName(link, a.Config.PodIfName); err != nil {
-							return fmt.Errorf("failed to rename interface from %s to %s: %w", a.Device.KernelIfName(), a.Config.PodIfName, err)
-						}
-
-						// Refresh link reference after rename
-						l, err = safenetlink.LinkByName(a.Config.PodIfName)
-						if err != nil {
-							return fmt.Errorf("failed to get link after rename: %w", err)
-						}
+					// Rename interface to custom name
+					l, err = configureIfName(l, a.Config.PodIfName)
+					if err != nil {
+						return fmt.Errorf("failed to set interface name: %w", err)
 					}
 
 					if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
@@ -218,30 +206,15 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 					}
 
 					// Rename back to original kernel name before moving to root namespace
-					if a.Config.PodIfName != "" && a.Config.PodIfName != a.Device.KernelIfName() {
-						if err := netlink.LinkSetName(l, a.Device.KernelIfName()); err != nil {
-							// Log error but continue cleanup - don't fail the entire cleanup
-							driver.logger.WarnContext(ctx, "Failed to restore interface name, continuing cleanup",
-								logfields.Error, err,
-								logfields.Interface, a.Config.PodIfName,
-								logfields.Device, a.Device.KernelIfName())
+					l, err = configureIfName(l, a.Device.KernelIfName())
+					if err != nil {
+						driver.logger.ErrorContext(
+							ctx, "failed to restore interface name",
+							logfields.Error, err,
+						)
 
-							// Try to get link by current name for namespace move
-							if newLink, err := safenetlink.LinkByName(a.Config.PodIfName); err == nil {
-								l = newLink
-							}
-							// Continue with move to root netns even if rename failed
-						} else {
-							// Refresh link reference after successful rename
-							var err error
-							l, err = safenetlink.LinkByName(a.Device.KernelIfName())
-							if err != nil {
-								driver.logger.WarnContext(ctx, "Failed to get link after restoring name, continuing cleanup",
-									logfields.Error, err,
-									logfields.Device, a.Device.KernelIfName())
-								continue // Skip this device but continue with others
-							}
-						}
+						// we want to continue here to clean up the remaining, even if this one failed
+						continue
 					}
 
 					// Always try to move back to root netns
@@ -296,6 +269,27 @@ func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6
 	}
 
 	return errors.Join(errs...)
+}
+
+// configureIfName renames an interface to newIfName if the current link name differs from the
+// newIfName and newIfName is not empty.
+func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
+	if newIfName == "" || l.Attrs().Name == newIfName {
+		// no changes needed
+		return l, nil
+	}
+
+	if err := netlink.LinkSetName(l, newIfName); err != nil {
+		return nil, fmt.Errorf("failed to rename interface from %s to %s: %w", l.Attrs().Name, newIfName, err)
+	}
+
+	// Refresh link reference after rename
+	l, err := safenetlink.LinkByName(newIfName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get link after rename: %w", err)
+	}
+
+	return l, nil
 }
 
 func (driver *Driver) startNRI(ctx context.Context) error {
