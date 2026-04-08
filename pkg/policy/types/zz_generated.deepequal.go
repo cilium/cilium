@@ -38,6 +38,9 @@ func (in *CIDRSelector) DeepEqual(other *CIDRSelector) bool {
 	if in.generated != other.generated {
 		return false
 	}
+	if in.encoded != other.encoded {
+		return false
+	}
 
 	return true
 }

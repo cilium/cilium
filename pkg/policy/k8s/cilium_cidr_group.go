@@ -42,7 +42,14 @@ func (p *policyWatcher) cidrsAndLabelsForCIDRGroup(name string) (sets.Set[netip.
 
 	// If CIDRGroup isn't deleted; populate newCIDRs
 	if cidrGroup, ok := p.cidrGroupCache[name]; ok {
-		lbls = labels.Map2Labels(utils.RemoveCiliumLabels(cidrGroup.Labels), labels.LabelSourceCIDRGroup)
+		filtered := utils.RemoveCiliumLabels(cidrGroup.Labels)
+		lbls = make(labels.Labels, len(filtered)*2+1) // +1 for CIDRGroupRef label
+		for k, v := range filtered {
+			l := labels.NewLabel(k, v, labels.LabelSourceCIDRGroup)
+			lbls[l.Key] = l // may collide; only used for Exists
+			encoded := labels.EncodedCIDRGroupLabel(l.Key, l.Value, l.Source)
+			lbls[encoded.Key] = encoded
+		}
 		lbl := api.LabelForCIDRGroupRef(name)
 		lbls[lbl.Key] = lbl
 
