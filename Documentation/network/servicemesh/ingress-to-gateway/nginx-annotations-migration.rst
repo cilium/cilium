@@ -74,7 +74,7 @@ Common Direct Mappings
      - ``HTTPRouteMatch.path.type: RegularExpression``
      - `HTTP Routing Guide <https://gateway-api.sigs.k8s.io/guides/http-routing/>`_
      - Yes
-     - Requires Gateway regex path support.
+     - Supported in Cilium, but regex matching remains implementation-specific in Gateway API.
    * - ``rewrite-target``
      - ``HTTPRoute.filters.type: URLRewrite``
      - `Redirects and Rewrites Guide <https://gateway-api.sigs.k8s.io/guides/http-redirect-rewrite/>`__
@@ -91,15 +91,15 @@ Common Direct Mappings
      - Yes
      - Set permanent redirect behavior.
    * - ``proxy-read-timeout``
-     - ``HTTPRoute.rules.timeouts``
+     - ``HTTPRoute.rules.timeouts.backendRequest``
      - `HTTP Timeouts Guide <https://gateway-api.sigs.k8s.io/guides/http-timeouts/>`_
      - Yes
-     - Map timeout semantics carefully.
+     - Closest match for upstream response timing; compare carefully with end-to-end ``request`` timeout semantics.
    * - ``proxy-next-upstream-tries``
      - ``HTTPRoute.rules.retry.attempts``
      - `GEP-1731 <https://gateway-api.sigs.k8s.io/geps/gep-1731/>`__
      - Yes
-     - Experimental in Gateway API (GEP-1731). Maps to retry attempt count.
+     - Experimental in Gateway API (GEP-1731). Maps retry count only, not the full ``proxy-next-upstream*`` behavior set.
    * - ``kubernetes.io/ingress.class``
      - ``Gateway.spec.gatewayClassName``
      - `Gateway API Overview <https://gateway-api.sigs.k8s.io/concepts/api-overview/>`__
@@ -172,7 +172,7 @@ does not yet support these mappings**.
      - `GEP-91 <https://gateway-api.sigs.k8s.io/geps/gep-91/>`_
      - Not yet supported
      - High
-   * - ``proxy-next-upstream*``
+   * - other ``proxy-next-upstream*`` annotations
      - Retry and timeout fields (partly experimental)
      - `GEP-1731 <https://gateway-api.sigs.k8s.io/geps/gep-1731/>`__,
        `GEP-1742 <https://gateway-api.sigs.k8s.io/geps/gep-1742/>`_
