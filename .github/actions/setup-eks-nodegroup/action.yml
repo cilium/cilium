@@ -37,6 +37,12 @@ runs:
       if: ${{ inputs.node_groups_override == '' }}
       shell: bash
       run: |
+        SUBNET=$(aws eks describe-cluster \
+          --name ${{ inputs.cluster_name }} \
+          --region ${{ inputs.region }} \
+          --query 'cluster.resourcesVpcConfig.subnetIds[0]' \
+          --output text)
+
         cat <<EOF > nodegroup-details.yaml
         managedNodeGroups:
         - name: ng-amd64
@@ -59,6 +65,8 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 25
+          subnets:
+           - $SUBNET
           taints:
            - key: "cilium.io/no-schedule"
              value: "true"
