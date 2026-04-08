@@ -219,10 +219,13 @@ func (tc testCommands) updateHealth() script.Cmd {
 			}
 
 			txn := tc.w.WriteTxn()
-			defer txn.Commit()
-
 			_, err = tc.w.UpdateBackendHealth(txn, svc, beAddr, healthy)
-			return nil, err
+			if err != nil {
+				txn.Abort()
+				return nil, err
+			}
+			txn.Commit()
+			return nil, nil
 		})
 }
 
