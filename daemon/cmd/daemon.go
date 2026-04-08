@@ -193,15 +193,15 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return fmt.Errorf("failed to determine host firewall's external facing device (use --%s to specify)", option.Devices)
 	}
 
+	// Configure and start IPAM without using the configuration yet.
+	params.IPAMInitializer.ConfigureAndStartIPAM(ctx)
+
 	// Launch the K8s watchers in parallel as we continue to process other
 	// daemon options.
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
 	params.K8sWatcher.InitK8sSubsystem(ctx)
-
-	// Configure and start IPAM without using the configuration yet.
-	params.IPAMInitializer.ConfigureAndStartIPAM(ctx)
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
