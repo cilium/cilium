@@ -108,6 +108,10 @@ func New(options ...Option) (*Server, error) {
 	if opts.serverTLSConfig != nil {
 		tlsConfig := opts.serverTLSConfig.ServerConfig(&tls.Config{
 			MinVersion: MinTLSVersion,
+			// Advertise h2 (HTTP/2) via ALPN so that gRPC clients using
+			// grpc-go >= 1.67 can complete the TLS handshake.
+			// See https://github.com/grpc/grpc-go/issues/434
+			NextProtos: []string{"h2"},
 		})
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
