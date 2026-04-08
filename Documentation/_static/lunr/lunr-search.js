@@ -48,6 +48,28 @@
     _pendingResolve: null,
   };
 
+  var _STOP_WORDS = {
+    a: 1,
+    an: 1,
+    the: 1,
+    and: 1,
+    or: 1,
+    but: 1,
+    in: 1,
+    on: 1,
+    at: 1,
+    to: 1,
+    for: 1,
+    of: 1,
+    with: 1,
+    by: 1,
+    from: 1,
+    is: 1,
+    are: 1,
+    was: 1,
+    were: 1,
+  };
+
   // ── Modal HTML ───────────────────────────────────────────────────────────
   var MODAL_HTML = [
     '<div id="lunr-search-overlay" role="dialog" aria-modal="true" aria-label="Search">',
@@ -268,6 +290,7 @@
         // inverted index (fallback produced when Python `lunr` pkg is absent)
         if (rawIndex._format === "simple-inverted") {
           _state._simpleIndex = rawIndex.inverted;
+          _state._simpleTokens = Object.keys(rawIndex.inverted || {});
           _state._simpleMode = true;
         } else {
           _state._lunrIndex = lunr.Index.load(rawIndex);
@@ -379,56 +402,65 @@
   }
 
   function _inlineSearch(query) {
-    var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    var terms = _extractTerms(query);
     if (terms.length === 0) return [];
 
     if (_state._simpleMode) {
       return _simpleSearch(terms);
     }
 
-    // Lunr pre-built index – shape query with term boosts
-    var lunrQuery = terms
-      .map(function (t) {
-        // Keep query shaping lightweight for responsiveness.
-        return "+title:" + t + "^8 +" + t + "*";
-      })
-      .join(" ");
-
-    var raw;
-    try {
-      raw = _state._lunrIndex.search(lunrQuery);
-    } catch (e) {
-      // Fall back to simple OR search if query syntax fails
-      raw = _state._lunrIndex.search(terms.join(" "));
-    }
-
-    return raw
-      .slice(0, 20)
-      .map(function (r) {
-        return _state.docsStore[r.ref];
-      })
-      .filter(Boolean);
+    var raw = _runLunrSearchStrategies(_state._lunrIndex, terms);
+    return _rerankLunrHits(raw, terms, _state.docsStore).slice(0, 20);
   }
 
   function _simpleSearch(terms) {
     var inv = _state._simpleIndex;
+    var tokens = _state._simpleTokens || Object.keys(inv);
     var scores = {};
 
     terms.forEach(function (term) {
+      if (term.length < 2 || _STOP_WORDS[term]) return;
+
       // Exact token match
       if (inv[term]) {
         Object.keys(inv[term]).forEach(function (id) {
-          scores[id] = (scores[id] || 0) + 2;
+          scores[id] = (scores[id] || 0) + 4;
         });
       }
+
       // Prefix match
-      Object.keys(inv).forEach(function (token) {
+      tokens.forEach(function (token) {
         if (token !== term && token.indexOf(term) === 0) {
           Object.keys(inv[token]).forEach(function (id) {
-            scores[id] = (scores[id] || 0) + 1;
+            scores[id] = (scores[id] || 0) + 2;
           });
         }
       });
+
+      // Infix match: helps with derivatives like "contributing" vs "contribute"
+      if (term.length >= 4) {
+        tokens.forEach(function (token) {
+          if (token.indexOf(term) > 0 || term.indexOf(token) === 0) {
+            if (!inv[token]) return;
+            Object.keys(inv[token]).forEach(function (id) {
+              scores[id] = (scores[id] || 0) + 1;
+            });
+          }
+        });
+      }
+
+      // Tiny fuzzy window for typo tolerance while staying cheap.
+      if (term.length >= 5) {
+        tokens.forEach(function (token) {
+          if (Math.abs(token.length - term.length) > 1) return;
+          if (token.charAt(0) !== term.charAt(0)) return;
+          if (!_withinOneEdit(term, token)) return;
+          if (!inv[token]) return;
+          Object.keys(inv[token]).forEach(function (id) {
+            scores[id] = (scores[id] || 0) + 1;
+          });
+        });
+      }
     });
 
     return Object.keys(scores)
@@ -440,6 +472,160 @@
         return _state.docsStore[id];
       })
       .filter(Boolean);
+  }
+
+  function _extractTerms(query) {
+    return query
+      .toLowerCase()
+      .replace(/[^a-z0-9_\-\s]+/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+  }
+
+  function _runLunrSearchStrategies(index, terms) {
+    var strategies = [
+      _buildStrictLunrQuery(terms),
+      _buildBroadLunrQuery(terms),
+    ];
+    var merged = [];
+    var seen = {};
+    var MAX_COLLECTED = 80;
+
+    for (var i = 0; i < strategies.length; i++) {
+      var q = strategies[i];
+      if (!q) continue;
+
+      var raw = [];
+      try {
+        raw = index.search(q);
+      } catch (e) {
+        continue;
+      }
+
+      for (var j = 0; j < raw.length; j++) {
+        var ref = String(raw[j].ref);
+        if (seen[ref]) continue;
+        seen[ref] = true;
+        merged.push(raw[j]);
+      }
+
+      if (merged.length >= MAX_COLLECTED) break;
+    }
+
+    return merged;
+  }
+
+  function _rerankLunrHits(rawHits, terms, docsMap) {
+    var phrase = terms.length > 1 ? terms.join(" ") : "";
+
+    return rawHits
+      .map(function (hit, idx) {
+        var doc = docsMap[String(hit.ref)];
+        if (!doc) return null;
+
+        var title = (doc.title || "").toLowerCase();
+        var breadcrumb = (doc.breadcrumb || "").toLowerCase();
+        var snippet = (doc.snippet || "").toLowerCase();
+
+        var score = (hit.score || 0) * 100;
+        score += Math.max(0, 40 - idx);
+
+        if (phrase) {
+          if (title.indexOf(phrase) !== -1) score += 300;
+          if (breadcrumb.indexOf(phrase) !== -1) score += 120;
+          if (snippet.indexOf(phrase) !== -1) score += 80;
+        }
+
+        terms.forEach(function (term) {
+          if (_containsWholeWord(title, term)) {
+            score += 30;
+          } else if (title.indexOf(term) !== -1) {
+            score += 15;
+          }
+
+          if (_containsWholeWord(breadcrumb, term)) {
+            score += 10;
+          }
+
+          if (snippet.indexOf(term) !== -1) {
+            score += 5;
+          }
+        });
+
+        return { doc: doc, score: score, idx: idx };
+      })
+      .filter(Boolean)
+      .sort(function (a, b) {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.idx - b.idx;
+      })
+      .map(function (item) {
+        return item.doc;
+      });
+  }
+
+  function _containsWholeWord(text, term) {
+    if (!text || !term) return false;
+    var safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("\\b" + safe + "\\b", "i").test(text);
+  }
+
+  function _buildStrictLunrQuery(terms) {
+    return terms
+      .map(function (t) {
+        var clauses = [
+          "title:" + t + "^12",
+          "title:" + t + "*^8",
+          t + "^5",
+          t + "*^3",
+        ];
+        if (t.length >= 5) clauses.push(t + "~1^2");
+        return clauses.join(" ");
+      })
+      .join(" ");
+  }
+
+  function _buildBroadLunrQuery(terms) {
+    return terms
+      .map(function (t) {
+        if (t.length >= 5) return t + "* " + t + "~1";
+        return t + "*";
+      })
+      .join(" ");
+  }
+
+  function _withinOneEdit(a, b) {
+    if (a === b) return true;
+    var la = a.length;
+    var lb = b.length;
+    if (Math.abs(la - lb) > 1) return false;
+
+    var i = 0;
+    var j = 0;
+    var edits = 0;
+
+    while (i < la && j < lb) {
+      if (a.charAt(i) === b.charAt(j)) {
+        i += 1;
+        j += 1;
+        continue;
+      }
+
+      edits += 1;
+      if (edits > 1) return false;
+
+      if (la > lb) {
+        i += 1;
+      } else if (lb > la) {
+        j += 1;
+      } else {
+        i += 1;
+        j += 1;
+      }
+    }
+
+    if (i < la || j < lb) edits += 1;
+    return edits <= 1;
   }
 
   // ── Result rendering ──────────────────────────────────────────────────────
@@ -460,7 +646,7 @@
     }
 
     _setStatus("");
-    var terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    var terms = _extractTerms(query);
     var frag = document.createDocumentFragment();
 
     hits.forEach(function (doc, i) {
