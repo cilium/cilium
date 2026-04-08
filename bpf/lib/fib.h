@@ -10,6 +10,7 @@
 #include "network_device.h"
 #include "neigh.h"
 #include "l3.h"
+#include "aux.h"
 
 static __always_inline bool
 neigh_resolver_without_nh_available()
@@ -214,6 +215,8 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	return (int)fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 };
 
+DEFINE_AUX(struct bpf_fib_lookup_padded, fib_lookup_params)
+
 /* fib_lookup_src_v6 will perform a source IP resolution for the given
  * destination address.
  * @ ctx - context buffer
@@ -227,19 +230,21 @@ static __always_inline int
 fib_lookup_src_v6(struct __ctx_buff *ctx, struct in6_addr *src,
 		  const struct in6_addr *dst)
 {
-	struct bpf_fib_lookup_padded fib_params = {0};
+	struct bpf_fib_lookup_padded *fib_params = AUX(fib_lookup_params);
 	struct in6_addr zero = {0};
 	int fib_result = 0;
 
 	if (!CONFIG(supports_fib_lookup_src))
 		return BPF_FIB_LKUP_RET_FWD_DISABLED;
 
-	fib_result = fib_lookup_v6(ctx, &fib_params, &zero, dst,
+	memset(fib_params, 0, sizeof(*fib_params));
+
+	fib_result = fib_lookup_v6(ctx, fib_params, &zero, dst,
 				   BPF_FIB_LOOKUP_SRC);
 
 	if (fib_result == BPF_FIB_LKUP_RET_SUCCESS) {
 		ipv6_addr_copy((union v6addr *)src,
-			       (union v6addr *)&fib_params.l.ipv6_src);
+			       (union v6addr *)&fib_params->l.ipv6_src);
 	}
 	return fib_result;
 }
