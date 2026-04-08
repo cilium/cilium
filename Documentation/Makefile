@@ -157,6 +157,11 @@ html-netlify:
 DOCS_PORT = 9081
 
 live-preview: builder-image ## Build and serve the documentation locally.
+	@if [ ! -f _preview/_static/lunr/lunr_index.json ] || [ ! -f _preview/_static/lunr/docs.json ] || [ ! -f _preview/_static/lunr/manifest.json ]; then \
+		echo "$$(tput setaf 3)Lunr search index not found in Documentation/_preview.$$(tput sgr0)"; \
+		echo "$$(tput setaf 3)Run 'make -C Documentation dirhtml-with-index' once, or run:$$(tput sgr0)"; \
+		echo "$$(tput setaf 3)  python3 Documentation/_scripts/build_lunr_index.py Documentation/_preview$$(tput sgr0)"; \
+	fi
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):$(DOCS_PORT) \
