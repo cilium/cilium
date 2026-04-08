@@ -622,7 +622,7 @@ bpf:
       # -- Enable policy verdict events.
       enabled: true
     trace:
-      # -- Enable trace events.
+      # -- Enable trace events. If this is set to false and socketLB.tracing=true it will still log TRACE events. 
       enabled: true
   # @schema
   # type: [null, integer]

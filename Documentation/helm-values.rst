@@ -405,7 +405,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`bpf.events.trace.enabled`
-     - Enable trace events.
+     - Enable trace events. If this is set to false and socketLB.tracing=true it will still log TRACE events.
      - bool
      - ``true``
    * - :spelling:ignore:`bpf.hostLegacyRouting`
