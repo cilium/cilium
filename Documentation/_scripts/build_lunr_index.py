@@ -301,21 +301,36 @@ def detect_output_dir(explicit: str | None) -> Path:
     )
 
 
-def iter_html_files(outdir: Path):
-    """Yield (html_path, relative_url) pairs for every page index.html."""
-    for html_file in sorted(outdir.rglob("*/index.html")):
-        # Keep the path relative to outdir, strip the trailing index.html
-        rel = html_file.relative_to(outdir).parent
-        rel_url = str(rel).replace(os.sep, "/")
-        if rel_url == ".":
-            rel_url = ""
-        rel_url = rel_url.rstrip("/") + "/"
-        yield html_file, rel_url
+def _url_from_relpath(rel_path: Path) -> str:
+    """Convert a relative HTML file path into a URL path for search results."""
+    rel_posix = str(rel_path).replace(os.sep, "/")
 
-    # Also handle the root index.html (the root of dirhtml output)
-    root_index = outdir / "index.html"
-    if root_index.exists():
-        yield root_index, ""
+    # dirhtml pages are emitted as */index.html and should map to */
+    if rel_posix == "index.html":
+        return ""
+    if rel_posix.endswith("/index.html"):
+        return rel_posix[: -len("index.html")]
+
+    # html builder pages are emitted as *.html and should keep extension
+    return rel_posix
+
+
+def iter_html_files(outdir: Path):
+    """Yield (html_path, relative_url) pairs for Sphinx html or dirhtml output."""
+    yielded: set[Path] = set()
+
+    # dirhtml layout: */index.html files
+    for html_file in sorted(outdir.rglob("*/index.html")):
+        rel_path = html_file.relative_to(outdir)
+        yielded.add(rel_path)
+        yield html_file, _url_from_relpath(rel_path)
+
+    # html layout: *.html files at root and nested directories
+    for html_file in sorted(outdir.rglob("*.html")):
+        rel_path = html_file.relative_to(outdir)
+        if rel_path in yielded:
+            continue
+        yield html_file, _url_from_relpath(rel_path)
 
 
 # ---------------------------------------------------------------------------
