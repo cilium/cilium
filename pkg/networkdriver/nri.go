@@ -75,30 +75,13 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		// Check for interface name collisions with existing interfaces in pod netns
 		if err := podNs.Do(func() error {
-			existingLinks, err := safenetlink.LinkList()
-			if err != nil {
-				return fmt.Errorf("failed to list existing interfaces in pod netns: %w", err)
-			}
-
-			existingNames := make(map[string]bool)
-			for _, link := range existingLinks {
-				existingNames[link.Attrs().Name] = true
-			}
-
-			// Check if any of our planned renames would collide with existing interfaces
-			for _, devices := range alloc {
-				for _, a := range devices {
-					if a.Config.PodIfName != "" && existingNames[a.Config.PodIfName] {
-						return fmt.Errorf(
-							"interface name collision: %q already exists in pod namespace (possibly from CNI)",
-							a.Config.PodIfName)
-					}
-				}
+			if err := validateInterfaceNames(alloc); err != nil {
+				return err
 			}
 
 			return nil
 		}); err != nil {
-			return fmt.Errorf("pre-flight collision check failed: %w", err)
+			return fmt.Errorf("pod interface allocations is invalid: %w", err)
 		}
 
 		for _, devices := range alloc {
@@ -290,6 +273,33 @@ func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
 	}
 
 	return l, nil
+}
+
+// validateInterfaceNames checks if a pod's set of allocated devices
+// contain valid interface names, that dont collide with interfaces in the pod namespace.
+func validateInterfaceNames(alloc map[kube_types.UID][]allocation) error {
+	existingLinks, err := safenetlink.LinkList()
+	if err != nil {
+		return fmt.Errorf("failed to list existing interfaces in pod netns: %w", err)
+	}
+
+	existingNames := make(map[string]bool)
+	for _, link := range existingLinks {
+		existingNames[link.Attrs().Name] = true
+	}
+
+	// Check if any of our planned renames would collide with existing interfaces
+	for _, devices := range alloc {
+		for _, a := range devices {
+			if a.Config.PodIfName != "" && existingNames[a.Config.PodIfName] {
+				return fmt.Errorf(
+					"interface name collision: %q already exists in pod namespace (possibly from CNI)",
+					a.Config.PodIfName)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (driver *Driver) startNRI(ctx context.Context) error {
