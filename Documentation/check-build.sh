@@ -173,6 +173,29 @@ run_linter() {
        grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occurred. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
 }
 
+build_lunr_index() {
+    local outdir indexer
+
+    case "${target}" in
+        html|dirhtml)
+            outdir="${build_dir}/${target}"
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    indexer="${script_dir}/_scripts/build_lunr_index.py"
+
+    if [ ! -d "${outdir}" ]; then
+        echo "Skipping Lunr index generation: output directory '${outdir}' not found."
+        return 0
+    fi
+
+    echo "Generating Lunr search index for ${target}..."
+    python3 "${indexer}" "${outdir}"
+}
+
 read_all_opt=""
 
 if [ -n "${SKIP_LINT-}" ]; then
@@ -228,3 +251,5 @@ if has_build_warnings ; then
     filter_warnings
     exit 1
 fi
+
+build_lunr_index

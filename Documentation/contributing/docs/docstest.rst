@@ -55,6 +55,29 @@ you can build the docs:
 
     $ make test-docs
 
+Search index in local preview
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cilium docs search uses Lunr.js and requires generated index files. These index
+files are generated automatically in published ReadTheDocs builds and in
+``make test-docs`` (via ``Documentation/check-build.sh`` for the ``html``
+target).
+
+To build ``dirhtml`` and refresh Lunr index files in one command:
+
+.. code-block:: shell-session
+
+    $ make -C Documentation dirhtml-with-index
+
+If you are using ``make render-docs`` (which serves from
+``Documentation/_preview``), regenerate the index for that output directory:
+
+.. code-block:: shell-session
+
+    $ python3 Documentation/_scripts/build_lunr_index.py Documentation/_preview
+
+Then reload the browser page.
+
 .. note::
 
    By default, ``render-docs`` generates a preview with instructions to install
