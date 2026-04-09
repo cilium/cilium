@@ -26,6 +26,9 @@
 #define SRC_NODE_V6			(const union v6addr *)v6_node_one
 #define DST_NODE_V6			(const union v6addr *)v6_node_two
 
+#define VXLAN_PORT			bpf_htons(8472)
+#define GENERAL_PORT			bpf_htons(12134)
+
 #define DST_NODE_ID			123
 #define ENCRYPT_KEY			0xFF
 
@@ -343,3 +346,81 @@ int encrypt_v6_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
 }
+
+#ifdef TUNNEL_MODE
+PKTGEN("tc", "encrypt_v4_vxlan")
+int encrypt_v4_vxlan_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct iphdr *l3;
+	struct vxlanhdr *vxlan __maybe_unused;
+
+	pktgen__init(&builder, ctx);
+
+	vxlan = pktgen__push_ipv4_vxlan_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+					       SRC_NODE_V4, DST_NODE_V4,
+					       GENERAL_PORT, VXLAN_PORT);
+	if (!vxlan)
+		return TEST_ERROR;
+
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      SRC_POD_V4, DST_POD_V4);
+	if (!l3)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "encrypt_v4_vxlan")
+int encrypt_v4_vxlan_setup(struct __ctx_buff *ctx)
+{
+	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_OVERLAY);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v4_vxlan")
+int encrypt_v4_vxlan_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_REDIRECT);
+}
+
+PKTGEN("tc", "encrypt_v6_vxlan")
+int encrypt_v6_vxlan_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct vxlanhdr *vxlan __maybe_unused;
+	struct ipv6hdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	vxlan = pktgen__push_ipv6_vxlan_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+					       (__u8 *)SRC_NODE_V6, (__u8 *)DST_NODE_V6,
+					       GENERAL_PORT, VXLAN_PORT);
+	if (!vxlan)
+		return TEST_ERROR;
+
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)SRC_POD_V6, (__u8 *)DST_POD_V6);
+	if (!l3)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "encrypt_v6_vxlan")
+int encrypt_v6_vxlan_setup(struct __ctx_buff *ctx)
+{
+	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_OVERLAY);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "encrypt_v6_vxlan")
+int encrypt_v6_vxlan_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_REDIRECT);
+}
+#endif
