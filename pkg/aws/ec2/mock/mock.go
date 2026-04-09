@@ -7,11 +7,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
+	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -73,7 +75,8 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	// Use 10.10.0.0/17 for IP allocations
 	cidrSet, _ := cidrset.NewCIDRSet(baseCidr, 17)
 	podCidr, _ := cidrSet.AllocateNext()
-	podCidrRange := ipallocator.NewCIDRRange(podCidr)
+	podCidrPrefix, _ := netipx.FromStdIPNet(podCidr)
+	podCidrRange := ipallocator.NewCIDRRange(podCidrPrefix)
 
 	// Use 10.10.128.0/17 for prefix allocations
 	pdCidr, _ := cidrSet.AllocateNext()
@@ -490,8 +493,7 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	releaseMap := make(map[string]int)
 	for _, addr := range addresses {
 		// Validate given addresses
-		ipaddr := net.ParseIP(addr)
-		if ipaddr == nil {
+		if _, err := netip.ParseAddr(addr); err != nil {
 			return fmt.Errorf("Invalid IP address %s", addr)
 		}
 		releaseMap[addr] = 0
@@ -514,8 +516,8 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 			if !ok {
 				addressesAfterRelease = append(addressesAfterRelease, address)
 			} else {
-				ip := net.ParseIP(address)
-				e.allocator.Release(ip)
+				addr, _ := netip.ParseAddr(address)
+				e.allocator.Release(addr)
 				subnet.AvailableAddresses++
 			}
 		}

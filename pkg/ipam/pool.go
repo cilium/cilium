@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -59,10 +60,15 @@ func (p *cidrPool) allocate(ip net.IP) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return fmt.Errorf("invalid IP address: %v", ip)
+	}
+	addr = addr.Unmap()
+
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		if cidrNet.Contains(ip) {
-			return ipAllocator.Allocate(ip)
+		if ipAllocator.CIDR().Contains(addr) {
+			return ipAllocator.Allocate(addr)
 		}
 	}
 
@@ -76,15 +82,18 @@ func (p *cidrPool) allocateNext() (net.IP, error) {
 	// When allocating a random IP, we try the CIDRs in the order they are
 	// listed in the CRD. This avoids internal fragmentation.
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 		if _, removed := p.removed[cidrStr]; removed {
 			continue
 		}
 		if ipAllocator.Free() == 0 {
 			continue
 		}
-		return ipAllocator.AllocateNext()
+		addr, err := ipAllocator.AllocateNext()
+		if err != nil {
+			return nil, err
+		}
+		return net.IP(addr.AsSlice()).To16(), nil
 	}
 
 	return nil, errors.New("all CIDR ranges are exhausted")
@@ -94,10 +103,15 @@ func (p *cidrPool) release(ip net.IP) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return
+	}
+	addr = addr.Unmap()
+
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		if cidrNet.Contains(ip) {
-			ipAllocator.Release(ip)
+		if ipAllocator.CIDR().Contains(addr) {
+			ipAllocator.Release(addr)
 			return
 		}
 	}
@@ -108,8 +122,7 @@ func (p *cidrPool) hasAvailableIPs() bool {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 		if _, removed := p.removed[cidrStr]; removed {
 			continue
 		}
@@ -140,8 +153,7 @@ func (p *cidrPool) inUseCIDRs() []types.IPAMCIDR {
 func (p *cidrPool) inUseCIDRsLocked() []types.IPAMCIDR {
 	CIDRs := make([]types.IPAMCIDR, 0, len(p.ipAllocators))
 	for _, ipAllocator := range p.ipAllocators {
-		ipnet := ipAllocator.CIDR()
-		CIDRs = append(CIDRs, types.IPAMCIDR(ipnet.String()))
+		CIDRs = append(CIDRs, types.IPAMCIDR(ipAllocator.CIDR().String()))
 	}
 	return CIDRs
 }
@@ -153,14 +165,13 @@ func (p *cidrPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, numCID
 
 	ipToOwner = map[string]string{}
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 		usedIPs += ipAllocator.Used()
 		if _, removed := p.removed[cidrStr]; !removed {
 			freeIPs += ipAllocator.Free()
 		}
-		ipAllocator.ForEach(func(ip net.IP) {
-			ipToOwner[ip.String()] = ""
+		ipAllocator.ForEach(func(addr netip.Addr) {
+			ipToOwner[addr.String()] = ""
 		})
 	}
 	numCIDRs = len(p.ipAllocators)
@@ -174,8 +185,7 @@ func (p *cidrPool) capacity() (freeIPs int) {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 		if _, removed := p.removed[cidrStr]; !removed {
 			freeIPs += ipAllocator.Free()
 		}
@@ -199,8 +209,7 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	retainedAllocators := []*ipallocator.Range{}
 	for i := len(p.ipAllocators) - 1; i >= 0; i-- {
 		ipAllocator := p.ipAllocators[i]
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 
 		// If the CIDR is not used and releasing it would
 		// not take us below the release threshold, then release it immediately
@@ -230,10 +239,10 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 	}
 
 	// Parse the CIDRs, ignoring invalid CIDRs, and de-duplicating them.
-	cidrNets := make([]*net.IPNet, 0, len(CIDRs))
+	prefixes := make([]netip.Prefix, 0, len(CIDRs))
 	cidrStrSet := make(map[string]struct{}, len(CIDRs))
 	for _, cidr := range CIDRs {
-		_, cidr, err := net.ParseCIDR(cidr)
+		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			p.logger.Error(
 				"ignoring invalid CIDR",
@@ -242,15 +251,16 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 			)
 			continue
 		}
-		if _, ok := cidrStrSet[cidr.String()]; ok {
+		prefix = prefix.Masked()
+		if _, ok := cidrStrSet[prefix.String()]; ok {
 			p.logger.Error(
 				"ignoring duplicate CIDR",
 				logfields.CIDR, CIDRs,
 			)
 			continue
 		}
-		cidrNets = append(cidrNets, cidr)
-		cidrStrSet[cidr.String()] = struct{}{}
+		prefixes = append(prefixes, prefix)
+		cidrStrSet[prefix.String()] = struct{}{}
 	}
 
 	// Forget any released CIDRs no longer present in the CRD.
@@ -282,8 +292,7 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 
 	// Add existing IP allocators to newIPAllocators in order.
 	for _, ipAllocator := range p.ipAllocators {
-		cidrNet := ipAllocator.CIDR()
-		cidrStr := cidrNet.String()
+		cidrStr := ipAllocator.CIDR().String()
 		if _, ok := cidrStrSet[cidrStr]; !ok {
 			if ipAllocator.Used() == 0 {
 				continue
@@ -303,18 +312,18 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 	if p.allowFirstLastIPs {
 		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstLastIPs())
 	}
-	for _, cidrNet := range cidrNets {
-		cidrStr := cidrNet.String()
+	for _, prefix := range prefixes {
+		cidrStr := prefix.String()
 		if _, ok := existingAllocators[cidrStr]; ok {
 			continue
 		}
-		ipAllocator := ipallocator.NewCIDRRange(cidrNet, rangeOpts...)
+		ipAllocator := ipallocator.NewCIDRRange(prefix, rangeOpts...)
 		if ipAllocator.Free() == 0 {
 			p.logger.Error(
 				"skipping too-small CIDR",
-				logfields.CIDR, cidrNet,
+				logfields.CIDR, prefix,
 			)
-			p.released[cidrNet.String()] = struct{}{}
+			p.released[prefix.String()] = struct{}{}
 			continue
 		}
 		p.logger.Debug(

@@ -5,10 +5,10 @@
 package ipallocator
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ipam/service/allocator"
 )
@@ -16,12 +16,12 @@ import (
 // Interface manages the allocation of IP addresses out of a range. Interface
 // should be threadsafe.
 type Interface interface {
-	Allocate(net.IP) error
-	AllocateNext() (net.IP, error)
-	Release(net.IP) error
-	ForEach(func(net.IP))
-	CIDR() net.IPNet
-	Has(ip net.IP) bool
+	Allocate(netip.Addr) error
+	AllocateNext() (netip.Addr, error)
+	Release(netip.Addr) error
+	ForEach(func(netip.Addr))
+	CIDR() netip.Prefix
+	Has(addr netip.Addr) bool
 }
 
 var (
@@ -68,45 +68,46 @@ func WithAllowFirstLastIPs() CIDRRangeOption {
 //	|                                     |
 //	0 1 2 3 4 5 ...         ... 253 254 255
 //	  |                              |
-//	r.base                     r.base + r.max
+//	r.base               addOffset(r.base, r.max-1)
 //	  |                              |
-//	offset #0 of r.allocated   last offset of r.allocated
+//	offset #0 of r.alloc   last offset of r.alloc
 type Range struct {
-	net *net.IPNet
-	// base is a cached version of the start IP in the CIDR range as a *big.Int
-	base *big.Int
-	// max is the maximum size of the usable addresses in the range
+	prefix netip.Prefix
+	// base is the first allocatable address in the range.
+	base netip.Addr
+	// max is the maximum size of the usable addresses in the range.
 	max int
 
 	alloc allocator.Interface
 }
 
-// NewCIDRRange creates a Range over a net.IPNet, calling allocator.NewAllocationMap
+// NewCIDRRange creates a Range over a netip.Prefix, calling allocator.NewAllocationMap
 // to construct the backing store. By default, the first (network) and last
 // (broadcast) addresses are excluded for CIDRs with more than 2 addresses.
 // Pass functional options (e.g. WithAllowFirstLastIPs) to alter this behavior.
-func NewCIDRRange(cidr *net.IPNet, opts ...CIDRRangeOption) *Range {
+func NewCIDRRange(prefix netip.Prefix, opts ...CIDRRangeOption) *Range {
 	var o cidrRangeOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
 
-	base := bigForIP(cidr.IP)
-	size := RangeSize(cidr)
+	prefix = prefix.Masked()
+	base := prefix.Addr()
+	size := RangeSize(prefix)
 
 	// for any CIDR other than /32 or /128:
 	if size > 2 && !o.allowFirstLastIPs {
 		// don't use the network broadcast
 		size = max(0, size-2)
 		// don't use the network base
-		base = base.Add(base, big.NewInt(1))
+		base = base.Next()
 	}
 
 	return &Range{
-		net:   cidr,
-		base:  base,
-		max:   int(size),
-		alloc: allocator.NewAllocationMap(int(size), cidr.String()),
+		prefix: prefix,
+		base:   base,
+		max:    int(size),
+		alloc:  allocator.NewAllocationMap(int(size), prefix.String()),
 	}
 }
 
@@ -121,18 +122,18 @@ func (r *Range) Used() int {
 }
 
 // CIDR returns the CIDR covered by the range.
-func (r *Range) CIDR() net.IPNet {
-	return *r.net
+func (r *Range) CIDR() netip.Prefix {
+	return r.prefix
 }
 
 // Allocate attempts to reserve the provided IP. ErrNotInRange or
 // ErrAllocated will be returned if the IP is not valid for this range
 // or has already been reserved.  ErrFull will be returned if there
 // are no addresses left.
-func (r *Range) Allocate(ip net.IP) error {
+func (r *Range) Allocate(ip netip.Addr) error {
 	ok, offset := r.contains(ip)
 	if !ok {
-		return &ErrNotInRange{r.net.String()}
+		return &ErrNotInRange{r.prefix.String()}
 	}
 
 	allocated := r.alloc.Allocate(offset)
@@ -144,18 +145,18 @@ func (r *Range) Allocate(ip net.IP) error {
 
 // AllocateNext reserves one of the IPs from the pool. ErrFull may
 // be returned if there are no addresses left.
-func (r *Range) AllocateNext() (net.IP, error) {
+func (r *Range) AllocateNext() (netip.Addr, error) {
 	offset, ok := r.alloc.AllocateNext()
 	if !ok {
-		return nil, ErrFull
+		return netip.Addr{}, ErrFull
 	}
-	return addIPOffset(r.base, offset), nil
+	return addOffset(r.base, offset), nil
 }
 
 // Release releases the IP back to the pool. Releasing an
 // unallocated IP or an IP out of the range is a no-op and
 // returns no error.
-func (r *Range) Release(ip net.IP) {
+func (r *Range) Release(ip netip.Addr) {
 	ok, offset := r.contains(ip)
 	if ok {
 		r.alloc.Release(offset)
@@ -163,15 +164,15 @@ func (r *Range) Release(ip net.IP) {
 }
 
 // ForEach calls the provided function for each allocated IP.
-func (r *Range) ForEach(fn func(net.IP)) {
+func (r *Range) ForEach(fn func(netip.Addr)) {
 	r.alloc.ForEach(func(offset int) {
-		fn(addIPOffset(r.base, offset))
+		fn(addOffset(r.base, offset))
 	})
 }
 
 // Has returns true if the provided IP is already allocated and a call
 // to Allocate(ip) would fail with ErrAllocated.
-func (r *Range) Has(ip net.IP) bool {
+func (r *Range) Has(ip netip.Addr) bool {
 	ok, offset := r.contains(ip)
 	if !ok {
 		return false
@@ -191,16 +192,16 @@ func (r *Range) Snapshot() (string, []byte, error) {
 }
 
 // Restore restores the pool to the previously captured state. ErrMismatchedNetwork
-// is returned if the provided IPNet range doesn't exactly match the previous range.
-func (r *Range) Restore(net *net.IPNet, data []byte) error {
-	if !net.IP.Equal(r.net.IP) || net.Mask.String() != r.net.Mask.String() {
+// is returned if the provided prefix doesn't exactly match the previous range.
+func (r *Range) Restore(prefix netip.Prefix, data []byte) error {
+	if prefix != r.prefix {
 		return ErrMismatchedNetwork
 	}
 	snapshottable, ok := r.alloc.(allocator.Snapshottable)
 	if !ok {
 		return fmt.Errorf("not a snapshottable allocator")
 	}
-	if err := snapshottable.Restore(net.String(), data); err != nil {
+	if err := snapshottable.Restore(prefix.String(), data); err != nil {
 		return fmt.Errorf("restoring snapshot encountered: %w", err)
 	}
 	return nil
@@ -208,42 +209,54 @@ func (r *Range) Restore(net *net.IPNet, data []byte) error {
 
 // contains returns true and the offset if the ip is in the range, and false
 // and 0 otherwise.
-func (r *Range) contains(ip net.IP) (bool, int) {
-	if !r.net.Contains(ip) {
+func (r *Range) contains(ip netip.Addr) (bool, int) {
+	if !r.prefix.Contains(ip) {
 		return false, 0
 	}
 
-	offset := calculateIPOffset(r.base, ip)
+	offset := addrOffset(r.base, ip)
 	if offset < 0 || offset >= r.max {
 		return false, 0
 	}
 	return true, offset
 }
 
-// bigForIP creates a big.Int based on the provided net.IP
-func bigForIP(ip net.IP) *big.Int {
-	// NOTE: Convert to 16-byte representation so we can
-	// handle v4 and v6 values the same way.
-	return big.NewInt(0).SetBytes(ip.To16())
+// addOffset adds an integer offset to a base address.
+func addOffset(base netip.Addr, offset int) netip.Addr {
+	if base.Is4() {
+		b := base.As4()
+		v := binary.BigEndian.Uint32(b[:]) + uint32(offset)
+		binary.BigEndian.PutUint32(b[:], v)
+		return netip.AddrFrom4(b)
+	}
+	b := base.As16()
+	hi := binary.BigEndian.Uint64(b[:8])
+	lo := binary.BigEndian.Uint64(b[8:])
+	newLo := lo + uint64(offset)
+	if newLo < lo {
+		hi++
+	}
+	binary.BigEndian.PutUint64(b[:8], hi)
+	binary.BigEndian.PutUint64(b[8:], newLo)
+	return netip.AddrFrom16(b)
 }
 
-// addIPOffset adds the provided integer offset to a base big.Int representing a net.IP
-// NOTE: If you started with a v4 address and overflow it, you get a v6 result.
-func addIPOffset(base *big.Int, offset int) net.IP {
-	r := big.NewInt(0).Add(base, big.NewInt(int64(offset))).Bytes()
-	r = append(make([]byte, 16), r...)
-	return net.IP(r[len(r)-16:])
-}
-
-// calculateIPOffset calculates the integer offset of ip from base such that
-// base + offset = ip. It requires ip >= base.
-func calculateIPOffset(base *big.Int, ip net.IP) int {
-	return int(big.NewInt(0).Sub(bigForIP(ip), base).Int64())
+// addrOffset returns the integer offset of addr from base (addr - base).
+func addrOffset(base, addr netip.Addr) int {
+	if base.Is4() {
+		b := base.As4()
+		a := addr.As4()
+		return int(binary.BigEndian.Uint32(a[:]) - binary.BigEndian.Uint32(b[:]))
+	}
+	b := base.As16()
+	a := addr.As16()
+	return int(binary.BigEndian.Uint64(a[8:]) - binary.BigEndian.Uint64(b[8:]))
 }
 
 // RangeSize returns the size of a range in valid addresses.
-func RangeSize(subnet *net.IPNet) int64 {
-	ones, bits := subnet.Mask.Size()
+func RangeSize(prefix netip.Prefix) int64 {
+	bits := prefix.Addr().BitLen()
+	ones := prefix.Bits()
 	if bits == 32 && (bits-ones) >= 31 || bits == 128 && (bits-ones) >= 127 {
 		return 0
 	}
@@ -253,7 +266,6 @@ func RangeSize(subnet *net.IPNet) int64 {
 	// the bitmap to 64k.
 	if bits == 128 && (bits-ones) >= 16 {
 		return int64(1) << uint(16)
-	} else {
-		return int64(1) << uint(bits-ones)
 	}
+	return int64(1) << uint(bits-ones)
 }

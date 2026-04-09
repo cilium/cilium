@@ -5,92 +5,96 @@ package ipam
 
 import (
 	"fmt"
-	"math/big"
 	"net"
+	"net/netip"
+
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 )
 
 type hostScopeAllocator struct {
-	allocCIDR *net.IPNet
+	allocCIDR netip.Prefix
 	allocator *ipallocator.Range
 }
 
 func newHostScopeAllocator(n *net.IPNet) Allocator {
+	prefix, ok := netipx.FromStdIPNet(n)
+	if !ok {
+		panic(fmt.Sprintf("invalid IPNet: %v", n))
+	}
 	return &hostScopeAllocator{
-		allocCIDR: n,
-		allocator: ipallocator.NewCIDRRange(n),
+		allocCIDR: prefix,
+		allocator: ipallocator.NewCIDRRange(prefix),
 	}
 }
 
-func (h *hostScopeAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	if err := h.allocator.Allocate(ip); err != nil {
+func (h *hostScopeAllocator) Allocate(ipAddr net.IP, owner string, pool Pool) (*AllocationResult, error) {
+	addr, ok := netip.AddrFromSlice(ipAddr)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP address: %v", ipAddr)
+	}
+	if err := h.allocator.Allocate(addr.Unmap()); err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: ipAddr}, nil
 }
 
-func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	if err := h.allocator.Allocate(ip); err != nil {
+func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ipAddr net.IP, owner string, pool Pool) (*AllocationResult, error) {
+	addr, ok := netip.AddrFromSlice(ipAddr)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP address: %v", ipAddr)
+	}
+	if err := h.allocator.Allocate(addr.Unmap()); err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: ipAddr}, nil
 }
 
-func (h *hostScopeAllocator) Release(ip net.IP, pool Pool) error {
-	h.allocator.Release(ip)
+func (h *hostScopeAllocator) Release(ipAddr net.IP, pool Pool) error {
+	addr, ok := netip.AddrFromSlice(ipAddr)
+	if !ok {
+		return nil
+	}
+	h.allocator.Release(addr.Unmap())
 	return nil
 }
 
 func (h *hostScopeAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
-	ip, err := h.allocator.AllocateNext()
+	addr, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: net.IP(addr.AsSlice()).To16()}, nil
 }
 
 func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
-	ip, err := h.allocator.AllocateNext()
+	addr, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ip}, nil
+	return &AllocationResult{IP: net.IP(addr.AsSlice()).To16()}, nil
 }
 
 func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {
-	var origIP *big.Int
 	alloc := map[string]string{}
-	_, data, err := h.allocator.Snapshot()
-	if err != nil {
-		return nil, "Unable to get a snapshot of the allocator"
-	}
-	if h.allocCIDR.IP.To4() != nil {
-		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To4())
-	} else {
-		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To16())
-	}
-	bits := big.NewInt(0).SetBytes(data)
-	for i := range bits.BitLen() {
-		if bits.Bit(i) != 0 {
-			ip := net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String()
-			alloc[ip] = ""
-		}
-	}
+	h.allocator.ForEach(func(addr netip.Addr) {
+		alloc[addr.String()] = ""
+	})
 
-	maxIPs := ip.CountIPsInCIDR(h.allocCIDR)
+	maxIPs := ip.CountIPsInCIDR(netipx.PrefixIPNet(h.allocCIDR))
 	status := fmt.Sprintf("%d/%s allocated from %s", len(alloc), maxIPs.String(), h.allocCIDR.String())
 
 	return map[Pool]map[string]string{PoolDefault(): alloc}, status
 }
 
 func (h *hostScopeAllocator) Capacity() uint64 {
-	return ip.CountIPsInCIDR(h.allocCIDR).Uint64()
+	return ip.CountIPsInCIDR(netipx.PrefixIPNet(h.allocCIDR)).Uint64()
 }
 
 // RestoreFinished marks the status of restoration as done

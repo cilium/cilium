@@ -6,7 +6,7 @@ package mock
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/google/uuid"
 
@@ -32,15 +32,13 @@ type API struct {
 
 // NewAPI returns a new mocked ECS API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
-	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
-
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]ENIMap{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
-		allocator:      ipallocator.NewCIDRRange(cidr),
+		allocator:      ipallocator.NewCIDRRange(netip.MustParsePrefix("10.0.0.0/8")),
 	}
 
 	api.UpdateSubnets(subnets)
@@ -322,8 +320,7 @@ func (a *API) UnassignPrivateIPAddresses(ctx context.Context, eniID string, addr
 	releaseMap := make(map[string]int)
 	for _, addr := range addresses {
 		// Validate given addresses
-		ipaddr := net.ParseIP(addr)
-		if ipaddr == nil {
+		if _, err := netip.ParseAddr(addr); err != nil {
 			return fmt.Errorf("invalid IP address %s", addr)
 		}
 		releaseMap[addr] = 0
@@ -349,8 +346,8 @@ func (a *API) UnassignPrivateIPAddresses(ctx context.Context, eniID string, addr
 			if !ok {
 				addressesAfterRelease = append(addressesAfterRelease, address)
 			} else {
-				ip := net.ParseIP(address.PrivateIpAddress)
-				a.allocator.Release(ip)
+				addr, _ := netip.ParseAddr(address.PrivateIpAddress)
+				a.allocator.Release(addr)
 				subnet.AvailableAddresses++
 			}
 		}
