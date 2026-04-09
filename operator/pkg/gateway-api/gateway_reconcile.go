@@ -5,7 +5,6 @@ package gateway_api
 
 import (
 	"context"
-	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"net"
@@ -732,37 +731,14 @@ func validateTLSSecret(ctx context.Context, c client.Client, namespace, name str
 		return err
 	}
 
-	if !isValidPemFormat(secret.Data[corev1.TLSCertKey]) {
+	if !helpers.IsValidPemFormat(secret.Data[corev1.TLSCertKey]) {
 		return fmt.Errorf("PEM format error in TLS Certificate")
 	}
 
-	if !isValidPemFormat(secret.Data[corev1.TLSPrivateKeyKey]) {
+	if !helpers.IsValidPemFormat(secret.Data[corev1.TLSPrivateKeyKey]) {
 		return fmt.Errorf("PEM format error in TLS Key")
 	}
 	return nil
-}
-
-// isValidPemFormat checks if the given byte array contains at least one valid PEM
-// formatted object, either certificate or key.
-// This function is not intended to be used for validating the actual
-// content of the PEM block.
-func isValidPemFormat(b []byte) bool {
-	if len(b) == 0 {
-		return false
-	}
-
-	p, rest := pem.Decode(b)
-	if p == nil {
-		return false
-	}
-	if len(rest) == 0 {
-		return true
-	}
-
-	// We don't check the value of `rest` because
-	// Envoy will be able to parse the file as long as there
-	// is at least one valid certificate.
-	return true
 }
 
 func (r *gatewayReconciler) handleReconcileErrorWithStatus(ctx context.Context, reconcileErr error, original *gatewayv1.Gateway, modified *gatewayv1.Gateway) (ctrl.Result, error) {
