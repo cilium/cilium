@@ -403,6 +403,19 @@ func (t *Test) WithCondition(fn func() bool) *Test {
 	return t
 }
 
+// WithCiliumVersion limits test execution to Cilium versions that fall within
+// the given range. The input string is passed to [semver.ParseRange], see
+// package semver. Simple examples: ">1.0.0 <2.0.0" or ">=1.14.0".
+func (t *Test) WithCiliumVersion(vr string) *Test {
+	// Compile the input but don't store the result. A semver.Range is a func()
+	// that doesn't implement String(), so the original version constraint cannot
+	// be recovered to display to the user. The original constraint is echoed in
+	// Test/Scenario skip messages together with the running Cilium version.
+	_ = versioncheck.MustCompile(vr)
+	t.versionRange = vr
+	return t
+}
+
 // WithResources registers the list of one or more YAML-defined
 // Kubernetes resources (e.g. NetworkPolicy, etc.)
 //
@@ -649,19 +662,6 @@ func (t *Test) WithFeatureRequirements(reqs ...features.Requirement) *Test {
 // Cilium before running the test (and removed after the test completion).
 func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
 	t.installIPRoutesFromOutsideToPodCIDRs = true
-	return t
-}
-
-// WithCiliumVersion limits test execution to Cilium versions that fall within
-// the given range. The input string is passed to [semver.ParseRange], see
-// package semver. Simple examples: ">1.0.0 <2.0.0" or ">=1.14.0".
-func (t *Test) WithCiliumVersion(vr string) *Test {
-	// Compile the input but don't store the result. A semver.Range is a func()
-	// that doesn't implement String(), so the original version constraint cannot
-	// be recovered to display to the user. The original constraint is echoed in
-	// Test/Scenario skip messages together with the running Cilium version.
-	_ = versioncheck.MustCompile(vr)
-	t.versionRange = vr
 	return t
 }
 
