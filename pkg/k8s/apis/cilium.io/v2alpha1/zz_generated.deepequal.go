@@ -1462,6 +1462,23 @@ func (in *CiliumNetworkDriverDeviceFilter) DeepEqual(other *CiliumNetworkDriverD
 		}
 	}
 
+	if ((in.ParentIfNames != nil) && (other.ParentIfNames != nil)) || ((in.ParentIfNames == nil) != (other.ParentIfNames == nil)) {
+		in, other := &in.ParentIfNames, &other.ParentIfNames
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }
 

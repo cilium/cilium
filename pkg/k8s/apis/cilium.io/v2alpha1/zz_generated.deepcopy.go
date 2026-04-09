@@ -1796,6 +1796,11 @@ func (in *CiliumNetworkDriverDeviceFilter) DeepCopyInto(out *CiliumNetworkDriver
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ParentIfNames != nil {
+		in, out := &in.ParentIfNames, &out.ParentIfNames
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
