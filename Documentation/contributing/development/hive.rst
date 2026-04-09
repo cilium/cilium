@@ -202,7 +202,6 @@ Hive also by default provides the following globally available objects:
 - :ref:`api_lifecycle`: Methods for registering Start and Stop functions that are executed when Hive is started and stopped. 
   The hooks are appended to it in dependency order (since the constructors are invoked in dependency order).
 - :ref:`api_shutdowner`: Allows gracefully shutting down the hive from anywhere in case of a fatal error post-start.
-- ``logrus.FieldLogger``: Interface to the logger. Module() decorates it with ``subsys=<module id>``.
 
 .. _api_provide:
 

@@ -70,7 +70,7 @@ func (a *EnvoyAdminClient) Post(query string) (string, error) {
 	return string(body), nil
 }
 
-// ChangeLogLevel changes Envoy log level to correspond to the logrus log level 'level'.
+// ChangeLogLevel changes Envoy log level to correspond to the specified 'level'.
 func (a *EnvoyAdminClient) ChangeLogLevel(agentLogLevel slog.Level) error {
 	envoyLevel := mapLogLevel(agentLogLevel, a.defaultLogLevel)
 

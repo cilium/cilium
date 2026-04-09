@@ -184,8 +184,8 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 			// main and worker threads.
 			logFormat = "%t|%l|%n|%v"
 
-			// Create a piper that parses and writes into logrus the log
-			// messages from Envoy.
+			// Create a piper that parses Envoy log messages and
+			// writes them to the Cilium agent log.
 			logWriter = o.newEnvoyLogPiper()
 		}
 		defer logWriter.Close()
@@ -318,7 +318,7 @@ func (o *onDemandXdsStarter) newEnvoyLogPiper() io.WriteCloser {
 				continue
 			}
 
-			// Map the Envoy log level to a logrus level.
+			// Map the Envoy log level to a Cilium log level.
 			switch logLevel {
 			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
 				scopedLog.Error(logMsg)

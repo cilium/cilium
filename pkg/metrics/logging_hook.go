@@ -39,8 +39,7 @@ func FlushLoggingMetrics() {
 	})
 }
 
-// LoggingHook is a hook for logrus which counts error and warning messages as a
-// Prometheus metric.
+// LoggingHook counts error and warning messages as a Prometheus metric.
 type LoggingHook struct {
 	errs, warn *atomic.Uint64
 	attrs      map[string]slog.Value

@@ -201,7 +201,6 @@ func TestRingReader_NextLost(t *testing.T) {
 func TestRingReader_NextFollow(t *testing.T) {
 	defer testutils.GoleakVerifyNone(
 		t,
-		// ignore goroutines started by the redirect we do from klog to logrus
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
@@ -279,7 +278,6 @@ func TestRingReader_NextFollow(t *testing.T) {
 func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 	defer testutils.GoleakVerifyNone(
 		t,
-		// ignore goroutines started by the redirect we do from klog to logrus
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))

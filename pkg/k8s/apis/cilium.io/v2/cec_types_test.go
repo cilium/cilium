@@ -47,9 +47,6 @@ var (
 )
 
 func TestParseEnvoySpec(t *testing.T) {
-	// option.Config.Debug = true
-	// logging.DefaultLogger.SetLevel(logrus.DebugLevel)
-
 	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
 	require.NoError(t, err)
 	cec := &CiliumEnvoyConfig{}

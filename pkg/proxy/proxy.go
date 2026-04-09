@@ -338,7 +338,7 @@ func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	p.envoyIntegration.RemoveNetworkPolicy(ep)
 }
 
-// ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
+// ChangeLogLevel changes proxy log level to correspond to the Cilium log 'level'.
 func (p *Proxy) ChangeLogLevel(level slog.Level) {
 	if err := p.envoyIntegration.changeLogLevel(level); err != nil {
 		p.logger.Debug("failed to change log level in Envoy proxy", logfields.Error, err)

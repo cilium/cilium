@@ -398,13 +398,13 @@ type Endpoint struct {
 	// loggerAttrs are attributes.
 	policyLoggerAttrs lock.Map[string, any]
 
-	// logger is a logrus object with fields set to report an endpoints information.
+	// logger is a logging wrapper with endpoint information pre-cached.
 	// This must only be accessed with atomic.LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
 	logger atomic.Pointer[slog.Logger]
 
-	// logger is a logrus object with fields set to report an endpoints information.
+	// loggerNoSubsys is a logging wrapper with endpoint information pre-cached.
 	// This must only be accessed with atomic.LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
@@ -415,7 +415,7 @@ type Endpoint struct {
 	// Points to a shared policy debug log file.
 	policyDebugLog io.Writer
 
-	// policyLogger is a logrus object with fields set to report an endpoints information.
+	// policyLogger is a logging wrapper with endpoint information pre-cached.
 	// This must only be accessed with atomic LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.

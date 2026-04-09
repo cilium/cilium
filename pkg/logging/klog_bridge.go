@@ -40,8 +40,7 @@ func initializeKLog(logger *slog.Logger) error {
 	// of klog so we want klog to log the errors to each writer of each level.
 	klogFlags.Set("logtostderr", "false")
 
-	// We don't need all headers because logrus will already print them if
-	// necessary.
+	// Cilium logger already prints the headers
 	klogFlags.Set("skip_headers", "true")
 
 	infoWriter, err := severityOverrideWriter(slog.LevelInfo, log, nil)

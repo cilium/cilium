@@ -710,7 +710,6 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 func TestRing_ReadFrom_Test_1(t *testing.T) {
 	defer testutils.GoleakVerifyNone(
 		t,
-		// ignore goroutines started by the redirect we do from klog to logrus
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
@@ -769,7 +768,6 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 func TestRing_ReadFrom_Test_2(t *testing.T) {
 	defer testutils.GoleakVerifyNone(
 		t,
-		// ignore goroutines started by the redirect we do from klog to logrus
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))
@@ -866,7 +864,6 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 func TestRing_ReadFrom_Test_3(t *testing.T) {
 	defer testutils.GoleakVerifyNone(
 		t,
-		// ignore goroutines started by the redirect we do from klog to logrus
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		testutils.GoleakIgnoreTopFunction("io.(*pipe).read"))

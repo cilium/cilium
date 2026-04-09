@@ -37,8 +37,8 @@ var defaultMultiSlogHandler = NewMultiSlogHandler(slog.NewTextHandler(
 // Default slog logger. Will be overwritten once initializeSlog is called.
 var DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 
-// Approximates the logrus output via slog for job groups during the transition
-// phase.
+// initializeSlog configures the slog library with options that retain parity
+// with the format that Cilium has traditionally used for outputting logs.
 func initializeSlog(logOpts LogOptions, loggers []string) {
 	opts := *slogHandlerOpts
 	opts.Level = logOpts.GetLogLevel()
