@@ -12,6 +12,6 @@ type networkQos struct{}
 
 func (t networkQos) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("network-qos", ct).
-		WithCondition(func() bool { return ct.Params().Perf }).
+		WithPerf().
 		WithScenarios(netperf.NetQos(""))
 }

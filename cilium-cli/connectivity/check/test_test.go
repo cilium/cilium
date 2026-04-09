@@ -130,3 +130,17 @@ func TestWithMultiNodeOnly(t *testing.T) {
 	assert.False(t, run)
 	assert.Equal(t, "test requires a multi-node cluster", reason)
 }
+
+func TestWithPerf(t *testing.T) {
+	mytest := NewTest("my-test", false, false).WithPerf()
+	mytest.ctx = &ConnectivityTest{params: Parameters{Perf: true}}
+	run, reason := mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
+
+	mytest = NewTest("my-test", false, false).WithPerf()
+	mytest.ctx = &ConnectivityTest{params: Parameters{Perf: false}}
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "network performance tests excluded", reason)
+}

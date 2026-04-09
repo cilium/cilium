@@ -12,6 +12,6 @@ type networkPerf struct{}
 
 func (t networkPerf) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("network-perf", ct).
-		WithCondition(func() bool { return ct.Params().Perf }).
+		WithPerf().
 		WithScenarios(netperf.Netperf(""))
 }

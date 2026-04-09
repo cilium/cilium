@@ -12,6 +12,6 @@ type networkBandwidthLimit struct{}
 
 func (t networkBandwidthLimit) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("network-bandwidth-limit", ct).
-		WithCondition(func() bool { return ct.Params().Perf }).
+		WithPerf().
 		WithScenarios(netperf.NetBandwidth(""))
 }
