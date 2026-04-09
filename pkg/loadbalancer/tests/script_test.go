@@ -91,7 +91,7 @@ func testScript(t *testing.T) {
 			var opts []hivetest.LogOption
 			if *debug {
 				opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
-				logging.SetLogLevelToDebug()
+				logging.SetLogLevel(slog.LevelDebug)
 			}
 			log := hivetest.Logger(t, opts...)
 

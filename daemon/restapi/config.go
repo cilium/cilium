@@ -276,7 +276,7 @@ func (h *ConfigModifyEventHandler) changedOption(key string, value option.Option
 	if key == option.Debug {
 		// Set the log level of the agent (this can be a no-op)
 		if option.Config.Opts.IsEnabled(option.Debug) {
-			logging.SetLogLevelToDebug()
+			logging.SetLogLevel(slog.LevelDebug)
 		} else {
 			logging.SetDefaultLogLevel()
 		}

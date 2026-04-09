@@ -103,11 +103,6 @@ func SetDefaultLogLevel() {
 	SetLogLevel(DefaultLogLevel)
 }
 
-// SetLogLevelToDebug updates the DefaultLogger with the logrus.DebugLevel
-func SetLogLevelToDebug() {
-	slogLeveler.Set(slog.LevelDebug)
-}
-
 // AddHandlers adds additional hooks to the default logger
 func AddHandlers(hooks ...slog.Handler) {
 	defaultMultiSlogHandler.AddHandlers(hooks...)

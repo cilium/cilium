@@ -5,6 +5,7 @@ package suite
 
 import (
 	"flag"
+	"log/slog"
 
 	"github.com/cilium/cilium/pkg/logging"
 )
@@ -18,6 +19,6 @@ var (
 func ParseFlags() {
 	flag.Parse()
 	if *FlagDebug {
-		logging.SetLogLevelToDebug()
+		logging.SetLogLevel(slog.LevelDebug)
 	}
 }

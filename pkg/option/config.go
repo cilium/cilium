@@ -3573,7 +3573,7 @@ func InitConfig(logger *slog.Logger, cmd *cobra.Command, programName, configName
 		// loading the configuration file since on configuration file read failure
 		// we will emit a debug log entry.
 		if vp.GetBool(DebugArg) {
-			logging.SetLogLevelToDebug()
+			logging.SetLogLevel(slog.LevelDebug)
 		}
 
 		// If a config file is found, read it in.
@@ -3592,7 +3592,7 @@ func InitConfig(logger *slog.Logger, cmd *cobra.Command, programName, configName
 		// Check for the debug flag again now that the configuration file may has
 		// been loaded, as it might have changed.
 		if vp.GetBool(DebugArg) {
-			logging.SetLogLevelToDebug()
+			logging.SetLogLevel(slog.LevelDebug)
 		}
 	}
 }

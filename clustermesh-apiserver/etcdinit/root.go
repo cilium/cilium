@@ -96,7 +96,7 @@ func InitEtcdLocal(log *slog.Logger) (returnErr error) {
 	defer cancelFn()
 
 	if debug {
-		logging.SetLogLevelToDebug()
+		logging.SetLogLevel(slog.LevelDebug)
 	}
 	log.Debug("Debug logging enabled")
 
