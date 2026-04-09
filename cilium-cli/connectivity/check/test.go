@@ -5,6 +5,7 @@ package check
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	_ "embed"
 	"errors"
@@ -63,13 +64,13 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		panic("empty test name")
 	}
 	test := &Test{
-		name:        name,
-		scenarios:   make(map[Scenario][]*Action),
-		resources:   []k8s.Object{},
-		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
-		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
-		conditionFn: nil,
-		verbose:     verbose,
+		name:       name,
+		scenarios:  make(map[Scenario][]*Action),
+		resources:  []k8s.Object{},
+		clrps:      make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
+		logBuf:     &bytes.Buffer{}, // maintain internal buffer by default
+		conditions: nil,
+		verbose:    verbose,
 	}
 	// Setting the internal buffer to nil causes the logger to
 	// write directly to stdout in verbose or debug mode.
@@ -146,10 +147,9 @@ type Test struct {
 	logBuf  io.ReadWriter
 	verbose bool
 
-	// conditionFn is a function that returns true if the test needs to run,
-	// and false otherwise. By default, it's set to a function that returns
-	// true.
-	conditionFn []func() bool
+	// conditions is a list of test conditions to evaluate whether the test
+	// should be run or skipped.
+	conditions []testCondition
 
 	// List of functions to be called when Run() returns.
 	finalizers []func(ctx context.Context) error
@@ -250,13 +250,15 @@ func (t *Test) versionInRange(version semver.Version) (bool, string) {
 	return true, "running version within range"
 }
 
-func (t *Test) checkConditions() bool {
-	for _, fn := range t.conditionFn {
-		if !fn() {
-			return false
+// checkConditions returns whether the test should be run based on the test
+// conditions and an optional skip reason string in case the test should be skipped.
+func (t *Test) checkConditions() (bool, string) {
+	for _, cond := range t.conditions {
+		if !cond.fn() {
+			return false, cmp.Or(cond.reason, "skipped by condition")
 		}
 	}
-	return true
+	return true, ""
 }
 
 // willRun returns false if all of the Test's Scenarios are skipped by the user,
@@ -269,8 +271,8 @@ func (t *Test) checkConditions() bool {
 // excluding tests, they're most likely interested in other reasons why their
 // test is not being executed.
 func (t *Test) willRun() (bool, string) {
-	if !t.checkConditions() {
-		return false, "skipped by condition"
+	if run, reason := t.checkConditions(); !run {
+		return false, reason
 	}
 
 	// Check if the running Cilium version is within range of the value specified
@@ -394,12 +396,27 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	return nil
 }
 
+// testCondition is a test condition to evaluate whether a test should be run.
+type testCondition struct {
+	// fn is a function that returns true if the test needs to run, and
+	// false if the test should be skipped.
+	fn func() bool
+	// reason is an optional message that is printed if the test is skipped
+	// based on the test condition.
+	reason string
+}
+
 // WithCondition takes a function containing condition check logic that
 // returns true if the test needs to be run, and false otherwise. If
 // WithCondition gets called multiple times, all the conditions need to be
-// satisfied for the test to run.
-func (t *Test) WithCondition(fn func() bool) *Test {
-	t.conditionFn = append(t.conditionFn, fn)
+// satisfied for the test to run. It takes an optional reason message that is
+// printed if the test is skipped based on the condition.
+func (t *Test) WithCondition(fn func() bool, reason ...string) *Test {
+	r := ""
+	if len(reason) > 0 {
+		r = reason[0]
+	}
+	t.conditions = append(t.conditions, testCondition{fn, r})
 	return t
 }
 

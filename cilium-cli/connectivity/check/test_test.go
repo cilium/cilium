@@ -57,23 +57,48 @@ func TestWithFeatureRequirements(t *testing.T) {
 
 func TestWithCondition(t *testing.T) {
 	mytest := NewTest("my-test", false, false)
-	assert.True(t, mytest.checkConditions())
+	run, reason := mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
 
 	mytest = NewTest("my-test", false, false).
 		WithCondition(func() bool { return true })
-	assert.True(t, mytest.checkConditions())
+	run, reason = mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
 
 	mytest = NewTest("my-test", false, false).
 		WithCondition(func() bool { return false })
-	assert.False(t, mytest.checkConditions())
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "skipped by condition", reason)
 
 	mytest = NewTest("my-test", false, false).
 		WithCondition(func() bool { return true }).
 		WithCondition(func() bool { return false })
-	assert.False(t, mytest.checkConditions())
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "skipped by condition", reason)
 
 	mytest = NewTest("my-test", false, false).
 		WithCondition(func() bool { return false }).
 		WithCondition(func() bool { return true })
-	assert.False(t, mytest.checkConditions())
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "skipped by condition", reason)
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return false }).
+		WithCondition(func() bool { return true }, "reason")
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "skipped by condition", reason)
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return false }, "reason 1").
+		WithCondition(func() bool { return true }, "reason 2")
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "reason 1", reason)
+
 }
