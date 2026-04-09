@@ -399,6 +399,9 @@ Changed Metrics
 * The metric ``policy_change_total`` now reports additional ``source`` (directory, k8s, custom, generated)
   and ``operation`` (update, delete) dimensions.
 * The metric ``endpoint_regeneration_total`` now reports additional ``reason`` and ``error`` dimensions.
+* The ``session_state``, ``advertised_routes``, ``received_routes``, ``reconcile_errors_total``, ``reconcile_run_duration_seconds`` metrics
+  now include ``instance_name`` label. Label ``vrouter`` is removed please use ``instance_name`` instead.
+* The ``session_state``, ``advertised_routes``, ``received_routes`` metrics now include ``local_asn`` label.
 
 Deprecated Metrics
 ##################

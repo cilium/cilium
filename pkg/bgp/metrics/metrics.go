@@ -54,17 +54,17 @@ func RegisterCollector(in collectorIn) {
 		SessionState: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "session_state"),
 			"Current state of the BGP session with the peer, Up = 1 or Down = 0",
-			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn}, nil,
+			[]string{types.LabelName, types.LabelLocalAsn, types.LabelNeighbor, types.LabelNeighborAsn}, nil,
 		),
 		TotalAdvertisedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "advertised_routes"),
 			"Number of routes advertised to the peer",
-			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
+			[]string{types.LabelName, types.LabelLocalAsn, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
 		),
 		TotalReceivedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, types.MetricsSubsystem, "received_routes"),
 			"Number of routes received from the peer",
-			[]string{types.LabelVRouter, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
+			[]string{types.LabelName, types.LabelLocalAsn, types.LabelNeighbor, types.LabelNeighborAsn, types.LabelAfi, types.LabelSafi}, nil,
 		),
 		in: in,
 	})
@@ -83,69 +83,63 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	// revisit this timeout when the metrics collection starts to involve a
 	// network communication.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	peers, err := c.in.RouterManager.GetPeersLegacy(ctx)
+	getPeersResponse, err := c.in.RouterManager.GetPeers(ctx, &agent.GetPeersRequest{})
 	cancel()
 	if err != nil {
 		c.in.Logger.Error("Failed to retrieve BGP peer information. Metrics is not collected.", logfields.Error, err)
 		return
 	}
 
-	for _, peer := range peers {
-		if peer == nil {
-			continue
-		}
+	for _, instance := range getPeersResponse.Instances {
+		for _, peer := range instance.Peers {
+			localAsnLabel := strconv.FormatInt(peer.LocalAsn, 10)
+			neighborLabel := netip.AddrPortFrom(peer.Address, uint16(peer.Port)).String()
+			neighborAsnLabel := strconv.FormatInt(peer.PeerAsn, 10)
 
-		vrouterLabel := strconv.FormatInt(peer.LocalAsn, 10)
-
-		addr, err := netip.ParseAddr(peer.PeerAddress)
-		if err != nil {
-			continue
-		}
-
-		neighborLabel := netip.AddrPortFrom(addr, uint16(peer.PeerPort)).String()
-		neighborAsnLabel := strconv.FormatInt(peer.PeerAsn, 10)
-
-		// Collect session state metrics
-		var up float64
-		if peer.SessionState == types.SessionEstablished.String() {
-			up = 1
-		} else {
-			up = 0
-		}
-		ch <- prometheus.MustNewConstMetric(
-			c.SessionState,
-			prometheus.GaugeValue,
-			up,
-			vrouterLabel,
-			neighborLabel,
-			neighborAsnLabel,
-		)
-
-		// Collect route metrics per address family
-		for _, family := range peer.Families {
-			if family == nil {
-				continue
+			// Collect session state metrics
+			var up float64
+			if peer.SessionState == types.SessionEstablished {
+				up = 1
+			} else {
+				up = 0
 			}
 			ch <- prometheus.MustNewConstMetric(
-				c.TotalAdvertisedRoutes,
+				c.SessionState,
 				prometheus.GaugeValue,
-				float64(family.Advertised),
-				vrouterLabel,
+				up,
+				instance.Name,
+				localAsnLabel,
 				neighborLabel,
 				neighborAsnLabel,
-				family.Afi,
-				family.Safi,
 			)
-			ch <- prometheus.MustNewConstMetric(
-				c.TotalReceivedRoutes,
-				prometheus.GaugeValue,
-				float64(family.Received),
-				vrouterLabel,
-				neighborLabel,
-				neighborAsnLabel,
-				family.Afi,
-				family.Safi,
-			)
+
+			// Collect route metrics per address family
+			if up == 1 {
+				for _, family := range peer.Families {
+					ch <- prometheus.MustNewConstMetric(
+						c.TotalAdvertisedRoutes,
+						prometheus.GaugeValue,
+						float64(family.AdvertisedRoutes),
+						instance.Name,
+						localAsnLabel,
+						neighborLabel,
+						neighborAsnLabel,
+						family.Family.Afi.String(),
+						family.Family.Safi.String(),
+					)
+					ch <- prometheus.MustNewConstMetric(
+						c.TotalReceivedRoutes,
+						prometheus.GaugeValue,
+						float64(family.ReceivedRoutes),
+						instance.Name,
+						localAsnLabel,
+						neighborLabel,
+						neighborAsnLabel,
+						family.Family.Afi.String(),
+						family.Family.Safi.String(),
+					)
+				}
+			}
 		}
 	}
 }

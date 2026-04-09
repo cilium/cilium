@@ -18,7 +18,8 @@ import (
 // BGP metric labels
 const (
 	LabelClusterConfig = "bgp_cluster_config"
-	LabelVRouter       = "vrouter"
+	LabelName          = "instance_name"
+	LabelLocalAsn      = "local_asn"
 	LabelNeighbor      = "neighbor"
 	LabelNeighborAsn   = "neighbor_asn"
 	LabelAfi           = "afi"
@@ -146,6 +147,17 @@ type PeerState struct {
 
 	// Address of the peer
 	Address netip.Addr
+
+	// Local AS Number
+	LocalAsn int64
+
+	// Peer AS Number
+	PeerAsn int64
+
+	// TCP port number of peer
+	// Maximum: 65535
+	// Minimum: 1
+	Port int64
 
 	// BGP peer state
 	SessionState SessionState

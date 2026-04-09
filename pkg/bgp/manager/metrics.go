@@ -26,12 +26,12 @@ func NewBGPManagerMetrics() *BGPManagerMetrics {
 			Subsystem: types.MetricsSubsystem,
 			Name:      types.MetricReconcileErrorsTotal,
 			Help:      "The number of errors during reconciliation of the BGP manager",
-		}, []string{types.LabelVRouter}),
+		}, []string{types.LabelName}),
 		ReconcileRunDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			Namespace: metrics.Namespace,
 			Subsystem: types.MetricsSubsystem,
 			Name:      types.MetricReconcileRunDurationSeconds,
 			Help:      "The duration of the BGP manager reconciliation run",
-		}, []string{types.LabelVRouter}),
+		}, []string{types.LabelName}),
 	}
 }
