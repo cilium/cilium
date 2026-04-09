@@ -8,9 +8,11 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -132,6 +134,12 @@ func TestDecodeTraceNotifyExtension(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 		err := binary.Write(buf, binary.NativeEndian, tc.tn)
 		require.NoError(t, err)
+		// binary.Write serializes the full Go TraceNotify struct
+		// (72 bytes — includes the v3 Packets/Bytes fields), but
+		// the v2 wire format is only 56 bytes. Truncate to the
+		// version-specific header length so the extension and the
+		// trailing magic land at the offset DataOffset() reports.
+		buf.Truncate(int(traceNotifyLength[tc.tn.Version]))
 		err = binary.Write(buf, binary.NativeEndian, tc.extension)
 		require.NoError(t, err)
 		err = binary.Write(buf, binary.NativeEndian, uint32(0xDEADBEEF))
@@ -429,4 +437,51 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func TestDecodeTraceNotifyV3(t *testing.T) {
+	// Construct a v3 trace notification with CT counters.
+	in := TraceNotify{
+		Type:      uint8(monitorAPI.MessageTypeTrace),
+		Version:   TraceNotifyVersion3,
+		ObsPoint:  0,
+		Source:    1234,
+		Hash:      0,
+		OrigIP:    types.IPv6{1, 2, 3, 4},
+		IPTraceID: 42,
+		Packets:   1234,
+		Bytes:     123456,
+	}
+
+	buf := bytes.NewBuffer(nil)
+	err := binary.Write(buf, binary.NativeEndian, in)
+	require.NoError(t, err)
+	require.Equal(t, traceNotifyV3Len, buf.Len())
+
+	dn := TraceNotify{}
+	err = dn.Decode(buf.Bytes())
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1234), dn.Packets)
+	assert.Equal(t, uint64(123456), dn.Bytes)
+	assert.Equal(t, uint64(42), dn.IPTraceID)
+	assert.Equal(t, uint(traceNotifyV3Len), dn.DataOffset())
+}
+
+func TestDecodeTraceNotifyV3TooShort(t *testing.T) {
+	// v3 header but only v2-length data -> should error
+	in := TraceNotify{
+		Type:    uint8(monitorAPI.MessageTypeTrace),
+		Version: TraceNotifyVersion3,
+	}
+
+	buf := bytes.NewBuffer(nil)
+	err := binary.Write(buf, binary.NativeEndian, in)
+	require.NoError(t, err)
+
+	// Truncate to v2 length to simulate too-short data for v3.
+	shortBuf := buf.Bytes()[:traceNotifyV2Len]
+
+	dn := TraceNotify{}
+	err = dn.Decode(shortBuf)
+	assert.Error(t, err)
 }

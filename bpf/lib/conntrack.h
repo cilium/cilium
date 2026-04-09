@@ -54,6 +54,16 @@ struct ct_state {
 	      reserved:7;
 	__u32 src_sec_id;
 	__u32 backend_id;	/* Backend ID in lb4_backends */
+	/* Generation number written by the __ct_lookup() that filled this
+	 * struct when CONFIG(enable_conntrack_accounting) is on. Paired
+	 * with the per-CPU CT_ACCT_MAP scratch slot's seqno to authenticate
+	 * that the scratch still holds counters for this lookup. 0 means
+	 * "no lookup attached" — zero-initialized ct_states are skipped by
+	 * send_trace_notify_acct(). When the runtime knob is off, every
+	 * lookup leaves this at 0, so _fill_trace_acct() always degrades
+	 * to emitting zero counters.
+	 */
+	__u32 acct_seqno;
 };
 
 static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
@@ -279,6 +289,24 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
 		state->nat_port = entry->nat_port;
 	}
+
+	if (CONFIG(enable_conntrack_accounting)) {
+		__u32 acct_key = 0;
+		struct ct_acct_value *acct;
+
+		acct = map_lookup_elem(&CT_ACCT_MAP, &acct_key);
+		if (always_succeeds(acct)) {
+			acct->packets = entry->packets;
+			acct->bytes = entry->bytes;
+			/* Mint a fresh generation. Skip 0 on wrap so 0
+			 * remains a reliable "no lookup" sentinel.
+			 */
+			acct->seqno += 1;
+			if (unlikely(acct->seqno == 0))
+				acct->seqno = 1;
+			state->acct_seqno = acct->seqno;
+		}
+	}
 }
 
 static __always_inline void ct_reset_seen_flags(struct ct_entry *entry)
@@ -439,6 +467,21 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	}
 
 ct_new: __maybe_unused;
+	if (CONFIG(enable_conntrack_accounting)) {
+		__u32 acct_key = 0;
+		struct ct_acct_value *acct;
+
+		acct = map_lookup_elem(&CT_ACCT_MAP, &acct_key);
+		if (always_succeeds(acct)) {
+			acct->packets = 0;
+			acct->bytes = 0;
+			acct->seqno += 1;
+			if (unlikely(acct->seqno == 0))
+				acct->seqno = 1;
+			if (ct_state)
+				ct_state->acct_seqno = acct->seqno;
+		}
+	}
 	*monitor = TRACE_PAYLOAD_LEN;
 	return CT_NEW;
 }

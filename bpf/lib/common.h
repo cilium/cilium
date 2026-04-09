@@ -203,6 +203,30 @@ struct srv6_policy_key6 {
 	union v6addr dst_cidr;
 };
 
+/* Per-CPU scratch slot carrying packet/byte counters retrieved by the most
+ * recent __ct_lookup() on this CPU, plus a generation number used to
+ * authenticate the slot against a ct_state that has been carried up the
+ * stack or through a tail-call buffer (see struct ct_state::acct_seqno).
+ *
+ * Read only by send_trace_notify_acct(). Writers (in __ct_lookup) bump
+ * seqno on every write; consumers verify scratch.seqno equals the
+ * ct_state.acct_seqno stamped at the matching lookup. Mismatch ⇒ the
+ * scratch has been overwritten by a later lookup on this CPU and the
+ * caller emits zeros rather than misattributing.
+ */
+struct ct_acct_value {
+	__u64 packets;
+	__u64 bytes;
+	__u32 seqno;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_acct_value);
+	__uint(max_entries, 1);
+} CT_ACCT_MAP __section_maps_btf;
+
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif

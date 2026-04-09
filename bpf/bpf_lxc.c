@@ -702,9 +702,10 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	 */
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+		send_trace_notify_acct(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+				       bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				       trace->reason, trace->monitor,
+				       bpf_htons(ETH_P_IPV6), ct_state);
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
@@ -796,9 +797,10 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 		switch (ret) {
 		case CTX_ACT_REDIRECT:
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+			send_trace_notify_acct(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
+					       dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
+					       trace->reason, trace->monitor,
+					       bpf_htons(ETH_P_IPV6), ct_state);
 			return ret;
 		case DROP_NO_FIB:
 			/* Error handling for local routes - just pass the packet to the kernel stack */
@@ -818,9 +820,10 @@ pass_to_stack: __maybe_unused
 		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 #endif /* !ENABLE_ROUTING */
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+	send_trace_notify_acct(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
+			       TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			       trace->reason, trace->monitor,
+			       bpf_htons(ETH_P_IPV6), ct_state);
 
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
@@ -991,10 +994,11 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor, bpf_htons(ETH_P_IPV6));
+			send_trace_notify_acct(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
+					       UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					       TRACE_IFINDEX_UNKNOWN, trace.reason,
+					       trace.monitor,
+					       bpf_htons(ETH_P_IPV6), ct_state);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
@@ -1043,11 +1047,11 @@ ct_recreate6:
 		 * Needed for compatibility with pre-v1.19 CT entries.
 		 */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor,
-					  bpf_htons(ETH_P_IPV6));
+			send_trace_notify_acct(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
+					       *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
+					       TRACE_IFINDEX_UNKNOWN,
+					       trace.reason, trace.monitor,
+					       bpf_htons(ETH_P_IPV6), ct_state);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
@@ -1190,9 +1194,10 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 */
 	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
+		send_trace_notify_acct(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+				       bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				       trace->reason, trace->monitor,
+				       bpf_htons(ETH_P_IP), ct_state);
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
@@ -1362,9 +1367,10 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 		switch (ret) {
 		case CTX_ACT_REDIRECT:
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
+			send_trace_notify_acct(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
+					       dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
+					       trace->reason, trace->monitor,
+					       bpf_htons(ETH_P_IP), ct_state);
 			return ret;
 		case DROP_NO_FIB:
 			/* Error handling for local routes - just pass the packet to the kernel stack */
@@ -1392,9 +1398,10 @@ pass_to_stack: __maybe_unused
 		return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
 #endif /* !ENABLE_ROUTING */
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
+	send_trace_notify_acct(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
+			       TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			       trace->reason, trace->monitor,
+			       bpf_htons(ETH_P_IP), ct_state);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
@@ -1560,10 +1567,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
-			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
-					  UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN, trace.reason,
-					  trace.monitor, bpf_htons(ETH_P_IP));
+			send_trace_notify_acct(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
+					       UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					       TRACE_IFINDEX_UNKNOWN, trace.reason,
+					       trace.monitor,
+					       bpf_htons(ETH_P_IP), ct_state);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
@@ -1635,11 +1643,11 @@ ct_recreate4:
 		 * so make sure that we only send TCP/UDP/SCTP down this way.
 		 */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor,
-					  bpf_htons(ETH_P_IP));
+			send_trace_notify_acct(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
+					       *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
+					       TRACE_IFINDEX_UNKNOWN,
+					       trace.reason, trace.monitor,
+					       bpf_htons(ETH_P_IP), ct_state);
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
@@ -1992,15 +2000,16 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		goto redirect_to_proxy;
 
 	/* Not redirected to host / proxy. */
-	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
-			   LXC_ID, ifindex, trace.reason, trace.monitor);
+	send_trace_notify6_acct(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
+				LXC_ID, ifindex, trace.reason, trace.monitor,
+				ct_state);
 
 	return CTX_ACT_OK;
 
 redirect_to_proxy:
-	send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
-			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-			   trace.monitor);
+	send_trace_notify6_acct(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV6, &orig_sip,
+				bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				trace.monitor, ct_state);
 	if (tuple_out)
 		memcpy(tuple_out, tuple, sizeof(*tuple));
 	return POLICY_ACT_PROXY_REDIRECT;
@@ -2305,15 +2314,16 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		goto redirect_to_proxy;
 
 	/* Not redirected to host / proxy. */
-	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
-			   LXC_ID, ifindex, trace.reason, trace.monitor);
+	send_trace_notify4_acct(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
+				LXC_ID, ifindex, trace.reason, trace.monitor,
+				ct_state);
 
 	return CTX_ACT_OK;
 
 redirect_to_proxy:
-	send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
-			   bpf_ntohs(*proxy_port), ifindex, trace.reason,
-			   trace.monitor);
+	send_trace_notify4_acct(ctx, TRACE_TO_PROXY, src_label, SECLABEL_IPV4, orig_sip,
+				bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				trace.monitor, ct_state);
 	if (tuple_out)
 		*tuple_out = *tuple;
 	return POLICY_ACT_PROXY_REDIRECT;
