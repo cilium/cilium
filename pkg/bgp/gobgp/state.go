@@ -55,6 +55,10 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 
 		state := types.PeerState{}
 
+		if peer.Transport != nil {
+			state.Port = int64(peer.Transport.RemotePort)
+		}
+
 		if peer.Conf != nil {
 			if peer.Conf.Description != "" {
 				pd := peerDescription{}
@@ -69,6 +73,8 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 			// the invalid case.
 			addr, _ := netip.ParseAddr(peer.Conf.NeighborAddress)
 			state.Address = addr
+			state.LocalAsn = int64(peer.Conf.LocalAsn)
+			state.PeerAsn = int64(peer.Conf.PeerAsn)
 		}
 
 		if peer.State != nil {
