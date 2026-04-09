@@ -17,7 +17,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	// Encryption checks are always executed as a sanity check, asserting whether
 	// unencrypted packets shall, or shall not, be observed based on the feature set.
 	newTest("pod-to-pod-encryption-v2", ct).
-		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithMultiNodeOnly().
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
@@ -25,7 +25,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 		)
 
 	newTest("pod-to-pod-with-l7-policy-encryption-v2", ct).
-		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithMultiNodeOnly().
 		WithCiliumVersion(">=1.18.0").
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),

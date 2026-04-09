@@ -43,7 +43,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]st
 		WithExpectations(expectation)
 
 	newTest("echo-ingress-l7-via-hostport", ct).
-		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithMultiNodeOnly().
 		WithCondition(func() bool {
 			if ok, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.L7Proxy)); !ok {
 				return false

@@ -116,3 +116,17 @@ func TestWithUnsafeTests(t *testing.T) {
 	assert.False(t, run)
 	assert.Equal(t, "unsafe test which can modify state of cluster nodes", reason)
 }
+
+func TestWithMultiNodeOnly(t *testing.T) {
+	mytest := NewTest("my-test", false, false).WithMultiNodeOnly()
+	mytest.ctx = &ConnectivityTest{params: Parameters{SingleNode: false}}
+	run, reason := mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
+
+	mytest = NewTest("my-test", false, false).WithMultiNodeOnly()
+	mytest.ctx = &ConnectivityTest{params: Parameters{SingleNode: true}}
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "test requires a multi-node cluster", reason)
+}

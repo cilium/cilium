@@ -12,7 +12,7 @@ type noFragmentation struct{}
 
 func (t noFragmentation) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("pod-to-pod-no-frag", ct).
-		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithMultiNodeOnly().
 		WithScenarios(
 			tests.PodToPodNoFrag(),
 		)

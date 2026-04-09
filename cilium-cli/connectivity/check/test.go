@@ -430,6 +430,15 @@ func (t *Test) WithUnsafeTests() *Test {
 	)
 }
 
+// WithMultiNodeOnly causes the test to only be executed in multi-node
+// environments.
+func (t *Test) WithMultiNodeOnly() *Test {
+	return t.WithCondition(
+		func() bool { return !t.ctx.Params().SingleNode },
+		"test requires a multi-node cluster",
+	)
+}
+
 // WithCiliumVersion limits test execution to Cilium versions that fall within
 // the given range. The input string is passed to [semver.ParseRange], see
 // package semver. Simple examples: ">1.0.0 <2.0.0" or ">=1.14.0".
