@@ -17,7 +17,7 @@ type podToControlplaneHost struct{}
 
 func (t podToControlplaneHost) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("pod-to-controlplane-host", ct).
-		WithCondition(func() bool { return ct.Params().K8sLocalHostTest }).
+		WithK8sLocalHostTest().
 		WithCiliumPolicy(clientEgressToEntitiesHostPolicyYAML).
 		WithScenarios(tests.PodToControlPlaneHost())
 }

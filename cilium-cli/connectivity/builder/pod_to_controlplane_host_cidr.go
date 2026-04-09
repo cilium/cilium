@@ -15,7 +15,7 @@ func (t podToControlplaneHostCidr) build(ct *check.ConnectivityTest, templates m
 	// Check that pods can access  when referencing them by CIDR selectors
 	// (when this feature is enabled).
 	newTest("pod-to-controlplane-host-cidr", ct).
-		WithCondition(func() bool { return ct.Params().K8sLocalHostTest }).
+		WithK8sLocalHostTest().
 		WithFeatureRequirements(features.RequireEnabled(features.CIDRMatchNodes)).
 		WithK8SPolicy(templates["clientEgressToCIDRCPHostPolicyYAML"]).
 		WithScenarios(tests.PodToControlPlaneHost())

@@ -144,3 +144,17 @@ func TestWithPerf(t *testing.T) {
 	assert.False(t, run)
 	assert.Equal(t, "network performance tests excluded", reason)
 }
+
+func TestWithK8sLocalHostTest(t *testing.T) {
+	mytest := NewTest("my-test", false, false).WithK8sLocalHostTest()
+	mytest.ctx = &ConnectivityTest{params: Parameters{K8sLocalHostTest: true}}
+	run, reason := mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
+
+	mytest = NewTest("my-test", false, false).WithK8sLocalHostTest()
+	mytest.ctx = &ConnectivityTest{params: Parameters{K8sLocalHostTest: false}}
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "k8s localhost tests excluded", reason)
+}

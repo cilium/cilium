@@ -13,7 +13,7 @@ type podToK8sOnControlplaneCidr struct{}
 
 func (t podToK8sOnControlplaneCidr) build(ct *check.ConnectivityTest, templates map[string]string) {
 	newTest("pod-to-k8s-on-controlplane-cidr", ct).
-		WithCondition(func() bool { return ct.Params().K8sLocalHostTest }).
+		WithK8sLocalHostTest().
 		WithFeatureRequirements(features.RequireEnabled(features.CIDRMatchNodes)).
 		WithCiliumPolicy(templates["clientEgressToCIDRK8sPolicyKNPYAML"]).
 		WithScenarios(tests.PodToK8sLocal())
