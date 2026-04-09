@@ -103,6 +103,13 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 			return false, nil
 		}
+
+		caCertBytes := []byte(caCert.Data["ca.crt"])
+		if !helpers.IsValidPemFormat(caCertBytes) {
+			b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain at least one valid PEM-encoded certificate",
+				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
+			return false, nil
+		}
 	}
 
 	return true, nil

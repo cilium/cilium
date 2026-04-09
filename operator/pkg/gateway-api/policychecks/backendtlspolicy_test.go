@@ -35,6 +35,33 @@ func testScheme() *runtime.Scheme {
 	return scheme
 }
 
+var caCert = `-----BEGIN CERTIFICATE-----
+MIIENDCCApygAwIBAgIRAKD/BLFBfwKIZ0WGrHtTH6gwDQYJKoZIhvcNAQELBQAw
+dzEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMSYwJAYDVQQLDB10YW1t
+YWNoQGZlZG9yYS5sYW4gKFRhbSBNYWNoKTEtMCsGA1UEAwwkbWtjZXJ0IHRhbW1h
+Y2hAZmVkb3JhLmxhbiAoVGFtIE1hY2gpMB4XDTIzMDIyMTExMDg0M1oXDTI1MDUy
+MTEyMDg0M1owUTEnMCUGA1UEChMebWtjZXJ0IGRldmVsb3BtZW50IGNlcnRpZmlj
+YXRlMSYwJAYDVQQLDB10YW1tYWNoQGZlZG9yYS5sYW4gKFRhbSBNYWNoKTCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMIZy+0JRVjqpWgeq2dP+1oliO4A
+CcZnMg4tSqPalhDQL6Mf68HYLfizyJIpRzMJ905rYd0AcmXmu/g0Eo8ykHxFDz5T
+sePs2XQng8MN4azsRmm1l4f74ovawQzQcb822QP1CS6ILZ3VtwNjRh2nAwthYBMo
+CkngDGeQ8Gl0tjHLFnBdTdSwQRmE2jtDBcAgyEGpq+6ReYt+/47nNn7dCftsVqhE
+BYr9XH3itefHmsbfj7zWFbptdko7q9lMHwnBd+0hd40MmJIXMZrOGGFZjawJDBqS
+sBq2Q3l6XQz8X7P/GA8Dn8h4w3rppmiaN7LOmGXeki3xX2wqnM+0s6aZYZsCAwEA
+AaNhMF8wDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMB8GA1Ud
+IwQYMBaAFGQ2DB06CdQFQBsYPye0NBwErUNEMBcGA1UdEQQQMA6CDHVuaXR0ZXN0
+LmNvbTANBgkqhkiG9w0BAQsFAAOCAYEArtHdKWXR6aELpfal17biabCPvIF9j6nw
+uDzcdMYQLrXm8M+NHe8x3dpI7u3lltO+dzLng+nVKQOR3alQACSmRD9c7ie8eT5d
+7zKOTk6keY195I1wVV4jbNLbNWa9y4RJQRTvBLAvAP9NVtUw2Q/w/ErUTqSyz+ob
+dwnt4gYCw6dGnluLxlfF34DB9KflvVNSnkyMB/gsB4A3r1GPOIo0Gyf74ig3FWrS
+wHYKnBbtZfYO0JV0LCoPyHe8g0XajZe8DCbP/E6SmlTNAmJESVjigTTcIBAkFI+n
+toBAdxfhjKUGaClOHS29cpaiynjSayGm4RkHkx7mcAua9lWPf7pSa3mCcFb+wFr3
+ABkHDPJH2acfaUK1vgKTgOwcG/6KA820/PraoSihLaPK/A7eg77r1EeYpt0Neppb
+XjvUp3YmVlIMZXPzrjOsastoDSrsygj5jdVtm4Pslv9nPhzDrBjlZpEJScW4Jlb+
+6wtd7p03UDBSKfTbVROVAe5mvJvA0hoS
+-----END CERTIFICATE-----
+`
+
 func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
@@ -291,7 +318,7 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 			},
 		},
 		{
-			name: "CACertificateRef exists, has right key",
+			name: "CACertificateRef exists, has right key, but no cert",
 			btlsp: &gatewayv1.BackendTLSPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-both-set",
@@ -317,6 +344,59 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 				},
 				Data: map[string]string{
 					"ca.crt": "data",
+				},
+			},
+			wantValid: false,
+			wantStatus: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						AncestorRef:    echoaAncestorRef,
+						ControllerName: controllerName,
+						Conditions: []metav1.Condition{
+							{
+								Type:    "Accepted",
+								Status:  "False",
+								Reason:  "NoValidCACertificate",
+								Message: "CA Certificate ConfigMap does not contain at least one valid PEM-encoded certificate",
+							},
+							{
+								Type:    "ResolvedRefs",
+								Status:  "False",
+								Reason:  "InvalidCACertificateRef",
+								Message: "CA Certificate ConfigMap does not contain at least one valid PEM-encoded certificate",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "CACertificateRef exists, has right key, has cert",
+			btlsp: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-both-set",
+					Namespace: "default",
+				},
+				TypeMeta: backendTLSPolicyTypeMeta,
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("ConfigMap"),
+								Name:  gatewayv1.ObjectName("echo-ca"),
+							},
+						},
+					},
+				},
+			},
+			caCert: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "echo-ca",
+					Namespace: "default",
+				},
+				Data: map[string]string{
+					"ca.crt": caCert,
 				},
 			},
 			wantValid: true,
@@ -347,7 +427,7 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 				BackendTLSPolicy: tt.btlsp,
 			}
 			gotvalid, gotErr := b.ValidateSpec(context.Background(), logger, echoaAncestorRef)
-			statusDiff := cmp.Diff(b.BackendTLSPolicy.Status, tt.wantStatus, cmpIgnoreFields...)
+			statusDiff := cmp.Diff(tt.wantStatus, b.BackendTLSPolicy.Status, cmpIgnoreFields...)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("ValidateSpec() failed: %v", gotErr)
