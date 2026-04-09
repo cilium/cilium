@@ -61,6 +61,8 @@ runs:
              effect: "NoExecute"
         EOF
 
+        echo "TEST: $MARC_TEST_SECRET"
+
     - name: Create nodegroup details from provided configuration
       if: ${{ inputs.node_groups_override != '' }}
       shell: bash
