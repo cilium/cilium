@@ -13,7 +13,7 @@ type noPoliciesFromOutside struct{}
 
 func (t noPoliciesFromOutside) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("no-policies-from-outside", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().
 		WithScenarios(tests.FromCIDRToPod())

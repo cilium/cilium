@@ -102,3 +102,17 @@ func TestWithCondition(t *testing.T) {
 	assert.Equal(t, "reason 1", reason)
 
 }
+
+func TestWithUnsafeTests(t *testing.T) {
+	mytest := NewTest("my-test", false, false).WithUnsafeTests()
+	mytest.ctx = &ConnectivityTest{params: Parameters{IncludeUnsafeTests: true}}
+	run, reason := mytest.checkConditions()
+	assert.True(t, run)
+	assert.Empty(t, reason)
+
+	mytest = NewTest("my-test", false, false).WithUnsafeTests()
+	mytest.ctx = &ConnectivityTest{params: Parameters{IncludeUnsafeTests: false}}
+	run, reason = mytest.checkConditions()
+	assert.False(t, run)
+	assert.Equal(t, "unsafe test which can modify state of cluster nodes", reason)
+}

@@ -18,7 +18,7 @@ type hostFirewallIngress struct{}
 
 func (t hostFirewallIngress) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("host-firewall-ingress", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithFeatureRequirements(features.RequireEnabled(features.HostFirewall)).
 		WithCiliumClusterwidePolicy(hostFirewallIngressPolicyYAML).
 		WithScenarios(tests.PodToHost()).

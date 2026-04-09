@@ -420,6 +420,16 @@ func (t *Test) WithCondition(fn func() bool, reason ...string) *Test {
 	return t
 }
 
+// WithUnsafeTests causes the test to only be executed in case unsafe tests
+// modifying the state of cluster nodes are included via the
+// include-unsafe-tests command line option.
+func (t *Test) WithUnsafeTests() *Test {
+	return t.WithCondition(
+		func() bool { return t.ctx.Params().IncludeUnsafeTests },
+		"unsafe test which can modify state of cluster nodes",
+	)
+}
+
 // WithCiliumVersion limits test execution to Cilium versions that fall within
 // the given range. The input string is passed to [semver.ParseRange], see
 // package semver. Simple examples: ">1.0.0 <2.0.0" or ">=1.14.0".

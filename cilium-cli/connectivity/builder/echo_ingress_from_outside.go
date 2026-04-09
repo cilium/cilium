@@ -13,7 +13,7 @@ type echoIngressFromOutside struct{}
 
 func (t echoIngressFromOutside) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("echo-ingress-from-outside", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().

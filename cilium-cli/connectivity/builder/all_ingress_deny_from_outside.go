@@ -13,7 +13,7 @@ type allIngressDenyFromOutside struct{}
 
 func (t allIngressDenyFromOutside) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("all-ingress-deny-from-outside", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().

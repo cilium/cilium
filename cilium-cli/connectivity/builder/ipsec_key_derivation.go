@@ -14,9 +14,7 @@ type ipsecKeyDerivation struct{}
 func (t ipsecKeyDerivation) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("ipsec-key-derivation-validation", ct).
 		WithCiliumVersion(">=1.19.0-pre.0").
-		WithCondition(func() bool {
-			return ct.Params().IncludeUnsafeTests
-		}).
+		WithUnsafeTests().
 		WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
 		WithScenarios(tests.IPsecKeyDerivationValidation())
 }

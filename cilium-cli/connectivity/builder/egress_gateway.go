@@ -15,7 +15,7 @@ type egressGateway struct{}
 
 func (t egressGateway) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("egress-gateway", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 			Name:            fmt.Sprintf("cegp-sample-client-%d", ct.Params().TestNamespaceIndex),
 			PodSelectorKind: "client",

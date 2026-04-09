@@ -18,7 +18,7 @@ type hostFirewallEgress struct{}
 
 func (t hostFirewallEgress) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("host-firewall-egress", ct).
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithFeatureRequirements(features.RequireEnabled(features.HostFirewall)).
 		WithCiliumClusterwidePolicy(hostFirewallEgressPolicyYAML).
 		WithScenarios(tests.HostToPod()).
