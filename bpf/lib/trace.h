@@ -152,6 +152,9 @@ struct trace_ctx {
 			 */
 };
 
+/* Wire format v3: adds per-flow CT ct_packets/ct_bytes after ip_trace_id,
+ * populated only by the send_trace_notify*_acct() call sites (else 0).
+ */
 struct trace_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -167,13 +170,27 @@ struct trace_notify {
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
+	__u64		ct_packets;
+	__u64		ct_bytes;
+
 	TRACE_EXTENSION
 } __align_stack_8;
 
 #ifdef TRACE_NOTIFY
 
-/* Trace notify version 2 includes IP Trace support. */
-#define NOTIFY_TRACE_VER 2
+/* v2 added IP Trace support; v3 adds per-flow CT packet/byte counters. */
+#define NOTIFY_TRACE_VER 3
+
+/* Per-CPU scratch for struct trace_notify: the v3 struct is too large to
+ * stack-allocate in the IPv6 policy program without exceeding the BPF stack
+ * limit, so all emitters build it here instead.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, struct trace_notify);
+} trace_notify_buf __section_maps_btf;
 
 static __always_inline bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
@@ -210,7 +227,8 @@ static __always_inline void
 _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor,
-		   __be16 proto, __u16 line, __u8 file)
+		   __be16 proto, __u64 ct_packets, __u64 ct_bytes,
+		   __u16 line, __u8 file)
 {
 	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -221,7 +239,8 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg = {};
+	struct trace_notify *msg;
+	__u32 zero = 0;
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -239,7 +258,10 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	flags = ctx_classify(ctx, proto, obs_point);
 	cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 
-	msg = (typeof(msg)) {
+	msg = map_lookup_elem(&trace_notify_buf, &zero);
+	if (!msg)
+		return;
+	*msg = (struct trace_notify) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_TRACE_VER),
 		.src_label	= src,
@@ -249,20 +271,22 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.flags		= flags,
 		.ifindex	= ifindex,
 		.ip_trace_id	= ip_trace_id,
+		.ct_packets	= ct_packets,
+		.ct_bytes	= ct_bytes,
 	};
-	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
+	memset(&msg->orig_ip6, 0, sizeof(union v6addr));
 
-	trace_extension_hook(ctx, msg);
+	trace_extension_hook(ctx, *msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 msg, sizeof(*msg));
 }
 
 static __always_inline void
 _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
 		    __u32 ifindex, enum trace_reason reason, __u32 monitor,
-		    __u16 line, __u8 file)
+		    __u64 ct_packets, __u64 ct_bytes, __u16 line, __u8 file)
 {
 	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -273,7 +297,8 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg = {};
+	struct trace_notify *msg;
+	__u32 zero = 0;
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -291,7 +316,10 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 	flags = ctx_classify(ctx, bpf_htons(ETH_P_IP), obs_point);
 	cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 
-	msg = (typeof(msg)) {
+	msg = map_lookup_elem(&trace_notify_buf, &zero);
+	if (!msg)
+		return;
+	*msg = (struct trace_notify) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_TRACE_VER),
 		.src_label	= src,
@@ -302,19 +330,22 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.flags		= flags,
 		.orig_ip4.be32	= orig_addr,
 		.ip_trace_id	= ip_trace_id,
+		.ct_packets	= ct_packets,
+		.ct_bytes	= ct_bytes,
 	};
 
-	trace_extension_hook(ctx, msg);
+	trace_extension_hook(ctx, *msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 msg, sizeof(*msg));
 }
 
 static __always_inline void
 _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src, __u32 dst, const union v6addr *orig_addr,
 		    __u16 dst_id, __u32 ifindex, enum trace_reason reason,
-		    __u32 monitor, __u16 line, __u8 file)
+		    __u32 monitor, __u64 ct_packets, __u64 ct_bytes,
+		    __u16 line, __u8 file)
 {
 	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -325,7 +356,8 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	struct ratelimit_settings settings = {
 		.topup_interval_ns = NSEC_PER_SEC,
 	};
-	struct trace_notify msg = {};
+	struct trace_notify *msg;
+	__u32 zero = 0;
 	cls_flags_t flags = CLS_FLAG_NONE;
 
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -343,7 +375,10 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	flags = ctx_classify(ctx, bpf_htons(ETH_P_IPV6), obs_point);
 	cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 
-	msg = (typeof(msg)) {
+	msg = map_lookup_elem(&trace_notify_buf, &zero);
+	if (!msg)
+		return;
+	*msg = (struct trace_notify) {
 		__notify_common_hdr(CILIUM_NOTIFY_TRACE, obs_point),
 		__notify_pktcap_hdr((__u32)ctx_len, (__u16)cap_len, NOTIFY_TRACE_VER),
 		.src_label	= src,
@@ -353,22 +388,26 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.flags		= flags,
 		.ip_trace_id	= ip_trace_id,
+		.ct_packets	= ct_packets,
+		.ct_bytes	= ct_bytes,
 	};
 
-	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
+	ipv6_addr_copy(&msg->orig_ip6, orig_addr);
 
-	trace_extension_hook(ctx, msg);
+	trace_extension_hook(ctx, *msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+			 msg, sizeof(*msg));
 }
+
 #else
 static __always_inline void
 _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
 		   enum trace_reason reason, __u32 monitor __maybe_unused,
-		   __be16 proto __maybe_unused, __u16 line, __u8 file)
+		   __be16 proto __maybe_unused, __u64 ct_packets __maybe_unused,
+		   __u64 ct_bytes __maybe_unused, __u16 line, __u8 file)
 {
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
 }
@@ -378,8 +417,8 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
 		    __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
 		    __u32 ifindex __maybe_unused, enum trace_reason reason,
-		    __u32 monitor __maybe_unused,
-		    __u16 line, __u8 file)
+		    __u32 monitor __maybe_unused, __u64 ct_packets __maybe_unused,
+		    __u64 ct_bytes __maybe_unused, __u16 line, __u8 file)
 {
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
 }
@@ -390,23 +429,55 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    union v6addr *orig_addr __maybe_unused,
 		    __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
 		    enum trace_reason reason, __u32 monitor __maybe_unused,
+		    __u64 ct_packets __maybe_unused, __u64 ct_bytes __maybe_unused,
 		    __u16 line, __u8 file)
 {
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
 }
+
 #endif /* TRACE_NOTIFY */
 
 /* send_trace_notify emits a generic trace notify. */
 #define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, proto) \
 	_send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, proto, \
-	__MAGIC_LINE__, __MAGIC_FILE__)
+	0, 0, __MAGIC_LINE__, __MAGIC_FILE__)
 
 /* send_trace_notify4 emits a trace notify with the original IPv4 address before translation. */
 #define send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor) \
 	_send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor, \
-	__MAGIC_LINE__, __MAGIC_FILE__)
+	0, 0, __MAGIC_LINE__, __MAGIC_FILE__)
 
 /* send_trace_notify6 emits a trace notify with the original IPv6 address before translation. */
 #define send_trace_notify6(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor) \
 	_send_trace_notify6(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor, \
-	__MAGIC_LINE__, __MAGIC_FILE__)
+	0, 0, __MAGIC_LINE__, __MAGIC_FILE__)
+
+/* _acct variants surface the CT counters carried on ct_state; a NULL state
+ * or accounting being off yields 0.
+ */
+#define __trace_acct_packets(state)	((state) ? (state)->packets : 0)
+#define __trace_acct_bytes(state)	((state) ? (state)->bytes : 0)
+
+#define send_trace_notify_acct(ctx, obs_point, src, dst, dst_id, ifindex, \
+			       reason, monitor, proto, state)		\
+	_send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex,	\
+			   reason, monitor, proto,			\
+			   __trace_acct_packets(state),			\
+			   __trace_acct_bytes(state),			\
+			   __MAGIC_LINE__, __MAGIC_FILE__)
+
+#define send_trace_notify4_acct(ctx, obs_point, src, dst, orig_addr, dst_id, \
+				ifindex, reason, monitor, state)	\
+	_send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, \
+			    ifindex, reason, monitor,			\
+			    __trace_acct_packets(state),		\
+			    __trace_acct_bytes(state),			\
+			    __MAGIC_LINE__, __MAGIC_FILE__)
+
+#define send_trace_notify6_acct(ctx, obs_point, src, dst, orig_addr, dst_id, \
+				ifindex, reason, monitor, state)	\
+	_send_trace_notify6(ctx, obs_point, src, dst, orig_addr, dst_id, \
+			    ifindex, reason, monitor,			\
+			    __trace_acct_packets(state),		\
+			    __trace_acct_bytes(state),			\
+			    __MAGIC_LINE__, __MAGIC_FILE__)

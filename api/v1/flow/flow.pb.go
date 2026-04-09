@@ -1593,6 +1593,12 @@ type Flow struct {
 	// cgroup_id of the process which emitted this event.
 	// Only applicable to TraceSock notifications, zero for other types
 	CgroupId uint64 `protobuf:"varint,33,opt,name=cgroup_id,json=cgroupId,proto3" json:"cgroup_id,omitempty"`
+	// packets is the cumulative packet count from the CT entry for this
+	// connection. Only populated when CONNTRACK_ACCOUNTING is enabled.
+	Packets uint64 `protobuf:"varint,42,opt,name=packets,proto3" json:"packets,omitempty"`
+	// bytes is the cumulative byte count from the CT entry for this
+	// connection. Only populated when CONNTRACK_ACCOUNTING is enabled.
+	Bytes uint64 `protobuf:"varint,43,opt,name=bytes,proto3" json:"bytes,omitempty"`
 	// This is a temporary workaround to support summary field for pb.Flow without
 	// duplicating logic from the old parser. This field will be removed once we
 	// fully migrate to the new parser.
@@ -1910,6 +1916,20 @@ func (x *Flow) GetSocketCookie() uint64 {
 func (x *Flow) GetCgroupId() uint64 {
 	if x != nil {
 		return x.CgroupId
+	}
+	return 0
+}
+
+func (x *Flow) GetPackets() uint64 {
+	if x != nil {
+		return x.Packets
+	}
+	return 0
+}
+
+func (x *Flow) GetBytes() uint64 {
+	if x != nil {
+		return x.Bytes
 	}
 	return 0
 }
@@ -5512,7 +5532,7 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf\x10\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xef\x10\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
@@ -5555,7 +5575,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\rtrace_context\x18\x1e \x01(\v2\x12.flow.TraceContextR\ftraceContext\x12F\n" +
 	"\x10sock_xlate_point\x18\x1f \x01(\x0e2\x1c.flow.SocketTranslationPointR\x0esockXlatePoint\x12#\n" +
 	"\rsocket_cookie\x18  \x01(\x04R\fsocketCookie\x12\x1b\n" +
-	"\tcgroup_id\x18! \x01(\x04R\bcgroupId\x12\x1e\n" +
+	"\tcgroup_id\x18! \x01(\x04R\bcgroupId\x12\x18\n" +
+	"\apackets\x18* \x01(\x04R\apackets\x12\x14\n" +
+	"\x05bytes\x18+ \x01(\x04R\x05bytes\x12\x1e\n" +
 	"\aSummary\x18\xa0\x8d\x06 \x01(\tB\x02\x18\x01R\aSummary\x126\n" +
 	"\n" +
 	"extensions\x18\xf0\x93\t \x01(\v2\x14.google.protobuf.AnyR\n" +
