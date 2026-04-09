@@ -172,6 +172,10 @@ func (d MacvlanDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bo
 		return false
 	}
 
+	if len(filter.ParentIfNames) != 0 && !slices.Contains(filter.ParentIfNames, d.ParentName) {
+		return false
+	}
+
 	return true
 }
 

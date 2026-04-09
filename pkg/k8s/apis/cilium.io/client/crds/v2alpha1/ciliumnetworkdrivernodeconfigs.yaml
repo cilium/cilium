@@ -173,6 +173,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        parentIfNames:
+                          items:
+                            type: string
+                          type: array
                         pciAddrs:
                           items:
                             type: string

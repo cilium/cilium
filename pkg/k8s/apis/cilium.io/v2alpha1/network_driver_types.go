@@ -159,6 +159,9 @@ type CiliumNetworkDriverDeviceFilter struct {
 
 	// +kubebuilder:validation:Optional
 	DeviceManagers []string `json:"deviceManagers,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	ParentIfNames []string `json:"parentIfNames,omitempty"`
 }
 
 // +deepequal-gen=true
