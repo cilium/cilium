@@ -242,6 +242,28 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		devicesStatus []resourceapi.AllocatedDeviceStatus
 	)
 
+	// rollback releases IPs and calls Device.Free() for every device that was
+	// fully set up before an error interrupted the loop.  It is called on every
+	// early-return path inside the device loop below.
+	defer func() {
+		if err != nil {
+			for _, a := range alloc {
+				if err := a.Device.Free(a.Config); err != nil {
+					driver.logger.Warn("failed to free device during rollback",
+						logfields.Device, a.Device.IfName(),
+						logfields.Error, err,
+					)
+				}
+				if err := driver.releaseAddrs(a.Config); err != nil {
+					driver.logger.Warn("failed to release addresses during rollback",
+						logfields.Device, a.Device.IfName(),
+						logfields.Error, err,
+					)
+				}
+			}
+		}
+	}()
+
 	for _, result := range claim.Status.Allocation.Devices.Results {
 		var thisAlloc allocation
 
@@ -264,14 +286,14 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 
 		if !found {
+			err = fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
 			return kubeletplugin.PrepareResult{
-				Err: fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, path.Join(claim.Namespace, claim.Name)),
+				Err: err,
 			}
 		}
 
 		var (
 			v4Addr, v6Addr, zeroAddr netip.Addr
-			err                      error
 		)
 
 		// if static IP addresses are not specified, request addresses from the referenced pool
@@ -286,11 +308,14 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 					logfields.PoolName, cfg.IPPool,
 					logfields.Error, err,
 				)
+
+				err = fmt.Errorf("failed to get IP addresses for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err)
 				return kubeletplugin.PrepareResult{
-					Err: fmt.Errorf("failed to get IP addresses for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err),
+					Err: err,
 				}
 			}
 		}
+
 		if v4Needed {
 			thisAlloc.Config.IPv4Addr = netip.PrefixFrom(v4Addr, v4Addr.BitLen())
 		}
@@ -298,15 +323,25 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			thisAlloc.Config.IPv6Addr = netip.PrefixFrom(v6Addr, v6Addr.BitLen())
 		}
 
-		if err := thisAlloc.Device.Setup(thisAlloc.Config); err != nil {
+		if setupErr := thisAlloc.Device.Setup(thisAlloc.Config); setupErr != nil {
 			driver.logger.ErrorContext(ctx, "failed to set up device",
 				logfields.Device, thisAlloc.Device.IfName(),
 				logfields.Config, thisAlloc.Config,
-				logfields.Error, err,
+				logfields.Error, setupErr,
 			)
 
+			// thisAlloc is not yet appended to alloc, so release its IPs
+			// explicitly before rolling back the already-set-up devices.
+			if releaseErr := driver.releaseAddrs(thisAlloc.Config); releaseErr != nil {
+				driver.logger.Warn("failed to release addresses for failed device during rollback",
+					logfields.Device, thisAlloc.Device.IfName(),
+					logfields.Error, releaseErr,
+				)
+			}
+
+			err = fmt.Errorf("%w for ifname %s on %s", setupErr, thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name))
 			return kubeletplugin.PrepareResult{
-				Err: fmt.Errorf("%w for ifname %s on %s", err, thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name)),
+				Err: err,
 			}
 		}
 
@@ -320,8 +355,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 				logfields.Error, err,
 			)
 
+			err = fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err)
 			return kubeletplugin.PrepareResult{
-				Err: fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err),
+				Err: err,
 			}
 		}
 
@@ -345,14 +381,21 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			},
 		})
 	}
+
 	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
 	driver.allocations[pod.UID][claim.UID] = alloc
 
+	// Persist the allocation to Kubernetes before committing it to memory.
+	// If UpdateStatus fails we roll back the devices so the next
+	// PrepareResourceClaims call can start fresh rather than hitting the
+	// "allocation already exists" guard.
 	newClaim := claim.DeepCopy()
 	newClaim.Status.Devices = append(newClaim.Status.Devices, devicesStatus...)
-	if _, err := driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(ctx, newClaim, metav1.UpdateOptions{}); err != nil {
+
+	if _, updateErr := driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(ctx, newClaim, metav1.UpdateOptions{}); updateErr != nil {
+		err = fmt.Errorf("failed to update claim %s status: %w", path.Join(claim.Namespace, claim.Name), updateErr)
 		return kubeletplugin.PrepareResult{
-			Err: fmt.Errorf("failed to update claim %s status: %w", path.Join(claim.Namespace, claim.Name), err),
+			Err: err,
 		}
 	}
 
