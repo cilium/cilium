@@ -251,7 +251,8 @@ func TestCreateCertificate(t *testing.T) {
 				return []*endpoint.Endpoint{{}}
 			},
 		},
-		log: slog.Default(),
+		log:     slog.Default(),
+		metrics: NewMetrics(),
 	}
 
 	// we'll generate a CSR using the simple CSR we see in a default ztunnel

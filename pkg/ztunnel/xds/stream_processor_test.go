@@ -240,6 +240,7 @@ func TestStreamProcessorEndpointEvents(t *testing.T) {
 
 		// Create StreamProcessor with the populated channel
 		sp := &StreamProcessor{
+			metrics:       NewMetrics(),
 			stream:        mockStream,
 			endpointRecv:  endpointEventChan,
 			expectedNonce: make(map[string]struct{}),
@@ -295,6 +296,7 @@ func TestStreamProcessorEndpointEvents(t *testing.T) {
 func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 	t.Run("Ack", func(t *testing.T) {
 		sp := &StreamProcessor{
+			metrics: NewMetrics(),
 			expectedNonce: map[string]struct{}{
 				"x": {},
 			},
@@ -316,6 +318,7 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 
 	t.Run("Unexpected Nonce", func(t *testing.T) {
 		sp := &StreamProcessor{
+			metrics: NewMetrics(),
 			// no Nonce recorded
 			expectedNonce: map[string]struct{}{},
 			log:           slog.New(slog.DiscardHandler),
@@ -337,6 +340,7 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 
 	t.Run("Nack logs error but does not return error", func(t *testing.T) {
 		sp := &StreamProcessor{
+			metrics: NewMetrics(),
 			expectedNonce: map[string]struct{}{
 				"nack-nonce": {},
 			},
@@ -362,6 +366,7 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 
 	t.Run("Unexpected TypeURL returns error", func(t *testing.T) {
 		sp := &StreamProcessor{
+			metrics:       NewMetrics(),
 			expectedNonce: make(map[string]struct{}),
 			log:           slog.New(slog.DiscardHandler),
 		}
@@ -386,6 +391,7 @@ func TestHandleAuthorizationTypeURL(t *testing.T) {
 		}
 
 		sp := &StreamProcessor{
+			metrics:       NewMetrics(),
 			stream:        mockStream,
 			expectedNonce: make(map[string]struct{}),
 			log:           slog.New(slog.DiscardHandler),
@@ -419,6 +425,7 @@ func TestHandleAddressTypeURL(t *testing.T) {
 		}
 
 		sp := &StreamProcessor{
+			metrics:       NewMetrics(),
 			stream:        mockStream,
 			expectedNonce: make(map[string]struct{}),
 			log:           slog.New(slog.DiscardHandler),
@@ -453,6 +460,7 @@ func TestHandleAddressTypeURL(t *testing.T) {
 
 		mockEpSource := &MockEndpointEventSource{}
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			stream:                 mockStream,
 			expectedNonce:          make(map[string]struct{}),
 			log:                    slog.New(slog.DiscardHandler),
@@ -792,6 +800,7 @@ func TestSubscribeToEndpointEvents_CEP(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -826,6 +835,7 @@ func TestSubscribeToEndpointEvents_CEP(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -875,6 +885,7 @@ func TestSubscribeToEndpointEvents_CEP(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -930,6 +941,7 @@ func TestSubscribeToEndpointEvents_CEP(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -969,6 +981,7 @@ func TestSubscribeToEndpointEvents_CEP(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1013,6 +1026,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1047,6 +1061,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1095,6 +1110,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1150,6 +1166,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1231,6 +1248,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1294,6 +1312,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,
@@ -1332,6 +1351,7 @@ func TestSubscribeToEndpointEvents_CES(t *testing.T) {
 
 		endpointRecv := make(chan *EndpointEvent, 10)
 		sp := &StreamProcessor{
+			metrics:                NewMetrics(),
 			endpointRecv:           endpointRecv,
 			db:                     db,
 			enrolledNamespaceTable: tbl,

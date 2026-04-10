@@ -79,6 +79,7 @@ type Server struct {
 	// endpointEventChan is shared across streams. Overlapping sends during
 	// ztunnel reconnect are safe since xDS upserts are idempotent.
 	endpointEventChan chan *EndpointEvent
+	metrics           *Metrics
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
@@ -94,6 +95,7 @@ func newServer(
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
 	endpointEventChanBufferSize int,
+	metrics *Metrics,
 ) *Server {
 	return &Server{
 		log:                       log,
@@ -102,6 +104,7 @@ func newServer(
 		endpointEventChan:         make(chan *EndpointEvent, endpointEventChanBufferSize),
 		db:                        db,
 		enrolledNamespaceTable:    enrolledNamespaceTable,
+		metrics:                   metrics,
 	}
 }
 
@@ -398,6 +401,7 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 		Log:                       x.log,
 		DB:                        x.db,
 		EnrolledNamespaceTable:    x.enrolledNamespaceTable,
+		Metrics:                   x.metrics,
 	}
 
 	x.log.Debug("begin processing DeltaAggregatedResources stream")
