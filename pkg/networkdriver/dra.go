@@ -66,6 +66,7 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 
 	for pod, alloc := range d.allocations {
 		devices, ok := alloc[claim.UID]
+
 		if ok {
 			found = true
 			for _, dev := range devices {
@@ -110,14 +111,24 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 
 	err = driver.withLock(func() error {
 		for _, c := range claims {
-			result[c.UID] = driver.unprepareResourceClaim(ctx, c)
-			driver.logger.DebugContext(
-				ctx, "freeing resources for claim",
-				logfields.Name, c.Name,
-				logfields.K8sNamespace, c.Namespace,
-				logfields.UID, string(c.UID),
-				logfields.Error, result[c.UID],
-			)
+			err := driver.unprepareResourceClaim(ctx, c)
+			if err != nil {
+				driver.logger.ErrorContext(
+					ctx, "failed to free resources for claim",
+					logfields.Name, c.Name,
+					logfields.K8sNamespace, c.Namespace,
+					logfields.UID, string(c.UID),
+					logfields.Error, err,
+				)
+			} else {
+				driver.logger.DebugContext(
+					ctx, "freed resources for claim",
+					logfields.Name, c.Name,
+					logfields.K8sNamespace, c.Namespace,
+					logfields.UID, string(c.UID),
+				)
+			}
+			result[c.UID] = err
 		}
 
 		return nil
