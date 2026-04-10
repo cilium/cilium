@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
@@ -26,6 +27,7 @@ var Cell = cell.Module(
 		}
 		return x.endpointEventChan
 	}),
+	metrics.Metric(NewMetrics),
 )
 
 type xdsServerParams struct {
@@ -38,12 +40,14 @@ type xdsServerParams struct {
 	K8sWatcher             *watchers.K8sWatcher
 	Config                 config.Config
 	EnrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
+	Metrics                *Metrics
 }
 
 func NewServer(params xdsServerParams) *Server {
 	if !params.Config.EnableZTunnel {
 		return nil
 	}
+	params.Metrics.Enable()
 
 	server := newServer(
 		params.Logger,
@@ -52,6 +56,7 @@ func NewServer(params xdsServerParams) *Server {
 		params.K8sWatcher.GetK8sCiliumEndpointsWatcher(),
 		params.EnrolledNamespaceTable,
 		params.Config.EndpointEventChannelBufferSize,
+		params.Metrics,
 	)
 
 	params.Lifecycle.Append(cell.Hook{
