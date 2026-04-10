@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/operator/auth/spire"
+	ztunnel "github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,7 +28,8 @@ type params struct {
 	IdentityClient identity.Provider
 	Identity       resource.Resource[*ciliumv2.CiliumIdentity]
 
-	Cfg spire.MutualAuthConfig
+	Cfg           spire.MutualAuthConfig
+	ZtunnelConfig ztunnel.Config
 }
 
 // IdentityWatcher represents the Cilium identities watcher.
@@ -42,7 +44,7 @@ type IdentityWatcher struct {
 }
 
 func registerIdentityWatcher(p params) {
-	if !p.Cfg.Enabled {
+	if !p.Cfg.Enabled || p.ZtunnelConfig.EnableZTunnel {
 		return
 	}
 	iw := &IdentityWatcher{
