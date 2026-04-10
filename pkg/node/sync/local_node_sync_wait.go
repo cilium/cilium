@@ -42,6 +42,14 @@ func (ini *localNodeSynchronizer) retrieveNodeInformation(ctx context.Context) *
 			if event.Kind == resource.Upsert {
 				no := nodeTypes.ParseCiliumNode(event.Object)
 				n = &no
+				if event.Object.Status.IPAM.OperatorStatus.Error != "" {
+					ini.Logger.Log(ctx, 18, "Cilium Operator set an IPAM error in this node's CiliumNode object. Please review and correct the CiliumNode object. Unable to continue.",
+						logfields.NodeName, n.Name,
+						logfields.Error, event.Object.Status.IPAM.OperatorStatus.Error,
+					)
+					event.Done(nil)
+					return nil
+				}
 				ini.Logger.Info("Retrieved node information from cilium node", logfields.NodeName, n.Name)
 				if err := waitForCIDR(); err != nil {
 					ini.Logger.Warn("Waiting for k8s node information", logfields.Error, err)
