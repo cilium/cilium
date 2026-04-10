@@ -140,6 +140,7 @@ type serverParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 	Config    config.Config
+	Metrics   *Metrics
 
 	EndpointManager endpointmanager.EndpointManager
 
@@ -173,6 +174,7 @@ type Server struct {
 
 	updates               chan zdsUpdate // updates to send to ztunnel
 	initialSnapshotSeeded chan struct{}
+	metrics               *Metrics
 }
 
 type zdsUpdate struct {
@@ -188,11 +190,16 @@ func newZDSServer(p serverParams) serverOut {
 	if !p.Config.EnableZTunnel {
 		return serverOut{}
 	}
+	if p.Metrics == nil {
+		p.Metrics = NewMetrics()
+	}
+	p.Metrics.Enable()
 	server := &Server{
 		logger:                p.Logger,
 		updates:               make(chan zdsUpdate, 100),
 		endpointCache:         make(map[uint16]*endpoint.Endpoint),
 		initialSnapshotSeeded: make(chan struct{}),
+		metrics:               p.Metrics,
 	}
 
 	zdsUnixAddr := defaultZDSUnixAddress
@@ -290,6 +297,8 @@ func (s *Server) Serve(ctx context.Context) {
 
 func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
 	defer zc.Close()
+	s.metrics.ConnectionActive.Inc()
+	defer s.metrics.ConnectionActive.Dec()
 
 	s.logger.Info("new ztunnel connection")
 
@@ -331,6 +340,7 @@ func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
 
 func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	s.logger.Info("enrolling endpoint to ztunnel", logfields.EndpointID, ep.GetID16())
+	s.metrics.EnrollmentTotal.Inc()
 
 	// Check if endpoint is already enrolled
 	s.endpointCacheMutex.Lock()
@@ -343,6 +353,7 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 
 	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 	if err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("netns_failed").Inc()
 		s.logger.Error("failed to open netns file",
 			logfields.EndpointID, ep.GetID16(),
 			logfields.Error, err,
@@ -354,11 +365,13 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	if err = ns.Do(func() error {
 		return iptables.CreateInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	}); err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("iptables_failed").Inc()
 		return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
 	}
 
 	workload, err := endpointToWorkload(ep)
 	if err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("conversion_failed").Inc()
 		s.logger.Error("failed to convert endpoint to workload",
 			logfields.EndpointID, ep.GetID16(),
 			logfields.Error, err,
@@ -380,6 +393,7 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 
 	s.updates <- update
 	if err := <-update.errCh; err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("send_failed").Inc()
 		return fmt.Errorf("sending update failed: %w", err)
 	}
 
