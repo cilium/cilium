@@ -274,6 +274,21 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) error {
 	var errs []error
 
+	// Detect the crash-before-UpdateStatus case: the claim is allocated and
+	// reserved (the scheduler+kubelet did their part) but Status.Devices is
+	// empty because the driver crashed between Device.Setup() and UpdateStatus.
+	// We have no serialized device state to restore from, so the kernel device
+	// is left configured but completely invisible to the driver. Log a warning
+	// so the operator can identify and manually clean up the orphaned device.
+	if claim.Status.Allocation != nil && len(claim.Status.ReservedFor) > 0 && len(claim.Status.Devices) == 0 {
+		driver.logger.Warn("claim is allocated and reserved but has no device status — "+
+			"driver may have crashed before UpdateStatus; the kernel device may be orphaned",
+			logfields.Name, claim.Name,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.UID, string(claim.UID),
+		)
+	}
+
 	for _, devStatus := range claim.Status.Devices {
 		if devStatus.Driver != driver.config.DriverName {
 			continue
@@ -291,20 +306,22 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) 
 		}
 		podUID := claim.Status.ReservedFor[0].UID
 
-		if alloc.Config.IPPool == "" {
-			// no need to allocate from pool in case of static addresses
-			continue
-		}
-
 		var claimAllocs map[kube_types.UID][]allocation
+
 		claimAllocs, found := driver.allocations[podUID]
 		if !found {
 			claimAllocs = make(map[kube_types.UID][]allocation)
 			driver.allocations[podUID] = claimAllocs
 		}
+
 		claimAllocs[claim.UID] = append(claimAllocs[claim.UID], alloc)
 
-		if driver.ipv4Enabled {
+		if alloc.Config.IPPool == "" {
+			// Static addresses: no pool bookkeeping needed, allocation already restored above.
+			continue
+		}
+
+		if alloc.Config.IPv4Addr.IsValid() {
 			if _, err := driver.multiPoolMgr.AllocateIP(
 				alloc.Config.IPv4Addr.Addr().AsSlice(),
 				alloc.Device.IfName(),
@@ -319,7 +336,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) 
 			}
 		}
 
-		if driver.ipv6Enabled {
+		if alloc.Config.IPv6Addr.IsValid() {
 			if _, err := driver.multiPoolMgr.AllocateIP(
 				alloc.Config.IPv6Addr.Addr().AsSlice(),
 				alloc.Device.IfName(),
