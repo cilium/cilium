@@ -271,7 +271,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -280,7 +280,7 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.28"
+          lvh-version: "v0.0.29"
           mem: 14G
 
       # Load Ginkgo build from GitHub
@@ -332,7 +332,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
@@ -387,7 +387,7 @@ jobs:
         id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
@@ -412,7 +412,7 @@ jobs:
         id: run-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
@@ -421,7 +421,7 @@ jobs:
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
@@ -435,7 +435,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |

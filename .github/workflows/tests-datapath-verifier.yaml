@@ -149,7 +149,7 @@ jobs:
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -158,7 +158,7 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.28"
+          lvh-version: "v0.0.29"
           install-dependencies: 'true'
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
@@ -187,7 +187,7 @@ jobs:
             rm -r /var/tmp/llvm
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
@@ -200,7 +200,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        uses: cilium/little-vm-helper@e249f34602b03d331320955be94cbaa2cc4fb6a8 # v0.0.29
         with:
           provision: 'false'
           cmd: |
