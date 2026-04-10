@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"net/netip"
+	"sync"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -103,7 +104,9 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
-	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, nil)
+	wg := &sync.WaitGroup{}
+	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, wg)
+	wg.Wait()
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	writeRules := func(rules ...*policyapi.Rule) uint64 {
