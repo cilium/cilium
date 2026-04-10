@@ -41,7 +41,8 @@ on:
         type: boolean
         default: false
 
-  # workflow_dispatch is only used for scheduled runs in stable branches by ariane
+  # workflow_dispatch is used by ariane for scheduled runs on stable branches
+  # (where GH schedule event doesn't work) and as a normal trigger on all branches.
   workflow_dispatch:
     inputs:
       PR-number:
@@ -157,7 +158,7 @@ jobs:
           # When test-l7-only is true: filter to only test-l7: true configs
           # When test-l7-only is false (default):
           #   - On schedule (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
-          #   - On workflow_dispatch (used on stable branches where GH scheduled doesn't work and ariane does it): include all configs (with L3/L4 AND L7)
+          #   - On workflow_dispatch on stable branches (acts as scheduled run by ariane): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             jq --argjson modes "$MODES" '[.[] | select(.["test-l7"] == "true") | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
@@ -169,8 +170,8 @@ jobs:
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
             echo "timeout=110" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # workflow_dispatch is only used on stable branches where GH scheduled doesn't work and ariane does it
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! grep -q '\-dev$' "$GITHUB_WORKSPACE/VERSION"; then
+            # On stable branches, workflow_dispatch acts as a scheduled run (triggered by ariane)
             jq --argjson modes "$MODES" '[.[] | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - workflow_dispatch run with full test suite)"
