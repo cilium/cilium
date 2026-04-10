@@ -21,9 +21,10 @@ discrepancies, please update this page.
 Sphinx
 ======
 
-Cilium relies on `Sphinx`_ to generate its documentation.
+Cilium relies on the `Sphinx Documentation Framework`_ to generate its
+documentation.
 
-.. _Sphinx: https://www.sphinx-doc.org
+.. _Sphinx Documentation Framework: https://www.sphinx-doc.org
 
 Sphinx usage
 ------------
