@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/operator/pkg/ipam/stats"
@@ -246,6 +247,24 @@ func (n *Node) GetMinimumAllocatableIPv4() int {
 
 func (n *Node) IsPrefixDelegated() bool {
 	return false
+}
+
+// GetAttachedCIDRs is a no-op since Azure does not use multi-pool but uses
+// the CRD allocator.
+func (n *Node) GetAttachedCIDRs() []netip.Prefix {
+	return nil
+}
+
+// PrepareCIDRRelease is a no-op since Azure does not use multi-pool but uses
+// the CRD allocator, that's backed by PrepareIPRelease
+func (n *Node) PrepareCIDRRelease(_ []netip.Prefix) []*nodemanager.ReleaseAction {
+	return nil
+}
+
+// ReleaseCIDRs is a no-op since Azure does not use multi-pool but uses the
+// CRD allocator, that's backed by ReleaseIPs/ReleaseIPPrefixes
+func (n *Node) ReleaseCIDRs(_ context.Context, _ *nodemanager.ReleaseAction) ([]netip.Prefix, error) {
+	return nil, nil
 }
 
 // isAvailableInterface returns whether interface is available and the number of available IPs to allocate in interface
