@@ -3637,8 +3637,6 @@ preflight:
     allowPrivilegeEscalation: false
   #   runAsUser: 0
 
-  # -- Path to write the `--tofqdns-pre-cache` file to.
-  tofqdnsPreCache: ""
   # -- Configure termination grace period for preflight Deployment and DaemonSet.
   terminationGracePeriodSeconds: 1
   # -- By default we should always validate the installed CNPs before upgrading
@@ -4309,7 +4307,7 @@ dnsProxy:
   # overwrites the TTL with this value. Setting this value to zero means that
   # Cilium will honor the TTLs returned by the upstream DNS server.
   minTtl: 0
-  # -- DNS cache data at this path is preloaded on agent startup.
+  # -- DNS cache data at this path is preloaded on agent startup. (deprecated: will be removed in v1.21)
   preCache: ""
   # -- Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
   proxyPort: 0

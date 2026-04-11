@@ -1289,7 +1289,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`dnsProxy.preCache`
-     - DNS cache data at this path is preloaded on agent startup.
+     - DNS cache data at this path is preloaded on agent startup. (deprecated: will be removed in v1.21)
      - string
      - ``""``
    * - :spelling:ignore:`dnsProxy.proxyPort`
@@ -3720,10 +3720,6 @@
      - Configure termination grace period for preflight Deployment and DaemonSet.
      - int
      - ``1``
-   * - :spelling:ignore:`preflight.tofqdnsPreCache`
-     - Path to write the ``--tofqdns-pre-cache`` file to.
-     - string
-     - ``""``
    * - :spelling:ignore:`preflight.tolerations`
      - Node tolerations for preflight scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list

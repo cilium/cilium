@@ -356,6 +356,9 @@ you may need to take action to migrate to an alternative.
   ``preferIpv6`` Helm value and ``--prefer-ipv6`` agent flag instead, which
   apply to both health probes and Hubble peer communication.
 
+* The ``--tofqdns-pre-cache`` agent flag and the corresponding Helm value
+  ``dnsProxy.preCache`` have been deprecated and will be removed in v1.21.
+
 Removed Options
 ###############
 
@@ -406,6 +409,12 @@ from Cilium.
 
 * The previously deprecated ``--k8s-api-server`` agent flag has been removed in
   favor of ``--k8s-api-server-urls`` (Helm ``k8s.apiServerURLs`` value).
+
+* The ``cilium-dbg preflight fqdn-poller`` subcommand and the
+  ``preflight.tofqdnsPreCache`` Helm value have been removed. These were
+  originally introduced for the v1.3 to v1.4 upgrade path and are no longer
+  needed.
+
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
