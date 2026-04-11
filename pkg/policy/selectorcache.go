@@ -245,7 +245,7 @@ type SelectorCache struct {
 	// selector (adding/removing selectors/identities) and is always kept open and committed on
 	// request. Updates from all concurrent callers are pooled to the same write transaction
 	// until Commit() is called.
-	// There may be no other write transactions on 'selections'.
+	// There may be no other write transactions on 'readableSelections'.
 	writeableSelections types.SelectorWriteTxn
 
 	// idCache contains all known identities as informed by the
