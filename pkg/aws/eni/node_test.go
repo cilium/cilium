@@ -4,6 +4,7 @@
 package eni
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -285,4 +286,184 @@ func TestIsPrefixDelegated(t *testing.T) {
 			require.Equal(t, tt.expectDelegated, n.IsPrefixDelegated())
 		})
 	}
+}
+
+func TestGetAttachedCIDRs(t *testing.T) {
+	newNode := func(enis map[string]types.ENI) *Node {
+		n := &Node{
+			rootLogger: hivetest.Logger(t),
+			enis:       enis,
+			k8sObj:     &v2.CiliumNode{},
+		}
+		n.logger.Store(n.rootLogger)
+		return n
+	}
+
+	t.Run("no ENIs returns empty set", func(t *testing.T) {
+		n := newNode(nil)
+		require.Empty(t, n.GetAttachedCIDRs())
+	})
+
+	t.Run("addresses and prefixes from multiple ENIs are merged", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1"},
+				Prefixes:  []string{"10.0.0.16/28"},
+			},
+			"eni-2": {
+				Addresses: []string{"2001:db8::1"},
+				Prefixes:  []string{"2001:db8:1::/80"},
+			},
+		})
+
+		require.ElementsMatch(t, []netip.Prefix{
+			netip.MustParsePrefix("10.0.0.1/32"),
+			netip.MustParsePrefix("10.0.0.16/28"),
+			netip.MustParsePrefix("2001:db8::1/128"),
+			netip.MustParsePrefix("2001:db8:1::/80"),
+		}, n.GetAttachedCIDRs())
+	})
+}
+
+func TestPrepareCIDRRelease(t *testing.T) {
+	newNode := func(enis map[string]types.ENI) *Node {
+		n := &Node{
+			rootLogger: hivetest.Logger(t),
+			enis:       enis,
+			k8sObj:     &v2.CiliumNode{},
+		}
+		n.logger.Store(n.rootLogger)
+		return n
+	}
+
+	t.Run("secondary IP mapped to correct ENI", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1", "10.0.0.2"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+			"eni-2": {
+				Addresses: []string{"10.0.1.1"},
+				Subnet:    types.AwsSubnet{ID: "subnet-2"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.0.1.1/32")})
+
+		require.Len(t, actions, 1)
+		require.Equal(t, "eni-2", actions[0].InterfaceID)
+		require.Equal(t, ipamTypes.PoolID("subnet-2"), actions[0].PoolID)
+		require.Equal(t, []netip.Prefix{netip.MustParsePrefix("10.0.1.1/32")}, actions[0].CIDRsToRelease)
+	})
+
+	t.Run("prefix mapped to correct ENI", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1"},
+				Prefixes:  []string{"10.0.0.16/28"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.0.0.16/28")})
+
+		require.Len(t, actions, 1)
+		require.Equal(t, "eni-1", actions[0].InterfaceID)
+		require.Equal(t, []netip.Prefix{netip.MustParsePrefix("10.0.0.16/28")}, actions[0].CIDRsToRelease)
+	})
+
+	t.Run("multiple CIDRs on same ENI grouped into one action", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.0.0.1/32"), netip.MustParsePrefix("10.0.0.3/32")})
+
+		require.Len(t, actions, 1)
+		require.Equal(t, "eni-1", actions[0].InterfaceID)
+		require.ElementsMatch(t, []netip.Prefix{netip.MustParsePrefix("10.0.0.1/32"), netip.MustParsePrefix("10.0.0.3/32")}, actions[0].CIDRsToRelease)
+	})
+
+	t.Run("CIDRs on different ENIs produce separate actions", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+			"eni-2": {
+				Addresses: []string{"10.0.1.1"},
+				Subnet:    types.AwsSubnet{ID: "subnet-2"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.0.0.1/32"), netip.MustParsePrefix("10.0.1.1/32")})
+
+		require.Len(t, actions, 2)
+		eniIDs := map[string]bool{}
+		for _, a := range actions {
+			eniIDs[a.InterfaceID] = true
+		}
+		require.True(t, eniIDs["eni-1"])
+		require.True(t, eniIDs["eni-2"])
+	})
+
+	t.Run("excluded ENIs are skipped", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+				Tags:      map[string]string{"skip": "true"},
+			},
+		})
+		n.k8sObj.Spec.ENI.ExcludeInterfaceTags = map[string]string{"skip": "true"}
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.0.0.1/32")})
+
+		require.Empty(t, actions)
+	})
+
+	t.Run("CIDR not found on any ENI produces no action", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				Addresses: []string{"10.0.0.1"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease([]netip.Prefix{netip.MustParsePrefix("10.99.99.99/32")})
+
+		require.Empty(t, actions)
+	})
+
+	t.Run("empty input returns empty result", func(t *testing.T) {
+		n := newNode(map[string]types.ENI{
+			"eni-1": {Addresses: []string{"10.0.0.1"}},
+		})
+
+		actions := n.PrepareCIDRRelease(nil)
+		require.Empty(t, actions)
+	})
+
+	t.Run("primary IP is never released", func(t *testing.T) {
+		// With UsePrimaryAddress=true, the primary IP is included in
+		// eni.Addresses. The release path must still refuse to release
+		// it because AWS rejects UnassignPrivateIpAddresses on a primary.
+		n := newNode(map[string]types.ENI{
+			"eni-1": {
+				IP:        "10.0.0.1",
+				Addresses: []string{"10.0.0.1", "10.0.0.2"},
+				Subnet:    types.AwsSubnet{ID: "subnet-1"},
+			},
+		})
+
+		actions := n.PrepareCIDRRelease(
+			[]netip.Prefix{netip.MustParsePrefix("10.0.0.1/32"), netip.MustParsePrefix("10.0.0.2/32")},
+		)
+
+		require.Len(t, actions, 1)
+		require.Equal(t, []netip.Prefix{netip.MustParsePrefix("10.0.0.2/32")}, actions[0].CIDRsToRelease)
+	})
 }

@@ -96,6 +96,28 @@ type NodeOperations interface {
 
 	// IsPrefixDelegated helps identify if a node supports prefix delegation
 	IsPrefixDelegated() bool
+
+	// GetAttachedCIDRs returns the CIDRs currently attached to the node's
+	// network interfaces, as observed by the cloud-specific implementation.
+	// Used by multi-pool mode to reconcile the tracking map against ground
+	// truth (drop CIDRs no longer attached, seed releases that survived an
+	// operator restart). Implementations that do not support multi-pool may
+	// return nil.
+	GetAttachedCIDRs() []netip.Prefix
+
+	// PrepareCIDRRelease maps released CIDRs back to their source
+	// network interfaces and returns release actions grouped by interface.
+	// Used by multi-pool mode where the agent removes CIDRs from
+	// Allocated instead of participating in the IP release handshake.
+	PrepareCIDRRelease(releasedCIDRs []netip.Prefix) []*ReleaseAction
+
+	// ReleaseCIDRs performs the release of the CIDRs listed in
+	// release.CIDRsToRelease. The cloud-specific implementation is responsible
+	// for appropriately handling single-IP CIDRs and larger ones by dispatching to
+	// the appropriate underlying APIs. Returns the subset of CIDRs that were
+	// successfully released so the caller can prune its tracking state even on
+	// partial failure.
+	ReleaseCIDRs(ctx context.Context, release *ReleaseAction) (released []netip.Prefix, err error)
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -155,10 +177,10 @@ type MetricsNodeAPI interface {
 	DeleteNode(node string)
 }
 
-// nodeMap is a mapping of node names to ENI nodes
+// nodeMap is a mapping of node names to nodes
 type nodeMap map[string]*Node
 
-// NodeManager manages all nodes with ENIs
+// NodeManager manages all nodes
 type NodeManager struct {
 	logger               *slog.Logger
 	mutex                lock.RWMutex
@@ -292,7 +314,8 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				ipsMarkedForRelease: make(map[netip.Addr]time.Time),
 				ipReleaseStatus:     make(map[netip.Addr]string),
 			},
-			excessIPReleaseDelay: time.Duration(n.excessIPReleaseDelay) * time.Second,
+			excessIPReleaseDelay:           time.Duration(n.excessIPReleaseDelay) * time.Second,
+			multiPoolCIDRsMarkedForRelease: make(map[netip.Prefix]time.Time),
 		}
 		node.logger.Store(node.rootLogger.With(fieldName, resource.Name))
 
@@ -416,7 +439,7 @@ func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 	// Delete the instance from instanceManager. This will cause Update() to
 	// invoke instancesAPIResync if this instance rejoins the cluster.
 	// This ensures that Node.recalculate() does not use stale data for
-	// instances which rejoin the cluster after their EC2 configuration has changed.
+	// instances which rejoin the cluster after their configuration has changed.
 	if resource.Spec.InstanceID != "" {
 		n.instancesAPI.DeleteInstance(resource.Spec.InstanceID)
 	}

@@ -31,6 +31,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -141,6 +142,10 @@ func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
+//
+// This function only covers 1.19 and below agents that use the CRD allocator.
+// 1.20+ agents use the multipool allocator and their IP release mechanism uses
+// PrepareCIDRRelease instead.
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemanager.ReleaseAction {
 	r := &nodemanager.ReleaseAction{}
 
@@ -268,7 +273,131 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 	return r
 }
 
+// GetAttachedCIDRs returns the CIDRs (addresses as /32 or /128, and
+// prefixes) currently attached across all ENIs of this node.
+func (n *Node) GetAttachedCIDRs() []netip.Prefix {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	var attached []netip.Prefix
+	for _, eni := range n.enis {
+		for _, prefix := range eni.Prefixes {
+			if p, err := netip.ParsePrefix(prefix); err == nil {
+				attached = append(attached, p)
+			}
+		}
+		for _, addr := range eni.Addresses {
+			if a, err := netip.ParseAddr(addr); err == nil {
+				attached = append(attached, netip.PrefixFrom(a, a.BitLen()))
+			}
+		}
+	}
+	return attached
+}
+
+// PrepareCIDRRelease maps released CIDRs back to their source ENIs
+// and returns release actions grouped by ENI interface ID.
+func (n *Node) PrepareCIDRRelease(releasedCIDRs []netip.Prefix) []*nodemanager.ReleaseAction {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	type eniRelease struct {
+		cidrs    []netip.Prefix
+		subnetID string
+	}
+	byENI := map[string]*eniRelease{}
+
+	for _, prefix := range releasedCIDRs {
+		for eniID, eni := range n.enis {
+			if eni.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
+				continue
+			}
+
+			// Never release an ENI's primary IP. AWS rejects the
+			// UnassignPrivateIpAddresses call for primary IPs, which
+			// would leave the CIDR stuck in the release-marked map.
+			// Only reachable when UsePrimaryAddress is true, since
+			// otherwise the primary is filtered out of eni.Addresses
+			// at the EC2 layer.
+			if prefix.IsSingleIP() && prefix.Addr().String() == eni.IP {
+				break
+			}
+
+			var found bool
+			if prefix.IsSingleIP() {
+				found = slices.Contains(eni.Addresses, prefix.Addr().String())
+			} else {
+				found = slices.Contains(eni.Prefixes, prefix.String())
+			}
+			if !found {
+				continue
+			}
+
+			rel, ok := byENI[eniID]
+			if !ok {
+				rel = &eniRelease{subnetID: eni.Subnet.ID}
+				byENI[eniID] = rel
+			}
+			rel.cidrs = append(rel.cidrs, prefix)
+			break // Found the ENI, move to next CIDR.
+		}
+	}
+
+	actions := make([]*nodemanager.ReleaseAction, 0, len(byENI))
+	for eniID, rel := range byENI {
+		actions = append(actions, &nodemanager.ReleaseAction{
+			InterfaceID:    eniID,
+			PoolID:         ipamTypes.PoolID(rel.subnetID),
+			CIDRsToRelease: rel.cidrs,
+		})
+	}
+	return actions
+}
+
+// ReleaseCIDRs releases the CIDRs in release.CIDRsToRelease from the ENI
+// identified by release.InterfaceID. Single-IP entries are unassigned via
+// UnassignPrivateIpAddresses; larger prefixes via UnassignENIPrefixes.
+//
+// Prefixes are released first, then single IPs. The returned slice contains
+// the CIDRs that were successfully released so the caller can prune its
+// tracking state even on partial failure.
+func (n *Node) ReleaseCIDRs(ctx context.Context, r *nodemanager.ReleaseAction) ([]netip.Prefix, error) {
+	var prefixes, ips []netip.Prefix
+	for _, c := range r.CIDRsToRelease {
+		if c.IsSingleIP() {
+			ips = append(ips, c)
+		} else {
+			prefixes = append(prefixes, c)
+		}
+	}
+
+	released := make([]netip.Prefix, 0, len(r.CIDRsToRelease))
+
+	if len(prefixes) > 0 {
+		strs := cslices.Map(prefixes, netip.Prefix.String)
+		if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, strs); err != nil {
+			return released, err
+		}
+		released = append(released, prefixes...)
+	}
+
+	if len(ips) > 0 {
+		strs := cslices.Map(ips, func(p netip.Prefix) string { return p.Addr().String() })
+		if err := n.manager.ec2api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, strs); err != nil {
+			return released, err
+		}
+		n.manager.RemoveIPsFromENI(n.node.InstanceID(), r.InterfaceID, strs)
+		released = append(released, ips...)
+	}
+
+	return released, nil
+}
+
 // ReleaseIPPrefixes performs the ENI IPPrefixes release operation
+//
+// This function only covers 1.19 and below agents that use the CRD allocator.
+// 1.20+ agents use the multipool allocator and their IP release mechanism uses
+// ReleaseCIDRs instead.
 func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
 		return err
@@ -312,6 +441,10 @@ func getIndividualIPs(ipPrefixes, ipAddresses []string) (individualIPs []string)
 }
 
 // ReleaseIPs performs the ENI IP release operation
+//
+// This function only covers 1.19 and below agents that use the CRD allocator.
+// 1.20+ agents use the multipool allocator and their IP release mechanism uses
+// ReleaseCIDRs instead.
 func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	// Filter IPs that do not belong to any IPPrefix
 	if len(r.IPPrefixesToRelease) > 0 {
