@@ -133,10 +133,13 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return controllerruntime.Fail(err)
 	}
 
+	httpRoutes := r.filterHTTPRoutesByService(ctx, originalSvc, httpRouteList.Items)
+	grpcRoutes := r.filterGRPCRoutesByService(ctx, originalSvc, grpcRouteList.Items)
+
 	// TODO(youngnick): GammaHTTPRoutes needs to be updated now that we have a source Service.
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
-		HTTPRoutes: httpRouteList.Items,
-		GRPCRoutes: grpcRouteList.Items,
+		HTTPRoutes: httpRoutes,
+		GRPCRoutes: grpcRoutes,
 		Services:   servicesList.Items,
 
 		ReferenceGrants: grants.Items,
@@ -166,7 +169,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, httpRoutes *gatewayv1.HTTPRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
 	gammaLogger.DebugContext(ctx, "Updating HTTPRoute statuses for GAMMA Service", numRoutes, len(httpRoutes.Items))
-	for _, original := range httpRoutes.Items {
+	for httpRouteIndex, original := range httpRoutes.Items {
 
 		hr := original.DeepCopy()
 
@@ -234,6 +237,8 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 				}
 			}
 
+			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
+			httpRoutes.Items[httpRouteIndex].Status = hr.Status
 		}
 
 		if err := r.updateHTTPRouteStatus(ctx, &original, hr); err != nil {
@@ -244,9 +249,29 @@ func (r *gammaReconciler) setHTTPRouteStatuses(gammaLogger *slog.Logger, ctx con
 	return nil
 }
 
+func (r *gammaReconciler) filterHTTPRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
+	var filtered []gatewayv1.HTTPRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gammaReconciler) filterGRPCRoutesByService(ctx context.Context, gammaService *corev1.Service, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+	var filtered []gatewayv1.GRPCRoute
+	for _, route := range routes {
+		if helpers.IsParentAttachable(ctx, gammaService, &route, route.Status.Parents) {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
 func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx context.Context, gammaService *corev1.Service, grpcRoutes *gatewayv1.GRPCRouteList, grants *gatewayv1beta1.ReferenceGrantList) error {
 	gammaLogger.DebugContext(ctx, "Updating GRPCRoute statuses for GAMMA Service", numRoutes, len(grpcRoutes.Items))
-	for _, original := range grpcRoutes.Items {
+	for grpcRouteIndex, original := range grpcRoutes.Items {
 
 		grpc := original.DeepCopy()
 
@@ -313,6 +338,9 @@ func (r *gammaReconciler) setGRPCRouteStatuses(gammaLogger *slog.Logger, ctx con
 					break
 				}
 			}
+
+			// Update the cached copy with the same status changes to prevent re-fetching from client cache.
+			grpcRoutes.Items[grpcRouteIndex].Status = grpc.Status
 
 		}
 
