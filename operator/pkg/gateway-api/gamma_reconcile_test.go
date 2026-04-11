@@ -119,7 +119,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 
 					t.Logf("Test %s, HTTPRoutes: %d, GRPCRoutes: %d", tt.name, len(filterHTTPRouteList), len(filterGRPCRouteList))
 					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: serviceKey})
-					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+					require.Equal(t, tt.wantErr, err != nil, "Error mismatch, error was %s", err)
 					require.Equal(t, ctrl.Result{}, result)
 
 					// Checking the output for Service
