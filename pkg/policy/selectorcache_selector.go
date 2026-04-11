@@ -118,20 +118,12 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // (SelectorCache.GetReadTxn() takes a read lock)
 //
 
-// GetSelectionsAt returns the set of numeric identities currently
-// selected.  The cached selections can be concurrently updated. In
-// that case GetSelectionsAt() will return either the old or new version
-// of the selections. If the old version is returned, the user is
-// guaranteed to receive a notification including the update.
+// GetSelections returns the set of numeric identities currently selected.
 func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
 	return i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
 }
 
-// GetSelectionsAt returns the set of numeric identities currently
-// selected.  The cached selections can be concurrently updated. In
-// that case GetSelectionsAt() will return either the old or new version
-// of the selections. If the old version is returned, the user is
-// guaranteed to receive a notification including the update.
+// GetSelectionsAt returns the set of numeric identities selected at the given snapshot.
 func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) identity.NumericIdentitySlice {
 	if !selectors.IsValid() || i.id == 0 {
 		msg := "GetSelectionsAt: Invalid selector snapshot finds nothing"
