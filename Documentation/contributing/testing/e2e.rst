@@ -15,7 +15,7 @@ Introduction
 Cilium uses `cilium-cli connectivity tests
 <https://github.com/cilium/cilium-cli/#connectivity-check>`_
 for implementing and running end-to-end tests which test Cilium all the way
-from the API level (for example, importing policies, CLI) to the datapath (in order words, whether
+from the API level (for example, importing policies, CLI) to the datapath (in other words, whether
 policy that is imported is enforced accordingly in the datapath).
 
 Running End-To-End Connectivity Tests
