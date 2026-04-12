@@ -824,6 +824,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableCiliumNodeCRDName)
 	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
 
+	flags.String(option.BGPSecretsNamespace, "", "BGPSecretsNamespace is the namespace which BGP support will retrieve secrets from")
+	option.BindEnv(vp, option.BGPSecretsNamespace)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}

@@ -30,6 +30,7 @@ cilium-agent [flags]
       --azure-interface-name string                               InterfaceName the cilium-operator will use to allocate all the IPs on at the node level
       --bgp-router-id-allocation-ip-pool string                   IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string                      BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
+      --bgp-secrets-namespace string                              BGPSecretsNamespace is the namespace which BGP support will retrieve secrets from
       --bpf-auth-map-max int                                      Maximum number of entries in auth map (default 524288)
       --bpf-conntrack-accounting                                  Enable CT accounting for packets and bytes (default false)
       --bpf-ct-global-any-max int                                 Maximum number of entries in non-TCP CT table (default 262144)

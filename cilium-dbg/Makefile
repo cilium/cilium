@@ -6,7 +6,7 @@
 ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include ${ROOT_DIR}/../Makefile.defs
-
+GO_TAGS_FLAGS+=ipam_provider_aws,ipam_provider_azure,ipam_provider_operator,ipam_provider_alibabacloud
 # Add the ability to override variables
 # ROOT_DIR changes to repo root after including Makefile.defs
 -include ${ROOT_DIR}/Makefile.override
