@@ -24,10 +24,19 @@ import (
 
 // PortRangeApplyConfiguration represents a declarative configuration of the PortRange type for use
 // with apply.
+//
+// PortRange defines an inclusive range of ports from the the assigned Start value
+// to End value.
 type PortRangeApplyConfiguration struct {
+	// Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must
+	// match. If not specified, this field defaults to TCP.
 	Protocol *v1.Protocol `json:"protocol,omitempty"`
-	Start    *int32       `json:"start,omitempty"`
-	End      *int32       `json:"end,omitempty"`
+	// Start defines a network port that is the start of a port range, the Start
+	// value must be less than End.
+	Start *int32 `json:"start,omitempty"`
+	// End defines a network port that is the end of a port range, the End value
+	// must be greater than Start.
+	End *int32 `json:"end,omitempty"`
 }
 
 // PortRangeApplyConfiguration constructs a declarative configuration of the PortRange type for use with

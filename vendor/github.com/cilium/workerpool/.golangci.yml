@@ -1,10 +1,9 @@
 # See https://golangci-lint.run/usage/configuration/ for available options.
 # Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
 # reference.
-run:
-  timeout: 1m
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -23,20 +22,18 @@ linters:
     - errcheck
     - errname
     - errorlint
-    - exptostd
     - exhaustive
+    - exptostd
     - forcetypeassert
     - gocheckcompilerdirectives
     - gocognit
     - goconst
     - gocritic
+    - godoclint
     - godot
-    - gofmt
     - goheader
-    - goimports
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - grouper
     - ineffassign
@@ -65,34 +62,38 @@ linters:
     - testifylint
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
     - unused
     - usestdlibvars
     - usetesting
     - wastedassign
-linters-settings:
-  cyclop:
-    skip-tests: true
-  goheader:
-    template: |-
-      SPDX-License-Identifier: Apache-2.0
-      Copyright Authors of Cilium
-  govet:
-    enable-all: true
-  perfsprint:
-    strconcat: false
-  sloglint:
-    no-mixed-args: true
-    static-msg: true
-    no-global: "all"
-    key-naming-case: kebab # be consistent with key names
-    forbidden-keys: # let's no use reserved log keys
-      - level
-      - msg
-      - source
-      - time
+  settings:
+    godoclint:
+      default: all
+    goheader:
+      template: |-
+        SPDX-License-Identifier: Apache-2.0
+        Copyright Authors of Cilium
+    govet:
+      enable-all: true
+    perfsprint:
+      strconcat: false
+    sloglint:
+      no-mixed-args: true
+      static-msg: true
+      no-global: "all"
+      key-naming-case: kebab # be consistent with key names
+      forbidden-keys: # let's no use reserved log keys
+        - level
+        - msg
+        - source
+        - time
+  exclusions:
+    rules:
+      - linters:
+          - cyclop
+        path: (.+)_test\.go
 issues:
   # Maximum issues count per one linter.
   # Set to 0 to disable (default is 50)
@@ -101,5 +102,7 @@ issues:
   # Set to 0 to disable (default is 3)
   max-same-issues: 0
   fix: true # fix found issues (if it's supported by the linter).
-  exclude-use-default: false # default rules exclude doc comments check :(
-  exclude-generated: strict
+formatters:
+  enable:
+    - gofmt
+    - goimports

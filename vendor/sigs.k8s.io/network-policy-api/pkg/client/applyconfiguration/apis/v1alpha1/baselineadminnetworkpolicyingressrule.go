@@ -24,11 +24,32 @@ import (
 
 // BaselineAdminNetworkPolicyIngressRuleApplyConfiguration represents a declarative configuration of the BaselineAdminNetworkPolicyIngressRule type for use
 // with apply.
+//
+// BaselineAdminNetworkPolicyIngressRule describes an action to take on a particular
+// set of traffic destined for pods selected by a BaselineAdminNetworkPolicy's
+// Subject field.
 type BaselineAdminNetworkPolicyIngressRuleApplyConfiguration struct {
-	Name   *string                                            `json:"name,omitempty"`
+	// Name is an identifier for this rule, that may be no more than 100 characters
+	// in length. This field should be used by the implementation to help
+	// improve observability, readability and error-reporting for any applied
+	// BaselineAdminNetworkPolicies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching traffic.
+	// Currently the following actions are supported:
+	// Allow: allows the selected traffic
+	// Deny: denies the selected traffic
 	Action *apisv1alpha1.BaselineAdminNetworkPolicyRuleAction `json:"action,omitempty"`
-	From   []AdminNetworkPolicyIngressPeerApplyConfiguration  `json:"from,omitempty"`
-	Ports  *[]AdminNetworkPolicyPortApplyConfiguration        `json:"ports,omitempty"`
+	// From is the list of sources whose traffic this rule applies to.
+	// If any element matches the source of incoming
+	// traffic then the specified action is applied.
+	// This field must be defined and contain at least one item.
+	From []AdminNetworkPolicyIngressPeerApplyConfiguration `json:"from,omitempty"`
+	// Ports allows for matching traffic based on port and protocols.
+	// This field is a list of ports which should be matched on
+	// the pods selected for this policy i.e the subject of the policy.
+	// So it matches on the destination port for the ingress traffic.
+	// If Ports is not set then the rule does not filter traffic via port.
+	Ports *[]AdminNetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 }
 
 // BaselineAdminNetworkPolicyIngressRuleApplyConfiguration constructs a declarative configuration of the BaselineAdminNetworkPolicyIngressRule type for use with

@@ -349,7 +349,7 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		obj, found := v.ResolveName(nm)
 		if found {
 			if celErr, ok := obj.(*types.Err); ok {
-				return nil, celErr.Unwrap()
+				return nil, celErr
 			}
 			obj, isOpt, err := applyQualifiers(v, obj, a.qualifiers)
 			if err != nil {

@@ -25,12 +25,58 @@ import (
 
 // ClusterNetworkPolicyEgressPeerApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyEgressPeer type for use
 // with apply.
+//
+// ClusterNetworkPolicyEgressPeer defines a peer to allow traffic to.
+//
+// Exactly one of the fields must be set for a given peer and this is enforced
+// by the validation rules on the CRD. If an implementation sees no fields are
+// set then it can infer that the deployed CRD is of an incompatible version
+// with an unknown field.  In that case it should fail closed.
+//
+// For "Accept" rules, "fail closed" means: "treat the rule as matching no
+// traffic". For "Deny" and "Pass" rules, "fail closed" means: "treat the rule
+// as a 'Deny all' rule".
 type ClusterNetworkPolicyEgressPeerApplyConfiguration struct {
-	Namespaces  *v1.LabelSelectorApplyConfiguration `json:"namespaces,omitempty"`
-	Pods        *NamespacedPodApplyConfiguration    `json:"pods,omitempty"`
-	Nodes       *v1.LabelSelectorApplyConfiguration `json:"nodes,omitempty"`
-	Networks    []apisv1alpha2.CIDR                 `json:"networks,omitempty"`
-	DomainNames []apisv1alpha2.DomainName           `json:"domainNames,omitempty"`
+	// Namespaces defines a way to select all pods within a set of Namespaces.
+	// Note that host-networked pods are not included in this type of peer.
+	Namespaces *v1.LabelSelectorApplyConfiguration `json:"namespaces,omitempty"`
+	// Pods defines a way to select a set of pods in
+	// a set of namespaces. Note that host-networked pods
+	// are not included in this type of peer.
+	Pods *NamespacedPodApplyConfiguration `json:"pods,omitempty"`
+	// Nodes defines a way to select a set of nodes in
+	// the cluster (based on the node's labels). It selects
+	// the nodeIPs as the peer type by matching on the IPs
+	// present in the node.Status.Addresses field of the node.
+	// This field follows standard label selector
+	// semantics; if present but empty, it selects all Nodes.
+	//
+	// <network-policy-api:experimental>
+	Nodes *v1.LabelSelectorApplyConfiguration `json:"nodes,omitempty"`
+	// Networks defines a way to select peers via CIDR blocks.
+	// This is intended for representing entities that live outside the cluster,
+	// which can't be selected by pods, namespaces and nodes peers, but note
+	// that cluster-internal traffic will be checked against the rule as
+	// well. So if you Accept or Deny traffic to `"0.0.0.0/0"`, that will allow
+	// or deny all IPv4 pod-to-pod traffic as well. If you don't want that,
+	// add a rule that Passes all pod traffic before the Networks rule.
+	//
+	// Each item in Networks should be provided in the CIDR format and should be
+	// IPv4 or IPv6, for example "10.0.0.0/8" or "fd00::/8".
+	//
+	// Networks can have up to 25 CIDRs specified.
+	Networks []apisv1alpha2.CIDR `json:"networks,omitempty"`
+	// DomainNames provides a way to specify domain names as peers.
+	//
+	// DomainNames is only supported for Accept rules. In order to control
+	// access, DomainNames Accept rules should be used with a lower precedence
+	// egress deny -- this allows the admin to maintain an explicit "allowlist"
+	// of reachable domains.
+	//
+	// DomainNames can have up to 25 domain names specified in one rule.
+	//
+	// <network-policy-api:experimental>
+	DomainNames []apisv1alpha2.DomainName `json:"domainNames,omitempty"`
 }
 
 // ClusterNetworkPolicyEgressPeerApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicyEgressPeer type for use with

@@ -26,11 +26,16 @@ import (
 
 // AdminNetworkPolicyApplyConfiguration represents a declarative configuration of the AdminNetworkPolicy type for use
 // with apply.
+//
+// AdminNetworkPolicy is  a cluster level resource that is part of the
+// AdminNetworkPolicy API.
 type AdminNetworkPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *AdminNetworkPolicySpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *AdminNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
+	// Specification of the desired behavior of AdminNetworkPolicy.
+	Spec *AdminNetworkPolicySpecApplyConfiguration `json:"spec,omitempty"`
+	// Status is the status to be reported by the implementation.
+	Status *AdminNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // AdminNetworkPolicy constructs a declarative configuration of the AdminNetworkPolicy type for use with
@@ -42,6 +47,7 @@ func AdminNetworkPolicy(name string) *AdminNetworkPolicyApplyConfiguration {
 	b.WithAPIVersion("policy.networking.k8s.io/v1alpha1")
 	return b
 }
+
 func (b AdminNetworkPolicyApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

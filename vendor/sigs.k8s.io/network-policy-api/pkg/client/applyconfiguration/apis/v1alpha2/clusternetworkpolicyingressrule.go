@@ -24,11 +24,46 @@ import (
 
 // ClusterNetworkPolicyIngressRuleApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyIngressRule type for use
 // with apply.
+//
+// ClusterNetworkPolicyIngressRule describes an action to take on a particular
+// set of traffic destined for pods selected by a ClusterNetworkPolicy's
+// Subject field.
 type ClusterNetworkPolicyIngressRuleApplyConfiguration struct {
-	Name      *string                                             `json:"name,omitempty"`
-	Action    *apisv1alpha2.ClusterNetworkPolicyRuleAction        `json:"action,omitempty"`
-	From      []ClusterNetworkPolicyIngressPeerApplyConfiguration `json:"from,omitempty"`
-	Protocols []ClusterNetworkPolicyProtocolApplyConfiguration    `json:"protocols,omitempty"`
+	// Name is an identifier for this rule, that may be no more than
+	// 100 characters in length. This field should be used by the implementation
+	// to help improve observability, readability and error-reporting
+	// for any applied policies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching
+	// traffic. Currently the following actions are supported:
+	//
+	// - Accept: Accepts the selected traffic, allowing it into
+	// the destination. No further ClusterNetworkPolicy or
+	// NetworkPolicy rules will be processed.
+	//
+	// Note: while Accept ensures traffic is accepted by
+	// Kubernetes network policy, it is still possible that the
+	// packet is blocked in other ways: custom nftable rules,
+	// high-layers e.g. service mesh.
+	//
+	// - Deny: Drops the selected traffic. No further
+	// ClusterNetworkPolicy or NetworkPolicy rules will be
+	// processed.
+	//
+	// - Pass: Skips all further ClusterNetworkPolicy rules in the
+	// current tier for the selected traffic, and passes
+	// evaluation to the next tier.
+	Action *apisv1alpha2.ClusterNetworkPolicyRuleAction `json:"action,omitempty"`
+	// From is the list of sources whose traffic this rule applies to.
+	// If any element matches the source of incoming
+	// traffic then the specified action is applied.
+	// This field must be defined and contain at least one item.
+	From []ClusterNetworkPolicyIngressPeerApplyConfiguration `json:"from,omitempty"`
+	// Protocols allows for more fine-grain matching of traffic on
+	// protocol-specific attributes such as the port. If
+	// unspecified, protocol-specific attributes will not be used
+	// to match traffic.
+	Protocols []ClusterNetworkPolicyProtocolApplyConfiguration `json:"protocols,omitempty"`
 }
 
 // ClusterNetworkPolicyIngressRuleApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicyIngressRule type for use with

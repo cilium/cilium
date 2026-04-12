@@ -24,6 +24,8 @@ import (
 
 // AdminNetworkPolicyStatusApplyConfiguration represents a declarative configuration of the AdminNetworkPolicyStatus type for use
 // with apply.
+//
+// AdminNetworkPolicyStatus defines the observed state of AdminNetworkPolicy.
 type AdminNetworkPolicyStatusApplyConfiguration struct {
 	Conditions []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 }

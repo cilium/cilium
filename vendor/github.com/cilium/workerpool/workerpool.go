@@ -15,6 +15,8 @@
 // limited, task results are not and they accumulate until they are collected.
 // Therefore, if a large number of tasks can be expected, the workerpool should
 // be periodically drained (e.g. every 10k tasks).
+// Alternatively, use [WithResultCallback] to process results as they complete
+// without accumulation.
 package workerpool
 
 import (
@@ -22,25 +24,59 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 var (
 	// ErrDraining is returned when an operation is not possible because
 	// draining is in progress.
 	ErrDraining = errors.New("drain operation in progress")
-	// ErrClosed is returned when operations are attempted after a call to Close.
+	// ErrClosed is returned when operations are attempted after a call to [Close].
 	ErrClosed = errors.New("worker pool is closed")
+	// ErrCallbackSet is returned by [Drain] when a result callback has been
+	// registered via [WithResultCallback].
+	ErrCallbackSet = errors.New("a result callback is set")
 )
+
+// Option configures a WorkerPool.
+type Option func(*WorkerPool)
+
+// WithResultCallback registers fn to be called each time a task completes.
+//
+// When a callback is set, results are NOT accumulated internally. This
+// means:
+//   - [Drain] will return [ErrCallbackSet] instead of collecting results
+//   - Results are processed immediately upon completion, avoiding memory
+//     buildup
+//
+// The callback fn is invoked from the worker goroutines.
+// This has a few implications:
+// 1. fn must be safe for concurrent use.
+// 2. fn must NOT call [Submit] nor [Close] as it will lead to a deadlock.
+//
+// WithResultCallback panics if fn is nil.
+func WithResultCallback(fn func(Result)) Option {
+	// TODO(v2): New/NewWithContext should return an error so that option
+	// validation can propagate errors instead of panicking.
+	if fn == nil {
+		panic("workerpool.WithResultCallback: fn must not be nil")
+	}
+	return func(wp *WorkerPool) {
+		wp.onResult = fn
+	}
+}
 
 // WorkerPool spawns, on demand, a number of worker routines to process
 // submitted tasks concurrently. The number of concurrent routines never
 // exceeds the specified limit.
 type WorkerPool struct {
-	workers chan struct{}
-	tasks   chan *task
-	cancel  context.CancelFunc
-	results []Task
-	wg      sync.WaitGroup
+	workers  chan struct{}
+	tasks    chan *task
+	done     <-chan struct{}
+	cancel   context.CancelFunc
+	onResult func(Result)
+	results  []Task
+	wg       sync.WaitGroup
 
 	mu       sync.Mutex
 	draining bool
@@ -49,13 +85,15 @@ type WorkerPool struct {
 
 // New creates a new pool of workers where at most n workers process submitted
 // tasks concurrently. New panics if n ≤ 0.
-func New(n int) *WorkerPool {
-	return NewWithContext(context.Background(), n)
+func New(n int, opts ...Option) *WorkerPool {
+	return NewWithContext(context.Background(), n, opts...)
 }
 
-// NewWithContext creates a new pool of workers where at most n workers process submitted
-// tasks concurrently. New panics if n ≤ 0. The context is used as the parent context to the context of the task func passed to Submit.
-func NewWithContext(ctx context.Context, n int) *WorkerPool {
+// NewWithContext creates a new pool of workers where at most n workers
+// process submitted tasks concurrently. NewWithContext panics if n ≤ 0. The
+// context is used as the parent context to the context of the task func passed
+// to [Submit].
+func NewWithContext(ctx context.Context, n int, opts ...Option) *WorkerPool {
 	if n <= 0 {
 		panic(fmt.Sprintf("workerpool.New: n must be > 0, got %d", n))
 	}
@@ -65,11 +103,15 @@ func NewWithContext(ctx context.Context, n int) *WorkerPool {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	wp.cancel = cancel
+	wp.done = ctx.Done()
+	for _, opt := range opts {
+		opt(wp)
+	}
 	go wp.run(ctx)
 	return wp
 }
 
-// Cap returns the concurrent workers capacity, see New().
+// Cap returns the concurrent workers capacity, see [New].
 func (wp *WorkerPool) Cap() int {
 	return cap(wp.workers)
 }
@@ -80,16 +122,20 @@ func (wp *WorkerPool) Len() int {
 }
 
 // Submit submits f for processing by a worker. The given id is useful for
-// identifying the task once it is completed. The task f must return when the
-// context ctx is cancelled. The context passed to task f is cancelled when
-// Close is called.
+// identifying the task once it is completed.
 //
-// Submit blocks until a routine start processing the task.
+// The task function f receives a context that is cancelled when [Close] is
+// called or when the parent context passed to [NewWithContext] is done. Tasks
+// MUST respect context cancellation and return promptly when ctx.Done() is
+// signaled. Tasks that ignore cancellation will cause [Close] to block
+// indefinitely waiting for them to complete. Use context-aware operations
+// (e.g., select with ctx.Done()) to ensure timely shutdown.
 //
-// If a drain operation is in progress, ErrDraining is returned and the task
-// is not submitted for processing.
-// If the worker pool is closed, ErrClosed is returned and the task is not
-// submitted for processing.
+// Submit blocks until a routine starts processing the task.
+//
+// [ErrDraining] is returned if a drain operation is in progress.
+// [ErrClosed] is returned if the worker pool is closed.
+// [context.Canceled] is returned if the parent context is done.
 func (wp *WorkerPool) Submit(id string, f func(ctx context.Context) error) error {
 	wp.mu.Lock()
 	if wp.closed {
@@ -99,6 +145,12 @@ func (wp *WorkerPool) Submit(id string, f func(ctx context.Context) error) error
 	if wp.draining {
 		wp.mu.Unlock()
 		return ErrDraining
+	}
+	select {
+	case <-wp.done:
+		wp.mu.Unlock()
+		return context.Canceled
+	default:
 	}
 	wp.wg.Add(1)
 	wp.mu.Unlock()
@@ -112,8 +164,18 @@ func (wp *WorkerPool) Submit(id string, f func(ctx context.Context) error) error
 // Drain waits until all tasks are completed. This operation prevents
 // submitting new tasks to the worker pool. Drain returns the results of the
 // tasks that have been processed.
-// If a drain operation is already in progress, ErrDraining is returned.
-// If the worker pool is closed, ErrClosed is returned.
+//
+// Drain is incompatible with the [WithResultCallback] option. When a result
+// callback is configured, results are processed immediately upon completion
+// rather than being accumulated, so Drain returns [ErrCallbackSet].
+//
+// Unlike [Close], Drain does not cancel task contexts. Tasks run to completion
+// naturally. After Drain, the pool can be closed with [Close] (which will not
+// cancel any tasks since none are running) or more tasks can be submitted.
+//
+// [ErrCallbackSet] is returned if the [WithResultCallback] option is used.
+// [ErrDraining] is returned if a drain operation is already in progress.
+// [ErrClosed] is returned if the worker pool is closed.
 func (wp *WorkerPool) Drain() ([]Task, error) {
 	wp.mu.Lock()
 	if wp.closed {
@@ -124,14 +186,23 @@ func (wp *WorkerPool) Drain() ([]Task, error) {
 		wp.mu.Unlock()
 		return nil, ErrDraining
 	}
+	// TODO(v2): remove ErrCallbackSet — a pool configured with WithResultCallback should not expose Drain.
+	if wp.onResult != nil {
+		wp.mu.Unlock()
+		return nil, ErrCallbackSet
+	}
 	wp.draining = true
 	wp.mu.Unlock()
 
 	wp.wg.Wait()
 
-	// NOTE: It's not necessary to hold a lock when reading or writing
-	// wp.results as no other routine is running at this point besides the
-	// "run" routine which should be waiting on the tasks channel.
+	// NOTE: No lock is needed here due to the following synchronization:
+	// 1. Only the single run() goroutine writes to wp.results.
+	// 2. run() appends each result BEFORE spawning its worker goroutine.
+	// 3. Each worker calls wg.Done() upon completion.
+	// 4. wg.Wait() above ensures all workers (and thus all appends) completed.
+	// 5. run() is now blocked waiting for tasks on the channel.
+	// Therefore, no concurrent access to wp.results is possible here.
 	res := wp.results
 	wp.results = nil
 
@@ -143,9 +214,20 @@ func (wp *WorkerPool) Drain() ([]Task, error) {
 }
 
 // Close closes the worker pool, rendering it unable to process new tasks.
-// Close sends the cancellation signal to any running task and waits for all
-// workers, if any, to return.
-// Close will return ErrClosed if it has already been called.
+// Close sends the cancellation signal to any running task via context
+// cancellation and waits indefinitely for all workers to return. If tasks do
+// not respect context cancellation, Close will block until they complete.
+// When a result callback is set via [WithResultCallback], all callback
+// invocations are guaranteed to have completed before Close returns.
+//
+// Close will return [ErrClosed] if it has already been called. This makes
+// it safe to use with defer immediately after creating the pool (for
+// cleanup on early returns) while still calling Close explicitly to check
+// for errors.
+//
+// Note: Close cancels running tasks via context, while [Drain] waits for
+// tasks to complete without cancellation. If you want tasks to finish
+// naturally, call [Drain] before Close.
 func (wp *WorkerPool) Close() error {
 	wp.mu.Lock()
 	if wp.closed {
@@ -169,16 +251,26 @@ func (wp *WorkerPool) Close() error {
 
 // run loops over the tasks channel and starts processing routines. It should
 // only be called once during the lifetime of a WorkerPool.
+// This is the sole goroutine that writes to wp.results, making it safe to
+// append without a lock. The append happens before spawning each worker,
+// establishing a happens-before relationship that ensures [Drain] can safely
+// read wp.results after wg.Wait() completes.
 func (wp *WorkerPool) run(ctx context.Context) {
 	for t := range wp.tasks {
-
 		result := taskResult{id: t.id}
-		wp.results = append(wp.results, &result)
+		if wp.onResult == nil {
+			wp.results = append(wp.results, &result)
+		}
 		wp.workers <- struct{}{}
 		go func() {
 			defer wp.wg.Done()
+			start := time.Now()
 			if t.run != nil {
 				result.err = t.run(ctx)
+			}
+			result.duration = time.Since(start)
+			if wp.onResult != nil {
+				wp.onResult(&result)
 			}
 			<-wp.workers
 		}()

@@ -1433,7 +1433,7 @@ func (f *folder) AsPartialActivation() (PartialActivation, bool) {
 func (f *folder) evalResult() ref.Val {
 	f.computeResult = true
 	if f.interrupted {
-		return types.NewErr("operation interrupted")
+		return types.WrapErr(InterruptError{})
 	}
 	res := f.result.Eval(f)
 	// Convert a mutable list or map to an immutable one if the comprehension has generated a list or
@@ -1466,6 +1466,20 @@ func (f *folder) reset() {
 func checkInterrupt(a Activation) bool {
 	stop, found := a.ResolveName("#interrupted")
 	return found && stop == true
+}
+
+// InterruptError is a specialized error type used to signal that program evaluation should check
+// whether a context cancellation is responsible for the error.
+type InterruptError struct{}
+
+// Error returns operation interrupted.
+func (InterruptError) Error() string {
+	return "operation interrupted"
+}
+
+// Is returns whether two errors are interrupt errors.
+func (ie InterruptError) Is(target error) bool {
+	return target.Error() == ie.Error()
 }
 
 var (

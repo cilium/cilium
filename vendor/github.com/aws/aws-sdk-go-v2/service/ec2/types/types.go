@@ -1706,6 +1706,11 @@ type CapacityManagerDimension struct {
 	//  The Amazon Web Services account ID that owns the capacity resource.
 	AccountId *string
 
+	//  The name of the Amazon Web Services account that owns the capacity resource.
+	// This dimension is only available when Organizations access is enabled for
+	// Capacity Manager.
+	AccountName *string
+
 	//  The unique identifier of the Availability Zone where the capacity resource is
 	// located.
 	AvailabilityZoneId *string
@@ -1764,10 +1769,56 @@ type CapacityManagerDimension struct {
 	//  The Amazon Web Services Region where the capacity resource is located.
 	ResourceRegion *string
 
+	//  The tags associated with the capacity resource, represented as key-value
+	// pairs. Only tags that have been activated for monitoring via
+	// UpdateCapacityManagerMonitoredTagKeys are included.
+	Tags []CapacityManagerTagDimension
+
 	//  The tenancy of the EC2 instances associated with this capacity dimension.
 	// Valid values are 'default' for shared tenancy, 'dedicated' for dedicated
 	// instances, or 'host' for dedicated hosts.
 	Tenancy CapacityTenancy
+
+	noSmithyDocumentSerde
+}
+
+//	Describes a tag key that is being monitored by Capacity Manager, including its
+//
+// activation status and the earliest available data point.
+type CapacityManagerMonitoredTagKey struct {
+
+	//  Indicates whether this tag key is provided by Capacity Manager by default,
+	// rather than being user-activated.
+	CapacityManagerProvided *bool
+
+	//  The earliest timestamp from which tag data is available for queries, in UTC
+	// ISO 8601 format.
+	EarliestDatapointTimestamp *time.Time
+
+	//  The current status of the monitored tag key. Valid values are activating ,
+	// activated , deactivating , and suspended .
+	Status CapacityManagerMonitoredTagKeyStatus
+
+	//  A message providing additional details about the current status of the
+	// monitored tag key.
+	StatusMessage *string
+
+	//  The tag key being monitored.
+	TagKey *string
+
+	noSmithyDocumentSerde
+}
+
+//	A key-value pair representing a tag associated with a capacity resource in
+//
+// Capacity Manager.
+type CapacityManagerTagDimension struct {
+
+	//  The tag key.
+	Key *string
+
+	//  The tag value.
+	Value *string
 
 	noSmithyDocumentSerde
 }

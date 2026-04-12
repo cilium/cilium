@@ -16,6 +16,7 @@ package cel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -218,6 +219,12 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 	attrFactorOpts := []interpreter.AttrFactoryOption{
 		interpreter.EnableErrorOnBadPresenceTest(p.HasFeature(featureEnableErrorOnBadPresenceTest)),
 	}
+	if a.SourceInfo().HasExtension("json_name", ast.NewExtensionVersion(1, 1)) {
+		if !e.HasFeature(featureJSONFieldNames) {
+			return nil, errors.New("the AST extension 'json_name' requires the option cel.JSONFieldNames(true)")
+		}
+	}
+	// Configure the type provider, considering whether the AST indicates whether it supports JSON field names
 	if p.evalOpts&OptPartialEval == OptPartialEval {
 		attrFactory = interpreter.NewPartialAttributeFactory(e.Container, e.adapter, e.provider, attrFactorOpts...)
 	} else {
@@ -361,7 +368,11 @@ func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetail
 	default:
 		return nil, nil, fmt.Errorf("invalid input, wanted Activation or map[string]any, got: (%T)%v", input, input)
 	}
-	return p.Eval(vars)
+	out, det, err := p.Eval(vars)
+	if err != nil && errors.Is(err, interpreter.InterruptError{}) {
+		return out, det, context.Cause(ctx)
+	}
+	return out, det, err
 }
 
 type ctxEvalActivation struct {

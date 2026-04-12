@@ -24,11 +24,36 @@ import (
 
 // AdminNetworkPolicyIngressRuleApplyConfiguration represents a declarative configuration of the AdminNetworkPolicyIngressRule type for use
 // with apply.
+//
+// AdminNetworkPolicyIngressRule describes an action to take on a particular
+// set of traffic destined for pods selected by an AdminNetworkPolicy's
+// Subject field.
 type AdminNetworkPolicyIngressRuleApplyConfiguration struct {
-	Name   *string                                           `json:"name,omitempty"`
-	Action *apisv1alpha1.AdminNetworkPolicyRuleAction        `json:"action,omitempty"`
-	From   []AdminNetworkPolicyIngressPeerApplyConfiguration `json:"from,omitempty"`
-	Ports  *[]AdminNetworkPolicyPortApplyConfiguration       `json:"ports,omitempty"`
+	// Name is an identifier for this rule, that may be no more than 100 characters
+	// in length. This field should be used by the implementation to help
+	// improve observability, readability and error-reporting for any applied
+	// AdminNetworkPolicies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching traffic.
+	// Currently the following actions are supported:
+	// Allow: allows the selected traffic (even if it would otherwise have been denied by NetworkPolicy)
+	// Deny: denies the selected traffic
+	// Pass: instructs the selected traffic to skip any remaining ANP rules, and
+	// then pass execution to any NetworkPolicies that select the pod.
+	// If the pod is not selected by any NetworkPolicies then execution
+	// is passed to any BaselineAdminNetworkPolicies that select the pod.
+	Action *apisv1alpha1.AdminNetworkPolicyRuleAction `json:"action,omitempty"`
+	// From is the list of sources whose traffic this rule applies to.
+	// If any element matches the source of incoming
+	// traffic then the specified action is applied.
+	// This field must be defined and contain at least one item.
+	From []AdminNetworkPolicyIngressPeerApplyConfiguration `json:"from,omitempty"`
+	// Ports allows for matching traffic based on port and protocols.
+	// This field is a list of ports which should be matched on
+	// the pods selected for this policy i.e the subject of the policy.
+	// So it matches on the destination port for the ingress traffic.
+	// If Ports is not set then the rule does not filter traffic via port.
+	Ports *[]AdminNetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 }
 
 // AdminNetworkPolicyIngressRuleApplyConfiguration constructs a declarative configuration of the AdminNetworkPolicyIngressRule type for use with

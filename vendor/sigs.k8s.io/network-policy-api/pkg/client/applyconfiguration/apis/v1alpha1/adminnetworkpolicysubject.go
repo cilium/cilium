@@ -24,9 +24,14 @@ import (
 
 // AdminNetworkPolicySubjectApplyConfiguration represents a declarative configuration of the AdminNetworkPolicySubject type for use
 // with apply.
+//
+// AdminNetworkPolicySubject defines what resources the policy applies to.
+// Exactly one field must be set.
 type AdminNetworkPolicySubjectApplyConfiguration struct {
+	// Namespaces is used to select pods via namespace selectors.
 	Namespaces *v1.LabelSelectorApplyConfiguration `json:"namespaces,omitempty"`
-	Pods       *NamespacedPodApplyConfiguration    `json:"pods,omitempty"`
+	// Pods is used to select pods via namespace AND pod selectors.
+	Pods *NamespacedPodApplyConfiguration `json:"pods,omitempty"`
 }
 
 // AdminNetworkPolicySubjectApplyConfiguration constructs a declarative configuration of the AdminNetworkPolicySubject type for use with

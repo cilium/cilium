@@ -24,12 +24,76 @@ import (
 
 // ClusterNetworkPolicySpecApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicySpec type for use
 // with apply.
+//
+// ClusterNetworkPolicySpec defines the desired state of ClusterNetworkPolicy.
 type ClusterNetworkPolicySpecApplyConfiguration struct {
-	Tier     *apisv1alpha2.Tier                                  `json:"tier,omitempty"`
-	Priority *int32                                              `json:"priority,omitempty"`
-	Subject  *ClusterNetworkPolicySubjectApplyConfiguration      `json:"subject,omitempty"`
-	Ingress  []ClusterNetworkPolicyIngressRuleApplyConfiguration `json:"ingress,omitempty"`
-	Egress   []ClusterNetworkPolicyEgressRuleApplyConfiguration  `json:"egress,omitempty"`
+	// Tier is used as the top-level grouping for network policy prioritization.
+	//
+	// Policy tiers are evaluated in the following order:
+	// * Admin tier
+	// * NetworkPolicy tier
+	// * Baseline tier
+	//
+	// ClusterNetworkPolicy can use 2 of these tiers: Admin and Baseline.
+	//
+	// The Admin tier takes precedence over all other policies. Policies
+	// defined in this tier are used to set cluster-wide security rules
+	// that cannot be overridden in the other tiers. If Admin tier has
+	// made a final decision (Accept or Deny) on a connection, then no
+	// further evaluation is done.
+	//
+	// NetworkPolicy tier is the tier for the namespaced v1.NetworkPolicy.
+	// These policies are intended for the application developer to describe
+	// the security policy associated with their deployments inside their
+	// namespace. v1.NetworkPolicy always makes a final decision for selected
+	// pods. Further evaluation only happens for Pods not selected by a
+	// v1.NetworkPolicy.
+	//
+	// Baseline tier is a cluster-wide policy that can be overridden by the
+	// v1.NetworkPolicy. If Baseline tier has made a final decision (Accept or
+	// Deny) on a connection, then no further evaluation is done.
+	//
+	// If a given connection wasn't allowed or denied by any of the tiers,
+	// the default kubernetes policy is applied, which says that
+	// all pods can communicate with each other.
+	Tier *apisv1alpha2.Tier `json:"tier,omitempty"`
+	// Priority is a value from 0 to 1000 indicating the precedence of
+	// the policy within its tier. Policies with lower priority values have
+	// higher precedence, and are checked before policies with higher priority
+	// values in the same tier. All Admin tier rules have higher precedence than
+	// NetworkPolicy or Baseline tier rules.
+	// If two (or more) policies in the same tier with the same priority
+	// could match a connection, then the implementation can apply any of the
+	// matching policies to the connection, and there is no way for the user to
+	// reliably determine which one it will choose. Administrators must be
+	// careful about assigning the priorities for policies with rules that will
+	// match many connections, and ensure that policies have unique priority
+	// values in cases where ambiguity would be unacceptable.
+	Priority *int32 `json:"priority,omitempty"`
+	// Subject defines the pods to which this ClusterNetworkPolicy applies.
+	Subject *ClusterNetworkPolicySubjectApplyConfiguration `json:"subject,omitempty"`
+	// Ingress is the list of Ingress rules to be applied to the selected pods.
+	//
+	// A maximum of 25 rules is allowed in this block.
+	//
+	// The relative precedence of ingress rules within a single CNP object
+	// (all of which share the priority) will be determined by the order
+	// in which the rule is written.
+	// Thus, a rule that appears at the top of the ingress rules
+	// would take the highest precedence.
+	// CNPs with no ingress rules do not affect ingress traffic.
+	Ingress []ClusterNetworkPolicyIngressRuleApplyConfiguration `json:"ingress,omitempty"`
+	// Egress is the list of Egress rules to be applied to the selected pods.
+	//
+	// A maximum of 25 rules is allowed in this block.
+	//
+	// The relative precedence of egress rules within a single CNP object
+	// (all of which share the priority) will be determined by the order
+	// in which the rule is written.
+	// Thus, a rule that appears at the top of the egress rules
+	// would take the highest precedence.
+	// CNPs with no egress rules do not affect egress traffic.
+	Egress []ClusterNetworkPolicyEgressRuleApplyConfiguration `json:"egress,omitempty"`
 }
 
 // ClusterNetworkPolicySpecApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicySpec type for use with

@@ -24,11 +24,31 @@ import (
 
 // BaselineAdminNetworkPolicyEgressRuleApplyConfiguration represents a declarative configuration of the BaselineAdminNetworkPolicyEgressRule type for use
 // with apply.
+//
+// BaselineAdminNetworkPolicyEgressRule describes an action to take on a particular
+// set of traffic originating from pods selected by a BaselineAdminNetworkPolicy's
+// Subject field.
+// <network-policy-api:experimental:validation>
 type BaselineAdminNetworkPolicyEgressRuleApplyConfiguration struct {
-	Name   *string                                                  `json:"name,omitempty"`
-	Action *apisv1alpha1.BaselineAdminNetworkPolicyRuleAction       `json:"action,omitempty"`
-	To     []BaselineAdminNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
-	Ports  *[]AdminNetworkPolicyPortApplyConfiguration              `json:"ports,omitempty"`
+	// Name is an identifier for this rule, that may be no more than 100 characters
+	// in length. This field should be used by the implementation to help
+	// improve observability, readability and error-reporting for any applied
+	// BaselineAdminNetworkPolicies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching traffic.
+	// Currently the following actions are supported:
+	// Allow: allows the selected traffic
+	// Deny: denies the selected traffic
+	Action *apisv1alpha1.BaselineAdminNetworkPolicyRuleAction `json:"action,omitempty"`
+	// To is the list of destinations whose traffic this rule applies to.
+	// If any element matches the destination of outgoing
+	// traffic then the specified action is applied.
+	// This field must be defined and contain at least one item.
+	To []BaselineAdminNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
+	// Ports allows for matching traffic based on port and protocols.
+	// This field is a list of destination ports for the outgoing egress traffic.
+	// If Ports is not set then the rule does not filter traffic via port.
+	Ports *[]AdminNetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 }
 
 // BaselineAdminNetworkPolicyEgressRuleApplyConfiguration constructs a declarative configuration of the BaselineAdminNetworkPolicyEgressRule type for use with

@@ -20,10 +20,19 @@ package v1alpha1
 
 // AdminNetworkPolicyPortApplyConfiguration represents a declarative configuration of the AdminNetworkPolicyPort type for use
 // with apply.
+//
+// AdminNetworkPolicyPort describes how to select network ports on pod(s).
+// Exactly one field must be set.
 type AdminNetworkPolicyPortApplyConfiguration struct {
-	PortNumber *PortApplyConfiguration      `json:"portNumber,omitempty"`
-	NamedPort  *string                      `json:"namedPort,omitempty"`
-	PortRange  *PortRangeApplyConfiguration `json:"portRange,omitempty"`
+	// Port selects a port on a pod(s) based on number.
+	PortNumber *PortApplyConfiguration `json:"portNumber,omitempty"`
+	// NamedPort selects a port on a pod(s) based on name.
+	//
+	// <network-policy-api:experimental>
+	NamedPort *string `json:"namedPort,omitempty"`
+	// PortRange selects a port range on a pod(s) based on provided start and end
+	// values.
+	PortRange *PortRangeApplyConfiguration `json:"portRange,omitempty"`
 }
 
 // AdminNetworkPolicyPortApplyConfiguration constructs a declarative configuration of the AdminNetworkPolicyPort type for use with

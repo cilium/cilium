@@ -24,11 +24,35 @@ import (
 
 // AdminNetworkPolicyEgressRuleApplyConfiguration represents a declarative configuration of the AdminNetworkPolicyEgressRule type for use
 // with apply.
+//
+// AdminNetworkPolicyEgressRule describes an action to take on a particular
+// set of traffic originating from pods selected by a AdminNetworkPolicy's
+// Subject field.
+// <network-policy-api:experimental:validation>
 type AdminNetworkPolicyEgressRuleApplyConfiguration struct {
-	Name   *string                                          `json:"name,omitempty"`
-	Action *apisv1alpha1.AdminNetworkPolicyRuleAction       `json:"action,omitempty"`
-	To     []AdminNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
-	Ports  *[]AdminNetworkPolicyPortApplyConfiguration      `json:"ports,omitempty"`
+	// Name is an identifier for this rule, that may be no more than 100 characters
+	// in length. This field should be used by the implementation to help
+	// improve observability, readability and error-reporting for any applied
+	// AdminNetworkPolicies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching traffic.
+	// Currently the following actions are supported:
+	// Allow: allows the selected traffic (even if it would otherwise have been denied by NetworkPolicy)
+	// Deny: denies the selected traffic
+	// Pass: instructs the selected traffic to skip any remaining ANP rules, and
+	// then pass execution to any NetworkPolicies that select the pod.
+	// If the pod is not selected by any NetworkPolicies then execution
+	// is passed to any BaselineAdminNetworkPolicies that select the pod.
+	Action *apisv1alpha1.AdminNetworkPolicyRuleAction `json:"action,omitempty"`
+	// To is the List of destinations whose traffic this rule applies to.
+	// If any element matches the destination of outgoing
+	// traffic then the specified action is applied.
+	// This field must be defined and contain at least one item.
+	To []AdminNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
+	// Ports allows for matching traffic based on port and protocols.
+	// This field is a list of destination ports for the outgoing egress traffic.
+	// If Ports is not set then the rule does not filter traffic via port.
+	Ports *[]AdminNetworkPolicyPortApplyConfiguration `json:"ports,omitempty"`
 }
 
 // AdminNetworkPolicyEgressRuleApplyConfiguration constructs a declarative configuration of the AdminNetworkPolicyEgressRule type for use with

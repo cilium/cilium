@@ -20,9 +20,13 @@ package v1alpha2
 
 // PortApplyConfiguration represents a declarative configuration of the Port type for use
 // with apply.
+//
+// Port matches on port number. You must specify either Port or Range.
 type PortApplyConfiguration struct {
-	Number *int32                       `json:"number,omitempty"`
-	Range  *PortRangeApplyConfiguration `json:"range,omitempty"`
+	// Number defines a network port value.
+	Number *int32 `json:"number,omitempty"`
+	// Range defines a contiguous range of ports.
+	Range *PortRangeApplyConfiguration `json:"range,omitempty"`
 }
 
 // PortApplyConfiguration constructs a declarative configuration of the Port type for use with

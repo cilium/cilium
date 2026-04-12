@@ -24,11 +24,43 @@ import (
 
 // ClusterNetworkPolicyEgressRuleApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyEgressRule type for use
 // with apply.
+//
+// ClusterNetworkPolicyEgressRule describes an action to take on a particular
+// set of traffic originating from pods selected by a ClusterNetworkPolicy's
+// Subject field.
+//
+// <network-policy-api:experimental:validation>
 type ClusterNetworkPolicyEgressRuleApplyConfiguration struct {
-	Name      *string                                            `json:"name,omitempty"`
-	Action    *apisv1alpha2.ClusterNetworkPolicyRuleAction       `json:"action,omitempty"`
-	To        []ClusterNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
-	Protocols []ClusterNetworkPolicyProtocolApplyConfiguration   `json:"protocols,omitempty"`
+	// Name is an identifier for this rule, that may be no more than
+	// 100 characters in length. This field should be used by the implementation
+	// to help improve observability, readability and error-reporting
+	// for any applied policies.
+	Name *string `json:"name,omitempty"`
+	// Action specifies the effect this rule will have on matching
+	// traffic.  Currently the following actions are supported:
+	//
+	// - Accept: Accepts the selected traffic, allowing it to
+	// egress. No further ClusterNetworkPolicy or NetworkPolicy
+	// rules will be processed.
+	//
+	// - Deny: Drops the selected traffic. No further
+	// ClusterNetworkPolicy or NetworkPolicy rules will be
+	// processed.
+	//
+	// - Pass: Skips all further ClusterNetworkPolicy rules in the
+	// current tier for the selected traffic, and passes
+	// evaluation to the next tier.
+	Action *apisv1alpha2.ClusterNetworkPolicyRuleAction `json:"action,omitempty"`
+	// To is the list of destinations whose traffic this rule applies to. If any
+	// element matches the destination of outgoing traffic then the specified
+	// action is applied. This field must be defined and contain at least one
+	// item.
+	To []ClusterNetworkPolicyEgressPeerApplyConfiguration `json:"to,omitempty"`
+	// Protocols allows for more fine-grain matching of traffic on
+	// protocol-specific attributes such as the port. If
+	// unspecified, protocol-specific attributes will not be used
+	// to match traffic.
+	Protocols []ClusterNetworkPolicyProtocolApplyConfiguration `json:"protocols,omitempty"`
 }
 
 // ClusterNetworkPolicyEgressRuleApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicyEgressRule type for use with
