@@ -49,8 +49,8 @@ with layer 7 rules is also specified, then the layer 7 portions of the
 latter rule will have no effect.
 
 .. note:: Unlike layer 3 and layer 4 policies, violation of layer 7 rules does
-          not result in packet drops. Instead, if possible, an application
-          protocol specific access denied message is crafted and returned, e.g.
+          not result in packet drops. Instead, an application
+          protocol specific access denied message is crafted and returned, if the application protocol supports it, e.g.
           an *HTTP 403 access denied* is sent back for HTTP requests which
           violate the policy, or a *DNS REFUSED* response for DNS requests.
 
