@@ -122,7 +122,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -263,7 +263,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -380,7 +380,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
