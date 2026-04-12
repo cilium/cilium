@@ -20,11 +20,20 @@ package v1alpha2
 
 // ClusterNetworkPolicyProtocolApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyProtocol type for use
 // with apply.
+//
+// ClusterNetworkPolicyProtocol describes additional protocol-specific match rules.
+// Exactly one field must be set.
 type ClusterNetworkPolicyProtocolApplyConfiguration struct {
-	TCP                  *ClusterNetworkPolicyProtocolTCPApplyConfiguration  `json:"tcp,omitempty"`
-	UDP                  *ClusterNetworkPolicyProtocolUDPApplyConfiguration  `json:"udp,omitempty"`
-	SCTP                 *ClusterNetworkPolicyProtocolSCTPApplyConfiguration `json:"sctp,omitempty"`
-	DestinationNamedPort *string                                             `json:"destinationNamedPort,omitempty"`
+	// TCP specific protocol matches.
+	TCP *ClusterNetworkPolicyProtocolTCPApplyConfiguration `json:"tcp,omitempty"`
+	// UDP specific protocol matches.
+	UDP *ClusterNetworkPolicyProtocolUDPApplyConfiguration `json:"udp,omitempty"`
+	// SCTP specific protocol matches.
+	SCTP *ClusterNetworkPolicyProtocolSCTPApplyConfiguration `json:"sctp,omitempty"`
+	// DestinationNamedPort selects a destination port on a pod based on the
+	// ContainerPort name. You can't use this in a rule that targets resources
+	// without named ports (e.g. Nodes or Networks).
+	DestinationNamedPort *string `json:"destinationNamedPort,omitempty"`
 }
 
 // ClusterNetworkPolicyProtocolApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicyProtocol type for use with

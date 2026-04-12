@@ -1161,6 +1161,30 @@ func (CapacityManagerDataExportStatus) Values() []CapacityManagerDataExportStatu
 	}
 }
 
+type CapacityManagerMonitoredTagKeyStatus string
+
+// Enum values for CapacityManagerMonitoredTagKeyStatus
+const (
+	CapacityManagerMonitoredTagKeyStatusActivating   CapacityManagerMonitoredTagKeyStatus = "activating"
+	CapacityManagerMonitoredTagKeyStatusActivated    CapacityManagerMonitoredTagKeyStatus = "activated"
+	CapacityManagerMonitoredTagKeyStatusDeactivating CapacityManagerMonitoredTagKeyStatus = "deactivating"
+	CapacityManagerMonitoredTagKeyStatusSuspended    CapacityManagerMonitoredTagKeyStatus = "suspended"
+)
+
+// Values returns all known values for CapacityManagerMonitoredTagKeyStatus. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityManagerMonitoredTagKeyStatus) Values() []CapacityManagerMonitoredTagKeyStatus {
+	return []CapacityManagerMonitoredTagKeyStatus{
+		"activating",
+		"activated",
+		"deactivating",
+		"suspended",
+	}
+}
+
 type CapacityManagerStatus string
 
 // Enum values for CapacityManagerStatus
@@ -2657,6 +2681,7 @@ const (
 	FilterByDimensionResourceRegion                   FilterByDimension = "resource-region"
 	FilterByDimensionAvailabilityZoneId               FilterByDimension = "availability-zone-id"
 	FilterByDimensionAccountId                        FilterByDimension = "account-id"
+	FilterByDimensionAccountName                      FilterByDimension = "account-name"
 	FilterByDimensionInstanceFamily                   FilterByDimension = "instance-family"
 	FilterByDimensionInstanceType                     FilterByDimension = "instance-type"
 	FilterByDimensionInstancePlatform                 FilterByDimension = "instance-platform"
@@ -2682,6 +2707,7 @@ func (FilterByDimension) Values() []FilterByDimension {
 		"resource-region",
 		"availability-zone-id",
 		"account-id",
+		"account-name",
 		"instance-family",
 		"instance-type",
 		"instance-platform",
@@ -3082,6 +3108,7 @@ const (
 	GroupByResourceRegion                   GroupBy = "resource-region"
 	GroupByAvailabilityZoneId               GroupBy = "availability-zone-id"
 	GroupByAccountId                        GroupBy = "account-id"
+	GroupByAccountName                      GroupBy = "account-name"
 	GroupByInstanceFamily                   GroupBy = "instance-family"
 	GroupByInstanceType                     GroupBy = "instance-type"
 	GroupByInstancePlatform                 GroupBy = "instance-platform"
@@ -3107,6 +3134,7 @@ func (GroupBy) Values() []GroupBy {
 		"resource-region",
 		"availability-zone-id",
 		"account-id",
+		"account-name",
 		"instance-family",
 		"instance-type",
 		"instance-platform",

@@ -25,8 +25,11 @@ import (
 // PortApplyConfiguration represents a declarative configuration of the Port type for use
 // with apply.
 type PortApplyConfiguration struct {
+	// Protocol is the network protocol (TCP, UDP, or SCTP) which traffic must
+	// match. If not specified, this field defaults to TCP.
 	Protocol *v1.Protocol `json:"protocol,omitempty"`
-	Port     *int32       `json:"port,omitempty"`
+	// Number defines a network port value.
+	Port *int32 `json:"port,omitempty"`
 }
 
 // PortApplyConfiguration constructs a declarative configuration of the Port type for use with

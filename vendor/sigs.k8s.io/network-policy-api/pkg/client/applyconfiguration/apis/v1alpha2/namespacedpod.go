@@ -24,9 +24,16 @@ import (
 
 // NamespacedPodApplyConfiguration represents a declarative configuration of the NamespacedPod type for use
 // with apply.
+//
+// NamespacedPod allows the user to select a given set of pod(s) in
+// selected namespace(s).
 type NamespacedPodApplyConfiguration struct {
+	// NamespaceSelector follows standard label selector
+	// semantics; if empty, it selects all Namespaces.
 	NamespaceSelector *v1.LabelSelectorApplyConfiguration `json:"namespaceSelector,omitempty"`
-	PodSelector       *v1.LabelSelectorApplyConfiguration `json:"podSelector,omitempty"`
+	// PodSelector is used to explicitly select pods within a namespace;
+	// if empty, it selects all Pods.
+	PodSelector *v1.LabelSelectorApplyConfiguration `json:"podSelector,omitempty"`
 }
 
 // NamespacedPodApplyConfiguration constructs a declarative configuration of the NamespacedPod type for use with

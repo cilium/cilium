@@ -20,7 +20,10 @@ package v1alpha2
 
 // ClusterNetworkPolicyProtocolUDPApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyProtocolUDP type for use
 // with apply.
+//
+// ClusterNetworkPolicyProtocolUDP are UDP attributes to be matched.
 type ClusterNetworkPolicyProtocolUDPApplyConfiguration struct {
+	// DestinationPort for the match.
 	DestinationPort *PortApplyConfiguration `json:"destinationPort,omitempty"`
 }
 

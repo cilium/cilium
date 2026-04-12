@@ -24,6 +24,9 @@ import (
 
 // BaselineAdminNetworkPolicyStatusApplyConfiguration represents a declarative configuration of the BaselineAdminNetworkPolicyStatus type for use
 // with apply.
+//
+// BaselineAdminNetworkPolicyStatus defines the observed state of
+// BaselineAdminNetworkPolicy.
 type BaselineAdminNetworkPolicyStatusApplyConfiguration struct {
 	Conditions []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 }

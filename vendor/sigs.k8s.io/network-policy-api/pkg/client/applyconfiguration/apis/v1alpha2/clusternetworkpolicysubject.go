@@ -24,9 +24,15 @@ import (
 
 // ClusterNetworkPolicySubjectApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicySubject type for use
 // with apply.
+//
+// ClusterNetworkPolicySubject defines what resources the policy applies to.
+// Exactly one field must be set.
+// Note that host-networked pods are not included in subject selection.
 type ClusterNetworkPolicySubjectApplyConfiguration struct {
+	// Namespaces is used to select pods via namespace selectors.
 	Namespaces *v1.LabelSelectorApplyConfiguration `json:"namespaces,omitempty"`
-	Pods       *NamespacedPodApplyConfiguration    `json:"pods,omitempty"`
+	// Pods is used to select pods via namespace AND pod selectors.
+	Pods *NamespacedPodApplyConfiguration `json:"pods,omitempty"`
 }
 
 // ClusterNetworkPolicySubjectApplyConfiguration constructs a declarative configuration of the ClusterNetworkPolicySubject type for use with

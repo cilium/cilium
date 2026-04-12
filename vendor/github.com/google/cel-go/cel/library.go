@@ -734,14 +734,17 @@ func (opt *evalOptionalOr) ID() int64 {
 func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
 	// short-circuit lhs.
 	optLHS := opt.lhs.Eval(ctx)
-	optVal, ok := optLHS.(*types.Optional)
-	if !ok {
+	switch val := optLHS.(type) {
+	case *types.Err, *types.Unknown:
 		return optLHS
+	case *types.Optional:
+		if val.HasValue() {
+			return optLHS
+		}
+		return opt.rhs.Eval(ctx)
+	default:
+		return types.NoSuchOverloadErr()
 	}
-	if optVal.HasValue() {
-		return optVal
-	}
-	return opt.rhs.Eval(ctx)
 }
 
 // evalOptionalOrValue selects between an optional or a concrete value. If the optional has a value,
@@ -762,14 +765,18 @@ func (opt *evalOptionalOrValue) ID() int64 {
 func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
 	// short-circuit lhs.
 	optLHS := opt.lhs.Eval(ctx)
-	optVal, ok := optLHS.(*types.Optional)
-	if !ok {
+
+	switch val := optLHS.(type) {
+	case *types.Err, *types.Unknown:
 		return optLHS
+	case *types.Optional:
+		if val.HasValue() {
+			return val.GetValue()
+		}
+		return opt.rhs.Eval(ctx)
+	default:
+		return types.NoSuchOverloadErr()
 	}
-	if optVal.HasValue() {
-		return optVal.GetValue()
-	}
-	return opt.rhs.Eval(ctx)
 }
 
 type timeLegacyLibrary struct{}

@@ -26,11 +26,15 @@ import (
 
 // ClusterNetworkPolicyApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicy type for use
 // with apply.
+//
+// ClusterNetworkPolicy is a cluster-wide network policy resource.
 type ClusterNetworkPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *ClusterNetworkPolicySpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *ClusterNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
+	// Spec defines the desired behavior of ClusterNetworkPolicy.
+	Spec *ClusterNetworkPolicySpecApplyConfiguration `json:"spec,omitempty"`
+	// Status is the status to be reported by the implementation.
+	Status *ClusterNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // ClusterNetworkPolicy constructs a declarative configuration of the ClusterNetworkPolicy type for use with
@@ -42,6 +46,7 @@ func ClusterNetworkPolicy(name string) *ClusterNetworkPolicyApplyConfiguration {
 	b.WithAPIVersion("policy.networking.k8s.io/v1alpha2")
 	return b
 }
+
 func (b ClusterNetworkPolicyApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

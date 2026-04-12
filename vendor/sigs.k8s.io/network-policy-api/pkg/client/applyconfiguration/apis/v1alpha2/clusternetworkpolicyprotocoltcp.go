@@ -20,7 +20,10 @@ package v1alpha2
 
 // ClusterNetworkPolicyProtocolTCPApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyProtocolTCP type for use
 // with apply.
+//
+// ClusterNetworkPolicyProtocolTCP are TCP attributes to be matched.
 type ClusterNetworkPolicyProtocolTCPApplyConfiguration struct {
+	// DestinationPort for the match.
 	DestinationPort *PortApplyConfiguration `json:"destinationPort,omitempty"`
 }
 

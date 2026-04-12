@@ -1,3 +1,7 @@
+# v1.297.0 (2026-04-07)
+
+* **Feature**: EC2 Capacity Manager adds new dimensions for grouping and filtering capacity metrics, including tag-based dimensions and Account Name.
+
 # v1.296.2 (2026-03-31)
 
 * **Documentation**: This release updates the examples in the documentation for DescribeRegions and DescribeAvailabilityZones.

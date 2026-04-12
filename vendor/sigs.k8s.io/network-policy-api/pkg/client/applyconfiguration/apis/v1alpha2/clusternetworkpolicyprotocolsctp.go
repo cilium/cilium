@@ -20,7 +20,10 @@ package v1alpha2
 
 // ClusterNetworkPolicyProtocolSCTPApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyProtocolSCTP type for use
 // with apply.
+//
+// ClusterNetworkPolicyProtocolSCTP are SCTP attributes to be matched.
 type ClusterNetworkPolicyProtocolSCTPApplyConfiguration struct {
+	// DestinationPort for the match.
 	DestinationPort *PortApplyConfiguration `json:"destinationPort,omitempty"`
 }
 

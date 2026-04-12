@@ -20,10 +20,31 @@ package v1alpha1
 
 // BaselineAdminNetworkPolicySpecApplyConfiguration represents a declarative configuration of the BaselineAdminNetworkPolicySpec type for use
 // with apply.
+//
+// BaselineAdminNetworkPolicySpec defines the desired state of
+// BaselineAdminNetworkPolicy.
 type BaselineAdminNetworkPolicySpecApplyConfiguration struct {
-	Subject *AdminNetworkPolicySubjectApplyConfiguration              `json:"subject,omitempty"`
+	// Subject defines the pods to which this BaselineAdminNetworkPolicy applies.
+	// Note that host-networked pods are not included in subject selection.
+	Subject *AdminNetworkPolicySubjectApplyConfiguration `json:"subject,omitempty"`
+	// Ingress is the list of Ingress rules to be applied to the selected pods
+	// if they are not matched by any AdminNetworkPolicy or NetworkPolicy rules.
+	// A total of 100 Ingress rules will be allowed in each BANP instance.
+	// The relative precedence of ingress rules within a single BANP object
+	// will be determined by the order in which the rule is written.
+	// Thus, a rule that appears at the top of the ingress rules
+	// would take the highest precedence.
+	// BANPs with no ingress rules do not affect ingress traffic.
 	Ingress []BaselineAdminNetworkPolicyIngressRuleApplyConfiguration `json:"ingress,omitempty"`
-	Egress  []BaselineAdminNetworkPolicyEgressRuleApplyConfiguration  `json:"egress,omitempty"`
+	// Egress is the list of Egress rules to be applied to the selected pods if
+	// they are not matched by any AdminNetworkPolicy or NetworkPolicy rules.
+	// A total of 100 Egress rules will be allowed in each BANP instance.
+	// The relative precedence of egress rules within a single BANP object
+	// will be determined by the order in which the rule is written.
+	// Thus, a rule that appears at the top of the egress rules
+	// would take the highest precedence.
+	// BANPs with no egress rules do not affect egress traffic.
+	Egress []BaselineAdminNetworkPolicyEgressRuleApplyConfiguration `json:"egress,omitempty"`
 }
 
 // BaselineAdminNetworkPolicySpecApplyConfiguration constructs a declarative configuration of the BaselineAdminNetworkPolicySpec type for use with

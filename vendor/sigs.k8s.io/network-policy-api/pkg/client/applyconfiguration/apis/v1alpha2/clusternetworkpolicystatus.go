@@ -24,6 +24,9 @@ import (
 
 // ClusterNetworkPolicyStatusApplyConfiguration represents a declarative configuration of the ClusterNetworkPolicyStatus type for use
 // with apply.
+//
+// ClusterNetworkPolicyStatus defines the observed state of
+// ClusterNetworkPolicy.
 type ClusterNetworkPolicyStatusApplyConfiguration struct {
 	Conditions []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 }

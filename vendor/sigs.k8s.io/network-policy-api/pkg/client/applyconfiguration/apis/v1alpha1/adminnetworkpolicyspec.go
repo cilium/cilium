@@ -20,11 +20,39 @@ package v1alpha1
 
 // AdminNetworkPolicySpecApplyConfiguration represents a declarative configuration of the AdminNetworkPolicySpec type for use
 // with apply.
+//
+// AdminNetworkPolicySpec defines the desired state of AdminNetworkPolicy.
 type AdminNetworkPolicySpecApplyConfiguration struct {
-	Priority *int32                                            `json:"priority,omitempty"`
-	Subject  *AdminNetworkPolicySubjectApplyConfiguration      `json:"subject,omitempty"`
-	Ingress  []AdminNetworkPolicyIngressRuleApplyConfiguration `json:"ingress,omitempty"`
-	Egress   []AdminNetworkPolicyEgressRuleApplyConfiguration  `json:"egress,omitempty"`
+	// Priority is a value from 0 to 1000. Policies with lower priority values have
+	// higher precedence, and are checked before policies with higher priority values.
+	// All AdminNetworkPolicy rules have higher precedence than NetworkPolicy or
+	// BaselineAdminNetworkPolicy rules.
+	// If two (or more) policies with the same priority could both match a connection,
+	// then the implementation can apply any of the matching policies to the
+	// connection, and there is no way for the user to reliably determine which one it
+	// will choose. Administrators must be careful about assigning the priorities for
+	// policies with rules that will match many connections, and ensure that policies
+	// have unique priority values in cases where ambiguity would be unacceptable.
+	Priority *int32 `json:"priority,omitempty"`
+	// Subject defines the pods to which this AdminNetworkPolicy applies.
+	// Note that host-networked pods are not included in subject selection.
+	Subject *AdminNetworkPolicySubjectApplyConfiguration `json:"subject,omitempty"`
+	// Ingress is the list of Ingress rules to be applied to the selected pods.
+	// A total of 100 rules will be allowed in each ANP instance.
+	// The relative precedence of ingress rules within a single ANP object (all of
+	// which share the priority) will be determined by the order in which the rule
+	// is written. Thus, a rule that appears at the top of the ingress rules
+	// would take the highest precedence.
+	// ANPs with no ingress rules do not affect ingress traffic.
+	Ingress []AdminNetworkPolicyIngressRuleApplyConfiguration `json:"ingress,omitempty"`
+	// Egress is the list of Egress rules to be applied to the selected pods.
+	// A total of 100 rules will be allowed in each ANP instance.
+	// The relative precedence of egress rules within a single ANP object (all of
+	// which share the priority) will be determined by the order in which the rule
+	// is written. Thus, a rule that appears at the top of the egress rules
+	// would take the highest precedence.
+	// ANPs with no egress rules do not affect egress traffic.
+	Egress []AdminNetworkPolicyEgressRuleApplyConfiguration `json:"egress,omitempty"`
 }
 
 // AdminNetworkPolicySpecApplyConfiguration constructs a declarative configuration of the AdminNetworkPolicySpec type for use with

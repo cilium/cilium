@@ -26,11 +26,16 @@ import (
 
 // BaselineAdminNetworkPolicyApplyConfiguration represents a declarative configuration of the BaselineAdminNetworkPolicy type for use
 // with apply.
+//
+// BaselineAdminNetworkPolicy is a cluster level resource that is part of the
+// AdminNetworkPolicy API.
 type BaselineAdminNetworkPolicyApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                             *BaselineAdminNetworkPolicySpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                           *BaselineAdminNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
+	// Specification of the desired behavior of BaselineAdminNetworkPolicy.
+	Spec *BaselineAdminNetworkPolicySpecApplyConfiguration `json:"spec,omitempty"`
+	// Status is the status to be reported by the implementation.
+	Status *BaselineAdminNetworkPolicyStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // BaselineAdminNetworkPolicy constructs a declarative configuration of the BaselineAdminNetworkPolicy type for use with
@@ -42,6 +47,7 @@ func BaselineAdminNetworkPolicy(name string) *BaselineAdminNetworkPolicyApplyCon
 	b.WithAPIVersion("policy.networking.k8s.io/v1alpha1")
 	return b
 }
+
 func (b BaselineAdminNetworkPolicyApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
