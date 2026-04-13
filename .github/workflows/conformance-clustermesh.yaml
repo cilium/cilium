@@ -634,10 +634,9 @@ jobs:
       - name: Install cert-manager
         if: matrix.tls-auto-method == 'certmanager'
         run: |
-          helm repo add jetstack https://charts.jetstack.io
           for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
             helm --kube-context $ctx install \
-              cert-manager jetstack/cert-manager \
+              cert-manager oci://quay.io/jetstack/charts/cert-manager \
               --namespace cert-manager \
               --create-namespace \
               --version ${{ env.CERT_MANAGER_VERSION }}
