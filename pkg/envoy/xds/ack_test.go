@@ -381,6 +381,30 @@ func TestCancelCompletions(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL2])
 }
 
+func TestTimedOutWaitPrunesPendingCompletion(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), MaxCompletionDuration)
+	defer cancel()
+
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
+	wg := completion.NewWaitGroup(ctx)
+	metrics := newMockMetrics()
+
+	cache := NewCache(logger)
+	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
+
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, nil)
+	require.Len(t, acker.pendingCompletions, 1)
+
+	err := wg.Wait()
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Empty(t, acker.pendingCompletions)
+	require.Equal(t, 0, metrics.ack[typeURL])
+	require.Equal(t, 0, metrics.nack[typeURL])
+	require.Equal(t, 0, metrics.cancel[typeURL])
+}
+
 func TestUpsertMultipleNodes(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -611,7 +635,7 @@ func TestPendingCompletionTimeoutErrorIncludesRemainingDetails(t *testing.T) {
 		},
 	}
 
-	wg.AddCompletion(pending.remainingString)
+	wg.AddCompletionWithCallback(pending, nil)
 
 	err := wg.Wait()
 	require.Error(t, err)

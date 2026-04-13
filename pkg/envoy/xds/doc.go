@@ -64,8 +64,8 @@
 //	ctx, cancel := context.WithTimeout(..., 5*time.Second)
 //	wg := completion.NewWaitGroup(ctx)
 //	nodes := []string{"10.0.0.1"} // Nodes to wait an ACK from.
-//	lds.Upsert(typeURL, "listener123", listenerA, nodes, wg.AddCompletion())
-//	lds.Delete(typeURL, "listener456", nodes, wg.AddCompletion())
+//	lds.Upsert(typeURL, "listener123", listenerA, nodes, wg, nil)
+//	lds.Delete(typeURL, "listener456", nodes, wg, nil)
 //	wg.Wait()
 //	cancel()
 package xds
