@@ -23,15 +23,15 @@ See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details
 Cilium Gateway API Support
 ##########################
 
-Cilium supports Gateway API v1.4.1 for below resources, all the Core conformance
+Cilium supports Gateway API v1.5.1 for below resources, all the Core conformance
 tests are passed.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
 - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
 - `GRPCRoute <https://gateway-api.sigs.k8s.io/api-types/grpcroute/>`__
+- `TLSRoute <https://gateway-api.sigs.k8s.io/api-types/tlsroute/>`__
 - `BackendTLSPolicy <https://gateway-api.sigs.k8s.io/api-types/backendtlspolicy/>`__
-- `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
 Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be referenced in
