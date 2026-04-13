@@ -19,12 +19,12 @@ type WaitGroup struct {
 	// cancel is the function to call if any pending operation fails, if Wait returns or when cleaning up all resources
 	cancel context.CancelFunc
 
-	// counterLocker locks all calls to AddCompletion and Wait, which must not
-	// be called concurrently.
+	// counterLocker locks all calls to AddCompletionWithCallback and Wait,
+	// which must not be called concurrently.
 	counterLocker lock.Mutex
 
-	// pendingCompletions is the list of Completions returned by
-	// AddCompletion() which have not yet been completed.
+	// pendingCompletions is the list of Completions added to the wait group
+	// which have not yet been completed.
 	pendingCompletions []*Completion
 }
 
@@ -46,23 +46,22 @@ func (wg *WaitGroup) Context() context.Context {
 	return wg.ctx
 }
 
-type idFunc = func() string
+// Owner provides optional debug correlation and wait-time cleanup for a
+// completion created with AddCompletionWithCallback.
+type Owner interface {
+	ID() string
+	CleanupAfterWait(*Completion)
+}
 
 // AddCompletionWithCallback creates a new completion, adds it to the wait
 // group, and returns it. The callback will be called upon completion.
 // Completion can complete in a failure (err != nil)
-func (wg *WaitGroup) AddCompletionWithCallback(id idFunc, callback func(err error)) *Completion {
+func (wg *WaitGroup) AddCompletionWithCallback(owner Owner, callback func(err error)) *Completion {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
-	c := NewCompletion(id, wg.cancel, callback)
+	c := NewCompletion(owner, wg.cancel, callback)
 	wg.pendingCompletions = append(wg.pendingCompletions, c)
 	return c
-}
-
-// AddCompletion creates a new completion, adds it into the wait group, and
-// returns it.
-func (wg *WaitGroup) AddCompletion(id idFunc) *Completion {
-	return wg.AddCompletionWithCallback(id, nil)
 }
 
 // updateError updates the error value to be returned from Wait()
@@ -87,8 +86,8 @@ func updateError(old, new error) error {
 	return old
 }
 
-// Wait blocks until all completions added by calling AddCompletion are
-// completed, or the context is canceled, whichever happens first.
+// Wait blocks until all completions added to the wait group are completed, or
+// the context is canceled, whichever happens first.
 // Returns the context's error if it is cancelled, nil otherwise.
 // No callbacks of the completions in this wait group will be called after
 // this returns.
@@ -112,6 +111,9 @@ Loop:
 			for _, c := range wg.pendingCompletions[i:] {
 				// 'comp' may have already completed on a different error
 				compErr := c.Complete(ctxErr)
+				if c.owner != nil {
+					c.owner.CleanupAfterWait(c)
+				}
 				err = updateError(err, compErr) // Keep the most severe error value we encounter
 			}
 			// override error with the hanging completion if deadline exceeded
@@ -129,9 +131,6 @@ Loop:
 // Completion provides the Complete callback to be called when an asynchronous
 // computation is completed.
 type Completion struct {
-	// id is used for correlation for debugging only
-	id idFunc
-
 	// cancel is used to cancel the WaitGroup the completion belongs in case of an error
 	cancel context.CancelFunc
 
@@ -145,6 +144,9 @@ type Completion struct {
 	// callback is called when Complete is called the first time.
 	callback func(err error)
 
+	// owner provides an optional debug ID and wait-time cleanup hook.
+	owner Owner
+
 	// err is the error the completion completed with
 	err error
 }
@@ -157,10 +159,10 @@ func (c *Completion) Err() error {
 }
 
 func (c *Completion) Id() string {
-	if c.id == nil {
+	if c.owner == nil {
 		return ""
 	}
-	return c.id()
+	return c.owner.ID()
 }
 
 // Complete notifies of the completion of the asynchronous computation.
@@ -199,9 +201,9 @@ func (c *Completion) Completed() <-chan struct{} {
 
 // NewCompletion creates a Completion which calls a function upon Complete().
 // 'cancel' is called if the associated operation fails for any reason.
-func NewCompletion(id idFunc, cancel context.CancelFunc, callback func(err error)) *Completion {
+func NewCompletion(owner Owner, cancel context.CancelFunc, callback func(err error)) *Completion {
 	return &Completion{
-		id:        id,
+		owner:     owner,
 		cancel:    cancel,
 		completed: make(chan struct{}),
 		callback:  callback,

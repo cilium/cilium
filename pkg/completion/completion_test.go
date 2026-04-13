@@ -18,6 +18,21 @@ const (
 	CompletionDelay  = 250 * time.Millisecond
 )
 
+type testOwner struct {
+	id      string
+	cleanup func(*Completion)
+}
+
+func (o *testOwner) ID() string {
+	return o.id
+}
+
+func (o *testOwner) CleanupAfterWait(c *Completion) {
+	if o.cleanup != nil {
+		o.cleanup(c)
+	}
+}
+
 func TestNoCompletion(t *testing.T) {
 	var err error
 
@@ -45,7 +60,7 @@ func TestCompletionBeforeWait(t *testing.T) {
 
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletion(nil)
+	comp := wg.AddCompletionWithCallback(nil, nil)
 
 	comp.Complete(nil)
 
@@ -62,7 +77,7 @@ func TestCompletionAfterWait(t *testing.T) {
 
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletion(nil)
+	comp := wg.AddCompletionWithCallback(nil, nil)
 
 	go func() {
 		time.Sleep(CompletionDelay)
@@ -82,7 +97,7 @@ func TestCompletionAfterWaitWithCancelledContext(t *testing.T) {
 
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletion(nil)
+	comp := wg.AddCompletionWithCallback(nil, nil)
 
 	wg.Cancel()
 
@@ -104,9 +119,9 @@ func TestCompletionBeforeAndAfterWait(t *testing.T) {
 
 	wg := NewWaitGroup(ctx)
 
-	comp1 := wg.AddCompletion(nil)
+	comp1 := wg.AddCompletionWithCallback(nil, nil)
 
-	comp2 := wg.AddCompletion(nil)
+	comp2 := wg.AddCompletionWithCallback(nil, nil)
 
 	comp1.Complete(nil)
 
@@ -152,6 +167,53 @@ func TestCompletionTimeout(t *testing.T) {
 	comp.Complete(nil)
 }
 
+func TestCompletionWaitCleanupOnTimeout(t *testing.T) {
+	var cleaned int
+
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
+	defer cancel()
+	wg := NewWaitGroup(wgCtx)
+
+	var comp *Completion
+	owner := &testOwner{
+		id: "cleanup-owner",
+		cleanup: func(got *Completion) {
+			require.Same(t, comp, got)
+			cleaned++
+		},
+	}
+	comp = wg.AddCompletionWithCallback(owner, nil)
+
+	err := wg.Wait()
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Equal(t, 1, cleaned)
+}
+
+func TestCompletionWaitCleanupNotCalledOnNormalCompletion(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+	defer cancel()
+
+	wg := NewWaitGroup(ctx)
+
+	cleaned := false
+	comp := wg.AddCompletionWithCallback(&testOwner{
+		id: "normal-completion-owner",
+		cleanup: func(*Completion) {
+			cleaned = true
+		},
+	}, nil)
+
+	comp.Complete(nil)
+
+	err := wg.Wait()
+	require.NoError(t, err)
+	require.False(t, cleaned)
+}
+
 func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	var err error
 
@@ -161,7 +223,7 @@ func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	// Set a shorter timeout to shorten the test duration.
 	wg := NewWaitGroup(ctx)
 
-	comp := wg.AddCompletion(nil)
+	comp := wg.AddCompletionWithCallback(nil, nil)
 
 	// Complete is idempotent.
 	comp.Complete(nil)

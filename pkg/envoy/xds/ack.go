@@ -133,6 +133,9 @@ type AckingResourceMutatorWrapper struct {
 
 // pendingCompletion is an update that is pending completion.
 type pendingCompletion struct {
+	// owner is the mutator wrapper that owns the pending completion.
+	owner *AckingResourceMutatorWrapper
+
 	// version is the version to be ACKed.
 	version uint64
 
@@ -168,6 +171,19 @@ func (pc *pendingCompletion) remainingString() string {
 	}
 	sb.WriteString("]")
 	return sb.String()
+}
+
+func (pc *pendingCompletion) ID() string {
+	return pc.remainingString()
+}
+
+func (pc *pendingCompletion) CleanupAfterWait(comp *completion.Completion) {
+	if pc.owner == nil {
+		return
+	}
+	pc.owner.locker.Lock()
+	defer pc.owner.locker.Unlock()
+	delete(pc.owner.pendingCompletions, comp)
 }
 
 // NewAckingResourceMutatorWrapper creates a new AckingResourceMutatorWrapper
@@ -260,11 +276,12 @@ func (m *AckingResourceMutatorWrapper) addCurrentVersionCompletion(typeURL strin
 	}
 
 	comp := &pendingCompletion{
+		owner:                   m,
 		version:                 m.version,
 		typeURL:                 typeURL,
 		remainingNodesResources: remainingNodesResources,
 	}
-	c := wg.AddCompletionWithCallback(comp.remainingString, callback)
+	c := wg.AddCompletionWithCallback(comp, callback)
 	m.pendingCompletions[c] = comp
 	return true
 }
@@ -358,6 +375,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 
 	if wait {
 		comp := &pendingCompletion{
+			owner:                   m,
 			version:                 m.version,
 			typeURL:                 typeURL,
 			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
@@ -367,7 +385,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
 		}
 
-		c := wg.AddCompletionWithCallback(comp.remainingString, callback)
+		c := wg.AddCompletionWithCallback(comp, callback)
 		m.pendingCompletions[c] = comp
 	} else if callback != nil {
 		callback(nil)
