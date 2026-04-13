@@ -214,10 +214,10 @@ func (a *Agent) Enabled() bool {
 }
 
 // needsIPCache returns true if the agent should subscribe to IPCache events.
-// This is required in native routing mode or if WireguardTrackAllIPsFallback is enabled.
+// This is required in native or hybrid routing mode, or if WireguardTrackAllIPsFallback is enabled.
 // In tunneling mode, only node IPs (always set via updatePeer) are needed.
 func (a *Agent) needsIPCache() bool {
-	return !a.config.TunnelingEnabled || a.config.WireguardTrackAllIPsFallback
+	return a.config.RequiresNativeRouting || a.config.WireguardTrackAllIPsFallback
 }
 
 // initLocalNodeFromWireGuard configures the fields on the local node. Called from
