@@ -163,19 +163,19 @@ func check(name string, toCheck []any, structs map[string]*structInfo, checkOffs
 			continue
 		}
 
-		for i := range g.NumField() {
-			fieldName := g.Field(i).Tag.Get("align")
+		for field := range g.Fields() {
+			fieldName := field.Tag.Get("align")
 			// Ignore fields without `align` struct tag
 			if fieldName == "" {
 				continue
 			}
-			goOffset := uint32(g.Field(i).Offset)
+			goOffset := uint32(field.Offset)
 			if cOffset, ok := c.fieldOffsets[fieldName]; !ok {
 				return fmt.Errorf("%s.%s does not match any field (should match %s.%s) [debug=%v]",
-					g, g.Field(i).Name, name, fieldName, c.fieldOffsets)
+					g, field.Name, name, fieldName, c.fieldOffsets)
 			} else if goOffset != cOffset {
 				return fmt.Errorf("%s.%s offset(%d) does not match %s.%s(%d) [debug=%v]",
-					g, g.Field(i).Name, goOffset, name, fieldName, cOffset, c.fieldOffsets)
+					g, field.Name, goOffset, name, fieldName, cOffset, c.fieldOffsets)
 			}
 		}
 	}

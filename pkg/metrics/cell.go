@@ -97,8 +97,7 @@ func Metric[S any](ctor func() S) cell.Cell {
 		))
 	}
 
-	for i := range outTyp.NumField() {
-		field := outTyp.Field(i)
+	for field := range outTyp.Fields() {
 		if !field.IsExported() {
 			panic(fmt.Errorf(
 				"The struct returned by the constructor passed to metrics.Metric has a private field '%s', which "+

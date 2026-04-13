@@ -114,11 +114,11 @@ func (m Metrics) update(params enabledFeatures, config *option.OperatorConfig) {
 func (m Metrics) toGatherer() (prometheus.Gatherer, error) {
 	rv := reflect.ValueOf(m)
 	reg := prometheus.NewPedanticRegistry()
-	for i := 0; i < rv.NumField(); i++ {
-		if !rv.Field(i).CanInterface() {
+	for _, f := range rv.Fields() {
+		if !f.CanInterface() {
 			continue
 		}
-		c, ok := rv.Field(i).Interface().(prometheus.Collector)
+		c, ok := f.Interface().(prometheus.Collector)
 		if !ok {
 			continue
 		}

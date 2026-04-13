@@ -108,6 +108,7 @@ linters:
     modernize:
       disable: # TODO: remove each disabled rule and fix it
         - omitzero
+        - newexpr
     govet:
       enable:
         - nilness

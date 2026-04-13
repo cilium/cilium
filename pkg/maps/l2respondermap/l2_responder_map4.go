@@ -138,5 +138,5 @@ type L2ResponderStats struct {
 }
 
 func (s *L2ResponderStats) String() string {
-	return fmt.Sprintf("responses_sent=%q", s.ResponsesSent)
+	return fmt.Sprintf("responses_sent=%d", s.ResponsesSent)
 }
