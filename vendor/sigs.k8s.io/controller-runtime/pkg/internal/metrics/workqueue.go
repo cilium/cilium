@@ -95,7 +95,7 @@ var (
 	retries = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      RetriesKey,
-		Help:      "Total number of retries handled by workqueue",
+		Help:      "Total number of items added to the workqueue with a non-zero delay (rate-limited requeues, explicit RequeueAfter or AddAfter calls)",
 	}, []string{"name", "controller"})
 )
 

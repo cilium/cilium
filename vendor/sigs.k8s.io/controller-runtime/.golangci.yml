@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.25"
+  go: "1.26"
   timeout: 10m
   allow-parallel-runners: true
 linters:
@@ -81,6 +81,7 @@ linters:
       disable:
         - omitzero
         - fmtappendf
+        - newexpr
     revive:
       rules:
         # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
@@ -195,6 +196,10 @@ linters:
           - staticcheck
         path: (.+)\.go$
         text: (ST1000|QF1008)
+      # Allow 'version' as a package name even though it conflicts with Go 1.24+ stdlib
+      - linters:
+          - revive
+        text: 'var-naming: avoid package names that conflict with Go standard library package names'
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

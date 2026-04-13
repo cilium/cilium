@@ -24,12 +24,12 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	eventsv1 "k8s.io/api/events/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // EventBroadcasterProducer makes an event broadcaster, returning
@@ -54,7 +54,7 @@ type Provider struct {
 	broadcasterOnce         sync.Once
 	broadcaster             events.EventBroadcaster
 	cancelSinkRecordingFunc context.CancelFunc
-	stopWatcherFunc         func()
+	stopLoggingFunc         func()
 	// Deprecated: will be removed in a future release. Use the broadcaster above instead.
 	deprecatedBroadcaster record.EventBroadcaster
 	stopBroadcaster       bool
@@ -83,7 +83,7 @@ func (p *Provider) Stop(shutdownCtx context.Context) {
 			p.lock.Lock()
 			broadcaster.Shutdown()
 			p.cancelSinkRecordingFunc()
-			p.stopWatcherFunc()
+			p.stopLoggingFunc()
 			deprecatedBroadcaster.Shutdown()
 			p.stopped = true
 			p.lock.Unlock()
@@ -118,23 +118,19 @@ func (p *Provider) getBroadcaster() (record.EventBroadcaster, events.EventBroadc
 
 		// init new broadcaster
 		ctx, cancel := context.WithCancel(context.Background())
+		ctx = log.IntoContext(ctx, p.logger)
 		p.cancelSinkRecordingFunc = cancel
 		if err := p.broadcaster.StartRecordingToSinkWithContext(ctx); err != nil {
 			p.logger.Error(err, "error starting recording for broadcaster")
 			return
 		}
 
-		stopWatcher, err := p.broadcaster.StartEventWatcher(func(event runtime.Object) {
-			e, isEvt := event.(*eventsv1.Event)
-			if isEvt {
-				p.logger.V(1).Info(e.Note, "type", e.Type, "object", e.Related, "action", e.Action, "reason", e.Reason)
-			}
-		})
+		stopLogging, err := p.broadcaster.StartLogging(p.logger.V(1))
 		if err != nil {
-			p.logger.Error(err, "error starting event watcher for broadcaster")
+			p.logger.Error(err, "error starting event logging for broadcaster")
 		}
 
-		p.stopWatcherFunc = stopWatcher
+		p.stopLoggingFunc = stopLogging
 	})
 
 	return p.deprecatedBroadcaster, p.broadcaster

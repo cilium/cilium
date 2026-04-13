@@ -127,6 +127,10 @@ type Informer interface {
 
 	// HasSynced return true if the informers underlying store has synced.
 	HasSynced() bool
+
+	// HasSyncedChecker completes if the informers underlying store has synced.
+	HasSyncedChecker() toolscache.DoneChecker
+
 	// IsStopped returns true if the informer has been stopped.
 	IsStopped() bool
 }

@@ -472,10 +472,8 @@ Minor version
    the target k8s versions in the GitHub action workflows.
 
 #. Once CI is green and PR has been merged, ping the CI team again so that they
-   update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
-   and GitHub required PR checks accordingly.
-
-.. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
+   update the ``.github/maintainers-little-helper.yaml`` and GitHub required PR
+   checks accordingly.
 
 Patch version
 ~~~~~~~~~~~~~

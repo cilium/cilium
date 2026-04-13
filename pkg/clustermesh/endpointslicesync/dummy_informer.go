@@ -71,3 +71,21 @@ func (i *dummyInformer) IsStopped() bool {
 	i.logger.Error(fmt.Sprintf("called not implemented function %s.IsStopped", i.name))
 	return false
 }
+func (i *dummyInformer) HasSyncedChecker() cache.DoneChecker {
+	return &alwaysSyncedChecker{name: i.name}
+}
+
+// alwaysSyncedChecker is a DoneChecker that is always done.
+// Used by mesh informers that are considered synced from the start.
+type alwaysSyncedChecker struct {
+	name string
+}
+
+var alwaysSyncedCh = func() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()
+
+func (c *alwaysSyncedChecker) Name() string          { return c.name }
+func (c *alwaysSyncedChecker) Done() <-chan struct{} { return alwaysSyncedCh }

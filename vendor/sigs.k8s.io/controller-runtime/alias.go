@@ -49,7 +49,36 @@ type Manager = manager.Manager
 type Options = manager.Options
 
 // SchemeBuilder builds a new Scheme for mapping go types to Kubernetes GroupVersionKinds.
-type SchemeBuilder = scheme.Builder
+//
+// Deprecated: This helper is only useful in api packages, but api packages should be
+// easy to import and hence have minimal dependencies. Typically, these dependencies
+// include only the standard library, k8s.io/apimachinery and other api packages.
+//
+// Use the apimachinery builder instead:
+//
+//	import (
+//		metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+//		"k8s.io/apimachinery/pkg/runtime"
+//		"k8s.io/apimachinery/pkg/runtime/schema"
+//	)
+//
+//	const GroupName = ""
+//
+//	var (
+//		SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
+//		SchemeBuilder 		 = runtime.NewSchemeBuilder(addKnownTypes)
+//		AddToScheme   		 = SchemeBuilder.AddToScheme
+//	)
+//
+//	func addKnownTypes(scheme *runtime.Scheme) error {
+//		scheme.AddKnownTypes(SchemeGroupVersion,
+//			&Pod{},
+//		)
+//
+//		metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+//		return nil
+//	}
+type SchemeBuilder = scheme.Builder //nolint:staticcheck // this is the deprecation alias
 
 // GroupVersion contains the "group" and the "version", which uniquely identifies the API.
 type GroupVersion = schema.GroupVersion

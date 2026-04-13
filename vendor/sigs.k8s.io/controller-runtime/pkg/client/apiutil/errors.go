@@ -34,7 +34,7 @@ type ErrResourceDiscoveryFailed map[schema.GroupVersion]error
 
 // Error implements the error interface.
 func (e *ErrResourceDiscoveryFailed) Error() string {
-	subErrors := []string{}
+	subErrors := make([]string, 0, len(*e))
 	for k, v := range *e {
 		subErrors = append(subErrors, fmt.Sprintf("%s: %v", k, v))
 	}
@@ -43,7 +43,7 @@ func (e *ErrResourceDiscoveryFailed) Error() string {
 }
 
 func (e *ErrResourceDiscoveryFailed) Unwrap() []error {
-	subErrors := []error{}
+	subErrors := make([]error, 0, len(*e))
 	for gv, err := range *e {
 		if apierrors.IsNotFound(err) {
 			err = &meta.NoResourceMatchError{PartialResource: gv.WithResource("")}

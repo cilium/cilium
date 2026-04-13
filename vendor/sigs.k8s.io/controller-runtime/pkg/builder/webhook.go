@@ -44,7 +44,6 @@ type WebhookBuilder[T runtime.Object] struct {
 	customDefaulterOpts       []admission.DefaulterOption
 	customValidator           admission.CustomValidator //nolint:staticcheck
 	validator                 admission.Validator[T]
-	customPath                string
 	customValidatorCustomPath string
 	customDefaulterCustomPath string
 	converterConstructor      func(*runtime.Scheme) (conversion.Converter, error)
@@ -119,15 +118,6 @@ func (blder *WebhookBuilder[T]) RecoverPanic(recoverPanic bool) *WebhookBuilder[
 	return blder
 }
 
-// WithCustomPath overrides the webhook's default path by the customPath
-//
-// Deprecated: WithCustomPath should not be used anymore.
-// Please use WithValidatorCustomPath or WithDefaulterCustomPath instead.
-func (blder *WebhookBuilder[T]) WithCustomPath(customPath string) *WebhookBuilder[T] {
-	blder.customPath = customPath
-	return blder
-}
-
 // WithValidatorCustomPath overrides the path of the Validator.
 func (blder *WebhookBuilder[T]) WithValidatorCustomPath(customPath string) *WebhookBuilder[T] {
 	blder.customValidatorCustomPath = customPath
@@ -178,10 +168,6 @@ func (blder *WebhookBuilder[T]) setLogConstructor() {
 	}
 }
 
-func (blder *WebhookBuilder[T]) isThereCustomPathConflict() bool {
-	return (blder.customPath != "" && blder.customDefaulter != nil && blder.customValidator != nil) || (blder.customPath != "" && blder.customDefaulterCustomPath != "") || (blder.customPath != "" && blder.customValidatorCustomPath != "")
-}
-
 func (blder *WebhookBuilder[T]) registerWebhooks() error {
 	typ, err := blder.getType()
 	if err != nil {
@@ -191,17 +177,6 @@ func (blder *WebhookBuilder[T]) registerWebhooks() error {
 	blder.gvk, err = apiutil.GVKForObject(typ, blder.mgr.GetScheme())
 	if err != nil {
 		return err
-	}
-
-	if blder.isThereCustomPathConflict() {
-		return errors.New("only one of CustomDefaulter or CustomValidator should be set when using WithCustomPath. Otherwise, WithDefaulterCustomPath() and WithValidatorCustomPath() should be used")
-	}
-	if blder.customPath != "" {
-		// isThereCustomPathConflict() already checks for potential conflicts.
-		// Since we are sure that only one of customDefaulter or customValidator will be used,
-		// we can set both customDefaulterCustomPath and validatingCustomPath.
-		blder.customDefaulterCustomPath = blder.customPath
-		blder.customValidatorCustomPath = blder.customPath
 	}
 
 	// Register webhook(s) for type

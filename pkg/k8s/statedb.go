@@ -688,8 +688,10 @@ func (*cacheStoreListener) Get(obj any) (item any, exists bool, err error) {
 func (*cacheStoreListener) GetByKey(key string) (item any, exists bool, err error) {
 	panic("unimplemented")
 }
-func (*cacheStoreListener) List() []any        { panic("unimplemented") }
-func (*cacheStoreListener) ListKeys() []string { panic("unimplemented") }
-func (*cacheStoreListener) Resync() error      { panic("unimplemented") }
+func (*cacheStoreListener) List() []any                          { panic("unimplemented") }
+func (*cacheStoreListener) ListKeys() []string                   { panic("unimplemented") }
+func (*cacheStoreListener) Resync() error                        { panic("unimplemented") }
+func (*cacheStoreListener) LastStoreSyncResourceVersion() string { return "" }
+func (*cacheStoreListener) Bookmark(string)                      {}
 
 var _ cache.Store = &cacheStoreListener{}

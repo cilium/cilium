@@ -200,7 +200,7 @@ func (ic *informerCache) NeedLeaderElection() bool {
 // The values may be anything. They will automatically be prefixed with the namespace of the
 // given object, if present. The objects passed are guaranteed to be objects of the correct type.
 func (ic *informerCache) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
-	informer, err := ic.GetInformer(ctx, obj)
+	informer, err := ic.GetInformer(ctx, obj, BlockUntilSynced(false))
 	if err != nil {
 		return err
 	}

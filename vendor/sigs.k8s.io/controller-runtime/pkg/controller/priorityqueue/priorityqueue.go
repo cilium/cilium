@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/btree"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
+	"k8s.io/utils/third_party/forked/golang/btree"
 
 	"sigs.k8s.io/controller-runtime/pkg/internal/metrics"
 )
@@ -78,8 +78,8 @@ func New[T comparable](name string, o ...Opt[T]) PriorityQueue[T] {
 		log:                  opts.Log,
 		itemAddedToAddBuffer: make(chan struct{}, 1),
 		items:                map[T]*item[T]{},
-		ready:                btree.NewG(32, lessReady[T]),
-		waiting:              btree.NewG(32, lessWaiting[T]),
+		ready:                btree.New(32, lessReady[T]),
+		waiting:              btree.New(32, lessWaiting[T]),
 		metrics:              newQueueMetrics[T](opts.MetricProvider, name, clock.RealClock{}),
 		// readyItemOrWaiterAdded indicates that a ready item or
 		// waiter was added. It must be buffered, because
@@ -564,6 +564,6 @@ func (w *priorityqueue[T]) updateUnfinishedWorkLoop() {
 type bTree[T any] interface {
 	ReplaceOrInsert(item T) (T, bool)
 	Delete(item T) (T, bool)
-	Ascend(iterator btree.ItemIteratorG[T])
+	Ascend(iterator btree.ItemIterator[T])
 	Len() int
 }

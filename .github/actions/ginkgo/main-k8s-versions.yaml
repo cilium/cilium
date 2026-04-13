@@ -1,34 +1,34 @@
 # This file contains which kernel versions should be run with which k8s versions
 ---
 include:
+  - k8s-version: "1.36"
+    ip-family: "dual"
+    # renovate: datasource=docker
+    kube-image: "quay.io/cilium/kindest-node:v1.36.0@sha256:0244ee685fe1947d4826c766291f7b03ba29a6794b655ad9a579c29cb627d8a8"
+    # renovate: datasource=docker depName=quay.io/lvh-images/kind
+    kernel: "6.18-20260310.122539"
+    kernel-type: "latest"
+
   - k8s-version: "1.35"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.35.0@sha256:a36285a50bb7ee33d44b6d7938dca10e34f8a9294873ae4b0b04f9d21619d44c"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.18-20260310.122539"
-    kernel-type: "latest"
+    kernel: "6.12-20260310.122539"
+    kernel-type: "oldstable"
 
   - k8s-version: "1.34"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.12-20260310.122539"
+    kernel: "6.6-20260310.122539"
     kernel-type: "oldstable"
 
   - k8s-version: "1.33"
     ip-family: "dual"
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.33.4@sha256:25a6018e48dfcaee478f4a59af81157a437f15e6e140bf103f85a2e7cd0cbbf2"
-    # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.6-20260310.122539"
-    kernel-type: "oldstable"
-
-  - k8s-version: "1.32"
-    ip-family: "dual"
-    # renovate: datasource=docker
-    kube-image: "quay.io/cilium/kindest-node:v1.32.8@sha256:abd489f042d2b644e2d033f5c2d900bc707798d075e8186cb65e3f1367a9d5a1"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "6.1-20260310.122539"
     kernel-type: "stable"

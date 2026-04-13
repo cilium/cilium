@@ -125,15 +125,10 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	var digest32 [32]byte
 	if hash != "" {
 		// if there is a hash, populate the other formats
-		// Strip the algorithm prefix (e.g., "sha256:") if present
-		digest, err = hex.DecodeString(stripDigestAlgorithm(hash))
+		digest, err = hex.DecodeString(hash)
 		if err != nil {
 			return "", nil, err
 		}
-		if len(digest) != 32 {
-			return "", nil, fmt.Errorf("invalid digest length: %d", len(digest))
-		}
-
 		copy(digest32[:], digest)
 		if pth, err := c.Cache.Get(digest32, CacheChart); err == nil {
 			fdata, err := os.ReadFile(pth)
@@ -161,11 +156,7 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	}
 
 	destfile := filepath.Join(dest, name)
-
-	// Use PlatformAtomicWriteFile to handle platform-specific concurrency concerns
-	// (Windows requires locking to avoid "Access Denied" errors when multiple
-	// processes write the same file)
-	if err := fileutil.PlatformAtomicWriteFile(destfile, data, 0644); err != nil {
+	if err := fileutil.AtomicWriteFile(destfile, data, 0644); err != nil {
 		return destfile, nil, err
 	}
 
@@ -195,9 +186,7 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 			}
 		}
 		provfile := destfile + ".prov"
-
-		// Use PlatformAtomicWriteFile for the provenance file as well
-		if err := fileutil.PlatformAtomicWriteFile(provfile, body, 0644); err != nil {
+		if err := fileutil.AtomicWriteFile(provfile, body, 0644); err != nil {
 			return destfile, nil, err
 		}
 
@@ -236,13 +225,9 @@ func (c *ChartDownloader) DownloadToCache(ref, version string) (string, *provena
 	c.Options = append(c.Options, getter.WithAcceptHeader("application/gzip,application/octet-stream"))
 
 	// Check the cache for the file
-	// Strip the algorithm prefix (e.g., "sha256:") if present
-	digest, err := hex.DecodeString(stripDigestAlgorithm(digestString))
+	digest, err := hex.DecodeString(digestString)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to decode digest: %w", err)
-	}
-	if digestString != "" && len(digest) != 32 {
-		return "", nil, fmt.Errorf("invalid digest length: %d", len(digest))
 	}
 	var digest32 [32]byte
 	copy(digest32[:], digest)
@@ -592,13 +577,4 @@ func loadRepoConfig(file string) (*repo.File, error) {
 		return nil, err
 	}
 	return r, nil
-}
-
-// stripDigestAlgorithm removes the algorithm prefix (e.g., "sha256:") from a digest string.
-// If no prefix is present, the original string is returned unchanged.
-func stripDigestAlgorithm(digest string) string {
-	if idx := strings.Index(digest, ":"); idx >= 0 {
-		return digest[idx+1:]
-	}
-	return digest
 }
