@@ -24,10 +24,12 @@ const (
 )
 
 type egressPolicy struct {
-	SourceIP  string
-	DestCIDR  string
-	EgressIP  string
-	GatewayIP string
+	SourceIP   string
+	DestCIDR   string
+	EgressIP   string
+	GatewayIP  string
+	SipInspect bool
+	SipPort    uint16
 }
 
 var bpfEgressListCmd = &cobra.Command{
@@ -46,10 +48,12 @@ var bpfEgressListCmd = &cobra.Command{
 			ipv4MapExists = true
 			parse4 := func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 				bpfEgressList = append(bpfEgressList, egressPolicy{
-					SourceIP:  key.GetSourceIP().String(),
-					DestCIDR:  key.GetDestCIDR().String(),
-					EgressIP:  val.GetEgressAddr().String(),
-					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+					SourceIP:   key.GetSourceIP().String(),
+					DestCIDR:   key.GetDestCIDR().String(),
+					EgressIP:   val.GetEgressAddr().String(),
+					GatewayIP:  mapGatewayIP(val.GetGatewayAddr()),
+					SipInspect: val.SipInspect == 1,
+					SipPort:    val.SipPort,
 				})
 			}
 
@@ -65,10 +69,12 @@ var bpfEgressListCmd = &cobra.Command{
 			ipv6MapExists = true
 			parse6 := func(key *egressmap.EgressPolicyKey6, val *egressmap.EgressPolicyVal6) {
 				bpfEgressList = append(bpfEgressList, egressPolicy{
-					SourceIP:  key.GetSourceIP().String(),
-					DestCIDR:  key.GetDestCIDR().String(),
-					EgressIP:  val.GetEgressAddr().String(),
-					GatewayIP: mapGatewayIP(val.GetGatewayAddr()),
+					SourceIP:   key.GetSourceIP().String(),
+					DestCIDR:   key.GetDestCIDR().String(),
+					EgressIP:   val.GetEgressAddr().String(),
+					GatewayIP:  mapGatewayIP(val.GetGatewayAddr()),
+					SipInspect: false,
+					SipPort:    0,
 				})
 			}
 
@@ -114,9 +120,9 @@ func mapGatewayIP(ip netip.Addr) string {
 func printEgressList(egressList []egressPolicy) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway IP")
+	fmt.Fprintln(w, "Source IP\tDestination CIDR\tEgress IP\tGateway IP\tSIP Inspection\tSIP Port")
 	for _, ep := range egressList {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, ep.GatewayIP)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%t\t%d\n", ep.SourceIP, ep.DestCIDR, ep.EgressIP, ep.GatewayIP, ep.SipInspect, ep.SipPort)
 	}
 
 	w.Flush()

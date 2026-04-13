@@ -870,6 +870,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	})
 	svcVal.SetFlags(flag.UInt16())
 	svcVal.SetRevNat(int(feID))
+	svcVal.SetSipInspect(svc.GetSipInspect())
 
 	// Gather backends for the service
 	orderedBackends := ops.sortedBackends(fe)
@@ -1178,6 +1179,7 @@ func (ops *BPFOps) upsertMaster(svcKey maps.ServiceKey, svcVal maps.ServiceValue
 	svcKey.SetBackendSlot(0)
 	svcVal.SetBackendID(0)
 	svcVal.SetLbAlg(ops.lbAlgorithm(fe))
+	// svcVal.SetSipInspect(
 
 	svc := fe.Service
 

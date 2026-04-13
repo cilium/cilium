@@ -325,7 +325,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
-	struct ipv4_ct_tuple tuple = {};
+	struct ipv4_ct_tuple tuple __attribute__((aligned(8))) = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
@@ -367,6 +367,11 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	ret = snat_v4_needs_masquerade(ctx, &tuple, ip4, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
+
+  if (target.sip_needed)
+  {
+    tuple.sip_call_id_hash = sip_inspect(ctx);
+  }
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
@@ -449,7 +454,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct lb4_reverse_nat nat_info;
-	struct ipv4_ct_tuple tuple = {};
+	struct ipv4_ct_tuple tuple __attribute__((aligned(8))) = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct iphdr *ip4;

@@ -35,10 +35,10 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 		egressIP1 := netip.MustParseAddr("3.3.3.1")
 		egressIP2 := netip.MustParseAddr("3.3.3.2")
 
-		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1)
+		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1, 0, false)
 		assert.NoError(t, err)
 
-		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2)
+		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2, 0, false)
 		assert.NoError(t, err)
 
 		val, err := egressPolicyMap.Lookup(sourceIP1, destCIDR1)

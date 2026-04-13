@@ -12,8 +12,14 @@
 static __always_inline __u32
 __hash_from_tuple_v4(const struct ipv4_ct_tuple *tuple, __be16 sport, __be16 dport)
 {
-	return jhash_3words(tuple->saddr, ((__u32)dport << 16) | sport,
+  __u32 ret;
+
+  ret = jhash_3words(tuple->saddr, ((__u32)dport << 16) | sport,
 			    tuple->nexthdr, HASH_INIT4_SEED);
+
+  return tuple->sip_call_id_hash == 0 ?
+           ret :
+           jhash_1word(tuple->sip_call_id_hash, ret);
 }
 
 static __always_inline __u32 hash_from_tuple_v4(const struct ipv4_ct_tuple *tuple)

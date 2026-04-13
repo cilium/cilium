@@ -474,6 +474,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	tuple->nexthdr = ip4->protocol;						\
 	tuple->daddr = ip4->daddr;						\
 	tuple->saddr = ip4->saddr;						\
+	tuple->sip_call_id_hash = sip_inspect(ctx); \
 	ct_buffer.l4_off = ETH_HLEN + ipv4_hdrlen(ip4);				\
 										\
 	map = select_ct_map4(ctx, DIR, tuple);					\

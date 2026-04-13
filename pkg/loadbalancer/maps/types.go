@@ -132,6 +132,12 @@ type ServiceValue interface {
 
 	// Get LoadBalancing Algorithm for Service
 	GetLbAlg() loadbalancer.SVCLoadBalancingAlgorithm
+
+	// Set LoadBalancing Algorithm for Service
+	SetSipInspect(bool)
+
+	// Get LoadBalancing Algorithm for Service
+	GetSipInspect() bool
 }
 
 type pad2uint8 [2]uint8
@@ -141,6 +147,7 @@ type Service4Key struct {
 	Address     types.IPv4 `align:"address"`
 	Port        uint16     `align:"dport"`
 	BackendSlot uint16     `align:"backend_slot"`
+	SipCallId   uint32     `align:"sip_call_id_hash"`
 	Proto       uint8      `align:"proto"`
 	Scope       uint8      `align:"scope"`
 	Pad         pad2uint8  `align:"pad"`
@@ -204,19 +211,21 @@ func (k *Service4Key) ToHost() ServiceKey {
 
 // Service4Value must match 'struct lb4_service' in "bpf/lib/common.h".
 type Service4Value struct {
-	BackendID uint32 `align:"$union0"`
-	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Flags     uint8  `align:"flags"`
-	Flags2    uint8  `align:"flags2"`
-	QCount    uint16 `align:"qcount"`
+	BackendID  uint32   `align:"$union0"`
+	Count      uint16   `align:"count"`
+	RevNat     uint16   `align:"rev_nat_index"`
+	Flags      uint8    `align:"flags"`
+	Flags2     uint8    `align:"flags2"`
+	QCount     uint16   `align:"qcount"`
+	SipInspect uint8    `align:"sip_inspect"`
+	Pad        [3]uint8 `align:"pad"`
 }
 
 func (s *Service4Value) New() bpf.MapValue { return &Service4Value{} }
 
 func (s *Service4Value) String() string {
 	sHost := s.ToHost().(*Service4Value)
-	return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x]", sHost.BackendID, sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2)
+	return fmt.Sprintf("%d %d[%d] (%d) [0x%x 0x%x] [sip-inspect %d]", sHost.BackendID, sHost.Count, sHost.QCount, sHost.RevNat, sHost.Flags, sHost.Flags2, sHost.SipInspect)
 }
 
 func (s *Service4Value) SetCount(count int)   { s.Count = uint16(count) }
@@ -226,6 +235,14 @@ func (s *Service4Value) GetQCount() int       { return int(s.QCount) }
 func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
 func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
+func (s *Service4Value) GetSipInspect() bool  { return s.SipInspect == 1 }
+func (s *Service4Value) SetSipInspect(enabled bool) {
+	if enabled {
+		s.SipInspect = 1
+	} else {
+		s.SipInspect = 0
+	}
+}
 func (s *Service4Value) SetFlags(flags uint16) {
 	s.Flags = uint8(flags & 0xff)
 	s.Flags2 = uint8(flags >> 8)
@@ -362,12 +379,14 @@ func (k *Service6Key) ToHost() ServiceKey {
 
 // Service6Value must match 'struct lb6_service' in "bpf/lib/common.h".
 type Service6Value struct {
-	BackendID uint32 `align:"$union0"`
-	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Flags     uint8  `align:"flags"`
-	Flags2    uint8  `align:"flags2"`
-	QCount    uint16 `align:"qcount"`
+	BackendID  uint32   `align:"$union0"`
+	Count      uint16   `align:"count"`
+	RevNat     uint16   `align:"rev_nat_index"`
+	Flags      uint8    `align:"flags"`
+	Flags2     uint8    `align:"flags2"`
+	QCount     uint16   `align:"qcount"`
+	SipInspect uint8    `align:"sip_inspect"`
+	pad        [3]uint8 `align:"pad"`
 }
 
 func (s *Service6Value) New() bpf.MapValue { return &Service6Value{} }
@@ -384,6 +403,14 @@ func (s *Service6Value) GetQCount() int       { return int(s.QCount) }
 func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
 func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
+func (s *Service6Value) GetSipInspect() bool  { return s.SipInspect == 1 }
+func (s *Service6Value) SetSipInspect(enabled bool) {
+	if enabled {
+		s.SipInspect = 1
+	} else {
+		s.SipInspect = 0
+	}
+}
 func (s *Service6Value) SetFlags(flags uint16) {
 	s.Flags = uint8(flags & 0xff)
 	s.Flags2 = uint8(flags >> 8)

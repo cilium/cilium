@@ -27,6 +27,7 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 #include "srv6.h"
+#include "sip.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
@@ -2965,10 +2966,18 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, false);
+
 	if (svc)
+  {
+    if(svc->sip_inspect) {
+      // TODO: extract from metadata
+      tuple.sip_call_id_hash = sip_inspect(ctx);
+    }
+
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
+  }
 
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY

@@ -22,8 +22,11 @@ type tupleKey[AddrT ipFamily] struct {
 	SourceAddr AddrT           `align:"saddr"`
 	DestPort   uint16          `align:"dport"`
 	SourcePort uint16          `align:"sport"`
+	SipCallId  uint32          `align:"sip_call_id_hash"`
 	NextHeader u8proto.U8proto `align:"nexthdr"`
 	Flags      uint8           `align:"flags"`
+	Pad0       uint8           `align:"pad0"`
+	Pad1       uint8           `align:"pad1"`
 }
 
 // TupleKey4 represents the key for IPv4 entries in the BPF conntrack map.
@@ -190,6 +193,10 @@ func (k TupleKey4Global) Dump(sb *strings.Builder, reverse bool) bool {
 			k.NextHeader.String(), addrSource, k.SourcePort,
 			addrDest, k.DestPort),
 		)
+	}
+
+	if k.SipCallId != 0 {
+		sb.WriteString(fmt.Sprintf("sip-call-id %x ", k.SipCallId))
 	}
 
 	if k.Flags&TUPLE_F_RELATED != 0 {

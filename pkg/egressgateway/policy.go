@@ -9,10 +9,12 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -33,6 +35,8 @@ type policyGatewayConfig struct {
 	nodeSelector *policyTypes.LabelSelector
 	iface        string
 	egressIP     netip.Addr
+	sipPort      uint16
+	sipInspect   bool
 }
 
 // gatewayConfig is the gateway configuration derived at runtime from a policy.
@@ -57,6 +61,10 @@ type gatewayConfig struct {
 	// This information is used to decide if it is necessary to relax the rp_filter
 	// on the interface used to SNAT traffic
 	localNodeConfiguredAsGateway bool
+	// sipInspect is used for SIP inspection on SNAT initiated
+	sipInspect bool
+	// sipPort is used as source port for SIP UDP packets
+	sipPort uint16
 }
 
 // PolicyConfig is the internal representation of CiliumEgressGatewayPolicy.
@@ -72,6 +80,8 @@ type PolicyConfig struct {
 	gatewayConfigs    []gatewayConfig
 	matchedEndpoints  map[endpointID]*endpointMetadata
 	v6Needed          bool
+	sipInspect        bool
+	sipPort           uint16
 }
 
 // PolicyID includes policy name and namespace
@@ -122,6 +132,8 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	config.gatewayConfigs = make([]gatewayConfig, 0, len(config.policyGwConfigs))
 
+	manager.logger.Info("regenerateGatewayConfig")
+
 	for _, policyGwc := range config.policyGwConfigs {
 		gwc := gatewayConfig{
 			egressIP4: netip.IPv4Unspecified(),
@@ -129,17 +141,20 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			gatewayIP: GatewayNotFoundIPv4,
 		}
 
+		manager.logger.Info("Processing policy with egress IP", logfields.EgressIP, policyGwc.egressIP)
 		for _, node := range manager.nodes {
 			if !policyGwc.selectsNodeAsGateway(node) {
 				continue
 			}
 
 			addr, ok := netipx.FromStdIP(node.GetNodeIP(false))
+			manager.logger.Info("addr and ok", logfields.Address, addr, logfields.Result, ok)
 			if !ok {
 				continue
 			}
 			gwc.gatewayIP = addr
 
+			manager.logger.Info("about to call deriveFromPolicyGatewayConfig")
 			if node.IsLocal() {
 				err := gwc.deriveFromPolicyGatewayConfig(manager.logger, &policyGwc, config.v6Needed)
 				if err != nil {
@@ -149,6 +164,8 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 						logfields.CiliumEgressGatewayPolicyName, config.id,
 						logfields.Interface, policyGwc.iface,
 						logfields.EgressIP, policyGwc.egressIP,
+						logfields.SipInspect, policyGwc.sipInspect,
+						logfields.SipPort, policyGwc.sipPort,
 					)
 				}
 			}
@@ -169,6 +186,10 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	gwc.localNodeConfiguredAsGateway = false
 	gwc.egressIP4 = EgressIPNotFoundIPv4
 	gwc.egressIP6 = EgressIPNotFoundIPv6
+	gwc.sipInspect = gc.sipInspect
+	gwc.sipPort = gc.sipPort
+
+	logger.Info("Got a egw policy with egressIP", logfields.EgressIP, gc.egressIP, logfields.SipInspect, gc.sipInspect, logfields.SipPort, gc.sipPort)
 
 	switch {
 	case gc.iface != "":
@@ -206,7 +227,9 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 
 		gwc.ifaceName, err = netdevice.GetIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
+			logger.Error("failed to retrieve interface with egress IP, fallback to eth0", logfields.Error, err)
+			gwc.ifaceName = "eth0"
+			// return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
 
 	default:
@@ -249,6 +272,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	}
 	gwc.localNodeConfiguredAsGateway = true
 
+	logger.Error("gwc egress ip", logfields.EgressIP, gwc.egressIP4)
 	return nil
 }
 
@@ -294,7 +318,7 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Pref
 	}
 }
 
-func parseEgressGateway(egressGateway *v2.EgressGateway) (*policyGatewayConfig, error) {
+func parseEgressGateway(egressGateway *v2.EgressGateway, sipPort uint16, sipInspect bool) (*policyGatewayConfig, error) {
 	if egressGateway == nil {
 		return nil, fmt.Errorf("egressGateway can't be empty")
 	}
@@ -306,6 +330,8 @@ func parseEgressGateway(egressGateway *v2.EgressGateway) (*policyGatewayConfig, 
 	policyGwc := &policyGatewayConfig{
 		nodeSelector: policyTypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, egressGateway.NodeSelector)),
 		iface:        egressGateway.Interface,
+		sipPort:      sipPort,
+		sipInspect:   sipInspect,
 	}
 
 	// EgressIP is not a required field, validate and parse it only if non-empty
@@ -330,6 +356,8 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var excludedCIDRs []netip.Prefix
 	var policyGwConfigs []policyGatewayConfig
 	var v6Needed bool
+	var sipInspect = false
+	var sipPort uint16 = 5060
 
 	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -341,13 +369,26 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("must have a name")
 	}
 
+	if _, ret := cegp.Annotations[annotation.ServiceSipInspect]; ret {
+		sipInspect = true
+	}
+
+	if port, ret := cegp.Annotations[annotation.ServiceSipPort]; ret {
+		value, err := strconv.ParseUint(port, 10, 16)
+		if err != nil {
+			return nil, err
+		}
+
+		sipPort = uint16(value)
+	}
+
 	destinationCIDRs := cegp.Spec.DestinationCIDRs
 	if destinationCIDRs == nil {
 		return nil, fmt.Errorf("destinationCIDRs can't be empty")
 	}
 
 	for _, egressGateway := range cegp.Spec.EgressGateways {
-		policyGwc, err := parseEgressGateway(&egressGateway)
+		policyGwc, err := parseEgressGateway(&egressGateway, sipPort, sipInspect)
 		if err != nil {
 			return nil, err
 		}
@@ -357,7 +398,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	// If there are any elements in EgressGateways skip the EgressGateway field.
 	if len(policyGwConfigs) == 0 {
 		egressGateway := cegp.Spec.EgressGateway
-		policyGwc, err := parseEgressGateway(egressGateway)
+		policyGwc, err := parseEgressGateway(egressGateway, sipPort, sipInspect)
 		if err != nil {
 			return nil, err
 		}
@@ -433,6 +474,8 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
 		policyGwConfigs:   policyGwConfigs,
 		v6Needed:          v6Needed,
+		sipInspect:        sipInspect,
+		sipPort:           sipPort,
 		id: types.NamespacedName{
 			Name: name,
 		},

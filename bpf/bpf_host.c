@@ -622,6 +622,37 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
+#ifdef ENABLE_MASQUERADE_IPV4
+  if (!from_host && ip4->protocol == IPPROTO_UDP) {
+    struct udphdr *udp = NULL;
+    struct ipv4_ct_tuple tuple __attribute__((aligned(8))) = {};
+    struct ipv4_nat_entry *state = NULL;
+
+    memset(&tuple, 0, sizeof(tuple));
+    udp = (void *)ip4 + sizeof(*ip4);
+    if((void*)(udp + 1) > data_end)
+      return DROP_INVALID;
+
+    tuple.sip_call_id_hash = sip_inspect(ctx);
+    if (tuple.sip_call_id_hash == 0)
+      goto skip_egress;
+
+    tuple.nexthdr = IPPROTO_UDP;
+    tuple.daddr = ip4->daddr;
+    tuple.saddr = ip4->saddr;
+    tuple.sport = udp->source;
+    tuple.dport = udp->dest;
+    tuple.flags = TUPLE_F_IN;
+
+    state = snat_v4_lookup(&tuple);
+    if (state != NULL) {
+      return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
+    }
+  }
+
+skip_egress:
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
     pkey.svc_ip = ip4->daddr;

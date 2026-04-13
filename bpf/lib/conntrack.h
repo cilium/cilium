@@ -70,7 +70,7 @@ static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_stat
 }
 
 struct ct_buffer4 {
-	struct ipv4_ct_tuple tuple;
+	struct ipv4_ct_tuple __attribute__((aligned(8))) tuple;
 	struct ct_state ct_state;
 	__u32 monitor;
 	int ret;

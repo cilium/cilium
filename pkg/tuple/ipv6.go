@@ -179,6 +179,10 @@ func (k TupleKey6Global) Dump(sb *strings.Builder, reverse bool) bool {
 		)
 	}
 
+	if k.SipCallId != 0 {
+		sb.WriteString(fmt.Sprintf("sip-call-id %x ", k.SipCallId))
+	}
+
 	if k.Flags&TUPLE_F_RELATED != 0 {
 		sb.WriteString("related ")
 	}

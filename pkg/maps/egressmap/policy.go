@@ -41,8 +41,11 @@ type EgressPolicyKey4 struct {
 
 // EgressPolicyVal4 is the value of an egress policy map.
 type EgressPolicyVal4 struct {
-	EgressIP  types.IPv4 `align:"egress_ip"`
-	GatewayIP types.IPv4 `align:"gateway_ip"`
+	EgressIP   types.IPv4 `align:"egress_ip"`
+	GatewayIP  types.IPv4 `align:"gateway_ip"`
+	SipPort    uint16     `align:"sip_port"`
+	SipInspect uint8      `align:"sip_inspect"`
+	Pad        uint8      `align:"pad"`
 }
 
 // EgressPolicyKey6 is the key of an egress policy map.
@@ -226,11 +229,15 @@ func NewEgressPolicyKey4(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPol
 
 // NewEgressPolicyVal4 returns a new EgressPolicyVal4 object representing for
 // the given egress IP and gateway IPs
-func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr) EgressPolicyVal4 {
+func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr, sipPort uint16, sipInspect bool) EgressPolicyVal4 {
 	val := EgressPolicyVal4{}
 
 	val.EgressIP.FromAddr(egressIP)
 	val.GatewayIP.FromAddr(gatewayIP)
+	val.SipPort = sipPort
+	if sipInspect {
+		val.SipInspect = 1
+	}
 
 	return val
 }
@@ -301,9 +308,9 @@ func (m *PolicyMap4) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*Egress
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *PolicyMap4) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
+func (m *PolicyMap4) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr, sipPort uint16, sipInspect bool) error {
 	key := NewEgressPolicyKey4(sourceIP, destCIDR)
-	val := NewEgressPolicyVal4(egressIP, gatewayIP)
+	val := NewEgressPolicyVal4(egressIP, gatewayIP, sipPort, sipInspect)
 
 	return m.m.Update(&key, &val)
 }

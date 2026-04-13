@@ -400,11 +400,13 @@ skip_vtep:
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
+    __u8 sip_needed = 0;
+    __u16 sip_port = 0;
 		__be32 snat_addr, daddr;
 
 		daddr = ip4->daddr;
 		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr,
-					       &egress_ifindex)) {
+					       &egress_ifindex, &sip_needed, &sip_port)) {
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 				return DROP_NO_EGRESS_IP;
 

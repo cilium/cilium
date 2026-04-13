@@ -110,6 +110,11 @@ func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
 	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
+func (svc *Service) GetSipInspect() bool {
+	_, ret := svc.Annotations[annotation.ServiceSipInspect]
+	return ret
+}
+
 func (svc *Service) GetProxyDelegation() SVCProxyDelegation {
 	if value, ok := annotation.Get(svc, annotation.ServiceProxyDelegation); ok {
 		tmp := SVCProxyDelegation(strings.ToLower(value))
@@ -237,6 +242,10 @@ func (svc *Service) TableRow() []string {
 
 	if alg := svc.GetLBAlgorithmAnnotation(); alg != SVCLoadBalancingAlgorithmUndef {
 		flags = append(flags, "ExplicitLBAlgorithm="+alg.String())
+	}
+
+	if sipInspect := svc.GetSipInspect(); sipInspect {
+		flags = append(flags, "SipInspect")
 	}
 
 	if svc.ForwardingMode != SVCForwardingModeUndef {

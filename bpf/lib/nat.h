@@ -22,6 +22,7 @@
 #include "icmp6.h"
 #include "nat_46x64.h"
 #include "stubs.h"
+#include "sip.h"
 #include "trace.h"
 
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
@@ -119,6 +120,8 @@ struct ipv4_nat_target {
 	__u32 cluster_id;
 	bool needs_ct;
 	__u32 ifindex; /* Obtained from EGW policy */
+  __u8 sip_needed;
+  __u16 sip_port;
 };
 
 struct {
@@ -206,6 +209,7 @@ set_v4_rtuple(const struct ipv4_ct_tuple *otuple,
 	rtuple->daddr = ostate->to_saddr;
 	rtuple->sport = otuple->dport;
 	rtuple->dport = ostate->to_sport;
+  rtuple->sip_call_id_hash = otuple->sip_call_id_hash;
 }
 
 static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map,
@@ -234,9 +238,13 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 	set_v4_rtuple(otuple, ostate, &rtuple);
 	/* .dport is selected below */
 
-	port = __snat_try_keep_port(target->min_port,
-				    target->max_port,
-				    bpf_ntohs(otuple->sport));
+  if(otuple->sip_call_id_hash) {
+    port = target->sip_port;
+  } else {
+    port = __snat_try_keep_port(target->min_port,
+              target->max_port,
+              bpf_ntohs(otuple->sport));
+  }
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
@@ -312,7 +320,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	*state = __snat_lookup(map, tuple);
 
 	if (needs_ct) {
-		struct ipv4_ct_tuple tuple_snat;
+		struct ipv4_ct_tuple __attribute__((aligned(8))) tuple_snat;
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
@@ -417,6 +425,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		otuple.daddr = tuple->saddr;
 		otuple.dport = tuple->sport;
 		otuple.nexthdr = tuple->nexthdr;
+    otuple.sip_call_id_hash = tuple->sip_call_id_hash;
 		otuple.flags = TUPLE_F_OUT;
 
 		lookup_result = __snat_lookup(map, &otuple);
@@ -589,6 +598,7 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	tuple->flags = dir;
+  tuple->sip_call_id_hash = 0;
 }
 
 /* The function contains a core logic for deciding whether an egressing packet
@@ -697,7 +707,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 */
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
-				       &target->ifindex)) {
+				       &target->ifindex, &target->sip_needed, &target->sip_port)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 			return DROP_NO_EGRESS_IP;
 
@@ -1111,6 +1121,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
+  tuple.sip_call_id_hash = sip_inspect(ctx);
 
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
@@ -1127,7 +1138,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		ipv4_ct_tuple_swap_ports(&tuple);
 		port_off = TCP_DPORT_OFF;
 
-		if (snat_v4_rev_nat_can_skip(target, &tuple))
+		if (!tuple.sip_call_id_hash && snat_v4_rev_nat_can_skip(target, &tuple))
 			return NAT_PUNT_TO_STACK;
 
 		break;

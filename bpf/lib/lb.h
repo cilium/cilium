@@ -41,6 +41,8 @@ struct lb6_service {
 	__u8 flags;
 	__u8 flags2;
 	__u16 qcount;
+  __u8 sip_inspect;
+  __u8 pad[3];
 };
 
 /* See lb4_backend comments */
@@ -65,6 +67,7 @@ struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
+  __u32 sip_call_id_hash;
 	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
 	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
 	__u8 pad[2];
@@ -101,6 +104,8 @@ struct lb4_service {
 	 * slots under quarantine (otherwise zero).
 	 */
 	__u16 qcount;
+  __u8 sip_inspect;
+  __u8 pad[3];
 };
 
 struct lb4_backend {

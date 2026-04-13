@@ -362,6 +362,8 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		if d.statusParams.LBConfig.AlgorithmAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceLoadBalancingAlgorithm)
+			features.Annotations = append(features.Annotations, annotation.ServiceSipInspect)
+			features.Annotations = append(features.Annotations, annotation.ServiceSipPort)
 		}
 		if d.statusParams.LBConfig.LBModeAnnotation {
 			features.Annotations = append(features.Annotations, annotation.ServiceForwardingMode)

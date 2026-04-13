@@ -19,6 +19,9 @@ struct egress_gw_policy_key {
 struct egress_gw_policy_entry {
 	__be32 egress_ip;
 	__be32 gateway_ip;
+  __be16 sip_port;
+  __u8 sip_inspect;
+  __u8 pad;
 };
 
 struct egress_gw_policy_key6 {
@@ -152,10 +155,30 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 }
 
 static __always_inline
+bool egress_gw_sip_inspection_needed(__be32 saddr __maybe_unused,
+         __be32 daddr __maybe_unused, __be16 *sport)
+{
+  const struct egress_gw_policy_entry *egress_gw_policy;
+
+  egress_gw_policy = lookup_ip4_egress_gw_policy(saddr, daddr);
+  if (!egress_gw_policy)
+    return false;
+
+  if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+      egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
+    return false;
+
+  *sport = egress_gw_policy->sip_port;
+  return egress_gw_policy->sip_inspect;
+}
+
+static __always_inline
 bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 			   __be32 daddr __maybe_unused,
 			   __be32 *snat_addr __maybe_unused,
-			   __u32 *egress_ifindex __maybe_unused)
+			   __u32 *egress_ifindex __maybe_unused,
+         __u8 *sip_inspect __maybe_unused,
+         __u16 *sip_port __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	const struct egress_gw_policy_entry *egress_gw_policy;
@@ -169,6 +192,8 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
+  *sip_inspect = egress_gw_policy->sip_inspect;
+  *sip_port = egress_gw_policy->sip_port;
 #ifdef EGRESS_IFINDEX
 	*egress_ifindex = EGRESS_IFINDEX;
 #endif
@@ -218,7 +243,7 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 
 static __always_inline
 bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
-				__u32 *egress_ifindex)
+				__u32 *egress_ifindex, __u8 *sip_needed, __u16 *sip_port)
 {
 	const struct remote_endpoint_info *remote_ep;
 
@@ -231,7 +256,7 @@ bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
 	    identity_is_cluster(remote_ep->sec_identity))
 		return false;
 
-	return egress_gw_snat_needed(saddr, daddr, snat_addr, egress_ifindex);
+	return egress_gw_snat_needed(saddr, daddr, snat_addr, egress_ifindex, sip_needed, sip_port);
 }
 
 static __always_inline
