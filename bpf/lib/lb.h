@@ -177,6 +177,14 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
+struct lb4_pinning_key {
+	__u32 svc_ip;
+} __packed;
+
+struct lb4_pinning_val {
+	__u32 node_ip;
+} __packed;
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
@@ -329,6 +337,15 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct lb4_pinning_key);
+	__type(value, struct lb4_pinning_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_PINNING_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} cilium_lb4_pinning __section_maps_btf;
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0

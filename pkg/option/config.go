@@ -522,6 +522,11 @@ const (
 	// that sock rev NAT is mostly used for UDP and getpeername only.
 	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault
 
+	// SockRevNATMapEntriesDefault holds the default size of the SockRev NAT map
+	// and is the same size of CTMapEntriesGlobalAnyDefault as a heuristic given
+	// that sock rev NAT is mostly used for UDP and getpeername only.
+	PinningMapEntriesDefault = 1024
+
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the
 	// CT, NAT, Neighbor and SockRevNAT BPF maps.

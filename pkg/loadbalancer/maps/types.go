@@ -1375,3 +1375,27 @@ func (v *SkipLB6Value) String() string {
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k *SkipLB6Key) NewValue() bpf.MapValue { return &SkipLB6Value{} }
+
+//
+// LbPinning
+//
+
+const (
+	LbPinning4MapName = "cilium_lb4_pinning"
+)
+
+type LbPinning4Key struct {
+	ServiceIP types.IPv4 `align:"svc_ip"`
+}
+
+type LbPinning4Value struct {
+	NodeIP types.IPv4 `align:"node_ip"`
+}
+
+// String converts the key into a human readable string format
+func (k *LbPinning4Key) String() string  { return k.ServiceIP.String() }
+func (k *LbPinning4Key) New() bpf.MapKey { return &LbPinning4Key{} }
+
+// String converts the value into a human readable string format
+func (v *LbPinning4Value) String() string    { return v.NodeIP.String() }
+func (v *LbPinning4Value) New() bpf.MapValue { return &LbPinning4Value{} }

@@ -70,6 +70,24 @@ neigh_resolver_available(void)
 	return true;
 }
 
+static __always_inline __maybe_unused __u32 ctx_get_sip_hash(struct __ctx_buff *ctx)
+{
+  static long (*bpf_trace_printk)(const char *fmt, __u32 fmt_size, ...) = (void *) 6;
+  void *data_meta = ctx_data_meta(ctx);
+  void *data = ctx_data(ctx);
+  struct meta_info *meta = data_meta + 4;
+
+  if ((void*)(meta + 1) > data)
+    return 0;
+
+  if( meta->magic != meta_magic )
+    return 0;
+
+  bpf_trace_printk("bpf get_sip_hash %x", 1, meta->hash);
+
+  return meta->hash;
+}
+
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 {

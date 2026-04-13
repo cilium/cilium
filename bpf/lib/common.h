@@ -23,6 +23,14 @@
 
 #include "source_info.h"
 
+static long (*_bpf_trace_printk)(const char *fmt, __u32 fmt_size, ...) = (void *) 6;
+# define _printk(fmt, ...)					\
+({						\
+  const char ____fmt[] = fmt;		\
+  _bpf_trace_printk(____fmt, sizeof(____fmt),	\
+         ##__VA_ARGS__);		\
+})
+
 #ifndef IP_DF
 #define IP_DF 0x4000
 #endif
@@ -393,6 +401,13 @@ enum ct_status {
 	CT_REPLY,
 	CT_RELATED,
 } __packed;
+
+struct meta_info {
+  __u32 magic;
+  __u32 hash;
+} __attribute__((aligned(4)));
+
+static const __u32 meta_magic = 0xFACEBABE;
 
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,

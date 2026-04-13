@@ -65,6 +65,22 @@ neigh_resolver_available(void)
 
 #define RECIRC_MARKER	5 /* tail call recirculation */
 #define XFER_MARKER	6 /* xdp -> skb meta transfer */
+#define SIP_CALL_ID_HASH 7 /* xdp-> skb sip call id hash transfer */
+
+static __always_inline __maybe_unused __u32 ctx_get_sip_hash(struct __ctx_buff *ctx)
+{
+  void *data_meta = ctx_data_meta(ctx);
+  void *data = ctx_data(ctx);
+  struct meta_info *meta = data_meta;
+
+  if ((void*)(meta + 1) > data)
+    return 0;
+
+  if( meta->magic != meta_magic )
+    return 0;
+
+  return meta->hash;
+}
 
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct xdp_md *ctx __maybe_unused)

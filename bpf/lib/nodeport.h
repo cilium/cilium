@@ -2822,10 +2822,8 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				return ret;
 #endif
 			}
-
 			return ret;
 		}
-
 		if (lb4_svc_is_l7_punt_proxy(svc) &&
 		    __lookup_ip4_endpoint(backend->address)) {
 			ctx_skip_nodeport_set(ctx);
@@ -2841,7 +2839,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo,
 					       l4_off, key, tuple, false);
 	}
-
 	if (IS_ERR(ret))
 		return ret;
 
@@ -2869,7 +2866,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #else
 		src_sec_identity = WORLD_IPV4_ID;
 #endif
-
 		/* lookup with SCOPE_FORWARD: */
 		__ipv4_ct_tuple_reverse(tuple);
 
@@ -2887,7 +2883,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		case CT_NEW:
 			ct_state.src_sec_id = src_sec_identity;
 			ct_state.node_port = 1;
-
 			ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 					 CT_EGRESS, &ct_state, ext_err);
 			if (IS_ERR(ret))
@@ -2901,7 +2896,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		default:
 			return DROP_UNKNOWN_CT;
 		}
-
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;

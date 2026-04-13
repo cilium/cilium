@@ -93,6 +93,8 @@ var (
 		"debug_capture_msg":       {monitor.DebugCapture{}},
 		"policy_verdict_notify":   {monitor.PolicyVerdictNotify{}},
 		"trace_sock_notify":       {monitor.TraceSockNotify{}},
+		"lb4_pinning_key":         {lbmap.LbPinning4Key{}},
+		"lb4_pinning_val":         {lbmap.LbPinning4Value{}},
 	}
 	toCheckSizes = map[string][]any{
 		"__u16": {

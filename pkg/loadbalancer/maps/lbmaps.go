@@ -106,6 +106,12 @@ type sockRevNatMaps interface {
 	SockRevNat() (*bpf.Map, *bpf.Map)
 }
 
+type pinningMaps interface {
+	UpdatePinning4(*LbPinning4Key, *LbPinning4Value) error
+	DeletePinning4(*LbPinning4Key) error
+	DumpPinning4(cb func(*LbPinning4Key, *LbPinning4Value)) error
+}
+
 // LBMaps defines the map operations performed by the reconciliation.
 // Depending on this interface instead of on the underlying maps allows
 // testing the implementation with a fake map or injected errors.
@@ -117,6 +123,7 @@ type LBMaps interface {
 	sourceRangeMaps
 	maglevMaps
 	sockRevNatMaps
+	pinningMaps
 
 	IsEmpty() bool
 }
@@ -138,6 +145,7 @@ type BPFLBMaps struct {
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
+	pinningMap                       *bpf.Map
 
 	maglevInnerMapSpec *ebpf.MapSpec
 
@@ -304,6 +312,17 @@ func NewMaglevOuterMap(name string, maxEntries int, innerSpec *ebpf.MapSpec) *bp
 	)
 }
 
+func NewPinningMap(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		LbPinning4MapName,
+		ebpf.Hash,
+		&LbPinning4Key{},
+		&LbPinning4Value{},
+		maxEntries,
+		0,
+	)
+}
+
 type mapDesc struct {
 	target     **bpf.Map // pointer to the field in realLBMaps
 	ctor       func(maxEntries int) *bpf.Map
@@ -324,6 +343,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
+		{&r.pinningMap, NewPinningMap, r.Cfg.LBPinningEntries},
 	}
 	v6Maps := []mapDesc{
 		{&r.service6Map, NewService6Map, r.Cfg.LBServiceMapEntries},
@@ -578,14 +598,30 @@ func (r *BPFLBMaps) DeleteAffinityMatch(key *AffinityMatchKey) error {
 	return err
 }
 
-// DumpAffinityMatch implements lbmaps.
+// DumpAffinityMatch implements lbmaps
 func (r *BPFLBMaps) DumpAffinityMatch(cb func(*AffinityMatchKey, *AffinityMatchValue)) error {
 	return dumpMap(r.affinityMatchMap, cb)
 }
 
-// UpdateAffinityMatch implements lbmaps.
+// UpdateAffinityMatch implements lbmaps
 func (r *BPFLBMaps) UpdateAffinityMatch(key *AffinityMatchKey, value *AffinityMatchValue) error {
 	return r.affinityMatchMap.Update(key, value)
+}
+
+// DeletePinning4 implements lbmaps.
+func (r *BPFLBMaps) DeletePinning4(key *LbPinning4Key) error {
+	_, err := r.pinningMap.SilentDelete(key)
+	return err
+}
+
+// DumpPinning4 implements lbmaps.
+func (r *BPFLBMaps) DumpPinning4(cb func(*LbPinning4Key, *LbPinning4Value)) error {
+	return dumpMap(r.pinningMap, cb)
+}
+
+// UpdatePinning4 implements lbmaps.
+func (r *BPFLBMaps) UpdatePinning4(key *LbPinning4Key, value *LbPinning4Value) error {
+	return r.pinningMap.Update(key, value)
 }
 
 // DeleteSourceRange implements lbmaps.
@@ -980,6 +1016,31 @@ func (f *FaultyLBMaps) LookupBackend(key BackendKey) (BackendValue, error) {
 	return f.impl.LookupBackend(key)
 }
 
+// DeletePinning4 implements lbmaps.
+func (f *FaultyLBMaps) DeletePinning4(key *LbPinning4Key) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	err := f.impl.DeletePinning4(key)
+	return err
+}
+
+// DumpPinning4 implements lbmaps.
+func (f *FaultyLBMaps) DumpPinning4(cb func(*LbPinning4Key, *LbPinning4Value)) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.DumpPinning4(cb)
+}
+
+// UpdatePinning4 implements lbmaps.
+func (f *FaultyLBMaps) UpdatePinning4(key *LbPinning4Key, value *LbPinning4Value) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.UpdatePinning4(key, value)
+}
+
 func (f *FaultyLBMaps) isFaulty() bool {
 	// Float32() returns value between [0.0, 1.0).
 	// We fail if the value is less than our probability [0.0, 1.0].
@@ -1039,6 +1100,7 @@ func dumpFakeBPFMap[K any, V any](m *fakeBPFMap, cb func(K, V)) {
 }
 
 type FakeLBMaps struct {
+	pin        fakeBPFMap
 	aff        fakeBPFMap
 	be         fakeBPFMap
 	svc        fakeBPFMap
@@ -1053,6 +1115,11 @@ type FakeLBMaps struct {
 
 func NewFakeLBMaps() LBMaps {
 	return &FakeLBMaps{}
+}
+
+// DeletePinning4 implements lbmaps.
+func (f *FakeLBMaps) DeletePinning4(key *LbPinning4Key) error {
+	return f.pin.delete(key)
 }
 
 // DeleteAffinityMatch implements lbmaps.
@@ -1078,6 +1145,12 @@ func (f *FakeLBMaps) DeleteService(key ServiceKey) error {
 // DeleteSourceRange implements lbmaps.
 func (f *FakeLBMaps) DeleteSourceRange(key SourceRangeKey) error {
 	return f.srcRange.delete(key)
+}
+
+// DumpPinning4 implements lbmaps.
+func (f *FakeLBMaps) DumpPinning4(cb func(*LbPinning4Key, *LbPinning4Value)) error {
+	dumpFakeBPFMap(&f.pin, cb)
+	return nil
 }
 
 // DumpAffinityMatch implements lbmaps.
@@ -1108,6 +1181,11 @@ func (f *FakeLBMaps) DumpService(cb func(ServiceKey, ServiceValue)) error {
 func (f *FakeLBMaps) DumpSourceRange(cb func(SourceRangeKey, *SourceRangeValue)) error {
 	dumpFakeBPFMap(&f.srcRange, cb)
 	return nil
+}
+
+// UpdatePinning4 implements lbmaps.
+func (f *FakeLBMaps) UpdatePinning4(key *LbPinning4Key, value *LbPinning4Value) error {
+	return f.pin.update(key, value)
 }
 
 // UpdateAffinityMatch implements lbmaps.
