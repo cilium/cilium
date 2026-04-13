@@ -6,6 +6,8 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -148,7 +150,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 				if err != nil {
 					return
 				}
-				baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), hostIP, ct.Params().EchoServerHostPort, echo.Path())
+				baseURL := fmt.Sprintf("%s://%s%s", echo.Scheme(), net.JoinHostPort(hostIP, strconv.Itoa(ct.Params().EchoServerHostPort)), echo.Path())
 				ep := check.HTTPEndpoint(echo.Name(), baseURL)
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, ep, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommand(ep))

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -145,7 +146,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test, name string,
 	client *check.Pod, echo check.TestPeer, ipFam features.IPFamily) {
 	ct := t.Context()
-	baseURL := fmt.Sprintf("%s://%s:%d", echo.Scheme(), echo.Address(ipFam), echo.Port())
+	baseURL := fmt.Sprintf("%s://%s", echo.Scheme(), net.JoinHostPort(echo.Address(ipFam), strconv.FormatUint(uint64(echo.Port()), 10)))
 	var curlOpts []string
 	if s.method != "" {
 		curlOpts = append(curlOpts, "-X", s.method)

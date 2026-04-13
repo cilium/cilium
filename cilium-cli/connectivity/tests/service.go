@@ -6,7 +6,9 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net"
 	"slices"
+	"strconv"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -258,7 +260,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 			// Manually construct an HTTP endpoint to override the destination IP
 			// and port of the request.
-			ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), addr.Address, np, svc.Path()))
+			ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s%s", svc.Scheme(), net.JoinHostPort(addr.Address, strconv.FormatUint(uint64(np), 10)), svc.Path()))
 
 			// Create the Action with the original svc as this will influence what the
 			// flow matcher looks for in the flow logs.

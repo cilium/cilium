@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -655,12 +657,7 @@ func (s *ztunnelTestBase) executeTrafficTest(ctx context.Context, t *check.Test,
 func (s *ztunnelTestBase) executeTrafficForIPFamily(ctx context.Context, t *check.Test, ipFamily features.IPFamily,
 	encryptedSniffers, plainTextSniffers map[string]*sniff.Sniffer,
 ) {
-	var url string
-	if ipFamily == features.IPFamilyV4 {
-		url = fmt.Sprintf("http://%s:%d/", s.server.Address(ipFamily), echoServerPort)
-	} else {
-		url = fmt.Sprintf("http://[%s]:%d/", s.server.Address(ipFamily), echoServerPort)
-	}
+	url := fmt.Sprintf("http://%s/", net.JoinHostPort(s.server.Address(ipFamily), strconv.Itoa(echoServerPort)))
 
 	// Retry loop for curl command
 	var lastErr error
