@@ -9,11 +9,11 @@
 //	wg := completion.NewWaitGroup(ctx)
 //
 // For each concurrent computation to wait for, a Completion is created by
-// calling AddCompletion and then passing it to the concurrent computation:
+// calling AddCompletionWithCallback and then passing it to the concurrent computation:
 //
-//	comp1 := wg.AddCompletion()
+//	comp1 := wg.AddCompletionWithCallback(nil, nil)
 //	DoSomethingConcurrently(..., comp1)
-//	comp2 := wg.AddCompletion()
+//	comp2 := wg.AddCompletionWithCallback(nil, nil)
 //	DoSomethingElse(..., comp2)
 //
 // The Completion type provides the Complete and Completed() methods:
@@ -48,7 +48,7 @@
 // A Completion can also be created with a callback, which is called at most
 // once when the Completion is completed before the context is canceled:
 //
-//	comp := wg.AddCompletionWithCallback(func(err error) {
+//	comp := wg.AddCompletionWithCallback(nil, func(err error) {
 //	    if err == nil {
 //	        fmt.Println("completed')
 //	    }

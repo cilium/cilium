@@ -81,6 +81,14 @@ func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, hr 
 func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
 }
 
+type blockingCompletionOwner string
+
+func (o blockingCompletionOwner) ID() string {
+	return string(o)
+}
+
+func (blockingCompletionOwner) CleanupAfterWait(*completion.Completion) {}
+
 func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *testing.T) {
 	logger := hivetest.Logger(t)
 	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
@@ -92,7 +100,7 @@ func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *tes
 	const blockingCompletionID = "blocking-proxy-policy-update"
 
 	// Leave the completion pending so the wait group times out while waiting on it.
-	proxyWaitGroup.AddCompletion(func() string { return blockingCompletionID })
+	proxyWaitGroup.AddCompletionWithCallback(blockingCompletionOwner(blockingCompletionID), nil)
 
 	err := mgr.waitForProxyCompletions(proxyWaitGroup)
 	require.Error(t, err)
