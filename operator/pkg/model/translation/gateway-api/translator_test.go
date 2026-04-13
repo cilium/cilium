@@ -83,7 +83,7 @@ func Test_translator_Translate(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, err := trans.Translate(input)
+			cec, svc, _, err := trans.Translate(input)
 
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
@@ -197,7 +197,7 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 					expectedService := &corev1.Service{}
 					readOutput(t, fmt.Sprintf("testdata/%s/%s/service-output.yaml", tt.name, translatorCase.name), expectedService)
 
-					cec, svc, err := trans.Translate(input)
+					cec, svc, _, err := trans.Translate(input)
 					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 					require.Equal(t, expectedService, svc, "Service mismatch")
 
@@ -250,7 +250,7 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			expectedService := &corev1.Service{}
 			readOutput(t, fmt.Sprintf("testdata/%s/service-output.yaml", tt.name), expectedService)
 
-			cec, svc, err := trans.Translate(input)
+			cec, svc, _, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 			require.Equal(t, expectedService, svc, "Service mismatch")
 			diffOutput := cmp.Diff(output, cec, protocmp.Transform())

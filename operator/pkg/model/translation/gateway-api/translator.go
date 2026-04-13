@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -42,10 +43,10 @@ func NewTranslator(cecTranslator translation.CECTranslator, cfg translation.Conf
 	}
 }
 
-func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
+func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	listeners := m.GetListeners()
 	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
-		return nil, nil, fmt.Errorf("model source can't be empty, %d listeners", len(listeners))
+		return nil, nil, nil, fmt.Errorf("model source can't be empty, %d listeners", len(listeners))
 	}
 
 	// source is the main object that is the source of the model.Model
@@ -71,7 +72,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	if source == nil || source.Name == "" {
-		return nil, nil, fmt.Errorf("model source name can't be empty")
+		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
 	// generatedName is the name of the generated objects.
@@ -85,7 +86,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 	cec, err := t.cecTranslator.Translate(source.Namespace, generatedName, m)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var allLabels, allAnnotations map[string]string
@@ -97,12 +98,13 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 
 	if err = decorateCEC(cec, owner, allLabels, allAnnotations); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	lbSvc := t.desiredService(listeners[0].GetService(), source, ports, allLabels, allAnnotations)
+	ep := t.desiredEndpointSlice(source, allLabels, allAnnotations)
 
-	return cec, lbSvc, err
+	return cec, lbSvc, ep, err
 }
 
 func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
@@ -342,4 +344,35 @@ func mergeMap(left, right map[string]string) map[string]string {
 	}
 	maps.Copy(left, right)
 	return left
+}
+
+func (t *gatewayAPITranslator) desiredEndpointSlice(owner *model.FullyQualifiedResource, labels, annotations map[string]string) *discoveryv1.EndpointSlice {
+	if owner == nil {
+		return nil
+	}
+	shortenedName := shortener.ShortenK8sResourceName(owner.Name)
+
+	return &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shortener.ShortenK8sResourceName(CiliumGatewayPrefix + owner.Name),
+			Namespace: owner.Namespace,
+			Labels: mergeMap(map[string]string{
+				owningGatewayLabel: shortenedName,
+				gatewayNameLabel:   shortenedName,
+			}, labels),
+			Annotations: annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: gatewayv1beta1.GroupVersion.String(),
+					Kind:       owner.Kind,
+					Name:       owner.Name,
+					UID:        types.UID(owner.UID),
+					Controller: ptr.To(true),
+				},
+			},
+		},
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints:   nil,
+		Ports:       nil,
+	}
 }
