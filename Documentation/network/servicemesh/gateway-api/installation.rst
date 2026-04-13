@@ -6,7 +6,7 @@ Prerequisites
   replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
   (enabled by default).
-* The below CRDs from Gateway API v1.4.1 ``must`` be pre-installed.
+* The below CRDs from Gateway API v1.5.1 ``must`` be pre-installed.
   Please refer to this `docs <https://gateway-api.sigs.k8s.io/guides/?h=crds#getting-started-with-gateway-api>`_
   for installation steps. Alternatively, the below snippet could be used.
 
@@ -15,27 +15,19 @@ Prerequisites
     - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
     - `GRPCRoute <https://gateway-api.sigs.k8s.io/api-types/grpcroute/>`_
     - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
-
-  If you wish to use the TLSRoute functionality, you'll also need to install the TLSRoute resource.
-  If this CRD is not installed, then Cilium will disable TLSRoute support.
-
-    - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1alpha2.TLSRoute/>`_
+    - `TLSRoute <https://gateway-api.sigs.k8s.io/api-types/tlsroute/>`_
 
   You can install the required CRDs like this:
 
     .. code-block:: shell-session
 
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
-
-  And add TLSRoute with this snippet.
-    .. code-block:: shell-session
-
-        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.4.1/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_backendtlspolicies.yaml
+        $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.5.1/config/crd/standard/gateway.networking.k8s.io_tlsroutes.yaml
 
 * By default, the Gateway API controller creates a service of LoadBalancer type,
   so your environment will need to support this. Alternatively, since Cilium 1.16+,
