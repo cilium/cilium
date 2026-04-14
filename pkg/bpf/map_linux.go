@@ -642,14 +642,14 @@ func (m *Map) openOrCreate(pin bool) error {
 		return err
 	}
 
-	m.updateMetrics()
-	registerMap(m.Logger, m.path, m)
-
 	// Consume the MapSpec.
 	m.spec = nil
 
 	// Retain the Map.
 	m.m = em
+
+	m.updateMetrics()
+	registerMap(m.Logger, m.path, m)
 
 	return nil
 }
@@ -680,10 +680,10 @@ func (m *Map) open() error {
 		return fmt.Errorf("loading pinned map %s: %w", m.path, err)
 	}
 
+	m.m = em
+
 	m.updateMetrics()
 	registerMap(m.Logger, m.path, m)
-
-	m.m = em
 
 	return nil
 }
