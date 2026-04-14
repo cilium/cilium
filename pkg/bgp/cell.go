@@ -56,16 +56,12 @@ var Cell = cell.Module(
 		newBGPAdvertisementResource,
 		// Secret resource provides secrets in the BGP secret namespace
 		newSecretResource,
-		// CiliumLoadBalancerIPPool resource is used by the BGP CP to realize configured LB IP pools.
-		newLoadBalancerIPPoolResource,
 		// Provides the module with a stream of events for the CiliumPodIPPool resource.
 		newCiliumPodIPPoolResource,
 	),
 	cell.Provide(
 		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*slim_core_v1.Secret],
-		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
-		store.NewBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool],
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2alpha1.CiliumPodIPPool],
 
@@ -109,19 +105,6 @@ var Cell = cell.Module(
 
 	metrics.Metric(manager.NewBGPManagerMetrics),
 )
-
-func newLoadBalancerIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2.CiliumLoadBalancerIPPool] {
-	if !dc.BGPControlPlaneEnabled() {
-		return nil
-	}
-	if !c.IsEnabled() {
-		return nil
-	}
-	return resource.New[*v2.CiliumLoadBalancerIPPool](
-		lc, utils.ListerWatcherFromTyped(
-			c.CiliumV2().CiliumLoadBalancerIPPools(),
-		), mp, resource.WithMetric("CiliumLoadBalancerIPPool"))
-}
 
 func newCiliumPodIPPoolResource(lc cell.Lifecycle, c client.Clientset, dc *option.DaemonConfig, mp workqueue.MetricsProvider) resource.Resource[*v2alpha1.CiliumPodIPPool] {
 	// Do not create this resource if:
