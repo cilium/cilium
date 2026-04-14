@@ -1,4 +1,4 @@
-name: Installation and Conformance Test (ipv6)
+name: Smoke Conformance Test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -28,6 +28,8 @@ on:
     branches:
       - main
       - ft/main/**
+  merge_group:
+    types: [checks_requested]
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -44,17 +46,26 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ inputs.PR-number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
 
 env:
-  KIND_CONFIG: .github/kind-config-ipv6.yaml
-  # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
-  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
-  TIMEOUT: 5m
+  KIND_CONFIG: .github/kind-config.yaml
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
   LOG_TIME: 30m
+  PROM_VERSION: 2.34.0
 
 jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
@@ -88,13 +99,13 @@ jobs:
               - '!(test|Documentation)/**'
               - '!**/*.md'
 
-  conformance-test-ipv6:
+  conformance-test:
     env:
-      job_name: "Conformance Smoke Test with IPv6"
+      job_name: "Conformance Smoke Test"
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-24.04
-    name: Installation and Conformance Test (ipv6)
+    name: Installation and Conformance Test
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -115,7 +126,7 @@ jobs:
         uses: ./.github/actions/helm-default
         with:
           image-tag: ${{ inputs.SHA || github.sha }}
-          chart-dir: ./untrusted/install/kubernetes/cilium
+          chart-dir: './untrusted/install/kubernetes/cilium'
 
       - name: Set image tag
         id: sha
@@ -127,17 +138,6 @@ jobs:
           make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
           test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
-
-      - name: Enable IPv6 in docker
-        run: |
-          sudo cat /etc/docker/daemon.json || true
-          # Keep existing config like cgroup-parent in github action
-          sudo sh -c "echo '{ \"exec-opts\": [\"native.cgroupdriver=cgroupfs\"], \"cgroup-parent\": \"/actions_job\", \"ipv6\": true, \"fixed-cidr-v6\": \"2001:db8:1::/64\" }' > /etc/docker/daemon.json"
-          sudo cat /etc/docker/daemon.json
-          sudo ip -6 route add 2001:db8:1::/64 dev docker0
-          sudo sysctl net.ipv6.conf.default.forwarding=1
-          sudo sysctl net.ipv6.conf.all.forwarding=1
-          sudo systemctl restart docker
 
       - name: Create kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -156,21 +156,64 @@ jobs:
             until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      - name: Generate CA, Server and Client certs for Operator Prometheus
+        id: gen_certs
+        run: |
+          CA_CERT=ca.crt
+          CLIENT_CERT=client.crt
+          CLIENT_KEY=client.key
+          SERVER_NAME=server.operator.prometheus
+
+          openssl genrsa -out ca.key 4096
+          openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
+            -subj "/CN=operator.prometheus" -out ${CA_CERT}
+
+          openssl genrsa -out tls.key 2048
+          openssl req -new -key tls.key -subj "/CN=${SERVER_NAME}" -out server.csr
+
+          openssl x509 -req -in server.csr -CA ${CA_CERT} -CAkey ca.key -CAcreateserial \
+            -out tls.crt -days 365 -sha256
+
+          openssl genrsa -out ${CLIENT_KEY} 2048
+          openssl req -new -key ${CLIENT_KEY} -subj "/CN=client.operator.prometheus" -out client.csr
+
+          openssl x509 -req -in client.csr -CA ${CA_CERT} -CAkey ca.key -CAcreateserial \
+            -out ${CLIENT_CERT} -days 365 -sha256
+
+          OPERATOR_PROMETHEUS_TLS_SECRET_NAME=operator-prometheus-tls-secret
+          kubectl -n kube-system create secret generic ${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} \
+            --from-file=ca.crt=${CA_CERT} \
+            --from-file=tls.crt=tls.crt \
+            --from-file=tls.key=tls.key \
+            --from-file=${CLIENT_CERT}=${CLIENT_CERT} \
+            --from-file=${CLIENT_KEY}=${CLIENT_KEY}
+
+          echo operator_prometheus_tls_secret_name=${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} >> $GITHUB_OUTPUT
+
       - name: Set up install variables
         id: vars
         run: |
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set nodeinit.enabled=true \
-            --helm-set kubeProxyReplacement=true \
-            --helm-set ipam.mode=kubernetes \
-            --helm-set hubble.enabled=true \
-            --helm-set hubble.relay.enabled=true \
-            --helm-set ipv6.enabled=true \
-            --helm-set ipv4.enabled=false \
-            --helm-set routingMode=native \
-            --helm-set autoDirectNodeRoutes=true \
-            --helm-set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
-            --helm-set ingressController.enabled=true"
+             --helm-set nodeinit.enabled=true \
+             --helm-set kubeProxyReplacement=true \
+             --helm-set ipam.mode=kubernetes \
+             --helm-set hubble.relay.enabled=true \
+             --helm-set prometheus.enabled=true \
+             --helm-set operator.prometheus.enabled=true \
+             --helm-set operator.prometheus.tls.enabled=true \
+             --helm-set operator.prometheus.tls.server.existingSecret=${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
+             --helm-set operator.prometheus.tls.server.mtls.enabled=true \
+             --helm-set hubble.enabled=true \
+             --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
+             --helm-set ingressController.enabled=true \
+             --set-string extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string extraEnv[3].value=true \
+             --set-string operator.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string operator.extraEnv[3].value=true \
+             --set-string clustermesh.apiserver.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string clustermesh.apiserver.extraEnv[3].value=true \
+             --set-string hubble.relay.extraEnv[3].name=CILIUM_FEATURE_METRICS_WITHOUT_ENV_VERSION \
+             --set-string hubble.relay.extraEnv[3].value=true"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
@@ -204,7 +247,7 @@ jobs:
           cilium status --wait --interactive=false
           kubectl -n kube-system get pods
 
-      - name: Run conformance test (e.g. connectivity check without external 1.1.1.1 and www.google.com)
+      - name: Run conformance test (e.g. connectivity check)
         id: run-tests
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
@@ -221,10 +264,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: conformance-test-ipv6
+    needs: conformance-test
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ needs.conformance-test-ipv6.result != 'failure' }}
+      success: ${{ needs.conformance-test.result == 'success' }}
