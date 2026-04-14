@@ -19,9 +19,9 @@ import (
 
 var klogErrorOverrides = []logLevelOverride{
 	{
-		// TODO: We can drop the misspelled case here once client-go version is bumped to include:
-		//	https://github.com/kubernetes/client-go/commit/ae43527480ee9d8750fbcde3d403363873fd3d89
-		matcher:     regexp.MustCompile("Failed to update lock (optimitically|optimistically).*falling back to slow path"),
+		// TODO: We can drop this once bumped to new client-go version which has this at info level:
+		// https://github.com/kubernetes/client-go/commit/ea7a7e7cf9697850f17631f79ef4ef45b95c449e.
+		matcher:     regexp.MustCompile("Failed to update.*falling back to slow path"),
 		targetLevel: slog.LevelInfo,
 	},
 }
