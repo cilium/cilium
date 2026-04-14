@@ -595,7 +595,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
 		if debugEnabled {
 			debugFunc := func(format string, args ...interface{}) {
-				e.getLogger().Debug(fmt.Sprintf(format, args))
+				e.getLogger().Debug(fmt.Sprintf(format, args...))
 			}
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
 			defer cancel()

@@ -30,18 +30,18 @@ type MaxMindConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Full file path to the Maxmind city database, e.g. /etc/GeoLite2-City.mmdb.
-	// Database file is expected to have .mmdb extension.
+	// Full file path to the MaxMind city database, e.g., “/etc/GeoLite2-City.mmdb“.
+	// Database file is expected to have “.mmdb“ extension.
 	CityDbPath string `protobuf:"bytes,1,opt,name=city_db_path,json=cityDbPath,proto3" json:"city_db_path,omitempty"`
-	// Full file path to the Maxmind ASN database, e.g. /etc/GeoLite2-ASN.mmdb.
-	// Database file is expected to have .mmdb extension.
-	// When is defined the ASN information will always be fetched from the “asn_db“.
+	// Full file path to the MaxMind ASN database, e.g., “/etc/GeoLite2-ASN.mmdb“.
+	// Database file is expected to have “.mmdb“ extension.
+	// When this is defined, the ASN information will always be fetched from the “asn_db“.
 	AsnDbPath string `protobuf:"bytes,2,opt,name=asn_db_path,json=asnDbPath,proto3" json:"asn_db_path,omitempty"`
-	// Full file path to the Maxmind anonymous IP database, e.g. /etc/GeoIP2-Anonymous-IP.mmdb.
-	// Database file is expected to have .mmdb extension.
+	// Full file path to the MaxMind Anonymous IP database, e.g., “/etc/GeoIP2-Anonymous-IP.mmdb“.
+	// Database file is expected to have “.mmdb“ extension.
 	AnonDbPath string `protobuf:"bytes,3,opt,name=anon_db_path,json=anonDbPath,proto3" json:"anon_db_path,omitempty"`
-	// Full file path to the Maxmind ISP database, e.g. /etc/GeoLite2-ISP.mmdb.
-	// Database file is expected to have .mmdb extension.
+	// Full file path to the MaxMind ISP database, e.g., “/etc/GeoLite2-ISP.mmdb“.
+	// Database file is expected to have “.mmdb“ extension.
 	// If “asn_db_path“ is not defined, ASN information will be fetched from
 	// “isp_db“ instead.
 	IspDbPath string `protobuf:"bytes,5,opt,name=isp_db_path,json=ispDbPath,proto3" json:"isp_db_path,omitempty"`
