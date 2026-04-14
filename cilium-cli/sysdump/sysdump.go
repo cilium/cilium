@@ -892,6 +892,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Cilium L2 Announcement Policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumL2AnnouncementPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium L2 announcement policies: %w", err)
+				}
+				if err := c.WriteYAML(ciliumL2AnnouncementPoliciesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium L2 announcement policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: fmt.Sprintf("Checking if %s exists in %s namespace", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace),
 			Quick:       true,
 			Task: func(ctx context.Context) error {

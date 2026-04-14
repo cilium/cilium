@@ -1019,6 +1019,10 @@ func (c *Client) ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptio
 	return c.CiliumClientset.CiliumV2alpha1().CiliumPodIPPools().List(ctx, opts)
 }
 
+func (c *Client) ListCiliumL2AnnouncementPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumL2AnnouncementPolicyList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumL2AnnouncementPolicies().List(ctx, opts)
+}
+
 func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, opts corev1.PodLogOptions, out io.Writer) error {
 	opts.Container = container
 	r := c.Clientset.CoreV1().Pods(namespace).GetLogs(name, &opts)

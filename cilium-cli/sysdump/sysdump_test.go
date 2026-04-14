@@ -414,6 +414,10 @@ func (c *fakeClient) ListCiliumPodIPPools(_ context.Context, _ metav1.ListOption
 	panic("implement me")
 }
 
+func (c *fakeClient) ListCiliumL2AnnouncementPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumL2AnnouncementPolicyList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
 	panic("implement me")
 }
