@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sync"
 
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -15,21 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var (
-	// We can remove the check for this warning once 1.15 is the oldest supported Cilium version.
-	logInitPolicyCNP = "It seems you have a CiliumNetworkPolicy with a " +
-		"match on the 'reserved:init' labels. This label is not " +
-		"supported in CiliumNetworkPolicy any more. If you wish to " +
-		"define a policy for endpoints before they receive a full " +
-		"security identity, change the resource type for the policy " +
-		"to CiliumClusterwideNetworkPolicy."
-	errInitPolicyCNP = fmt.Errorf("CiliumNetworkPolicy incorrectly matches reserved:init label")
-	logOnce          sync.Once
 )
 
 // NPValidator is a validator structure used to validate CNP and CCNP.
@@ -115,10 +99,6 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 		return err
 	}
 
-	if err := checkInitLabelsPolicy(n.logger, cnp); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -130,41 +110,6 @@ func (n *NPValidator) ValidateCCNP(ccnp *unstructured.Unstructured) error {
 
 	if err := detectUnknownFields(n.logger, ccnp); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func checkInitLabelsPolicy(logger *slog.Logger, cnp *unstructured.Unstructured) error {
-	cnpBytes, err := cnp.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	resCNP := cilium_v2.CiliumNetworkPolicy{}
-	err = json.Unmarshal(cnpBytes, &resCNP)
-	if err != nil {
-		return err
-	}
-
-	for _, spec := range append(resCNP.Specs, resCNP.Spec) {
-		if spec == nil {
-			continue
-		}
-		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
-
-		if err := spec.EndpointSelector.Sanitize(); err != nil {
-			return err
-		}
-		if spec.EndpointSelector.HasKey(podInitLbl) {
-			logOnce.Do(func() {
-				logger.Error(
-					logInitPolicyCNP,
-					logfields.CiliumNetworkPolicyName, cnp.GetName(),
-				)
-			})
-			return errInitPolicyCNP
-		}
 	}
 
 	return nil
