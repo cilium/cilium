@@ -127,19 +127,101 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	btlspMap := helpers.BuildBackendTLSPolicyLookup(btlspList)
 
-	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
-	servicesList := &corev1.ServiceList{}
-	if err := r.Client.List(ctx, servicesList); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list Services", logfields.Error, err)
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-	}
-
 	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
 	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		if err := r.Client.List(ctx, serviceImportsList); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list ServiceImports", logfields.Error, err)
 			return controllerruntime.Fail(err)
 		}
+	}
+
+	// Collect only the services referenced by route backendRefs and mirror filters,
+	// rather than listing all services in the cluster.
+	svcNames := make(map[types.NamespacedName]struct{})
+	for _, hr := range httpRouteList.Items {
+		for _, rule := range hr.Spec.Rules {
+			for _, be := range rule.BackendRefs {
+				if helpers.IsService(be.BackendObjectReference) {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(be.Namespace, hr.Namespace),
+						Name:      string(be.Name),
+					}] = struct{}{}
+				} else if helpers.IsServiceImport(be.BackendObjectReference) {
+					if svcName, err := helpers.GetDerivedServiceName(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, hr.Namespace), serviceImportsList.Items); err == nil {
+						svcNames[types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(be.Namespace, hr.Namespace),
+							Name:      svcName,
+						}] = struct{}{}
+					}
+				}
+			}
+			for _, f := range rule.Filters {
+				if f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, hr.Namespace),
+						Name:      string(f.RequestMirror.BackendRef.Name),
+					}] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, gr := range grpcRouteList.Items {
+		for _, rule := range gr.Spec.Rules {
+			for _, be := range rule.BackendRefs {
+				if helpers.IsService(be.BackendObjectReference) {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(be.Namespace, gr.Namespace),
+						Name:      string(be.Name),
+					}] = struct{}{}
+				} else if helpers.IsServiceImport(be.BackendObjectReference) {
+					if svcName, err := helpers.GetDerivedServiceName(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, gr.Namespace), serviceImportsList.Items); err == nil {
+						svcNames[types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(be.Namespace, gr.Namespace),
+							Name:      svcName,
+						}] = struct{}{}
+					}
+				}
+			}
+			for _, f := range rule.Filters {
+				if f.Type == gatewayv1.GRPCRouteFilterRequestMirror && f.RequestMirror != nil {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, gr.Namespace),
+						Name:      string(f.RequestMirror.BackendRef.Name),
+					}] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, tr := range tlsRouteList.Items {
+		for _, rule := range tr.Spec.Rules {
+			for _, be := range rule.BackendRefs {
+				if helpers.IsService(be.BackendObjectReference) {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(be.Namespace, tr.Namespace),
+						Name:      string(be.Name),
+					}] = struct{}{}
+				} else if helpers.IsServiceImport(be.BackendObjectReference) {
+					if svcName, err := helpers.GetDerivedServiceName(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, tr.Namespace), serviceImportsList.Items); err == nil {
+						svcNames[types.NamespacedName{
+							Namespace: helpers.NamespaceDerefOr(be.Namespace, tr.Namespace),
+							Name:      svcName,
+						}] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	services := make([]corev1.Service, 0, len(svcNames))
+	for nsName := range svcNames {
+		svc := &corev1.Service{}
+		if err := r.Client.Get(ctx, nsName, svc); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				scopedLog.ErrorContext(ctx, "Unable to get Service", logfields.Error, err)
+				return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+			}
+			continue
+		}
+		services = append(services, *svc)
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
@@ -189,7 +271,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		HTTPRoutes:          httpRoutes,
 		TLSRoutes:           tlsRoutes,
 		GRPCRoutes:          grpcRoutes,
-		Services:            servicesList.Items,
+		Services:            services,
 		ServiceImports:      serviceImportsList.Items,
 		ReferenceGrants:     grants.Items,
 		BackendTLSPolicyMap: btlspMap,

@@ -30,3 +30,14 @@ func GetServiceName(svcImport *mcsapiv1alpha1.ServiceImport) (string, error) {
 
 	return backendServiceName, nil
 }
+
+// GetDerivedServiceName finds a ServiceImport by name and namespace in the given list,
+// then returns the derived service name from its annotation.
+func GetDerivedServiceName(name, namespace string, serviceImports []mcsapiv1alpha1.ServiceImport) (string, error) {
+	for _, si := range serviceImports {
+		if si.GetName() == name && si.GetNamespace() == namespace {
+			return GetServiceName(&si)
+		}
+	}
+	return "", fmt.Errorf("ServiceImport %s/%s not found", namespace, name)
+}

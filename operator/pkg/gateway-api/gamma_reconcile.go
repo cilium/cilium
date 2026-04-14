@@ -108,11 +108,78 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	scopedLog.DebugContext(ctx, "Service exists and is a GAMMA Service", relevantHTTPRoutes, len(httpRouteList.Items))
 
-	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
-	servicesList := &corev1.ServiceList{}
-	if err := r.Client.List(ctx, servicesList); err != nil {
-		scopedLog.ErrorContext(ctx, "Unable to list Services", logfields.Error, err)
-		return controllerruntime.Fail(err)
+	// Collect only the services referenced by route parentRefs (GAMMA parents),
+	// backendRefs, and mirror filters, rather than listing all services in the cluster.
+	svcNames := make(map[types.NamespacedName]struct{})
+	for _, hr := range httpRouteList.Items {
+		// In GAMMA, parentRefs point to Services, not Gateways.
+		for _, parent := range hr.Spec.ParentRefs {
+			if helpers.IsGammaService(parent) {
+				svcNames[types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(parent.Namespace, hr.Namespace),
+					Name:      string(parent.Name),
+				}] = struct{}{}
+			}
+		}
+		for _, rule := range hr.Spec.Rules {
+			for _, be := range rule.BackendRefs {
+				if helpers.IsService(be.BackendObjectReference) {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(be.Namespace, hr.Namespace),
+						Name:      string(be.Name),
+					}] = struct{}{}
+				}
+			}
+			for _, f := range rule.Filters {
+				if f.Type == gatewayv1.HTTPRouteFilterRequestMirror && f.RequestMirror != nil {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, hr.Namespace),
+						Name:      string(f.RequestMirror.BackendRef.Name),
+					}] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, gr := range grpcRouteList.Items {
+		// In GAMMA, parentRefs point to Services, not Gateways.
+		for _, parent := range gr.Spec.ParentRefs {
+			if helpers.IsGammaService(parent) {
+				svcNames[types.NamespacedName{
+					Namespace: helpers.NamespaceDerefOr(parent.Namespace, gr.Namespace),
+					Name:      string(parent.Name),
+				}] = struct{}{}
+			}
+		}
+		for _, rule := range gr.Spec.Rules {
+			for _, be := range rule.BackendRefs {
+				if helpers.IsService(be.BackendObjectReference) {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(be.Namespace, gr.Namespace),
+						Name:      string(be.Name),
+					}] = struct{}{}
+				}
+			}
+			for _, f := range rule.Filters {
+				if f.Type == gatewayv1.GRPCRouteFilterRequestMirror && f.RequestMirror != nil {
+					svcNames[types.NamespacedName{
+						Namespace: helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, gr.Namespace),
+						Name:      string(f.RequestMirror.BackendRef.Name),
+					}] = struct{}{}
+				}
+			}
+		}
+	}
+	services := make([]corev1.Service, 0, len(svcNames))
+	for nsName := range svcNames {
+		svc := &corev1.Service{}
+		if err := r.Client.Get(ctx, nsName, svc); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				scopedLog.ErrorContext(ctx, "Unable to get Service", logfields.Error, err)
+				return controllerruntime.Fail(err)
+			}
+			continue
+		}
+		services = append(services, *svc)
 	}
 
 	grants := &gatewayv1beta1.ReferenceGrantList{}
@@ -137,7 +204,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	httpListeners := ingestion.GammaHTTPRoutes(r.logger, ingestion.GammaInput{
 		HTTPRoutes: httpRouteList.Items,
 		GRPCRoutes: grpcRouteList.Items,
-		Services:   servicesList.Items,
+		Services:   services,
 
 		ReferenceGrants: grants.Items,
 	})
