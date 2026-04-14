@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/features"
 
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -50,7 +51,7 @@ func TestConformance(t *testing.T) {
 		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
 		skipTests = append(skipTests, string(features.SupportGatewayStaticAddresses))
 	} else {
-		var addressType = v1.IPAddressType
+		addressType := v1.IPAddressType
 		for value := range strings.SplitSeq(usableAddresses, ",") {
 			usableNetworkAddresses = append(usableNetworkAddresses, v1.GatewaySpecAddress{
 				Type:  &addressType,
@@ -63,7 +64,7 @@ func TestConformance(t *testing.T) {
 		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
 		skipTests = append(skipTests, string(features.SupportGatewayStaticAddresses))
 	} else {
-		var addressType = v1.IPAddressType
+		addressType := v1.IPAddressType
 		for value := range strings.SplitSeq(unusableAddresses, ",") {
 			unusableNetworkAddresses = append(unusableNetworkAddresses, v1.GatewaySpecAddress{
 				Type:  &addressType,
@@ -76,6 +77,7 @@ func TestConformance(t *testing.T) {
 	skipTests = append(skipTests, "MeshGRPCRouteWeight")
 	skipTests = append(skipTests, "MeshHTTPRouteMatching")  // same here
 	skipTests = append(skipTests, "MeshHTTPRouteNamedRule") // same here
+	options.TimeoutConfig.DefaultPollInterval = 1 * time.Second
 	options.UnusableNetworkAddresses = unusableNetworkAddresses
 	options.UsableNetworkAddresses = usableNetworkAddresses
 	options.SkipTests = append(options.SkipTests, skipTests...)
