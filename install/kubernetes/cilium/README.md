@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.19.2](https://img.shields.io/badge/Version-1.19.2-informational?style=flat-square) ![AppVersion: 1.19.2](https://img.shields.io/badge/AppVersion-1.19.2-informational?style=flat-square)
+![Version: 1.19.3](https://img.shields.io/badge/Version-1.19.3-informational?style=flat-square) ![AppVersion: 1.19.3](https://img.shields.io/badge/AppVersion-1.19.3-informational?style=flat-square)
 
 Cilium is open source software for providing and transparently securing
 network connectivity and loadbalancing between application workloads such as
@@ -214,7 +214,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.extraVolumeMounts | list | `[]` | Additional clustermesh-apiserver volumeMounts. |
 | clustermesh.apiserver.extraVolumes | list | `[]` | Additional clustermesh-apiserver volumes. |
 | clustermesh.apiserver.healthPort | int | `9880` | TCP port for the clustermesh-apiserver health API. |
-| clustermesh.apiserver.image | object | `{"digest":"sha256:d1f44a78a0d0996ab1841f7564bc6fbd6e242d4ef673a2a8bfdd7385ef68018d","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.19.2","useDigest":true}` | Clustermesh API server image. |
+| clustermesh.apiserver.image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.19.3","useDigest":false}` | Clustermesh API server image. |
 | clustermesh.apiserver.kvstoremesh.enabled | bool | `true` | Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed). |
 | clustermesh.apiserver.kvstoremesh.extraArgs | list | `[]` | Additional KVStoreMesh arguments. |
 | clustermesh.apiserver.kvstoremesh.extraEnv | list | `[]` | Additional KVStoreMesh environment variables. |
@@ -615,7 +615,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.relay.extraVolumes | list | `[]` | Additional hubble-relay volumes. |
 | hubble.relay.gops.enabled | bool | `true` | Enable gops for hubble-relay |
 | hubble.relay.gops.port | int | `9893` | Configure gops listen port for hubble-relay |
-| hubble.relay.image | object | `{"digest":"sha256:9987c73bad48c987fd065185535fd15a6717cbe8a8caf7fc7ef0413532cf490e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.19.2","useDigest":true}` | Hubble-relay container image. |
+| hubble.relay.image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.19.3","useDigest":false}` | Hubble-relay container image. |
 | hubble.relay.listenHost | string | `""` | Host to listen to. Specify an empty string to bind to all the interfaces. |
 | hubble.relay.listenPort | string | `"4245"` | Port to listen to. |
 | hubble.relay.logOptions | object | `{"format":null,"level":null}` | Logging configuration for hubble-relay. |
@@ -733,7 +733,7 @@ contributors across the globe, there is almost always someone available to help.
 | identityAllocationMode | string | `"crd"` | Method to use for identity allocation (`crd`, `kvstore` or `doublewrite-readkvstore` / `doublewrite-readcrd` for migrating between identity backends). |
 | identityChangeGracePeriod | string | `"5s"` | Time to wait before using new identity on endpoint identity change. |
 | identityManagementMode | string | `"agent"` | Control whether CiliumIdentities are created by the agent ("agent"), the operator ("operator") or both ("both"). "Both" should be used only to migrate between "agent" and "operator". Operator-managed identities is a beta feature. |
-| image | object | `{"digest":"sha256:7bc7e0be845cae0a70241e622cd03c3b169001c9383dd84329c59ca86a8b1341","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.19.2","useDigest":true}` | Agent container image. |
+| image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.19.3","useDigest":false}` | Agent container image. |
 | imagePullSecrets | list | `[]` | Configure image pull secrets for pulling container images |
 | ingressController.default | bool | `false` | Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set |
 | ingressController.defaultSecretName | string | `nil` | Default secret name for ingresses without .spec.tls[].secretName set. |
@@ -885,7 +885,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.hostNetwork | bool | `true` | HostNetwork setting |
 | operator.identityGCInterval | string | `"15m0s"` | Interval for identity garbage collection. |
 | operator.identityHeartbeatTimeout | string | `"30m0s"` | Timeout for identity heartbeats. |
-| operator.image | object | `{"alibabacloudDigest":"sha256:90bdedf6b0d3108245f8194f8c69262af2c8d839480f99d2396deed057899142","awsDigest":"sha256:6eaa299ad267d7b8fcb4bb17ee1008b391052e2e35f690b21783b1b23b5c0bf2","azureDigest":"sha256:9c040a57f4584782eda9a91f7cf3292ca5d0fb41d75f4aa41ece29d66e145293","genericDigest":"sha256:e363f4f634c2a66a36e01618734ea17e7b541b949b9a5632f9c180ab16de23f0","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.19.2","useDigest":true}` | cilium-operator image. |
+| operator.image | object | `{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.19.3","useDigest":false}` | cilium-operator image. |
 | operator.nodeGCInterval | string | `"5m0s"` | Interval for cilium node garbage collection. |
 | operator.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for cilium-operator pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
@@ -947,7 +947,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |
-| preflight.image | object | `{"digest":"sha256:7bc7e0be845cae0a70241e622cd03c3b169001c9383dd84329c59ca86a8b1341","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.19.2","useDigest":true}` | Cilium pre-flight image. |
+| preflight.image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.19.3","useDigest":false}` | Cilium pre-flight image. |
 | preflight.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for preflight pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | preflight.podAnnotations | object | `{}` | Annotations to be added to preflight pods |
 | preflight.podDisruptionBudget.enabled | bool | `false` | enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
@@ -1009,12 +1009,12 @@ contributors across the globe, there is almost always someone available to help.
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | socketLB | object | `{"enabled":false}` | Configure socket LB |
 | socketLB.enabled | bool | `false` | Enable socket LB |
-| standaloneDnsProxy | object | `{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":true},"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}` | Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency. |
+| standaloneDnsProxy | object | `{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}` | Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency. |
 | standaloneDnsProxy.annotations | object | `{}` | Standalone DNS proxy annotations |
 | standaloneDnsProxy.automountServiceAccountToken | bool | `false` | Standalone DNS proxy auto mount service account token |
 | standaloneDnsProxy.debug | bool | `false` | Standalone DNS proxy debug mode |
 | standaloneDnsProxy.enabled | bool | `false` | Enable standalone DNS proxy (alpha feature) |
-| standaloneDnsProxy.image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":true}` | Standalone DNS proxy image |
+| standaloneDnsProxy.image | object | `{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":false}` | Standalone DNS proxy image |
 | standaloneDnsProxy.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Standalone DNS proxy Node Selector |
 | standaloneDnsProxy.rollOutPods | bool | `false` | Roll out Standalone DNS proxy automatically when configmap is updated. |
 | standaloneDnsProxy.serverPort | int | `10095` | Standalone DNS proxy server port |
