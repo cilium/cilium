@@ -10,6 +10,7 @@ Documentation/cmdref/*.md linguist-generated
 Documentation/crdlist.rst linguist-generated
 Documentation/helm-values.rst linguist-generated
 Documentation/codeowners.rst linguist-generated
+Documentation/requirements.txt linguist-generated
 Documentation/_static/* -diff
 *svg -diff
 pkg/k8s/client/clientset/** linguist-generated
