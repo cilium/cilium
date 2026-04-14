@@ -320,6 +320,54 @@ func Test_hasMatchingController(t *testing.T) {
 	})
 }
 
+func Test_gatewayReconcilePredicate(t *testing.T) {
+	logger := hivetest.Logger(t)
+	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
+	predicate := gatewayOwnedByController(hasMatchingController(t.Context(), c, controllerName, logger))
+
+	t.Run("update keeps handoff reconcile when old gateway matched", func(t *testing.T) {
+		require.True(t, predicate.Update(event.UpdateEvent{
+			ObjectOld: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{GatewayClassName: "cilium"},
+			},
+			ObjectNew: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{GatewayClassName: "non-existent"},
+			},
+		}))
+	})
+
+	t.Run("create ignores gateway that never matched", func(t *testing.T) {
+		require.False(t, predicate.Create(event.CreateEvent{
+			Object: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{GatewayClassName: "non-existent"},
+			},
+		}))
+	})
+}
+
+func Test_gatewayClassReconcilePredicate(t *testing.T) {
+	predicate := gatewayClassOwnedByController(controllerName)
+
+	t.Run("update keeps handoff reconcile when old gatewayclass matched", func(t *testing.T) {
+		require.True(t, predicate.Update(event.UpdateEvent{
+			ObjectOld: &gatewayv1.GatewayClass{
+				Spec: gatewayv1.GatewayClassSpec{ControllerName: controllerName},
+			},
+			ObjectNew: &gatewayv1.GatewayClass{
+				Spec: gatewayv1.GatewayClassSpec{ControllerName: "example.com/other-controller"},
+			},
+		}))
+	})
+
+	t.Run("create ignores unrelated gatewayclass", func(t *testing.T) {
+		require.False(t, predicate.Create(event.CreateEvent{
+			Object: &gatewayv1.GatewayClass{
+				Spec: gatewayv1.GatewayClassSpec{ControllerName: "example.com/other-controller"},
+			},
+		}))
+	})
+}
+
 func Test_getGatewaysForSecret(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
 	logger := hivetest.Logger(t)
