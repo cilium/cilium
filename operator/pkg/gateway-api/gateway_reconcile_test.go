@@ -359,7 +359,10 @@ func Test_Conformance(t *testing.T) {
 				if !gwDetail.wantErr {
 					// Checking the output for CiliumEnvoyConfig
 					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
-					err = c.Get(t.Context(), client.ObjectKey{Namespace: gwDetail.FullName.Namespace, Name: "cilium-gateway-" + gwDetail.FullName.Name}, actualCEC)
+					err = c.Get(t.Context(), client.ObjectKey{
+						Namespace: gwDetail.FullName.Namespace,
+						Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
+					}, actualCEC)
 					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
 					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
 					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
@@ -474,7 +477,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 			}
 			cec := &ciliumv2.CiliumEnvoyConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      gatewayApiTranslation.CiliumGatewayPrefix + gw.Name,
+					Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
 					Namespace: gw.Namespace,
 					Labels: map[string]string{
 						"gateway.networking.k8s.io/gateway-name": shortGatewayName,

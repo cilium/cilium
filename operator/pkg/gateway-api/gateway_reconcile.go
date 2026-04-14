@@ -356,7 +356,7 @@ func (r *gatewayReconciler) ensureOwnedEnvoyConfigDeleted(ctx context.Context, g
 	cec := &ciliumv2.CiliumEnvoyConfig{}
 	key := types.NamespacedName{
 		Namespace: gw.Namespace,
-		Name:      gwModel.CiliumGatewayPrefix + gw.Name,
+		Name:      shortener.ShortenK8sResourceName(gwModel.CiliumGatewayPrefix + gw.Name),
 	}
 
 	if err := r.Client.Get(ctx, key, cec); err != nil {
