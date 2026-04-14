@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 var (
@@ -409,6 +410,110 @@ func Test_Conformance(t *testing.T) {
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
 				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
 			}
+		})
+	}
+}
+
+func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name         string
+		gatewayClass string
+		objects      []client.Object
+	}{
+		{
+			name:         "gatewayclass missing",
+			gatewayClass: "missing",
+		},
+		{
+			name:         "gatewayclass controller no longer matches",
+			gatewayClass: "other",
+			objects: []client.Object{
+				&gatewayv1.GatewayClass{
+					ObjectMeta: metav1.ObjectMeta{Name: "other"},
+					Spec: gatewayv1.GatewayClassSpec{
+						ControllerName: "example.com/other-controller",
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gw := &gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "handoff-gateway",
+					Namespace: "default",
+					UID:       types.UID("gateway-uid"),
+				},
+				Spec: gatewayv1.GatewaySpec{
+					GatewayClassName: gatewayv1.ObjectName(tc.gatewayClass),
+				},
+			}
+
+			serviceName := shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name)
+			shortGatewayName := shortener.ShortenK8sResourceName(gw.Name)
+			svc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: gw.Namespace,
+					Labels: map[string]string{
+						owningGatewayLabel:                       shortGatewayName,
+						"gateway.networking.k8s.io/gateway-name": shortGatewayName,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       gw.Name,
+							UID:        gw.UID,
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			}
+			cec := &ciliumv2.CiliumEnvoyConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      gatewayApiTranslation.CiliumGatewayPrefix + gw.Name,
+					Namespace: gw.Namespace,
+					Labels: map[string]string{
+						"gateway.networking.k8s.io/gateway-name": shortGatewayName,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       gw.Name,
+							UID:        gw.UID,
+							Controller: ptr.To(true),
+						},
+					},
+				},
+			}
+
+			objects := append([]client.Object{gw, svc, cec}, tc.objects...)
+			c := fake.NewClientBuilder().
+				WithScheme(testScheme()).
+				WithObjects(objects...).
+				Build()
+
+			r := &gatewayReconciler{
+				Client: c,
+				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
+			}
+
+			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+
+			err = c.Get(t.Context(), client.ObjectKeyFromObject(svc), &corev1.Service{})
+			require.ErrorContains(t, err, "not found")
+
+			err = c.Get(t.Context(), client.ObjectKeyFromObject(cec), &ciliumv2.CiliumEnvoyConfig{})
+			require.ErrorContains(t, err, "not found")
+
+			actualGateway := &gatewayv1.Gateway{}
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(gw), actualGateway))
 		})
 	}
 }

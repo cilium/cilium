@@ -20,6 +20,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -132,11 +133,11 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	gatewayBuilder := ctrl.NewControllerManagedBy(mgr).
 		// Watch its own resource
 		For(&gatewayv1.Gateway{},
-			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
+			builder.WithPredicates(gatewayOwnedByController(hasMatchingControllerFn))).
 		// Watch GatewayClass resources, which are linked to Gateway
 		Watches(&gatewayv1.GatewayClass{},
 			r.enqueueRequestForOwningGatewayClass(),
-			builder.WithPredicates(predicate.NewPredicateFuncs(matchesControllerName(controllerName)))).
+			builder.WithPredicates(gatewayClassOwnedByController(controllerName))).
 		// Watch related backend Service for status
 		// LB Services are handled by the Owns call later.
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
@@ -171,6 +172,45 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return gatewayBuilder.Complete(r)
+}
+
+func gatewayOwnedByController(hasMatchingControllerFn func(object client.Object) bool) predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return hasMatchingControllerFn(e.Object)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return hasMatchingControllerFn(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Reconcile one last time when a Gateway moves away from this controller
+			// so previously managed resources can be cleaned up.
+			return hasMatchingControllerFn(e.ObjectOld) || hasMatchingControllerFn(e.ObjectNew)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return hasMatchingControllerFn(e.Object)
+		},
+	}
+}
+
+func gatewayClassOwnedByController(controllerName string) predicate.Predicate {
+	hasMatchingControllerName := matchesControllerName(controllerName)
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return hasMatchingControllerName(e.Object)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return hasMatchingControllerName(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Reconcile one last time when a GatewayClass moves away from this controller
+			// so referenced Gateways can clean up previously managed resources.
+			return hasMatchingControllerName(e.ObjectOld) || hasMatchingControllerName(e.ObjectNew)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return hasMatchingControllerName(e.Object)
+		},
+	}
 }
 
 // enqueueRequestForOwningGatewayClass returns an event handler that, when given a GatewayClass,
