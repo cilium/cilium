@@ -109,6 +109,15 @@ func TestPrinter_WriteProtoFlow(t *testing.T) {
 	policyAllowed.TrafficDirection = flowpb.TrafficDirection_INGRESS
 	policyAllowed.IngressAllowedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}, {Name: "my-policy-2", Kind: "CiliumClusterwideNetworkPolicy"}}
 
+	policyAudited := proto.Clone(&f).(*flowpb.Flow)
+	policyAudited.EventType = &flowpb.CiliumEventType{
+		Type: monitorAPI.MessageTypePolicyVerdict,
+	}
+	policyAudited.Verdict = flowpb.Verdict_AUDIT
+	policyAudited.IsReply = nil
+	policyAudited.TrafficDirection = flowpb.TrafficDirection_EGRESS
+	policyAudited.EgressDeniedBy = []*flowpb.Policy{{Name: "my-policy", Namespace: "my-policy-namespace", Kind: "CiliumNetworkPolicy"}}
+
 	type args struct {
 		f     *flowpb.Flow
 		merge *flowpb.Flow
@@ -263,6 +272,23 @@ Jan  1 00:20:34.567   k8s1   1.1.1.1:31793   2.2.2.2:8080   Policy denied   DROP
 			expected: "Jan  1 00:20:34.567 [k8s1]: " +
 				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
 				"policy-verdict:none INGRESS ALLOWED BY my-policy (CiliumNetworkPolicy), my-policy-2 (CiliumClusterwideNetworkPolicy) (TCP Flags: SYN)\n",
+		},
+		{
+			name: "compact-policy-verdict-audited-with-policy-name",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				WithNodeName(),
+				WithPolicyNames(),
+				Writer(&buf),
+			},
+			args: args{
+				f: policyAudited,
+			},
+			wantErr: false,
+			expected: "Jan  1 00:20:34.567 [k8s1]: " +
+				"1.1.1.1:31793 (health) <> 2.2.2.2:8080 (ID:12345) " +
+				"policy-verdict:none EGRESS AUDITED BY my-policy (CiliumNetworkPolicy) (TCP Flags: SYN)\n",
 		},
 		{
 			name: "compact-direction-unknown",

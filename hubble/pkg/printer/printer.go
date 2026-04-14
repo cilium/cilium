@@ -248,6 +248,13 @@ func (p Printer) getVerdict(f *flowpb.Flow) string {
 	case flowpb.Verdict_AUDIT:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "AUDITED"
+			if p.opts.policyNames {
+				if f.GetTrafficDirection() == flowpb.TrafficDirection_EGRESS {
+					msg += formatPolicyNames(f.GetEgressDeniedBy())
+				} else if f.GetTrafficDirection() == flowpb.TrafficDirection_INGRESS {
+					msg += formatPolicyNames(f.GetIngressDeniedBy())
+				}
+			}
 		}
 		return p.color.verdictAudit(msg)
 	case flowpb.Verdict_TRACED:

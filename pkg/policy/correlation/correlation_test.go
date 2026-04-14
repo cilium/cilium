@@ -548,3 +548,293 @@ func TestCorrelatePolicy(t *testing.T) {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }
+
+func TestCorrelatePolicyAudit(t *testing.T) {
+	localIP := "1.2.3.4"
+	localIdentity := uint32(1234)
+	localID := uint32(12)
+	remoteIP := "5.6.7.8"
+	remoteIdentity := uint32(5678)
+	remoteID := uint32(56)
+	dstPort := uint32(443)
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "deny-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	expected := []*flowpb.Policy{
+		{
+			Name:      "deny-policy",
+			Namespace: "foo-namespace",
+			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=deny-policy",
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
+				"k8s:io.cilium.k8s.policy.uid=1234-5678",
+			},
+			Revision: 1,
+		},
+	}
+
+	policyKey := policy.EgressKey().WithIdentity(identity.NumericIdentity(remoteIdentity)).WithTCPPort(uint16(dstPort))
+	ep := &testutils.FakeEndpointInfo{
+		ID:           uint64(localID),
+		Identity:     identity.NumericIdentity(localIdentity),
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	// Verdict_AUDIT at egress should populate EgressDeniedBy
+	flow := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_AUDIT,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       localID,
+			Identity: localIdentity,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       remoteID,
+			Identity: remoteIdentity,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// Verdict_AUDIT at ingress should populate IngressDeniedBy
+	policyKey = policy.IngressKey().WithIdentity(identity.NumericIdentity(localIdentity)).WithTCPPort(uint16(dstPort))
+	ep = &testutils.FakeEndpointInfo{
+		ID:           uint64(remoteID),
+		Identity:     identity.NumericIdentity(remoteIdentity),
+		IPv4:         net.ParseIP(remoteIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter = &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_AUDIT,
+		TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       localID,
+			Identity: localIdentity,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       remoteID,
+			Identity: remoteIdentity,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+}
+
+func TestCorrelatePolicyImplicitDeny(t *testing.T) {
+	localIP := "1.2.3.4"
+	localIdentity := uint32(1234)
+	localID := uint32(12)
+	remoteIP := "5.6.7.8"
+	remoteIdentity := uint32(5678)
+	remoteID := uint32(56)
+	dstPort := uint32(443)
+
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	expected := []*flowpb.Policy{
+		{
+			Name:      "web-policy",
+			Namespace: "foo-namespace",
+			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=web-policy",
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
+				"k8s:io.cilium.k8s.policy.uid=1234-5678",
+			},
+			Revision: 1,
+		},
+	}
+
+	// DropReason_POLICY_DENIED (implicit deny, code 133) at egress
+	policyKey := policy.EgressKey().WithIdentity(identity.NumericIdentity(remoteIdentity)).WithTCPPort(uint16(dstPort))
+	ep := &testutils.FakeEndpointInfo{
+		ID:           uint64(localID),
+		Identity:     identity.NumericIdentity(localIdentity),
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	flow := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_DROPPED,
+		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       localID,
+			Identity: localIdentity,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       remoteID,
+			Identity: remoteIdentity,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// DropReason_POLICY_DENIED at ingress
+	policyKey = policy.IngressKey().WithIdentity(identity.NumericIdentity(localIdentity)).WithTCPPort(uint16(dstPort))
+	ep = &testutils.FakeEndpointInfo{
+		ID:           uint64(remoteID),
+		Identity:     identity.NumericIdentity(remoteIdentity),
+		IPv4:         net.ParseIP(remoteIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayListString{
+			policyKey: labels.LabelArrayList{policyLabel}.ArrayListString(),
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter = &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_DROPPED,
+		DropReasonDesc:   flowpb.DropReason_POLICY_DENIED,
+		TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       localID,
+			Identity: localIdentity,
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       remoteID,
+			Identity: remoteIdentity,
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+	CorrelatePolicy(hivetest.Logger(t), endpointGetter, flow)
+
+	require.Nil(t, flow.EgressAllowedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	require.Nil(t, flow.EgressDeniedBy)
+	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+}
