@@ -148,6 +148,88 @@ func TestComputeDelta(t *testing.T) {
 	}
 }
 
+// Regression test: the drift checker must wait for all config source
+// reflectors to initialize before computing deltas. Otherwise, it may
+// report spurious mismatches when a higher-priority source (e.g.
+// CiliumNodeConfig) hasn't populated the table yet.
+func TestWatchTableChangesWaitsForInitialization(t *testing.T) {
+	var (
+		db    *statedb.DB
+		table statedb.RWTable[dynamicconfig.DynamicConfig]
+		m     Metrics
+	)
+
+	var initDone func(statedb.WriteTxn)
+
+	h := hive.New(
+		k8sClient.FakeClientCell(),
+		metrics.Metric(MetricsProvider),
+		cell.Provide(
+			dynamicconfig.NewConfigTable,
+			func(table statedb.RWTable[dynamicconfig.DynamicConfig]) statedb.Table[dynamicconfig.DynamicConfig] {
+				return table
+			},
+			func() config {
+				return config{EnableDriftChecker: true}
+			},
+			func() dynamicconfig.Config {
+				return dynamicconfig.Config{EnableDynamicConfig: true}
+			},
+		),
+		cell.Invoke(
+			func(params checkerParams) {
+				params.CellAllSettings = map[string]any{"datapath-mode": "veth"}
+				Register(params)
+			},
+			func(t statedb.RWTable[dynamicconfig.DynamicConfig], db_ *statedb.DB, c *k8sClient.FakeClientset, metrics_ Metrics) error {
+				table = t
+				db = db_
+				m = metrics_
+
+				txn := db.WriteTxn(table)
+				initDone = table.RegisterInitializer(txn, "cnc-reflector")
+				txn.Commit()
+				return nil
+			},
+		),
+	)
+
+	ctx := context.Background()
+	tLog := hivetest.Logger(t)
+	if err := h.Start(tLog, ctx); err != nil {
+		t.Fatalf("starting hive: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := h.Stop(tLog, ctx); err != nil {
+			t.Fatalf("stopping hive: %s", err)
+		}
+	})
+
+	// Simulate the ConfigMap reflector populating first with a value that
+	// differs from what the agent is running (veth vs netkit).
+	upsertEntryWithSource(db, table, "datapath-mode", "netkit", "cilium-config", 2)
+
+	// Give the drift checker time to (incorrectly) react. If the drift
+	// checker fires before initialization, it would see the ConfigMap
+	// mismatch and set the metric to 1.
+	time.Sleep(200 * time.Millisecond)
+
+	assert.Equal(t, float64(0), prometheustestutil.ToFloat64(m.DriftCheckerConfigDelta),
+		"drift checker should not compute deltas before table is initialized")
+
+	// Complete initialization without inserting the CNC override. The drift
+	// checker should now unblock and report the mismatch.
+	txn := db.WriteTxn(table)
+	initDone(txn)
+	txn.Commit()
+
+	if err := testutils.WaitUntil(func() bool {
+		return prometheustestutil.ToFloat64(m.DriftCheckerConfigDelta) == 1
+	}, 5*time.Second); err != nil {
+		t.Fatal("drift checker did not report the expected mismatch after initialization")
+	}
+}
+
 func newDynamicConfig(key string, value string) dynamicconfig.DynamicConfig {
 	return dynamicconfig.DynamicConfig{
 		Key: dynamicconfig.Key{
@@ -160,10 +242,14 @@ func newDynamicConfig(key string, value string) dynamicconfig.DynamicConfig {
 }
 
 func upsertEntry(db *statedb.DB, table statedb.RWTable[dynamicconfig.DynamicConfig], k string, v string) {
+	upsertEntryWithSource(db, table, k, v, "kube-system", 0)
+}
+
+func upsertEntryWithSource(db *statedb.DB, table statedb.RWTable[dynamicconfig.DynamicConfig], k, v, source string, priority int) {
 	txn := db.WriteTxn(table)
 	defer txn.Commit()
 
-	entry := dynamicconfig.DynamicConfig{Key: dynamicconfig.Key{Name: k, Source: "kube-system"}, Value: v, Priority: 0}
+	entry := dynamicconfig.DynamicConfig{Key: dynamicconfig.Key{Name: k, Source: source}, Value: v, Priority: priority}
 	_, _, _ = table.Insert(txn, entry)
 }
 
