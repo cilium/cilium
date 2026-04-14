@@ -538,17 +538,6 @@
       ]
     },
     {
-      // Do not allow any updates into stable branches.
-      "enabled": false,
-      "matchDepNames": [
-        "golangci/golangci-lint",
-        "golangci/golangci-lint-action"
-      ],
-      "matchBaseBranches": [
-        "!main",
-      ]
-    },
-    {
       "matchDepNames": [
         "quay.io/lvh-images/complexity-test",
         "quay.io/lvh-images/kind"
