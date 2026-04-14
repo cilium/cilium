@@ -5,6 +5,7 @@ package bandwidth
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -118,4 +119,165 @@ func TestPrivilegedOps(t *testing.T) {
 		})
 	})
 	require.Error(t, err, "expected no error from update of non-existing device")
+}
+
+func TestPrivilegedOpsBond(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
+
+	var bondIndex int
+	var err error
+
+	ns := netns.NewNetNS(t)
+	var slaveAssignErr error
+	require.NoError(t, ns.Do(func() error {
+		if err := netlink.LinkAdd(netlink.NewLinkBond(netlink.LinkAttrs{Name: "bond0"})); err != nil {
+			return fmt.Errorf("LinkAdd bond0: %w", err)
+		}
+		bond, err := netlink.LinkByName("bond0")
+		if err != nil {
+			return fmt.Errorf("LinkByName bond0: %w", err)
+		}
+		bondIndex = bond.Attrs().Index
+		if err := netlink.LinkSetUp(bond); err != nil {
+			return fmt.Errorf("LinkSetUp bond0: %w", err)
+		}
+		for _, name := range []string{"slave0", "slave1"} {
+			if err := netlink.LinkAdd(&netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: name}}); err != nil {
+				return fmt.Errorf("LinkAdd %s: %w", name, err)
+			}
+			slave, err := netlink.LinkByName(name)
+			if err != nil {
+				return fmt.Errorf("LinkByName %s: %w", name, err)
+			}
+			if err := netlink.LinkSetUp(slave); err != nil {
+				return fmt.Errorf("LinkSetUp %s: %w", name, err)
+			}
+			if e := netlink.LinkSetMasterByIndex(slave, bondIndex); e != nil {
+				slaveAssignErr = fmt.Errorf("LinkSetMasterByIndex %s: %w", name, e)
+				return nil
+			}
+		}
+		return nil
+	}), "bond/slave setup in netns")
+	if slaveAssignErr != nil {
+		t.Skipf("skipping: cannot assign bond slaves on this kernel (%v)", slaveAssignErr)
+	}
+
+	ops := &ops{
+		log:       log,
+		isEnabled: func() bool { return true },
+	}
+	ctx := context.TODO()
+
+	err = ns.Do(func() error {
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+			LinkIndex: bondIndex,
+			LinkName:  "bond0",
+			FqHorizon: FqDefaultHorizon,
+			FqBuckets: FqDefaultBuckets,
+			Status:    reconciler.StatusPending(),
+		})
+	})
+	require.NoError(t, err, "Update bond master")
+
+	var bondQdiscs []netlink.Qdisc
+	err = ns.Do(func() error {
+		var e error
+		bondMaster, e2 := netlink.LinkByIndex(bondIndex)
+		if e2 != nil {
+			return e2
+		}
+		bondQdiscs, e = safenetlink.QdiscList(bondMaster)
+		return e
+	})
+	require.NoError(t, err, "QdiscList bond master")
+	t.Logf("bond master qdiscs: %+v", bondQdiscs)
+	require.Len(t, bondQdiscs, 1)
+	require.Equal(t, "noqueue", bondQdiscs[0].Type(), "bond master should have noqueue")
+
+	for _, slaveName := range []string{"slave0", "slave1"} {
+		var slaveQdiscs []netlink.Qdisc
+		err = ns.Do(func() error {
+			slave, e := netlink.LinkByName(slaveName)
+			if e != nil {
+				return e
+			}
+			var e2 error
+			slaveQdiscs, e2 = safenetlink.QdiscList(slave)
+			return e2
+		})
+		require.NoError(t, err, "QdiscList", slaveName)
+		t.Logf("slave %s qdiscs: %+v", slaveName, slaveQdiscs)
+
+		require.NotEmpty(t, slaveQdiscs, "slave %s should have qdiscs", slaveName)
+		rootType := slaveQdiscs[0].Type()
+		require.True(t, rootType == "mq" || rootType == "fq",
+			"slave %s root qdisc should be mq or fq, got %s", slaveName, rootType)
+	}
+
+	err = ns.Do(func() error {
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+			LinkIndex: bondIndex,
+			LinkName:  "bond0",
+			FqHorizon: FqDefaultHorizon,
+			FqBuckets: FqDefaultBuckets,
+			Status:    reconciler.StatusPending(),
+		})
+	})
+	require.NoError(t, err, "second Update bond master should be idempotent")
+}
+
+func TestPrivilegedOpsBondNoSlaves(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	log := hivetest.Logger(t)
+
+	var nlh *netlink.Handle
+	var err error
+
+	ns := netns.NewNetNS(t)
+	require.NoError(t, ns.Do(func() error {
+		nlh, err = safenetlink.NewHandle(nil)
+		return err
+	}))
+
+	err = nlh.LinkAdd(netlink.NewLinkBond(netlink.LinkAttrs{Name: "bond0"}))
+	require.NoError(t, err, "LinkAdd bond0")
+
+	bondLink, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		return nlh.LinkByName("bond0")
+	})
+	require.NoError(t, err, "LinkByName bond0")
+	require.NoError(t, nlh.LinkSetUp(bondLink))
+
+	ops := &ops{
+		log:       log,
+		isEnabled: func() bool { return true },
+	}
+	ctx := context.TODO()
+
+	err = ns.Do(func() error {
+		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+			LinkIndex: bondLink.Attrs().Index,
+			LinkName:  bondLink.Attrs().Name,
+			FqHorizon: FqDefaultHorizon,
+			FqBuckets: FqDefaultBuckets,
+			Status:    reconciler.StatusPending(),
+		})
+	})
+	require.NoError(t, err, "Update bond with no slaves")
+
+	var bondQdiscs []netlink.Qdisc
+	err = ns.Do(func() error {
+		var e error
+		bondQdiscs, e = safenetlink.QdiscList(bondLink)
+		return e
+	})
+	require.NoError(t, err, "QdiscList bond master")
+
+	t.Logf("bond master qdiscs (no slaves): %+v", bondQdiscs)
+	require.NotEmpty(t, bondQdiscs)
+	rootType := bondQdiscs[0].Type()
+	require.True(t, rootType == "mq" || rootType == "fq",
+		"bond master root qdisc should be mq or fq when no slaves, got %s", rootType)
 }

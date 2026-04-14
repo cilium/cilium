@@ -51,6 +51,76 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 	if err != nil {
 		return fmt.Errorf("LinkByIndex: %w", err)
 	}
+
+	if link.Type() == "bond" {
+		return ops.updateBondDevice(link, q)
+	}
+
+	return ops.setupFQOnLink(link, q)
+}
+
+func (ops *ops) updateBondDevice(bond netlink.Link, q *tables.BandwidthQDisc) error {
+	slaves, err := ops.bondSlaves(bond)
+	if err != nil {
+		return err
+	}
+
+	if len(slaves) == 0 {
+		return ops.setupFQOnLink(bond, q)
+	}
+
+	if err := ops.ensureNoqueue(bond); err != nil {
+		return err
+	}
+
+	for _, slave := range slaves {
+		if err := ops.setupFQOnLink(slave, q); err != nil {
+			return fmt.Errorf("bond slave %s: %w", slave.Attrs().Name, err)
+		}
+	}
+	return nil
+}
+
+func (ops *ops) bondSlaves(bond netlink.Link) ([]netlink.Link, error) {
+	allLinks, err := safenetlink.LinkList()
+	if err != nil {
+		return nil, fmt.Errorf("LinkList: %w", err)
+	}
+	var slaves []netlink.Link
+	for _, link := range allLinks {
+		if link.Attrs().MasterIndex == bond.Attrs().Index {
+			slaves = append(slaves, link)
+		}
+	}
+	return slaves, nil
+}
+
+func (ops *ops) ensureNoqueue(link netlink.Link) error {
+	qdiscs, err := safenetlink.QdiscList(link)
+	if err != nil {
+		return fmt.Errorf("QdiscList for %s: %w", link.Attrs().Name, err)
+	}
+	for _, qdisc := range qdiscs {
+		if qdisc.Attrs().Parent == netlink.HANDLE_ROOT && qdisc.Type() == "noqueue" {
+			return nil
+		}
+	}
+	noqueue := &netlink.GenericQdisc{
+		QdiscAttrs: netlink.QdiscAttrs{
+			LinkIndex: link.Attrs().Index,
+			Parent:    netlink.HANDLE_ROOT,
+		},
+		QdiscType: "noqueue",
+	}
+	if err := netlink.QdiscReplace(noqueue); err != nil {
+		return fmt.Errorf("cannot set noqueue on bond master %s: %w", link.Attrs().Name, err)
+	}
+	ops.log.Info("Setting noqueue on bond master device",
+		logfields.Device, link.Attrs().Name)
+	return nil
+}
+
+func (ops *ops) setupFQOnLink(link netlink.Link, q *tables.BandwidthQDisc) error {
 	device := link.Attrs().Name
 
 	// Check if the qdiscs are already set up as expected.
@@ -83,7 +153,6 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 					updatedQdiscs++
 				}
 			}
-
 		}
 	}
 	if updatedQdiscs == numEgressQdiscs {
