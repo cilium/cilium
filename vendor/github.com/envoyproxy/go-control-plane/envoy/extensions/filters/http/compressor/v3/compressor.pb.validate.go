@@ -479,6 +479,35 @@ func (m *CompressorOverrides) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetCompressorLibrary()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CompressorOverridesValidationError{
+					field:  "CompressorLibrary",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CompressorOverridesValidationError{
+					field:  "CompressorLibrary",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCompressorLibrary()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CompressorOverridesValidationError{
+				field:  "CompressorLibrary",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return CompressorOverridesMultiError(errors)
 	}
@@ -1095,6 +1124,39 @@ func (m *Compressor_ResponseDirectionConfig) validate(all bool) error {
 	// no validation rules for DisableOnEtagHeader
 
 	// no validation rules for RemoveAcceptEncodingHeader
+
+	_Compressor_ResponseDirectionConfig_UncompressibleResponseCodes_Unique := make(map[uint32]struct{}, len(m.GetUncompressibleResponseCodes()))
+
+	for idx, item := range m.GetUncompressibleResponseCodes() {
+		_, _ = idx, item
+
+		if _, exists := _Compressor_ResponseDirectionConfig_UncompressibleResponseCodes_Unique[item]; exists {
+			err := Compressor_ResponseDirectionConfigValidationError{
+				field:  fmt.Sprintf("UncompressibleResponseCodes[%v]", idx),
+				reason: "repeated value must contain unique items",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+			_Compressor_ResponseDirectionConfig_UncompressibleResponseCodes_Unique[item] = struct{}{}
+		}
+
+		if val := item; val < 200 || val >= 600 {
+			err := Compressor_ResponseDirectionConfigValidationError{
+				field:  fmt.Sprintf("UncompressibleResponseCodes[%v]", idx),
+				reason: "value must be inside range [200, 600)",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	// no validation rules for StatusHeaderEnabled
 
 	if len(errors) > 0 {
 		return Compressor_ResponseDirectionConfigMultiError(errors)

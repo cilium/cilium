@@ -7,6 +7,8 @@
 package socket_interfacev3
 
 import (
+	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
@@ -47,6 +49,89 @@ func (m *DefaultSocketInterface) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.IoUringOptions != nil {
+		size, err := m.IoUringOptions.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *IoUringOptions) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IoUringOptions) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *IoUringOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.WriteTimeoutMs != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.WriteTimeoutMs).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.ReadBufferSize != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.ReadBufferSize).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.EnableSubmissionQueuePolling {
+		i--
+		if m.EnableSubmissionQueuePolling {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.IoUringSize != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.IoUringSize).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0xa
+	}
 	return len(dAtA) - i, nil
 }
 
@@ -56,6 +141,35 @@ func (m *DefaultSocketInterface) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
+	if m.IoUringOptions != nil {
+		l = m.IoUringOptions.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *IoUringOptions) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.IoUringSize != nil {
+		l = (*wrapperspb.UInt32Value)(m.IoUringSize).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.EnableSubmissionQueuePolling {
+		n += 2
+	}
+	if m.ReadBufferSize != nil {
+		l = (*wrapperspb.UInt32Value)(m.ReadBufferSize).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.WriteTimeoutMs != nil {
+		l = (*wrapperspb.UInt32Value)(m.WriteTimeoutMs).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }

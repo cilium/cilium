@@ -3186,13 +3186,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MonitorAggregationFlags = ctMonitorReportFlags
 
 	// Map options
-	if m := command.GetStringMapString(vp, FixedIdentityMapping); err != nil {
+	if m, err := command.GetStringMapStringE(vp, FixedIdentityMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", FixedIdentityMapping, err)
 	} else if len(m) != 0 {
 		c.FixedIdentityMapping = m
 	}
 
-	if m := command.GetStringMapString(vp, FixedZoneMapping); err != nil {
+	if m, err := command.GetStringMapStringE(vp, FixedZoneMapping); err != nil {
 		log.Fatalf("unable to parse %s: %s", FixedZoneMapping, err)
 	} else if len(m) != 0 {
 		forward := make(map[string]uint8, len(m))

@@ -50,6 +50,18 @@ func (m *LocalRateLimit) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.MaxDynamicDescriptors != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.MaxDynamicDescriptors).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x92
+	}
 	if len(m.RateLimits) > 0 {
 		for iNdEx := len(m.RateLimits) - 1; iNdEx >= 0; iNdEx-- {
 			if vtmsg, ok := interface{}(m.RateLimits[iNdEx]).(interface {
@@ -441,6 +453,10 @@ func (m *LocalRateLimit) SizeVT() (n int) {
 			}
 			n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.MaxDynamicDescriptors != nil {
+		l = (*wrapperspb.UInt32Value)(m.MaxDynamicDescriptors).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

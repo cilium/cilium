@@ -398,6 +398,61 @@ func (m *HttpProtocolOptions_AutoHttpConfig) MarshalToSizedBufferVTStrict(dAtA [
 	return len(dAtA) - i, nil
 }
 
+func (m *HttpProtocolOptions_OutlierDetection) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HttpProtocolOptions_OutlierDetection) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *HttpProtocolOptions_OutlierDetection) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.ErrorMatcher != nil {
+		if vtmsg, ok := interface{}(m.ErrorMatcher).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.ErrorMatcher)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *HttpProtocolOptions) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -427,6 +482,16 @@ func (m *HttpProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.OutlierDetection != nil {
+		size, err := m.OutlierDetection.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x42
 	}
 	if m.HeaderValidationConfig != nil {
 		if vtmsg, ok := interface{}(m.HeaderValidationConfig).(interface {
@@ -774,6 +839,26 @@ func (m *HttpProtocolOptions_AutoHttpConfig) SizeVT() (n int) {
 	return n
 }
 
+func (m *HttpProtocolOptions_OutlierDetection) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ErrorMatcher != nil {
+		if size, ok := interface{}(m.ErrorMatcher).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.ErrorMatcher)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *HttpProtocolOptions) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -823,6 +908,10 @@ func (m *HttpProtocolOptions) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.HeaderValidationConfig)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.OutlierDetection != nil {
+		l = m.OutlierDetection.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

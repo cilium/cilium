@@ -147,6 +147,180 @@ func (m *AwsCredentialProvider) validate(all bool) error {
 
 	// no validation rules for CustomCredentialProviderChain
 
+	if all {
+		switch v := interface{}(m.GetIamRolesAnywhereCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "IamRolesAnywhereCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "IamRolesAnywhereCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetIamRolesAnywhereCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "IamRolesAnywhereCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetConfigCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "ConfigCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "ConfigCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfigCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "ConfigCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetContainerCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "ContainerCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "ContainerCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetContainerCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "ContainerCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetEnvironmentCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "EnvironmentCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "EnvironmentCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEnvironmentCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "EnvironmentCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetInstanceProfileCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "InstanceProfileCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "InstanceProfileCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInstanceProfileCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "InstanceProfileCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetAssumeRoleCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "AssumeRoleCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsCredentialProviderValidationError{
+					field:  "AssumeRoleCredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAssumeRoleCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsCredentialProviderValidationError{
+				field:  "AssumeRoleCredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return AwsCredentialProviderMultiError(errors)
 	}
@@ -636,3 +810,874 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = CredentialsFileCredentialProviderValidationError{}
+
+// Validate checks the field values on IAMRolesAnywhereCredentialProvider with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *IAMRolesAnywhereCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on IAMRolesAnywhereCredentialProvider
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// IAMRolesAnywhereCredentialProviderMultiError, or nil if none found.
+func (m *IAMRolesAnywhereCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *IAMRolesAnywhereCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetRoleArn()) < 1 {
+		err := IAMRolesAnywhereCredentialProviderValidationError{
+			field:  "RoleArn",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if m.GetCertificate() == nil {
+		err := IAMRolesAnywhereCredentialProviderValidationError{
+			field:  "Certificate",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetCertificate()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "Certificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "Certificate",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCertificate()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IAMRolesAnywhereCredentialProviderValidationError{
+				field:  "Certificate",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetCertificateChain()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "CertificateChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "CertificateChain",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCertificateChain()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IAMRolesAnywhereCredentialProviderValidationError{
+				field:  "CertificateChain",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if m.GetPrivateKey() == nil {
+		err := IAMRolesAnywhereCredentialProviderValidationError{
+			field:  "PrivateKey",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetPrivateKey()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "PrivateKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPrivateKey()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IAMRolesAnywhereCredentialProviderValidationError{
+				field:  "PrivateKey",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if utf8.RuneCountInString(m.GetTrustAnchorArn()) < 1 {
+		err := IAMRolesAnywhereCredentialProviderValidationError{
+			field:  "TrustAnchorArn",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetProfileArn()) < 1 {
+		err := IAMRolesAnywhereCredentialProviderValidationError{
+			field:  "ProfileArn",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for RoleSessionName
+
+	if d := m.GetSessionDuration(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = IAMRolesAnywhereCredentialProviderValidationError{
+				field:  "SessionDuration",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(43200*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(900*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := IAMRolesAnywhereCredentialProviderValidationError{
+					field:  "SessionDuration",
+					reason: "value must be inside range [15m0s, 12h0m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return IAMRolesAnywhereCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// IAMRolesAnywhereCredentialProviderMultiError is an error wrapping multiple
+// validation errors returned by
+// IAMRolesAnywhereCredentialProvider.ValidateAll() if the designated
+// constraints aren't met.
+type IAMRolesAnywhereCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m IAMRolesAnywhereCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m IAMRolesAnywhereCredentialProviderMultiError) AllErrors() []error { return m }
+
+// IAMRolesAnywhereCredentialProviderValidationError is the validation error
+// returned by IAMRolesAnywhereCredentialProvider.Validate if the designated
+// constraints aren't met.
+type IAMRolesAnywhereCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e IAMRolesAnywhereCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e IAMRolesAnywhereCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e IAMRolesAnywhereCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e IAMRolesAnywhereCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e IAMRolesAnywhereCredentialProviderValidationError) ErrorName() string {
+	return "IAMRolesAnywhereCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e IAMRolesAnywhereCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sIAMRolesAnywhereCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = IAMRolesAnywhereCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = IAMRolesAnywhereCredentialProviderValidationError{}
+
+// Validate checks the field values on ConfigCredentialProvider with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ConfigCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ConfigCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ConfigCredentialProviderMultiError, or nil if none found.
+func (m *ConfigCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ConfigCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ConfigCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// ConfigCredentialProviderMultiError is an error wrapping multiple validation
+// errors returned by ConfigCredentialProvider.ValidateAll() if the designated
+// constraints aren't met.
+type ConfigCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ConfigCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ConfigCredentialProviderMultiError) AllErrors() []error { return m }
+
+// ConfigCredentialProviderValidationError is the validation error returned by
+// ConfigCredentialProvider.Validate if the designated constraints aren't met.
+type ConfigCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ConfigCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ConfigCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ConfigCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ConfigCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ConfigCredentialProviderValidationError) ErrorName() string {
+	return "ConfigCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ConfigCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sConfigCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ConfigCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ConfigCredentialProviderValidationError{}
+
+// Validate checks the field values on ContainerCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ContainerCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ContainerCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ContainerCredentialProviderMultiError, or nil if none found.
+func (m *ContainerCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ContainerCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ContainerCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// ContainerCredentialProviderMultiError is an error wrapping multiple
+// validation errors returned by ContainerCredentialProvider.ValidateAll() if
+// the designated constraints aren't met.
+type ContainerCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ContainerCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ContainerCredentialProviderMultiError) AllErrors() []error { return m }
+
+// ContainerCredentialProviderValidationError is the validation error returned
+// by ContainerCredentialProvider.Validate if the designated constraints
+// aren't met.
+type ContainerCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ContainerCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ContainerCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ContainerCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ContainerCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ContainerCredentialProviderValidationError) ErrorName() string {
+	return "ContainerCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ContainerCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sContainerCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ContainerCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ContainerCredentialProviderValidationError{}
+
+// Validate checks the field values on EnvironmentCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *EnvironmentCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EnvironmentCredentialProvider with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// EnvironmentCredentialProviderMultiError, or nil if none found.
+func (m *EnvironmentCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EnvironmentCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return EnvironmentCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// EnvironmentCredentialProviderMultiError is an error wrapping multiple
+// validation errors returned by EnvironmentCredentialProvider.ValidateAll()
+// if the designated constraints aren't met.
+type EnvironmentCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EnvironmentCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EnvironmentCredentialProviderMultiError) AllErrors() []error { return m }
+
+// EnvironmentCredentialProviderValidationError is the validation error
+// returned by EnvironmentCredentialProvider.Validate if the designated
+// constraints aren't met.
+type EnvironmentCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e EnvironmentCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e EnvironmentCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e EnvironmentCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e EnvironmentCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e EnvironmentCredentialProviderValidationError) ErrorName() string {
+	return "EnvironmentCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e EnvironmentCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEnvironmentCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = EnvironmentCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = EnvironmentCredentialProviderValidationError{}
+
+// Validate checks the field values on InstanceProfileCredentialProvider with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *InstanceProfileCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InstanceProfileCredentialProvider
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// InstanceProfileCredentialProviderMultiError, or nil if none found.
+func (m *InstanceProfileCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InstanceProfileCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return InstanceProfileCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// InstanceProfileCredentialProviderMultiError is an error wrapping multiple
+// validation errors returned by
+// InstanceProfileCredentialProvider.ValidateAll() if the designated
+// constraints aren't met.
+type InstanceProfileCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InstanceProfileCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InstanceProfileCredentialProviderMultiError) AllErrors() []error { return m }
+
+// InstanceProfileCredentialProviderValidationError is the validation error
+// returned by InstanceProfileCredentialProvider.Validate if the designated
+// constraints aren't met.
+type InstanceProfileCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InstanceProfileCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InstanceProfileCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InstanceProfileCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InstanceProfileCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InstanceProfileCredentialProviderValidationError) ErrorName() string {
+	return "InstanceProfileCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InstanceProfileCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInstanceProfileCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InstanceProfileCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InstanceProfileCredentialProviderValidationError{}
+
+// Validate checks the field values on AssumeRoleCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *AssumeRoleCredentialProvider) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AssumeRoleCredentialProvider with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AssumeRoleCredentialProviderMultiError, or nil if none found.
+func (m *AssumeRoleCredentialProvider) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AssumeRoleCredentialProvider) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetRoleArn()) < 1 {
+		err := AssumeRoleCredentialProviderValidationError{
+			field:  "RoleArn",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for RoleSessionName
+
+	// no validation rules for ExternalId
+
+	if d := m.GetSessionDuration(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = AssumeRoleCredentialProviderValidationError{
+				field:  "SessionDuration",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(43200*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(900*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := AssumeRoleCredentialProviderValidationError{
+					field:  "SessionDuration",
+					reason: "value must be inside range [15m0s, 12h0m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetCredentialProvider()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AssumeRoleCredentialProviderValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AssumeRoleCredentialProviderValidationError{
+					field:  "CredentialProvider",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCredentialProvider()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AssumeRoleCredentialProviderValidationError{
+				field:  "CredentialProvider",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return AssumeRoleCredentialProviderMultiError(errors)
+	}
+
+	return nil
+}
+
+// AssumeRoleCredentialProviderMultiError is an error wrapping multiple
+// validation errors returned by AssumeRoleCredentialProvider.ValidateAll() if
+// the designated constraints aren't met.
+type AssumeRoleCredentialProviderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AssumeRoleCredentialProviderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AssumeRoleCredentialProviderMultiError) AllErrors() []error { return m }
+
+// AssumeRoleCredentialProviderValidationError is the validation error returned
+// by AssumeRoleCredentialProvider.Validate if the designated constraints
+// aren't met.
+type AssumeRoleCredentialProviderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AssumeRoleCredentialProviderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AssumeRoleCredentialProviderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AssumeRoleCredentialProviderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AssumeRoleCredentialProviderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AssumeRoleCredentialProviderValidationError) ErrorName() string {
+	return "AssumeRoleCredentialProviderValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e AssumeRoleCredentialProviderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAssumeRoleCredentialProvider.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AssumeRoleCredentialProviderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AssumeRoleCredentialProviderValidationError{}

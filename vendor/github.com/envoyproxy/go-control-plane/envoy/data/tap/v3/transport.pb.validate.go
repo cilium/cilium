@@ -87,6 +87,35 @@ func (m *SocketEvent) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetConnection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SocketEventValidationError{
+					field:  "Connection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SocketEventValidationError{
+					field:  "Connection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConnection()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SocketEventValidationError{
+				field:  "Connection",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch v := m.EventSelector.(type) {
 	case *SocketEvent_Read_:
 		if v == nil {
@@ -463,6 +492,139 @@ var _ interface {
 	ErrorName() string
 } = SocketBufferedTraceValidationError{}
 
+// Validate checks the field values on SocketEvents with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *SocketEvents) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SocketEvents with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in SocketEventsMultiError, or
+// nil if none found.
+func (m *SocketEvents) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SocketEvents) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetEvents() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SocketEventsValidationError{
+						field:  fmt.Sprintf("Events[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SocketEventsValidationError{
+						field:  fmt.Sprintf("Events[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SocketEventsValidationError{
+					field:  fmt.Sprintf("Events[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return SocketEventsMultiError(errors)
+	}
+
+	return nil
+}
+
+// SocketEventsMultiError is an error wrapping multiple validation errors
+// returned by SocketEvents.ValidateAll() if the designated constraints aren't met.
+type SocketEventsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SocketEventsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SocketEventsMultiError) AllErrors() []error { return m }
+
+// SocketEventsValidationError is the validation error returned by
+// SocketEvents.Validate if the designated constraints aren't met.
+type SocketEventsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e SocketEventsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e SocketEventsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e SocketEventsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e SocketEventsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e SocketEventsValidationError) ErrorName() string { return "SocketEventsValidationError" }
+
+// Error satisfies the builtin error interface
+func (e SocketEventsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sSocketEvents.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = SocketEventsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = SocketEventsValidationError{}
+
 // Validate checks the field values on SocketStreamedTraceSegment with the
 // rules defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -564,6 +726,47 @@ func (m *SocketStreamedTraceSegment) validate(all bool) error {
 			if err := v.Validate(); err != nil {
 				return SocketStreamedTraceSegmentValidationError{
 					field:  "Event",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *SocketStreamedTraceSegment_Events:
+		if v == nil {
+			err := SocketStreamedTraceSegmentValidationError{
+				field:  "MessagePiece",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetEvents()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SocketStreamedTraceSegmentValidationError{
+						field:  "Events",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SocketStreamedTraceSegmentValidationError{
+						field:  "Events",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetEvents()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SocketStreamedTraceSegmentValidationError{
+					field:  "Events",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}

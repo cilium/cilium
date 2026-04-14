@@ -168,7 +168,7 @@ func migrateIdentities(ctx cell.HookContext, clientset k8sClient.Clientset, shut
 		// nil returns mean the key doesn't exist. This shouldn't happen, but treat
 		// it like a mismatch and allocate it. The allocator will find it if it has
 		// been re-allocated via master key protection.
-		case upstreamKey == nil && err == nil:
+		case upstreamKey == nil:
 			// fallthrough
 
 		case key.GetKey() == upstreamKey.GetKey():

@@ -48,6 +48,27 @@ func (m *CommonGeoipProviderConfig_GeolocationHeadersToAdd) MarshalToSizedBuffer
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.Anon) > 0 {
+		i -= len(m.Anon)
+		copy(dAtA[i:], m.Anon)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Anon)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if len(m.ApplePrivateRelay) > 0 {
+		i -= len(m.ApplePrivateRelay)
+		copy(dAtA[i:], m.ApplePrivateRelay)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.ApplePrivateRelay)))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.Isp) > 0 {
+		i -= len(m.Isp)
+		copy(dAtA[i:], m.Isp)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Isp)))
+		i--
+		dAtA[i] = 0x52
+	}
 	if len(m.AnonProxy) > 0 {
 		i -= len(m.AnonProxy)
 		copy(dAtA[i:], m.AnonProxy)
@@ -196,6 +217,18 @@ func (m *CommonGeoipProviderConfig_GeolocationHeadersToAdd) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	l = len(m.AnonProxy)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.Isp)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.ApplePrivateRelay)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.Anon)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
