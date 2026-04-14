@@ -2444,6 +2444,9 @@
         "clusterMaxConnections": {
           "type": "integer"
         },
+        "clusterMaxPendingRequests": {
+          "type": "integer"
+        },
         "clusterMaxRequests": {
           "type": "integer"
         },
