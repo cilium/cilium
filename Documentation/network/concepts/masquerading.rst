@@ -203,10 +203,10 @@ For the advanced case where the routing layer would select different source
 addresses depending on the destination CIDR, the option
 ``enable-masquerade-to-route-source: "true"`` can be used in order to
 masquerade to the source addresses rather than to the primary interface
-address. The latter is then only considered as a catch-all fallback, and for
-the default routes. For these advanced cases the user needs to ensure that
-there are no overlapping destination CIDRs as routes on the relevant
-masquerading interfaces.
+address. In cases where there are overlapping destination CIDRs
+as routes, the generated iptables rules are sorted by the destination
+network mask in descending order to simulate the routing table's longest
+prefix match lookup.
 
 With the ``enable-masquerade-to-route-source: "true"`` option, Cilium will, by
 default, use interfaces listed in the ``devices`` field as the egress
