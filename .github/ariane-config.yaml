@@ -2,6 +2,25 @@ allowed-teams:
   - organization-members
 
 triggers:
+  /default:
+    workflows:
+    - cilium-cli.yaml
+    - conformance-kind-proxy-embedded.yaml
+    - codeql.yaml
+    - lint-go.yaml
+    - tests-smoke.yaml
+    - tests-smoke-conformance.yaml
+    - tests-smoke-ipv6.yaml
+    - tests-cifuzz.yaml
+    - lint-ariane-config.yaml
+    - conformance-kubespray.yaml
+    - lint-build-commits.yaml
+    - documentation.yaml
+    - k8s-kind-network-e2e.yaml
+    - lint-images-base.yaml
+    - lint-workflows.yaml
+    - k8s-kind-network-policies-e2e.yaml
+    - lint-bpf-checks.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
@@ -218,7 +237,7 @@ workflows:
   conformance-kpr-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kubespray.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+    paths-regex: (\.github/workflows/conformance-kubespray\.yaml/)
   conformance-l3-l4.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-l7.yaml:
@@ -241,3 +260,11 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-ztunnel-e2e.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  cilium-cli.yaml:
+    paths-ignore-regex: (Documentation/|test/)
+  conformance-kind-proxy-embedded.yaml:
+    paths-ignore-regex: (Documentation/|test/)
+  tests-cifuzz.yaml:
+    paths-regex: (\.github/workflows/tests-cifuzz\.yaml|fuzz_test.go|test/fuzzing/)
+  k8s-kind-network-policies-e2e.yaml:
+    paths-ignore-regex: (Documentation/|test/)
