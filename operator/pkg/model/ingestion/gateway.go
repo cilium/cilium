@@ -112,24 +112,26 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 			Service:        toServiceModel(input.GatewayClassConfig),
 		})
 
-		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
-			Name: string(l.Name),
-			Sources: []model.FullyQualifiedResource{
-				{
-					Name:      input.Gateway.GetName(),
-					Namespace: input.Gateway.GetNamespace(),
-					Group:     input.Gateway.GroupVersionKind().Group,
-					Version:   input.Gateway.GroupVersionKind().Version,
-					Kind:      input.Gateway.GroupVersionKind().Kind,
-					UID:       string(input.Gateway.GetUID()),
+		if l.Protocol == gatewayv1.TLSProtocolType {
+			resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
+				Name: string(l.Name),
+				Sources: []model.FullyQualifiedResource{
+					{
+						Name:      input.Gateway.GetName(),
+						Namespace: input.Gateway.GetNamespace(),
+						Group:     input.Gateway.GroupVersionKind().Group,
+						Version:   input.Gateway.GroupVersionKind().Version,
+						Kind:      input.Gateway.GroupVersionKind().Kind,
+						UID:       string(input.Gateway.GetUID()),
+					},
 				},
-			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			Routes:         toTLSRoutes(l, listenerHostnamesByProtocol, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
-			Infrastructure: infra,
-			Service:        toServiceModel(input.GatewayClassConfig),
-		})
+				Port:           uint32(l.Port),
+				Hostname:       toHostname(l.Hostname),
+				Routes:         toTLSRoutes(l, listenerHostnamesByProtocol, input.TLSRoutes, input.Services, input.ServiceImports, input.ReferenceGrants),
+				Infrastructure: infra,
+				Service:        toServiceModel(input.GatewayClassConfig),
+			})
+		}
 	}
 
 	return resHTTP, resTLSPassthrough

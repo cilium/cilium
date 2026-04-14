@@ -63,6 +63,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
 		"basic tls http": {},
 		"Conformance/TLSRouteSimpleSameNamespace": {},
+		"mixed protocol listeners TLSRoute":       {},
 	}
 
 	for name := range tests {
