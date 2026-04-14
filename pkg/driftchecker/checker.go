@@ -63,17 +63,22 @@ func Register(params checkerParams) {
 }
 
 func (c checker) watchTableChanges(ctx context.Context) error {
+	// Wait for all config source reflectors to complete their initial
+	// listing before computing deltas.
+	for {
+		initialized, initWatch := c.dct.Initialized(c.db.ReadTxn())
+		if initialized {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-initWatch:
+		}
+	}
+
 	for {
 		tableKeys, channel := dynamicconfig.WatchAllKeys(c.db.ReadTxn(), c.dct)
-		// Wait for table initialization
-		if len(tableKeys) == 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-channel:
-				continue
-			}
-		}
 
 		deltas := c.computeDelta(tableKeys, c.cla)
 		c.publishMetrics(deltas)
