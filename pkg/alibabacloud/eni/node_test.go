@@ -83,8 +83,8 @@ func TestCreateInterface(t *testing.T) {
 	}, 10*time.Second)
 	require.NoError(t, err)
 
-	instances.ForeachInstance("i-1", func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-		e, ok := rev.Resource.(*eniTypes.ENI)
+	instances.ForeachInstance("i-1", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+		e, ok := iface.(*eniTypes.ENI)
 		if !ok {
 			return fmt.Errorf("resource is not ENI type")
 		}

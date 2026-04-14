@@ -639,7 +639,7 @@ func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []
 
 func (e *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
 	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
@@ -662,7 +662,7 @@ func (e *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 				}
 			}
 
-			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
+			eniRevision := eni.DeepCopy()
 			instance.Interfaces[ifaceID] = eniRevision
 		}
 	}
@@ -716,7 +716,7 @@ func (e *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 				}
 			}
 
-			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
+			eniRevision := eni.DeepCopy()
 			instances.Update(instanceID, eniRevision)
 		}
 	}

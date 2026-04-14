@@ -35,14 +35,12 @@ func TestMock(t *testing.T) {
 	instances = ipamTypes.NewInstanceMap()
 	resource := &types.AzureInterface{Name: "eth0"}
 	resource.SetID(ifaceID)
-	instances.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("vm1", resource.DeepCopy())
 	api.UpdateInstances(instances)
 	instances, err = api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 	require.Equal(t, 1, instances.NumInstances())
-	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 		require.Equal(t, "vm1", instanceID)
 		require.Equal(t, ifaceID, interfaceID)
 		return nil
@@ -53,13 +51,13 @@ func TestMock(t *testing.T) {
 	instances, err = api.GetInstances(t.Context(), ipamTypes.SubnetMap{})
 	require.NoError(t, err)
 	require.Equal(t, 1, instances.NumInstances())
-	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 		require.Equal(t, "vm1", instanceID)
 		require.Equal(t, ifaceID, interfaceID)
 
-		iface, ok := revision.Resource.(*types.AzureInterface)
+		azIface, ok := iface.(*types.AzureInterface)
 		require.True(t, ok)
-		require.Len(t, iface.Addresses, 2)
+		require.Len(t, azIface.Addresses, 2)
 		return nil
 	})
 
@@ -67,12 +65,10 @@ func TestMock(t *testing.T) {
 	vmInstances := ipamTypes.NewInstanceMap()
 	resource = &types.AzureInterface{Name: "eth0"}
 	resource.SetID(vmIfaceID)
-	vmInstances.Update("vm2", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	vmInstances.Update("vm2", resource.DeepCopy())
 	require.NoError(t, err)
 	require.Equal(t, 1, vmInstances.NumInstances())
-	vmInstances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+	vmInstances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 		require.Equal(t, "vm2", instanceID)
 		require.Equal(t, vmIfaceID, interfaceID)
 		return nil

@@ -476,43 +476,15 @@ type Interface interface {
 	DeepCopyInterface() Interface
 }
 
-// InterfaceRevision is the configurationr revision of a network interface. It
-// consists of a revision hash representing the current configuration version
-// and the resource itself.
-//
-// +k8s:deepcopy-gen=false
-// +deepequal-gen=false
-type InterfaceRevision struct {
-	// Resource is the interface resource
-	Resource Interface
-
-	// Fingerprint is the fingerprint reprsenting the network interface
-	// configuration. It is typically implemented as the result of a hash
-	// function calculated off the resource. This field is optional, not
-	// all IPAM backends make use of fingerprints.
-	Fingerprint string
-}
-
-// DeepCopy returns a deep copy
-func (i *InterfaceRevision) DeepCopy() *InterfaceRevision {
-	if i == nil {
-		return nil
-	}
-	return &InterfaceRevision{
-		Resource:    i.Resource.DeepCopyInterface(),
-		Fingerprint: i.Fingerprint,
-	}
-}
-
 // Instance is the representation of an instance, typically a VM, subject to
 // per-node IPAM logic
 //
 // +k8s:deepcopy-gen=false
 // +deepequal-gen=false
 type Instance struct {
-	// interfaces is a map of all interfaces attached to the instance
+	// Interfaces is a map of all interfaces attached to the instance
 	// indexed by the interface ID
-	Interfaces map[string]InterfaceRevision
+	Interfaces map[string]Interface
 }
 
 // DeepCopy returns a deep copy
@@ -521,10 +493,10 @@ func (i *Instance) DeepCopy() *Instance {
 		return nil
 	}
 	c := &Instance{
-		Interfaces: map[string]InterfaceRevision{},
+		Interfaces: map[string]Interface{},
 	}
 	for k, v := range i.Interfaces {
-		c.Interfaces[k] = *v.DeepCopy()
+		c.Interfaces[k] = v.DeepCopyInterface()
 	}
 	return c
 }
@@ -553,14 +525,14 @@ func (m *InstanceMap) UpdateInstance(instanceID string, instance *Instance) {
 // Update updates the definition of an interface for a particular instance. If
 // the interface is already known, the definition is updated, otherwise the
 // interface is added to the instance.
-func (m *InstanceMap) Update(instanceID string, iface InterfaceRevision) {
+func (m *InstanceMap) Update(instanceID string, iface Interface) {
 	m.mutex.Lock()
 	m.updateLocked(instanceID, iface)
 	m.mutex.Unlock()
 }
 
-func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
-	if iface.Resource == nil {
+func (m *InstanceMap) updateLocked(instanceID string, iface Interface) {
+	if iface == nil {
 		return
 	}
 
@@ -571,10 +543,10 @@ func (m *InstanceMap) updateLocked(instanceID string, iface InterfaceRevision) {
 	}
 
 	if i.Interfaces == nil {
-		i.Interfaces = map[string]InterfaceRevision{}
+		i.Interfaces = map[string]Interface{}
 	}
 
-	i.Interfaces[iface.Resource.InterfaceID()] = iface
+	i.Interfaces[iface.InterfaceID()] = iface
 }
 
 type Address any
@@ -583,8 +555,8 @@ type Address any
 type AddressIterator func(instanceID, interfaceID, ip, poolID string, address Address) error
 
 func foreachAddress(instanceID string, instance *Instance, fn AddressIterator) error {
-	for _, rev := range instance.Interfaces {
-		if err := rev.Resource.ForeachAddress(instanceID, fn); err != nil {
+	for _, iface := range instance.Interfaces {
+		if err := iface.ForeachAddress(instanceID, fn); err != nil {
 			return err
 		}
 	}
@@ -621,11 +593,11 @@ func (m *InstanceMap) ForeachAddress(instanceID string, fn AddressIterator) erro
 }
 
 // InterfaceIterator is the function called by the ForeachInterface iterator
-type InterfaceIterator func(instanceID, interfaceID string, iface InterfaceRevision) error
+type InterfaceIterator func(instanceID, interfaceID string, iface Interface) error
 
 func foreachInterface(instanceID string, instance *Instance, fn InterfaceIterator) error {
-	for _, rev := range instance.Interfaces {
-		if err := fn(instanceID, rev.Resource.InterfaceID(), rev); err != nil {
+	for _, iface := range instance.Interfaces {
+		if err := fn(instanceID, iface.InterfaceID(), iface); err != nil {
 			return err
 		}
 	}
@@ -660,28 +632,27 @@ func (m *InstanceMap) ForeachInterface(instanceID string, fn InterfaceIterator) 
 	return nil
 }
 
-// GetInterface returns returns a particular interface of an instance. The
+// GetInterface returns a particular interface of an instance. The
 // boolean indicates whether the interface was found or not.
-func (m *InstanceMap) GetInterface(instanceID, interfaceID string) (InterfaceRevision, bool) {
+func (m *InstanceMap) GetInterface(instanceID, interfaceID string) (Interface, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	if instance := m.data[instanceID]; instance != nil {
-		if rev, ok := instance.Interfaces[interfaceID]; ok {
-			return rev, true
+		if iface, ok := instance.Interfaces[interfaceID]; ok {
+			return iface, true
 		}
 	}
 
-	return InterfaceRevision{}, false
+	return nil, false
 }
 
 // DeepCopy returns a deep copy
 func (m *InstanceMap) DeepCopy() *InstanceMap {
 	c := NewInstanceMap()
-	m.ForeachInterface("", func(instanceID, interfaceID string, rev InterfaceRevision) error {
+	m.ForeachInterface("", func(instanceID, interfaceID string, iface Interface) error {
 		// c is not exposed yet, we can access it without locking it
-		rev.Resource = rev.Resource.DeepCopyInterface()
-		c.updateLocked(instanceID, rev)
+		c.updateLocked(instanceID, iface.DeepCopyInterface())
 		return nil
 	})
 	return c

@@ -56,20 +56,16 @@ func (m *mockInterface) ForeachAddress(instanceID string, fn AddressIterator) er
 
 func TestForeachAddresses(t *testing.T) {
 	m := NewInstanceMap()
-	m.Update("i-1", InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf0",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
-			},
+	m.Update("i-1", &mockInterface{
+		id: "intf0",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
 		},
 	})
-	m.Update("i-2", InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf0",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
-			},
+	m.Update("i-2", &mockInterface{
+		id: "intf0",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
 		},
 	})
 
@@ -93,7 +89,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over all interfaces
 	interfaces := 0
-	m.ForeachInterface("", func(instanceID, interfaceID string, iface InterfaceRevision) error {
+	m.ForeachInterface("", func(instanceID, interfaceID string, iface Interface) error {
 		interfaces++
 		return nil
 	})
@@ -102,12 +98,10 @@ func TestForeachAddresses(t *testing.T) {
 
 func TestGetInterface(t *testing.T) {
 	m := NewInstanceMap()
-	rev := InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf0",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
-			},
+	rev := &mockInterface{
+		id: "intf0",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
 		},
 	}
 	m.Update("i-1", rev)
@@ -126,28 +120,22 @@ func TestGetInterface(t *testing.T) {
 
 func TestInstanceMapNumInstances(t *testing.T) {
 	m := NewInstanceMap()
-	m.Update("i-1", InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf0",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
-			},
+	m.Update("i-1", &mockInterface{
+		id: "intf0",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")},
 		},
 	})
-	m.Update("i-2", InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf0",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
-			},
+	m.Update("i-2", &mockInterface{
+		id: "intf0",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("3.3.3.3"), net.ParseIP("4.4.4.4")},
 		},
 	})
-	m.Update("i-2", InterfaceRevision{
-		Resource: &mockInterface{
-			id: "intf1",
-			pools: map[string][]net.IP{
-				"s1": {net.ParseIP("4.4.4.4"), net.ParseIP("5.5.5.5")},
-			},
+	m.Update("i-2", &mockInterface{
+		id: "intf1",
+		pools: map[string][]net.IP{
+			"s1": {net.ParseIP("4.4.4.4"), net.ParseIP("5.5.5.5")},
 		},
 	})
 

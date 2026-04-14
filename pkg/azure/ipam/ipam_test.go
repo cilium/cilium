@@ -166,9 +166,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	}
 	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
 	vm1ID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1"
-	m.Update(vm1ID, ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	m.Update(vm1ID, resource.DeepCopy())
 	api.UpdateInstances(m)
 
 	_, err := instances.Resync(t.Context())
@@ -230,9 +228,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	}
 	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
 	vm1ID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1"
-	m.Update(vm1ID, ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	m.Update(vm1ID, resource.DeepCopy())
 	api.UpdateInstances(m)
 
 	_, err := instances.Resync(t.Context())
@@ -323,9 +319,7 @@ func TestIpamManyNodes(t *testing.T) {
 					State: types.StateSucceeded,
 				}
 				resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
-				allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), ipamTypes.InterfaceRevision{
-					Resource: resource.DeepCopy(),
-				})
+				allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), resource.DeepCopy())
 			}
 
 			api.UpdateInstances(allInstances)
@@ -396,9 +390,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 			State:         types.StateSucceeded,
 		}
 		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
-		allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), ipamTypes.InterfaceRevision{
-			Resource: resource.DeepCopy(),
-		})
+		allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), resource.DeepCopy())
 	}
 
 	api.UpdateInstances(allInstances)

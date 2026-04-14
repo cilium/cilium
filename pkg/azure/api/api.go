@@ -401,7 +401,7 @@ func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.
 
 	for _, iface := range networkInterfaces {
 		if instanceID, azureInterface := parseInterface(iface, subnets, c.usePrimary); instanceID != "" {
-			instances.Update(instanceID, ipamTypes.InterfaceRevision{Resource: azureInterface})
+			instances.Update(instanceID, azureInterface)
 		}
 	}
 
@@ -445,11 +445,11 @@ func (c *Client) ListVMNetworkInterfaces(ctx context.Context, instanceID string)
 // without making additional Azure API calls
 func (c *Client) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.Instance {
 	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	for _, networkInterface := range networkInterfaces {
 		_, azureInterface := parseInterface(networkInterface, subnets, c.usePrimary)
-		instance.Interfaces[azureInterface.ID] = ipamTypes.InterfaceRevision{Resource: azureInterface}
+		instance.Interfaces[azureInterface.ID] = azureInterface
 	}
 
 	return &instance

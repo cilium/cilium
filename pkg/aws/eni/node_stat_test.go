@@ -28,9 +28,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		},
 	)
 	im := ipamTypes.NewInstanceMap()
-	im.Update(instanceID, ipamTypes.InterfaceRevision{
-		Resource: &eniTypes.ENI{},
-	})
+	im.Update(instanceID, &eniTypes.ENI{})
 
 	ipamNode := &mockIPAMNode{
 		instanceID: "i-000",
@@ -93,11 +91,9 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		ID:       "eni-a",
 		Prefixes: []string{"10.0.0.1/28"},
 	}
-	n.manager.instances.Update("i-000", ipamTypes.InterfaceRevision{
-		Resource: &eniTypes.ENI{
-			ID:       "eni-a",
-			Prefixes: []string{"10.0.0.1/28"},
-		},
+	n.manager.instances.Update("i-000", &eniTypes.ENI{
+		ID:       "eni-a",
+		Prefixes: []string{"10.0.0.1/28"},
 	})
 
 	// Finally, we have the case where an eni has a leftover prefix available.

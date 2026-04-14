@@ -81,8 +81,8 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 	resource.Status.AlibabaCloud.ENIs = map[string]eniTypes.ENI{}
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if ok {
 				resource.Status.AlibabaCloud.ENIs[interfaceID] = *e.DeepCopy()
 			}
@@ -215,8 +215,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	n.enis = map[string]eniTypes.ENI{}
 
 	n.manager.ForeachInstance(instanceID,
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if !ok {
 				return nil
 			}
@@ -466,8 +466,8 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.Spec) (
 	var securityGroups []string
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if ok && e.Type == eniTypes.ENITypePrimary {
 				securityGroups = append(securityGroups, e.SecurityGroupIDs...)
 			}

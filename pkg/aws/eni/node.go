@@ -111,8 +111,8 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = map[string]eniTypes.ENI{}
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if ok {
 				k8sObj.Status.ENI.ENIs[interfaceID] = *e.DeepCopy()
 			}
@@ -475,8 +475,8 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec
 	var securityGroups []string
 
 	n.manager.ForeachInstance(n.node.InstanceID(),
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if ok && e.Number == 0 {
 				securityGroups = make([]string, len(e.SecurityGroups))
 				copy(securityGroups, e.SecurityGroups)
@@ -745,8 +745,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	stats.NodeCapacity *= limits.Adapters
 
 	n.manager.ForeachInstance(instanceID,
-		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
-			e, ok := rev.Resource.(*eniTypes.ENI)
+		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+			e, ok := iface.(*eniTypes.ENI)
 			if !ok {
 				return nil
 			}

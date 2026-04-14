@@ -84,9 +84,7 @@ func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("intf-1")
-	instances.Update("i-1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("i-1", resource.DeepCopy())
 
 	resource = &types.AzureInterface{
 		SecurityGroup: "sg3",
@@ -100,9 +98,7 @@ func iteration1(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("intf-3")
-	instances.Update("i-2", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("i-2", resource.DeepCopy())
 
 	api.UpdateInstances(instances)
 	_, err := mngr.Resync(t.Context())
@@ -126,9 +122,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("intf-1")
-	instances.Update("i-1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("i-1", resource.DeepCopy())
 
 	resource = &types.AzureInterface{
 		SecurityGroup: "sg2",
@@ -142,9 +136,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("intf-2")
-	instances.Update("i-1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("i-1", resource.DeepCopy())
 
 	resource = &types.AzureInterface{
 		SecurityGroup: "sg3",
@@ -158,9 +150,7 @@ func iteration2(t *testing.T, api *apimock.API, mngr *InstancesManager) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("intf-3")
-	instances.Update("i-2", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	instances.Update("i-2", resource.DeepCopy())
 
 	api.UpdateInstances(instances)
 	_, err := mngr.Resync(t.Context())
@@ -229,9 +219,7 @@ func TestExtractSubnetIDs(t *testing.T) {
 		}
 		resource.SetID(interfaceID)
 
-		instances.Update(instanceID, ipamTypes.InterfaceRevision{
-			Resource: resource.DeepCopy(),
-		})
+		instances.Update(instanceID, resource.DeepCopy())
 	}
 
 	// Extract subnet IDs and verify deduplication

@@ -204,8 +204,7 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	eniRevision := ipamTypes.InterfaceRevision{Resource: eni}
-	m.instances.Update(instanceID, eniRevision)
+	m.instances.Update(instanceID, eni)
 }
 
 // FindOneVSwitch returns the vSwitch with the most available addresses, matching vpc and az.

@@ -32,9 +32,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	m.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	m.Update("vm1", resource.DeepCopy())
 
 	n := &Node{
 		logger: hivetest.Logger(t),

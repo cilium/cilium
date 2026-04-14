@@ -289,7 +289,7 @@ func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) 
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.mutex.Lock()
-	eniRevision := ipamTypes.InterfaceRevision{Resource: eni}
+	eniRevision := eni
 	m.instances.Update(instanceID, eniRevision)
 	m.mutex.Unlock()
 }
@@ -305,7 +305,7 @@ func (m *InstancesManager) RemoveIPsFromENI(instanceID string, eniID string, ips
 func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips []string, isAdd bool) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	ifaces, ok := m.instances.GetInterface(instanceID, eniID)
+	iface, ok := m.instances.GetInterface(instanceID, eniID)
 	if !ok {
 		m.logger.Warn(
 			"ENI not found",
@@ -315,8 +315,7 @@ func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips [
 		return
 	}
 
-	eniIntf := ifaces.Resource.DeepCopyInterface()
-	eni, ok := eniIntf.(*eniTypes.ENI)
+	eni, ok := iface.DeepCopyInterface().(*eniTypes.ENI)
 	if !ok {
 		m.logger.Warn(
 			"Unexpected resource type, expected *eniTypes.ENI",
@@ -338,7 +337,7 @@ func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips [
 			})
 		}
 	}
-	m.instances.Update(instanceID, ipamTypes.InterfaceRevision{Resource: eni})
+	m.instances.Update(instanceID, eni)
 }
 
 // ForeachInstance will iterate over each interface for a particular instance inside `instances`

@@ -86,7 +86,7 @@ func (a *API) UpdateENIs(enis map[string]ENIMap) {
 
 func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
 	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
@@ -110,8 +110,7 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 				}
 			}
 
-			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
-			instance.Interfaces[ifaceID] = eniRevision
+			instance.Interfaces[ifaceID] = eni.DeepCopy()
 		}
 	}
 
@@ -140,8 +139,7 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 				}
 			}
 
-			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
-			instances.Update(instanceID, eniRevision)
+			instances.Update(instanceID, eni.DeepCopy())
 		}
 	}
 

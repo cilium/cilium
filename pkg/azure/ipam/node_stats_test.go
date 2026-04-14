@@ -30,9 +30,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		State: types.StateSucceeded,
 	}
 	resource.SetID("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11")
-	m.Update("vm1", ipamTypes.InterfaceRevision{
-		Resource: resource.DeepCopy(),
-	})
+	m.Update("vm1", resource.DeepCopy())
 
 	n := &Node{
 		node: mockIPAMNode("vm1"),

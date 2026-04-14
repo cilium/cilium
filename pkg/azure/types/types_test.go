@@ -13,18 +13,14 @@ import (
 
 func TestForeachAddresses(t *testing.T) {
 	m := types.NewInstanceMap()
-	m.Update("i-1", types.InterfaceRevision{
-		Resource: &AzureInterface{ID: "1", Addresses: []AzureAddress{
-			{IP: "1.1.1.1"},
-			{IP: "2.2.2.2"},
-		},
-		}})
-	m.Update("i-2", types.InterfaceRevision{
-		Resource: &AzureInterface{ID: "1", Addresses: []AzureAddress{
-			{IP: "3.3.3.3"},
-			{IP: "4.4.4.4"},
-		},
-		}})
+	m.Update("i-1", &AzureInterface{ID: "1", Addresses: []AzureAddress{
+		{IP: "1.1.1.1"},
+		{IP: "2.2.2.2"},
+	}})
+	m.Update("i-2", &AzureInterface{ID: "1", Addresses: []AzureAddress{
+		{IP: "3.3.3.3"},
+		{IP: "4.4.4.4"},
+	}})
 
 	// Iterate over all instances
 	addresses := 0
@@ -44,7 +40,7 @@ func TestForeachAddresses(t *testing.T) {
 
 	// Iterate over all interfaces
 	interfaces := 0
-	m.ForeachInterface("", func(instanceID, interfaceID string, interfaceObj types.InterfaceRevision) error {
+	m.ForeachInterface("", func(instanceID, interfaceID string, interfaceObj types.Interface) error {
 		interfaces++
 		return nil
 	})

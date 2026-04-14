@@ -550,7 +550,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 // GetInstance returns the instance including its ENIs by the given instanceID
 func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
 	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	var networkInterfaces []ec2_types.NetworkInterface
 	var err error
@@ -567,9 +567,7 @@ func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkM
 			return nil, err
 		}
 
-		instance.Interfaces[ifId] = ipamTypes.InterfaceRevision{
-			Resource: eni,
-		}
+		instance.Interfaces[ifId] = eni
 	}
 	return &instance, nil
 }
@@ -598,7 +596,7 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 		}
 
 		if id != "" {
-			instances.Update(id, ipamTypes.InterfaceRevision{Resource: eni})
+			instances.Update(id, eni)
 		}
 	}
 

@@ -48,8 +48,8 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
-	n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
-		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
+	n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+		iface, ok := interfaceObj.(*types.AzureInterface)
 		if ok {
 			k8sObj.Status.Azure.Interfaces = append(k8sObj.Status.Azure.Interfaces, *(iface.DeepCopy()))
 		}
@@ -80,8 +80,8 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAc
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
-	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
-		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
+	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+		iface, ok := interfaceObj.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
 		}
@@ -129,7 +129,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *ipam.AllocationAc
 
 // AllocateIPs performs the Azure IP allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
-	iface, ok := a.Interface.Resource.(*types.AzureInterface)
+	iface, ok := a.Interface.(*types.AzureInterface)
 	if !ok {
 		return fmt.Errorf("invalid interface object")
 	}
@@ -200,8 +200,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	}
 
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
-	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.InterfaceRevision) error {
-		iface, ok := interfaceObj.Resource.(*types.AzureInterface)
+	err = n.manager.instances.ForeachInterface(n.node.InstanceID(), func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+		iface, ok := interfaceObj.(*types.AzureInterface)
 		if !ok {
 			return fmt.Errorf("invalid interface object")
 		}

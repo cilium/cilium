@@ -73,7 +73,7 @@ func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, ra
 // GetInstance returns the instance including its ENIs by the given instanceID
 func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
 	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+	instance.Interfaces = map[string]ipamTypes.Interface{}
 
 	networkInterfaceSets, err := c.describeNetworkInterfacesByInstance(ctx, instanceID)
 	if err != nil {
@@ -84,9 +84,7 @@ func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkM
 		ifId := iface.NetworkInterfaceId
 		_, eni := parseENI(&iface, vpcs, subnets)
 
-		instance.Interfaces[ifId] = ipamTypes.InterfaceRevision{
-			Resource: eni,
-		}
+		instance.Interfaces[ifId] = eni
 	}
 	return &instance, nil
 }
@@ -110,9 +108,7 @@ func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetwork
 	for _, iface := range networkInterfaceSets {
 		id, eni := parseENI(&iface, vpcs, subnets)
 
-		instances.Update(id, ipamTypes.InterfaceRevision{
-			Resource: eni,
-		})
+		instances.Update(id, eni)
 	}
 	return instances, nil
 }
