@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/healthserver"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/pinning"
 	"github.com/cilium/cilium/pkg/loadbalancer/reconciler"
 	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
@@ -37,6 +38,9 @@ var Cell = cell.Group(
 
 	// Support for HealthCheckNodePort
 	healthserver.Cell,
+
+	// Service pinning (to node)
+	pinning.Cell,
 
 	// /service REST API
 	cell.Provide(newServiceRestApiHandler),

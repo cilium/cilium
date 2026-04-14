@@ -140,6 +140,9 @@ const (
 	// ServiceSipInspect indicates that sip-inspect should take place.
 	ServiceSipInspect = ServicePrefix + "/sip-inspect"
 
+	// ServicePinning indicates that service pinning (to node) should take place.
+	ServicePinning = ServicePrefix + "/svc-pinning"
+
 	// ServiceSipPort indicates what UDP port to use for SIP egress connections SNAT.
 	ServiceSipPort = ServicePrefix + "/sip-port"
 
