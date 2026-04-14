@@ -28,13 +28,16 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	}
 
 	// We are only interested in flows which are either allowed (i.e. the verdict is either
-	// FORWARDED or REDIRECTED) or explicitly denied (i.e. DROPPED, and matched by a deny policy),
-	// since we cannot usefully annotate the verdict otherwise. (Put differently, which policy
-	// should be listed in {in|e}gress_denied_by for an unmatched flow?)
+	// FORWARDED or REDIRECTED), denied by policy (i.e. DROPPED with a policy deny reason),
+	// or audited (i.e. AUDIT, which represents traffic allowed due to audit mode that would
+	// have been denied otherwise).
 	verdict := f.GetVerdict()
 	allowed := verdict == flowpb.Verdict_FORWARDED || verdict == flowpb.Verdict_REDIRECTED
-	denied := verdict == flowpb.Verdict_DROPPED && f.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
-	if !(allowed || denied) {
+	dropReason := f.GetDropReasonDesc()
+	denied := verdict == flowpb.Verdict_DROPPED &&
+		(dropReason == flowpb.DropReason_POLICY_DENY || dropReason == flowpb.DropReason_POLICY_DENIED)
+	audited := verdict == flowpb.Verdict_AUDIT
+	if !(allowed || denied || audited) {
 		return
 	}
 
@@ -76,11 +79,11 @@ func CorrelatePolicy(logger *slog.Logger, endpointGetter getters.EndpointGetter,
 	switch {
 	case direction == trafficdirection.Egress && allowed:
 		f.EgressAllowedBy = rules
-	case direction == trafficdirection.Egress && denied:
+	case direction == trafficdirection.Egress && (denied || audited):
 		f.EgressDeniedBy = rules
 	case direction == trafficdirection.Ingress && allowed:
 		f.IngressAllowedBy = rules
-	case direction == trafficdirection.Ingress && denied:
+	case direction == trafficdirection.Ingress && (denied || audited):
 		f.IngressDeniedBy = rules
 	}
 	// policy log is independent of verdict
