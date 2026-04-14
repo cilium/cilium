@@ -82,7 +82,7 @@ jobs:
       - name: Set initial commit status
         uses: cilium/cilium/.github/actions/set-commit-status@557bab669c3378114a2d1acd0711a7ee8fe51ec2 # main
         with:
-          sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          sha: ${{ inputs.SHA || github.sha }}
 
   wait-for-images:
     name: Wait for images
@@ -92,13 +92,13 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          SHA: ${{ inputs.SHA || github.sha }}
           images: cilium-ci operator-generic-ci
 
   installation-and-connectivity:
@@ -112,12 +112,12 @@ jobs:
       - name: Set commit status to pending
         uses: cilium/cilium/.github/actions/set-commit-status@557bab669c3378114a2d1acd0711a7ee8fe51ec2 # main
         with:
-          sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          sha: ${{ inputs.SHA || github.sha }}
 
       - name: Checkout context ref (trusted)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.context-ref  || github.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
@@ -127,7 +127,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+          image-tag: ${{ inputs.SHA || github.sha }}
           chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up Python
@@ -262,6 +262,6 @@ jobs:
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
-      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
-      sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
       success: ${{ needs.installation-and-connectivity.result == 'success' }}
