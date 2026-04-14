@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 func Test_translator_Translate(t *testing.T) {
@@ -378,6 +379,40 @@ func Test_getService(t *testing.T) {
 			assert.LessOrEqual(t, len(got.Name), 63, "Service name is too long")
 		})
 	}
+}
+
+func Test_translator_Translate_ShortensCECName(t *testing.T) {
+	trans := &gatewayAPITranslator{
+		cecTranslator: translation.NewCECTranslator(translation.Config{}),
+	}
+
+	longName := "test-long-long-long-long-long-long-long-long-long-long-long-long-name"
+	input := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Name: "listener",
+				Sources: []model.FullyQualifiedResource{
+					{
+						Name:      longName,
+						Namespace: "default",
+						Group:     gatewayv1.GroupVersion.Group,
+						Version:   gatewayv1.GroupVersion.Version,
+						Kind:      "Gateway",
+						UID:       "57889650-380b-4c05-9a2e-3baee7fd5271",
+					},
+				},
+				Port: 80,
+			},
+		},
+	}
+
+	cec, svc, err := trans.Translate(input)
+	require.NoError(t, err)
+	require.NotNil(t, cec)
+	require.NotNil(t, svc)
+	require.Equal(t, shortener.ShortenK8sResourceName(CiliumGatewayPrefix+longName), cec.Name)
+	require.Equal(t, svc.Name, cec.Name)
+	require.LessOrEqual(t, len(cec.Name), 63, "CiliumEnvoyConfig name is too long")
 }
 
 func readInput(t *testing.T, file string, obj any) {

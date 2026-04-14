@@ -83,7 +83,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	if source.Kind == "Service" {
 		generatedName = source.Name
 	}
-	cec, err := t.cecTranslator.Translate(source.Namespace, generatedName, m)
+	cec, err := t.cecTranslator.Translate(source.Namespace, shortener.ShortenK8sResourceName(generatedName), m)
 	if err != nil {
 		return nil, nil, err
 	}
