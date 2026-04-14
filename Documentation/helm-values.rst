@@ -1636,6 +1636,10 @@
      - Maximum number of connections on Envoy clusters
      - int
      - ``1024``
+   * - :spelling:ignore:`envoy.clusterMaxPendingRequests`
+     - Maximum number of pending requests on Envoy clusters
+     - int
+     - ``1024``
    * - :spelling:ignore:`envoy.clusterMaxRequests`
      - Maximum number of requests on Envoy clusters
      - int

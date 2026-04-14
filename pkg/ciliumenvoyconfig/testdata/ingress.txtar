@@ -480,6 +480,9 @@ clusters:default/cilium-ingress-default-basic-ingress/default:details:9080:
       max_connections: {
         value: 1024
       }
+      max_pending_requests: {
+        value: 1024
+      }
       max_requests: {
         value: 1024
       }
@@ -549,6 +552,9 @@ clusters:default/cilium-ingress-default-basic-ingress/default:productpage:9080:
   circuit_breakers: {
     thresholds: {
       max_connections: {
+        value: 1024
+      }
+      max_pending_requests: {
         value: 1024
       }
       max_requests: {

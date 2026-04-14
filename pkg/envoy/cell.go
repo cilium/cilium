@@ -149,6 +149,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxConcurrentRetries:           params.EnvoyProxyConfig.ProxyMaxConcurrentRetries,
 			maxConnections:                 params.EnvoyProxyConfig.ProxyClusterMaxConnections,
 			maxRequests:                    params.EnvoyProxyConfig.ProxyClusterMaxRequests,
+			maxPendingRequests:             params.EnvoyProxyConfig.ProxyClusterMaxPendingRequests,
 			localNodeStore:                 params.LocalNodeStore,
 		}, nil
 	}

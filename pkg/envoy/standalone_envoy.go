@@ -115,6 +115,7 @@ type standaloneEnvoyConfig struct {
 	maxConcurrentRetries           uint32
 	maxConnections                 uint32
 	maxRequests                    uint32
+	maxPendingRequests             uint32
 }
 
 // startStandaloneEnvoyInternal starts an Envoy proxy instance.
@@ -151,6 +152,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		maxConcurrentRetries:           config.maxConcurrentRetries,
 		maxConnections:                 config.maxConnections,
 		maxRequests:                    config.maxRequests,
+		maxPendingRequests:             config.maxPendingRequests,
 		nodeLocalityEnabled:            config.nodeLocalityEnabled,
 	})
 	if err != nil {
@@ -378,6 +380,7 @@ type bootstrapConfig struct {
 	maxConcurrentRetries           uint32
 	maxConnections                 uint32
 	maxRequests                    uint32
+	maxPendingRequests             uint32
 	nodeLocalityEnabled            bool
 }
 
@@ -425,9 +428,10 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 
 	clusterRetryLimits := &envoy_config_cluster.CircuitBreakers{
 		Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
-			MaxRetries:     &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
-			MaxConnections: &wrapperspb.UInt32Value{Value: config.maxConnections},
-			MaxRequests:    &wrapperspb.UInt32Value{Value: config.maxRequests},
+			MaxRetries:         &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
+			MaxConnections:     &wrapperspb.UInt32Value{Value: config.maxConnections},
+			MaxRequests:        &wrapperspb.UInt32Value{Value: config.maxRequests},
+			MaxPendingRequests: &wrapperspb.UInt32Value{Value: config.maxPendingRequests},
 		}},
 	}
 

@@ -35,6 +35,7 @@ type onDemandXdsStarter struct {
 	maxConcurrentRetries           uint32
 	maxConnections                 uint32
 	maxRequests                    uint32
+	maxPendingRequests             uint32
 	localNodeStore                 *node.LocalNodeStore
 
 	envoyOnce sync.Once
@@ -92,6 +93,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(wg *completion.WaitGroup) erro
 			maxConcurrentRetries:           o.maxConcurrentRetries,
 			maxConnections:                 o.maxConnections,
 			maxRequests:                    o.maxRequests,
+			maxPendingRequests:             o.maxPendingRequests,
 		})
 
 		// Add Prometheus listener if the port is (properly) configured
