@@ -4,13 +4,16 @@ inputs:
   repository:
     description: 'Repository value used to check the image provenance'
     required: true
+  path:
+    description: 'Path to the file containing the runtime image reference'
+    default: '${{ github.action_path }}/runtime-image.txt'
 runs:
   using: composite
   steps:
     - shell: bash
       name: Read runtime variable from file safely
       run: |
-        CILIUM_RUNTIME_IMAGE=$(cat ${{ github.action_path }}/runtime-image.txt | tr '\n' ' ' | sed 's/"/\\"/g')
+        CILIUM_RUNTIME_IMAGE=$(cat "${{ inputs.path }}" | tr '\n' ' ' | sed 's/"/\\"/g')
         # Verify provenance of the image with repository passed in parameter
         if [[ $CILIUM_RUNTIME_IMAGE != ${{ inputs.repository }}* ]]; then
           echo "Unknown provenance, runtime image should come from ${{ inputs.repository }}"
