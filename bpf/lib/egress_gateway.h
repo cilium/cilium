@@ -10,6 +10,10 @@
 #include "encap.h"
 #include "eps.h"
 
+#ifndef EGRESS_GATEWAY_RT_TBID
+#define EGRESS_GATEWAY_RT_TBID	0
+#endif
+
 struct egress_gw_policy_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__be32 saddr;
@@ -79,19 +83,25 @@ struct {
 
 static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
-				      __u32 egress_ifindex, __s8 *ext_err)
+				      __u32 egress_ifindex, __u32 tbid, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
+	int flags = 0;
 	__u32 oif;
 	int ret;
 
 	/* Immediate redirect to egress_ifindex requires L2 resolution.
 	 * Fall back to FIB lookup on older kernels.
 	 */
-	if (egress_ifindex && neigh_resolver_without_nh_available())
+	if (egress_ifindex && !tbid && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
-	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
+	if (tbid) {
+		fib_params.l.tbid = tbid;
+		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
+	}
+
+	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, flags);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -395,22 +405,29 @@ static __always_inline
 int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 					 const union v6addr *egress_ip,
 					 const union v6addr *daddr,
-					 __u32 egress_ifindex, __s8 *ext_err)
+					 __u32 egress_ifindex, __u32 tbid,
+					 __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded *fib_params;
 	int ret, zero = 0;
+	int flags = 0;
 	__u32 oif;
 
-	if (egress_ifindex && neigh_resolver_without_nh_available())
+	if (egress_ifindex && !tbid && neigh_resolver_without_nh_available())
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	fib_params = map_lookup_elem(&fib_params_storage, &zero);
 	if (!fib_params)
 		return DROP_INVALID;
 
+	if (tbid) {
+		fib_params->l.tbid = tbid;
+		flags = (BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_TBID);
+	}
+
 	ret = (__s8)fib_lookup_v6(ctx, fib_params,
 				  (struct in6_addr *)egress_ip,
-				  (struct in6_addr *)daddr, 0);
+				  (struct in6_addr *)daddr, flags);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:

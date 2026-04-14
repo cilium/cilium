@@ -888,6 +888,7 @@ type SNATV6Args struct {
 		EgressGateway     bool
 		_                 [1]byte
 		IfIndex           uint32
+		Tbid              uint32
 	}
 	Trace struct {
 		_       structs.HostLayout

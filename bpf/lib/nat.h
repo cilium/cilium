@@ -129,6 +129,7 @@ struct ipv4_nat_target {
 	__u32 cluster_id;
 	bool needs_ct;
 	__u32 ifindex; /* Obtained from EGW policy */
+	__u32 tbid;
 };
 
 struct {
@@ -714,6 +715,9 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		if (!local_ep)
 			target->needs_ct = true;
 
+		if (local_ep && local_ep->rt_info)
+			target->tbid = local_ep->rt_info;
+
 		return NAT_NEEDED;
 	}
 #endif
@@ -1267,6 +1271,7 @@ struct ipv6_nat_target {
 	bool needs_ct;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 ifindex; /* Obtained from EGW policy */
+	__u32 tbid;
 };
 
 struct {
@@ -1713,6 +1718,9 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		/* If the endpoint is local, then the connection is already tracked. */
 		if (!local_ep)
 			target->needs_ct = true;
+
+		if (local_ep && local_ep->rt_info)
+			target->tbid = local_ep->rt_info;
 
 		return NAT_NEEDED;
 	}
