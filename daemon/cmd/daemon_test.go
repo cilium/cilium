@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/subnet"
@@ -114,8 +115,13 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 	client := kvstore.SetupDummy(tb, kvstore.EtcdBackendName)
 
+	logOpts := []hivetest.LogOption{}
+	if os.Getenv("CILIUM_DEBUG") != "" {
+		logOpts = append(logOpts, hivetest.LogLevel(slog.LevelDebug))
+	}
+
 	ds := &DaemonSuite{
-		log: hivetest.Logger(tb),
+		log: hivetest.Logger(tb, logOpts...),
 	}
 	ctx := context.Background()
 
@@ -193,8 +199,34 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	option.Config.RunDir = testRunDir
 	option.Config.StateDir = testRunDir
 
-	err := ds.hive.Start(ds.log, ctx)
+	oldWd, err := os.Getwd()
 	require.NoError(tb, err)
+	require.NoError(tb, os.Chdir(option.Config.StateDir))
+
+	hiveStarted := false
+	tb.Cleanup(func() {
+		controller.NewManager().RemoveAllAndWait()
+
+		// Restore the policy enforcement mode.
+		policy.SetPolicyEnabled(ds.oldPolicyEnabled)
+
+		if hiveStarted {
+			err := ds.hive.Stop(ds.log, ctx)
+			require.NoError(tb, err)
+		}
+
+		require.NoError(tb, os.Chdir(oldWd))
+
+		// It's helpful to keep the directories around if a test failed; only delete
+		// them if tests succeed.
+		if !tb.Failed() {
+			os.RemoveAll(option.Config.RunDir)
+		}
+	})
+
+	err = ds.hive.Start(ds.log, ctx)
+	require.NoError(tb, err)
+	hiveStarted = true
 
 	ds.policyRepository.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
@@ -213,22 +245,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
 
-	tb.Cleanup(func() {
-		controller.NewManager().RemoveAllAndWait()
-
-		// It's helpful to keep the directories around if a test failed; only delete
-		// them if tests succeed.
-		if !tb.Failed() {
-			os.RemoveAll(option.Config.RunDir)
-		}
-
-		// Restore the policy enforcement mode.
-		policy.SetPolicyEnabled(ds.oldPolicyEnabled)
-
-		err := ds.hive.Stop(ds.log, ctx)
-		require.NoError(tb, err)
-	})
-
 	return ds
 }
 
@@ -240,9 +256,22 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	InitGlobalFlags(ds.log, mockCmd, ds.hive.Viper())
 	option.Config.Populate(ds.log, ds.hive.Viper())
 	option.Config.PopulateEnableCiliumNodeCRD(ds.log, ds.hive.Viper())
+	if option.Config.Debug {
+		logging.SetLogLevel(slog.LevelDebug)
+	}
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
+	for _, grp := range option.Config.DebugVerbose {
+		switch grp {
+		case argDebugVerboseEnvoy:
+			envoy.EnableTracing()
+		case argDebugVerbosePolicy:
+			option.Config.Opts.SetBool(option.DebugPolicy, true)
+		case argDebugVerboseTagged:
+			option.Config.Opts.SetBool(option.DebugTagged, true)
+		}
+	}
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(ds.log, nil, nil, "")
 	if err != nil {
