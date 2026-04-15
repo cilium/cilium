@@ -44,7 +44,6 @@ type epInfoCache struct {
 	ifIndex                int
 	parentIfIndex          int
 	netNsCookie            uint64
-	fibTableID             uint32
 	rtInfo                 uint32
 	properties             map[string]any
 
@@ -95,16 +94,11 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ifIndex:                e.ifIndex,
 		parentIfIndex:          e.parentIfIndex,
 		netNsCookie:            e.NetNsCookie,
-		fibTableID:             e.fibTableID,
 		rtInfo:                 e.rtInfo,
 		properties:             maps.Clone(e.properties),
 
 		endpoint: e,
 	}
-}
-
-func (ep *epInfoCache) GetFibTableID() uint32 {
-	return ep.fibTableID
 }
 
 func (ep *epInfoCache) GetRTInfo() uint32 {

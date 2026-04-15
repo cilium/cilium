@@ -464,7 +464,6 @@ type Endpoint struct {
 	isHost    bool
 
 	noTrackPort uint16
-	fibTableID  uint32
 	rtInfo      uint32
 
 	// mutable! must hold the endpoint lock to read
@@ -1930,10 +1929,10 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 	)
 	if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 		if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-			e.SetFibTableID(uint32(tidInt))
+			e.SetRTInfo(uint32(tidInt))
 		}
 	} else {
-		e.SetFibTableID(0)
+		e.SetRTInfo(0)
 	}
 
 	// Handle DisableSourceIPVerification annotation.
@@ -2830,18 +2829,6 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 // GetCreatedAt returns the endpoint creation time.
 func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
-}
-
-func (e *Endpoint) GetFibTableID() uint32 {
-	e.mutex.RWMutex.RLock()
-	defer e.mutex.RWMutex.RUnlock()
-	return e.fibTableID
-}
-
-func (e *Endpoint) SetFibTableID(id uint32) {
-	e.mutex.RWMutex.Lock()
-	defer e.mutex.RWMutex.Unlock()
-	e.fibTableID = id
 }
 
 func (e *Endpoint) SetRTInfo(info uint32) {

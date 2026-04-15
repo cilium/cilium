@@ -416,7 +416,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 			if annoChangedFIBTableID {
 				if tid, ok := newK8sPod.Annotations[annotation.FIBTableID]; ok {
 					if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-						podEP.SetFibTableID(uint32(tidInt))
+						podEP.SetRTInfo(uint32(tidInt))
 					} else {
 						scopedLog.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
 							logfields.Annotation, annotation.FIBTableID,
@@ -424,7 +424,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 						)
 					}
 				} else {
-					podEP.SetFibTableID(0)
+					podEP.SetRTInfo(0)
 				}
 				regenMetadata := &regeneration.ExternalRegenerationMetadata{
 					Reason:            "fib-table-id annotation updated",

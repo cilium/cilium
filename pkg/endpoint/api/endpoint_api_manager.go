@@ -261,7 +261,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 
 			if tid, ok := pod.Annotations[annotation.FIBTableID]; option.Config.EnableFibTableIDAnnotation && ok {
 				if tidInt, err := strconv.ParseUint(tid, 10, 32); err == nil {
-					ep.SetFibTableID(uint32(tidInt))
+					ep.SetRTInfo(uint32(tidInt))
 				} else {
 					m.logger.Warn("Unable to parse fib-table-id annotation as uint32, pod will use default routing table.",
 						logfields.K8sPodName, epTemplate.K8sPodName,

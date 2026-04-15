@@ -784,7 +784,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
-		__u32 tbid = CONFIG(fib_table_id);
+		__u32 tbid = CONFIG(rt_info);
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif, tbid);
 		/*
@@ -1350,7 +1350,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
-		__u32 tbid = CONFIG(fib_table_id);
+		__u32 tbid = CONFIG(rt_info);
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif, tbid);
 		/*

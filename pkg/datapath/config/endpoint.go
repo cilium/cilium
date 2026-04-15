@@ -62,7 +62,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
 
-	cfg.FIBTableID = ep.GetFibTableID()
+	cfg.RtInfo = ep.GetRTInfo()
 
 	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking

@@ -48,8 +48,6 @@ type BPFLXC struct {
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
 	// Ephemeral port range minimun.
 	EphemeralMin uint16 `config:"ephemeral_min"`
-	// FIB routing table ID for egress lookups.
-	FIBTableID uint32 `config:"fib_table_id"`
 	// The host endpoint ID.
 	HostEPID uint16 `config:"host_ep_id"`
 	// Enable hybrid mode routing based on subnet IDs.
@@ -66,6 +64,8 @@ type BPFLXC struct {
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
+	// FIB routing table ID for egress lookups.
+	RtInfo uint32 `config:"rt_info"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// Port number used for the overlay network.
@@ -82,9 +82,9 @@ func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x5dc, false, false, false, false, false, false, false,
 		false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		0x0, 0x0, 0x0, 0x0, false, 0x0,
+		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		0x0, false, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, false, 0x0, 0x0, 0x0, 0x0, 0x0, node}
 }
