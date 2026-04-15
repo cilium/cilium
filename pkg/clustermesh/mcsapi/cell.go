@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
@@ -66,8 +66,8 @@ type mcsAPIParams struct {
 }
 
 var requiredGVK = []schema.GroupVersionKind{
-	mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports"),
-	mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceexports"),
+	mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceimports"),
+	mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"),
 }
 
 func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
@@ -122,7 +122,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 			return err
 		}
 	}
-	if err := mcsapiv1alpha1.AddToScheme(params.Scheme); err != nil {
+	if err := mcsapiv1beta1.AddToScheme(params.Scheme); err != nil {
 		return err
 	}
 

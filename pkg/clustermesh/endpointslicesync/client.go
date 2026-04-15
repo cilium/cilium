@@ -11,7 +11,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	discoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -65,7 +65,7 @@ func addEndpointSliceMeshHacks(endpointSlice *discovery.EndpointSlice) {
 	}
 
 	endpointSlice.Labels[meshRealServiceNameLabel] = endpointSlice.Labels[discovery.LabelServiceName]
-	endpointSlice.Labels[discovery.LabelServiceName] = endpointSlice.Labels[meshRealServiceNameLabel] + "-" + endpointSlice.Labels[mcsapiv1alpha1.LabelSourceCluster]
+	endpointSlice.Labels[discovery.LabelServiceName] = endpointSlice.Labels[meshRealServiceNameLabel] + "-" + endpointSlice.Labels[mcsapiv1beta1.LabelSourceCluster]
 
 	for i, ownerReference := range endpointSlice.OwnerReferences {
 		if !isServiceOwnerReference(ownerReference) || ownerReference.Name != endpointSlice.Labels[meshRealServiceNameLabel] {

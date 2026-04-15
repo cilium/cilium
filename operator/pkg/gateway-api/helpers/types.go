@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 const (
@@ -80,7 +80,7 @@ func IsService(be gatewayv1.BackendObjectReference) bool {
 }
 
 func IsServiceImport(be gatewayv1.BackendObjectReference) bool {
-	return be.Kind != nil && *be.Kind == kindServiceImport && be.Group != nil && *be.Group == mcsapiv1alpha1.GroupName
+	return be.Kind != nil && *be.Kind == kindServiceImport && be.Group != nil && *be.Group == mcsapiv1beta1.GroupName
 }
 
 func IsSecret(secret gatewayv1.SecretObjectReference) bool {
@@ -106,9 +106,9 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 	case TLSRouteListKind:
 		return &gatewayv1alpha2.TLSRouteList{}
 	case ServiceImportKind:
-		return &mcsapiv1alpha1.ServiceImport{}
+		return &mcsapiv1beta1.ServiceImport{}
 	case ServiceImportListKind:
-		return &mcsapiv1alpha1.ServiceImportList{}
+		return &mcsapiv1beta1.ServiceImportList{}
 	default:
 		// panic is okay here because this is a progammer error
 		panic(fmt.Sprintf("Tried to get a concrete type that is not implemented, %s", schemaType.Kind))

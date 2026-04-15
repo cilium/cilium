@@ -15,7 +15,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -39,7 +39,7 @@ type Input struct {
 	GRPCRoutes          []gatewayv1.GRPCRoute
 	ReferenceGrants     []gatewayv1beta1.ReferenceGrant
 	Services            []corev1.Service
-	ServiceImports      []mcsapiv1alpha1.ServiceImport
+	ServiceImports      []mcsapiv1beta1.ServiceImport
 	BackendTLSPolicyMap helpers.BackendTLSPolicyServiceMap
 }
 
@@ -139,7 +139,7 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 	return resHTTP, resTLSPassthrough
 }
 
-func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
+func getBackendServiceName(namespace string, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
 	svcName := string(backendObjectReference.Name)
 
 	switch {
@@ -173,7 +173,7 @@ func toHTTPRoutes(log *slog.Logger,
 	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
-	serviceImports []mcsapiv1alpha1.ServiceImport,
+	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1beta1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
@@ -246,7 +246,7 @@ func extractRoutes(logger *slog.Logger,
 	hostnames []string,
 	hr gatewayv1.HTTPRoute,
 	services []corev1.Service,
-	serviceImports []mcsapiv1alpha1.ServiceImport,
+	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1beta1.ReferenceGrant,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
@@ -530,7 +530,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
-	serviceImports []mcsapiv1alpha1.ServiceImport,
+	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1beta1.ReferenceGrant,
 ) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
@@ -562,7 +562,7 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	return grpcRoutes
 }
 
-func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
@@ -654,7 +654,7 @@ func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services [
 	return grpcRoutes
 }
 
-func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1alpha1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSPassthroughRoute {
+func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1beta1.ReferenceGrant) []model.TLSPassthroughRoute {
 	var tlsRoutes []model.TLSPassthroughRoute
 	for _, r := range input {
 		isListener := false
@@ -812,7 +812,7 @@ func getServiceSpec(svcName, svcNamespace string, services []corev1.Service) *co
 	return nil
 }
 
-func getServiceImport(svcName, svcNamespace string, serviceImports []mcsapiv1alpha1.ServiceImport) *mcsapiv1alpha1.ServiceImport {
+func getServiceImport(svcName, svcNamespace string, serviceImports []mcsapiv1beta1.ServiceImport) *mcsapiv1beta1.ServiceImport {
 	for _, svc := range serviceImports {
 		if svc.GetName() == svcName && svc.GetNamespace() == svcNamespace {
 			return &svc

@@ -9,7 +9,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 func GetBackendServiceName(k8sclient client.Client, namespace string, backendObjectReference gatewayv1.BackendObjectReference) (string, error) {
@@ -19,7 +19,7 @@ func GetBackendServiceName(k8sclient client.Client, namespace string, backendObj
 		return string(backendObjectReference.Name), nil
 
 	case HasServiceImportSupport(k8sclient.Scheme()) && IsServiceImport(backendObjectReference):
-		svcImport := &mcsapiv1alpha1.ServiceImport{}
+		svcImport := &mcsapiv1beta1.ServiceImport{}
 		if err := k8sclient.Get(context.Background(), client.ObjectKey{
 			Namespace: namespace,
 			Name:      string(backendObjectReference.Name),

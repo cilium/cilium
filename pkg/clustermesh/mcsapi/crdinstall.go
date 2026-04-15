@@ -11,7 +11,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	mcsapicrd "sigs.k8s.io/mcs-api/config/crd"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/crdhelpers"
@@ -23,7 +23,7 @@ import (
 // createCustomResourceDefinitions creates our CRD objects in the Kubernetes
 // cluster.
 func createCustomResourceDefinitions(logger *slog.Logger, clientset apiextensionsclient.Interface) error {
-	for _, crdName := range []string{mcsapiv1alpha1.ServiceImportVersionedName, mcsapiv1alpha1.ServiceExportVersionedName} {
+	for _, crdName := range []string{mcsapiv1beta1.ServiceImportVersionedName, mcsapiv1beta1.ServiceExportVersionedName} {
 		if err := createCRD(logger, clientset, crdName); err != nil {
 			return fmt.Errorf("Unable to create custom resource definition: %w", err)
 		}
@@ -41,9 +41,9 @@ func getPregeneratedCRD(logger *slog.Logger, crdName string) apiextensionsv1.Cus
 	)
 
 	switch crdName {
-	case mcsapiv1alpha1.ServiceImportVersionedName:
+	case mcsapiv1beta1.ServiceImportVersionedName:
 		crdBytes = mcsapicrd.ServiceImportCRD
-	case mcsapiv1alpha1.ServiceExportVersionedName:
+	case mcsapiv1beta1.ServiceExportVersionedName:
 		crdBytes = mcsapicrd.ServiceExportCRD
 	default:
 		logging.Fatal(logger, "Pregenerated CRD does not exist", logfields.CRDName, crdName)

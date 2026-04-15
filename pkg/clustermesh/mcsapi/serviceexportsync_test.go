@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -33,14 +33,14 @@ import (
 
 var (
 	exportTime            = metav1.Now().Rfc3339Copy()
-	serviceExportFixtures = []*mcsapiv1alpha1.ServiceExport{
+	serviceExportFixtures = []*mcsapiv1beta1.ServiceExport{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "basic",
 				Namespace:         "default",
 				CreationTimestamp: exportTime,
 			},
-			Spec: mcsapiv1alpha1.ServiceExportSpec{
+			Spec: mcsapiv1beta1.ServiceExportSpec{
 				ExportedAnnotations: map[string]string{
 					"my-annotation": "test",
 				},
@@ -127,7 +127,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	}()
 
 	var services resource.Resource[*slim_corev1.Service]
-	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	var serviceExports resource.Resource[*mcsapiv1beta1.ServiceExport]
 	var namespaces resource.Resource[*slim_corev1.Namespace]
 	var namespaceManager cmnamespace.Manager
 	hive := hive.New(
@@ -148,7 +148,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		cmnamespace.Cell,
 		cell.Invoke(func(
 			svc resource.Resource[*slim_corev1.Service],
-			svcExport resource.Resource[*mcsapiv1alpha1.ServiceExport],
+			svcExport resource.Resource[*mcsapiv1beta1.ServiceExport],
 			ns resource.Resource[*slim_corev1.Namespace],
 			nsMgr cmnamespace.Manager,
 		) {
@@ -263,7 +263,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 			assert.Equal(c, map[string]string{"my-annotation": "test"}, mcsAPISvcSpec.Annotations)
 			assert.Equal(c, map[string]string{"my-label": "test"}, mcsAPISvcSpec.Labels)
 			assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
-			assert.Equal(c, mcsapiv1alpha1.ClusterSetIP, mcsAPISvcSpec.Type)
+			assert.Equal(c, mcsapiv1beta1.ClusterSetIP, mcsAPISvcSpec.Type)
 		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
 	})
 
@@ -276,7 +276,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 			mcsAPISvcSpec := types.MCSAPIServiceSpec{}
 			assert.NoError(c, mcsAPISvcSpec.Unmarshal("", v))
 			assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
-			assert.Equal(c, mcsapiv1alpha1.Headless, mcsAPISvcSpec.Type)
+			assert.Equal(c, mcsapiv1beta1.Headless, mcsAPISvcSpec.Type)
 		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")
 	})
 

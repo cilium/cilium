@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 func TestMCSAPIServiceSpec(t *testing.T) {
@@ -24,8 +24,8 @@ func TestMCSAPIServiceSpec(t *testing.T) {
 		Name:                    "foo",
 		Namespace:               "bar",
 		ExportCreationTimestamp: exportTime,
-		Ports:                   []mcsapiv1alpha1.ServicePort{},
-		Type:                    mcsapiv1alpha1.ClusterSetIP,
+		Ports:                   []mcsapiv1beta1.ServicePort{},
+		Type:                    mcsapiv1beta1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
 	}
 	require.Equal(t, "cluster1/bar/foo", mcsAPISvcSpec.GetKeyName())
@@ -60,7 +60,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
 				ExportCreationTimestamp: exportTime,
-				Type:                    mcsapiv1alpha1.ClusterSetIP,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			assert: assert.NoError,
@@ -69,7 +69,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid exportCreationTimestamp",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
-				Type:            mcsapiv1alpha1.ClusterSetIP,
+				Type:            mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 			assert: assert.Error,
@@ -88,7 +88,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
 				ExportCreationTimestamp: exportTime,
-				Type:                    mcsapiv1alpha1.ClusterSetIP,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
 			},
 			assert: assert.Error,
 		},
@@ -97,7 +97,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar",
 				ExportCreationTimestamp: exportTime,
-				Type:                    mcsapiv1alpha1.ClusterSetIP,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
 			},
 			assert: assert.Error,
 		},
@@ -106,7 +106,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Name: "qux",
 				ExportCreationTimestamp: exportTime,
-				Type:                    mcsapiv1alpha1.ClusterSetIP,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			assert: assert.Error,
@@ -116,7 +116,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Namespace: "bar", Name: "qux",
 				ExportCreationTimestamp: exportTime,
-				Type:                    mcsapiv1alpha1.ClusterSetIP,
+				Type:                    mcsapiv1beta1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			assert: assert.Error,
@@ -139,7 +139,7 @@ func TestValidatingClusterService(t *testing.T) {
 	mcsAPISvcSpec := MCSAPIServiceSpec{
 		Cluster: "foo", Namespace: "bar", Name: "qux",
 		ExportCreationTimestamp: exportTime,
-		Type:                    mcsapiv1alpha1.ClusterSetIP,
+		Type:                    mcsapiv1beta1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
 	}
 	data, err := mcsAPISvcSpec.Marshal()

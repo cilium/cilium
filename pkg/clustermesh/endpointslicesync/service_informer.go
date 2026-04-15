@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -168,8 +168,8 @@ func (i *meshServiceInformer) clusterSvcToSvc(clusterSvc *store.ClusterService, 
 		labels = map[string]string{}
 	}
 	maps.Copy(labels, map[string]string{
-		meshRealServiceNameLabel:          clusterSvc.Name,
-		mcsapiv1alpha1.LabelSourceCluster: clusterSvc.Cluster,
+		meshRealServiceNameLabel:         clusterSvc.Name,
+		mcsapiv1beta1.LabelSourceCluster: clusterSvc.Cluster,
 	})
 
 	// Use the internal supported IP families annotation from our MCS-API implementation if present

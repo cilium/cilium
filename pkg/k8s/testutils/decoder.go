@@ -71,7 +71,7 @@ func init() {
 	gatewayv1alpha2.Install(Scheme)
 	gatewayv1beta1.Install(Scheme)
 
-	// Add multiclusterv1alpha1
+	// Add mcsapi
 	mcsapi_fake.AddToScheme(Scheme)
 
 	fake.AddToScheme(KubernetesScheme)

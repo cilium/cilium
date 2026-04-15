@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -109,7 +109,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) shouldMirrorLocalEndpointSlice(
 	if serviceName == "" {
 		return false, nil
 	}
-	var svcExport mcsapiv1alpha1.ServiceExport
+	var svcExport mcsapiv1beta1.ServiceExport
 	if err := r.Client.Get(
 		ctx,
 		types.NamespacedName{Name: serviceName, Namespace: localEpSlice.Namespace},
@@ -229,9 +229,9 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 	if derivedEpSlice.Labels == nil {
 		derivedEpSlice.Labels = map[string]string{}
 	}
-	derivedEpSlice.Labels[mcsapiv1alpha1.LabelServiceName] = localEpSlice.Labels[discoveryv1.LabelServiceName]
+	derivedEpSlice.Labels[mcsapiv1beta1.LabelServiceName] = localEpSlice.Labels[discoveryv1.LabelServiceName]
 	derivedEpSlice.Labels[discoveryv1.LabelServiceName] = derivedService.Name
-	derivedEpSlice.Labels[mcsapiv1alpha1.LabelSourceCluster] = r.clusterName
+	derivedEpSlice.Labels[mcsapiv1beta1.LabelSourceCluster] = r.clusterName
 	derivedEpSlice.Labels[discoveryv1.LabelManagedBy] = endpointSliceLocalMCSAPIControllerName
 
 	if derivedEpSlice.Annotations == nil {
@@ -436,7 +436,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) SetupWithManager(mgr ctrl.Manager)
 		Watches(&discoveryv1.EndpointSlice{}, &endpointSliceMirrorDeleteWatcher{}).
 
 		// Watch for changes to Service to enqueue local EndpointSlice
-		Watches(&mcsapiv1alpha1.ServiceExport{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
+		Watches(&mcsapiv1beta1.ServiceExport{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
 			return r.getEndpointSliceFromServiceRequests(ctx, client.ObjectKeyFromObject(obj))
 		})).
 		// Watch for changes to derived Service to enqueue local EndpointSlices.
@@ -445,7 +445,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) SetupWithManager(mgr ctrl.Manager)
 		// Also watch for changes to local Service to refresh port filtering
 		// if local Service ports where to change.
 		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), mcsapiv1alpha1.ServiceImportKindName)
+			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1beta1.GroupVersion.String(), mcsapiv1beta1.ServiceImportKindName)
 			if svcImportOwner != "" {
 				return r.getEndpointSliceFromServiceRequests(ctx, types.NamespacedName{Name: svcImportOwner, Namespace: obj.GetNamespace()})
 			}

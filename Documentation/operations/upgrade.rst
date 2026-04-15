@@ -300,6 +300,11 @@ Informational Notes
   warning log. Existing empty policies already present in the cluster are not
   affected, but any create or update that results in an empty policy will be
   rejected.
+* Cilium MCS-API implementation now uses the ``v1beta1`` version of the
+  MCS-API CRDs. Note that ``v1alpha1`` remains fully supported, and this
+  upgrade should be fully transparent. You are still encouraged to update
+  your ``ServiceExport`` resources to ``v1beta1`` to benefit from future
+  improvements and prepare for the eventual deprecation of ``v1alpha1``.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~

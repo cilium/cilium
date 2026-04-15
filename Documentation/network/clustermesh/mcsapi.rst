@@ -70,7 +70,7 @@ Namespace is present on those clusters.
 
    .. code-block:: yaml
 
-      apiVersion: multicluster.x-k8s.io/v1alpha1
+      apiVersion: multicluster.x-k8s.io/v1beta1
       kind: ServiceExport
       metadata:
          name: rebel-base

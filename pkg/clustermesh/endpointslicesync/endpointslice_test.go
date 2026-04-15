@@ -17,7 +17,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -165,10 +165,10 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		}, timeout, tick, "endpointslice is not reconciled correctly")
 
 		require.Equal(t, map[string]string{
-			discovery.LabelServiceName:        svcName,
-			discovery.LabelManagedBy:          utils.EndpointSliceMeshControllerName,
-			mcsapiv1alpha1.LabelSourceCluster: remoteClusterName,
-			corev1.IsHeadlessService:          "",
+			discovery.LabelServiceName:       svcName,
+			discovery.LabelManagedBy:         utils.EndpointSliceMeshControllerName,
+			mcsapiv1beta1.LabelSourceCluster: remoteClusterName,
+			corev1.IsHeadlessService:         "",
 		}, epList.Items[0].Labels)
 		require.Len(t, epList.Items[0].Endpoints, 1)
 
@@ -196,10 +196,10 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		}, timeout, tick, "endpointslice is not reconciled correctly")
 
 		require.Equal(t, map[string]string{
-			discovery.LabelServiceName:        svcName,
-			discovery.LabelManagedBy:          utils.EndpointSliceMeshControllerName,
-			mcsapiv1alpha1.LabelSourceCluster: remoteClusterName,
-			corev1.IsHeadlessService:          "",
+			discovery.LabelServiceName:       svcName,
+			discovery.LabelManagedBy:         utils.EndpointSliceMeshControllerName,
+			mcsapiv1beta1.LabelSourceCluster: remoteClusterName,
+			corev1.IsHeadlessService:         "",
 		}, epList.Items[0].Labels)
 	})
 

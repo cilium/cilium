@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -63,7 +63,7 @@ type Resources struct {
 	cell.In
 
 	Services             resource.Resource[*slim_corev1.Service]
-	ServiceExports       resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	ServiceExports       resource.Resource[*mcsapiv1beta1.ServiceExport]
 	Endpoints            resource.Resource[*k8s.Endpoints]
 	LBIPPools            resource.Resource[*cilium_api_v2.CiliumLoadBalancerIPPool]
 	Identities           resource.Resource[*cilium_api_v2.CiliumIdentity]

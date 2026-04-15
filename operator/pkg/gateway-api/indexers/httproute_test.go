@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 func TestIndexHTTPRouteByGateway(t *testing.T) {
@@ -125,7 +125,7 @@ func TestIndexHTTPRouteByBackendServiceImport(t *testing.T) {
 								{
 									BackendRef: gatewayv1.BackendRef{
 										BackendObjectReference: gatewayv1.BackendObjectReference{
-											Group:     ptr.To[gatewayv1.Group](mcsapiv1alpha1.GroupName),
+											Group:     ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
 											Kind:      ptr.To[gatewayv1.Kind]("ServiceImport"),
 											Name:      "valid-serviceImport",
 											Namespace: ptr.To[gatewayv1.Namespace]("default"),
@@ -163,7 +163,7 @@ func TestIndexHTTPRouteByBackendServiceImport(t *testing.T) {
 								{
 									BackendRef: gatewayv1.BackendRef{
 										BackendObjectReference: gatewayv1.BackendObjectReference{
-											Group: ptr.To[gatewayv1.Group](mcsapiv1alpha1.GroupName),
+											Group: ptr.To[gatewayv1.Group](mcsapiv1beta1.GroupName),
 											Kind:  ptr.To[gatewayv1.Kind]("ServiceImport"),
 											Name:  "valid-serviceImport",
 										},

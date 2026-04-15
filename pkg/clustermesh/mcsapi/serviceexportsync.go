@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -29,16 +29,16 @@ import (
 )
 
 // ServiceExportResource builds the Resource[ServiceExport] object.
-func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
+func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1beta1.ServiceExport] {
 	if !cs.IsEnabled() {
 		return nil
 	}
 
 	lw := utils.ListerWatcherWithModifiers(
-		utils.ListerWatcherFromTyped(cs.MulticlusterV1alpha1().ServiceExports("")),
+		utils.ListerWatcherFromTyped(cs.MulticlusterV1beta1().ServiceExports("")),
 		opts...,
 	)
-	return resource.New[*mcsapiv1alpha1.ServiceExport](
+	return resource.New[*mcsapiv1beta1.ServiceExport](
 		lc, lw, mp,
 		resource.WithMetric("ServiceExport"),
 		// Namespace index is needed for efficient lookup when namespace global status changes.
@@ -61,7 +61,7 @@ type ServiceExportSyncParameters struct {
 	KVStoreClient kvstore.Client
 	StoreFactory  store.Factory
 
-	ServiceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	ServiceExports resource.Resource[*mcsapiv1beta1.ServiceExport]
 	Services       resource.Resource[*slim_corev1.Service]
 
 	SyncCallback ServiceExportSyncCallback `optional:"true"`
@@ -119,7 +119,7 @@ type serviceExportSync struct {
 	clusterName string
 
 	clientset      client.Clientset
-	serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	serviceExports resource.Resource[*mcsapiv1beta1.ServiceExport]
 	services       resource.Resource[*slim_corev1.Service]
 
 	store        store.SyncStore
@@ -145,7 +145,7 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 	}
 
 	if s.clientset != nil /* clientset is nil in tests */ {
-		err := checkCRD(ctx, s.clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceexports"))
+		err := checkCRD(ctx, s.clientset, mcsapiv1beta1.SchemeGroupVersion.WithKind("serviceexports"))
 		if err != nil {
 			s.logger.Warn("starting synchronizing service exports without the required CRD installed", logfields.Error, err)
 			// Also pretend that the service exports are synced for the same reason
@@ -247,7 +247,7 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 func (s *serviceExportSync) syncMCSAPIServiceSpec(
 	ctx context.Context,
 	serviceStore resource.Store[*slim_corev1.Service],
-	serviceExportStore resource.Store[*mcsapiv1alpha1.ServiceExport],
+	serviceExportStore resource.Store[*mcsapiv1beta1.ServiceExport],
 	key resource.Key,
 ) error {
 	isGlobal, err := s.namespaceManager.IsGlobalNamespaceByName(key.Namespace)

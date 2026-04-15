@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -58,11 +58,11 @@ type MCSAPIServiceSpec struct {
 	ExportCreationTimestamp metav1.Time `json:"exportCreationTimestamp"`
 
 	// Ports are the list of ports of the Service in MCS API format
-	Ports []mcsapiv1alpha1.ServicePort `json:"ports"`
+	Ports []mcsapiv1beta1.ServicePort `json:"ports"`
 
 	// Type defines the type of this service.
 	// Must be ClusterSetIP or Headless.
-	Type mcsapiv1alpha1.ServiceImportType `json:"type"`
+	Type mcsapiv1beta1.ServiceImportType `json:"type"`
 
 	// Supports "ClientIP" and "None". Used to maintain session affinity.
 	// Enable client IP based session affinity.
@@ -152,7 +152,7 @@ func (s *MCSAPIServiceSpec) validate() error {
 		return errors.New("name is unset")
 	case s.ExportCreationTimestamp.IsZero():
 		return errors.New("exportCreationTimestamp is unset")
-	case s.Type != mcsapiv1alpha1.ClusterSetIP && s.Type != mcsapiv1alpha1.Headless:
+	case s.Type != mcsapiv1beta1.ClusterSetIP && s.Type != mcsapiv1beta1.Headless:
 		return fmt.Errorf("type is unknown: %s", s.Type)
 	case s.SessionAffinity != corev1.ServiceAffinityClientIP && s.SessionAffinity != corev1.ServiceAffinityNone:
 		return fmt.Errorf("session affinity is unknown: %s", s.SessionAffinity)
@@ -232,19 +232,19 @@ func toKubeIPFamilies(ipFamilies []slim_corev1.IPFamily) []corev1.IPFamily {
 	return kubeIPFamilies
 }
 
-func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.Service, svcExport *mcsapiv1alpha1.ServiceExport) *MCSAPIServiceSpec {
-	ports := make([]mcsapiv1alpha1.ServicePort, 0, len(svc.Spec.Ports))
+func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.Service, svcExport *mcsapiv1beta1.ServiceExport) *MCSAPIServiceSpec {
+	ports := make([]mcsapiv1beta1.ServicePort, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, mcsapiv1alpha1.ServicePort{
+		ports = append(ports, mcsapiv1beta1.ServicePort{
 			Name:        port.Name,
 			AppProtocol: port.AppProtocol,
 			Protocol:    corev1.Protocol(port.Protocol),
 			Port:        port.Port,
 		})
 	}
-	mcsAPISvcType := mcsapiv1alpha1.ClusterSetIP
+	mcsAPISvcType := mcsapiv1beta1.ClusterSetIP
 	if svc.Spec.ClusterIP == slim_corev1.ClusterIPNone {
-		mcsAPISvcType = mcsapiv1alpha1.Headless
+		mcsAPISvcType = mcsapiv1beta1.Headless
 	}
 	mcsAPISvcSpec := &MCSAPIServiceSpec{
 		Cluster:         clusterName,

@@ -27,7 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -168,7 +168,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if serviceImportEnabled {
 		// Watch for changes to Backend Service Imports
-		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1alpha1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
+		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, r.enqueueRequestForBackendServiceImport())
 	}
 
 	return gatewayBuilder.Complete(r)
@@ -556,7 +556,7 @@ func updateReconcileRequestsForParentRefs(parentRefs []gatewayv1.ParentReference
 // if a relevant HTTPRoute backend Service Imports are updated.
 func (r *gatewayReconciler) enqueueRequestForBackendServiceImport() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		_, ok := o.(*mcsapiv1alpha1.ServiceImport)
+		_, ok := o.(*mcsapiv1beta1.ServiceImport)
 		if !ok {
 			return nil
 		}

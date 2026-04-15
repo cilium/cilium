@@ -10,7 +10,7 @@ spec:
   selector:
     name: rebel-base
 ---
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: multicluster.x-k8s.io/v1beta1
 kind: ServiceExport
 metadata:
   name: rebel-base-mcsapi
@@ -27,7 +27,7 @@ spec:
   selector:
     name: rebel-base
 ---
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: multicluster.x-k8s.io/v1beta1
 kind: ServiceExport
 metadata:
   name: rebel-base-headless-mcsapi

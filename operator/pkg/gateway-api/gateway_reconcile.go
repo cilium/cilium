@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -149,7 +149,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	serviceImportsList := &mcsapiv1alpha1.ServiceImportList{}
+	serviceImportsList := &mcsapiv1beta1.ServiceImportList{}
 	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		if err := r.Client.List(ctx, serviceImportsList); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list ServiceImports", logfields.Error, err)

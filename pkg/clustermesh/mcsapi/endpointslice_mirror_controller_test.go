@@ -19,7 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 func getExpectedDerivedLabels(localEpSliceName string) map[string]string {
@@ -44,15 +44,15 @@ var (
 	}}
 	commonDerivedName = derivedName(types.NamespacedName{Name: "full", Namespace: "default"})
 	commonLabels      = map[string]string{
-		"test-label":                      "copied",
-		mcsapiv1alpha1.LabelServiceName:   "full",
-		discoveryv1.LabelServiceName:      commonDerivedName,
-		mcsapiv1alpha1.LabelSourceCluster: "cluster1",
-		discoveryv1.LabelManagedBy:        endpointSliceLocalMCSAPIControllerName,
+		"test-label":                     "copied",
+		mcsapiv1beta1.LabelServiceName:   "full",
+		discoveryv1.LabelServiceName:     commonDerivedName,
+		mcsapiv1beta1.LabelSourceCluster: "cluster1",
+		discoveryv1.LabelManagedBy:       endpointSliceLocalMCSAPIControllerName,
 	}
 
 	endpointsliceMirrorFixtures = []client.Object{
-		&mcsapiv1alpha1.ServiceExport{
+		&mcsapiv1beta1.ServiceExport{
 			TypeMeta: typeMetaSvcExport,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "full",
@@ -310,9 +310,9 @@ var (
 				Name:      commonDerivedName + "-update-4",
 				Namespace: "default",
 				Labels: map[string]string{
-					mcsapiv1alpha1.LabelServiceName: "full",
-					discoveryv1.LabelManagedBy:      endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:         "full-update-4",
+					mcsapiv1beta1.LabelServiceName: "full",
+					discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:        "full-update-4",
 				},
 				OwnerReferences: commonOwnerReferences,
 			},
@@ -325,9 +325,9 @@ var (
 				Name:      commonDerivedName + "-update-5",
 				Namespace: "default",
 				Labels: map[string]string{
-					mcsapiv1alpha1.LabelServiceName: "full",
-					discoveryv1.LabelManagedBy:      endpointSliceLocalMCSAPIControllerName,
-					localEndpointSliceLabel:         "full-update-5",
+					mcsapiv1beta1.LabelServiceName: "full",
+					discoveryv1.LabelManagedBy:     endpointSliceLocalMCSAPIControllerName,
+					localEndpointSliceLabel:        "full-update-5",
 				},
 			},
 			Endpoints:   commonEndpoints,
@@ -407,7 +407,7 @@ var (
 			AddressType: discoveryv1.AddressTypeIPv4,
 		},
 
-		&mcsapiv1alpha1.ServiceExport{
+		&mcsapiv1beta1.ServiceExport{
 			TypeMeta: typeMetaSvcExport,
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "port-filter",
