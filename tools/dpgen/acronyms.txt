@@ -27,6 +27,7 @@ IP
 IP4
 IP6
 IPCache
+IPIP
 IPMasq
 IPv4
 IPv6

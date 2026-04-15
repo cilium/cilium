@@ -41,6 +41,14 @@ func NodeConfig(lnc *Config) Node {
 	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
 	node.SupportsFIBLookupSrc = probes.HaveFibLookupSrc() == nil
 
+	// Enable inbound IPIP decap on the netdev ingress path. Required so that
+	// DSR-IPIP traffic whose outer destination is a local pod IP is decapped in
+	// BPF before the kernel forwards the still-encapsulated packet to the pod's
+	// lxc. For HOST or unknown outer dsts we fall through to the kernel so the
+	// regular ipip_rcv -> cilium_ipip4 path keeps working (e.g. for plain IPIP
+	// termination into Envoy).
+	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
+
 	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 
 	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)

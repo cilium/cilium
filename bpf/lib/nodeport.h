@@ -2716,8 +2716,21 @@ static __always_inline int nodeport_svc_lb4(
 				ctx, CILIUM_CALL_IPV6_FROM_NETDEV, ext_err);
 		}
 	} else {
-		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off, key,
-				tuple, svc, &ct_state_svc, &backend, ext_err);
+		const struct lb4_backend *tmp = NULL;
+		struct lb4_backend forced_be __maybe_unused = {};
+
+		if (CONFIG(enable_ipip_termination)) {
+			__be32 forced_addr = ctx_load_and_clear_meta(
+				ctx, CB_FORCED_BACKEND_V4);
+			if (forced_addr) {
+				forced_be.address = forced_addr;
+				forced_be.flags = BE_STATE_ACTIVE;
+				tmp = &forced_be;
+			}
+		}
+		ret = lb4_local(
+			get_ct_map4(tuple), ctx, fraginfo, l4_off, key, tuple,
+			svc, &ct_state_svc, &backend, ext_err, tmp);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
