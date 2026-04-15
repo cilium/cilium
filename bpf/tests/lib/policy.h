@@ -42,7 +42,7 @@ policy_delete_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
 
 static __always_inline void
 policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
-		 __u8 port_range, bool deny)
+		 __u8 port_range, bool deny, __be16 proxy_port)
 {
 	__u8 wildcard_bits = policy_calc_wildcard_bits(protocol, dport, port_range);
 	/* Start with an exact L3/L4 policy, and wildcard it as determined above: */
@@ -59,6 +59,7 @@ policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
 	struct policy_entry value = {
 		.deny = deny,
 		.lpm_prefix_length = value_prefix_len,
+		.proxy_port = proxy_port,
 	};
 
 	map_update_elem(&cilium_policy_v2, &key, &value, BPF_ANY);
@@ -68,26 +69,26 @@ static __always_inline void
 policy_add_ingress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport,
 				     __u8 port_range)
 {
-	policy_add_entry(false, sec_label, protocol, dport, port_range, false);
+	policy_add_entry(false, sec_label, protocol, dport, port_range, false, 0);
 }
 
 static __always_inline void
 policy_add_ingress_deny_l4_entry(__u8 protocol, __u16 dport, __u8 port_range)
 {
-	policy_add_entry(false, 0, protocol, dport, port_range, true);
+	policy_add_entry(false, 0, protocol, dport, port_range, true, 0);
 }
 
 static __always_inline void
 policy_add_ingress_deny_all_entry(void)
 {
-	policy_add_entry(false, 0, 0, 0, 0, true);
+	policy_add_entry(false, 0, 0, 0, 0, true, 0);
 }
 
 static __always_inline void
 policy_add_egress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport,
 				    __u8 port_range)
 {
-	policy_add_entry(true, sec_label, protocol, dport, port_range, false);
+	policy_add_entry(true, sec_label, protocol, dport, port_range, false, 0);
 }
 
 static __always_inline void
@@ -109,7 +110,7 @@ static __always_inline void policy_add_egress_allow_all_entry(void)
 
 static __always_inline void policy_add_egress_deny_all_entry(void)
 {
-	policy_add_entry(true, 0, 0, 0, 0, true);
+	policy_add_entry(true, 0, 0, 0, 0, true, 0);
 }
 
 static __always_inline void
