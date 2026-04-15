@@ -17,6 +17,7 @@ import (
 type incremental[Obj comparable] struct {
 	metrics        Metrics
 	moduleID       cell.FullModuleID
+	name           string
 	config         *config[Obj]
 	retries        *retries
 	primaryIndexer statedb.Indexer[Obj]
@@ -68,7 +69,7 @@ func (incr *incremental[Obj]) run(ctx context.Context, txn statedb.ReadTxn, chan
 	// queue which includes both errors occurred in this round and the old
 	// errors.
 	errs = incr.retries.errors()
-	incr.metrics.ReconciliationErrors(incr.moduleID, newErrors, len(errs))
+	incr.metrics.ReconciliationErrors(incr.moduleID, incr.name, newErrors, len(errs))
 
 	// Prepare for next round.
 	incr.numReconciled = 0
@@ -148,6 +149,7 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 		ops.DeleteBatch(ctx, txn, deleteBatch)
 		incr.metrics.ReconciliationDuration(
 			incr.moduleID,
+			incr.name,
 			OpDelete,
 			time.Since(start),
 		)
@@ -165,6 +167,7 @@ func (incr *incremental[Obj]) batch(ctx context.Context, txn statedb.ReadTxn, ch
 		ops.UpdateBatch(ctx, txn, updateBatch)
 		incr.metrics.ReconciliationDuration(
 			incr.moduleID,
+			incr.name,
 			OpUpdate,
 			time.Since(start),
 		)
@@ -218,7 +221,7 @@ func (incr *incremental[Obj]) processSingle(ctx context.Context, txn statedb.Rea
 		status := incr.config.GetObjectStatus(obj)
 		incr.results[obj] = opResult{original: orig, id: status.ID, rev: rev, err: err}
 	}
-	incr.metrics.ReconciliationDuration(incr.moduleID, op, time.Since(start))
+	incr.metrics.ReconciliationDuration(incr.moduleID, incr.name, op, time.Since(start))
 
 	if err == nil {
 		incr.retries.Clear(obj)

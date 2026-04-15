@@ -91,6 +91,14 @@ func Register[Obj comparable](
 // Option for the reconciler
 type Option func(opts *options)
 
+// WithName sets the name of this reconciler instance.
+// This name is passed to the configured [Metrics] implementation.
+func WithName(name string) Option {
+	return func(opts *options) {
+		opts.Name = name
+	}
+}
+
 // WithMetrics sets the [Metrics] instance to use with this reconciler.
 // The metrics capture the duration of operations during incremental and
 // full reconcilation and the errors that occur during either.

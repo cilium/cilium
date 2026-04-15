@@ -26,6 +26,7 @@ type ReconcilerMetrics struct {
 
 const (
 	labelModuleId  = "module_id"
+	labelName      = "name"
 	labelOperation = "op"
 )
 
@@ -37,7 +38,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "count",
 			Help:      "Number of reconciliation rounds performed",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 
 		ReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			Disabled:  true,
@@ -47,7 +48,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Help:      "Histogram of per-operation duration during reconciliation",
 			// Use buckets in the 0.5ms-1s range.
 			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
-		}, []string{labelModuleId, labelOperation}),
+		}, []string{labelModuleId, labelName, labelOperation}),
 
 		ReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
 			Disabled:  true,
@@ -55,7 +56,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "errors_total",
 			Help:      "Total number of errors encountered during reconciliation",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 
 		ReconciliationCurrentErrors: metric.NewGaugeVec(metric.GaugeOpts{
 			Disabled:  true,
@@ -63,7 +64,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "errors_current",
 			Help:      "The number of objects currently failing to be reconciled",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 
 		PruneCount: metric.NewCounterVec(metric.CounterOpts{
 			Disabled:  true,
@@ -71,7 +72,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "prune_count",
 			Help:      "Number of prunes performed",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 
 		PruneTotalErrors: metric.NewCounterVec(metric.CounterOpts{
 			Disabled:  true,
@@ -79,7 +80,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "prune_errors_total",
 			Help:      "Total number of errors encountered during pruning",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 
 		PruneDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			Disabled:  true,
@@ -87,7 +88,7 @@ func NewStateDBReconcilerMetrics() ReconcilerMetrics {
 			Subsystem: "reconciler",
 			Name:      "prune_duration_seconds",
 			Help:      "Histogram of pruning duration",
-		}, []string{labelModuleId}),
+		}, []string{labelModuleId, labelName}),
 	}
 	return m
 }
@@ -101,30 +102,33 @@ type reconcilerMetricsImpl struct {
 }
 
 // PruneDuration implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, duration time.Duration) {
-	m.m.PruneDuration.WithLabelValues(moduleID.String()).
+func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, name string, duration time.Duration) {
+	m.m.PruneDuration.WithLabelValues(moduleID.String(), name).
 		Observe(duration.Seconds())
 }
 
 // FullReconciliationErrors implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, err error) {
-	m.m.PruneCount.WithLabelValues(moduleID.String()).Inc()
+func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, name string, err error) {
+	mod := moduleID.String()
+	m.m.PruneCount.WithLabelValues(mod, name).Inc()
 	if err != nil {
-		m.m.PruneTotalErrors.WithLabelValues(moduleID.String()).Add(1)
+		m.m.PruneTotalErrors.WithLabelValues(mod, name).Add(1)
 	}
 }
 
 // ReconciliationDuration implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	m.m.ReconciliationCount.WithLabelValues(moduleID.String()).Inc()
-	m.m.ReconciliationDuration.WithLabelValues(moduleID.String(), operation).
+func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, name string, operation string, duration time.Duration) {
+	mod := moduleID.String()
+	m.m.ReconciliationCount.WithLabelValues(mod, name).Inc()
+	m.m.ReconciliationDuration.WithLabelValues(mod, name, operation).
 		Observe(duration.Seconds())
 }
 
 // ReconciliationErrors implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, new, current int) {
-	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Set(float64(current))
-	m.m.ReconciliationCurrentErrors.WithLabelValues(moduleID.String()).Add(float64(new))
+func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, name string, new, current int) {
+	mod := moduleID.String()
+	m.m.ReconciliationCurrentErrors.WithLabelValues(mod, name).Set(float64(current))
+	m.m.ReconciliationCurrentErrors.WithLabelValues(mod, name).Add(float64(new))
 }
 
 var _ reconciler.Metrics = &reconcilerMetricsImpl{}
