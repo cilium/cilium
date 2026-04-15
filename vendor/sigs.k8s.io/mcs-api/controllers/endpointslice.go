@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 // EndpointSliceReconciler reconciles a EndpointSlice object
@@ -39,7 +39,7 @@ func shouldIgnoreEndpointSlice(epSlice *discoveryv1.EndpointSlice) bool {
 	if epSlice.DeletionTimestamp != nil {
 		return true
 	}
-	if epSlice.Labels[v1alpha1.LabelServiceName] == "" {
+	if epSlice.Labels[v1beta1.LabelServiceName] == "" {
 		return true
 	}
 	return false
@@ -58,7 +58,7 @@ func (r *EndpointSliceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	// Ensure the EndpointSlice is labelled to match the ServiceImport's derived
 	// Service.
-	serviceName := derivedName(types.NamespacedName{Namespace: epSlice.Namespace, Name: epSlice.Labels[v1alpha1.LabelServiceName]})
+	serviceName := derivedName(types.NamespacedName{Namespace: epSlice.Namespace, Name: epSlice.Labels[v1beta1.LabelServiceName]})
 	if epSlice.Labels[discoveryv1.LabelServiceName] == serviceName {
 		return ctrl.Result{}, nil
 	}

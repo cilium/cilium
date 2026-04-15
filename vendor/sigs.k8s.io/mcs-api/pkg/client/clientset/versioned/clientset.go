@@ -26,22 +26,30 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	multiclusterv1alpha1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
+	multiclusterv1beta1 "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	MulticlusterV1alpha1() multiclusterv1alpha1.MulticlusterV1alpha1Interface
+	MulticlusterV1beta1() multiclusterv1beta1.MulticlusterV1beta1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	multiclusterV1alpha1 *multiclusterv1alpha1.MulticlusterV1alpha1Client
+	multiclusterV1beta1  *multiclusterv1beta1.MulticlusterV1beta1Client
 }
 
 // MulticlusterV1alpha1 retrieves the MulticlusterV1alpha1Client
 func (c *Clientset) MulticlusterV1alpha1() multiclusterv1alpha1.MulticlusterV1alpha1Interface {
 	return c.multiclusterV1alpha1
+}
+
+// MulticlusterV1beta1 retrieves the MulticlusterV1beta1Client
+func (c *Clientset) MulticlusterV1beta1() multiclusterv1beta1.MulticlusterV1beta1Interface {
+	return c.multiclusterV1beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -92,6 +100,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.multiclusterV1beta1, err = multiclusterv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -114,6 +126,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.multiclusterV1alpha1 = multiclusterv1alpha1.New(c)
+	cs.multiclusterV1beta1 = multiclusterv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

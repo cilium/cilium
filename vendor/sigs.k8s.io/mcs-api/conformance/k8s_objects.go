@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 const helloServiceName = "hello"
@@ -58,8 +58,8 @@ func newHelloService() *corev1.Service {
 	}
 }
 
-func newHelloServiceExport() *v1alpha1.ServiceExport {
-	return &v1alpha1.ServiceExport{
+func newHelloServiceExport() *v1beta1.ServiceExport {
+	return &v1beta1.ServiceExport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        helloServiceName,
 			Annotations: map[string]string{"dummy-svcexport": "dummy"},

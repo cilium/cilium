@@ -32,7 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
@@ -102,7 +102,7 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, HeadlessLabel), func() {
 						}
 					}, "an MCS EndpointSlice was not found on cluster %q", client.name)
 
-					clusterID := eps.Labels[v1alpha1.LabelSourceCluster]
+					clusterID := eps.Labels[v1beta1.LabelSourceCluster]
 
 					for i := range eps.Endpoints {
 						ep := &eps.Endpoints[i]

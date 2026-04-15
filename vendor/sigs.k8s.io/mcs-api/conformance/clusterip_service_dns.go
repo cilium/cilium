@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
@@ -38,7 +38,7 @@ var _ = Describe("", Label(OptionalLabel, DNSLabel, ClusterIPLabel), func() {
 
 		for _, client := range clients {
 			serviceImport := t.awaitServiceImport(&client, t.helloService.Name, false,
-				func(g Gomega, serviceImport *v1alpha1.ServiceImport) {
+				func(g Gomega, serviceImport *v1beta1.ServiceImport) {
 					g.Expect(serviceImport.Spec.IPs).ToNot(BeEmpty(), "ServiceImport on cluster %q does not contain an IP", client.name)
 				})
 

@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 // ServiceImportReconciler reconciles a ServiceImport object
@@ -37,7 +37,7 @@ type ServiceImportReconciler struct {
 
 // +kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports,verbs=get;list;watch;update;patch
 
-func servicePorts(svcImport *v1alpha1.ServiceImport) []v1.ServicePort {
+func servicePorts(svcImport *v1beta1.ServiceImport) []v1.ServicePort {
 	ports := make([]v1.ServicePort, len(svcImport.Spec.Ports))
 	for i, p := range svcImport.Spec.Ports {
 		ports[i] = v1.ServicePort{
@@ -50,11 +50,11 @@ func servicePorts(svcImport *v1alpha1.ServiceImport) []v1.ServicePort {
 	return ports
 }
 
-func shouldIgnoreImport(svcImport *v1alpha1.ServiceImport) bool {
+func shouldIgnoreImport(svcImport *v1beta1.ServiceImport) bool {
 	if svcImport.DeletionTimestamp != nil {
 		return true
 	}
-	if svcImport.Spec.Type != v1alpha1.ClusterSetIP {
+	if svcImport.Spec.Type != v1beta1.ClusterSetIP {
 		return true
 	}
 	return false
@@ -67,7 +67,7 @@ func shouldIgnoreImport(svcImport *v1alpha1.ServiceImport) bool {
 func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	serviceName := derivedName(req.NamespacedName)
 	log := r.Log.WithValues("serviceimport", req.NamespacedName, "derived", serviceName)
-	var svcImport v1alpha1.ServiceImport
+	var svcImport v1beta1.ServiceImport
 	if err := r.Client.Get(ctx, req.NamespacedName, &svcImport); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -102,7 +102,7 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				{
 					Name:       req.Name,
 					Kind:       serviceImportKind,
-					APIVersion: v1alpha1.GroupVersion.String(),
+					APIVersion: v1beta1.GroupVersion.String(),
 					UID:        svcImport.UID,
 				},
 			},
@@ -144,5 +144,5 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager wires up the controller.
 func (r *ServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).For(&v1alpha1.ServiceImport{}).Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&v1beta1.ServiceImport{}).Complete(r)
 }

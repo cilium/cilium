@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 // ServiceReconciler reconciles a Service object
@@ -39,7 +39,7 @@ type ServiceReconciler struct {
 
 func serviceImportOwner(refs []metav1.OwnerReference) string {
 	for _, ref := range refs {
-		if ref.APIVersion == v1alpha1.GroupVersion.String() && ref.Kind == serviceImportKind {
+		if ref.APIVersion == v1beta1.GroupVersion.String() && ref.Kind == serviceImportKind {
 			return ref.Name
 		}
 	}
@@ -60,7 +60,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if importName == "" {
 		return ctrl.Result{}, nil
 	}
-	var svcImport v1alpha1.ServiceImport
+	var svcImport v1beta1.ServiceImport
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: importName}, &svcImport); err != nil {
 		return ctrl.Result{}, err
 	}

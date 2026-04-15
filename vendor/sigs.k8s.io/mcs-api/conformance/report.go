@@ -31,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/matchers"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -60,6 +61,7 @@ type testInfo struct {
 	Desc       string
 	Ref        string
 	Labels     []string
+	Passed     bool
 	Failed     bool
 	Skipped    bool
 	Conformant bool
@@ -69,6 +71,13 @@ type testInfo struct {
 type testGrouping struct {
 	Name  string
 	Tests []testInfo
+}
+
+type implementationInfo struct {
+	Organization string
+	Project      string
+	Version      string
+	URL          string
 }
 
 var (
@@ -166,7 +175,7 @@ var _ = ReportAfterSuite("MCS conformance report", func(report Report) {
 			}
 
 			info := testInfo{
-				Desc:       specReport.FullText(),
+				Desc:       strings.TrimSpace(specReport.FullText()),
 				Conformant: true,
 			}
 
@@ -202,6 +211,8 @@ var _ = ReportAfterSuite("MCS conformance report", func(report Report) {
 				info.Message = parseFailureMessage(specReport.FailureMessage())
 			}
 
+			info.Passed = !info.Failed && !info.Skipped && info.Conformant
+
 			if info.Message != "" {
 				info.Message = " - " + info.Message
 			}
@@ -223,14 +234,36 @@ var _ = ReportAfterSuite("MCS conformance report", func(report Report) {
 		}
 	}
 
+	totalTests := 0
+	passedTests := 0
+	for _, g := range testGroups {
+		for _, t := range g.Tests {
+			totalTests++
+			if t.Passed {
+				passedTests++
+			}
+		}
+	}
+
 	data := struct {
-		Groups       []testGrouping
-		SuiteFailure string
-		DNSDomain    string
+		Groups         []testGrouping
+		SuiteFailure   string
+		DNSDomain      string
+		Passed         int
+		Total          int
+		Implementation implementationInfo
 	}{
 		Groups:       testGroups,
 		SuiteFailure: suiteFailure,
 		DNSDomain:    dnsDomain,
+		Passed:       passedTests,
+		Total:        totalTests,
+		Implementation: implementationInfo{
+			Organization: organization,
+			Project:      project,
+			Version:      version,
+			URL:          url,
+		},
 	}
 
 	out, err := os.Create("report.html")
@@ -240,6 +273,12 @@ var _ = ReportAfterSuite("MCS conformance report", func(report Report) {
 	Expect(err).To(Succeed())
 
 	err = tmpl.Execute(out, data)
+	Expect(err).To(Succeed())
+
+	yamlOut, err := os.Create("report.yaml")
+	Expect(err).To(Succeed())
+
+	err = yaml.NewEncoder(yamlOut).Encode(data)
 	Expect(err).To(Succeed())
 })
 

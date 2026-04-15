@@ -25,7 +25,7 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 // K8sEndpointSliceManagedByName is the name used for endpoint slices managed by the Kubernetes controller
@@ -47,13 +47,13 @@ var _ = Describe("", Label(OptionalLabel, EndpointSliceLabel), func() {
 							"of the required MCS labels (%q and %q). "+
 							"If the MCS implementation does not use MCS EndpointSlices, you can specify a Ginkgo label filter using "+
 							"the %q label where appropriate to skip this test.",
-						client.name, v1alpha1.LabelServiceName, v1alpha1.LabelSourceCluster, EndpointSliceLabel)))
+						client.name, v1beta1.LabelServiceName, v1beta1.LabelSourceCluster, EndpointSliceLabel)))
 
 					endpointSliceNames[i] = append(endpointSliceNames[i], eps.Name)
 
-					Expect(eps.Labels).To(HaveKeyWithValue(v1alpha1.LabelServiceName, t.helloService.Name),
+					Expect(eps.Labels).To(HaveKeyWithValue(v1beta1.LabelServiceName, t.helloService.Name),
 						reportNonConformant(fmt.Sprintf("the MCS EndpointSlice %q does not contain the %q label referencing the service name",
-							eps.Name, v1alpha1.LabelServiceName)))
+							eps.Name, v1beta1.LabelServiceName)))
 
 					Expect(eps.Labels).To(HaveKey(discoveryv1.LabelManagedBy),
 						reportNonConformant(fmt.Sprintf("the MCS EndpointSlice %q does not contain the %q label",
@@ -102,7 +102,7 @@ func (t *testDriver) awaitMCSEndpointSlice(c *clusterClients, addressType discov
 		for i := range list.Items {
 			eps := &list.Items[i]
 
-			if hasLabel(eps, v1alpha1.LabelServiceName) && hasLabel(eps, v1alpha1.LabelSourceCluster) && eps.AddressType == addressType && len(eps.Endpoints) > 0 {
+			if hasLabel(eps, v1beta1.LabelServiceName) && hasLabel(eps, v1beta1.LabelSourceCluster) && eps.AddressType == addressType && len(eps.Endpoints) > 0 {
 				endpointSlice = eps
 
 				if verify != nil {

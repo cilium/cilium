@@ -14,6 +14,7 @@
 </head>
 <body>
 <h2>MCS Conformance Report</h2>
+<p><strong>{{.Passed}}</strong> of <strong>{{.Total}}</strong> tests passed</p>
 
 {{if and .DNSDomain (ne .DNSDomain "clusterset.local")}}
     <p>DNS domain suffix: <strong>{{.DNSDomain}}</strong></p>

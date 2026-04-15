@@ -2995,19 +2995,22 @@ sigs.k8s.io/kustomize/kyaml/yaml/internal/k8sgen/pkg/util/validation/field
 sigs.k8s.io/kustomize/kyaml/yaml/merge2
 sigs.k8s.io/kustomize/kyaml/yaml/schema
 sigs.k8s.io/kustomize/kyaml/yaml/walk
-# sigs.k8s.io/mcs-api v0.3.1-0.20260224125735-0f775a3eff97
+# sigs.k8s.io/mcs-api v0.4.2-0.20260415161103-2525ee33f2a4
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/config/crd
 sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
+sigs.k8s.io/mcs-api/pkg/apis/v1beta1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
-# sigs.k8s.io/mcs-api/conformance v0.0.0-20260403094305-4b9911b73f14
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1beta1
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1beta1/fake
+# sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/conformance
-# sigs.k8s.io/mcs-api/controllers v0.0.0-20260403094305-4b9911b73f14
+# sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/controllers
 # sigs.k8s.io/network-policy-api v0.1.8-0.20260408165732-72895f2a4a97

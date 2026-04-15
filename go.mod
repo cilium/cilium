@@ -138,9 +138,9 @@ require (
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/gateway-api v1.5.1
 	sigs.k8s.io/gateway-api/conformance v1.5.1
-	sigs.k8s.io/mcs-api v0.3.1-0.20260224125735-0f775a3eff97
-	sigs.k8s.io/mcs-api/conformance v0.0.0-20260403094305-4b9911b73f14
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20260403094305-4b9911b73f14
+	sigs.k8s.io/mcs-api v0.4.2-0.20260415161103-2525ee33f2a4
+	sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4
+	sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4
 	sigs.k8s.io/network-policy-api v0.1.8-0.20260408165732-72895f2a4a97
 	sigs.k8s.io/yaml v1.6.0
 )
