@@ -146,7 +146,7 @@ func TestMacvlanManager_ListDevices(t *testing.T) {
 				Name:        "eth0.0",
 				Index:       10,
 				ParentIndex: 2,
-				Flags:       1, // UP
+				Flags:       1,
 				MTU:         1500,
 			},
 			Mode: netlink.MACVLAN_MODE_BRIDGE,
@@ -156,18 +156,17 @@ func TestMacvlanManager_ListDevices(t *testing.T) {
 				Name:        "eth0.1",
 				Index:       11,
 				ParentIndex: 2,
-				Flags:       1, // UP
+				Flags:       1,
 				MTU:         1500,
 			},
 			Mode: netlink.MACVLAN_MODE_BRIDGE,
 		},
-		// This one should be filtered out (down)
 		&netlink.Macvlan{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:        "eth0.2",
 				Index:       12,
 				ParentIndex: 2,
-				Flags:       0, // DOWN
+				Flags:       0,
 				MTU:         1500,
 			},
 			Mode: netlink.MACVLAN_MODE_BRIDGE,
@@ -198,7 +197,7 @@ func TestMacvlanManager_ListDevices(t *testing.T) {
 
 	devices, err := mgr.ListDevices()
 	require.NoError(t, err)
-	require.Len(t, devices, 2) // Only 2 up macvlan devices
+	require.Len(t, devices, 3)
 
 	// Verify device names (dots replaced with dashes)
 	names := make([]string, len(devices))
@@ -209,31 +208,29 @@ func TestMacvlanManager_ListDevices(t *testing.T) {
 	}
 	require.Contains(t, names, "eth0-0")
 	require.Contains(t, names, "eth0-1")
-	require.NotContains(t, names, "eth0-2") // Down interface should be filtered
+	require.Contains(t, names, "eth0-2")
 
 	// Kernel names should preserve the dot notation
 	require.Contains(t, kernelNames, "eth0.0")
 	require.Contains(t, kernelNames, "eth0.1")
+	require.Contains(t, kernelNames, "eth0.2")
 }
 
-// mockNetlinkOps records calls to LinkAdd, LinkSetUp and LinkDel so tests can
+// mockNetlinkOps records calls to LinkAdd and LinkDel so tests can
 // assert the exact sequence of operations performed by setupMacvlans.
 type mockNetlinkOps struct {
 	added   []string
-	setUp   []string
 	deleted []string
 
 	// Injected errors – keyed by interface name.  A nil value means success.
-	addErrors   map[string]error
-	setUpErrors map[string]error
-	delErrors   map[string]error
+	addErrors map[string]error
+	delErrors map[string]error
 }
 
 func newMockNetlinkOps() *mockNetlinkOps {
 	return &mockNetlinkOps{
-		addErrors:   make(map[string]error),
-		setUpErrors: make(map[string]error),
-		delErrors:   make(map[string]error),
+		addErrors: make(map[string]error),
+		delErrors: make(map[string]error),
 	}
 }
 
@@ -243,34 +240,16 @@ func (m *mockNetlinkOps) LinkAdd(link netlink.Link) error {
 	return m.addErrors[name]
 }
 
-func (m *mockNetlinkOps) LinkSetUp(link netlink.Link) error {
-	name := link.Attrs().Name
-	m.setUp = append(m.setUp, name)
-	return m.setUpErrors[name]
-}
-
 func (m *mockNetlinkOps) LinkDel(link netlink.Link) error {
 	name := link.Attrs().Name
 	m.deleted = append(m.deleted, name)
 	return m.delErrors[name]
 }
 
-// installMockNetlinkOps replaces the package-level netlink function vars with
-// the mock and returns a restore function to be deferred by the caller.
-func installMockNetlinkOps(m *mockNetlinkOps) func() {
-	origAdd := netlinkLinkAdd
-	origSetUp := netlinkLinkSetUp
-	origDel := netlinkLinkDel
-
-	netlinkLinkAdd = m.LinkAdd
-	netlinkLinkSetUp = m.LinkSetUp
-	netlinkLinkDel = m.LinkDel
-
-	return func() {
-		netlinkLinkAdd = origAdd
-		netlinkLinkSetUp = origSetUp
-		netlinkLinkDel = origDel
-	}
+// installMockNetlinkOps wires the mock's LinkAdd/LinkDel into the manager.
+func installMockNetlinkOps(mgr *MacvlanManager, m *mockNetlinkOps) {
+	mgr.netlinkLinkAdd = m.LinkAdd
+	mgr.netlinkLinkDel = m.LinkDel
 }
 
 // parentLink returns a minimal Device link that acts as a parent interface.
@@ -292,26 +271,26 @@ func newTestManager(links []netlink.Link, ifaces []v2alpha1.MacvlanDeviceConfig)
 		netlinkLinkLister: func() ([]netlink.Link, error) {
 			return links, nil
 		},
+		netlinkLinkAdd: func(link netlink.Link) error { return nil },
+		netlinkLinkDel: func(link netlink.Link) error { return nil },
 	}
 }
 
 // TestSetupMacvlans_Success verifies that when everything succeeds, the right
-// interfaces are created and brought up and nothing is deleted.
+// interfaces are created and nothing is deleted.
 func TestSetupMacvlans_Success(t *testing.T) {
-	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
-
 	ifaces := []v2alpha1.MacvlanDeviceConfig{
 		{ParentIfName: "eth0", Mode: "bridge", Count: 3},
 	}
 
+	mock := newMockNetlinkOps()
 	mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 	require.NoError(t, err)
 
 	require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.added)
-	require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.setUp)
 	require.Empty(t, mock.deleted, "no cleanup expected on success")
 }
 
@@ -319,15 +298,13 @@ func TestSetupMacvlans_Success(t *testing.T) {
 // no-op and no kernel calls are made.
 func TestSetupMacvlans_NoInterfaces(t *testing.T) {
 	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
-
 	mgr := newTestManager(nil, nil)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(nil)
 	require.NoError(t, err)
 
 	require.Empty(t, mock.added)
-	require.Empty(t, mock.setUp)
 	require.Empty(t, mock.deleted)
 }
 
@@ -335,11 +312,9 @@ func TestSetupMacvlans_NoInterfaces(t *testing.T) {
 // created before a LinkAdd failure are deleted during cleanup, and that
 // interfaces created after the failure (the loop continues) are also cleaned up.
 func TestSetupMacvlans_CleanupOnLinkAddError(t *testing.T) {
-	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
-
 	// eth0.1 will fail to be created; eth0.0 was already added successfully,
 	// and eth0.2 will succeed after the continue.
+	mock := newMockNetlinkOps()
 	mock.addErrors["eth0.1"] = errors.New("kernel error")
 
 	ifaces := []v2alpha1.MacvlanDeviceConfig{
@@ -347,6 +322,7 @@ func TestSetupMacvlans_CleanupOnLinkAddError(t *testing.T) {
 	}
 
 	mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 	require.Error(t, err)
@@ -360,40 +336,11 @@ func TestSetupMacvlans_CleanupOnLinkAddError(t *testing.T) {
 	require.Equal(t, []string{"eth0.0", "eth0.2"}, mock.deleted)
 }
 
-// TestSetupMacvlans_CleanupOnLinkSetUpError verifies that an interface whose
-// LinkAdd succeeded but LinkSetUp failed is still included in the cleanup.
-func TestSetupMacvlans_CleanupOnLinkSetUpError(t *testing.T) {
-	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
-
-	// eth0.1 is created successfully but fails to come up.
-	mock.setUpErrors["eth0.1"] = errors.New("link set up failed")
-
-	ifaces := []v2alpha1.MacvlanDeviceConfig{
-		{ParentIfName: "eth0", Mode: "bridge", Count: 3},
-	}
-
-	mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
-
-	err := mgr.setupMacvlans(ifaces)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "eth0.1")
-
-	// All three LinkAdd calls are expected.
-	require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.added)
-
-	// All three were tracked in `created` (LinkAdd succeeded for all), so
-	// cleanup must delete all three.
-	require.Equal(t, []string{"eth0.0", "eth0.1", "eth0.2"}, mock.deleted)
-}
-
 // TestSetupMacvlans_CleanupAcrossMultipleParents verifies that interfaces
 // created under a first parent are cleaned up when a later parent fails.
 func TestSetupMacvlans_CleanupAcrossMultipleParents(t *testing.T) {
-	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
-
 	// eth1.0 will fail to be added.
+	mock := newMockNetlinkOps()
 	mock.addErrors["eth1.0"] = errors.New("kernel error")
 
 	ifaces := []v2alpha1.MacvlanDeviceConfig{
@@ -407,6 +354,7 @@ func TestSetupMacvlans_CleanupAcrossMultipleParents(t *testing.T) {
 	}
 
 	mgr := newTestManager(links, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 	require.Error(t, err)
@@ -422,7 +370,6 @@ func TestSetupMacvlans_CleanupAcrossMultipleParents(t *testing.T) {
 // interface is an error and that previously created interfaces are cleaned up.
 func TestSetupMacvlans_CleanupOnMissingParent(t *testing.T) {
 	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
 
 	ifaces := []v2alpha1.MacvlanDeviceConfig{
 		{ParentIfName: "eth0", Mode: "bridge", Count: 2},
@@ -434,6 +381,7 @@ func TestSetupMacvlans_CleanupOnMissingParent(t *testing.T) {
 	links := []netlink.Link{parentLink("eth0", 1)}
 
 	mgr := newTestManager(links, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 	require.Error(t, err)
@@ -448,7 +396,6 @@ func TestSetupMacvlans_CleanupOnMissingParent(t *testing.T) {
 // already present in the link map are skipped and not re-created.
 func TestSetupMacvlans_SkipsExistingInterfaces(t *testing.T) {
 	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
 
 	// eth0.0 already exists in the kernel.
 	existingMacvlan := &netlink.Macvlan{
@@ -463,13 +410,13 @@ func TestSetupMacvlans_SkipsExistingInterfaces(t *testing.T) {
 	links := []netlink.Link{parentLink("eth0", 1), existingMacvlan}
 
 	mgr := newTestManager(links, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 	require.NoError(t, err)
 
 	// Only eth0.1 should have been created (eth0.0 was skipped).
 	require.Equal(t, []string{"eth0.1"}, mock.added)
-	require.Equal(t, []string{"eth0.1"}, mock.setUp)
 	require.Empty(t, mock.deleted)
 }
 
@@ -477,7 +424,6 @@ func TestSetupMacvlans_SkipsExistingInterfaces(t *testing.T) {
 // the cleanup (LinkDel) does not mask the original error returned to the caller.
 func TestSetupMacvlans_CleanupDelErrorsAreLogged(t *testing.T) {
 	mock := newMockNetlinkOps()
-	defer installMockNetlinkOps(mock)()
 
 	linkAddErr := errors.New("kernel add error")
 	linkDelErr := errors.New("kernel del error")
@@ -490,6 +436,7 @@ func TestSetupMacvlans_CleanupDelErrorsAreLogged(t *testing.T) {
 	}
 
 	mgr := newTestManager([]netlink.Link{parentLink("eth0", 1)}, ifaces)
+	installMockNetlinkOps(mgr, mock)
 
 	err := mgr.setupMacvlans(ifaces)
 
