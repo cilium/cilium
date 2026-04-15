@@ -130,7 +130,10 @@ func (c meshClientEndpointSlice) List(ctx context.Context, opts metav1.ListOptio
 }
 func (c meshClientEndpointSlice) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	watchInterface, err := c.EndpointSliceInterface.Watch(ctx, opts)
-	return NewMeshEndpointSliceWatcher(watchInterface), err
+	if err != nil {
+		return nil, err
+	}
+	return NewMeshEndpointSliceWatcher(watchInterface), nil
 }
 
 // Pretty much a copy of watch.Streamwatcher but simplified to have another Streamwatcher
