@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -53,7 +54,7 @@ func TestPrivilegedCleanupUnreachableRoutes(t *testing.T) {
 			})
 			Expect(err).ToNot(HaveOccurred())
 		}
-		err := cleanupUnreachableRoutes("10.10.0.0/24")
+		err := cleanupUnreachableRoutes(netip.MustParsePrefix("10.10.0.0/24"))
 		Expect(err).ToNot(HaveOccurred())
 
 		// Ensure only first two IPv4 routes are cleaned up
@@ -63,13 +64,13 @@ func TestPrivilegedCleanupUnreachableRoutes(t *testing.T) {
 		Expect(leftover[0].Dst).To(Equal(parseCIDR("10.20.0.1/32")))
 
 		// Remove remaining route
-		err = cleanupUnreachableRoutes("10.20.0.0/24")
+		err = cleanupUnreachableRoutes(netip.MustParsePrefix("10.20.0.0/24"))
 		Expect(err).ToNot(HaveOccurred())
 		leftover = getUnreachableRoutes(netlink.FAMILY_V4)
 		Expect(leftover).To(BeEmpty())
 
 		// Remove IPv6 routes
-		err = cleanupUnreachableRoutes("fe80::/16")
+		err = cleanupUnreachableRoutes(netip.MustParsePrefix("fe80::/16"))
 		Expect(err).ToNot(HaveOccurred())
 		leftover = getUnreachableRoutes(netlink.FAMILY_V6)
 		Expect(leftover).To(BeEmpty())

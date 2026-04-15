@@ -7,11 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
-	"strings"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -38,8 +37,8 @@ type cidrPool struct {
 	logger       *slog.Logger
 	mutex        lock.Mutex
 	ipAllocators []*ipallocator.Range
-	released     map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
-	removed      map[string]struct{} // key is a CIDR string, e.g. 10.20.30.0/24
+	released     map[netip.Prefix]struct{}
+	removed      map[netip.Prefix]struct{}
 	// allowFirstLastIPs, when true, makes the pool include the first and last
 	// IPs of each CIDR (normally reserved as network/broadcast). This is used
 	// for delegated prefixes where the entire range is exclusively assigned.
@@ -50,21 +49,15 @@ type cidrPool struct {
 func newCIDRPool(logger *slog.Logger, allowFirstLastIPs bool) *cidrPool {
 	return &cidrPool{
 		logger:            logger,
-		released:          map[string]struct{}{},
-		removed:           map[string]struct{}{},
+		released:          map[netip.Prefix]struct{}{},
+		removed:           map[netip.Prefix]struct{}{},
 		allowFirstLastIPs: allowFirstLastIPs,
 	}
 }
 
-func (p *cidrPool) allocate(ip net.IP) error {
+func (p *cidrPool) allocate(addr netip.Addr) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	addr, ok := netip.AddrFromSlice(ip)
-	if !ok {
-		return fmt.Errorf("invalid IP address: %v", ip)
-	}
-	addr = addr.Unmap()
 
 	for _, ipAllocator := range p.ipAllocators {
 		if ipAllocator.CIDR().Contains(addr) {
@@ -72,42 +65,31 @@ func (p *cidrPool) allocate(ip net.IP) error {
 		}
 	}
 
-	return fmt.Errorf("IP %s not in range of any CIDR", ip)
+	return fmt.Errorf("IP %s not in range of any CIDR", addr)
 }
 
-func (p *cidrPool) allocateNext() (net.IP, error) {
+func (p *cidrPool) allocateNext() (netip.Addr, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	// When allocating a random IP, we try the CIDRs in the order they are
 	// listed in the CRD. This avoids internal fragmentation.
 	for _, ipAllocator := range p.ipAllocators {
-		cidrStr := ipAllocator.CIDR().String()
-		if _, removed := p.removed[cidrStr]; removed {
+		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
 			continue
 		}
 		if ipAllocator.Free() == 0 {
 			continue
 		}
-		addr, err := ipAllocator.AllocateNext()
-		if err != nil {
-			return nil, err
-		}
-		return net.IP(addr.AsSlice()).To16(), nil
+		return ipAllocator.AllocateNext()
 	}
 
-	return nil, errors.New("all CIDR ranges are exhausted")
+	return netip.Addr{}, errors.New("all CIDR ranges are exhausted")
 }
 
-func (p *cidrPool) release(ip net.IP) {
+func (p *cidrPool) release(addr netip.Addr) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	addr, ok := netip.AddrFromSlice(ip)
-	if !ok {
-		return
-	}
-	addr = addr.Unmap()
 
 	for _, ipAllocator := range p.ipAllocators {
 		if ipAllocator.CIDR().Contains(addr) {
@@ -122,8 +104,7 @@ func (p *cidrPool) hasAvailableIPs() bool {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		cidrStr := ipAllocator.CIDR().String()
-		if _, removed := p.removed[cidrStr]; removed {
+		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
 			continue
 		}
 		if ipAllocator.Free() > 0 {
@@ -165,9 +146,8 @@ func (p *cidrPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, numCID
 
 	ipToOwner = map[string]string{}
 	for _, ipAllocator := range p.ipAllocators {
-		cidrStr := ipAllocator.CIDR().String()
 		usedIPs += ipAllocator.Used()
-		if _, removed := p.removed[cidrStr]; !removed {
+		if _, removed := p.removed[ipAllocator.CIDR()]; !removed {
 			freeIPs += ipAllocator.Free()
 		}
 		ipAllocator.ForEach(func(addr netip.Addr) {
@@ -185,8 +165,7 @@ func (p *cidrPool) capacity() (freeIPs int) {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		cidrStr := ipAllocator.CIDR().String()
-		if _, removed := p.removed[cidrStr]; !removed {
+		if _, removed := p.removed[ipAllocator.CIDR()]; !removed {
 			freeIPs += ipAllocator.Free()
 		}
 	}
@@ -209,15 +188,15 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	retainedAllocators := []*ipallocator.Range{}
 	for i := len(p.ipAllocators) - 1; i >= 0; i-- {
 		ipAllocator := p.ipAllocators[i]
-		cidrStr := ipAllocator.CIDR().String()
+		cidr := ipAllocator.CIDR()
 
 		// If the CIDR is not used and releasing it would
 		// not take us below the release threshold, then release it immediately
 		free := ipAllocator.Free()
 		if ipAllocator.Used() == 0 && totalFree-free >= neededIPs {
-			p.released[cidrStr] = struct{}{}
+			p.released[cidr] = struct{}{}
 			totalFree -= free
-			p.logger.Debug("releasing CIDR", logfields.CIDR, cidrStr)
+			p.logger.Debug("releasing CIDR", logfields.CIDR, cidr)
 		} else {
 			retainedAllocators = append(retainedAllocators, ipAllocator)
 		}
@@ -226,85 +205,73 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	p.ipAllocators = retainedAllocators
 }
 
-func (p *cidrPool) updatePool(CIDRs []string) {
+func (p *cidrPool) updatePool(prefixes []netip.Prefix) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	if option.Config.Debug {
 		p.logger.Debug(
 			"Updating IPAM pool",
-			logfields.NewCIDR, CIDRs,
+			logfields.NewCIDR, prefixes,
 			logfields.OldCIDR, p.inUseCIDRsLocked(),
 		)
 	}
 
-	// Parse the CIDRs, ignoring invalid CIDRs, and de-duplicating them.
-	prefixes := make([]netip.Prefix, 0, len(CIDRs))
-	cidrStrSet := make(map[string]struct{}, len(CIDRs))
-	for _, cidr := range CIDRs {
-		prefix, err := netip.ParsePrefix(cidr)
-		if err != nil {
-			p.logger.Error(
-				"ignoring invalid CIDR",
-				logfields.Error, err,
-				logfields.CIDR, CIDRs,
-			)
-			continue
-		}
-		prefix = prefix.Masked()
-		if _, ok := cidrStrSet[prefix.String()]; ok {
+	// De-duplicate prefixes.
+	prefixSet := make(map[netip.Prefix]struct{}, len(prefixes))
+	for _, prefix := range prefixes {
+		if _, ok := prefixSet[prefix]; ok {
 			p.logger.Error(
 				"ignoring duplicate CIDR",
-				logfields.CIDR, CIDRs,
+				logfields.CIDR, prefix,
 			)
 			continue
 		}
-		prefixes = append(prefixes, prefix)
-		cidrStrSet[prefix.String()] = struct{}{}
+		prefixSet[prefix] = struct{}{}
 	}
 
 	// Forget any released CIDRs no longer present in the CRD.
-	for cidrStr := range p.released {
-		if _, ok := cidrStrSet[cidrStr]; !ok {
+	for prefix := range p.released {
+		if _, ok := prefixSet[prefix]; !ok {
 			p.logger.Debug(
 				"removing released CIDR",
-				logfields.CIDR, cidrStr,
+				logfields.CIDR, prefix,
 			)
-			delete(p.released, cidrStr)
+			delete(p.released, prefix)
 		}
 
 		if option.Config.EnableUnreachableRoutes {
-			if err := cleanupUnreachableRoutes(cidrStr); err != nil {
+			if err := cleanupUnreachableRoutes(prefix); err != nil {
 				p.logger.Warn(
 					"failed to remove unreachable routes for cidr",
 					logfields.Error, err,
-					logfields.CIDR, cidrStr,
+					logfields.CIDR, prefix,
 				)
 			}
 		}
 	}
 
 	// newIPAllocators is the new slice of IP allocators.
-	newIPAllocators := make([]*ipallocator.Range, 0, len(CIDRs))
+	newIPAllocators := make([]*ipallocator.Range, 0, len(prefixes))
 
-	// addedCIDRs is the set of CIDRs that have a corresponding allocator
-	existingAllocators := make(map[string]struct{}, len(p.ipAllocators))
+	// existingAllocators is the set of CIDRs that have a corresponding allocator
+	existingAllocators := make(map[netip.Prefix]struct{}, len(p.ipAllocators))
 
 	// Add existing IP allocators to newIPAllocators in order.
 	for _, ipAllocator := range p.ipAllocators {
-		cidrStr := ipAllocator.CIDR().String()
-		if _, ok := cidrStrSet[cidrStr]; !ok {
+		cidr := ipAllocator.CIDR()
+		if _, ok := prefixSet[cidr]; !ok {
 			if ipAllocator.Used() == 0 {
 				continue
 			}
 			p.logger.Error(
 				"in-use CIDR was removed from spec",
-				logfields.CIDR, cidrStr,
+				logfields.CIDR, cidr,
 			)
-			p.removed[cidrStr] = struct{}{}
+			p.removed[cidr] = struct{}{}
 		}
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		existingAllocators[cidrStr] = struct{}{}
+		existingAllocators[cidr] = struct{}{}
 	}
 
 	// Create and add new IP allocators to newIPAllocators.
@@ -313,8 +280,7 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 		rangeOpts = append(rangeOpts, ipallocator.WithAllowFirstLastIPs())
 	}
 	for _, prefix := range prefixes {
-		cidrStr := prefix.String()
-		if _, ok := existingAllocators[cidrStr]; ok {
+		if _, ok := existingAllocators[prefix]; ok {
 			continue
 		}
 		ipAllocator := ipallocator.NewCIDRRange(prefix, rangeOpts...)
@@ -323,15 +289,15 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 				"skipping too-small CIDR",
 				logfields.CIDR, prefix,
 			)
-			p.released[prefix.String()] = struct{}{}
+			p.released[prefix] = struct{}{}
 			continue
 		}
 		p.logger.Debug(
 			"created new CIDR allocator",
-			logfields.CIDR, cidrStr,
+			logfields.CIDR, prefix,
 		)
 		newIPAllocators = append(newIPAllocators, ipAllocator)
-		existingAllocators[cidrStr] = struct{}{} // Protect against duplicate CIDRs.
+		existingAllocators[prefix] = struct{}{} // Protect against duplicate CIDRs.
 	}
 
 	if len(p.ipAllocators) > 0 && len(newIPAllocators) == 0 {
@@ -341,30 +307,23 @@ func (p *cidrPool) updatePool(CIDRs []string) {
 	p.ipAllocators = newIPAllocators
 }
 
-func cidrFamily(cidr string) Family {
-	if strings.Contains(cidr, ":") {
+func prefixFamily(prefix netip.Prefix) Family {
+	if prefix.Addr().Is6() {
 		return IPv6
 	}
 	return IPv4
 }
 
-// containsCIDR checks if the outer IPNet contains the inner IPNet
-func containsCIDR(outer, inner *net.IPNet) bool {
-	outerMask, _ := outer.Mask.Size()
-	innerMask, _ := inner.Mask.Size()
-	return outerMask <= innerMask && outer.Contains(inner.IP)
+// containsPrefix checks if the outer prefix fully contains the inner prefix.
+func containsPrefix(outer, inner netip.Prefix) bool {
+	return outer.Bits() <= inner.Bits() && outer.Contains(inner.Addr())
 }
 
-// cleanupUnreachableRoutes remove all unreachable routes for the given CIDR.
+// cleanupUnreachableRoutes removes all unreachable routes for the given prefix.
 // This is only needed if EnableUnreachableRoutes has been set.
-func cleanupUnreachableRoutes(cidr string) error {
-	_, removedCIDR, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return err
-	}
-
+func cleanupUnreachableRoutes(prefix netip.Prefix) error {
 	var family int
-	switch cidrFamily(cidr) {
+	switch prefixFamily(prefix) {
 	case IPv4:
 		family = netlink.FAMILY_V4
 	case IPv6:
@@ -383,7 +342,14 @@ func cleanupUnreachableRoutes(cidr string) error {
 
 	var errs error
 	for _, route := range routes {
-		if !containsCIDR(removedCIDR, route.Dst) {
+		if route.Dst == nil {
+			continue
+		}
+		routePrefix, ok := netipx.FromStdIPNet(route.Dst)
+		if !ok {
+			continue
+		}
+		if !containsPrefix(prefix, routePrefix) {
 			continue
 		}
 

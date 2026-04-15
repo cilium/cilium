@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 	"slices"
 	"sort"
 	"strconv"
@@ -608,22 +609,30 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, cidrs []types.IPAMCID
 		}
 	}
 
-	var ipv4CIDRs, ipv6CIDRs []string
+	var ipv4Prefixes, ipv6Prefixes []netip.Prefix
 	for _, ipamCIDR := range cidrs {
-		cidr := string(ipamCIDR)
-		switch cidrFamily(cidr) {
-		case IPv4:
-			ipv4CIDRs = append(ipv4CIDRs, cidr)
-		case IPv6:
-			ipv6CIDRs = append(ipv6CIDRs, cidr)
+		prefix, err := netip.ParsePrefix(string(ipamCIDR))
+		if err != nil {
+			m.logger.Error(
+				"ignoring invalid CIDR",
+				logfields.Error, err,
+				logfields.CIDR, ipamCIDR,
+			)
+			continue
+		}
+		prefix = prefix.Masked()
+		if prefix.Addr().Is6() {
+			ipv6Prefixes = append(ipv6Prefixes, prefix)
+		} else {
+			ipv4Prefixes = append(ipv4Prefixes, prefix)
 		}
 	}
 
 	if pool.v4 != nil {
-		pool.v4.updatePool(ipv4CIDRs)
+		pool.v4.updatePool(ipv4Prefixes)
 	}
 	if pool.v6 != nil {
-		pool.v6.updatePool(ipv6CIDRs)
+		pool.v6.updatePool(ipv6Prefixes)
 	}
 
 	m.pools[poolName] = pool
@@ -709,14 +718,14 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 		return nil, err
 	}
 
-	ip, err := pool.allocateNext()
+	addr, err := pool.allocateNext()
 	if err != nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, err
 	}
 
 	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
-	return &AllocationResult{IP: ip, IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
+	return &AllocationResult{IP: addr.AsSlice(), IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
 }
 
 func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
@@ -735,7 +744,11 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family, ip: ip}
 	}
 
-	err := pool.allocate(ip)
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP address: %v", ip)
+	}
+	err := pool.allocate(addr.Unmap())
 	if err != nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, err
@@ -754,7 +767,10 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 		return fmt.Errorf("unable to release IP %s of unknown pool %q (family %s)", ip, poolName, family)
 	}
 
-	pool.release(ip)
+	addr, ok := netip.AddrFromSlice(ip)
+	if ok {
+		pool.release(addr.Unmap())
+	}
 	if upstreamSync {
 		m.k8sUpdater.Trigger()
 	}
