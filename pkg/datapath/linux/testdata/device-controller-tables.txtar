@@ -68,7 +68,91 @@ db/cmp devices --grep dummy devices_empty.table
 db/cmp routes routes_empty.table
 db/cmp neighbors neighbors_empty.table
 
+# Add dummy2.
+exec ip link add dummy2 type dummy
+exec ip link set dummy2 addrgenmode none
+exec ip link set dummy2 up
+exec ip addr add 192.168.2.12/24 dev dummy2
+exec ip route add 192.168.2.254/32 dev dummy2
+exec ip route add default via 192.168.2.254 dev dummy2
+
+# Verify dummy2 appears without altnames.
+db/cmp --grep='^dummy2' devices devices_dummy2_no_altname.table
+
+# Verify lookup by primary name works.
+db/get devices --index=name --columns=Name,Selected dummy2
+stdout 'dummy2\s+true'
+
+# Add an alternative name to dummy2.
+exec ip link property add dev dummy2 altname mynet
+
+# Verify the altname appears in the devices table Name column.
+db/cmp --grep='^dummy2' devices devices_dummy2_with_altname.table
+
+# Verify lookup by the alternative name returns the device.
+db/get devices --index=name --columns=Name,Selected mynet
+stdout 'dummy2 \(mynet\).*true'
+
+# Add a second alternative name.
+exec ip link property add dev dummy2 altname longinterfacename
+
+# Verify both altnames appear in the devices table.
+db/cmp --grep='^dummy2' devices devices_dummy2_with_two_altnames.table
+
+# Verify lookup by the second alternative name also returns the device.
+db/get devices --index=name --columns=Name,Selected longinterfacename
+stdout 'dummy2 \(mynet, longinterfacename\).*true'
+
+# Remove the first alternative name.
+exec ip link property del dev dummy2 altname mynet
+
+# Verify only the second altname remains.
+db/cmp --grep='^dummy2' devices devices_dummy2_with_one_altname.table
+
+# Verify the primary name lookup still returns the device.
+db/get devices --index=name --columns=Name,Selected dummy2
+stdout 'dummy2 \(longinterfacename\).*true'
+
+# Remove the second alternative name.
+exec ip link property del dev dummy2 altname longinterfacename
+
+# Verify no altname remains.
+db/cmp --grep='^dummy2' devices devices_dummy2_no_altname.table
+
+# Verify the primary name lookup still returns the device.
+db/get devices --index=name --columns=Name,Selected dummy2
+stdout 'dummy2\s+true'
+
+# Delete dummy2
+exec ip link del dummy2
+
+# Add dummy3 with altnames without creating an actual interface.
+db/insert devices device-dummy3.yaml
+
+# Verify lookup by primary name works.
+db/get devices --index=name --columns=Name dummy3
+stdout 'dummy3 \(altdummy, anotherlonginterfacename\)'
+
+# Verify lookup by the alternative name returns the device.
+db/get devices --index=name --columns=Name altdummy
+stdout 'dummy3 \(altdummy, anotherlonginterfacename\)'
+
+# Verify both altnames appear in the devices table.
+db/cmp --grep='^dummy3' devices devices_dummy3_altnames.table
+
+db/delete devices device-dummy3.yaml
+
 # ---------------------------------------------
+-- device-dummy3.yaml --
+index: 33
+name: dummy3
+altnames:
+  - altdummy
+  - anotherlonginterfacename
+addrs:
+  - addr: 192.168.3.13
+type: dummy
+operstatus: up
 
 -- devices_empty.table --
 Name   Selected   Type     Addresses     OperStatus
@@ -89,6 +173,25 @@ dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
 -- devices_dummy1.table --
 Name     Selected   Type    Addresses                  OperStatus
 dummy1   true       dummy   192.168.1.1, 192.168.1.2   unknown
+-- devices_dummy2_no_altname.table --
+Name     Selected   Type    Addresses                  OperStatus
+dummy2   true       dummy   192.168.2.12               unknown
+
+-- devices_dummy2_with_altname.table --
+Name              Selected   Type   Addresses          OperStatus
+dummy2 (mynet)    true       dummy  192.168.2.12       unknown
+
+-- devices_dummy2_with_two_altnames.table --
+Name                                  Selected   Type   Addresses     OperStatus
+dummy2 (mynet, longinterfacename)     true       dummy  192.168.2.12  unknown
+
+-- devices_dummy2_with_one_altname.table --
+Name                                  Selected   Type   Addresses     OperStatus
+dummy2 (longinterfacename)            true       dummy  192.168.2.12  unknown
+
+-- devices_dummy3_altnames.table --
+Name                                         Selected   Type   Addresses     OperStatus
+dummy3 (altdummy, anotherlonginterfacename)  false      dummy  192.168.3.13  up
 -- devices_placeholder --
 
 

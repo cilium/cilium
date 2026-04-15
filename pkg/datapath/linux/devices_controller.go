@@ -419,6 +419,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 	d.Index = a.Index
 	d.MTU = a.MTU
 	d.Name = a.Name
+	d.AltNames = slices.Clone(a.AltNames)
 	d.HardwareAddr = tables.HardwareAddr(a.HardwareAddr)
 	d.Flags = a.Flags
 	d.RawFlags = a.RawFlags
@@ -624,6 +625,15 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 	// If the device does not match and user requested auto detection, then continue to further checks.
 	if dc.filter.NonEmpty() {
 		matched, reverse := dc.filter.Match(d.Name)
+		if !matched {
+			// Also try to match against alternative names.
+			for _, altName := range d.AltNames {
+				matched, reverse = dc.filter.Match(altName)
+				if matched {
+					break
+				}
+			}
+		}
 		if matched {
 			return !reverse, ""
 		}
