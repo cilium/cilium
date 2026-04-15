@@ -11,11 +11,11 @@ import (
 )
 
 type Metrics interface {
-	ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration)
-	ReconciliationErrors(moduleID cell.FullModuleID, new, current int)
+	ReconciliationDuration(moduleID cell.FullModuleID, name, operation string, duration time.Duration)
+	ReconciliationErrors(moduleID cell.FullModuleID, name string, new, current int)
 
-	PruneError(moduleID cell.FullModuleID, err error)
-	PruneDuration(moduleID cell.FullModuleID, duration time.Duration)
+	PruneError(moduleID cell.FullModuleID, name string, err error)
+	PruneDuration(moduleID cell.FullModuleID, name string, duration time.Duration)
 }
 
 const (
@@ -37,32 +37,41 @@ type ExpVarMetrics struct {
 	PruneCurrentErrorsVar *expvar.Map
 }
 
-func (m *ExpVarMetrics) PruneDuration(moduleID cell.FullModuleID, duration time.Duration) {
-	m.PruneDurationVar.AddFloat(moduleID.String(), duration.Seconds())
+func metricKey(moduleID cell.FullModuleID, name string) string {
+	if name == "" {
+		return moduleID.String()
+	}
+	return moduleID.String() + "/" + name
 }
 
-func (m *ExpVarMetrics) PruneError(moduleID cell.FullModuleID, err error) {
-	m.PruneCountVar.Add(moduleID.String(), 1)
+func (m *ExpVarMetrics) PruneDuration(moduleID cell.FullModuleID, name string, duration time.Duration) {
+	m.PruneDurationVar.AddFloat(metricKey(moduleID, name), duration.Seconds())
+}
+
+func (m *ExpVarMetrics) PruneError(moduleID cell.FullModuleID, name string, err error) {
+	key := metricKey(moduleID, name)
+	m.PruneCountVar.Add(key, 1)
 
 	var intVar expvar.Int
 	if err != nil {
-		m.PruneTotalErrorsVar.Add(moduleID.String(), 1)
+		m.PruneTotalErrorsVar.Add(key, 1)
 		intVar.Set(1)
 	}
-	m.PruneCurrentErrorsVar.Set(moduleID.String(), &intVar)
+	m.PruneCurrentErrorsVar.Set(key, &intVar)
 }
 
-func (m *ExpVarMetrics) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	m.ReconciliationDurationVar.AddFloat(moduleID.String()+"/"+operation, duration.Seconds())
+func (m *ExpVarMetrics) ReconciliationDuration(moduleID cell.FullModuleID, name, operation string, duration time.Duration) {
+	m.ReconciliationDurationVar.AddFloat(metricKey(moduleID, name)+"/"+operation, duration.Seconds())
 }
 
-func (m *ExpVarMetrics) ReconciliationErrors(moduleID cell.FullModuleID, new, current int) {
-	m.ReconciliationCountVar.Add(moduleID.String(), 1)
-	m.ReconciliationTotalErrorsVar.Add(moduleID.String(), int64(new))
+func (m *ExpVarMetrics) ReconciliationErrors(moduleID cell.FullModuleID, name string, new, current int) {
+	key := metricKey(moduleID, name)
+	m.ReconciliationCountVar.Add(key, 1)
+	m.ReconciliationTotalErrorsVar.Add(key, int64(new))
 
 	var intVar expvar.Int
 	intVar.Set(int64(current))
-	m.ReconciliationCurrentErrorsVar.Set(moduleID.String(), &intVar)
+	m.ReconciliationCurrentErrorsVar.Set(key, &intVar)
 }
 
 var _ Metrics = &ExpVarMetrics{}

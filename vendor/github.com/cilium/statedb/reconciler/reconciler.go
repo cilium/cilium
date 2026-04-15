@@ -59,6 +59,7 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 
 	incremental := incremental[Obj]{
 		moduleID:       r.ModuleID,
+		name:           r.config.Name,
 		metrics:        r.config.Metrics,
 		config:         &r.config,
 		retries:        r.retries,
@@ -136,8 +137,8 @@ func (r *reconciler[Obj]) prune(ctx context.Context, txn statedb.ReadTxn) error 
 		r.Log.Warn("Reconciler: failed to prune objects", "error", err, "pruneInterval", r.config.PruneInterval)
 		err = fmt.Errorf("prune: %w", err)
 	}
-	r.config.Metrics.PruneDuration(r.ModuleID, time.Since(start))
-	r.config.Metrics.PruneError(r.ModuleID, err)
+	r.config.Metrics.PruneDuration(r.ModuleID, r.config.Name, time.Since(start))
+	r.config.Metrics.PruneError(r.ModuleID, r.config.Name, err)
 	return err
 }
 

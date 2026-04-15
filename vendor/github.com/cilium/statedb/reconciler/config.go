@@ -10,6 +10,7 @@ import (
 
 func defaultOptions() options {
 	return options{
+		Name:    "",
 		Metrics: nil, // use DefaultMetrics
 
 		// Refresh objects every 30 minutes at a rate of 100 per second.
@@ -31,6 +32,11 @@ func defaultOptions() options {
 }
 
 type options struct {
+	// Name identifies this reconciler instance within the hive module.
+	// This is passed to the configured metrics implementation and is useful
+	// when a single module registers multiple reconcilers.
+	Name string
+
 	// Metrics to use with this reconciler. The metrics capture the duration
 	// of operations during incremental and full reconcilation and the errors
 	// that occur during either.
