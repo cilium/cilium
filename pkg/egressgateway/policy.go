@@ -144,9 +144,12 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 	for _, policyGwc := range config.policyGwConfigs {
 		gwc := gatewayConfig{
-			egressIP4: netip.IPv4Unspecified(),
-			egressIP6: netip.IPv6Unspecified(),
-			gatewayIP: GatewayNotFoundIPv4,
+			egressIP4:  netip.IPv4Unspecified(),
+			egressIP6:  netip.IPv6Unspecified(),
+			gatewayIP:  GatewayNotFoundIPv4,
+			sipInspect: policyGwc.sipInspect,
+			sipPort:    policyGwc.sipPort,
+			svcPinning: policyGwc.svcPinning,
 		}
 
 		manager.logger.Info("Processing policy with egress IP", logfields.EgressIP, policyGwc.egressIP)
