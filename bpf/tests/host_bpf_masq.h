@@ -162,7 +162,7 @@ int host_bpf_masq_v6_1_udp_check(const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_OK);
 
 	/* Check whether BPF MASQ created a CT entry */
-	struct ipv6_ct_tuple tuple = {
+	struct ipv6_ct_tuple tuple __align_stack_8 = {
 		.dport   = SERVER_PORT,
 		.sport   = NODE_PORT,
 		.nexthdr = IPPROTO_UDP,
@@ -510,7 +510,7 @@ int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_OK);
 
 	/* Check whether BPF MASQ created a CT entry */
-	struct ipv6_ct_tuple tuple = {
+	struct ipv6_ct_tuple tuple __align_stack_8 = {
 		.dport   = 0,
 		.sport   = bpf_htons(NAT_MIN_EGRESS - 1),
 		.nexthdr = IPPROTO_ICMPV6,

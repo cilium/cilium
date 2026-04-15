@@ -2969,9 +2969,20 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	if (svc)
   {
-    if(svc->sip_inspect) {
-      // TODO: extract from metadata
+    if (svc->sip_inspect) {
       tuple.sip_call_id_hash = sip_inspect(ctx);
+
+#ifdef ENABLE_MASQUERADE_IPV4
+      if (tuple.sip_call_id_hash) {
+        struct ipv4_nat_entry *state = NULL;
+        tuple.flags = TUPLE_F_IN;
+
+        state = snat_v4_lookup(&tuple);
+        if (state != NULL) {
+          return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
+        }
+      }
+#endif
     }
 
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,

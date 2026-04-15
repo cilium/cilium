@@ -188,7 +188,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	struct tcphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
-	struct ipv4_ct_tuple tuple;
+	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry *entry;
 
 	test_init();

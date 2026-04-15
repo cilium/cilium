@@ -267,7 +267,7 @@ int egressgw_reply_setup_v6(struct __ctx_buff *ctx)
 				     &EGRESS_GATEWAY_NO_EGRESS_IP_V6, 0);
 
 	/* install RevSNAT entry */
-	struct ipv6_ct_tuple snat_tuple = {
+	struct ipv6_ct_tuple snat_tuple __align_stack_8 = {
 		.nexthdr = IPPROTO_TCP,
 		.dport   = MASQ_PORT,
 		.sport   = EXTERNAL_SVC_PORT,

@@ -615,7 +615,7 @@ int hairpin_flow_forward_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->check != bpf_htons(0x88f8))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_entry *ct_entry;
 
 	tuple.flags = TUPLE_F_SERVICE;
@@ -729,7 +729,7 @@ int hairpin_flow_forward_ingress_check_v6(__maybe_unused const struct __ctx_buff
 	if (l4->check != bpf_htons(0x88f8))
 		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_entry *ct_entry;
 
 	tuple.flags = TUPLE_F_IN;
