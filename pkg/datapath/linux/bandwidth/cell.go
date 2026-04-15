@@ -48,6 +48,7 @@ type registerParams struct {
 
 	Log              *slog.Logger
 	Table            statedb.RWTable[*tables.BandwidthQDisc]
+	Devices          statedb.Table[*tables.Device]
 	BWM              Manager
 	Config           types.Config
 	DeriveParams     statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc]
@@ -71,7 +72,7 @@ func registerReconciler(p registerParams) error {
 		(*tables.BandwidthQDisc).Clone,
 		(*tables.BandwidthQDisc).SetStatus,
 		(*tables.BandwidthQDisc).GetStatus,
-		newOps(p.Log, p.BWM),
+		newOps(p.Log, p.BWM, p.Devices),
 		nil,
 	)
 	return err

@@ -21,10 +21,11 @@ import (
 type ops struct {
 	log       *slog.Logger
 	isEnabled func() bool
+	devices   statedb.Table[*tables.Device]
 }
 
-func newOps(log *slog.Logger, mgr Manager) reconciler.Operations[*tables.BandwidthQDisc] {
-	return &ops{log, mgr.Enabled}
+func newOps(log *slog.Logger, mgr Manager, devices statedb.Table[*tables.Device]) reconciler.Operations[*tables.BandwidthQDisc] {
+	return &ops{log, mgr.Enabled, devices}
 }
 
 // Delete implements reconciler.Operations.
@@ -53,20 +54,17 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 	}
 
 	if link.Type() == "bond" {
-		return ops.updateBondDevice(link, q)
+		return ops.updateBondDevice(link, txn, q)
 	}
 
 	return ops.setupFQOnLink(link, q)
 }
 
-func (ops *ops) updateBondDevice(bond netlink.Link, q *tables.BandwidthQDisc) error {
-	slaves, err := ops.bondSlaves(bond)
-	if err != nil {
-		return err
-	}
+func (ops *ops) updateBondDevice(bond netlink.Link, txn statedb.ReadTxn, q *tables.BandwidthQDisc) error {
+	slaves := ops.bondSlaves(bond, txn)
 
 	if len(slaves) == 0 {
-		return ops.setupFQOnLink(bond, q)
+		return nil
 	}
 
 	if err := ops.ensureNoqueue(bond); err != nil {
@@ -74,25 +72,25 @@ func (ops *ops) updateBondDevice(bond netlink.Link, q *tables.BandwidthQDisc) er
 	}
 
 	for _, slave := range slaves {
-		if err := ops.setupFQOnLink(slave, q); err != nil {
-			return fmt.Errorf("bond slave %s: %w", slave.Attrs().Name, err)
+		slaveLink, err := netlink.LinkByIndex(slave.Index)
+		if err != nil {
+			return fmt.Errorf("bond slave %s: LinkByIndex: %w", slave.Name, err)
+		}
+		if err := ops.setupFQOnLink(slaveLink, q); err != nil {
+			return fmt.Errorf("bond slave %s: %w", slave.Name, err)
 		}
 	}
 	return nil
 }
 
-func (ops *ops) bondSlaves(bond netlink.Link) ([]netlink.Link, error) {
-	allLinks, err := safenetlink.LinkList()
-	if err != nil {
-		return nil, fmt.Errorf("LinkList: %w", err)
-	}
-	var slaves []netlink.Link
-	for _, link := range allLinks {
-		if link.Attrs().MasterIndex == bond.Attrs().Index {
-			slaves = append(slaves, link)
+func (ops *ops) bondSlaves(bond netlink.Link, txn statedb.ReadTxn) []*tables.Device {
+	var slaves []*tables.Device
+	for dev := range ops.devices.All(txn) {
+		if dev.MasterIndex == bond.Attrs().Index {
+			slaves = append(slaves, dev)
 		}
 	}
-	return slaves, nil
+	return slaves
 }
 
 func (ops *ops) ensureNoqueue(link netlink.Link) error {
