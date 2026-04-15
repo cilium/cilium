@@ -25,6 +25,12 @@ func rebalanceServices(
 	localNodeIp netip.Addr,
 ) (pinningMap, error) {
 	newPinningMap := pinningMap{}
+	nodesCount := uint32(len(nodes))
+
+	if nodesCount == 0 {
+		return newPinningMap, nil
+	}
+
 	rebalanceServices := []netip.Addr{}
 
 	for _, svcip := range services {
@@ -49,8 +55,6 @@ func rebalanceServices(
 			rebalanceServices = append(rebalanceServices, svcip)
 		}
 	}
-
-	nodesCount := uint32(len(nodes))
 
 	slices.SortFunc(nodes, func(a, b netip.Addr) int {
 		return a.Compare(b)

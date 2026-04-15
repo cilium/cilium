@@ -851,6 +851,9 @@ const (
 	// UDP port which is used for egress SIP SNAT
 	SipPort = "sipPort"
 
+	// Service pinning (to node)
+	SvcPinning = "svcPinning"
+
 	// Number of Backends failed while restoration.
 	RestoredBackends = "restoredBackends"
 
