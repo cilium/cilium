@@ -477,7 +477,8 @@ func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 
 func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	m.mutex.Lock()
-	newNode := m.node.DeepCopy()
+	currentNode := m.node.DeepCopy()
+	newNode := currentNode.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
 
@@ -546,7 +547,7 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 
 	m.mutex.Unlock()
 
-	if !newNode.Spec.IPAM.DeepEqual(&m.node.Spec.IPAM) {
+	if !newNode.Spec.IPAM.DeepEqual(&currentNode.Spec.IPAM) {
 		_, err := m.nodeUpdater.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)
