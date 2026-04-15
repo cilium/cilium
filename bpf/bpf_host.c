@@ -1092,6 +1092,54 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			goto drop_err_ingress;
 		}
 
+		/* If we have IPIP termination enabled and the outer header
+		 * is a Pod IP, then simply punting to the cilium_ipip netdev
+		 * does not work as routing happens before and given non-local
+		 * IP, kernel will attempt to forward the IPIP into the Pod
+		 * rather than to decap it. This is not an issue when the outer
+		 * dst IP is a host IP.
+		 */
+		if (CONFIG(enable_ipip_termination) && !from_host &&
+		    ip4->protocol == IPPROTO_IPIP &&
+		    ipv4_hdrlen(ip4) == sizeof(*ip4)) {
+			const struct endpoint_info *ep_outer;
+
+			ep_outer = lookup_ip4_endpoint(ip4);
+			if (ep_outer &&
+			    !(ep_outer->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
+				__be32 outer_dst = ip4->daddr;
+
+				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
+						     BPF_ADJ_ROOM_MAC,
+						     ctx_adjust_hroom_flags())) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				/* Stash the LB-picked backend (the just-stripped
+				 * outer dst) so that nodeport_lb4 can DNAT to
+				 * that specific backend instead of running a
+				 * fresh backend selection on the inner 5-tuple.
+				 */
+				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
+				/* If NodePort XDP acceleration ran upstream, it
+				 * couldn't classify the IPIP packet (no L4 to
+				 * extract a service tuple from) and signalled
+				 * XFER_PKT_NO_SVC. cil_from_netdev translated
+				 * that into a skip-nodeport hint via tc_index.
+				 * That hint was correct for the OUTER header but
+				 * is stale now: the inner is exactly the service
+				 * request that needs the forced-backend DNAT in
+				 * nodeport_svc_lb4(). Clear it so handle_ipv4()
+				 * runs nodeport_lb4().
+				 */
+				ctx_skip_nodeport_clear(ctx);
+			}
+		}
+
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 

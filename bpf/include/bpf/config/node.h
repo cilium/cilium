@@ -41,6 +41,9 @@ NODE_CONFIG(bool, supports_fib_lookup_src,
 NODE_CONFIG(bool, enable_nodeport_source_lookup,
 	    "Enable dynamic source IP resolution for SNAT via linux's routing table.")
 
+NODE_CONFIG(bool, enable_ipip_termination,
+	    "Terminate inbound IPIP/IP6IP6 in BPF on netdev ingress for local endpoint outer dst")
+
 NODE_CONFIG(__u8, tracing_ip_option_type, "The IP option type to use for packet tracing")
 
 NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")
