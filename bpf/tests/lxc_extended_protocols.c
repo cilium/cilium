@@ -245,7 +245,7 @@ int lxc_igmp_egress_policy_deny_setup(struct __ctx_buff *ctx)
 			      0, (__u8 *)client_mac, (__u8 *)client_mac);
 	ipcache_v4_add_entry(CLIENT_IP, 0, LXC_ID, 0, 0);
 	ipcache_v4_add_world_entry();
-	policy_add_entry(true, 0, IPPROTO_IGMP, 0, 0, true);
+	policy_add_entry(true, 0, IPPROTO_IGMP, 0, 0, true, 0);
 
 	/* Set identity mark for the source pod */
 	set_identity_mark(ctx, LXC_ID, MARK_MAGIC_IDENTITY);
