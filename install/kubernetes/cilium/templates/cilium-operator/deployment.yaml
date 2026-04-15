@@ -189,7 +189,9 @@ spec:
         ports:
         - name: health
           containerPort: 9234
+        {{- if .Values.operator.hostNetwork }}
           hostPort: 9234
+        {{- end }}
         {{- if .Values.operator.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.operator.prometheus.port }}
