@@ -65,16 +65,11 @@ func Register(params checkerParams) {
 func (c checker) watchTableChanges(ctx context.Context) error {
 	// Wait for all config source reflectors to complete their initial
 	// listing before computing deltas.
-	for {
-		initialized, initWatch := c.dct.Initialized(c.db.ReadTxn())
-		if initialized {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-initWatch:
-		}
+	_, initWatch := c.dct.Initialized(c.db.ReadTxn())
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-initWatch:
 	}
 
 	for {
