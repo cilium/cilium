@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,17 +29,12 @@ var (
 // netlinkLinkByIndex is a variable that can be mocked in tests
 var netlinkLinkByIndex = netlink.LinkByIndex
 
-// netlinkLinkAdd, netlinkLinkSetUp and netlinkLinkDel are variables that can be mocked in tests.
-var (
-	netlinkLinkAdd   func(link netlink.Link) error = netlink.LinkAdd
-	netlinkLinkSetUp func(link netlink.Link) error = netlink.LinkSetUp
-	netlinkLinkDel   func(link netlink.Link) error = netlink.LinkDel
-)
-
 type MacvlanManager struct {
 	logger            *slog.Logger
 	config            *v2alpha1.MacvlanDeviceManagerConfig
 	netlinkLinkLister func() ([]netlink.Link, error)
+	netlinkLinkAdd    func(link netlink.Link) error
+	netlinkLinkDel    func(link netlink.Link) error
 }
 
 func (m *MacvlanManager) init() error {
@@ -56,6 +50,8 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.MacvlanDeviceManagerConfig, o
 		logger:            logger,
 		config:            cfg,
 		netlinkLinkLister: safenetlink.LinkList,
+		netlinkLinkAdd:    netlink.LinkAdd,
+		netlinkLinkDel:    netlink.LinkDel,
 	}
 
 	for _, opt := range opts {
@@ -80,11 +76,6 @@ func (mgr *MacvlanManager) ListDevices() ([]types.Device, error) {
 
 	for _, link := range links {
 		if link.Type() != "macvlan" {
-			continue
-		}
-
-		// Skip down interfaces
-		if link.Attrs().Flags&net.FlagUp == 0 {
 			continue
 		}
 
@@ -221,7 +212,7 @@ func (mgr *MacvlanManager) setupMacvlans(ifaces []v2alpha1.MacvlanDeviceConfig) 
 
 	cleanup := func() {
 		for _, mv := range created {
-			if err := netlinkLinkDel(mv); err != nil {
+			if err := mgr.netlinkLinkDel(mv); err != nil {
 				mgr.logger.Warn(
 					"failed to delete macvlan sub-interface during cleanup",
 					logfields.Interface, mv.Attrs().Name,
@@ -287,7 +278,7 @@ func (mgr *MacvlanManager) setupMacvlans(ifaces []v2alpha1.MacvlanDeviceConfig) 
 				Mode: mode,
 			}
 
-			if err := netlinkLinkAdd(macvlan); err != nil {
+			if err := mgr.netlinkLinkAdd(macvlan); err != nil {
 				errs = errors.Join(errs, fmt.Errorf(
 					"failed to create macvlan sub-interface %s: %w",
 					subIfName, err,
@@ -298,15 +289,6 @@ func (mgr *MacvlanManager) setupMacvlans(ifaces []v2alpha1.MacvlanDeviceConfig) 
 
 			// Track the newly created interface for potential cleanup.
 			created = append(created, macvlan)
-
-			if err := netlinkLinkSetUp(macvlan); err != nil {
-				errs = errors.Join(errs, fmt.Errorf(
-					"failed to bring up macvlan sub-interface %s: %w",
-					subIfName, err,
-				))
-
-				continue
-			}
 
 			mgr.logger.Info(
 				"created macvlan sub-interface",
