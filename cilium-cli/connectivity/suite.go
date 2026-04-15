@@ -44,18 +44,6 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 	}
 	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile, connTests[0].CodeOwners)
 
-	var finalize []func(context.Context)
-	for i := range suiteBuilders {
-		if connTests[i].NeedsStaticRoutes() {
-			connTests[i].SetupStaticRoutes(ctx)
-			finalize = append(finalize, func(ctx context.Context) {
-				if err := connTests[i].TeardownStaticRoutes(ctx); err != nil {
-				}
-			})
-			break
-		}
-	}
-
 	for i := range suiteBuilders {
 		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
 			return e
@@ -79,10 +67,11 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 			}
 			connTests[j].Cleanup()
 		}
-	}
-
-	for _, f := range finalize {
-		f(ctx)
+		for j := range connTests {
+			if e := connTests[j].TeardownStaticRoutes(ctx); e != nil {
+				err = errors.Join(err, e)
+			}
+		}
 	}
 
 	if err := junitCollector.Write(); err != nil {
