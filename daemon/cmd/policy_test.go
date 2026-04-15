@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -16,8 +17,14 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -25,8 +32,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -170,9 +179,88 @@ var (
 // getXDSNetworkPolicies returns the representation of the xDS network policies
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []string) map[string]*cilium.NetworkPolicy {
-	networkPolicies, err := ds.envoyXdsServer.GetNetworkPolicies(resourceNames)
-	require.NoError(t, err)
-	return networkPolicies
+	socketPath := filepath.Join(envoy.GetSocketDir(option.Config.RunDir), "xds.sock")
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	var lastErr error
+	for ctx.Err() == nil {
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, time.Second)
+		networkPolicies, err := func() (map[string]*cilium.NetworkPolicy, error) {
+			conn, err := grpc.DialContext(attemptCtx, "passthrough:///xds",
+				grpc.WithBlock(),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+					var d net.Dialer
+					return d.DialContext(ctx, "unix", socketPath)
+				}))
+			if err != nil {
+				return nil, err
+			}
+			defer conn.Close()
+
+			stream, err := cilium.NewNetworkPolicyDiscoveryServiceClient(conn).StreamNetworkPolicies(attemptCtx)
+			if err != nil {
+				return nil, err
+			}
+			defer stream.CloseSend()
+
+			err = stream.Send(&envoy_service_discovery.DiscoveryRequest{
+				TypeUrl:       envoy.NetworkPolicyTypeURL,
+				ResourceNames: resourceNames,
+				Node: &envoy_config_core.Node{
+					Id: "host~127.0.0.1~no-id~localdomain",
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				return nil, err
+			}
+
+			networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resp.Resources))
+			for _, anyResource := range resp.Resources {
+				networkPolicy := &cilium.NetworkPolicy{}
+				err = anypb.UnmarshalTo(anyResource, networkPolicy, proto.UnmarshalOptions{})
+				if err != nil {
+					return nil, err
+				}
+				for _, ip := range networkPolicy.EndpointIps {
+					networkPolicies[ip] = networkPolicy
+				}
+			}
+			return networkPolicies, nil
+		}()
+		attemptCancel()
+		if err == nil {
+			return networkPolicies
+		}
+		lastErr = err
+
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+		case <-timer.C:
+		}
+	}
+
+	require.NoError(t, lastErr)
+	return nil
+}
+
+func logNetworkPolicy(t *testing.T, title string, policy *cilium.NetworkPolicy) {
+	t.Helper()
+
+	if policy == nil {
+		t.Logf("%s: <nil>", title)
+		return
+	}
+
+	t.Logf("%s:\n%s", title, prototext.Format(policy))
 }
 
 func prepareEndpointDirs() (cleanup func(), err error) {
@@ -857,6 +945,10 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
 		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 2
 	}, time.Second*1)
+	if err != nil {
+		networkPolicies = ds.getXDSNetworkPolicies(t, nil)
+		logNetworkPolicy(t, "Timed out waiting for incremental projected NPDS policy", networkPolicies[QAIPv4Addr.String()])
+	}
 	require.NoError(t, err)
 	require.EqualExportedValues(t, &cilium.NetworkPolicy{
 		EndpointIps: []string{QAIPv6Addr.String(), QAIPv4Addr.String()},

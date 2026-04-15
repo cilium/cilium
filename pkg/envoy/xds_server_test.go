@@ -2221,3 +2221,18 @@ func testXdsServer(t *testing.T) *xdsServer {
 		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
 	}
 }
+
+func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
+	resources, err := s.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, "", resourceNames)
+	if err != nil {
+		return nil, err
+	}
+	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.Resources))
+	for _, res := range resources.Resources {
+		networkPolicy := res.(*cilium.NetworkPolicy)
+		for _, ip := range networkPolicy.EndpointIps {
+			networkPolicies[ip] = networkPolicy
+		}
+	}
+	return networkPolicies, nil
+}

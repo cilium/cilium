@@ -254,6 +254,9 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	mockCmd := &cobra.Command{}
 	ds.hive.RegisterFlags(mockCmd.Flags())
 	InitGlobalFlags(ds.log, mockCmd, ds.hive.Viper())
+	if err := mockCmd.Flags().Set("envoy-policy-restore-timeout", "100ms"); err != nil {
+		panic("setting envoy-policy-restore-timeout failed")
+	}
 	option.Config.Populate(ds.log, ds.hive.Viper())
 	option.Config.PopulateEnableCiliumNodeCRD(ds.log, ds.hive.Viper())
 	if option.Config.Debug {
