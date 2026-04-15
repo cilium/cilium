@@ -2144,7 +2144,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
 				     const struct lb4_backend **selected_backend,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     const struct lb4_backend *forced_backend)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -2156,6 +2157,23 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	};
 
 	state->rev_nat_index = svc->rev_nat_index;
+
+	if (forced_backend) {
+		ret = ct_lazy_lookup4(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
+				      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
+		if (ret < 0)
+			goto drop_err;
+		if (ret == CT_NEW) {
+			ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE,
+					 state, ext_err);
+			if (IS_ERR(ret))
+				goto drop_err;
+		}
+
+		tuple->flags = flags;
+		*selected_backend = forced_backend;
+		return CTX_ACT_OK;
+	}
 
 	ret = ct_lazy_lookup4(map, tuple, ctx, fraginfo, l4_off, CT_SERVICE,
 			      SCOPE_REVERSE, CT_ENTRY_SVC, state, &monitor);
