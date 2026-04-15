@@ -312,13 +312,14 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
 	require.False(t, eQABar.Allows(prodBarSecLblsCtx.ID))
 	require.True(t, eQABar.Allows(qaFooSecLblsCtx.ID))
-	require.False(t, eQABar.Allows(prodFooSecLblsCtx.ID))
+	require.True(t, eQABar.Allows(prodFooSecLblsCtx.ID))
+	require.True(t, eQABar.Allows(prodFooJoeSecLblsCtx.ID))
 
 	eProdBar := ds.prepareEndpoint(t, prodBarSecLblsCtx, false)
 	require.False(t, eProdBar.Allows(0))
 	require.False(t, eProdBar.Allows(qaBarSecLblsCtx.ID))
 	require.False(t, eProdBar.Allows(prodBarSecLblsCtx.ID))
-	require.False(t, eProdBar.Allows(qaFooSecLblsCtx.ID))
+	require.True(t, eProdBar.Allows(qaFooSecLblsCtx.ID))
 	require.True(t, eProdBar.Allows(prodFooSecLblsCtx.ID))
 	require.True(t, eProdBar.Allows(prodFooJoeSecLblsCtx.ID))
 
@@ -331,10 +332,8 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	require.NotNil(t, qaBarNetworkPolicy)
 	expectedRemotePolicies := []uint32{
 		uint32(qaFooSecLblsCtx.ID),
-		// The prodFoo* identities are allowed by FromEndpoints but rejected by
-		// FromRequires, so they are not included in the remote policies:
-		// uint32(prodFooSecLblsCtx.ID),
-		// uint32(prodFooJoeSecLblsCtx.ID),
+		uint32(prodFooSecLblsCtx.ID),
+		uint32(prodFooJoeSecLblsCtx.ID),
 	}
 	slices.Sort(expectedRemotePolicies)
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
@@ -347,6 +346,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
+						Precedence:     4294967041,
 					},
 				},
 			},
@@ -357,6 +357,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 					{
 						RemotePolicies: expectedRemotePolicies,
 						L7:             &PNPAllowGETbar,
+						Precedence:     4294967194,
 					},
 				},
 			},
@@ -371,9 +372,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	require.NotNil(t, prodBarNetworkPolicy)
 	expectedRemotePolicies = []uint32{
-		// The qaFoo identity is allowed by FromEndpoints but rejected by
-		// FromRequires, so it is not included in the remote policies:
-		// uint64(qaFooSecLblsCtx.ID),
+		uint32(qaFooSecLblsCtx.ID),
 		uint32(prodFooSecLblsCtx.ID),
 		uint32(prodFooJoeSecLblsCtx.ID),
 	}
@@ -389,6 +388,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
+						Precedence:     4294967041,
 					},
 				},
 			},
@@ -399,6 +399,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 					{
 						RemotePolicies: expectedRemotePolicies,
 						L7:             &PNPAllowGETbar,
+						Precedence:     4294967194,
 					},
 				},
 			},
@@ -482,10 +483,13 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 				Port:     80,
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
-					{},
 					{
 						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
 						L7:             &PNPAllowGETbarLog,
+						Precedence:     4294967194,
+					},
+					{
+						Precedence: 4294967041,
 					},
 				},
 			},
@@ -571,7 +575,16 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 			{
 				Port:     80,
 				Protocol: envoy_config_core.SocketAddress_TCP,
-				Rules:    nil,
+				Rules: []*cilium.PortNetworkPolicyRule{
+					{
+						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
+						L7:             &PNPAllowGETbar,
+						Precedence:     4294967194,
+					},
+					{
+						Precedence: 4294967041,
+					},
+				},
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
@@ -666,6 +679,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint32{uint32(qaJoeSecLblsCtx.ID)},
+						Precedence:     4294967041,
 					},
 				},
 			},
@@ -676,6 +690,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 					{
 						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
 						L7:             &PNPAllowGETbar,
+						Precedence:     4294967194,
 					},
 				},
 			},
@@ -749,6 +764,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 	require.NotNil(t, qaBarNetworkPolicy)
 
 	// Delete the endpoint.
+	e.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, true) // prevent panic during e.Delete
 	e.Delete(endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
@@ -852,6 +868,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint32{uint32(qaFooID.ID)},
+						Precedence:     4294967041,
 					},
 				},
 			},
@@ -862,6 +879,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 					{
 						RemotePolicies: []uint32{uint32(qaFooID.ID)},
 						L7:             &PNPAllowGETbar,
+						Precedence:     4294967194,
 					},
 				},
 			},
@@ -872,6 +890,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	}, qaBarNetworkPolicy)
 
 	// Delete the endpoint.
+	eQABar.SetPropertyValue(endpointtypes.PropertyFakeEndpoint, true) // prevent panic during e.Delete
 	eQABar.Delete(endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
