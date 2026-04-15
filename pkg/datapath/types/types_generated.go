@@ -207,7 +207,7 @@ type EndpointInfo struct {
 	Unused        uint16
 	LXCID         uint16
 	Flags         uint32
-	_             [4]byte
+	RtInfo        uint32
 	MAC           uint64
 	NodeMAC       uint64
 	SecID         uint32

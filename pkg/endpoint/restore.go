@@ -462,6 +462,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		Properties:               e.properties,
 		NetnsCookie:              e.NetNsCookie,
 		FIBTableID:               e.fibTableID,
+		RTInfo:                   e.rtInfo,
 	}
 }
 
@@ -591,6 +592,10 @@ type serializableEndpoint struct {
 
 	// FIBTableID is the FIB routing table ID for egress lookups.
 	FIBTableID uint32
+
+	// RTInfo is a routing domain identifier, typically a FIB table ID, used
+	// for pod egress routing.
+	RTInfo uint32
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -655,4 +660,5 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	}
 	ep.NetNsCookie = r.NetnsCookie
 	ep.fibTableID = r.FIBTableID
+	ep.rtInfo = r.RTInfo
 }

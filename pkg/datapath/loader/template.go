@@ -113,6 +113,10 @@ func (*templateCfg) GetFibTableID() uint32 {
 	return 0
 }
 
+func (*templateCfg) GetRTInfo() uint32 {
+	return 0
+}
+
 func (*templateCfg) GetPropertyValue(key string) any {
 	return nil
 }

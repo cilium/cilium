@@ -465,6 +465,7 @@ type Endpoint struct {
 
 	noTrackPort uint16
 	fibTableID  uint32
+	rtInfo      uint32
 
 	// mutable! must hold the endpoint lock to read
 	ciliumEndpointUID k8sTypes.UID
@@ -2841,6 +2842,18 @@ func (e *Endpoint) SetFibTableID(id uint32) {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()
 	e.fibTableID = id
+}
+
+func (e *Endpoint) SetRTInfo(info uint32) {
+	e.mutex.RWMutex.Lock()
+	defer e.mutex.RWMutex.Unlock()
+	e.rtInfo = info
+}
+
+func (e *Endpoint) GetRTInfo() uint32 {
+	e.mutex.RWMutex.RLock()
+	defer e.mutex.RWMutex.RUnlock()
+	return e.rtInfo
 }
 
 // GetPropertyValue returns the endpoint property value for this key.

@@ -38,6 +38,7 @@ struct endpoint_info {
 	__u16		unused; /* used to be sec_label, no longer used */
 	__u16		lxc_id;
 	__u32		flags;
+	__u32		rt_info;
 	mac_t		mac;
 	mac_t		node_mac;
 	__u32		sec_id;
