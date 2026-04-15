@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
-	cilium "github.com/cilium/proxy/go/cilium/api"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
@@ -179,10 +178,6 @@ func (*fakeXdsServer) AddAdminListener(port uint16, wg *completion.WaitGroup) {
 }
 
 func (*fakeXdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
-	panic("unimplemented")
-}
-
-func (*fakeXdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
 	panic("unimplemented")
 }
 
