@@ -1093,6 +1093,51 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			goto drop_err_ingress;
 		}
 
+#ifdef ENABLE_IPIP_TERMINATION
+		/* If we have IPIP termination enabled and the outer header
+		 * is a Pod IP, then simply punting to the cilium_ipip netdev
+		 * does not work as routing happens before and given non-local
+		 * IP, kernel will attempt to forward the IPIP into the Pod
+		 * rather than to decap it. This is not an issue when the outer
+		 * dst IP is a host IP.
+		 */
+		if (!from_host && ip4->protocol == IPPROTO_IPIP) {
+			const struct endpoint_info *ep_outer;
+
+			ep_outer = lookup_ip4_endpoint(ip4);
+			if (ep_outer &&
+			    !(ep_outer->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
+				__be32 outer_dst = ip4->daddr;
+
+				/* Strip the OUTER IPv4 header. We need to remove
+				 * bytes at the L2/L3 boundary (i.e., consume the
+				 * outer L3 header so the inner becomes the new L3),
+				 * which is BPF_ADJ_ROOM_MAC mode. BPF_ADJ_ROOM_NET
+				 * shrink would instead drop bytes between the
+				 * outer L3 and what the outer considers its L4
+				 * payload, i.e. the inner IPv4 header - the wrong
+				 * 20 bytes for IPIP decap.
+				 */
+				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
+						     BPF_ADJ_ROOM_MAC,
+						     ctx_adjust_hroom_flags())) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+					ret = DROP_INVALID;
+					goto drop_err_ingress;
+				}
+				/* Stash the LB-picked backend (the just-stripped
+				 * outer dst) so that nodeport_lb4 can DNAT to
+				 * that specific backend instead of running a
+				 * fresh backend selection on the inner 5-tuple.
+				 */
+				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
+			}
+		}
+#endif /* ENABLE_IPIP_TERMINATION */
+
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 

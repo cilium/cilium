@@ -542,6 +542,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 			}
 			cDefinesMap["ENCAP6_IFINDEX"] = fmt.Sprintf("%d", ipip6.Attrs().Index)
 		}
+		// Enable inbound IPIP decap on the netdev ingress path. Required so
+		// that DSR-IPIP traffic whose outer destination is a local pod IP is
+		// decapped in BPF before the kernel forwards the still-encapsulated
+		// packet to the pod's lxc. For HOST or unknown outer dsts we fall
+		// through to the kernel so the regular ipip_rcv -> cilium_ipip4 path
+		// keeps working (e.g. for plain IPIP termination into Envoy).
+		cDefinesMap["ENABLE_IPIP_TERMINATION"] = "1"
 	} else {
 		cDefinesMap["ENCAP4_IFINDEX"] = "0"
 		cDefinesMap["ENCAP6_IFINDEX"] = "0"
