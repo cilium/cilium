@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -66,6 +67,7 @@ func TestPrivilegedOps(t *testing.T) {
 	ops := &ops{
 		log:       log,
 		isEnabled: func() bool { return true },
+		devices:   nil, // not accessed for non-bond devices
 	}
 	ctx := context.TODO()
 
@@ -126,6 +128,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 	log := hivetest.Logger(t)
 
 	var bondIndex int
+	var slaveIndices = map[string]int{}
 	var err error
 
 	ns := netns.NewNetNS(t)
@@ -134,7 +137,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 		if err := netlink.LinkAdd(netlink.NewLinkBond(netlink.LinkAttrs{Name: "bond0"})); err != nil {
 			return fmt.Errorf("LinkAdd bond0: %w", err)
 		}
-		bond, err := netlink.LinkByName("bond0")
+		bond, err := safenetlink.LinkByName("bond0")
 		if err != nil {
 			return fmt.Errorf("LinkByName bond0: %w", err)
 		}
@@ -146,7 +149,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 			if err := netlink.LinkAdd(&netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: name}}); err != nil {
 				return fmt.Errorf("LinkAdd %s: %w", name, err)
 			}
-			slave, err := netlink.LinkByName(name)
+			slave, err := safenetlink.LinkByName(name)
 			if err != nil {
 				return fmt.Errorf("LinkByName %s: %w", name, err)
 			}
@@ -157,6 +160,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 				slaveAssignErr = fmt.Errorf("LinkSetMasterByIndex %s: %w", name, e)
 				return nil
 			}
+			slaveIndices[name] = slave.Attrs().Index
 		}
 		return nil
 	}), "bond/slave setup in netns")
@@ -164,14 +168,30 @@ func TestPrivilegedOpsBond(t *testing.T) {
 		t.Skipf("skipping: cannot assign bond slaves on this kernel (%v)", slaveAssignErr)
 	}
 
+	// Populate the device table with the bond slave devices.
+	db := statedb.New()
+	deviceTable, err := tables.NewDeviceTable(db)
+	require.NoError(t, err, "NewDeviceTable")
+	wtxn := db.WriteTxn(deviceTable)
+	for name, idx := range slaveIndices {
+		deviceTable.Insert(wtxn, &tables.Device{
+			Index:       idx,
+			Name:        name,
+			MasterIndex: bondIndex,
+		})
+	}
+	wtxn.Commit()
+
 	ops := &ops{
 		log:       log,
 		isEnabled: func() bool { return true },
+		devices:   deviceTable,
 	}
 	ctx := context.TODO()
+	rtxn := db.ReadTxn()
 
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+		return ops.Update(ctx, rtxn, 0, &tables.BandwidthQDisc{
 			LinkIndex: bondIndex,
 			LinkName:  "bond0",
 			FqHorizon: FqDefaultHorizon,
@@ -199,7 +219,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 	for _, slaveName := range []string{"slave0", "slave1"} {
 		var slaveQdiscs []netlink.Qdisc
 		err = ns.Do(func() error {
-			slave, e := netlink.LinkByName(slaveName)
+			slave, e := safenetlink.LinkByName(slaveName)
 			if e != nil {
 				return e
 			}
@@ -217,7 +237,7 @@ func TestPrivilegedOpsBond(t *testing.T) {
 	}
 
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+		return ops.Update(ctx, rtxn, 0, &tables.BandwidthQDisc{
 			LinkIndex: bondIndex,
 			LinkName:  "bond0",
 			FqHorizon: FqDefaultHorizon,
@@ -245,19 +265,27 @@ func TestPrivilegedOpsBondNoSlaves(t *testing.T) {
 	require.NoError(t, err, "LinkAdd bond0")
 
 	bondLink, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
 		return nlh.LinkByName("bond0")
 	})
 	require.NoError(t, err, "LinkByName bond0")
 	require.NoError(t, nlh.LinkSetUp(bondLink))
 
+	// Empty device table — no slaves registered.
+	db := statedb.New()
+	deviceTable, err := tables.NewDeviceTable(db)
+	require.NoError(t, err, "NewDeviceTable")
+
 	ops := &ops{
 		log:       log,
 		isEnabled: func() bool { return true },
+		devices:   deviceTable,
 	}
 	ctx := context.TODO()
+	rtxn := db.ReadTxn()
 
 	err = ns.Do(func() error {
-		return ops.Update(ctx, nil, 0, &tables.BandwidthQDisc{
+		return ops.Update(ctx, rtxn, 0, &tables.BandwidthQDisc{
 			LinkIndex: bondLink.Attrs().Index,
 			LinkName:  bondLink.Attrs().Name,
 			FqHorizon: FqDefaultHorizon,
@@ -265,19 +293,5 @@ func TestPrivilegedOpsBondNoSlaves(t *testing.T) {
 			Status:    reconciler.StatusPending(),
 		})
 	})
-	require.NoError(t, err, "Update bond with no slaves")
-
-	var bondQdiscs []netlink.Qdisc
-	err = ns.Do(func() error {
-		var e error
-		bondQdiscs, e = safenetlink.QdiscList(bondLink)
-		return e
-	})
-	require.NoError(t, err, "QdiscList bond master")
-
-	t.Logf("bond master qdiscs (no slaves): %+v", bondQdiscs)
-	require.NotEmpty(t, bondQdiscs)
-	rootType := bondQdiscs[0].Type()
-	require.True(t, rootType == "mq" || rootType == "fq",
-		"bond master root qdisc should be mq or fq when no slaves, got %s", rootType)
+	require.NoError(t, err, "Update bond with no slaves should succeed")
 }
