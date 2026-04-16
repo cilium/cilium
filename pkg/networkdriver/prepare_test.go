@@ -261,6 +261,26 @@ func TestPrepare_TwoDevices_BothSucceed(t *testing.T) {
 	assert.Len(t, updated.Status.Devices, 2)
 }
 
+// TestPrepare_UpdateStatusFails_MapEmpty verifies that
+// when UpdateStatus returns an error the allocations map must stay empty.
+func TestPrepare_UpdateStatusFails_MapEmpty(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+	dev := &trackedDevice{name: prepTestDev0}
+
+	// Claim is NOT created in the API server → UpdateStatus will fail with
+	// "not found".
+	claim := buildPrepClaim(prepTestDev0)
+
+	driver := buildPrepDriver(t, cs, dev)
+	result := driver.prepareResourceClaim(t.Context(), claim)
+	require.Error(t, result.Err, "UpdateStatus should fail because claim was not pre-created")
+
+	// no partial entry must be left in the map.
+	assert.Empty(t, driver.allocations,
+		"allocations map must be empty when UpdateStatus fails")
+}
+
 // TestPrepare_UpdateStatusFails_RollbackCalled verifies that roll back
 // is also triggered by an UpdateStatus failure: Setup was called, so Free
 // must be called to roll back the device.
@@ -279,6 +299,30 @@ func TestPrepare_UpdateStatusFails_RollbackCalled(t *testing.T) {
 	assert.EqualValues(t, 1, dev.setupCalls.Load(), "Setup should have been attempted")
 	assert.EqualValues(t, 1, dev.freeCalls.Load(),
 		"Free must be called to roll back when UpdateStatus fails")
+}
+
+// TestPrepare_UpdateStatusFails_TwoDevices_BothRolledBack verifies that
+// the logic works correctly when two devices were set up before
+// UpdateStatus fails.
+func TestPrepare_UpdateStatusFails_TwoDevices_BothRolledBack(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+
+	dev0 := &trackedDevice{name: prepTestDev0}
+	dev1 := &trackedDevice{name: prepTestDev1}
+
+	// Claim not in API → UpdateStatus fails after both devices are set up.
+	claim := buildPrepClaim(prepTestDev0, prepTestDev1)
+
+	driver := buildPrepDriver(t, cs, dev0, dev1)
+	result := driver.prepareResourceClaim(t.Context(), claim)
+	require.Error(t, result.Err)
+
+	assert.EqualValues(t, 1, dev0.setupCalls.Load())
+	assert.EqualValues(t, 1, dev1.setupCalls.Load())
+	assert.EqualValues(t, 1, dev0.freeCalls.Load(), "dev0 must be rolled back")
+	assert.EqualValues(t, 1, dev1.freeCalls.Load(), "dev1 must be rolled back")
+	assert.Empty(t, driver.allocations)
 }
 
 // TestPrepare_SecondSetupFails_FirstRolledBack verifies that
@@ -530,4 +574,36 @@ func TestUnprepare_UnknownClaim_NoError(t *testing.T) {
 		[]kubeletplugin.NamespacedObject{namedObject(prepTestClaimNS, "nonexistent", "zzzz")})
 	require.NoError(t, err)
 	assert.NoError(t, releaseResults["zzzz"])
+}
+
+// TestUnprepare_PrepareRollbackThenPrepareAgain verifies that
+// after a failed prepare (UpdateStatus error), a second prepare
+// attempt for the same pod can succeed once the claim exists in the API.
+func TestUnprepare_PrepareRollbackThenPrepareAgain(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+	dev := &trackedDevice{name: prepTestDev0}
+	claim := buildPrepClaim(prepTestDev0)
+
+	driver := buildPrepDriver(t, cs, dev)
+
+	// First attempt: claim not in API → UpdateStatus fails → rollback.
+	result := driver.prepareResourceClaim(t.Context(), claim)
+	require.Error(t, result.Err)
+	assert.Empty(t, driver.allocations, "map must be clean after failed prepare")
+
+	// Now create the claim in the API.
+	createPrepClaim(t, cs, claim)
+
+	// Second attempt: should succeed because the map is clean
+	// (no "allocation already exists" guard fires).
+	result2 := driver.prepareResourceClaim(t.Context(), claim)
+	require.NoError(t, result2.Err, "second prepare must succeed after rollback cleaned up")
+
+	require.Contains(t, driver.allocations, prepTestPodUID)
+	assert.Len(t, driver.allocations[prepTestPodUID][prepTestClaimUID], 1)
+
+	// Setup called twice (once per attempt), Free called once (rollback of first attempt).
+	assert.EqualValues(t, 2, dev.setupCalls.Load())
+	assert.EqualValues(t, 1, dev.freeCalls.Load())
 }
