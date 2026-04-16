@@ -320,7 +320,7 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -333,7 +333,7 @@ func (r *gatewayReconciler) filterGRPCRoutesByListener(ctx context.Context, gw *
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
@@ -397,7 +397,7 @@ func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *g
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
-			isAllowed(ctx, r.Client, gw, &route, r.logger) &&
+			listenerisAllowed(ctx, r.Client, gw, listener, &route, r.logger) &&
 			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)

@@ -207,6 +207,9 @@ func Test_Conformance(t *testing.T) {
 		},
 		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
+		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
+		}},
 	}
 
 	for _, tt := range tests {

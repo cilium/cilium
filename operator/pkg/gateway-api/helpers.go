@@ -91,12 +91,56 @@ func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, rout
 	return false
 }
 
-func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
-	if listener.AllowedRoutes.Kinds == nil {
-		return true
+// listenerisAllowed is a single listener check to see if a route and listerner are valid
+func listenerisAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route metav1.Object, logger *slog.Logger) bool {
+	// all routes in the same namespace are allowed for this listener
+	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
+		return route.GetNamespace() == gw.GetNamespace()
 	}
 
+	// check if route is kind-allowed
+	if !isKindAllowed(*listener, route) {
+		return false
+	}
+	// check if route is namespace-allowed
+	switch *listener.AllowedRoutes.Namespaces.From {
+	case gatewayv1.NamespacesFromAll:
+		return true
+	case gatewayv1.NamespacesFromSame:
+		if route.GetNamespace() == gw.GetNamespace() {
+			return true
+		}
+		return false
+	case gatewayv1.NamespacesFromSelector:
+		nsList := &corev1.NamespaceList{}
+		selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
+		if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+			logger.Error("Unable to list namespaces", logfields.Error, err)
+			return false
+		}
+
+		for _, ns := range nsList.Items {
+			if ns.Name == route.GetNamespace() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 	routeKind := getGatewayKindForObject(route)
+
+	if listener.AllowedRoutes.Kinds == nil {
+		// Per Gateway API spec, when AllowedRoutes.Kinds is unspecified the listener
+		// accepts only the route kinds compatible with its protocol.
+		for _, supported := range getSupportedRouteKinds(listener.Protocol) {
+			if supported.Kind == routeKind {
+				return true
+			}
+		}
+		return false
+	}
 
 	for _, kind := range listener.AllowedRoutes.Kinds {
 		if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
@@ -177,6 +221,8 @@ func getGatewayKindForObject(obj metav1.Object) gatewayv1.Kind {
 	switch obj.(type) {
 	case *gatewayv1.HTTPRoute:
 		return kindHTTPRoute
+	case *gatewayv1.GRPCRoute:
+		return kindGRPCRoute
 	case *gatewayv1alpha2.TLSRoute:
 		return kindTLSRoute
 	case *gatewayv1alpha2.UDPRoute:
