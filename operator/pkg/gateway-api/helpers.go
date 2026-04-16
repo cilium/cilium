@@ -130,11 +130,18 @@ func listenerisAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gatew
 }
 
 func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
-	if listener.AllowedRoutes.Kinds == nil {
-		return true
-	}
-
 	routeKind := getGatewayKindForObject(route)
+
+	if listener.AllowedRoutes.Kinds == nil {
+		// Per Gateway API spec, when AllowedRoutes.Kinds is unspecified the listener
+		// accepts only the route kinds compatible with its protocol.
+		for _, supported := range getSupportedRouteKinds(listener.Protocol) {
+			if supported.Kind == routeKind {
+				return true
+			}
+		}
+		return false
+	}
 
 	for _, kind := range listener.AllowedRoutes.Kinds {
 		if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
