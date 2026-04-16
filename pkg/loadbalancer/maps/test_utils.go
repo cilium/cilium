@@ -186,6 +186,16 @@ func DumpLBMaps(lbmaps LBMaps, sanitizeIDs bool, customizeAddr func(types.AddrCl
 		panic(err)
 	}
 
+	globalAffCB := func(revNatID uint16, affinityID uint16, ipv6 bool) {
+		out = append(out, fmt.Sprintf("GLOBAL_AFFINITY: ID=%s AFF_ID=%s",
+			sanitizeID(revNatID, sanitizeIDs),
+			sanitizeID(affinityID, sanitizeIDs),
+		))
+	}
+	if err := lbmaps.DumpGlobalAffinity(globalAffCB); err != nil {
+		panic(err)
+	}
+
 	sort.Strings(out)
 	return
 }

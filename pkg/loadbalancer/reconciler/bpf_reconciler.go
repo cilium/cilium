@@ -112,6 +112,7 @@ type BPFOps struct {
 	log       rateLimitingLogger
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
+	frontends statedb.Table[*loadbalancer.Frontend]
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
@@ -186,6 +187,7 @@ type bpfOpsParams struct {
 	Maglev         *maglev.Maglev
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
+	Frontends      statedb.Table[*loadbalancer.Frontend]
 }
 
 const (
@@ -203,6 +205,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		LBMaps:    p.LBMaps,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
+		frontends: p.Frontends,
 	}
 	ops.setLastUpdatedAt()
 
@@ -336,7 +339,7 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
 	defer ops.setLastUpdatedAt()
@@ -345,7 +348,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 		return nil
 	}
 
-	if err := ops.deleteFrontend(fe); err != nil {
+	if err := ops.deleteFrontend(txn, fe); err != nil {
 		ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 		return err
 	}
@@ -364,7 +367,7 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 				fe.Address.Port(),
 				fe.Address.Scope(),
 			)
-			if err := ops.deleteFrontend(fe); err != nil {
+			if err := ops.deleteFrontend(txn, fe); err != nil {
 				ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 				return err
 			}
@@ -395,7 +398,7 @@ func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, b
 	}
 }
 
-func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) deleteFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
 	feID, err := ops.serviceIDAlloc.lookupLocalID(fe.Address)
 	if err != nil {
 		ops.log.Debug("Delete frontend: no ID found", logfields.Address, fe.Address)
@@ -472,6 +475,42 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
 	}
 
+	err = ops.LBMaps.DeleteGlobalAffinity(uint16(feID), fe.Address.IsIPv6())
+	if err != nil {
+		ops.log.Debug("Failed to delete global affinity", logfields.Error, err)
+	}
+
+	var primaryID loadbalancer.ServiceID = feID
+	iter := ops.frontends.List(txn, loadbalancer.FrontendByServiceName(fe.Service.Name))
+	count := 0
+	for otherFe := range iter {
+		count++
+		if otherFe.ID != 0 {
+			if otherFe.ID < primaryID {
+				primaryID = otherFe.ID
+			}
+		}
+	}
+
+	if count <= 1 {
+		ops.serviceIDAlloc.deleteLocalID(feID)
+		
+		var sharedID uint16
+		ops.LBMaps.DumpGlobalAffinity(func(rNatID uint16, affID uint16, ipv6 bool) {
+			if rNatID == uint16(feID) {
+				sharedID = affID
+			}
+		})
+		
+		if sharedID != 0 && sharedID != uint16(feID) {
+			ops.serviceIDAlloc.deleteLocalID(loadbalancer.ServiceID(sharedID))
+		}
+	} else {
+		if feID != primaryID {
+			ops.serviceIDAlloc.deleteLocalID(feID)
+		}
+	}
+
 	for cidr := range ops.prevSourceRanges[fe.Address] {
 		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
@@ -493,7 +532,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
-	ops.serviceIDAlloc.deleteLocalID(feID)
+
 
 	return nil
 }
@@ -679,6 +718,31 @@ func (ops *BPFOps) pruneMaglev() error {
 	return errors.Join(errs...)
 }
 
+func (ops *BPFOps) pruneGlobalAffinity() error {
+	type item struct {
+		id   uint16
+		ipv6 bool
+	}
+	toDelete := []item{}
+	cb := func(revNatID uint16, affinityID uint16, ipv6 bool) {
+		if _, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(revNatID)]; !ok {
+			ops.log.Debug("pruneGlobalAffinity: enqueing for deletion", logfields.ID, revNatID)
+			toDelete = append(toDelete, item{revNatID, ipv6})
+		}
+	}
+	err := ops.LBMaps.DumpGlobalAffinity(cb)
+	if err != nil {
+		return err
+	}
+	for _, it := range toDelete {
+		err := ops.LBMaps.DeleteGlobalAffinity(it.id, it.ipv6)
+		if err != nil {
+			ops.log.Warn("Failed to delete from global affinity map while pruning", logfields.Error, err)
+		}
+	}
+	return nil
+}
+
 // Prune implements reconciler.Operations.
 func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*loadbalancer.Frontend, statedb.Revision]) error {
 	ops.mu.Lock()
@@ -692,6 +756,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
+		ops.pruneGlobalAffinity(),
 	)
 }
 
@@ -705,7 +770,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		return nil
 	}
 
-	if err := ops.updateFrontend(fe); err != nil {
+	if err := ops.updateFrontend(txn, fe); err != nil {
 		ops.log.Warn("Updating frontend failed", logfields.Error, err)
 		return err
 	}
@@ -740,7 +805,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 				fe.Address.Port(),
 				fe.Address.Scope(),
 			)
-			if err := ops.updateFrontend(fe); err != nil {
+			if err := ops.updateFrontend(txn, fe); err != nil {
 				ops.log.Warn("Updating frontend failed",
 					logfields.Error, err,
 					logfields.Address, fe.Address,
@@ -759,7 +824,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 				fe.Address.Port(),
 				fe.Address.Scope(),
 			)
-			if err := ops.deleteFrontend(fe); err != nil {
+			if err := ops.deleteFrontend(txn, fe); err != nil {
 				ops.log.Warn("Deleting orphan frontend failed",
 					logfields.Error, err,
 					logfields.Address, fe.Address,
@@ -773,7 +838,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 	return nil
 }
 
-func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) updateFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend) error {
 	// WARNING: This method must be idempotent. Any updates to state must happen only after
 	// the operations that depend on the state have been performed. If this invariant is not
 	// followed then we may leak data due to not retrying a failed operation.
@@ -848,12 +913,48 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
+		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort) || svc.GetGlobalAffinityAnnotation(),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
 	})
 	svcVal.SetFlags(flag.UInt16())
 	svcVal.SetRevNat(int(feID))
+
+	ops.log.Debug("updateFrontend: global affinity check",
+		logfields.ServiceName, svc.Name,
+		"globalAffinity", svc.GetGlobalAffinityAnnotation())
+
+	affinityID := uint16(feID) // Default
+
+	if svc.GetGlobalAffinityAnnotation() {
+		var primaryID loadbalancer.ServiceID = feID
+		iter := ops.frontends.List(txn, loadbalancer.FrontendByServiceName(svc.Name))
+		for otherFe := range iter {
+			if otherFe.ID != 0 {
+				if otherFe.ID < primaryID {
+					primaryID = otherFe.ID
+				}
+			}
+		}
+		affinityID = uint16(primaryID)
+
+		// Write to global affinity map.
+		ops.log.Debug("Updating global affinity mapping",
+			logfields.ServiceName, svc.Name,
+			logfields.ID, feID,
+			logfields.AffinityID, affinityID)
+		err := ops.LBMaps.UpdateGlobalAffinity(uint16(feID), affinityID, fe.Address.IsIPv6())
+		if err != nil {
+			return fmt.Errorf("update global affinity: %w", err)
+		}
+	} else {
+		// If annotation was removed, clean up the mapping.
+		// We blindly try to delete it.
+		err := ops.LBMaps.DeleteGlobalAffinity(uint16(feID), fe.Address.IsIPv6())
+		if err != nil {
+			ops.log.Debug("Failed to delete global affinity on update", logfields.Error, err)
+		}
+	}
 
 	// Gather backends for the service
 	orderedBackends := ops.sortedBackends(fe)
@@ -870,7 +971,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
 		}
-		if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
+		if err := ops.deleteAffinityMatch(loadbalancer.ServiceID(affinityID), orphanState.id); err != nil {
 			return fmt.Errorf("delete affinity match: %w", err)
 		}
 		ops.releaseBackend(orphanState.id, orphanState.addr)
@@ -941,13 +1042,13 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			ops.log.Debug("Update affinity",
 				logfields.ID, feID,
 				logfields.BackendID, beID)
-			if err := ops.upsertAffinityMatch(feID, beID); err != nil {
+			if err := ops.upsertAffinityMatch(loadbalancer.ServiceID(affinityID), beID); err != nil {
 				return fmt.Errorf("upsert affinity match: %w", err)
 			}
 		} else {
 			// SessionAffinity either disabled or backend not active, no matter which
 			// clean up any affinity match that might exist.
-			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
+			if err := ops.deleteAffinityMatch(loadbalancer.ServiceID(affinityID), beID); err != nil {
 				return fmt.Errorf("delete affinity match: %w", err)
 			}
 		}

@@ -991,6 +991,134 @@ var sessionAffinityTestCases = []testCase{
 	),
 }
 
+var globalAffinityTestCases = []testCase{
+	newTestCase(
+		"GlobalAffinity_Port80",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.1"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc", "default")
+			svc.SessionAffinity = true
+			svc.Annotations = map[string]string{
+				annotation.GlobalAffinity: "true",
+			}
+			return false, []loadbalancer.Backend{baseBackend}
+		},
+		[]maps.MapDump{
+			"AFF: ID=1 BEID=1",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"GLOBAL_AFFINITY: ID=1 AFF_ID=1",
+			"REV: ID=1 ADDR=10.0.2.1:80",
+			"SVC: ID=0 ADDR=10.0.2.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"GlobalAffinity_cleanup_Port80",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.1"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc", "default")
+			return true, nil
+		},
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
+var globalAffinityNegativeTestCases = []testCase{
+	newTestCase(
+		"GlobalAffinity_Svc1_Port80",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.1"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc1", "default")
+			svc.SessionAffinity = true
+			svc.Annotations = map[string]string{
+				annotation.GlobalAffinity: "true",
+			}
+			return false, []loadbalancer.Backend{baseBackend}
+		},
+		[]maps.MapDump{
+			"AFF: ID=1 BEID=1",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"GLOBAL_AFFINITY: ID=1 AFF_ID=1",
+			"REV: ID=1 ADDR=10.0.2.1:80",
+			"SVC: ID=0 ADDR=10.0.2.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"GlobalAffinity_Svc2_Port80",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.2"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc2", "default")
+			svc.SessionAffinity = true
+			svc.Annotations = map[string]string{
+				annotation.GlobalAffinity: "true",
+			}
+			return false, []loadbalancer.Backend{baseBackend}
+		},
+		[]maps.MapDump{
+			"AFF: ID=1 BEID=1",
+			"AFF: ID=2 BEID=1",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"GLOBAL_AFFINITY: ID=1 AFF_ID=1",
+			"GLOBAL_AFFINITY: ID=2 AFF_ID=2",
+			"REV: ID=1 ADDR=10.0.2.1:80",
+			"REV: ID=2 ADDR=10.0.2.2:80",
+			"SVC: ID=0 ADDR=10.0.2.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=0 ADDR=10.0.2.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=1 ADDR=10.0.2.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=2 ADDR=10.0.2.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=2 ADDR=10.0.2.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"GlobalAffinity_Svc1_cleanup",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.1"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc1", "default")
+			return true, nil
+		},
+		[]maps.MapDump{
+			"AFF: ID=2 BEID=1",
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"GLOBAL_AFFINITY: ID=2 AFF_ID=2",
+			"REV: ID=2 ADDR=10.0.2.2:80",
+			"SVC: ID=0 ADDR=10.0.2.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=2 ADDR=10.0.2.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+			"SVC: ID=2 ADDR=10.0.2.2:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+sessionAffinity+non-routable",
+		},
+		nil,
+		false,
+	),
+	newTestCase(
+		"GlobalAffinity_Svc2_cleanup",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = loadbalancer.NewL3n4Addr("TCP", types.AddrClusterFrom(netip.MustParseAddr("10.0.2.2"), 0), 80, loadbalancer.ScopeExternal)
+			fe.ServiceName = loadbalancer.NewServiceName("mysvc2", "default")
+			return true, nil
+		},
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
 // mapErrorTestCases exercises the UpdateService error path.
 var mapErrorTestCases = []testCase{
 	// Step 1: Create a ClusterIP with one backend. This succeeds and establishes
@@ -1075,6 +1203,8 @@ var testCases = [][]testCase{
 	externalIPTestCases,
 	localRedirectTestCases,
 	sessionAffinityTestCases,
+	globalAffinityTestCases,
+	globalAffinityNegativeTestCases,
 	mapErrorTestCases,
 }
 
@@ -1265,6 +1395,8 @@ func TestBPFOps(t *testing.T) {
 	db := statedb.New()
 	nodeAddrs, err := tables.NewNodeAddressTable(db)
 	require.NoError(t, err)
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
 	wtxn := db.WriteTxn(nodeAddrs)
 	for _, n := range nodePortAddrs {
 		na := tables.NodeAddress{
@@ -1312,6 +1444,12 @@ func TestBPFOps(t *testing.T) {
 				}
 
 				if !testCase.delete {
+					// Insert frontend into statedb so that updateFrontend can find it!
+					wtxn := db.WriteTxn(frontends)
+					_, _, err = frontends.Insert(wtxn, &frontend)
+					require.NoError(t, err)
+					wtxn.Commit()
+
 					err := ops.Update(
 						context.TODO(),
 						db.ReadTxn(),
@@ -1322,6 +1460,13 @@ func TestBPFOps(t *testing.T) {
 						require.Error(t, err, "Update")
 					} else {
 						require.NoError(t, err, "Update")
+
+						// Write back to statedb with the allocated ID!
+						wtxn := db.WriteTxn(frontends)
+						cloned := frontend.Clone()
+						_, _, err = frontends.Insert(wtxn, cloned)
+						require.NoError(t, err)
+						wtxn.Commit()
 					}
 
 					// Invariant: every backendStates entry must have a non-zero addr.
@@ -1330,9 +1475,15 @@ func TestBPFOps(t *testing.T) {
 							"backendStates[%s] has zero-value addr; would panic in orphan cleanup", beAddr)
 					}
 				} else {
+					// Remove frontend from statedb!
+					wtxn := db.WriteTxn(frontends)
+					_, _, err = frontends.Delete(wtxn, &frontend)
+					require.NoError(t, err)
+					wtxn.Commit()
+
 					err := ops.Delete(
 						context.TODO(),
-						nil, // ReadTxn (unused)
+						db.ReadTxn(),
 						0,
 						&frontend,
 					)
@@ -1417,6 +1568,7 @@ func TestBPFOps(t *testing.T) {
 					Maglev:         maglev,
 					DB:             db,
 					NodeAddresses:  nodeAddrs,
+					Frontends:      frontends,
 				}
 
 				ops := newBPFOps(p)
@@ -1443,6 +1595,7 @@ func TestBPFOps(t *testing.T) {
 				Maglev:         maglev,
 				DB:             db,
 				NodeAddresses:  nodeAddrs,
+				Frontends:      frontends,
 			}
 			ops := newBPFOps(p)
 			runTests(ops, setWithAlgo.testCaseSet, setWithAlgo.algo, addr, true)
@@ -1461,4 +1614,451 @@ func showMaps(m []maps.MapDump) string {
 	}
 	w.WriteString("},\n")
 	return w.String()
+}
+
+func TestGlobalAffinityRestart(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+	db := statedb.New()
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	extCfg := loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: false} // Only IPv4 for simplicity
+
+	lbmaps := maps.NewFakeLBMaps()
+
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		DB:             db,
+		NodeAddresses:  nil, // Not needed for ClusterIP
+		Frontends:      frontends,
+	}
+
+	ops := newBPFOps(p)
+
+	// Create a service with two ports
+	svcName := loadbalancer.NewServiceName("mysvc", "default")
+	fe1 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.1"), 80, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: &loadbalancer.Service{
+			Name:            svcName,
+			SessionAffinity: true,
+			Annotations: map[string]string{
+				annotation.GlobalAffinity: "true",
+			},
+		},
+	}
+	fe2 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.1"), 443, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: fe1.Service,
+	}
+
+	fe1.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+	fe2.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+
+	// Insert into statedb
+	wtxn := db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, &fe1)
+	require.NoError(t, err)
+	_, _, err = frontends.Insert(wtxn, &fe2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	// Reconcile fe1
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+
+	wtxn = db.WriteTxn(frontends)
+	cloned1 := fe1.Clone()
+	_, _, err = frontends.Insert(wtxn, cloned1)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	// Reconcile fe2
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+
+	wtxn = db.WriteTxn(frontends)
+	cloned2 := fe2.Clone()
+	_, _, err = frontends.Insert(wtxn, cloned2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	// Verify shared ID in map
+	// We expect both to map to same affinity ID!
+	// Let's assume it picks fe1's ID (which should be 1 if it was first).
+	
+	// Now simulate restart!
+	// Create a NEW BPFOps instance with the SAME FakeLBMaps!
+	ops2 := newBPFOps(p)
+
+	// In real restore, IDs are restored from BPF maps into restoredServiceIDs.
+	// We populate it manually here to simulate that.
+	ops2.restoredServiceIDs = map[loadbalancer.L3n4Addr]loadbalancer.ServiceID{
+		fe1.Address: fe1.ID,
+		fe2.Address: fe2.ID,
+	}
+
+	// Reconcile again with ops2, but in REVERSE order!
+	// This tests that processing order doesn't matter!
+	err = ops2.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+	err = ops2.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+
+	// Verify maps again! They should still have the SAME shared ID!
+	// We check that `globalAffinityIDs` (if we still used it) or the BPF map state is correct.
+	// Since we use BPF maps directly via FakeLBMaps, we can dump them and verify.
+	
+	var aff1, aff2 uint16
+	lbmaps.DumpGlobalAffinity(func(revNatID uint16, affinityID uint16, ipv6 bool) {
+		if revNatID == uint16(fe1.ID) {
+			aff1 = affinityID
+		}
+		if revNatID == uint16(fe2.ID) {
+			aff2 = affinityID
+		}
+	})
+	
+	require.Equal(t, aff1, aff2, "Affinity IDs must match after restart regardless of processing order")
+}
+
+func TestGlobalAffinityIDLeak(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+	db := statedb.New()
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	extCfg := loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: false}
+
+	lbmaps := maps.NewFakeLBMaps()
+
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		DB:             db,
+		NodeAddresses:  nil,
+		Frontends:      frontends,
+	}
+
+	ops := newBPFOps(p)
+
+	svcName := loadbalancer.NewServiceName("leaksvc", "default")
+	fe1 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.2"), 80, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: &loadbalancer.Service{
+			Name:            svcName,
+			SessionAffinity: true,
+			Annotations: map[string]string{
+				annotation.GlobalAffinity: "true",
+			},
+		},
+	}
+	fe2 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.2"), 443, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: fe1.Service,
+	}
+
+	fe1.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+	fe2.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+
+	wtxn := db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, &fe1)
+	require.NoError(t, err)
+	_, _, err = frontends.Insert(wtxn, &fe2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+	
+	wtxn = db.WriteTxn(frontends)
+	cloned1 := fe1.Clone()
+	_, _, err = frontends.Insert(wtxn, cloned1)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+	
+	wtxn = db.WriteTxn(frontends)
+	cloned2 := fe2.Clone()
+	_, _, err = frontends.Insert(wtxn, cloned2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	id1 := fe1.ID
+	id2 := fe2.ID
+	require.NotEqual(t, id1, id2)
+
+	minID := id1
+	if id2 < id1 {
+		minID = id2
+	}
+
+	var feToDelete *loadbalancer.Frontend
+	var feToKeep *loadbalancer.Frontend
+	if fe1.ID == minID {
+		feToDelete = &fe1
+		feToKeep = &fe2
+	} else {
+		feToDelete = &fe2
+		feToKeep = &fe1
+	}
+
+	// Delete primary first
+	wtxn = db.WriteTxn(frontends)
+	_, _, err = frontends.Delete(wtxn, feToDelete)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Delete(context.TODO(), db.ReadTxn(), 0, feToDelete)
+	require.NoError(t, err)
+
+	// Delete second
+	wtxn = db.WriteTxn(frontends)
+	_, _, err = frontends.Delete(wtxn, feToKeep)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Delete(context.TODO(), db.ReadTxn(), 0, feToKeep)
+	require.NoError(t, err)
+
+	// Verify both IDs are released in the allocator
+	require.NotContains(t, ops.serviceIDAlloc.idToAddr, id1, "ID 1 leaked")
+	require.NotContains(t, ops.serviceIDAlloc.idToAddr, id2, "ID 2 leaked")
+}
+
+func TestGlobalAffinityDeterminism(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+	db := statedb.New()
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	extCfg := loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: false}
+
+	lbmaps := maps.NewFakeLBMaps()
+
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		DB:             db,
+		NodeAddresses:  nil,
+		Frontends:      frontends,
+	}
+
+	ops := newBPFOps(p)
+
+	svcName := loadbalancer.NewServiceName("detsvc", "default")
+	fe1 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.3"), 80, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: &loadbalancer.Service{
+			Name:            svcName,
+			SessionAffinity: true,
+			Annotations: map[string]string{
+				annotation.GlobalAffinity: "true",
+			},
+		},
+	}
+	fe2 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.3"), 443, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: fe1.Service,
+	}
+
+	fe1.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+	fe2.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+
+	// Test order 1 then 2
+	wtxn := db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, &fe1)
+	require.NoError(t, err)
+	_, _, err = frontends.Insert(wtxn, &fe2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+
+	id1 := fe1.ID
+	id2 := fe2.ID
+	minID := id1
+	if id2 < id1 {
+		minID = id2
+	}
+
+	var aff1 uint16
+	lbmaps.DumpGlobalAffinity(func(revNatID uint16, affinityID uint16, ipv6 bool) {
+		if revNatID == uint16(id1) {
+			aff1 = affinityID
+		}
+	})
+	require.Equal(t, uint16(minID), aff1, "Order 1->2 failed to pick min ID")
+
+	// Reset and test order 2 then 1
+	ops2 := newBPFOps(p)
+	
+	wtxn = db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, fe1.Clone())
+	require.NoError(t, err)
+	_, _, err = frontends.Insert(wtxn, fe2.Clone())
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops2.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+	err = ops2.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+
+	var aff2 uint16
+	lbmaps.DumpGlobalAffinity(func(revNatID uint16, affinityID uint16, ipv6 bool) {
+		if revNatID == uint16(id2) {
+			aff2 = affinityID
+		}
+	})
+	require.Equal(t, uint16(minID), aff2, "Order 2->1 failed to pick min ID")
+}
+
+func TestGlobalAffinityBPFFlag(t *testing.T) {
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+	db := statedb.New()
+
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	extCfg := loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: false}
+
+	lbmaps := maps.NewFakeLBMaps()
+
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
+
+	p := bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		DB:             db,
+		NodeAddresses:  nil,
+		Frontends:      frontends,
+	}
+
+	ops := newBPFOps(p)
+
+	svcName := loadbalancer.NewServiceName("flagsvc", "default")
+	fe1 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.4"), 80, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: &loadbalancer.Service{
+			Name:            svcName,
+			SessionAffinity: true,
+			Annotations: map[string]string{
+				annotation.GlobalAffinity: "true",
+			},
+		},
+	}
+
+	fe1.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+
+	wtxn := db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, &fe1)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe1)
+	require.NoError(t, err)
+
+	// Check flags in fake map
+	var flags uint16
+	lbmaps.DumpService(func(key maps.ServiceKey, value maps.ServiceValue) {
+		kHost := key.ToHost()
+		if kHost.GetPort() == 80 && kHost.GetAddress().String() == "10.0.2.4" {
+			flags = value.GetFlags()
+			t.Logf("TestGlobalAffinityBPFFlag: flags=0x%x, flags2=0x%x", flags, flags>>8)
+		}
+	})
+
+	// SVC_FLAG_L7_LOADBALANCER is bit 2 in flags2.
+	// In Go, SetFlags splits uint16 into Flags (lower) and Flags2 (upper).
+	// So flags2 is flags >> 8.
+	flags2 := uint8(flags >> 8)
+	require.True(t, (flags2 & 0x04) != 0, "L7LoadBalancer flag not set for global affinity")
+
+	// Now test without global affinity
+	svcName2 := loadbalancer.NewServiceName("noflagsvc", "default")
+	fe2 := loadbalancer.Frontend{
+		FrontendParams: loadbalancer.FrontendParams{
+			ServiceName: svcName2,
+			Address:     loadbalancer.NewL3n4Addr("TCP", types.MustParseAddrCluster("10.0.2.5"), 80, loadbalancer.ScopeExternal),
+			Type:        ClusterIP,
+		},
+		Service: &loadbalancer.Service{
+			Name:            svcName2,
+			SessionAffinity: true,
+		},
+	}
+	fe2.Backends = func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {}
+
+	wtxn = db.WriteTxn(frontends)
+	_, _, err = frontends.Insert(wtxn, &fe2)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	err = ops.Update(context.TODO(), db.ReadTxn(), 0, &fe2)
+	require.NoError(t, err)
+
+	var flagsNoAff uint16
+	lbmaps.DumpService(func(key maps.ServiceKey, value maps.ServiceValue) {
+		if key.GetPort() == 80 && key.GetAddress().String() == "10.0.2.5" {
+			flagsNoAff = value.GetFlags()
+		}
+	})
+	flags2NoAff := uint8(flagsNoAff >> 8)
+	require.False(t, (flags2NoAff & 0x04) != 0, "L7LoadBalancer flag set when it should not be")
 }

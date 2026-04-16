@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	listRevNAT, listFrontends, listBackends, listSrcRanges bool
+	listRevNAT, listFrontends, listBackends, listSrcRanges, listGlobalAffinity bool
 )
 
 func dumpSrcRanges(serviceList map[string][]string) {
@@ -44,6 +44,21 @@ func dumpRevNat(serviceList map[string][]string) {
 	}
 	if err := lbmaps.NewRevNat6Map(0).DumpIfExists(serviceList); err != nil {
 		Fatalf("Unable to dump IPv6 reverse NAT table: %s", err)
+	}
+}
+
+func dumpGlobalAffinity(serviceList map[string][]string) {
+	parseEntry := func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(*lbmaps.GlobalAffinityKey).ToHost().(*lbmaps.GlobalAffinityKey)
+		v := value.(*lbmaps.GlobalAffinityValue).ToHost().(*lbmaps.GlobalAffinityValue)
+		entry := fmt.Sprintf("RevNatID %d -> AffinityID %d", k.Key, v.Value)
+		serviceList["Global Affinity"] = append(serviceList["Global Affinity"], entry)
+	}
+	if err := lbmaps.NewGlobalAffinity4Map(0).DumpWithCallbackIfExists(parseEntry); err != nil {
+		Fatalf("Unable to dump IPv4 global affinity table: %s", err)
+	}
+	if err := lbmaps.NewGlobalAffinity6Map(0).DumpWithCallbackIfExists(parseEntry); err != nil {
+		Fatalf("Unable to dump IPv6 global affinity table: %s", err)
 	}
 }
 
@@ -151,6 +166,10 @@ var bpfLBListCmd = &cobra.Command{
 			firstTitle = srcRangeTitle
 			secondTitle = ""
 			dumpSrcRanges(serviceList)
+		case listGlobalAffinity:
+			firstTitle = "MAPPING"
+			secondTitle = ""
+			dumpGlobalAffinity(serviceList)
 		default:
 			firstTitle = serviceAddressTitle
 			dumpSVC(serviceList)
@@ -173,5 +192,6 @@ func init() {
 	bpfLBListCmd.Flags().BoolVarP(&listFrontends, "frontends", "", false, "List all service frontend entries")
 	bpfLBListCmd.Flags().BoolVarP(&listBackends, "backends", "", false, "List all service backend entries")
 	bpfLBListCmd.Flags().BoolVarP(&listSrcRanges, "source-ranges", "", false, "List all source range entries")
+	bpfLBListCmd.Flags().BoolVarP(&listGlobalAffinity, "global-affinity", "", false, "List global affinity mappings")
 	command.AddOutputOption(bpfLBListCmd)
 }

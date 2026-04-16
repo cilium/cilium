@@ -399,6 +399,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf lb list --frontends",
 		"cilium-dbg bpf lb list --backends",
 		"cilium-dbg bpf lb list --source-ranges",
+		"cilium-dbg bpf lb list --global-affinity",
 		"cilium-dbg bpf lb maglev list",
 		"cilium-dbg bpf egress list",
 		"cilium-dbg bpf vtep list",

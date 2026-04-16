@@ -100,6 +100,12 @@ type maglevMaps interface {
 	DumpMaglev(cb func(MaglevOuterKey, MaglevOuterVal, MaglevInnerKey, *MaglevInnerVal, bool)) error
 }
 
+type globalAffinityMaps interface {
+	UpdateGlobalAffinity(revNatID uint16, affinityID uint16, ipv6 bool) error
+	DeleteGlobalAffinity(revNatID uint16, ipv6 bool) error
+	DumpGlobalAffinity(cb func(revNatID uint16, affinityID uint16, ipv6 bool)) error
+}
+
 type sockRevNatMaps interface {
 	UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, revNatIndex uint16) error
 	DeleteSockRevNat(cookie uint64, addr net.IP, port uint16) error
@@ -117,6 +123,7 @@ type LBMaps interface {
 	affinityMaps
 	sourceRangeMaps
 	maglevMaps
+	globalAffinityMaps
 	sockRevNatMaps
 
 	IsEmpty() bool
@@ -136,6 +143,7 @@ type BPFLBMaps struct {
 	revNat4Map, revNat6Map           *bpf.Map
 	affinityMatchMap                 *bpf.Map
 	affinity4Map, affinity6Map       *bpf.Map
+	globalAffinity4Map, globalAffinity6Map *bpf.Map
 	sockRevNat4Map, sockRevNat6Map   *bpf.Map
 	sourceRange4Map, sourceRange6Map *bpf.Map
 	maglev4Map, maglev6Map           *bpf.Map // Inner maps are referenced inside maglev4Map and maglev6Map and can be retrieved by lbmap.MaglevInnerMapFromID.
@@ -249,6 +257,28 @@ func newAffinity6Map(maxEntries int) *bpf.Map {
 	)
 }
 
+func NewGlobalAffinity4Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		GlobalAffinity4MapName,
+		ebpf.Hash,
+		&GlobalAffinityKey{},
+		&GlobalAffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
+func NewGlobalAffinity6Map(maxEntries int) *bpf.Map {
+	return bpf.NewMap(
+		GlobalAffinity6MapName,
+		ebpf.Hash,
+		&GlobalAffinityKey{},
+		&GlobalAffinityValue{},
+		maxEntries,
+		0,
+	)
+}
+
 func NewSourceRange4Map(maxEntries int) *bpf.Map {
 	return bpf.NewMap(
 		SourceRange4MapName,
@@ -325,6 +355,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.maglev4Map, newMaglev4, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat4Map, NewSockRevNat4Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity4Map, newAffinity4Map, r.Cfg.LBAffinityMapEntries},
+		{&r.globalAffinity4Map, NewGlobalAffinity4Map, r.Cfg.LBRevNatEntries},
 	}
 	v6Maps := []mapDesc{
 		{&r.service6Map, NewService6Map, r.Cfg.LBServiceMapEntries},
@@ -333,6 +364,7 @@ func (r *BPFLBMaps) allMaps() ([]mapDesc, []mapDesc) {
 		{&r.maglev6Map, newMaglev6, r.Cfg.LBMaglevMapEntries},
 		{&r.sockRevNat6Map, NewSockRevNat6Map, r.Cfg.LBSockRevNatEntries},
 		{&r.affinity6Map, newAffinity6Map, r.Cfg.LBAffinityMapEntries},
+		{&r.globalAffinity6Map, NewGlobalAffinity6Map, r.Cfg.LBRevNatEntries},
 	}
 	affinityMap := mapDesc{&r.affinityMatchMap, NewAffinityMatchMap, r.Cfg.LBAffinityMapEntries}
 	v4SourceRangeMap := mapDesc{&r.sourceRange4Map, NewSourceRange4Map, r.Cfg.LBSourceRangeMapEntries}
@@ -589,6 +621,49 @@ func (r *BPFLBMaps) UpdateAffinityMatch(key *AffinityMatchKey, value *AffinityMa
 	return r.affinityMatchMap.Update(key, value)
 }
 
+// UpdateGlobalAffinity implements lbmaps.
+func (r *BPFLBMaps) UpdateGlobalAffinity(revNatID uint16, affinityID uint16, ipv6 bool) error {
+	key := &GlobalAffinityKey{Key: revNatID}
+	value := &GlobalAffinityValue{Value: affinityID}
+	if ipv6 {
+		return r.globalAffinity6Map.Update(key.ToNetwork(), value.ToNetwork())
+	} else {
+		return r.globalAffinity4Map.Update(key.ToNetwork(), value.ToNetwork())
+	}
+}
+
+// DeleteGlobalAffinity implements lbmaps.
+func (r *BPFLBMaps) DeleteGlobalAffinity(revNatID uint16, ipv6 bool) error {
+	key := &GlobalAffinityKey{Key: revNatID}
+	var err error
+	if ipv6 {
+		_, err = r.globalAffinity6Map.SilentDelete(key.ToNetwork())
+	} else {
+		_, err = r.globalAffinity4Map.SilentDelete(key.ToNetwork())
+	}
+	return err
+}
+
+// DumpGlobalAffinity implements lbmaps.
+func (r *BPFLBMaps) DumpGlobalAffinity(cb func(revNatID uint16, affinityID uint16, ipv6 bool)) error {
+	var errs []error
+	var ipv6 bool
+	cbWrap := func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(*GlobalAffinityKey).ToHost().(*GlobalAffinityKey)
+		v := value.(*GlobalAffinityValue).ToHost().(*GlobalAffinityValue)
+		cb(k.Key, v.Value, ipv6)
+	}
+	if r.globalAffinity4Map != nil {
+		ipv6 = false
+		errs = append(errs, r.globalAffinity4Map.DumpWithCallback(cbWrap))
+	}
+	if r.globalAffinity6Map != nil {
+		ipv6 = true
+		errs = append(errs, r.globalAffinity6Map.DumpWithCallback(cbWrap))
+	}
+	return errors.Join(errs...)
+}
+
 // DeleteSourceRange implements lbmaps.
 func (r *BPFLBMaps) DeleteSourceRange(key SourceRangeKey) error {
 	var err error
@@ -831,6 +906,30 @@ func (f *FaultyLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16,
 	return f.impl.UpdateSockRevNat(cookie, addr, port, revNatIndex)
 }
 
+// UpdateGlobalAffinity implements lbmaps.
+func (f *FaultyLBMaps) UpdateGlobalAffinity(revNatID uint16, affinityID uint16, ipv6 bool) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.UpdateGlobalAffinity(revNatID, affinityID, ipv6)
+}
+
+// DeleteGlobalAffinity implements lbmaps.
+func (f *FaultyLBMaps) DeleteGlobalAffinity(revNatID uint16, ipv6 bool) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.DeleteGlobalAffinity(revNatID, ipv6)
+}
+
+// DumpGlobalAffinity implements lbmaps.
+func (f *FaultyLBMaps) DumpGlobalAffinity(cb func(revNatID uint16, affinityID uint16, ipv6 bool)) error {
+	if f.isFaulty() {
+		return errFaulty
+	}
+	return f.impl.DumpGlobalAffinity(cb)
+}
+
 // DeleteSourceRange implements lbmaps.
 func (f *FaultyLBMaps) DeleteSourceRange(key SourceRangeKey) error {
 	if f.isFaulty() {
@@ -1048,6 +1147,8 @@ type FakeLBMaps struct {
 	srcRange   fakeBPFMap
 	mglv4      fakeBPFMap
 	mglv6      fakeBPFMap
+	globalAff4 fakeBPFMap
+	globalAff6 fakeBPFMap
 	inners     lock.Map[uint32, *fakeBPFMap]
 	nextID     uint32
 }
@@ -1231,6 +1332,36 @@ func (f *FakeLBMaps) UpdateSockRevNat(cookie uint64, addr net.IP, port uint16, r
 		}
 	}
 	f.sockRevNat.update(key, value)
+	return nil
+}
+
+// UpdateGlobalAffinity implements lbmaps.
+func (f *FakeLBMaps) UpdateGlobalAffinity(revNatID uint16, affinityID uint16, ipv6 bool) error {
+	key := &GlobalAffinityKey{Key: revNatID}
+	value := &GlobalAffinityValue{Value: affinityID}
+	if ipv6 {
+		return f.globalAff6.update(key, value)
+	}
+	return f.globalAff4.update(key, value)
+}
+
+// DeleteGlobalAffinity implements lbmaps.
+func (f *FakeLBMaps) DeleteGlobalAffinity(revNatID uint16, ipv6 bool) error {
+	key := &GlobalAffinityKey{Key: revNatID}
+	if ipv6 {
+		return f.globalAff6.delete(key)
+	}
+	return f.globalAff4.delete(key)
+}
+
+// DumpGlobalAffinity implements lbmaps.
+func (f *FakeLBMaps) DumpGlobalAffinity(cb func(revNatID uint16, affinityID uint16, ipv6 bool)) error {
+	dumpFakeBPFMap(&f.globalAff4, func(k *GlobalAffinityKey, v *GlobalAffinityValue) {
+		cb(k.Key, v.Value, false)
+	})
+	dumpFakeBPFMap(&f.globalAff6, func(k *GlobalAffinityKey, v *GlobalAffinityValue) {
+		cb(k.Key, v.Value, true)
+	})
 	return nil
 }
 

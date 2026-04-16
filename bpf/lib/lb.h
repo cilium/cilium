@@ -129,7 +129,7 @@ union lb4_affinity_client_id {
 
 struct lb4_affinity_key {
 	union lb4_affinity_client_id client_id;
-	__u16 rev_nat_id;
+	__u16 affinity_id;
 	__u8 netns_cookie:1,
 	     reserved:7;
 	__u8 pad1;
@@ -143,7 +143,7 @@ union lb6_affinity_client_id {
 
 struct lb6_affinity_key {
 	union lb6_affinity_client_id client_id;
-	__u16 rev_nat_id;
+	__u16 affinity_id;
 	__u8 netns_cookie:1,
 	     reserved:7;
 	__u8 pad1;
@@ -224,6 +224,15 @@ struct {
 } cilium_lb6_affinity __section_maps_btf;
 
 struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u16);
+	__type(value, __u16);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} cilium_lb6_global_affinity __section_maps_btf;
+
+struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lb6_src_range_key);
 	__type(value, __u8);
@@ -302,6 +311,15 @@ struct {
 	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_affinity __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u16);
+	__type(value, __u16);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} cilium_lb4_global_affinity __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -523,6 +541,18 @@ static __always_inline
 bool lb6_svc_is_affinity(const struct lb6_service *svc)
 {
 	return svc->flags & SVC_FLAG_AFFINITY;
+}
+
+static __always_inline
+bool lb4_svc_is_global_affinity(const struct lb4_service *svc)
+{
+	return lb4_svc_is_affinity(svc) && (svc->flags2 & SVC_FLAG_L7_LOADBALANCER);
+}
+
+static __always_inline
+bool lb6_svc_is_global_affinity(const struct lb6_service *svc)
+{
+	return lb6_svc_is_affinity(svc) && (svc->flags2 & SVC_FLAG_L7_LOADBALANCER);
 }
 
 static __always_inline bool __lb_svc_is_routable(__u8 flags)
@@ -1243,8 +1273,18 @@ static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
 {
+	__u16 rev_nat_id = svc->rev_nat_index;
+	__u16 *affinity_id_ptr;
+	__u16 affinity_id = rev_nat_id;
+
+	if (lb6_svc_is_global_affinity(svc)) {
+		affinity_id_ptr = map_lookup_elem(&cilium_lb6_global_affinity, &rev_nat_id);
+		if (affinity_id_ptr)
+			affinity_id = *affinity_id_ptr;
+	}
+
 	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.affinity_id	= affinity_id,
 		.netns_cookie	= netns_cookie,
 	};
 	struct lb_affinity_val *val;
@@ -1258,7 +1298,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 	if (val != NULL) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
-			.rev_nat_id	= svc->rev_nat_index,
+			.rev_nat_id	= affinity_id,
 			.backend_id	= val->backend_id,
 		};
 
@@ -2034,8 +2074,18 @@ static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
 {
+	__u16 rev_nat_id = svc->rev_nat_index;
+	__u16 *affinity_id_ptr;
+	__u16 affinity_id = rev_nat_id;
+
+	if (lb4_svc_is_global_affinity(svc)) {
+		affinity_id_ptr = map_lookup_elem(&cilium_lb4_global_affinity, &rev_nat_id);
+		if (affinity_id_ptr)
+			affinity_id = *affinity_id_ptr;
+	}
+
 	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
+		.affinity_id	= affinity_id,
 		.netns_cookie	= netns_cookie,
 		.client_id	= *id,
 	};
@@ -2045,7 +2095,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 	if (val != NULL) {
 		__u32 now = (__u32)bpf_mono_now();
 		struct lb_affinity_match match = {
-			.rev_nat_id	= svc->rev_nat_index,
+			.rev_nat_id	= affinity_id,
 			.backend_id	= val->backend_id,
 		};
 

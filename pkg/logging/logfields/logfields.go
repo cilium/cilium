@@ -335,6 +335,9 @@ const (
 	// SessionAffinityTimeout is a timeout for the session affinity
 	SessionAffinityTimeout = "sessionAffinityTimeout"
 
+	// AffinityID is the identifier for pure 2-tuple affinity
+	AffinityID = "affinityID"
+
 	// LoadBalancerAlgorithm is algorithm for backend selection
 	LoadBalancerAlgorithm = "LoadBalancerAlgorithm"
 

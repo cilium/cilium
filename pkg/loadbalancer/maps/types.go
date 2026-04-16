@@ -878,7 +878,43 @@ const (
 	AffinityMatchMapName = "cilium_lb_affinity_match"
 	Affinity4MapName     = "cilium_lb4_affinity"
 	Affinity6MapName     = "cilium_lb6_affinity"
+	GlobalAffinity4MapName = "cilium_lb4_global_affinity"
+	GlobalAffinity6MapName = "cilium_lb6_global_affinity"
 )
+
+type GlobalAffinityKey struct {
+	Key uint16
+}
+
+func (k *GlobalAffinityKey) New() bpf.MapKey { return &GlobalAffinityKey{} }
+func (k *GlobalAffinityKey) String() string { return fmt.Sprintf("%d", k.Key) }
+func (k *GlobalAffinityKey) ToNetwork() bpf.MapKey {
+	n := *k
+	n.Key = byteorder.HostToNetwork16(n.Key)
+	return &n
+}
+func (k *GlobalAffinityKey) ToHost() bpf.MapKey {
+	h := *k
+	h.Key = byteorder.NetworkToHost16(h.Key)
+	return &h
+}
+
+type GlobalAffinityValue struct {
+	Value uint16
+}
+
+func (v *GlobalAffinityValue) New() bpf.MapValue { return &GlobalAffinityValue{} }
+func (v *GlobalAffinityValue) String() string { return fmt.Sprintf("%d", v.Value) }
+func (v *GlobalAffinityValue) ToNetwork() bpf.MapValue {
+	n := *v
+	n.Value = byteorder.HostToNetwork16(n.Value)
+	return &n
+}
+func (v *GlobalAffinityValue) ToHost() bpf.MapValue {
+	h := *v
+	h.Value = byteorder.NetworkToHost16(h.Value)
+	return &h
+}
 
 type AffinityMatchKey struct {
 	BackendID loadbalancer.BackendID `align:"backend_id"`

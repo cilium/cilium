@@ -121,6 +121,11 @@ const (
 	ServiceAffinity      = ServicePrefix + "/affinity"
 	ServiceAffinityAlias = Prefix + "/service-affinity"
 
+	// GlobalAffinity if set to true, enables pure 2-tuple affinity routing
+	// model where a client_ip is consistently routed to the same backend pod
+	// across all ports of a given Kubernetes Service.
+	GlobalAffinity = ServicePrefix + "/global-affinity"
+
 	// CoreDNSAutoPatched is the annotation used to roll out CoreDNS once we
 	// we have patched its configuration to enabled MCS-API support.
 	CoreDNSAutoPatched = ClusterMeshPrefix + "/autoPatchedAt"

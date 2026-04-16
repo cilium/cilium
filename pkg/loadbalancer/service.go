@@ -130,6 +130,10 @@ func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
 	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
 }
 
+func (svc *Service) GetGlobalAffinityAnnotation() bool {
+	return svc.Annotations[annotation.GlobalAffinity] == "true"
+}
+
 func (svc *Service) GetProxyDelegation() SVCProxyDelegation {
 	if value, ok := annotation.Get(svc, annotation.ServiceProxyDelegation); ok {
 		tmp := SVCProxyDelegation(strings.ToLower(value))

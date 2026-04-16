@@ -48,7 +48,7 @@ $(SCAPY_HDR): $(SCAPY_CORE)
 	@echo "Generating scapy header $@"
 	$(QUIET) $(ROOT_DIR)/bpf/tests/scapy/scapy_header_gen.py $@
 
-%.o: %.c $(LIB) $(SCAPY_HDR)
+%.o: %.c $(LIB)
 	@$(ECHO_CC)
 	@# Remove the .o file to force recompilation, only rely on make's caching, not clangs
 	@rm -f $@
