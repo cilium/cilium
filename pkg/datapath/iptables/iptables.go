@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -1244,6 +1245,11 @@ func (m *Manager) installMasqueradeRules(
 		}
 		initialPass := true
 		if routes, err := safenetlink.RouteList(nil, family); err == nil {
+			// Sort routes by prefix length (longest first) to ensure
+			// iptables first-match semantics do not allow less specific
+			// routes to shadow more specific routes.
+			m.logger.Debug("Applying prefix-based route sorting for SNAT rules")
+			routes = sortRoutesByPrefixLength(routes)
 		nextPass:
 			for _, r := range routes {
 				var link netlink.Link
@@ -1435,6 +1441,59 @@ func (m *Manager) installMasqueradeRules(
 	}
 
 	return nil
+}
+
+// sortRoutesByPrefixLength sorts routes by prefix length (longest first) to ensure
+// iptables first-match semantics do not allow less specific routes to shadow
+// more specific routes.
+func sortRoutesByPrefixLength(routes []netlink.Route) []netlink.Route {
+	sorted := make([]netlink.Route, len(routes))
+	copy(sorted, routes)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		iPrefixLen := prefixLength(sorted[i])
+		jPrefixLen := prefixLength(sorted[j])
+		if iPrefixLen != jPrefixLen {
+			return iPrefixLen > jPrefixLen
+		}
+
+		if routeDstString(sorted[i]) != routeDstString(sorted[j]) {
+			return routeDstString(sorted[i]) < routeDstString(sorted[j])
+		}
+
+		if routeSrcString(sorted[i]) != routeSrcString(sorted[j]) {
+			return routeSrcString(sorted[i]) < routeSrcString(sorted[j])
+		}
+
+		return sorted[i].LinkIndex < sorted[j].LinkIndex
+	})
+
+	return sorted
+}
+
+func prefixLength(r netlink.Route) int {
+	if r.Dst == nil {
+		return 0
+	}
+
+	ones, _ := r.Dst.Mask.Size()
+	return ones
+}
+
+func routeDstString(r netlink.Route) string {
+	if r.Dst == nil {
+		return ""
+	}
+
+	return r.Dst.String()
+}
+
+func routeSrcString(r netlink.Route) string {
+	if r.Src == nil {
+		return ""
+	}
+
+	return r.Src.String()
 }
 
 func (m *Manager) installHostTrafficMarkRule(prog runnable) error {
