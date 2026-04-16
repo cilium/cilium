@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -83,7 +84,7 @@ func (reg *Registry) Gather() ([]*dto.MetricFamily, error) {
 	return reg.inner.Gather()
 }
 
-func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLSConfigPromise) {
+func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLSConfigPromise, listenConfig net.ListenConfig) {
 	if reg.params.Config.PrometheusServeAddr != "" {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
@@ -102,20 +103,27 @@ func (reg *Registry) AddServerRuntimeHooks(serverId string, tlsConfigPromise TLS
 				logfields.TLS, tlsEnabled,
 			)
 
-			listenAndServeFn := srv.ListenAndServe
+			ln, err := listenConfig.Listen(ctx, "tcp", reg.params.Config.PrometheusServeAddr)
+			if err != nil {
+				reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+				return nil
+			}
+
+			var serveFn func() error
 			if tlsEnabled {
 				reg.params.Logger.Info("Waiting for TLS certificates to become available")
 				tlsConfig, err := tlsConfigPromise.Await(ctx)
 				if err != nil {
+					ln.Close()
 					return err
 				}
 				srv.TLSConfig = tlsConfig
-				listenAndServeFn = func() error {
-					return srv.ListenAndServeTLS("", "")
-				}
+				serveFn = func() error { return srv.ServeTLS(ln, "", "") }
+			} else {
+				serveFn = func() error { return srv.Serve(ln) }
 			}
 
-			if err := listenAndServeFn(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := serveFn(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				reg.params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 			}
 			return nil
@@ -148,7 +156,7 @@ func NewAgentRegistry(params RegistryParams) *Registry {
 	// Resolve the global registry variable for as long as we still have global functions
 	registryResolver.Resolve(reg)
 
-	reg.AddServerRuntimeHooks("agent-prometheus-server", nil)
+	reg.AddServerRuntimeHooks("agent-prometheus-server", nil, net.ListenConfig{})
 
 	return reg
 }
