@@ -1544,6 +1544,10 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 					      __s8 *ext_err __maybe_unused)
 {
+  struct trace_ctx __maybe_unused trace = {
+    .reason = TRACE_REASON_UNKNOWN,
+    .monitor = TRACE_PAYLOAD_LEN,
+  };
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo __maybe_unused;
@@ -1552,6 +1556,9 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+#ifdef TUNNEL_MODE
+  const struct remote_endpoint_info *info;
+  const struct endpoint_info *ep;
 	struct crap_key key;
 	struct crap_value *tv;
 
@@ -1561,6 +1568,27 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	if (tv) {
 		return CTX_ACT_OK;
 	}
+
+  key.dst_ip = ip4->daddr;
+
+  tv = map_lookup_elem (&cilium_crap_map, &key);
+  if (tv) {
+    ep = __lookup_ip4_endpoint(tv->pod_ip);
+    if (ep) {
+      int l3_off = ETH_HLEN;
+
+      return ipv4_local_delivery(ctx, l3_off, SECLABEL_IPV4, MARK_MAGIC_IDENTITY, ip4, ep,
+             METRIC_INGRESS, true, false, 0);
+    }
+
+    info = lookup_ip4_remote_endpoint(tv->pod_ip, 0);
+    if (info) {
+      return encap_and_redirect_with_nodeid(ctx, info, SECLABEL_IPV4,
+                    info->sec_identity, &trace,
+                    bpf_htons(ETH_P_IP));
+    }
+  }
+#endif
 
 /* If IPv4 fragmentation is disabled
  * AND a IPv4 fragmented packet is received,
