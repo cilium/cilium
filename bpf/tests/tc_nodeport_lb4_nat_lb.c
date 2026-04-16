@@ -762,7 +762,7 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	struct tcphdr *l4;
 	void *data;
-	__u16 nat_source_port = 0;
+	__be16 nat_source_port = 0;
 	__u32 key = 0;
 
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -904,7 +904,7 @@ SETUP("tc", "tc_nodeport_nat_fwd_reply_punt")
 int nodeport_nat_fwd_reply_punt_setup(struct __ctx_buff *ctx)
 {
 	/* Delete the Rev NAT */
-	__u16 nat_source_port = 0;
+	__be16 nat_source_port = 0;
 	__u32 key = 0;
 
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -1143,7 +1143,7 @@ int nodeport_nat_fwd_original_renated_check(const struct __ctx_buff *ctx)
 	struct tcphdr *l4;
 	struct iphdr *l3;
 	__u32 key = 0;
-	__u16 nat_source_port = 0;
+	__be16 nat_source_port = 0;
 
 	test_init();
 
@@ -1282,7 +1282,7 @@ int nodeport_nat_fwd_verify_restored_original_entry_check(struct __ctx_buff *ctx
 	struct tcphdr *l4;
 	struct iphdr *l3;
 	__u32 key = 0;
-	__u16 nat_source_port = 0;
+	__be16 nat_source_port = 0;
 
 	test_init();
 
