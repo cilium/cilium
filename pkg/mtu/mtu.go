@@ -65,6 +65,12 @@ const (
 	//      Total extra bytes:         80B
 	WireguardOverhead = 80
 
+	// IPv6MinMTU is the minimum MTU required for IPv6 to function on a
+	// network interface, as defined in RFC 8200 section 5. The Linux kernel
+	// refuses to initialize inet6_dev on interfaces with MTU below this
+	// value, causing all IPv6 packet reception to be silently discarded.
+	IPv6MinMTU = 1280
+
 	// IPIPv4Overhead is the overhead for the IPv4 header used in IPIP devices.
 	// sizeof(struct iphdr)
 	IPIPv4Overhead = 20
