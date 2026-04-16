@@ -292,6 +292,9 @@ const (
 	// MTU is the maximum transmission unit of one interface
 	MTU = "mtu"
 
+	// MinMTU is the minimum MTU allowed for an interface
+	MinMTU = "minMTU"
+
 	// Interface is an interface id/name on the system
 	Interface = "interface"
 
