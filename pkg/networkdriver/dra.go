@@ -382,9 +382,6 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		})
 	}
 
-	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
-	driver.allocations[pod.UID][claim.UID] = alloc
-
 	// Persist the allocation to Kubernetes before committing it to memory.
 	// If UpdateStatus fails we roll back the devices so the next
 	// PrepareResourceClaims call can start fresh rather than hitting the
@@ -398,6 +395,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			Err: err,
 		}
 	}
+
+	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
+	driver.allocations[pod.UID][claim.UID] = alloc
 
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
