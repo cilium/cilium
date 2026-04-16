@@ -330,6 +330,13 @@ const (
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
 
+	// EnableLRPAddressMatcherOverride re-enables the legacy behavior where a
+	// CiliumLocalRedirectPolicy addressMatcher can override an existing
+	// service at the given frontend address. This is unsafe (allows cross-
+	// namespace traffic hijacking and corrupts the service map on delete)
+	// and is provided only as a transient compatibility knob.
+	EnableLRPAddressMatcherOverride = "enable-lrp-address-matcher-override"
+
 	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
 	EnableMKE = "enable-mke"
 
@@ -1947,6 +1954,12 @@ type DaemonConfig struct {
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
 
+	// EnableLRPAddressMatcherOverride re-enables the legacy behavior where a
+	// CiliumLocalRedirectPolicy addressMatcher can override an existing
+	// service at the given frontend address. Unsafe; provided for backwards
+	// compatibility only.
+	EnableLRPAddressMatcherOverride bool
+
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
 
@@ -2914,6 +2927,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
+	c.EnableLRPAddressMatcherOverride = vp.GetBool(EnableLRPAddressMatcherOverride)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)

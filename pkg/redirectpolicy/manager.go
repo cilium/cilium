@@ -44,6 +44,9 @@ var (
 type svcManager interface {
 	DeleteService(frontend lb.L3n4Addr) (bool, error)
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
+	UpsertServiceWithCheck(params *lb.SVC,
+		check func(existingType lb.SVCType) bool,
+	) (bool, lb.ID, error)
 	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)
 }
 
@@ -780,7 +783,25 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		LoadBalancerAlgorithm: loadBalancerAlgorithm,
 	}
 
-	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
+	var err error
+	if config.lrpType == lrpConfigTypeAddr && !option.Config.EnableLRPAddressMatcherOverride {
+		_, _, err = rpm.svcManager.UpsertServiceWithCheck(p,
+			func(existingType lb.SVCType) bool {
+				if existingType == lb.SVCTypeLocalRedirect {
+					return true
+				}
+				log.WithFields(logrus.Fields{
+					logfields.LRPName:      config.id.Name,
+					logfields.K8sNamespace: config.id.Namespace,
+					logfields.ServiceType:  existingType,
+					logfields.LRPFrontends: frontendMapping.feAddr,
+				}).Warn("LocalRedirectPolicy addressMatcher matches an address owned by an existing service; refusing to override")
+				return false
+			})
+	} else {
+		_, _, err = rpm.svcManager.UpsertService(p)
+	}
+	if err != nil {
 		if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
 			log.WithError(err).Debug("Error while inserting service in LB map")
 		} else {

@@ -699,6 +699,34 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	return s.upsertService(params)
 }
 
+// UpsertServiceWithCheck upserts the given service. If a service is already
+// registered at the frontend, `check` is called with its SVCType and the
+// upsert proceeds only if it returns true. When the frontend is unused the
+// upsert proceeds unconditionally. The check and the upsert run under the
+// service manager's write lock, so no concurrent upsert can interleave
+// between the decision and the update.
+func (s *Service) UpsertServiceWithCheck(params *lb.SVC,
+	check func(existingType lb.SVCType) bool,
+) (bool, lb.ID, error) {
+	s.Lock()
+	defer s.Unlock()
+	// Mirror createSVCInfoIfNotExist's lookup: first consult the protocol-
+	// agnostic ("ANY") entry for backwards compatibility with services
+	// persisted prior to protocol differentiation, falling back to the
+	// protocol-specific entry. Deep-copy the frontend so we don't mutate
+	// the caller's params.
+	fe := params.Frontend.DeepCopy()
+	fe.L3n4Addr.L4Addr.Protocol = "ANY"
+	existing, found := s.svcByHash[fe.Hash()]
+	if !found {
+		existing, found = s.svcByHash[params.Frontend.Hash()]
+	}
+	if found && !check(existing.svcType) {
+		return false, lb.ID(0), nil
+	}
+	return s.upsertService(params)
+}
+
 // reUpsertServicesByName upserts a service again to update it's internal state after
 // changes for L7 service redirection.
 // Write lock on 's' must be held.

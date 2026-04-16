@@ -87,6 +87,9 @@ func setupManagerSuite(tb testing.TB) *ManagerSuite {
 type fakeSvcManager struct {
 	upsertEvents            chan *lb.SVC
 	destroyConnectionEvents chan lb.L3n4Addr
+	// existingFrontendTypes returns the SVCType registered for a given
+	// frontend address. A nil map means no frontends are registered.
+	existingFrontendTypes map[string]lb.SVCType
 }
 
 func (f *fakeSvcManager) DeleteService(lb.L3n4Addr) (bool, error) {
@@ -98,6 +101,17 @@ func (f *fakeSvcManager) UpsertService(s *lb.SVC) (bool, lb.ID, error) {
 		f.upsertEvents <- s
 	}
 	return true, 1, nil
+}
+
+func (f *fakeSvcManager) UpsertServiceWithCheck(s *lb.SVC,
+	check func(existingType lb.SVCType) bool,
+) (bool, lb.ID, error) {
+	if existingType, ok := f.existingFrontendTypes[s.Frontend.Hash()]; ok {
+		if !check(existingType) {
+			return false, 0, nil
+		}
+	}
+	return f.UpsertService(s)
 }
 
 func (f *fakeSvcManager) TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr) {
@@ -366,6 +380,126 @@ func TestManager_AddRedirectPolicy_AddrMatcherDuplicateConfig(t *testing.T) {
 
 	require.False(t, added)
 	require.Error(t, err)
+}
+
+// Tests that upsertService skips the UpsertService call for an addressMatcher
+// policy when the frontend is already owned by another service (e.g. a
+// Kubernetes Service's ClusterIP). This guards against cross-namespace traffic
+// hijacking and the service-state corruption on deletion
+func TestManager_UpsertService_AddrMatcherFrontendOwnedByAnotherService(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	upsertEvents := make(chan *lb.SVC, 1)
+	m.rpm.svcManager = &fakeSvcManager{
+		upsertEvents: upsertEvents,
+		existingFrontendTypes: map[string]lb.SVCType{
+			fe1.Hash(): lb.SVCTypeClusterIP,
+		},
+	}
+
+	feM := &feMapping{
+		feAddr: fe1,
+		fePort: portName1,
+		podBackends: []backend{{
+			L3n4Addr: lb.L3n4Addr{
+				AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.1"),
+				L4Addr:      beP1.l4Addr,
+			},
+			podID: pod1ID,
+		}},
+	}
+
+	m.rpm.upsertService(&configAddrType, feM)
+
+	select {
+	case svc := <-upsertEvents:
+		t.Fatalf("UpsertService should not have been called; got %v", svc)
+	default:
+	}
+}
+
+// Tests that the EnableLRPAddressMatcherOverride compatibility flag restores
+// the legacy behavior: when set, upsertService proceeds to override an
+// existing service frontend.
+func TestManager_UpsertService_AddrMatcherOverrideFlag(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	prev := option.Config.EnableLRPAddressMatcherOverride
+	option.Config.EnableLRPAddressMatcherOverride = true
+	t.Cleanup(func() { option.Config.EnableLRPAddressMatcherOverride = prev })
+
+	upsertEvents := make(chan *lb.SVC, 1)
+	m.rpm.svcManager = &fakeSvcManager{
+		upsertEvents: upsertEvents,
+		existingFrontendTypes: map[string]lb.SVCType{
+			fe1.Hash(): lb.SVCTypeClusterIP,
+		},
+	}
+
+	feM := &feMapping{
+		feAddr: fe1,
+		fePort: portName1,
+		podBackends: []backend{{
+			L3n4Addr: lb.L3n4Addr{
+				AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.1"),
+				L4Addr:      beP1.l4Addr,
+			},
+			podID: pod1ID,
+		}},
+	}
+
+	m.rpm.upsertService(&configAddrType, feM)
+
+	select {
+	case svc := <-upsertEvents:
+		require.Equal(t, lb.SVCTypeLocalRedirect, svc.Type)
+		require.Equal(t, lb.ServiceName{
+			Name:      configAddrType.id.Name + localRedirectSvcStr,
+			Namespace: configAddrType.id.Namespace,
+		}, svc.Name)
+	default:
+		t.Fatal("UpsertService should have been called when override flag is set")
+	}
+}
+
+// Tests that upsertService proceeds for an addressMatcher policy when the
+// frontend is already owned by the policy's own LocalRedirect pseudo-service
+// (e.g. re-processing on pod events).
+func TestManager_UpsertService_AddrMatcherFrontendOwnedBySelf(t *testing.T) {
+	m := setupManagerSuite(t)
+
+	upsertEvents := make(chan *lb.SVC, 1)
+	m.rpm.svcManager = &fakeSvcManager{
+		upsertEvents: upsertEvents,
+		existingFrontendTypes: map[string]lb.SVCType{
+			fe1.Hash(): lb.SVCTypeLocalRedirect,
+		},
+	}
+
+	feM := &feMapping{
+		feAddr: fe1,
+		fePort: portName1,
+		podBackends: []backend{{
+			L3n4Addr: lb.L3n4Addr{
+				AddrCluster: cmtypes.MustParseAddrCluster("10.0.0.1"),
+				L4Addr:      beP1.l4Addr,
+			},
+			podID: pod1ID,
+		}},
+	}
+
+	m.rpm.upsertService(&configAddrType, feM)
+
+	select {
+	case svc := <-upsertEvents:
+		require.Equal(t, lb.SVCTypeLocalRedirect, svc.Type)
+		require.Equal(t, lb.ServiceName{
+			Name:      configAddrType.id.Name + localRedirectSvcStr,
+			Namespace: configAddrType.id.Namespace,
+		}, svc.Name)
+	default:
+		t.Fatal("UpsertService should have been called")
+	}
 }
 
 // Tests if duplicate svcMatcher configs are not added.

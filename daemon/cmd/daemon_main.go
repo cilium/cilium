@@ -565,6 +565,13 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
 	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
 
+	flags.Bool(option.EnableLRPAddressMatcherOverride, false,
+		"Re-enable the legacy behavior where a CiliumLocalRedirectPolicy "+
+			"addressMatcher can override an existing Service at the same frontend "+
+			"address. Only available on v1.17; newer releases always refuse an "+
+			"addressMatcher that conflicts with a Service.")
+	option.BindEnv(vp, option.EnableLRPAddressMatcherOverride)
+
 	flags.Bool(option.EnableMKE, false, "Enable BPF kube-proxy replacement for MKE environments")
 	flags.MarkHidden(option.EnableMKE)
 	option.BindEnv(vp, option.EnableMKE)

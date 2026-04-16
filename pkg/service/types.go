@@ -81,6 +81,16 @@ type ServiceManager interface {
 	// UpsertService inserts or updates the given service.
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
 
+	// UpsertServiceWithCheck upserts the given service. If a service is
+	// already registered at the frontend, `check` is called with its
+	// SVCType and the upsert proceeds only if it returns true. When the
+	// frontend is unused the upsert proceeds unconditionally. The check
+	// and the upsert run under a single write lock, so the decision is
+	// atomic with respect to concurrent upserts.
+	UpsertServiceWithCheck(params *lb.SVC,
+		check func(existingType lb.SVCType) bool,
+	) (bool, lb.ID, error)
+
 	// TerminateUDPConnectionsToBackend terminates UDP connections to the passed
 	// backend with address when socket-LB is enabled.
 	TerminateUDPConnectionsToBackend(l3n4Addr *lb.L3n4Addr)

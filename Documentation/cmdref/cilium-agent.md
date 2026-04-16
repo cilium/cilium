@@ -160,6 +160,7 @@ cilium-agent [flags]
       --enable-l7-proxy                                           Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                                   Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                              Enable Local Redirect Policy
+      --enable-lrp-address-matcher-override                       Re-enable the legacy behavior where a CiliumLocalRedirectPolicy addressMatcher can override an existing Service at the same frontend address. Only available on v1.17; newer releases always refuse an addressMatcher that conflicts with a Service.
       --enable-masquerade-to-route-source                         Masquerade packets to the source IP provided from the routing layer rather than interface address
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-nat46x64-gateway                                   Enable NAT46 and NAT64 gateway
