@@ -58,6 +58,51 @@ CONTAINER=$(docker create \
 )
 trap 'docker rm -f "$CONTAINER"' EXIT
 docker start "$CONTAINER"
+
+EXISTING_GROUP=$(docker exec "$CONTAINER" getent group "$GROUPID" || :)
+if [ -n "$EXISTING_GROUP" ] && [ "${EXISTING_GROUP%%:*}" != "ubuntu" ]; then
+	echo "Group exists in the container, trying to reassign ID: $EXISTING_GROUP"
+	NEW_GID=
+	for gid in $(seq 1 999); do
+		# groupmod fails if $gid is already in use.
+		docker exec "$CONTAINER" groupmod -g "$gid" "${EXISTING_GROUP%%:*}" || continue
+		docker exec "$CONTAINER" find / -xdev \
+			-path /go -prune -o \
+			-path /home -prune -o \
+			-exec chown -hc --from=":$GROUPID" ":${EXISTING_GROUP%%:*}" {} +
+		NEW_GID="$gid"
+		break
+	done
+	if [ -n "$NEW_GID" ]; then
+		echo "Reassigned group ${EXISTING_GROUP%%:*} to ID $NEW_GID"
+	else
+		echo "Failed to find an unused GID for group ${EXISTING_GROUP%%:*}"
+		exit 1
+	fi
+fi
+EXISTING_USER=$(docker exec "$CONTAINER" getent passwd "$USERID" || :)
+if [ -n "$EXISTING_USER" ] && [ "${EXISTING_USER%%:*}" != "ubuntu" ]; then
+	echo "User exists in the container, trying to reassign ID: $EXISTING_USER"
+	NEW_UID=
+	for uid in $(seq 1 999); do
+		# usermod fails if $uid is already in use.
+		docker exec "$CONTAINER" usermod -u "$gid" "${EXISTING_USER%%:*}" || continue
+		# usermod only chowns inside the home directory. System users can own files elsewhere.
+		docker exec "$CONTAINER" find / -xdev \
+			-path /go -prune -o \
+			-path /home -prune -o \
+			-exec chown -hc --from="$USERID" "${EXISTING_USER%%:*}" {} +
+		NEW_UID="$uid"
+		break
+	done
+	if [ -n "$NEW_UID" ]; then
+		echo "Reassigned user ${EXISTING_USER%%:*} to ID $NEW_UID"
+	else
+		echo "Failed to find an unused UID for user ${EXISTING_USER%%:*}"
+		exit 1
+	fi
+fi
+
 docker exec "$CONTAINER" groupmod -g "$GROUPID" ubuntu
 # usermod fixes UIDs, but GIDs need to be fixed manually.
 docker exec "$CONTAINER" chown -Rhc --from=:1000 :ubuntu /home/ubuntu
