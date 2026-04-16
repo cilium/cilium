@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
+	sdpmetrics "github.com/cilium/cilium/standalone-dns-proxy/pkg/metrics"
 )
 
 // ReadinessStatusProvider is an interface for checking the readiness status
@@ -43,6 +44,9 @@ type StandaloneDNSProxy struct {
 	dnsRulesTable statedb.RWTable[client.DNSRules]
 	db            *statedb.DB
 	jobGroup      job.Group
+
+	// metrics tracks errors for the standalone DNS proxy
+	metrics *sdpmetrics.Metrics
 
 	// readinessStatus tracks the readiness status of this standalone DNS proxy instance
 	readinessStatus atomic.Bool
@@ -71,6 +75,7 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 		db:                           params.DB,
 		dnsRulesTable:                params.DNSRulesTable,
 		jobGroup:                     params.JobGroup,
+		metrics:                      params.Metrics,
 	}
 }
 
@@ -115,6 +120,7 @@ func (sdp *StandaloneDNSProxy) WatchConnection(ctx context.Context, _ cell.Healt
 				// Start the DNS proxy once the connection is established
 				if err := sdp.dnsProxier.Listen(sdp.proxyPort); err != nil {
 					sdp.logger.Error("Failed to start DNS proxy", logfields.Error, err)
+					sdp.metrics.ProxyBootstrapError.Inc()
 					return err
 				}
 				return nil

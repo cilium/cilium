@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/metrics"
 )
 
 const (
@@ -46,6 +47,7 @@ type clientParams struct {
 	DNSRulesTable         statedb.RWTable[DNSRules]
 	IPtoEndpointTable     statedb.RWTable[IPtoEndpointInfo]
 	PrefixToIdentityTable statedb.RWTable[PrefixToIdentity]
+	Metrics               *metrics.Metrics
 }
 
 // newGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
