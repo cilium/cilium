@@ -351,6 +351,16 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			}
 		}
 
+		var ips []string
+
+		if thisAlloc.Config.IPv4Addr.IsValid() {
+			ips = append(ips, thisAlloc.Config.IPv4Addr.String())
+		}
+
+		if thisAlloc.Config.IPv6Addr.IsValid() {
+			ips = append(ips, thisAlloc.Config.IPv6Addr.String())
+		}
+
 		devicesStatus = append(devicesStatus, resourceapi.AllocatedDeviceStatus{
 			Driver:     driver.config.DriverName,
 			Pool:       result.Pool,
@@ -364,10 +374,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 					}
 					return thisAlloc.Device.IfName()
 				}(),
-				IPs: []string{
-					thisAlloc.Config.IPv4Addr.String(),
-					thisAlloc.Config.IPv6Addr.String(),
-				},
+				IPs: ips,
 			},
 		})
 	}
