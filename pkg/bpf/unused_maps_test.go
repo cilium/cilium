@@ -80,8 +80,9 @@ func TestPrivilegedUnusedMaps(t *testing.T) {
 
 	assert.Nil(t, spec.Maps["map_a"])
 	assert.Nil(t, spec.Maps["map_b"])
-	assert.Nil(t, spec.Maps["map_static"])
-	assert.Nil(t, spec.Maps["map_global"])
+	// BPF functions are always visited to match the kernel's behavior pre-v6.8.
+	assert.NotNil(t, spec.Maps["map_static"])
+	assert.NotNil(t, spec.Maps["map_global"])
 	assert.True(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "At least one instruction should have been poisoned")
@@ -89,7 +90,8 @@ func TestPrivilegedUnusedMaps(t *testing.T) {
 	coll = mustNewCollection(t, spec)
 	freed, err = freedMaps(coll, nil)
 	assert.NoError(t, err)
-	assert.Empty(t, freed)
+	// Depending on the kernel versions, map_static and map_global may be freed by the verifier.
+	assert.GreaterOrEqual(t, 2, len(freed))
 }
 
 func TestPrivilegedUnusedMapsFalseNegative(t *testing.T) {

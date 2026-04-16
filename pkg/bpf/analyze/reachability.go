@@ -152,6 +152,15 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*e
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
+	// Always visit bpf2bpf callees since they are always reachable, on pre-6.8 kernels
+	for _, block := range blocks {
+		for _, called := range block.calls {
+			if err := r.visitBlock(called, vars); err != nil {
+				return nil, fmt.Errorf("predicting blocks: %w", err)
+			}
+		}
+	}
+
 	return r, nil
 }
 
