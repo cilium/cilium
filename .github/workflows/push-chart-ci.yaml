@@ -100,15 +100,15 @@ jobs:
         values_file_changes: |
           {
 
-            "image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
+            "image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
             "image.tag": "${{ inputs.image_tag }}",
             "image.digest": "",
             "image.useDigest": false,
-            "preflight.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci",
+            "preflight.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci",
             "preflight.image.tag": "${{ inputs.image_tag }}",
             "preflight.image.digest": "",
             "preflight.image.useDigest": false,
-            "operator.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator",
+            "operator.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator",
             "operator.image.suffix": "-ci",
             "operator.image.genericDigest": "",
             "operator.image.azureDigest": "",
@@ -116,17 +116,17 @@ jobs:
             "operator.image.alibabacloudDigest": "",
             "operator.image.useDigest": false,
             "operator.image.tag": "${{ inputs.image_tag }}",
-            "hubble.relay.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci",
+            "hubble.relay.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci",
             "hubble.relay.image.tag": "${{ inputs.image_tag }}",
             "hubble.relay.image.digest": "",
             "hubble.relay.image.useDigest": false,
-            "clustermesh.apiserver.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
+            "clustermesh.apiserver.image.repository": "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
             "clustermesh.apiserver.image.tag": "${{ inputs.image_tag }}",
             "clustermesh.apiserver.image.digest": "",
             "clustermesh.apiserver.image.useDigest": false
           }
-        registry: quay.io
-        registry_namespace: ${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}
+        registry: ${{ env.REGISTRY_DEV }}
+        registry_namespace: ${{ env.CHARTS_ORGANIZATION_DEV }}
         registry_username: ${{ secrets.QUAY_CHARTS_DEV_USERNAME }}
         registry_password: ${{ secrets.QUAY_CHARTS_DEV_PASSWORD }}
 
@@ -152,5 +152,5 @@ jobs:
         CHART_VERSION: ${{ needs.setup-charts.outputs.chart-version }}
       run: |
         echo "Example commands:"
-        echo helm template -n kube-system oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
-        echo helm install cilium -n kube-system  oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm template -n kube-system oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm install cilium -n kube-system  oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"

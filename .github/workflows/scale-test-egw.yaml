@@ -192,8 +192,8 @@ jobs:
             --set=extraConfig.cilium-endpoint-gc-interval=24h \
             --set-string=extraConfig.enable-stale-cilium-endpoint-cleanup=false \
             --set=prometheus.metrics=\"{+cilium_datapath_nat_gc_entries}\" \
-            --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
-            --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
+            --set=image.override=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${SHA} \
+            --set=operator.image.override=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator-aws-ci:${SHA} \
             --values=values-dummy-health-server.yaml \
             --nodes-without-cilium"
 
@@ -204,7 +204,7 @@ jobs:
           cat<<EOF > values-dummy-health-server.yaml
           extraInitContainers:
           - name: iptables-config
-            image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA}
+            image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${SHA}
             command:
             - /bin/bash
             - -c

@@ -67,17 +67,17 @@ jobs:
         id: docs-builder-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to quay.io
+      - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.docs-builder-tag-in-repositories.outputs.exists == 'false' }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: quay.io
+          registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_DOCS_BUILDER_USERNAME }}
           password: ${{ secrets.QUAY_DOCS_BUILDER_PASSWORD }}
           logout: true
@@ -92,7 +92,7 @@ jobs:
           file: ./Documentation/Dockerfile
           push: true
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }}
+            ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }}
 
   # Use a separate job for the steps below, to ensure we're no longer logged
   # into Quay.io.
@@ -130,7 +130,7 @@ jobs:
 
       - name: Update docs-builder image reference in CI workflow
         run: |
-          NEW_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
+          NEW_IMAGE="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
           # Run in Docker to prevent the script from accessing the environment.
           docker run --rm -v $PWD:/cilium -w /cilium "${NEW_IMAGE}" \
               bash -c "git config --global --add safe.directory /cilium && \
@@ -212,7 +212,7 @@ jobs:
       - name: Retrieve image digest
         shell: bash
         run: |
-          NEW_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
+          NEW_IMAGE="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
           mkdir -p image-digest/
           echo "## docs-builder" > image-digest/docs-builder.txt
           echo "" >> image-digest/docs-builder.txt

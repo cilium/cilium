@@ -166,8 +166,8 @@ jobs:
           if [ -z "${VERSION}" ]; then
             CILIUM_INSTALL_DEFAULTS="--chart-directory=untrusted/install/kubernetes/cilium \
               ${CILIUM_INSTALL_DEFAULTS} \
-              --set=image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${SHA} \
-              --set=operator.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-aws-ci:${SHA}"
+              --set=image.override=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${SHA} \
+              --set=operator.image.override=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator-aws-ci:${SHA}"
           else
             CILIUM_INSTALL_DEFAULTS="--version ${VERSION} ${CILIUM_INSTALL_DEFAULTS}"
           fi

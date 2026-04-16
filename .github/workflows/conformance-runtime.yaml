@@ -167,7 +167,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
   setup-and-test:
@@ -346,8 +346,8 @@ jobs:
             ln -s /host /home/root/go/src/github.com/cilium/cilium
             cp -r /host/test/provision /tmp
             git config --global --add safe.directory /host
-            export CILIUM_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-            export CILIUM_DOCKER_PLUGIN_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
+            export CILIUM_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+            export CILIUM_DOCKER_PLUGIN_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docker-plugin-ci:${{ steps.vars.outputs.sha }}
             export PROVISION_EXTERNAL_WORKLOAD=false
             export VMUSER=root
             echo '127.0.0.1 localhost' >> /etc/hosts
@@ -377,11 +377,11 @@ jobs:
           --ginkgo.skip="${{ matrix.cliSkip }}" \
           --ginkgo.seed=1679952881 \
           --ginkgo.v -- \
-          -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+          -cilium.image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci \
           -cilium.tag=${{ steps.vars.outputs.sha }}  \
-          -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+          -cilium.operator-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/operator \
           -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
-          -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+          -cilium.hubble-relay-image=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/hubble-relay-ci \
           -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
           -cilium.operator-suffix=-ci \
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt" \
@@ -454,7 +454,7 @@ jobs:
         with:
           provision: 'false'
           cmd: |
-            docker create --name cilium-dbg quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
+            docker create --name cilium-dbg ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
             docker cp cilium-dbg:/usr/bin/cilium-dbg /usr/local/bin/cilium-dbg
             docker rm cilium-dbg
             cilium-dbg metrics list -p cilium_feature -o json > '/host/features-tested-${{ env.job_name }} (${{ matrix.focus }}).json'

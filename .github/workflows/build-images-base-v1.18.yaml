@@ -92,17 +92,17 @@ jobs:
         id: cilium-runtime-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to quay.io
+      - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: quay.io
+          registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
           password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
 
@@ -117,12 +117,12 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+            ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Sign Container Image Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign sign -y ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
 
       - name: Generate SBOM
@@ -131,12 +131,12 @@ jobs:
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+          image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json --type spdxjson ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -145,7 +145,7 @@ jobs:
           mkdir -p image-digest/
           echo "## cilium-runtime" > image-digest/cilium-runtime.txt
           echo "" >> image-digest/cilium-runtime.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/cilium-runtime.txt
+          echo "\`${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/cilium-runtime.txt
           echo "" >> image-digest/cilium-runtime.txt
 
       - name: Upload artifact digests runtime
@@ -160,10 +160,10 @@ jobs:
         id: update-runtime-image
         run: |
           if [[ "${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}" == "true" ]]; then
-            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
           else
-            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}")
-            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${digest}"
+            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}")
+            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${digest}"
           fi
           if ! git diff --quiet; then
             git commit -sam "images: update cilium-{runtime,builder}"
@@ -181,17 +181,17 @@ jobs:
         id: cilium-builder-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Login to quay.io
+      - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          registry: quay.io
+          registry: ${{ env.REGISTRY_DEV }}
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME_202411 }}
           password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD_202411 }}
 
@@ -206,12 +206,12 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+            ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Sign Container Image Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign sign -y ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -219,12 +219,12 @@ jobs:
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
-          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+          image: ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM attestation to container image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign attest -y --predicate sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json --type spdxjson ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -233,7 +233,7 @@ jobs:
           mkdir -p image-digest/
           echo "## cilium-builder" > image-digest/cilium-builder.txt
           echo "" >> image-digest/cilium-builder.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}\`" >> image-digest/cilium-builder.txt
+          echo "\`${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}\`" >> image-digest/cilium-builder.txt
           echo "" >> image-digest/cilium-builder.txt
 
       - name: Upload artifact digests builder
@@ -247,31 +247,31 @@ jobs:
       - name: Update Runtime Image
         run: |
           if [[ "${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}" == "true" ]]; then
-            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
           else
-            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}")
-            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${digest}"
+            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}")
+            ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${digest}"
           fi
 
       - name: Update Builder Images
         run: |
           if [[ "${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}" == "true" ]]; then
-            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
+            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
           else
-            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}")
-            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
+            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}")
+            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
           fi
 
       - name: Update protobuf APIs and commit changes
         id: update-builder-image
         run: |
           if [[ "${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}" == "true" ]]; then
-            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
-            export CONTAINER_IMAGE=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}
+            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
+            export CONTAINER_IMAGE=${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}
           else
-            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}")
-            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
-            export CONTAINER_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
+            digest=$(../cilium-base-branch/images/scripts/get-image-digest.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}")
+            ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
+            export CONTAINER_IMAGE="${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${digest}"
           fi
           export VOLUME=$PWD/api/v1
           make -C ../cilium-base-branch/api/v1
