@@ -135,12 +135,10 @@ func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) 
 
 	lock.SetLogger(DefaultSlogLogger)
 
-	// Bridge klog to slog. Note that this will open multiple pipes and fork
-	// background goroutines that are not cleaned up.
-	err := initializeKLog(DefaultSlogLogger)
-	if err != nil {
-		return err
-	}
+	// Bridge klog to slog so that all klog output (from client-go, etc.)
+	// flows through Cilium's configured slog handler with proper structured
+	// fields instead of being serialized to text.
+	initializeKLog(DefaultSlogLogger)
 
 	return nil
 }
