@@ -336,6 +336,14 @@ func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
 
 			linkMTU := mtuRoute.DeviceMTU - mtu.WireguardOverhead
 
+			if a.config.EnableIPv6 && linkMTU < mtu.IPv6MinMTU {
+				a.logger.Warn("Requested link MTU is below the minimum value, clamping",
+					logfields.MTU, linkMTU,
+					logfields.MinMTU, mtu.IPv6MinMTU,
+				)
+				linkMTU = mtu.IPv6MinMTU
+			}
+
 			if link.Attrs().MTU != linkMTU {
 				if err = netlink.LinkSetMTU(link, linkMTU); err != nil {
 					health.Degraded("failed to set WireGuard link mtu", err)
