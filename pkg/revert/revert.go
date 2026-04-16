@@ -21,6 +21,11 @@ type RevertStack struct {
 	revertFuncs []RevertFunc
 }
 
+// Empty returns true if the revert stack has no functions in it.
+func (s *RevertStack) Empty() bool {
+	return len(s.revertFuncs) == 0
+}
+
 // Push pushes the given RevertFunc on top of this stack. If the function is
 // nil, it is ignored.
 func (s *RevertStack) Push(revertFunc RevertFunc) {

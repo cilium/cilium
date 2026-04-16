@@ -34,6 +34,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -206,6 +207,9 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, mgr.config.EndpointPolicyUpdateTimeout)
 	defer cancel()
 
+	var guard lock.Mutex
+	var finalizeList revert.FinalizeList
+	var revertStack revert.RevertStack
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
@@ -213,7 +217,13 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
+			err, rf, ff := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			guard.Lock()
+			revertStack.Push(rf)
+			finalizeList.Append(ff)
+			guard.Unlock()
+
+			if err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
 				ep.Logger("endpointmanager").Warn("Failed to apply policy map changes. These will be re-applied in future updates.", logfields.Error, err)
 			}
 			wg.Done()
@@ -224,9 +234,18 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	// changes before waiting for the changes to be ACKed
 	wg.Wait()
 
+	// wait for proxy completions can return with no error immediately without waiting for
+	// anything if all Endpoint updates failed synchronously, but even in that case calling the
+	// finalize functions is the right thing to do.
 	err := mgr.waitForProxyCompletions(proxyWaitGroup)
+
+	// no endpoint locks needed here, as ApplyPolicyMapChanges currently collects
+	// revert/finalize functions only from UpdateNetworkPolicy
 	if err != nil {
+		revertStack.Revert()
 		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
+	} else {
+		finalizeList.Finalize()
 	}
 
 	// Perform policy update call if required.

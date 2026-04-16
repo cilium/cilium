@@ -1052,10 +1052,11 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
 // identities added / deleted).
-// 'proxyWaitGroup' may not be nil.
-func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) error {
-	if err := e.lockAlive(); err != nil {
-		return err
+// 'proxyWaitGroup' may not be nil. Caller must ultimately call either the returned revert or
+// finalize func, if non-nil and proxyWaitGroup.Wait fails or succeeds, respectively.
+func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, rf revert.RevertFunc, ff revert.FinalizeFunc) {
+	if err = e.lockAlive(); err != nil {
+		return err, nil, nil
 	}
 	defer e.unlock()
 
@@ -1068,26 +1069,38 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	if !e.desiredPolicy.IsValid() {
 		// The endpoint has no computed policy yet, so it is pointless to try apply
 		// incremental changes on it.
-		return nil
+		return nil, nil, nil
 	}
 
-	// NOTE: Since we create an ephemeral regenerationContext for the endpoint here,
-	// the revert functions of updated proxy network policies are not retained.
-	// This means that even if Envoy would end up NACKing a NetworkPolicy, it will remain in the
-	// xDS cache until the next update.
-	err := e.applyPolicyMapChangesLocked(&regenerationContext{
+	regenCtx := regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
 			proxyWaitGroup: proxyWaitGroup,
 		},
-	}, false)
+	}
+	err = e.applyPolicyMapChangesLocked(&regenCtx, false)
 
 	if err != nil {
 		e.logStatusLocked(Policy, Failure, err.Error())
-	} else {
-		e.LogStatusOKLocked(Policy, "Policy Map changes applied")
+
+		// revert any changes on synchronous error for an endpoint
+		regenCtx.datapathRegenerationContext.revertStack.Revert()
+
+		return err, nil, nil
 	}
 
-	return err
+	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
+
+	// otherwise the revert/finalize decision is postponed after
+	// eventual proxyWaitGroup.Wait by the caller
+
+	if !regenCtx.datapathRegenerationContext.revertStack.Empty() {
+		rf = regenCtx.datapathRegenerationContext.revertStack.Revert
+	}
+	if !regenCtx.datapathRegenerationContext.finalizeList.Empty() {
+		ff = regenCtx.datapathRegenerationContext.finalizeList.Finalize
+	}
+
+	return nil, rf, ff
 }
 
 // applyPolicyMapChangesLocked applies any incremental policy map changes
@@ -1156,6 +1169,10 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			if proxyErr == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
 				datapathRegenCtxt.finalizeList.Append(ff)
+			} else {
+				e.getLogger().Debug("applyPolicyMapChanges: UpdateNetworkPolicy failed",
+					logfields.Error, proxyErr)
+				return proxyErr
 			}
 		}
 	}
@@ -1199,6 +1216,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	if errors > 0 {
 		return fmt.Errorf("updating bpf policy maps failed")
 	}
+
 	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
 		e.getLogger().Debug(
 			"Applied policy map updates due to identity changes",
@@ -1206,6 +1224,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			logfields.DeletedPolicyID, changes.Deletes,
 		)
 	}
+
 	return nil
 }
 

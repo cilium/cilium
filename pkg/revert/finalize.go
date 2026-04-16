@@ -19,6 +19,11 @@ type FinalizeList struct {
 	finalizeFuncs []FinalizeFunc
 }
 
+// Empty returns true if the finalize list has no functions in it.
+func (f *FinalizeList) Empty() bool {
+	return len(f.finalizeFuncs) == 0
+}
+
 // Append appends the given FinalizeFunc at the end of this list. If the
 // function is nil, it is ignored.
 func (f *FinalizeList) Append(finalizeFunc FinalizeFunc) {
