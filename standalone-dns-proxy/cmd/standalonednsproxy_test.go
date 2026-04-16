@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/lookup"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/messagehandler"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/metrics"
 )
 
 var (
@@ -82,6 +83,7 @@ func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 						ToFQDNsProxyPort: 1001,
 					}
 				},
+				metrics.NewMetrics,
 				NewStandaloneDNSProxy,
 				NewReadinessStatusProvider,
 			)),

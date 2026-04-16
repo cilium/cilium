@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/defaults"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/lookup"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/messagehandler"
+	"github.com/cilium/cilium/standalone-dns-proxy/pkg/metrics"
 	sdpshell "github.com/cilium/cilium/standalone-dns-proxy/pkg/shell"
 )
 
@@ -49,6 +50,9 @@ var (
 
 		// includes the message handler for receiving messages from the proxy and sending messages to the gRPC client which in turn sends them to the cilium agent
 		messagehandler.Cell,
+
+		// Prometheus metrics registry and HTTP server for standalone DNS proxy
+		metrics.Cell,
 
 		// Shell for inspecting the standalone DNS proxy. Listens on the Unix domain socket.
 		shell.ServerCell(defaults.ShellSockPath),
@@ -131,6 +135,7 @@ type standaloneDNSProxyParams struct {
 	DNSProxier        proxy.DNSProxier
 	DNSRulesTable     statedb.RWTable[client.DNSRules]
 	DB                *statedb.DB
+	Metrics           *metrics.Metrics
 }
 
 type hooksParams struct {
