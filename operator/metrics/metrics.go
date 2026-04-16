@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"log/slog"
+	"net"
 	"regexp"
 
 	"github.com/cilium/hive/cell"
@@ -79,5 +80,5 @@ func initializeMetrics(p params) {
 	p.Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
 
-	p.Registry.AddServerRuntimeHooks("operator-prometheus-server", p.TLSConfigPromise)
+	p.Registry.AddServerRuntimeHooks("operator-prometheus-server", p.TLSConfigPromise, net.ListenConfig{})
 }
