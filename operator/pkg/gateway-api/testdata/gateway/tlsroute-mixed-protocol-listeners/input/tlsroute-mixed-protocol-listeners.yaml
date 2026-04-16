@@ -1,0 +1,38 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tlsroute-mixed
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: tls
+      port: 443
+      protocol: TLS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tlsroute-mixed
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tlsroute-mixed
+  hostnames:
+    - tls.example.com
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443

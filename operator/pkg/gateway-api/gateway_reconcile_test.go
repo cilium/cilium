@@ -280,6 +280,9 @@ func Test_Conformance(t *testing.T) {
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-https-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
 		}},
+		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
+		}},
 	}
 
 	for _, tt := range tests {
