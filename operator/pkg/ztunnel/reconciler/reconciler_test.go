@@ -319,8 +319,9 @@ func TestEnrollmentReconciler_Start_UpsertOnSACreate(t *testing.T) {
 	select {
 	case id := <-upserted:
 		require.Equal(t, "enrolled-ns/sa1", id)
-		require.Equal(t, float64(1),
-			getMetric(ops.metrics, LabelValueMethodUpsert, LabelValueOutcomeSuccess))
+		require.Eventually(t, func() bool {
+			return getMetric(ops.metrics, LabelValueMethodUpsert, LabelValueOutcomeSuccess) == 1
+		}, 5*time.Second, 10*time.Millisecond)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for upsert")
 	}
@@ -393,8 +394,9 @@ func TestEnrollmentReconciler_Start_DeleteOnSARemove(t *testing.T) {
 	select {
 	case id := <-deleted:
 		require.Equal(t, "enrolled-ns/sa1", id)
-		require.Equal(t, float64(1),
-			getMetric(ops.metrics, LabelValueMethodDelete, LabelValueOutcomeSuccess))
+		require.Eventually(t, func() bool {
+			return getMetric(ops.metrics, LabelValueMethodDelete, LabelValueOutcomeSuccess) == 1
+		}, 5*time.Second, 10*time.Millisecond)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for delete")
 	}
@@ -420,13 +422,15 @@ func TestEnrollmentReconciler_Start_ErrorMetricsAndRequeue(t *testing.T) {
 
 	select {
 	case <-upsertCalled:
-		require.Equal(t, float64(1),
-			getMetric(ops.metrics, LabelValueMethodUpsert, LabelValueOutcomeFail))
+		require.Eventually(t, func() bool {
+			return getMetric(ops.metrics, LabelValueMethodUpsert, LabelValueOutcomeFail) == 1
+		}, 5*time.Second, 10*time.Millisecond)
 
 		// Verify the namespace was requeued to pending for re-reconciliation.
-		ns, _, found := enrolledTbl.Get(db.ReadTxn(), table.EnrolledNamespacesNameIndex.Query("enrolled-ns"))
-		require.True(t, found)
-		require.Equal(t, reconciler.StatusKindPending, ns.Status.Kind)
+		require.Eventually(t, func() bool {
+			ns, _, found := enrolledTbl.Get(db.ReadTxn(), table.EnrolledNamespacesNameIndex.Query("enrolled-ns"))
+			return found && ns.Status.Kind == reconciler.StatusKindPending
+		}, 5*time.Second, 10*time.Millisecond)
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for upsert call")
 	}
