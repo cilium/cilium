@@ -34,6 +34,9 @@ const (
 	// NOTE: too low may kill tcpdump while test is running.
 	SniffKillTimeout = sniffConnectionTimeout * 4
 
+	// Max number of retries for ExecInPod calls to handle transient API server errors.
+	sniffExecRetries = 3
+
 	// Command executed to start the remote tcpdump in background inside a pod.
 	//
 	// We send tcpdump output to a file inside the pod rather than stdout,
@@ -194,23 +197,32 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 	// Finally wrap the resulting command.
 	sniffer.cmd = append([]string{"nohup", "sh", "-c"}, buf.String())
 
-	// Context with a max timeout to start tcpdump.
-	ctx, cancel := context.WithTimeout(ctx, sniffConnectionTimeout)
-	defer cancel()
+	for attempt := range sniffExecRetries {
+		dbg.Debugf("Sniffer start on %s (%s) (attempt %d/%d). Command: %s",
+			target.String(), target.NodeName(), attempt+1, sniffExecRetries, strings.Join(sniffer.cmd, " "))
 
-	dbg.Debugf("Running sniffer in background on %s (%s), mode=%s: %s",
-		target.String(), target.NodeName(), mode, strings.Join(sniffer.cmd, " "))
-	if _, err := target.K8sClient.ExecInPod(ctx, target.Pod.Namespace, target.Pod.Name, target.Pod.Spec.Containers[0].Name, sniffer.cmd); err != nil {
-		err = fmt.Errorf("Failed to execute tcpdump: %w", err)
+		execCtx, execCancel := context.WithTimeout(ctx, sniffConnectionTimeout)
+		_, err = target.K8sClient.ExecInPod(execCtx, target.Pod.Namespace, target.Pod.Name, target.Pod.Spec.Containers[0].Name, sniffer.cmd)
+		execCancel()
+
 		if errors.Is(err, context.Canceled) {
-			// Child/Parent context has been canceled, we now stop the remote
-			// sniffer, despite tcpdump being wrapped within a `timeout`.
+			// Either parent context has been cancelled, or we hit our per-run
+			// timeout. We did not receive an error from the API server, but rather
+			// our remote tcpdump start script did not work properly.
+			// Stop the remote sniffer despite tcpdump being wrapped within a `timeout`.
+			err = fmt.Errorf("Failed to execute tcpdump on %s (%s) after %d attempts: %w",
+				target.String(), target.NodeName(), attempt+1, err)
 			err = errors.Join(err, sniffer.stop())
+			return nil, nil, err
 		}
-		return nil, nil, err
+
+		if err == nil {
+			return sniffer, sniffer.stop, nil
+		}
 	}
 
-	return sniffer, sniffer.stop, nil
+	return nil, nil, fmt.Errorf("Failed to execute tcpdump on %s (%s) after %d attempts: %w",
+		target.String(), target.NodeName(), sniffExecRetries, err)
 }
 
 // Validate stops the tcpdump capture previously started by Sniff and asserts that
