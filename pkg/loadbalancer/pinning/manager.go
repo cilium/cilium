@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/netip"
-	"slices"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -41,6 +40,8 @@ type PinningManager struct {
 	reconcileChannel        chan reconcileUpdate
 	nodesCache              nodesMap
 	servicesCache           servicesMap
+	nodesSynced             bool
+	servicesSynced          bool
 	pinMapUpdateEventStream *lbPinMapEventStream
 }
 
@@ -54,14 +55,20 @@ func newPinningManager(params PinningParams) *PinningManager {
 		reconcileChannel:        make(chan reconcileUpdate),
 		nodesCache:              nodesMap{},
 		servicesCache:           servicesMap{},
+		nodesSynced:             false,
+		servicesSynced:          false,
 		pinMapUpdateEventStream: params.PinMapUpdateStream,
 	}
 }
 
-func isPinnedService(svc *slim_corev1.Service) bool {
-	_, pinned := svc.Annotations[annotation.ServicePinning]
+func parsePinnedService(svc *slim_corev1.Service) string {
+	nodeName, pinned := svc.Annotations[annotation.ServicePinningNode]
 
-	return pinned
+	if pinned {
+		return nodeName
+	}
+
+	return ""
 }
 
 func (pm *PinningManager) handleServiceEvent(ctx context.Context, event resource.Event[*slim_corev1.Service]) error {
@@ -71,7 +78,9 @@ func (pm *PinningManager) handleServiceEvent(ctx context.Context, event resource
 	case resource.Sync:
 		msg = syncService{}
 	case resource.Delete, resource.Upsert:
-		if !isPinnedService(event.Object) {
+		nodeName := parsePinnedService(event.Object)
+
+		if nodeName == "" {
 			return eventDone(event, nil)
 		}
 
@@ -85,15 +94,17 @@ func (pm *PinningManager) handleServiceEvent(ctx context.Context, event resource
 			serviceId := string(event.Object.UID)
 
 			if event.Kind == resource.Upsert {
-				msg = addService{
+				msg = addService{pinnedService{
 					ServiceId: serviceId,
 					ServiceIp: serviceIp,
-				}
+					NodeId:    nodeName,
+				}}
 			} else {
-				msg = deleteService{
+				msg = deleteService{pinnedService{
 					ServiceId: serviceId,
 					ServiceIp: serviceIp,
-				}
+					NodeId:    nodeName,
+				}}
 			}
 		}
 	}
@@ -159,18 +170,18 @@ func (pm *PinningManager) handleNodeEvent(ctx context.Context, event resource.Ev
 			return eventDone(event, nil)
 		}
 
-		nodeId := string(event.Object.UID)
+		nodeName := event.Object.Name
 
 		if event.Kind == resource.Upsert && isNodeReady(event.Object) {
-			msg = addNode{
-				NodeId: nodeId,
-				NodeIp: *nodeIp,
-			}
+			msg = addNode{nodeToPin{
+				NodeName: nodeName,
+				NodeIp:   *nodeIp,
+			}}
 		} else {
-			msg = deleteNode{
-				NodeId: nodeId,
-				NodeIp: *nodeIp,
-			}
+			msg = deleteNode{nodeToPin{
+				NodeName: nodeName,
+				NodeIp:   *nodeIp,
+			}}
 		}
 	}
 
@@ -204,6 +215,29 @@ func (pm *PinningManager) applyPinningMap(desired pinningMap) error {
 	return nil
 }
 
+func rebalanceServices(
+	services servicesMap,
+	nodes nodesMap,
+	localNodeIp netip.Addr,
+) (pinningMap, error) {
+	newPinningMap := pinningMap{}
+
+	for _, svc := range services {
+		nodeIp, found := nodes[svc.NodeId]
+
+		if !found || nodeIp == localNodeIp {
+			continue
+		}
+
+		k := maps.LbPinning4Key{ServiceIP: iPv4FromAddr(svc.ServiceIp)}
+		v := maps.LbPinning4Value{NodeIP: iPv4FromAddr(nodeIp)}
+
+		newPinningMap[k] = v
+	}
+
+	return newPinningMap, nil
+}
+
 func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health) error {
 	localNode, err := pm.localNodeStore.Get(ctx)
 
@@ -226,38 +260,28 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 		case event := <-pm.reconcileChannel:
 			switch msg := event.(type) {
 			case addNode:
-				pm.nodesCache[msg.NodeId] = msg.NodeIp
+				pm.nodesCache[msg.NodeName] = msg.NodeIp
 			case deleteNode:
-				delete(pm.nodesCache, msg.NodeId)
+				delete(pm.nodesCache, msg.NodeName)
 
 			case addService:
-				pm.servicesCache[msg.ServiceId] = msg.ServiceIp
+				pm.servicesCache[msg.ServiceId] = msg.pinnedService
 			case deleteService:
 				delete(pm.servicesCache, msg.ServiceId)
 
-			case syncService, syncNode:
+			case syncService:
+				pm.servicesSynced = true
+			case syncNode:
+				pm.nodesSynced = true
+			}
+
+			if !pm.nodesSynced || !pm.servicesSynced {
 				continue
 			}
 
-			currentPinningMap, err := DumpPinningMap(pm.lBMaps)
-
-			if err != nil {
-				pm.logger.Error("error dumping pinning map", logfields.Error, err)
-				continue
-			}
-
-			filteredNodes := []netip.Addr{}
-
-			for _, nodeIp := range pm.nodesCache {
-				if nodeIp != localNodeIp {
-					filteredNodes = append(filteredNodes, nodeIp)
-				}
-			}
-
-			desiredPinningMap, err := rebalanceServices(
-				currentPinningMap,
-				slices.Collect(maps.Values(pm.servicesCache)),
-				filteredNodes,
+			pinningMap, err := rebalanceServices(
+				pm.servicesCache,
+				pm.nodesCache,
 				localNodeIp,
 			)
 
@@ -266,7 +290,7 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 				continue
 			}
 
-			if err := pm.applyPinningMap(desiredPinningMap); err != nil {
+			if err := pm.applyPinningMap(pinningMap); err != nil {
 				pm.logger.Error("error applying desired pinning map", logfields.Error, err)
 				continue
 			}

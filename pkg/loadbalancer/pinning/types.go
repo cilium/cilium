@@ -13,23 +13,33 @@ type reconcileUpdate interface {
 	isReconcileUpdate()
 }
 
-type addService struct {
+type pinnedService struct {
 	ServiceId string
 	ServiceIp netip.Addr
+	NodeId    string
+}
+
+type addService struct {
+	pinnedService
 }
 type deleteService struct {
-	ServiceId string
-	ServiceIp netip.Addr
+	pinnedService
 }
 type syncService struct{}
+
+type nodeToPin struct {
+	NodeName string
+	NodeIp   netip.Addr
+}
+
 type addNode struct {
-	NodeId string
-	NodeIp netip.Addr
+	nodeToPin
 }
+
 type deleteNode struct {
-	NodeId string
-	NodeIp netip.Addr
+	nodeToPin
 }
+
 type syncNode struct{}
 
 func (addService) isReconcileUpdate()    {}
@@ -39,7 +49,7 @@ func (addNode) isReconcileUpdate()       {}
 func (deleteNode) isReconcileUpdate()    {}
 func (syncNode) isReconcileUpdate()      {}
 
-type servicesMap map[string]netip.Addr
+type servicesMap map[string]pinnedService
 type nodesMap map[string]netip.Addr
 
 type pinningMap map[maps.LbPinning4Key]maps.LbPinning4Value

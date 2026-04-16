@@ -412,7 +412,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		sipPort = uint16(value)
 	}
 
-	if _, ret := cegp.Annotations[annotation.ServicePinning]; ret {
+	if _, ret := cegp.Annotations[annotation.ServicePinningUsed]; ret {
 		svcPinning = true
 	}
 
