@@ -131,7 +131,7 @@ ASSIGN_CONFIG(__u32, hash_init4_seed, 0xcafe)
 ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
 
 static __always_inline int
-generate_packet(struct __ctx_buff *ctx, int client_id, __u16 src_port)
+generate_packet(struct __ctx_buff *ctx, int client_id, __be16 src_port)
 {
 	__u8 *src_mac;
 	__u32 src_ip;

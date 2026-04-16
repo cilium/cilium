@@ -2,7 +2,7 @@
 /* Copyright Authors of Cilium */
 
 static __always_inline __u8
-policy_calc_wildcard_bits(__u8 protocol, __u16 dport, __u8 port_range)
+policy_calc_wildcard_bits(__u8 protocol, __be16 dport, __u8 port_range)
 {
 	__u8 wildcard_bits = 0;
 
@@ -22,7 +22,7 @@ policy_calc_wildcard_bits(__u8 protocol, __u16 dport, __u8 port_range)
 }
 
 static __always_inline void
-policy_delete_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
+policy_delete_entry(bool egress, __u32 sec_label, __u8 protocol, __be16 dport,
 		    __u8 port_range)
 {
 	__u8 wildcard_bits = policy_calc_wildcard_bits(protocol, dport, port_range);
@@ -41,7 +41,7 @@ policy_delete_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
 }
 
 static __always_inline void
-policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
+policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __be16 dport,
 		 __u8 port_range, bool deny, __be16 proxy_port)
 {
 	__u8 wildcard_bits = policy_calc_wildcard_bits(protocol, dport, port_range);
@@ -66,14 +66,14 @@ policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport,
 }
 
 static __always_inline void
-policy_add_ingress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport,
+policy_add_ingress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dport,
 				     __u8 port_range)
 {
 	policy_add_entry(false, sec_label, protocol, dport, port_range, false, 0);
 }
 
 static __always_inline void
-policy_add_ingress_deny_l4_entry(__u8 protocol, __u16 dport, __u8 port_range)
+policy_add_ingress_deny_l4_entry(__u8 protocol, __be16 dport, __u8 port_range)
 {
 	policy_add_entry(false, 0, protocol, dport, port_range, true, 0);
 }
@@ -85,7 +85,7 @@ policy_add_ingress_deny_all_entry(void)
 }
 
 static __always_inline void
-policy_add_egress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport,
+policy_add_egress_allow_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dport,
 				    __u8 port_range)
 {
 	policy_add_entry(true, sec_label, protocol, dport, port_range, false, 0);
@@ -98,7 +98,7 @@ policy_add_egress_allow_l3_entry(__u32 sec_label)
 }
 
 static __always_inline void
-policy_add_egress_allow_l4_entry(__u8 protocol, __u16 dport, __u8 port_range)
+policy_add_egress_allow_l4_entry(__u8 protocol, __be16 dport, __u8 port_range)
 {
 	policy_add_egress_allow_l3_l4_entry(0, protocol, dport, port_range);
 }
@@ -114,7 +114,7 @@ static __always_inline void policy_add_egress_deny_all_entry(void)
 }
 
 static __always_inline void
-policy_delete_egress_l3_l4_entry(__u32 sec_label, __u8 protocol, __u16 dport,
+policy_delete_egress_l3_l4_entry(__u32 sec_label, __u8 protocol, __be16 dport,
 				 __u8 port_range)
 {
 	policy_delete_entry(true, sec_label, protocol, dport, port_range);
@@ -127,7 +127,7 @@ policy_delete_egress_l3_entry(__u32 sec_label)
 }
 
 static __always_inline void
-policy_delete_egress_l4_entry(__u8 protocol, __u16 dport, __u8 port_range)
+policy_delete_egress_l4_entry(__u8 protocol, __be16 dport, __u8 port_range)
 {
 	policy_delete_egress_l3_l4_entry(0, protocol, dport, port_range);
 }

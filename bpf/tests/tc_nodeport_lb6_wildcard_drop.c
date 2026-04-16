@@ -32,7 +32,7 @@ static const union v6addr frontend_ip = { .addr = v6_svc_one_addr };
 static const union v6addr backend_ip = { .addr = v6_pod_one_addr };
 
 static __always_inline int build_packet(struct __ctx_buff *ctx,
-					const __u16 fe_dport, const __u8 proto)
+					const __be16 fe_dport, const __u8 proto)
 {
 	struct pktgen builder;
 	void *data;
@@ -98,7 +98,7 @@ static __always_inline void setup_services(struct __ctx_buff *ctx __maybe_unused
 static __always_inline int validate_packet(const struct __ctx_buff *ctx,
 					   const __u8 *smac, const __u8 *dmac,
 					   const __u8 *saddr, const __u8 *daddr,
-					   const __u16 dport, const __u8 proto,
+					   const __be16 dport, const __u8 proto,
 					   const __u32 exp_status)
 {
 	void *data, *data_end;
