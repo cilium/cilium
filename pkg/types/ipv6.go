@@ -25,11 +25,6 @@ func (v6 IPv6) String() string {
 	return v6.Addr().String()
 }
 
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (v6 *IPv6) DeepCopyInto(out *IPv6) {
-	copy(out[:], v6[:])
-}
-
 // FromAddr will populate the receiver with the specified address if and only
 // if the provided address is a valid IPv6 address. Any other address,
 // including the "invalid ip" value netip.Addr{} will zero the receiver.

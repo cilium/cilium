@@ -1197,9 +1197,7 @@ func (k *SourceRangeKey4) ToHost() SourceRangeKey {
 }
 
 func (k *SourceRangeKey4) GetPrefix() netip.Prefix {
-	var ip types.IPv4
-	k.Address.DeepCopyInto(&ip)
-	return netip.PrefixFrom(ip.Addr(), int(k.PrefixLen)-lpmPrefixLen4)
+	return netip.PrefixFrom(k.Address.Addr(), int(k.PrefixLen)-lpmPrefixLen4)
 }
 
 func (k *SourceRangeKey4) GetRevNATID() loadbalancer.ServiceID {
@@ -1236,9 +1234,7 @@ func (k *SourceRangeKey6) ToHost() SourceRangeKey {
 }
 
 func (k *SourceRangeKey6) GetPrefix() netip.Prefix {
-	var ip types.IPv6
-	k.Address.DeepCopyInto(&ip)
-	return netip.PrefixFrom(ip.Addr(), int(k.PrefixLen)-lpmPrefixLen6)
+	return netip.PrefixFrom(k.Address.Addr(), int(k.PrefixLen)-lpmPrefixLen6)
 }
 
 func (k *SourceRangeKey6) GetRevNATID() loadbalancer.ServiceID {
