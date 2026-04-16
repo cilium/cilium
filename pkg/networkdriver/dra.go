@@ -200,7 +200,6 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, cfg typ
 			if err := driver.multiPoolMgr.ReleaseIP(v6Addr.AsSlice(), ipam.Pool(cfg.IPPool), ipam.IPv6, true); err != nil {
 				errs = append(errs, fmt.Errorf("failed to release IPv6 address %s: %w", v6Addr, err))
 			}
-			errs = append(errs, driver.multiPoolMgr.ReleaseIP(v6Addr.AsSlice(), ipam.Pool(cfg.IPPool), ipam.IPv6, true))
 		}
 		return netip.Addr{}, netip.Addr{}, fmt.Errorf("failed to get IP addresses for device %s from pool %s: %w", device, cfg.IPPool, errors.Join(errs...))
 	}
