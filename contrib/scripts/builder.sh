@@ -46,6 +46,7 @@ elif [ -d "$LOCAL_CCACHE_DIR" ]; then
 	MOUNT_CCACHE_DIR=(-v "$LOCAL_CCACHE_DIR:$USER_PATH/.cache/ccache")
 fi
 
+set +u # Workaround for macOS and BASH 3.2 that treats an empty array as "unbound variable".
 echo "Docker params: ${MOUNT_GOCACHE_DIR[@]} ${MOUNT_GOMODCACHE_DIR[@]} ${MOUNT_CCACHE_DIR[@]}"
 CONTAINER=$(docker create \
 	"${MOUNT_GOCACHE_DIR[@]}" \
@@ -56,6 +57,8 @@ CONTAINER=$(docker create \
 	"$CILIUM_BUILDER_IMAGE" \
 	sleep infinity
 )
+set -u # End workaround for macOS and BASH 3.2.
+
 trap 'docker rm -f "$CONTAINER"' EXIT
 docker start "$CONTAINER"
 
