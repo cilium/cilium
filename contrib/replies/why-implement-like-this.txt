@@ -1,0 +1,8 @@
+Thanks for the proposal. Could you speak a bit about why you think this is the
+right way to solve the problem?
+
+Additionally, if you are using Generative AI tools to create this contribution,
+please describe how involved you were using the [AI Influence Level], and
+describe how you reviewed the output before submission.
+
+[AI Influence Level]: https://danielmiessler.com/blog/ai-influence-level-ail

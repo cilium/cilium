@@ -5,6 +5,7 @@ community members who are engaging with the project:
 
 - [Let's build this together](./build-together.txt)
 - [Mark as draft to address feedback](./address-feedback.txt)
+- [Disclose motivation and generative AI use](./why-implement-like-this.txt)
 
 To use these, browse to [your saved replies] and add a new saved reply using
 the form at the bottom. When responding to an issue or PR, there is an icon in
