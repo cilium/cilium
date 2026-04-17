@@ -32,8 +32,8 @@ k8s/add endpoints.yaml
 gobgp/routes -o routes.actual
 * cmp gobgp-routes.expected routes.actual
 
-# Delete the service
-k8s/delete service.yaml
+# Update endpoints with terminating=true, ready=false
+k8s/update endpoints-terminating.yaml
 sleep 0.1s # give some time for the change to propagate to avoid false positive
 
 # Validate that LB IP is withdrawn
@@ -155,6 +155,28 @@ endpoints:
     ready: true
     serving: true
     terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpoints-terminating.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo1
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.20
+  conditions:
+    ready: false
+    serving: false
+    terminating: true
   nodeName: test-node
 ports:
 - name: http
