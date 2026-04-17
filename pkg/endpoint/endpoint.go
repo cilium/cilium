@@ -1310,6 +1310,11 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 		}
 	}
 
+	// Endpoint's network policy must be released even if the identity is not released.
+	// Remove network policy before (possibly) releasing identity so proxy cleanup
+	// can still observe the endpoint exactly as it was published.
+	e.removeNetworkPolicy()
+
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		if e.identitySet {
 			// Restored endpoint may be created with a reserved identity of 5
@@ -1326,7 +1331,6 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 				errs = append(errs, fmt.Errorf("unable to release identity: %w", err))
 			}
 		}
-		e.removeNetworkPolicy()
 		e.SecurityIdentity = nil
 	}
 
