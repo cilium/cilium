@@ -367,13 +367,16 @@ func (r *ServiceReconciler) modifiedServiceAdvertisements(metadata *ServiceRecon
 }
 
 // hasBackends loops through Frontend backends and returns:
-// 1) true, false - backends > 0, no local backend
-// 2) true, true - backends > 0, at least 1 local backend
-// 3) false, false - no backends, no local backend
+// 1) true, false - active backends > 0, no local backend
+// 2) true, true - active backends > 0, at least 1 local backend
+// 3) false, false - no active backends, no local backend
 func hasBackends(p ReconcileParams, fe *loadbalancer.Frontend) (hasBackends, hasLocalBackends bool) {
 	for backend := range fe.Backends {
+		if backend.State != loadbalancer.BackendStateActive {
+			continue
+		}
 		hasBackends = true
-		if backend.NodeName == p.CiliumNode.Name && backend.State == loadbalancer.BackendStateActive {
+		if backend.NodeName == p.CiliumNode.Name {
 			hasLocalBackends = true
 			return
 		}
