@@ -1318,6 +1318,43 @@ func (s *Service) SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s
 				logfields.L3n4Addr:       logfields.Repr(svc.frontend.L3n4Addr),
 				logfields.OrphanBackends: svc.restoredBackendHashes.Len(),
 			}).Info("Service has stale backends: triggering refresh")
+
+			// If we are in the final pass (localOnly = false), we can directly
+			// prune the stale backends if we are not expecting any more updates.
+			// This covers the case where EnsureService() fails to trigger an update
+			// because ServiceCache has no endpoints for this service (e.g., if the
+			// service is only learned via Clustermesh and no update was received
+			// after agent restart because the remote cluster state didn't change).
+			// In that case, correlateEndpoints returns serviceReady = false and
+			// EnsureService skips emitting the event, leaving the stale backends
+			// in BPF maps indefinitely.
+			if !localOnly {
+				validBackends := []*lb.Backend{}
+				staleBackends := []string{}
+				for _, b := range svc.backends {
+					if !svc.restoredBackendHashes.Has(b.L3n4Addr.Hash()) {
+						validBackends = append(validBackends, b.DeepCopy())
+					} else {
+						staleBackends = append(staleBackends, b.L3n4Addr.String())
+					}
+				}
+
+				log.WithFields(logrus.Fields{
+					logfields.ServiceID: svc.frontend.ID,
+					"staleBackends":    staleBackends,
+					"validBackends":    validBackends,
+				}).Info("Pruning stale backends directly")
+
+				svc.restoredBackendHashes = nil
+
+				svcCopy := svc.deepCopyToLBSVC()
+				svcCopy.Backends = validBackends
+
+				if _, _, err := s.upsertService(svcCopy); err != nil {
+					log.WithError(err).Warn("Failed to upsert service during stale backend pruning")
+				}
+				continue
+			}
 		}
 
 		svc.restoredBackendHashes = nil

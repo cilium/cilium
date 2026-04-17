@@ -793,6 +793,62 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	}
 }
 
+func TestRestoreServiceWithStaleBackends_NoEndpoints(t *testing.T) {
+	backendAddrs := []string{"10.0.0.1", "10.0.0.2"}
+	
+	service := func(ns, name, frontend string, backends ...string) *lb.SVC {
+		var bes []*lb.Backend
+		for _, backend := range backends {
+			bes = append(bes, lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster(backend), 8080))
+		}
+
+		return &lb.SVC{
+			Frontend:         *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster(frontend), 80, lb.ScopeExternal, 0),
+			Backends:         bes,
+			Type:             lb.SVCTypeClusterIP,
+			ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+			Name:             lb.ServiceName{Name: name, Namespace: ns},
+		}
+	}
+
+	toBackendAddrs := func(backends []*lb.Backend) (addrs []string) {
+		for _, be := range backends {
+			addrs = append(addrs, be.L3n4Addr.AddrCluster.Addr().String())
+		}
+		return
+	}
+
+	lbmap := mockmaps.NewLBMockMap()
+	svc := newService(&FakeMonitorAgent{}, lbmap, nil)
+
+	// 1. Upsert service with 2 backends
+	_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
+	require.NoError(t, err)
+
+	// 2. Restore services
+	svc = newService(&FakeMonitorAgent{}, lbmap, nil)
+	require.NoError(t, svc.RestoreServices())
+
+	// 2.5 Simulate update from Clustermesh with only 1 valid backend
+	// This clears restoredFromDatapath but keeps 10.0.0.2 in restoredBackendHashes
+	_, _, err = svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.1"))
+	require.NoError(t, err)
+
+	// 3. Run SyncWithK8sFinished
+	svcID := k8s.ServiceID{Namespace: "foo", Name: "bar"}
+	stale, err := svc.SyncWithK8sFinished(false, sets.New[k8s.ServiceID]())
+	require.NoError(t, err)
+	
+	// We expect it to be stale because it has restored backends that were not observed
+	require.ElementsMatch(t, stale, []k8s.ServiceID{svcID})
+
+	// 4. Verify that stale backends are PRUNED in lbmap!
+	require.Contains(t, lbmap.ServiceByID, uint16(id1))
+	require.ElementsMatch(t, []string{"10.0.0.1"}, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends))
+	require.ElementsMatch(t, []string{"10.0.0.1"}, toBackendAddrs(maps.Values(lbmap.BackendByID)))
+}
+
 func TestHealthCheckNodePort(t *testing.T) {
 	m := setupManagerTestSuite(t)
 
