@@ -217,7 +217,8 @@ func (d *DeviceConfig) Empty() bool {
 }
 
 type SerializedDevice struct {
-	Manager DeviceManagerType
-	Dev     json.RawMessage
-	Config  DeviceConfig
+	Manager  DeviceManagerType
+	Dev      json.RawMessage
+	Config   DeviceConfig
+	PodNetns string `json:",omitempty"` // pinned netns path; set by RunPodSandbox, cleared by StopPodSandbox
 }

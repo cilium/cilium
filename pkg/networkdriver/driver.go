@@ -249,25 +249,25 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 }
 
 func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatus) (allocation, error) {
-	devMgrType, devRaw, devCfg, err := deserializeDevice(devStatus.Data.Raw)
+	sd, err := deserializeDevice(devStatus.Data.Raw)
 	if err != nil {
-		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, sd.Manager)
 	}
 
-	devMgr, found := driver.deviceManagers[devMgrType]
+	devMgr, found := driver.deviceManagers[sd.Manager]
 	if !found {
-		return allocation{}, fmt.Errorf("unknown device manager type %s", devMgrType)
+		return allocation{}, fmt.Errorf("unknown device manager type %s", sd.Manager)
 	}
 
-	dev, err := devMgr.RestoreDevice(devRaw)
+	dev, err := devMgr.RestoreDevice(sd.Dev)
 	if err != nil {
-		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s", devStatus.Pool, sd.Manager)
 	}
 
 	return allocation{
 		Device:  dev,
-		Config:  devCfg,
-		Manager: devMgrType,
+		Config:  sd.Config,
+		Manager: sd.Manager,
 	}, nil
 }
 

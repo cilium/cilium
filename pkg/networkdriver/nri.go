@@ -35,6 +35,13 @@ func getNetworkNamespace(pod *api.PodSandbox) string {
 	return ""
 }
 
+// movedIface tracks an interface that was successfully moved into the pod netns
+// so it can be moved back on rollback.
+type movedIface struct {
+	kernelIfName string
+	podIfName    string // non-empty after the interface was renamed inside the pod netns
+}
+
 // RunPodSandbox is called by the container runtime when a pod sandbox is started.
 // It configures the allocated network devices for the pod based on its network namespace.
 func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSandbox) error {
@@ -57,10 +64,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		l = l.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
+		podUID := kube_types.UID(podSandbox.Uid)
+		alloc, ok := driver.allocations[podUID]
 		if !ok {
 			l.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 
@@ -70,56 +77,102 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 		if err != nil {
 			return fmt.Errorf("failed to open pinned netns at %s: %w", nsPath, err)
 		}
-
 		defer podNs.Close()
 
-		// Check for interface name collisions with existing interfaces in pod netns
-		if err := podNs.Do(func() error {
-			if err := validateInterfaceNames(alloc); err != nil {
-				return err
-			}
+		// Open root netns upfront — needed for rollback on partial failure.
+		rootNs, err := netns.OpenPinned("/proc/1/ns/net")
+		if err != nil {
+			return fmt.Errorf("failed to open root netns: %w", err)
+		}
+		defer rootNs.Close()
 
-			return nil
+		// Check for interface name collisions with existing interfaces in pod netns.
+		if err := podNs.Do(func() error {
+			return validateInterfaceNames(alloc)
 		}); err != nil {
 			return fmt.Errorf("pod interface allocations is invalid: %w", err)
 		}
 
+		// Track successfully-moved interfaces for rollback on partial failure.
+		var moved []movedIface
+
 		for _, devices := range alloc {
 			for _, a := range devices {
-				l, err := safenetlink.LinkByName(a.Device.KernelIfName())
+				link, err := safenetlink.LinkByName(a.Device.KernelIfName())
 				if err != nil {
-					return err
+					rollbackMovedInterfaces(moved, podNs, rootNs)
+					return fmt.Errorf("failed to find interface %s: %w", a.Device.KernelIfName(), err)
 				}
 
-				if err := netlink.LinkSetNsFd(l, podNs.FD()); err != nil {
-					return err
+				if err := netlink.LinkSetNsFd(link, podNs.FD()); err != nil {
+					rollbackMovedInterfaces(moved, podNs, rootNs)
+					return fmt.Errorf("failed to move interface %s to pod netns: %w", a.Device.KernelIfName(), err)
 				}
 
-				if err := podNs.Do(func() error {
-					// Rename interface to custom name
-					l, err = configureIfName(l, a.Config.PodIfName)
-					if err != nil {
-						return fmt.Errorf("failed to set interface name: %w", err)
-					}
+				entry := movedIface{kernelIfName: a.Device.KernelIfName()}
 
-					if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-						return err
+				configErr := podNs.Do(func() error {
+					var e error
+					link, e = configureInterfaceInNs(driver, link, a)
+					if e != nil {
+						return e
 					}
-					if err := netlink.LinkSetUp(l); err != nil {
-						return err
+					if a.Config.PodIfName != "" {
+						entry.podIfName = a.Config.PodIfName
 					}
-
 					return nil
-				}); err != nil {
-					return err
+				})
+
+				if configErr != nil {
+					// The interface has been moved to the pod netns but configuration failed.
+					// Add a partial entry so rollback can find and move it back.
+					moved = append(moved, entry)
+					rollbackMovedInterfaces(moved, podNs, rootNs)
+					return fmt.Errorf("failed to configure device %s: %w", a.Device.KernelIfName(), configErr)
 				}
+
+				moved = append(moved, entry)
 			}
 		}
+
+		// All interfaces configured successfully.
+		// Persist the netns path in each claim's status (best-effort, async).
+		allocSnapshot := snapshotAlloc(alloc)
+		go driver.persistPodNetns(context.WithoutCancel(ctx), nsPath, podUID, allocSnapshot)
 
 		return nil
 	})
 
 	return err
+}
+
+// rollbackMovedInterfaces moves all successfully-moved interfaces back to the
+// root netns. Must be called when RunPodSandbox fails partway through.
+func rollbackMovedInterfaces(moved []movedIface, podNs, rootNs *netns.NetNS) {
+	podNs.Do(func() error { //nolint:errcheck
+		for i := len(moved) - 1; i >= 0; i-- {
+			m := moved[i]
+
+			// Find the interface by its current name inside the pod netns.
+			currentName := m.kernelIfName
+			if m.podIfName != "" {
+				currentName = m.podIfName
+			}
+
+			link, err := safenetlink.LinkByName(currentName)
+			if err != nil {
+				continue
+			}
+
+			// Rename back to kernel name before moving to root netns.
+			if m.podIfName != "" {
+				link, _ = configureIfName(link, m.kernelIfName)
+			}
+
+			netlink.LinkSetNsFd(link, rootNs.FD()) //nolint:errcheck
+		}
+		return nil
+	})
 }
 
 // StopPodSandbox is called when a pod sandbox is stopped.
@@ -143,82 +196,187 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		l = l.With(logfields.NetNamespace, networkNamespace)
 
-		alloc, ok := driver.allocations[kube_types.UID(podSandbox.Uid)]
+		podUID := kube_types.UID(podSandbox.Uid)
+		alloc, ok := driver.allocations[podUID]
 		if !ok {
 			l.DebugContext(ctx, "no allocation found")
-			// allocation not found/doesn't exist
 			return nil
 		}
 
 		nsPath := path.Join(defaults.NetNsPath, path.Base(networkNamespace))
 
-		podNs, err := netns.OpenPinned(nsPath)
-		if err != nil {
-			return fmt.Errorf("failed to open pinned netns at %s: %w", nsPath, err)
+		if err := driver.moveInterfacesToRootNs(ctx, nsPath, alloc); err != nil {
+			l.ErrorContext(ctx, "failed to move interfaces back to root netns", logfields.Error, err)
+			return err
 		}
 
-		defer podNs.Close()
-
-		// Get the root network namespace to move interfaces back to it
-		rootNs, err := netns.OpenPinned("/proc/1/ns/net")
-		if err != nil {
-			return fmt.Errorf("failed to open root netns: %w", err)
-		}
-		defer rootNs.Close()
-
-		for _, devices := range alloc {
-			if err := podNs.Do(func() error {
-				for _, a := range devices {
-					// Determine the interface name in the pod namespace
-					ifName := a.Device.KernelIfName()
-					if a.Config.PodIfName != "" {
-						ifName = a.Config.PodIfName
-					}
-
-					l, err := safenetlink.LinkByName(ifName)
-					if err != nil {
-						return err
-					}
-
-					if err := driver.configureIPs(l, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
-						return err
-					}
-
-					if err := netlink.LinkSetDown(l); err != nil {
-						return err
-					}
-
-					// Rename back to original kernel name before moving to root namespace
-					l, err = configureIfName(l, a.Device.KernelIfName())
-					if err != nil {
-						driver.logger.ErrorContext(
-							ctx, "failed to restore interface name",
-							logfields.Error, err,
-						)
-
-						// we want to continue here to clean up the remaining, even if this one failed
-						continue
-					}
-
-					// Always try to move back to root netns
-					if err := netlink.LinkSetNsFd(l, rootNs.FD()); err != nil {
-						driver.logger.WarnContext(ctx, "Failed to move interface to root namespace",
-							logfields.Error, err,
-							logfields.Device, a.Device.KernelIfName())
-						// Log but don't return - continue with other devices
-					}
-				}
-
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
+		// Clear the PodNetns field in claim status (best-effort, async).
+		allocSnapshot := snapshotAlloc(alloc)
+		go driver.persistPodNetns(context.WithoutCancel(ctx), "", podUID, allocSnapshot)
 
 		return nil
 	})
 
 	return err
+}
+
+// moveInterfacesToRootNs opens the pod netns at nsPath, deconfigures all interfaces
+// in alloc, renames them back to their kernel name, and moves them to the root netns.
+// Errors for individual interfaces are logged and skipped; the function always
+// attempts to process all interfaces.
+func (driver *Driver) moveInterfacesToRootNs(
+	ctx context.Context,
+	nsPath string,
+	alloc map[kube_types.UID][]allocation,
+) error {
+	podNs, err := netns.OpenPinned(nsPath)
+	if err != nil {
+		return fmt.Errorf("failed to open pinned netns at %s: %w", nsPath, err)
+	}
+	defer podNs.Close()
+
+	rootNs, err := netns.OpenPinned("/proc/1/ns/net")
+	if err != nil {
+		return fmt.Errorf("failed to open root netns: %w", err)
+	}
+	defer rootNs.Close()
+
+	return podNs.Do(func() error {
+		for _, devices := range alloc {
+			for _, a := range devices {
+				if err := deconfigureAndMoveToRootNs(driver, a, rootNs.FD()); err != nil {
+					driver.logger.ErrorContext(ctx, "failed to deconfigure/move interface to root netns",
+						logfields.Device, a.Device.KernelIfName(),
+						logfields.Error, err,
+					)
+					// continue with remaining interfaces
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// deconfigureAndMoveToRootNs removes IPs, brings down, renames an interface
+// back to its kernel name, and moves it to the root netns.
+// Must be called inside netns.Do() for the pod netns.
+func deconfigureAndMoveToRootNs(driver *Driver, a allocation, rootNsFd int) error {
+	// The interface may be named by PodIfName inside the pod netns.
+	ifName := a.Device.KernelIfName()
+	if a.Config.PodIfName != "" {
+		ifName = a.Config.PodIfName
+	}
+
+	link, err := safenetlink.LinkByName(ifName)
+	if err != nil {
+		return fmt.Errorf("failed to find interface %s: %w", ifName, err)
+	}
+
+	if err := driver.configureIPs(link, addrDel, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+		// log and continue — we still want to move the interface back
+		driver.logger.Warn("failed to remove IPs from interface, continuing",
+			logfields.Interface, ifName, logfields.Error, err)
+	}
+
+	if err := netlink.LinkSetDown(link); err != nil {
+		driver.logger.Warn("failed to bring down interface, continuing",
+			logfields.Interface, ifName, logfields.Error, err)
+	}
+
+	// Rename back to kernel name before moving to root netns.
+	if a.Config.PodIfName != "" {
+		link, err = configureIfName(link, a.Device.KernelIfName())
+		if err != nil {
+			// Log but continue — try to move it back with whatever name it has.
+			driver.logger.Warn("failed to rename interface back to kernel name, moving with current name",
+				logfields.Interface, ifName, logfields.Error, err)
+		}
+	}
+
+	if err := netlink.LinkSetNsFd(link, rootNsFd); err != nil {
+		return fmt.Errorf("failed to move interface %s to root netns: %w", link.Attrs().Name, err)
+	}
+
+	return nil
+}
+
+// configureInterfaceInNs renames the interface (if PodIfName is set), assigns IPs,
+// and brings the link up. Must be called inside netns.Do().
+// Returns the (possibly refreshed) link.
+func configureInterfaceInNs(driver *Driver, l netlink.Link, a allocation) (netlink.Link, error) {
+	var err error
+
+	// Rename interface to custom name if configured.
+	if a.Config.PodIfName != "" {
+		l, err = configureIfName(l, a.Config.PodIfName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set interface name: %w", err)
+		}
+	}
+
+	if err := driver.configureIPs(l, addrAdd, a.Config.IPv4Addr, a.Config.IPv6Addr); err != nil {
+		return nil, err
+	}
+
+	if err := netlink.LinkSetUp(l); err != nil {
+		return nil, err
+	}
+
+	return l, nil
+}
+
+// snapshotAlloc makes a shallow copy of the alloc map for use in goroutines
+// that run after the lock is released.
+func snapshotAlloc(alloc map[kube_types.UID][]allocation) map[kube_types.UID][]allocation {
+	snap := make(map[kube_types.UID][]allocation, len(alloc))
+	for k, v := range alloc {
+		snap[k] = v
+	}
+	return snap
+}
+
+// persistPodNetns asynchronously updates the PodNetns field in every claim's
+// device status for the given pod. Called after RunPodSandbox (nsPath set) and
+// after StopPodSandbox (nsPath empty, to clear). Errors are logged, not propagated.
+func (driver *Driver) persistPodNetns(
+	ctx context.Context,
+	nsPath string,
+	podUID kube_types.UID,
+	alloc map[kube_types.UID][]allocation,
+) {
+	claimsStore, err := driver.resourceClaims.Store(ctx)
+	if err != nil {
+		driver.logger.WarnContext(ctx, "persistPodNetns: failed to get claims store",
+			logfields.PodUID, podUID,
+			logfields.Error, err)
+		return
+	}
+
+	for claimUID := range alloc {
+		var found bool
+		for _, claim := range claimsStore.List() {
+			if claim.UID != claimUID {
+				continue
+			}
+			found = true
+
+			if err := driver.patchClaimPodNetns(ctx, claim, nsPath); err != nil {
+				driver.logger.WarnContext(ctx, "persistPodNetns: failed to patch claim",
+					logfields.UID, claimUID,
+					logfields.PodUID, podUID,
+					logfields.Error, err,
+				)
+			}
+			break
+		}
+
+		if !found {
+			driver.logger.WarnContext(ctx, "persistPodNetns: claim not found in store",
+				logfields.UID, claimUID,
+				logfields.PodUID, podUID,
+			)
+		}
+	}
 }
 
 func (driver *Driver) configureIPs(l netlink.Link, action ipamAction, ipv4, ipv6 netip.Prefix) error {
