@@ -285,7 +285,7 @@ func newCiliumDevicesSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  16,
 		Value:      anyTypeByName(btf, "device_state"),
 		MaxEntries: 512,
-		Flags:      0,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }

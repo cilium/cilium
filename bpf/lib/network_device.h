@@ -29,6 +29,7 @@ struct {
 	__type(value, struct device_state);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 512);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_devices __section_maps_btf;
 
 static __always_inline const struct device_state *
@@ -49,6 +50,7 @@ static __always_inline const union macaddr *
 device_mac(__u32 ifindex)
 {
 	const struct device_state *state = device_state_lookup(ifindex);
+	static union macaddr __zero_mac = {};
 
-	return state ? &state->mac : NULL;
+	return state ? &state->mac : &__zero_mac;
 }
