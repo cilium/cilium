@@ -48,7 +48,7 @@ func (r regexMatcher) IsMatch(log string) bool {
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
+func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExceptions []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	errorLogExceptions := []logMatcher{
@@ -74,6 +74,11 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
 		errorLogExceptions = append(errorLogExceptions, linkNotFound, removeInexistentID)
 		warningLogExceptions = append(warningLogExceptions, linkNotFound, removeInexistentID)
+	}
+
+	for _, exception := range extraExceptions {
+		errorLogExceptions = append(errorLogExceptions, stringMatcher(exception))
+		warningLogExceptions = append(warningLogExceptions, stringMatcher(exception))
 	}
 
 	// The list is adopted from cilium/cilium/test/helper/utils.go

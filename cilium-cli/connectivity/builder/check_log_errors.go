@@ -19,6 +19,6 @@ func (t checkLogErrors) build(ct *check.ConnectivityTest, _ map[string]string) {
 	}
 	newTest("check-log-errors", ct).
 		WithSysdumpPolicy(check.SysdumpPolicyOnce).
-		WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion, ct.Params().LogCheckLevels, ct.Params().ExternalTarget,
-			ct.Params().ExternalOtherTarget, startTime))
+		WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion, ct.Params().LogCheckLevels, ct.Params().LogCheckExtraExceptions,
+			ct.Params().ExternalTarget, ct.Params().ExternalOtherTarget, startTime))
 }
