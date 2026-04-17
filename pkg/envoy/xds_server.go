@@ -1807,11 +1807,19 @@ var ErrNilPolicy = errors.New("nil EndpointPolicy")
 
 func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
 ) (error, func() error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if epp == nil {
 		return ErrNilPolicy, nil
+	}
+
+	names := ep.GetPolicyNames()
+	if len(names) == 0 {
+		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
+		// there are no policy names here. In this case just skip without updating a policy.
+		s.logger.Debug("Endpoint has no policy names",
+			logfields.Name, names,
+			logfields.EndpointID, ep.GetID(),
+		)
+		return nil, func() error { return nil }
 	}
 
 	l4policy := &epp.SelectorPolicy.L4Policy
@@ -1824,22 +1832,28 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 		return policy.ErrStaleSelectors, nil
 	}
 
-	ips := ep.GetPolicyNames()
-	if len(ips) == 0 {
-		// It looks like the "host EP" (identity == 1) has no IPs, so it is possible to find
-		// there are no IPs here. In this case just skip without updating a policy, as
-		// policies are always keyed by an IP.
-		//
-		// TODO: When L7 policy support for the host is needed, all host IPs should be
-		// considered here?
-		s.logger.Debug("Endpoint has no IP addresses or name",
-			logfields.Name, ips,
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Update local endpoint IP/policy mapping for access log correlation and log any conflicts.
+	// This is done even if policy update fails, as this information only depends on the
+	// existence of the endpoint and does not need to be reverted even if policy update fails.
+	conflicts := s.localEndpointStore.setLocalEndpoint(ep)
+	if len(conflicts) > 0 {
+		s.logger.Error("Conflicting policy names detected while updating local endpoint store",
 			logfields.EndpointID, ep.GetID(),
+			logfields.Info, conflicts,
 		)
-		return nil, func() error { return nil }
+
+		// remove conflicting policies
+		for _, dup := range conflicts {
+			// We use the string form of the Endpoint's ID as the xDS resource name.
+			dupName := strconv.FormatUint(dup.ep.GetID(), 10)
+			s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, dupName, nil, nil, nil)
+		}
 	}
 
-	networkPolicy := s.getNetworkPolicy(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
+	networkPolicy := s.getNetworkPolicy(ep, selectors, names, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
@@ -1855,37 +1869,22 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy
 	}
 
 	// When successful, push policy into the cache.
-	var callback func(error)
 	policyRevision := l4policy.Revision
-	callback = func(err error) {
+	callback := func(err error) {
 		if err == nil {
 			go ep.OnProxyPolicyUpdate(policyRevision)
 		}
 	}
-
 	epID := ep.GetID()
 	nodeIDs := getNodeIDs(ep, l4policy)
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
-	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
-	for _, ip := range ips {
-		revertUpdatedNetworkPolicyEndpoints[ip] = s.localEndpointStore.getLocalEndpoint(ip)
-		s.localEndpointStore.setLocalEndpoint(ip, ep)
-	}
 
 	return nil, func() error {
 		s.logger.Debug("Reverting xDS network policy update")
 
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-
-		for ip, ep := range revertUpdatedNetworkPolicyEndpoints {
-			if ep == nil {
-				s.localEndpointStore.removeLocalEndpoint(ip)
-			} else {
-				s.localEndpointStore.setLocalEndpoint(ip, ep)
-			}
-		}
 
 		revertFunc()
 
@@ -1906,14 +1905,7 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	// ignored.
 	s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
 
-	ip := ep.GetIPv6Address()
-	if ip != "" {
-		s.localEndpointStore.removeLocalEndpoint(ip)
-	}
-	ip = ep.GetIPv4Address()
-	if ip != "" {
-		s.localEndpointStore.removeLocalEndpoint(ip)
-	}
+	s.localEndpointStore.removeLocalEndpoint(ep)
 }
 
 func (s *xdsServer) RemoveAllNetworkPolicies() {
