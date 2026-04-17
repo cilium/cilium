@@ -77,9 +77,6 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
-	// DeleteNode frees resources held for the named node
-	DeleteNode(nodeID string)
-
 	// Delete deletes a resource from this set by name and increases the cache's
 	// version number atomically if the resource is actually deleted.
 	// The completion is called back when the new deleted resources' version is
@@ -295,18 +292,6 @@ func (m *AckingResourceMutatorWrapper) maybeAddCurrentVersionCompletion(wait boo
 	if !wait && callback != nil {
 		callback(nil)
 	}
-}
-
-// DeleteNode frees resources held for the named nodes
-func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	delete(m.ackedVersions, nodeID)
-	if ch, exists := m.ackedNodes[nodeID]; exists && ch != nil {
-		close(ch)
-	}
-	delete(m.ackedNodes, nodeID)
 }
 
 // CancelCompletions is called after it is known the xDS client has been terminated, so that waiting
