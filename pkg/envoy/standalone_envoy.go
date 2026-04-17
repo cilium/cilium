@@ -505,6 +505,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) er
 						}},
 					},
 					TypedExtensionProtocolOptions: http2ProtocolOptions,
+					CircuitBreakers:               clusterRetryLimits,
 				},
 				{
 					Name:                 adminClusterName,

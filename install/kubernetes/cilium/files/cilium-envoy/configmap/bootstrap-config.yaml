@@ -252,6 +252,11 @@ staticResources:
   - name: "xds-grpc-cilium"
     type: "STATIC"
     connectTimeout: "{{ .Values.envoy.connectTimeoutSeconds }}s"
+    circuitBreakers:
+      thresholds:
+      - maxRetries: {{ .Values.envoy.maxConcurrentRetries }}
+        maxConnections: {{ .Values.envoy.clusterMaxConnections }}
+        maxRequests: {{ .Values.envoy.clusterMaxRequests }}
     loadAssignment:
       clusterName: "xds-grpc-cilium"
       endpoints:
