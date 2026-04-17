@@ -18,8 +18,8 @@ func eventDone[T k8sRuntime.Object](event resource.Event[T], err error) error {
 	return err
 }
 
-func DumpPinningMap(lBMaps lbmaps.LBMaps) (pinningMap, error) {
-	m := pinningMap{}
+func DumpPinningMap(lBMaps lbmaps.LBMaps) (PinningMap, error) {
+	m := PinningMap{}
 
 	if err := lBMaps.DumpPinning4(func(lpk *lbmaps.LbPinning4Key, lpv *lbmaps.LbPinning4Value) {
 		m[*lpk] = *lpv

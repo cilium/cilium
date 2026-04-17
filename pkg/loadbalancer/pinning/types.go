@@ -52,6 +52,8 @@ func (syncNode) isReconcileUpdate()      {}
 type servicesMap map[string]pinnedService
 type nodesMap map[string]netip.Addr
 
-type pinningMap map[maps.LbPinning4Key]maps.LbPinning4Value
+type PinningMap map[maps.LbPinning4Key]maps.LbPinning4Value
 
-type LbPinMapUpdateEvent struct{}
+type LbPinMapUpdateEvent struct {
+	PinningMap PinningMap
+}

@@ -191,7 +191,7 @@ func (pm *PinningManager) handleNodeEvent(ctx context.Context, event resource.Ev
 	return nil
 }
 
-func (pm *PinningManager) applyPinningMap(desired pinningMap) error {
+func (pm *PinningManager) applyPinningMap(desired PinningMap) error {
 	stale, err := DumpPinningMap(pm.lBMaps)
 
 	if err != nil {
@@ -218,14 +218,13 @@ func (pm *PinningManager) applyPinningMap(desired pinningMap) error {
 func rebalanceServices(
 	services servicesMap,
 	nodes nodesMap,
-	localNodeIp netip.Addr,
-) (pinningMap, error) {
-	newPinningMap := pinningMap{}
+) (PinningMap, error) {
+	newPinningMap := PinningMap{}
 
 	for _, svc := range services {
 		nodeIp, found := nodes[svc.NodeId]
 
-		if !found || nodeIp == localNodeIp {
+		if !found {
 			continue
 		}
 
@@ -279,10 +278,9 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 				continue
 			}
 
-			pinningMap, err := rebalanceServices(
+			fullPinningMap, err := rebalanceServices(
 				pm.servicesCache,
 				pm.nodesCache,
-				localNodeIp,
 			)
 
 			if err != nil {
@@ -290,12 +288,20 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 				continue
 			}
 
-			if err := pm.applyPinningMap(pinningMap); err != nil {
+			nodeSpecificPinningMap := PinningMap{}
+
+			for k, v := range fullPinningMap {
+				if v.NodeIP.Addr() != localNodeIp {
+					nodeSpecificPinningMap[k] = v
+				}
+			}
+
+			if err := pm.applyPinningMap(nodeSpecificPinningMap); err != nil {
 				pm.logger.Error("error applying desired pinning map", logfields.Error, err)
 				continue
 			}
 
-			pm.pinMapUpdateEventStream.emitter(LbPinMapUpdateEvent{})
+			pm.pinMapUpdateEventStream.emitter(LbPinMapUpdateEvent{PinningMap: fullPinningMap})
 
 		case <-ctx.Done():
 			// graceful shutdown
@@ -305,7 +311,7 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 	}
 }
 
-func registerPinningManager(params PinningParams) error {
+func registerPinningManager(params PinningParams) (*PinningManager, error) {
 	mng := newPinningManager(params)
 
 	params.JobGroup.Add(job.Observer(
@@ -325,5 +331,5 @@ func registerPinningManager(params PinningParams) error {
 		mng.reconcileLoop,
 	))
 
-	return nil
+	return mng, nil
 }

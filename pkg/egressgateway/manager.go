@@ -116,8 +116,8 @@ type Manager struct {
 	// nodes stores nodes sorted by their name. The entries are sorted
 	// to ensure consistent gateway selection across all agents.
 	nodes []nodeTypes.Node
-	// load balancing pinning map interface
-	lBMaps lbmaps.LBMaps
+	// last received load balancing pinning map
+	lbPinningMap lbpinning.PinningMap
 	// load balancing pinning map update events
 	lbPinMapEvents lbpinning.ObservableLbPinMapUpdateEvent
 	// nodesAddresses2Labels store the labels of each node so that the endpoint can match the node labels
@@ -246,11 +246,11 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policyMap6:                    p.PolicyMap6,
 		policies:                      p.Policies,
 		ciliumNodes:                   p.Nodes,
-		lBMaps:                        p.LBMaps,
 		lbPinMapEvents:                p.LbPinMapEvents,
 		endpoints:                     p.Endpoints,
 		sysctl:                        p.Sysctl,
 		nodesAddresses2Labels:         make(map[string]map[string]string),
+		lbPinningMap:                  make(lbpinning.PinningMap),
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -559,11 +559,12 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 	}
 }
 
-func (manager *Manager) handleLbPinMapEvent(_ lbpinning.LbPinMapUpdateEvent) {
+func (manager *Manager) handleLbPinMapEvent(event lbpinning.LbPinMapUpdateEvent) {
 	manager.Lock()
 	defer manager.Unlock()
 
 	manager.setEventBitmap(eventLbPinMapUpdate)
+	manager.lbPinningMap = event.PinningMap
 	manager.reconciliationTrigger.TriggerWithReason("LB pinning map update")
 }
 
@@ -867,13 +868,7 @@ func (manager *Manager) SelectsPinnedNodeAsGateway(node nodeTypes.Node, egressIP
 		return false, fmt.Errorf("node '%s' has no assigned IP address", node.Name)
 	}
 
-	pm, err := lbpinning.DumpPinningMap(manager.lBMaps)
-
-	if err != nil {
-		return false, err
-	}
-
-	for serviceIp, pinnedNodeIp := range pm {
+	for serviceIp, pinnedNodeIp := range manager.lbPinningMap {
 		if serviceIp.ServiceIP.Addr() == egressIP &&
 			pinnedNodeIp.NodeIP.String() == nodeIp.String() {
 

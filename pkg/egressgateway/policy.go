@@ -152,6 +152,11 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			svcPinning: policyGwc.svcPinning,
 		}
 
+		// currently only ipv4 is supported.
+		if policyGwc.egressIP.IsValid() {
+			gwc.egressIP4 = policyGwc.egressIP
+		}
+
 		manager.logger.Info("Processing policy with egress IP", logfields.EgressIP, policyGwc.egressIP)
 		for _, node := range manager.nodes {
 			selected, err := policyGwc.selectsNodeAsGateway(manager, node)
@@ -300,7 +305,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	}
 	gwc.localNodeConfiguredAsGateway = true
 
-	logger.Error("gwc egress ip", logfields.EgressIP, gwc.egressIP4)
+	logger.Info("gwc egress ip", logfields.EgressIP, gwc.egressIP4)
 	return nil
 }
 
