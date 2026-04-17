@@ -1913,8 +1913,6 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	ip = ep.GetIPv4Address()
 	if ip != "" {
 		s.localEndpointStore.removeLocalEndpoint(ip)
-		// Delete node resources held in the cache for the endpoint
-		s.networkPolicyMutator.DeleteNode(ip)
 	}
 }
 
