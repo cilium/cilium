@@ -66,7 +66,6 @@ static __always_inline bool fib_ok(int ret)
   *
   * Returns:
   *   - result of BPF redirect
-  *   - DROP_NO_DEVICE when SMAC couldn't be resolved
   *   - DROP_NO_FIB when DMAC couldn't be resolved
   *   - other DROP reasons
   *
@@ -128,9 +127,6 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	} else {
 		const union macaddr *smac = device_mac(oif);
 		const union macaddr *dmac = NULL;
-
-		if (!smac)
-			return DROP_NO_DEVICE;
 
 		if (allow_neigh_map) {
 			/* The neigh_record_ip{4,6} locations are mainly from
