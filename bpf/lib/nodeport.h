@@ -135,43 +135,6 @@ nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 
 #ifdef HAVE_ENCAP
 static __always_inline int
-nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
-			  const struct remote_endpoint_info *info,
-			  __u32 src_sec_identity, enum trace_reason ct_reason,
-			  __u32 monitor, int *ifindex, __be16 proto)
-{
-	/* Let kernel choose the outer source ip */
-	if (ctx_is_skb())
-		src_ip = 0;
-#ifdef ENABLE_IPV4
-	else
-		/* no-op if failure, no need for capturing results */
-		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
-#endif /* ENABLE_IPV4 */
-
-	/* Append L2 hdr before redirecting to tunnel netdev.
-	 * Otherwise, the kernel will drop such request in
-	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
-	 */
-	if (THIS_IS_L3_DEV) {
-		int ret;
-
-		ret = add_l2_hdr(ctx);
-		if (ret != 0)
-			return ret;
-	}
-
-	if (info->flag_ipv6_tunnel_ep)
-		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
-					    src_sec_identity, info->sec_identity,
-					    ct_reason, monitor, ifindex, proto);
-	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
-				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-				    ct_reason, monitor, ifindex, proto);
-}
-
-# if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-static __always_inline int
 nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			      const struct remote_endpoint_info *info,
 			      __u32 src_sec_identity, void *opt, __u32 opt_len,
@@ -200,15 +163,27 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 	}
 
 	if (info->flag_ipv6_tunnel_ep)
-		return __encap_with_nodeid_opt6(ctx, &info->tunnel_endpoint.ip6,
-						src_sec_identity, info->sec_identity,
-						opt, opt_len, ct_reason, monitor,
-						ifindex, proto);
-	return __encap_with_nodeid_opt4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
-					src_sec_identity, info->sec_identity, NOT_VTEP_DST,
-					opt, opt_len, ct_reason, monitor, ifindex, proto);
+		return __encap_with_nodeid6(ctx, &info->tunnel_endpoint.ip6,
+					    src_sec_identity, info->sec_identity,
+					    opt, opt_len, ct_reason, monitor,
+					    ifindex, proto);
+	return __encap_with_nodeid4(ctx, src_ip, src_port, info->tunnel_endpoint.ip4.be32,
+				    src_sec_identity, info->sec_identity, NOT_VTEP_DST,
+				    opt, opt_len, ct_reason, monitor, ifindex, proto);
 }
-# endif
+
+static __always_inline int
+nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
+			  const struct remote_endpoint_info *info,
+			  __u32 src_sec_identity,
+			  enum trace_reason ct_reason, __u32 monitor,
+			  int *ifindex, __be16 proto)
+{
+	return nodeport_add_tunnel_encap_opt(ctx, src_ip, src_port, info,
+					     src_sec_identity, NULL, 0,
+					     ct_reason, monitor, ifindex,
+					     proto);
+}
 #endif /* HAVE_ENCAP */
 
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
