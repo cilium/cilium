@@ -27,8 +27,8 @@ openssl req -newkey rsa:2048 -nodes \
     -out external-service.cilium.req.pem
 
 # Figure out the addresses of the external nodes.
-mapfile -d ' ' -t IPTARGET < <(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-mapfile -d ' ' -t IPOTHERTARGET < <(kubectl get nodes -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')
+mapfile -d ' ' -t IPTARGET < <(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+mapfile -d ' ' -t IPOTHERTARGET < <(kubectl get nodes -l cilium.io/no-schedule=true -o jsonpath='{.items[1].status.addresses[?(@.type=="InternalIP")].address}')
 
 # Create a config file to tell openssl how to turn the signing request into a certificate
 # Make sure the key usage is such that we can use the cert for HTTPS traffic.
