@@ -281,6 +281,91 @@ func (driver *Driver) addrsForDevice(ctx context.Context, device string, pool ip
 	return v4Addr, v6Addr, nil
 }
 
+func (driver *Driver) deviceFromRequestResult(result resourceapi.DeviceRequestAllocationResult) (types.DeviceManagerType, types.Device, error) {
+	for mgr, devices := range driver.devices {
+		if i := slices.IndexFunc(devices, func(dev types.Device) bool {
+			return dev.IfName() == result.Device
+		}); i >= 0 {
+			return mgr, devices[i], nil
+		}
+	}
+	return types.DeviceManagerTypeUnknown, nil, errDeviceNotFound
+}
+
+func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
+	alloc := allocation{Config: cfg}
+
+	var found bool
+	for mgr, devices := range driver.devices {
+		if i := slices.IndexFunc(devices, func(dev types.Device) bool {
+			return dev.IfName() == result.Device
+		}); i >= 0 {
+			alloc.Manager = mgr
+			alloc.Device = devices[i]
+			found = true
+			break
+		}
+	}
+	if !found {
+		return alloc, fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, claim)
+	}
+
+	var (
+		devCfg netDevConfig
+		err    error
+	)
+
+	// release addresses in case of error
+	defer func() {
+		if err != nil {
+			if releaseErr := driver.releaseAddrs(alloc.Config); releaseErr != nil {
+				driver.logger.Warn("failed to release addresses for failed device during rollback",
+					logfields.Device, alloc.Device.IfName(),
+					logfields.Error, releaseErr,
+				)
+			}
+		}
+	}()
+
+	devCfg, err = driver.netConfigForDevice(ctx, result.Device, cfg)
+
+	// persist addresses before checking for errors, so that
+	// they can be released properly even in case of failures
+	alloc.Config.IPv4Addr = devCfg.ipv4
+	alloc.Config.IPv6Addr = devCfg.ipv6
+	alloc.Config.IPPool = devCfg.ipPool
+	alloc.Config.Routes = make([]types.Route, 0, len(devCfg.routes))
+	for _, r := range devCfg.routes {
+		alloc.Config.Routes = append(alloc.Config.Routes, types.Route{
+			Destination: r.Destination,
+			Gateway:     r.Gateway,
+		})
+	}
+
+	if err != nil {
+		driver.logger.ErrorContext(
+			ctx, "failed to get valid network configuration for device",
+			logfields.Device, result.Device,
+			logfields.PoolName, cfg.IPPool,
+			logfields.Error, err,
+		)
+
+		return alloc, fmt.Errorf("failed to get valid network configuration for device %s in claim %s: %w", result.Device, claim, err)
+	}
+
+	if err := alloc.Device.Setup(alloc.Config); err != nil {
+		driver.logger.ErrorContext(ctx, "failed to set up device",
+			logfields.Device, alloc.Device.IfName(),
+			logfields.Config, alloc.Config,
+			logfields.Error, err,
+		)
+
+		return alloc, fmt.Errorf("%w for ifname %s on %s", err, alloc.Device.IfName(), claim)
+	}
+
+	return alloc, nil
+}
+
 func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim) kubeletplugin.PrepareResult {
 	if len(claim.Status.ReservedFor) != 1 {
 		return kubeletplugin.PrepareResult{
@@ -339,28 +424,6 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		var thisAlloc allocation
-
-		var found bool
-
-		for mgr, devices := range driver.devices {
-			for _, device := range devices {
-				if device.IfName() == result.Device {
-					thisAlloc.Manager = mgr
-					thisAlloc.Device = device
-					found = true
-					break
-				}
-			}
-		}
-
-		if !found {
-			err = fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
-		}
-
 		cfg, found := deviceClaimConfigs[result.Request]
 		if !found {
 			err = fmt.Errorf("%w with ifname %s for %s", errDeviceClaimConfigNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
@@ -368,72 +431,39 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 				Err: err,
 			}
 		}
-		thisAlloc.Config = cfg
 
-		var devCfg netDevConfig
-		devCfg, err = driver.netConfigForDevice(ctx, result.Device, cfg)
+		var thisAlloc allocation
 
-		// persist addresses from pool into thisAlloc, in order to release them in case of error
-		thisAlloc.Config.IPv4Addr = devCfg.ipv4
-		thisAlloc.Config.IPv6Addr = devCfg.ipv6
-		thisAlloc.Config.IPPool = devCfg.ipPool
-
-		thisAlloc.Config.Routes = make([]types.Route, 0, len(devCfg.routes))
-		for _, r := range devCfg.routes {
-			thisAlloc.Config.Routes = append(thisAlloc.Config.Routes, types.Route{
-				Destination: r.Destination,
-				Gateway:     r.Gateway,
-			})
-		}
-
+		var (
+			mgr types.DeviceManagerType
+			dev types.Device
+		)
+		mgr, dev, err = driver.deviceFromRequestResult(result)
 		if err != nil {
-			driver.logger.ErrorContext(
-				ctx, "failed to get valid network configuration for device",
-				logfields.Device, result.Device,
-				logfields.PoolName, cfg.IPPool,
+			err = fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, path.Join(claim.Namespace, claim.Name))
+			return kubeletplugin.PrepareResult{
+				Err: err,
+			}
+		}
+		thisAlloc.Manager = mgr
+		thisAlloc.Device = dev
+
+		thisAlloc, err = driver.prepareDeviceAllocation(ctx, path.Join(claim.Namespace, claim.Name), result, cfg)
+		if err != nil {
+			driver.logger.ErrorContext(ctx, "failed to serialize device",
+				logfields.Device, thisAlloc.Device.IfName(),
+				logfields.Config, thisAlloc.Config,
 				logfields.Error, err,
 			)
 
-			// thisAlloc is not yet appended to alloc, so release its IPs
-			// explicitly before rolling back the already-set-up devices.
-			if releaseErr := driver.releaseAddrs(thisAlloc.Config); releaseErr != nil {
-				driver.logger.Warn("failed to release addresses for failed device during rollback",
-					logfields.Device, thisAlloc.Device.IfName(),
-					logfields.Error, releaseErr,
-				)
-			}
-
-			err = fmt.Errorf("failed to get valid network configuration for device %s in claim %s: %w", result.Device, path.Join(claim.Namespace, claim.Name), err)
+			err = fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err)
 			return kubeletplugin.PrepareResult{
 				Err: err,
 			}
 		}
-
-		if setupErr := thisAlloc.Device.Setup(thisAlloc.Config); setupErr != nil {
-			driver.logger.ErrorContext(ctx, "failed to set up device",
-				logfields.Device, thisAlloc.Device.IfName(),
-				logfields.Config, thisAlloc.Config,
-				logfields.Error, setupErr,
-			)
-
-			// thisAlloc is not yet appended to alloc, so release its IPs
-			// explicitly before rolling back the already-set-up devices.
-			if releaseErr := driver.releaseAddrs(thisAlloc.Config); releaseErr != nil {
-				driver.logger.Warn("failed to release addresses for failed device during rollback",
-					logfields.Device, thisAlloc.Device.IfName(),
-					logfields.Error, releaseErr,
-				)
-			}
-
-			err = fmt.Errorf("%w for ifname %s on %s", setupErr, thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name))
-			return kubeletplugin.PrepareResult{
-				Err: err,
-			}
-		}
-
 		alloc = append(alloc, thisAlloc)
 
-		dev, err := serializeDevice(thisAlloc)
+		rawDev, err := serializeDevice(thisAlloc)
 		if err != nil {
 			driver.logger.ErrorContext(ctx, "failed to serialize device",
 				logfields.Device, thisAlloc.Device.IfName(),
@@ -462,7 +492,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			Pool:       result.Pool,
 			Device:     result.Device,
 			Conditions: []metav1.Condition{conditionReady(claim)},
-			Data:       &runtime.RawExtension{Raw: dev},
+			Data:       &runtime.RawExtension{Raw: rawDev},
 			NetworkData: &resourceapi.NetworkDeviceData{
 				InterfaceName: func() string {
 					if thisAlloc.Config.PodIfName != "" {
