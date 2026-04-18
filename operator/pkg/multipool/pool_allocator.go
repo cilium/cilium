@@ -13,8 +13,6 @@ import (
 	"slices"
 	"sort"
 
-	"go4.org/netipx"
-
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -217,11 +215,10 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 				}
 
 				for cidr := range cidrs {
-					ipnet := netipx.PrefixIPNet(cidr)
-					if !oldCIDR.InRange(ipnet) {
+					if !oldCIDR.InRange(cidr) {
 						continue
 					}
-					allocated, err := oldCIDR.IsAllocated(ipnet)
+					allocated, err := oldCIDR.IsAllocated(cidr)
 					if err != nil {
 						errs = append(errs, err)
 						continue

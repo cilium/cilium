@@ -13,7 +13,6 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
-	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
@@ -63,20 +62,19 @@ type API struct {
 	pdAllocator    *cidrset.CidrSet
 	limiter        *rate.Limiter
 	delaySim       *helpers.DelaySimulator
-	pdSubnet       *net.IPNet
+	pdSubnet       netip.Prefix
 }
 
 // NewAPI returns a new mocked EC2 API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup, routeTables []*ipamTypes.RouteTable) *API {
 
 	// Start with base CIDR 10.0.0.0/16
-	_, baseCidr, _ := net.ParseCIDR("10.10.0.0/16")
+	basePrefix := netip.MustParsePrefix("10.10.0.0/16")
 
 	// Use 10.10.0.0/17 for IP allocations
-	cidrSet, _ := cidrset.NewCIDRSet(baseCidr, 17)
+	cidrSet, _ := cidrset.NewCIDRSet(basePrefix, 17)
 	podCidr, _ := cidrSet.AllocateNext()
-	podCidrPrefix, _ := netipx.FromStdIPNet(podCidr)
-	podCidrRange := ipallocator.NewCIDRRange(podCidrPrefix)
+	podCidrRange := ipallocator.NewCIDRRange(podCidr)
 
 	// Use 10.10.128.0/17 for prefix allocations
 	pdCidr, _ := cidrSet.AllocateNext()
@@ -592,11 +590,11 @@ func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []
 	addresses := make([]string, 0)
 	// Convert prefixes to IP addresses and release prefix from pd allocator
 	for _, prefix := range prefixes {
-		_, ipNet, err := net.ParseCIDR(prefix)
+		pfx, err := netip.ParsePrefix(prefix)
 		if err != nil {
 			return fmt.Errorf("Invalid CIDR block %s", prefix)
 		}
-		e.pdAllocator.Release(ipNet)
+		e.pdAllocator.Release(pfx)
 		ips, _ := ip.PrefixToIps(prefix, 0)
 		addresses = append(addresses, ips...)
 	}

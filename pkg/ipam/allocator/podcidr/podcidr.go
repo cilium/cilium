@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"go4.org/netipx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -580,11 +581,12 @@ func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAlloca
 		return
 	}
 	for _, ipNet := range cidrsToRelease {
+		prefix, _ := netipx.FromStdIPNet(ipNet)
 		for _, clusterCIDR := range cidrAllocators {
-			if !clusterCIDR.InRange(ipNet) {
+			if !clusterCIDR.InRange(prefix) {
 				continue
 			}
-			err := clusterCIDR.Release(ipNet)
+			err := clusterCIDR.Release(prefix)
 			if err != nil {
 				n.logger.Error("failed to release cidr",
 					logfields.Error, err,
@@ -795,11 +797,12 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 	// available. 'err' will keep the error that should be returned at the end
 	// of the loop iterations.
 	for _, newCIDR := range newCidrs {
+		newPrefix, _ := netipx.FromStdIPNet(newCIDR)
 		var isAllocated bool
 		for _, cidrSet := range cidrSets {
 			// Do not even try to allocate if the cidrSet is full or if the
 			// newCIDR does not belong to the cidrSet.
-			if !cidrSet.InRange(newCIDR) {
+			if !cidrSet.InRange(newPrefix) {
 				err = fmt.Errorf("allocator not configured for the requested CIDR %s", newCIDR)
 				continue
 			}
@@ -809,7 +812,7 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 				err = fmt.Errorf("allocator %s full", cidrSet)
 				return nil, err
 			}
-			isAllocated, err = cidrSet.IsAllocated(newCIDR)
+			isAllocated, err = cidrSet.IsAllocated(newPrefix)
 			if err != nil {
 				return nil, err
 			}
@@ -819,13 +822,13 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 				}
 			}
 			// Try to allocate this new CIDR
-			err = cidrSet.Occupy(newCIDR)
+			err = cidrSet.Occupy(newPrefix)
 			if err != nil {
 				return nil, err
 			}
 			revertStack.Push(func() error {
 				// In case of a follow up error release this new allocated CIDR.
-				return cidrSet.Release(newCIDR)
+				return cidrSet.Release(newPrefix)
 			})
 			break
 		}
@@ -940,12 +943,13 @@ func allocateFirstFreeCIDR(cidrAllocators []cidralloc.CIDRAllocator) (revertFunc
 	if firstFreeAllocator == nil {
 		return nil, nil, &ErrAllocatorFull{}
 	}
-	cidr, err = (*firstFreeAllocator).AllocateNext()
+	prefix, err := (*firstFreeAllocator).AllocateNext()
 	if err != nil {
 		return nil, nil, err
 	}
+	cidr = netipx.PrefixIPNet(prefix)
 	revertStack.Push(func() error {
-		return (*firstFreeAllocator).Release(cidr)
+		return (*firstFreeAllocator).Release(prefix)
 	})
 	return revertStack.Revert, cidr, err
 }

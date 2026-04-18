@@ -6,7 +6,7 @@ package cidrset
 
 import (
 	"math/big"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,8 +33,8 @@ func TestCIDRSetFullyAllocated(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-		a, err := NewCIDRSet(clusterCIDR, tc.subNetMaskSize)
+		clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+		a, err := NewCIDRSet(clusterPrefix, tc.subNetMaskSize)
 		if err != nil {
 			t.Fatalf("unexpected error: %v for %v", err, tc.description)
 		}
@@ -184,8 +184,8 @@ func TestIndexToCIDRBlock(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-		a, err := NewCIDRSet(clusterCIDR, tc.subnetMaskSize)
+		clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+		a, err := NewCIDRSet(clusterPrefix, tc.subnetMaskSize)
 		if err != nil {
 			t.Fatalf("error for %v ", tc.description)
 		}
@@ -211,13 +211,13 @@ func TestCIDRSet_RandomishAllocation(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-		a, err := NewCIDRSet(clusterCIDR, 24)
+		clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+		a, err := NewCIDRSet(clusterPrefix, 24)
 		if err != nil {
 			t.Fatalf("Error allocating CIDRSet for %v", tc.description)
 		}
 		// allocate all the CIDRs
-		var cidrs []*net.IPNet
+		var cidrs []netip.Prefix
 
 		for range 256 {
 			if c, err := a.AllocateNext(); err == nil {
@@ -238,7 +238,7 @@ func TestCIDRSet_RandomishAllocation(t *testing.T) {
 		}
 
 		// allocate the CIDRs again
-		var rcidrs []*net.IPNet
+		var rcidrs []netip.Prefix
 		for i := range 256 {
 			if c, err := a.AllocateNext(); err == nil {
 				rcidrs = append(rcidrs, c)
@@ -270,13 +270,13 @@ func TestCIDRSet_AllocationOccupied(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-		a, err := NewCIDRSet(clusterCIDR, 24)
+		clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+		a, err := NewCIDRSet(clusterPrefix, 24)
 		if err != nil {
 			t.Fatalf("Error allocating CIDRSet for %v", tc.description)
 		}
 		// allocate all the CIDRs
-		var cidrs []*net.IPNet
+		var cidrs []netip.Prefix
 		var numCIDRs = 256
 
 		for range numCIDRs {
@@ -302,7 +302,7 @@ func TestCIDRSet_AllocationOccupied(t *testing.T) {
 		}
 
 		// allocate the first 128 CIDRs again
-		var rcidrs []*net.IPNet
+		var rcidrs []netip.Prefix
 		for i := range numCIDRs / 2 {
 			if c, err := a.AllocateNext(); err == nil {
 				rcidrs = append(rcidrs, c)
@@ -445,21 +445,21 @@ func TestGetBitforCIDR(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, clusterCIDR, err := net.ParseCIDR(tc.clusterCIDRStr)
+		clusterPrefix, err := netip.ParsePrefix(tc.clusterCIDRStr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v for %v", err, tc.description)
 		}
 
-		cs, err := NewCIDRSet(clusterCIDR, tc.subNetMaskSize)
+		cs, err := NewCIDRSet(clusterPrefix, tc.subNetMaskSize)
 		if err != nil {
 			t.Fatalf("Error allocating CIDRSet for %v", tc.description)
 		}
-		_, subnetCIDR, err := net.ParseCIDR(tc.subNetCIDRStr)
+		subnetPrefix, err := netip.ParsePrefix(tc.subNetCIDRStr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v for %v", err, tc.description)
 		}
 
-		got, err := cs.getIndexForIP(subnetCIDR.IP)
+		got, err := cs.getIndexForAddr(subnetPrefix.Addr())
 		if err == nil && tc.expectErr {
 			t.Errorf("expected error but got null for %v", tc.description)
 			continue
@@ -615,22 +615,22 @@ func TestOccupy(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, clusterCIDR, err := net.ParseCIDR(tc.clusterCIDRStr)
+		clusterPrefix, err := netip.ParsePrefix(tc.clusterCIDRStr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v for %v", err, tc.description)
 		}
 
-		cs, err := NewCIDRSet(clusterCIDR, tc.subNetMaskSize)
+		cs, err := NewCIDRSet(clusterPrefix, tc.subNetMaskSize)
 		if err != nil {
 			t.Fatalf("Error allocating CIDRSet for %v", tc.description)
 		}
 
-		_, subnetCIDR, err := net.ParseCIDR(tc.subNetCIDRStr)
+		subnetPrefix, err := netip.ParsePrefix(tc.subNetCIDRStr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v for %v", err, tc.description)
 		}
 
-		err = cs.Occupy(subnetCIDR)
+		err = cs.Occupy(subnetPrefix)
 		if err == nil && tc.expectErr {
 			t.Errorf("expected error but got none for %v", tc.description)
 			continue
@@ -684,10 +684,10 @@ func TestCIDRSetv6(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.description, func(t *testing.T) {
-			_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-			a, err := NewCIDRSet(clusterCIDR, tc.subNetMaskSize)
+			clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+			a, err := NewCIDRSet(clusterPrefix, tc.subNetMaskSize)
 			if gotErr := err != nil; gotErr != tc.expectErr {
-				t.Fatalf("NewCIDRSet(%v, %v) = %v, %v; gotErr = %t, want %t", clusterCIDR, tc.subNetMaskSize, a, err, gotErr, tc.expectErr)
+				t.Fatalf("NewCIDRSet(%v, %v) = %v, %v; gotErr = %t, want %t", clusterPrefix, tc.subNetMaskSize, a, err, gotErr, tc.expectErr)
 			}
 			if a == nil {
 				return
@@ -700,7 +700,7 @@ func TestCIDRSetv6(t *testing.T) {
 				t.Errorf("a.AllocateNext() = %+v, want no error", err)
 			}
 			if !tc.expectErr {
-				if p != nil && p.String() != tc.expectedCIDR {
+				if p.IsValid() && p.String() != tc.expectedCIDR {
 					t.Fatalf("a.AllocateNext() got %+v, want %+v", p.String(), tc.expectedCIDR)
 				}
 			}
@@ -712,7 +712,7 @@ func TestCIDRSetv6(t *testing.T) {
 				t.Errorf("a.AllocateNext() = %+v, want no error", err)
 			}
 			if !tc.expectErr {
-				if p2 != nil && p2.String() != tc.expectedCIDR2 {
+				if p2.IsValid() && p2.String() != tc.expectedCIDR2 {
 					t.Fatalf("a.AllocateNext() got %+v, want %+v", p2.String(), tc.expectedCIDR)
 				}
 			}
@@ -754,10 +754,10 @@ func TestInvalidSubNetMaskSize(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.description, func(t *testing.T) {
-			_, clusterCIDR, _ := net.ParseCIDR(tc.clusterCIDRStr)
-			a, err := NewCIDRSet(clusterCIDR, tc.subNetMaskSize)
+			clusterPrefix := netip.MustParsePrefix(tc.clusterCIDRStr)
+			a, err := NewCIDRSet(clusterPrefix, tc.subNetMaskSize)
 			if gotErr := err != nil; gotErr != tc.expectErr {
-				t.Fatalf("NewCIDRSet(%v, %v) = %v, %v; gotErr = %t, want %t", clusterCIDR, tc.subNetMaskSize, a, err, gotErr, tc.expectErr)
+				t.Fatalf("NewCIDRSet(%v, %v) = %v, %v; gotErr = %t, want %t", clusterPrefix, tc.subNetMaskSize, a, err, gotErr, tc.expectErr)
 			}
 		})
 	}

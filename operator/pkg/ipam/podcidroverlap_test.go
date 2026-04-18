@@ -6,7 +6,7 @@ package ipam
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
@@ -47,7 +47,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 
 	// Create a new CIDR allocator
 
-	_, cidr, err := net.ParseCIDR("10.129.0.0/16")
+	cidr, err := netip.ParsePrefix("10.129.0.0/16")
 	require.NoError(t, err)
 
 	set, err := cidrset.NewCIDRSet(cidr, 24)

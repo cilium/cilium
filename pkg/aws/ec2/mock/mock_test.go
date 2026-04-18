@@ -5,7 +5,7 @@ package mock
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -123,7 +123,7 @@ func TestSetLimiter(t *testing.T) {
 }
 
 func TestGetNextSubnet(t *testing.T) {
-	_, cidrTest, _ := net.ParseCIDR("10.0.0.0/8")
+	cidrTest := netip.MustParsePrefix("10.0.0.0/8")
 	cidrSet, _ := cidrset.NewCIDRSet(cidrTest, 9)
 	subnet, err := cidrSet.AllocateNext()
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestGetNextSubnet(t *testing.T) {
 }
 
 func TestPrefixToIps(t *testing.T) {
-	_, cidrTest, _ := net.ParseCIDR("10.128.0.0/9")
+	cidrTest := netip.MustParsePrefix("10.128.0.0/9")
 	cidrSet, _ := cidrset.NewCIDRSet(cidrTest, 28)
 	subnet, err := cidrSet.AllocateNext()
 	require.NoError(t, err)
