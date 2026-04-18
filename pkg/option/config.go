@@ -597,6 +597,9 @@ const (
 	// EnableIPv6Name is the name of the option to enable IPv6 support
 	EnableIPv6Name = "enable-ipv6"
 
+	// PreferIpv6Name is the name of the option to prefer IPv6 addresses
+	PreferIpv6Name = "prefer-ipv6"
+
 	// EnableIPv6NDPName is the name of the option to enable IPv6 NDP support
 	EnableIPv6NDPName = "enable-ipv6-ndp"
 
@@ -1381,6 +1384,10 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
+	// PreferIpv6 is true when IPv6 addresses should be preferred over
+	// IPv4 when both are available.
+	PreferIpv6 bool
+
 	// EnableNat46X64Gateway is true when L3 based NAT46 and NAT64 translation is enabled
 	EnableNat46X64Gateway bool
 
@@ -1908,6 +1915,7 @@ var (
 		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
 		EnableIPv4:                      defaults.EnableIPv4,
 		EnableIPv6:                      defaults.EnableIPv6,
+		PreferIpv6:                      defaults.PreferIpv6,
 		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
 		EnableSCTP:                      defaults.EnableSCTP,
 		EnableL7Proxy:                   defaults.EnableL7Proxy,
@@ -2439,6 +2447,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
 	c.EnableIPv4 = vp.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = vp.GetBool(EnableIPv6Name)
+	c.PreferIpv6 = vp.GetBool(PreferIpv6Name)
 	c.EnableIPv6NDP = vp.GetBool(EnableIPv6NDPName)
 	c.EnableSRv6 = vp.GetBool(EnableSRv6)
 	c.EnableFibTableIDAnnotation = vp.GetBool(EnableFibTableIDAnnotation)

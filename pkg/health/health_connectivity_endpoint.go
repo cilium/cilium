@@ -268,7 +268,9 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		info.Addressing.IPv4 = healthIPv4.String()
 		info.Addressing.IPv4PoolName = ipam.PoolDefault().String()
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
-		healthIP = healthIPv4
+		if !option.Config.PreferIpv6 {
+			healthIP = healthIPv4
+		}
 	}
 
 	if option.Config.EnableEndpointRoutes {
