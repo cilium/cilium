@@ -5,7 +5,7 @@ package ipam
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 )
 
 var errNotSupported = errors.New("Operation not supported")
@@ -15,15 +15,15 @@ var errNotSupported = errors.New("Operation not supported")
 // without relying on the cilium daemon or operator.
 type noOpAllocator struct{}
 
-func (n *noOpAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (n *noOpAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (n *noOpAllocator) AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) Release(ip net.IP, pool Pool) error {
+func (n *noOpAllocator) Release(addr netip.Addr, pool Pool) error {
 	return errNotSupported
 }
 

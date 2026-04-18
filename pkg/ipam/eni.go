@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 
@@ -336,18 +337,18 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 // owns the given IP.
 func buildENIAllocationResult(
 	logger *slog.Logger,
-	allocatedIP net.IP,
+	allocatedAddr netip.Addr,
 	node *ciliumv2.CiliumNode,
 	conf *option.DaemonConfig,
 	ipMasqAgent *ipmasq.IPMasqAgent,
 ) (*AllocationResult, error) {
 	for _, eni := range node.Status.ENI.ENIs {
-		if !eniContainsIP(eni, allocatedIP) {
+		if !eniContainsIP(eni, allocatedAddr) {
 			continue
 		}
 
 		result := &AllocationResult{
-			IP:         allocatedIP,
+			IP:         allocatedAddr,
 			PrimaryMAC: eni.MAC,
 			CIDRs:      []string{eni.VPC.PrimaryCIDR},
 		}
@@ -363,9 +364,9 @@ func buildENIAllocationResult(
 		// ip-masq-agent configuration changes.
 		if conf.EnableIPMasqAgent {
 			for _, prefix := range ipMasqAgent.NonMasqCIDRsFromConfig() {
-				if allocatedIP.To4() != nil && prefix.Addr().Is4() {
+				if allocatedAddr.Is4() && prefix.Addr().Is4() {
 					result.CIDRs = append(result.CIDRs, prefix.String())
-				} else if allocatedIP.To4() == nil && prefix.Addr().Is6() {
+				} else if !allocatedAddr.Is4() && prefix.Addr().Is6() {
 					result.CIDRs = append(result.CIDRs, prefix.String())
 				}
 			}
@@ -381,26 +382,26 @@ func buildENIAllocationResult(
 		return result, nil
 	}
 
-	return nil, fmt.Errorf("unable to find ENI for IP %s", allocatedIP)
+	return nil, fmt.Errorf("unable to find ENI for IP %s", allocatedAddr)
 }
 
 // eniContainsIP returns true if the given IP belongs to the ENI: either as the
 // primary IP, a secondary address, or within one of its delegated prefixes.
-func eniContainsIP(eni eniTypes.ENI, ip net.IP) bool {
-	ipStr := ip.String()
-	if eni.IP == ipStr {
+func eniContainsIP(eni eniTypes.ENI, addr netip.Addr) bool {
+	addrStr := addr.String()
+	if eni.IP == addrStr {
 		return true
 	}
-	if slices.Contains(eni.Addresses, ipStr) {
+	if slices.Contains(eni.Addresses, addrStr) {
 		return true
 	}
 
 	for _, prefix := range eni.Prefixes {
-		_, cidr, err := net.ParseCIDR(prefix)
+		parsed, err := netip.ParsePrefix(prefix)
 		if err != nil {
 			continue
 		}
-		if cidr.Contains(ip) {
+		if parsed.Contains(addr) {
 			return true
 		}
 	}

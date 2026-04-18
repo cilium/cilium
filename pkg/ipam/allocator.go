@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/google/uuid"
@@ -75,19 +76,25 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 		return
 	}
 
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP address: %v", ip)
+	}
+	addr = addr.Unmap()
+
 	family := IPv4
-	if ip.To4() != nil {
+	if addr.Is4() {
 		if ipam.ipv4Allocator == nil {
 			err = ErrIPv4Disabled
 			return
 		}
 
 		if needSyncUpstream {
-			if result, err = ipam.ipv4Allocator.Allocate(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv4Allocator.Allocate(addr, owner, pool); err != nil {
 				return
 			}
 		} else {
-			if result, err = ipam.ipv4Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv4Allocator.AllocateWithoutSyncUpstream(addr, owner, pool); err != nil {
 				return
 			}
 		}
@@ -104,11 +111,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 		}
 
 		if needSyncUpstream {
-			if result, err = ipam.ipv6Allocator.Allocate(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv6Allocator.Allocate(addr, owner, pool); err != nil {
 				return
 			}
 		} else {
-			if result, err = ipam.ipv6Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv6Allocator.AllocateWithoutSyncUpstream(addr, owner, pool); err != nil {
 				return
 			}
 		}
@@ -188,14 +195,15 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 			result.IPPoolName = PoolDefault()
 		}
 
-		if _, ok := ipam.isIPExcluded(result.IP, pool); !ok {
+		resultIP := result.IP.AsSlice()
+		if _, ok := ipam.isIPExcluded(resultIP, pool); !ok {
 			ipam.logger.Debug(
 				"Allocated random IP",
 				logfields.IPAddr, result.IP,
 				logfields.PoolName, result.IPPoolName,
 				logfields.Owner, owner,
 			)
-			ipam.registerIPOwner(result.IP, owner, pool)
+			ipam.registerIPOwner(resultIP, owner, pool)
 			metrics.IPAMEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 			return
 		}
@@ -203,7 +211,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 		// The allocated IP is excluded, do not use it. The excluded IP
 		// is now allocated so it won't be allocated in the next
 		// iteration.
-		ipam.registerIPOwner(result.IP, fmt.Sprintf("%s (excluded)", owner), pool)
+		ipam.registerIPOwner(resultIP, fmt.Sprintf("%s (excluded)", owner), pool)
 	}
 }
 
@@ -245,7 +253,7 @@ func (ipam *IPAM) AllocateNext(family, owner string, pool Pool) (ipv4Result, ipv
 		ipv4Result, err = ipam.AllocateNextFamily(IPv4, owner, pool)
 		if err != nil {
 			if ipv6Result != nil {
-				ipam.ReleaseIP(ipv6Result.IP, ipv6Result.IPPoolName)
+				ipam.ReleaseIP(ipv6Result.IP.AsSlice(), ipv6Result.IPPoolName)
 			}
 			return
 		}
@@ -266,13 +274,13 @@ func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, pool Pool, ti
 	if timeout != time.Duration(0) {
 		for _, result := range []*AllocationResult{ipv4Result, ipv6Result} {
 			if result != nil {
-				result.ExpirationUUID, err = ipam.StartExpirationTimer(result.IP, result.IPPoolName, timeout)
+				result.ExpirationUUID, err = ipam.StartExpirationTimer(result.IP.AsSlice(), result.IPPoolName, timeout)
 				if err != nil {
 					if ipv4Result != nil {
-						ipam.ReleaseIP(ipv4Result.IP, ipv4Result.IPPoolName)
+						ipam.ReleaseIP(ipv4Result.IP.AsSlice(), ipv4Result.IPPoolName)
 					}
 					if ipv6Result != nil {
-						ipam.ReleaseIP(ipv6Result.IP, ipv6Result.IPPoolName)
+						ipam.ReleaseIP(ipv6Result.IP.AsSlice(), ipv6Result.IPPoolName)
 					}
 					return
 				}
@@ -288,13 +296,19 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		return fmt.Errorf("no IPAM pool provided for IP release of %s", ip)
 	}
 
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok {
+		return fmt.Errorf("invalid IP address: %v", ip)
+	}
+	addr = addr.Unmap()
+
 	family := IPv4
-	if ip.To4() != nil {
+	if addr.Is4() {
 		if ipam.ipv4Allocator == nil {
 			return ErrIPv4Disabled
 		}
 
-		ipam.ipv4Allocator.Release(ip, pool)
+		ipam.ipv4Allocator.Release(addr, pool)
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
 			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv4Allocator.Capacity()))
 		} else {
@@ -306,7 +320,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 			return ErrIPv6Disabled
 		}
 
-		ipam.ipv6Allocator.Release(ip, pool)
+		ipam.ipv6Allocator.Release(addr, pool)
 		if ipam.config.IPAMMode() == ipamOption.IPAMClusterPool || ipam.config.IPAMMode() == ipamOption.IPAMKubernetes {
 			metrics.IPAMCapacity.WithLabelValues(string(family), ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet.String()).Set(float64(ipam.ipv6Allocator.Capacity()))
 		} else {

@@ -713,7 +713,7 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 		// https://github.com/cilium/cilium/pull/15453. Other errors are not
 		// bypassed.
 		case err != nil &&
-			errors.Is(err, ipam.NewIPNotAvailableInPoolError(ep.IPv4.AsSlice())) &&
+			errors.Is(err, ipam.NewIPNotAvailableInPoolError(ep.IPv4)) &&
 			option.Config.BypassIPAvailabilityUponRestore:
 			r.logger.Warn(
 				"Bypassing IP not available error on endpoint restore. This is "+

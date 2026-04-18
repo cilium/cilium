@@ -6,6 +6,7 @@ package infraendpoints
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -94,7 +95,8 @@ func (m *mockIPAllocator) AllocateIPWithoutSyncUpstream(ip net.IP, owner string,
 	if !m.allocCIDR.Contains(ip) {
 		return nil, fmt.Errorf("cannot allocate IP %s", ip)
 	}
-	return &ipam.AllocationResult{IP: ip}, nil
+	addr, _ := netip.AddrFromSlice(ip)
+	return &ipam.AllocationResult{IP: addr.Unmap()}, nil
 }
 
 func (m *mockIPAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error) {
@@ -119,6 +121,8 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 
 	fromFS := net.ParseIP("10.20.30.42")
 	fromK8s := net.ParseIP("10.20.30.41")
+	fromFSAddr := netip.MustParseAddr("10.20.30.42")
+	fromK8sAddr := netip.MustParseAddr("10.20.30.41")
 
 	invalidFromFS := net.ParseIP("172.16.0.42")
 	invalidFromK8s := net.ParseIP("172.16.0.41")
@@ -130,17 +134,17 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	// fromK8s if fromFS is not available
 	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, nil)
 	assert.NotNil(t, result)
-	assert.Equal(t, result.IP, fromK8s)
+	assert.Equal(t, result.IP, fromK8sAddr)
 
 	// fromFS if fromK8s is not available
 	result = infraIPAllocator.reallocateOldRouterIPs(nil, fromFS)
 	assert.NotNil(t, result)
-	assert.Equal(t, result.IP, fromFS)
+	assert.Equal(t, result.IP, fromFSAddr)
 
 	// fromFS should be preferred
 	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, fromFS)
 	assert.NotNil(t, result)
-	assert.Equal(t, result.IP, fromFS)
+	assert.Equal(t, result.IP, fromFSAddr)
 
 	// reject restoration if the IP is not in the allocation CIDR
 	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromFS, invalidFromK8s)
@@ -149,12 +153,12 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	// fromFS with invalid fromK8s
 	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromK8s, fromFS)
 	assert.NotNil(t, result)
-	assert.Equal(t, result.IP, fromFS)
+	assert.Equal(t, result.IP, fromFSAddr)
 
 	// fromFS with invalid fromK8s
 	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, invalidFromFS)
 	assert.NotNil(t, result)
-	assert.Equal(t, result.IP, fromK8s)
+	assert.Equal(t, result.IP, fromK8sAddr)
 }
 
 func TestPrivilegedRemoveOldRouterState(t *testing.T) {

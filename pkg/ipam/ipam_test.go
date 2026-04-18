@@ -6,7 +6,6 @@ package ipam
 import (
 	"fmt"
 	"maps"
-	"net"
 	"net/netip"
 	"strings"
 	"testing"
@@ -49,21 +48,21 @@ type fakePoolAllocator struct {
 func newFakePoolAllocator(poolMap map[string]string) *fakePoolAllocator {
 	pools := make(map[Pool]Allocator, len(poolMap))
 	for name, cidr := range poolMap {
-		_, ipnet, err := net.ParseCIDR(cidr)
+		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			panic(fmt.Sprintf("failed to parse test cidr %s for pool %s", cidr, name))
 		}
-		pools[Pool(name)] = newHostScopeAllocator(ipnet)
+		pools[Pool(name)] = newHostScopeAllocator(prefix)
 	}
 	return &fakePoolAllocator{pools: pools}
 }
 
-func (f *fakePoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
+func (f *fakePoolAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
 	alloc, ok := f.pools[pool]
 	if !ok {
 		return nil, fmt.Errorf("unknown pool %s", pool)
 	}
-	result, err := alloc.Allocate(ip, owner, pool)
+	result, err := alloc.Allocate(addr, owner, pool)
 	if err != nil {
 		return nil, err
 	}
@@ -71,16 +70,16 @@ func (f *fakePoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*Alloc
 	return result, nil
 }
 
-func (f fakePoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return f.Allocate(ip, owner, pool)
+func (f fakePoolAllocator) AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
+	return f.Allocate(addr, owner, pool)
 }
 
-func (f fakePoolAllocator) Release(ip net.IP, pool Pool) error {
+func (f fakePoolAllocator) Release(addr netip.Addr, pool Pool) error {
 	alloc, ok := f.pools[pool]
 	if !ok {
 		return fmt.Errorf("unknown pool %s", pool)
 	}
-	return alloc.Release(ip, pool)
+	return alloc.Release(addr, pool)
 }
 
 func (f fakePoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
@@ -142,13 +141,13 @@ func TestLock(t *testing.T) {
 	ipv6 = ipv6.Next()
 
 	// Forcefully release possible allocated IPs
-	ipam.ipv4Allocator.Release(ipv4.AsSlice(), PoolDefault())
-	ipam.ipv6Allocator.Release(ipv6.AsSlice(), PoolDefault())
+	ipam.ipv4Allocator.Release(ipv4, PoolDefault())
+	ipam.ipv6Allocator.Release(ipv6, PoolDefault())
 
 	// Let's allocate the IP first so we can see the tests failing
-	result, err := ipam.ipv4Allocator.Allocate(ipv4.AsSlice(), "test", PoolDefault())
+	result, err := ipam.ipv4Allocator.Allocate(ipv4, "test", PoolDefault())
 	require.NoError(t, err)
-	require.Equal(t, net.IP(ipv4.AsSlice()), result.IP)
+	require.Equal(t, ipv4, result.IP)
 }
 
 func TestExcludeIP(t *testing.T) {
@@ -189,8 +188,8 @@ func TestExcludeIP(t *testing.T) {
 }
 
 func TestDeriveFamily(t *testing.T) {
-	require.Equal(t, IPv4, DeriveFamily(net.ParseIP("1.1.1.1")))
-	require.Equal(t, IPv6, DeriveFamily(net.ParseIP("f00d::1")))
+	require.Equal(t, IPv4, DeriveFamily(netip.MustParseAddr("1.1.1.1")))
+	require.Equal(t, IPv6, DeriveFamily(netip.MustParseAddr("f00d::1")))
 }
 
 func TestIPAMMetadata(t *testing.T) {
@@ -235,18 +234,18 @@ func TestIPAMMetadata(t *testing.T) {
 	})
 
 	// Checks AllocateIP
-	specialIP := net.ParseIP("172.18.19.20")
-	_, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "")
+	specialIP := netip.MustParseAddr("172.18.19.20")
+	_, err := ipam.AllocateIPWithoutSyncUpstream(specialIP.AsSlice(), "special/wants-special-ip", "")
 	require.Error(t, err) // pool required
-	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "special")
+	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP.AsSlice(), "special/wants-special-ip", "special")
 	require.NoError(t, err)
 	require.Equal(t, Pool("special"), resIPv4.IPPoolName)
-	require.True(t, resIPv4.IP.Equal(specialIP))
+	require.Equal(t, specialIP, resIPv4.IP)
 
 	// Checks ReleaseIP
-	err = ipam.ReleaseIP(specialIP, "")
+	err = ipam.ReleaseIP(specialIP.AsSlice(), "")
 	require.Error(t, err) // pool required
-	err = ipam.ReleaseIP(specialIP, "special")
+	err = ipam.ReleaseIP(specialIP.AsSlice(), "special")
 	require.NoError(t, err)
 
 	// Checks if pool metadata is used if pool is empty

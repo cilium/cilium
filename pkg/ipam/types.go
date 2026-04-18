@@ -5,7 +5,7 @@ package ipam
 
 import (
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"github.com/davecgh/go-spew/spew"
 
@@ -27,7 +27,7 @@ import (
 // AllocationResult is the result of an allocation
 type AllocationResult struct {
 	// IP is the allocated IP
-	IP net.IP
+	IP netip.Addr
 
 	// IPPoolName is the IPAM pool from which the above IP was allocated from
 	IPPoolName Pool
@@ -64,14 +64,14 @@ type AllocationResult struct {
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
+	Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error)
 
 	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
 	// upstream or fails
-	AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
+	AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
-	Release(ip net.IP, pool Pool) error
+	Release(addr netip.Addr, pool Pool) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available

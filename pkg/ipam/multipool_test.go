@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -195,12 +195,12 @@ func Test_MultiPoolManager(t *testing.T) {
 	c.waitForAllPools()
 
 	// test allocation in default pool
-	defaultAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
+	defaultAllocation, err := c.allocateIP(netip.MustParseAddr("10.0.22.1"), "default-pod-1", "default", IPv4, false)
 	assert.NoError(t, err)
-	assert.Equal(t, defaultAllocation.IP, net.ParseIP("10.0.22.1"))
+	assert.Equal(t, netip.MustParseAddr("10.0.22.1"), defaultAllocation.IP)
 
 	// cannot allocate the same IP twice
-	faultyAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
+	faultyAllocation, err := c.allocateIP(netip.MustParseAddr("10.0.22.1"), "default-pod-1", "default", IPv4, false)
 	assert.ErrorIs(t, err, ipallocator.ErrAllocated)
 	assert.Nil(t, faultyAllocation)
 
@@ -208,7 +208,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	jupiterIPv4CIDR := cidr.MustParseCIDR("192.168.1.0/16")
 	juptierIPv6CIDR := cidr.MustParseCIDR("fc00:33::/96")
 
-	faultyAllocation, err = c.allocateIP(net.ParseIP("192.168.1.1"), "jupiter-pod-0", "jupiter", IPv4, false)
+	faultyAllocation, err = c.allocateIP(netip.MustParseAddr("192.168.1.1"), "jupiter-pod-0", "jupiter", IPv4, false)
 	assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
 	assert.Nil(t, faultyAllocation)
 	faultyAllocation, err = c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
@@ -292,13 +292,13 @@ func Test_MultiPoolManager(t *testing.T) {
 	c.waitForPool(t.Context(), IPv6, "jupiter")
 
 	// Allocations should now succeed
-	jupiterIP0 := net.ParseIP("192.168.1.1")
+	jupiterIP0 := netip.MustParseAddr("192.168.1.1")
 	allocatedJupiterIP0, err := c.allocateIP(jupiterIP0, "jupiter-pod-0", "jupiter", IPv4, false)
 	assert.NoError(t, err)
-	assert.True(t, jupiterIP0.Equal(allocatedJupiterIP0.IP))
+	assert.Equal(t, jupiterIP0, allocatedJupiterIP0.IP)
 	allocatedJupiterIP1, err := c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
 	assert.NoError(t, err)
-	assert.True(t, juptierIPv6CIDR.Contains(allocatedJupiterIP1.IP))
+	assert.True(t, juptierIPv6CIDR.Contains(allocatedJupiterIP1.IP.AsSlice()))
 
 	// Release IPs from jupiter pool. This should fully remove it from both
 	// "requested" and "allocated"
@@ -346,13 +346,13 @@ func Test_MultiPoolManager(t *testing.T) {
 	}, currentNode.Spec.IPAM.Pools)
 
 	// exhaust mars ipv4 pool (/27 contains 30 IPs)
-	allocatedMarsIPs := []net.IP{}
+	allocatedMarsIPs := []netip.Addr{}
 	numMarsIPs := 30
 	for i := range numMarsIPs {
 		// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 		ar, err := c.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
 		assert.NoError(t, err)
-		assert.True(t, marsIPv4CIDR1.Contains(ar.IP))
+		assert.True(t, marsIPv4CIDR1.Contains(ar.IP.AsSlice()))
 		allocatedMarsIPs = append(allocatedMarsIPs, ar.IP)
 	}
 	_, err = c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
@@ -409,11 +409,11 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Should now be able to allocate from mars pool again
 	marsAllocation, err := c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
 	assert.NoError(t, err)
-	assert.True(t, marsIPv4CIDR2.Contains(marsAllocation.IP))
+	assert.True(t, marsIPv4CIDR2.Contains(marsAllocation.IP.AsSlice()))
 
 	// Deallocate all other IPs from mars pool. This should release the old CIDR
-	for i, ip := range allocatedMarsIPs {
-		err = c.releaseIP(ip, "mars", IPv4, i == numMarsIPs-1)
+	for i, addr := range allocatedMarsIPs {
+		err = c.releaseIP(addr, "mars", IPv4, i == numMarsIPs-1)
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, "upsert", <-events)
@@ -542,11 +542,11 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	<-events // first upsert (initial node)
 
 	// Allocate one IPv4 and one IPv6 IP
-	ipInCIDR1 := net.ParseIP("10.0.10.0")
+	ipInCIDR1 := netip.MustParseAddr("10.0.10.0")
 	_, err = mgr.allocateIP(ipInCIDR1, "pod-a", "default", IPv4, false)
 	assert.NoError(t, err)
 
-	ipInCIDRv61 := net.ParseIP("fd00:10::")
+	ipInCIDRv61 := netip.MustParseAddr("fd00:10::")
 	_, err = mgr.allocateIP(ipInCIDRv61, "pod-a", "default", IPv6, false)
 	assert.NoError(t, err)
 
@@ -664,11 +664,11 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 
 	// Allocate 5 IPv4 and 5 IPv6 IPs
 	for i := range 5 {
-		ip4 := net.ParseIP(fmt.Sprintf("10.0.100.%d", i))
+		ip4 := netip.MustParseAddr(fmt.Sprintf("10.0.100.%d", i))
 		_, err := mgr.allocateIP(ip4, fmt.Sprintf("pod4-%d", i), "default", IPv4, false)
 		assert.NoError(t, err)
 
-		ip6 := net.ParseIP(fmt.Sprintf("fd00:100::%d", i))
+		ip6 := netip.MustParseAddr(fmt.Sprintf("fd00:100::%d", i))
 		_, err = mgr.allocateIP(ip6, fmt.Sprintf("pod6-%d", i), "default", IPv6, false)
 		assert.NoError(t, err)
 	}

@@ -4,7 +4,7 @@
 package ipam
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -266,7 +266,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	t.Run("secondary IP on eni-1", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, net.ParseIP("10.1.1.10"), node, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), node, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
@@ -276,7 +276,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	})
 
 	t.Run("secondary IP on eni-2", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, net.ParseIP("10.3.1.20"), node, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.3.1.20"), node, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:02", result.PrimaryMAC)
 		require.Equal(t, "2", result.InterfaceNumber)
@@ -284,7 +284,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 	})
 
 	t.Run("unknown IP returns error", func(t *testing.T) {
-		_, err := buildENIAllocationResult(logger, net.ParseIP("10.99.99.99"), node, conf, nil)
+		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.99.99.99"), node, conf, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to find ENI for IP")
 	})
@@ -293,7 +293,7 @@ func TestBuildENIAllocationResult(t *testing.T) {
 		confWithNative := &option.DaemonConfig{
 			IPv4NativeRoutingCIDR: cidr.MustParseCIDR("10.0.0.0/8"),
 		}
-		result, err := buildENIAllocationResult(logger, net.ParseIP("10.1.1.10"), node, confWithNative, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.10"), node, confWithNative, nil)
 		require.NoError(t, err)
 		require.Contains(t, result.CIDRs, "10.0.0.0/8")
 	})
@@ -323,20 +323,20 @@ func TestBuildENIAllocationResultPrefixDelegation(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	t.Run("IP in first prefix", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, net.ParseIP("10.1.1.5"), node, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.5"), node, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 		require.Equal(t, "1", result.InterfaceNumber)
 	})
 
 	t.Run("IP in second prefix", func(t *testing.T) {
-		result, err := buildENIAllocationResult(logger, net.ParseIP("10.1.1.20"), node, conf, nil)
+		result, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.20"), node, conf, nil)
 		require.NoError(t, err)
 		require.Equal(t, "aa:bb:cc:dd:ee:01", result.PrimaryMAC)
 	})
 
 	t.Run("IP outside all prefixes", func(t *testing.T) {
-		_, err := buildENIAllocationResult(logger, net.ParseIP("10.1.1.32"), node, conf, nil)
+		_, err := buildENIAllocationResult(logger, netip.MustParseAddr("10.1.1.32"), node, conf, nil)
 		require.Error(t, err)
 	})
 }
@@ -349,18 +349,18 @@ func TestEniContainsIP(t *testing.T) {
 	}
 
 	// Primary IP match
-	require.True(t, eniContainsIP(eni, net.ParseIP("10.0.0.100")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.0.100")))
 
 	// Secondary address match
-	require.True(t, eniContainsIP(eni, net.ParseIP("10.0.0.1")))
-	require.True(t, eniContainsIP(eni, net.ParseIP("10.0.0.2")))
-	require.False(t, eniContainsIP(eni, net.ParseIP("10.0.0.3")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.0.1")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.0.2")))
+	require.False(t, eniContainsIP(eni, netip.MustParseAddr("10.0.0.3")))
 
 	// Prefix match
-	require.True(t, eniContainsIP(eni, net.ParseIP("10.0.1.0")))
-	require.True(t, eniContainsIP(eni, net.ParseIP("10.0.1.15")))
-	require.False(t, eniContainsIP(eni, net.ParseIP("10.0.1.16")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.0")))
+	require.True(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.15")))
+	require.False(t, eniContainsIP(eni, netip.MustParseAddr("10.0.1.16")))
 
 	// Empty ENI
-	require.False(t, eniContainsIP(eniTypes.ENI{}, net.ParseIP("10.0.0.1")))
+	require.False(t, eniContainsIP(eniTypes.ENI{}, netip.MustParseAddr("10.0.0.1")))
 }

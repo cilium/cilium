@@ -5,7 +5,6 @@ package ipam
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 
 	"go4.org/netipx"
@@ -19,47 +18,31 @@ type hostScopeAllocator struct {
 	allocator *ipallocator.Range
 }
 
-func newHostScopeAllocator(n *net.IPNet) Allocator {
-	prefix, ok := netipx.FromStdIPNet(n)
-	if !ok {
-		panic(fmt.Sprintf("invalid IPNet: %v", n))
-	}
+func newHostScopeAllocator(prefix netip.Prefix) Allocator {
 	return &hostScopeAllocator{
 		allocCIDR: prefix,
 		allocator: ipallocator.NewCIDRRange(prefix),
 	}
 }
 
-func (h *hostScopeAllocator) Allocate(ipAddr net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	addr, ok := netip.AddrFromSlice(ipAddr)
-	if !ok {
-		return nil, fmt.Errorf("invalid IP address: %v", ipAddr)
-	}
-	if err := h.allocator.Allocate(addr.Unmap()); err != nil {
+func (h *hostScopeAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
+	if err := h.allocator.Allocate(addr); err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ipAddr}, nil
+	return &AllocationResult{IP: addr}, nil
 }
 
-func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ipAddr net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	addr, ok := netip.AddrFromSlice(ipAddr)
-	if !ok {
-		return nil, fmt.Errorf("invalid IP address: %v", ipAddr)
-	}
-	if err := h.allocator.Allocate(addr.Unmap()); err != nil {
+func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
+	if err := h.allocator.Allocate(addr); err != nil {
 		return nil, err
 	}
 
-	return &AllocationResult{IP: ipAddr}, nil
+	return &AllocationResult{IP: addr}, nil
 }
 
-func (h *hostScopeAllocator) Release(ipAddr net.IP, pool Pool) error {
-	addr, ok := netip.AddrFromSlice(ipAddr)
-	if !ok {
-		return nil
-	}
-	h.allocator.Release(addr.Unmap())
+func (h *hostScopeAllocator) Release(addr netip.Addr, pool Pool) error {
+	h.allocator.Release(addr)
 	return nil
 }
 
@@ -69,7 +52,7 @@ func (h *hostScopeAllocator) AllocateNext(owner string, pool Pool) (*AllocationR
 		return nil, err
 	}
 
-	return &AllocationResult{IP: net.IP(addr.AsSlice()).To16()}, nil
+	return &AllocationResult{IP: addr}, nil
 }
 
 func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
@@ -78,7 +61,7 @@ func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 		return nil, err
 	}
 
-	return &AllocationResult{IP: net.IP(addr.AsSlice()).To16()}, nil
+	return &AllocationResult{IP: addr}, nil
 }
 
 func (h *hostScopeAllocator) Dump() (map[Pool]map[string]string, string) {

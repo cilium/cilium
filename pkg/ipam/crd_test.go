@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"testing"
 	"time"
@@ -34,37 +33,37 @@ import (
 )
 
 func TestIPNotAvailableInPoolError(t *testing.T) {
-	err := NewIPNotAvailableInPoolError(net.ParseIP("1.1.1.1"))
-	err2 := NewIPNotAvailableInPoolError(net.ParseIP("1.1.1.1"))
+	err := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
+	err2 := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
 	assert.Equal(t, err, err2)
 	assert.ErrorIs(t, err, err2)
 
-	err = NewIPNotAvailableInPoolError(net.ParseIP("2.1.1.1"))
-	err2 = NewIPNotAvailableInPoolError(net.ParseIP("1.1.1.1"))
+	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
+	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
 	assert.NotEqual(t, err, err2)
 	assert.NotErrorIs(t, err, err2)
 
-	err = NewIPNotAvailableInPoolError(net.ParseIP("2.1.1.1"))
+	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
 	err2 = errors.New("another error")
 	assert.NotEqual(t, err, err2)
 	assert.NotErrorIs(t, err, err2)
 
 	err = errors.New("another error")
-	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2.1.1.1"))
+	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
 	assert.NotEqual(t, err, err2)
 	assert.NotErrorIs(t, err, err2)
 
-	err = NewIPNotAvailableInPoolError(net.ParseIP("1.1.1.1"))
+	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
 	err2 = nil
 	assert.NotErrorIs(t, err, err2)
 
 	err = nil
-	err2 = NewIPNotAvailableInPoolError(net.ParseIP("1.1.1.1"))
+	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
 	assert.NotErrorIs(t, err, err2)
 
 	// We don't match against strings. It must be the sentinel value.
 	err = errors.New("IP 2.1.1.1 is not available")
-	err2 = NewIPNotAvailableInPoolError(net.ParseIP("2.1.1.1"))
+	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
 	assert.NotEqual(t, err, err2)
 	assert.NotErrorIs(t, err, err2)
 }
@@ -125,7 +124,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	// Allocate the first 3 IPs
 	for i := 1; i <= 3; i++ {
 		epipv4 := netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))
-		_, err := ipam.ipv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i), PoolDefault())
+		_, err := ipam.ipv4Allocator.Allocate(epipv4, fmt.Sprintf("test%d", i), PoolDefault())
 		require.NoError(t, err)
 	}
 
@@ -133,7 +132,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	cn.Status.IPAM.ReleaseIPs["1.1.1.4"] = ipamOption.IPAMMarkForRelease
 	// Attempts to allocate 1.1.1.4 should fail, since it's already marked for release
 	epipv4 := netip.MustParseAddr("1.1.1.4")
-	_, err := ipam.ipv4Allocator.Allocate(epipv4.AsSlice(), "test", PoolDefault())
+	_, err := ipam.ipv4Allocator.Allocate(epipv4, "test", PoolDefault())
 	require.Error(t, err)
 	// Call agent's CRD update function. status for 1.1.1.4 should change from marked for release to ready for release
 	sharedNodeStore.updateLocalNodeResource(cn)
@@ -210,7 +209,7 @@ func TestIPMasq(t *testing.T) {
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.1.1.226")
-	result, err := ipam.ipv4Allocator.Allocate(epipv4.AsSlice(), "test1", PoolDefault())
+	result, err := ipam.ipv4Allocator.Allocate(epipv4, "test1", PoolDefault())
 	require.NoError(t, err)
 	// The resulting CIDRs should contain the VPC CIDRs and the default ip-masq-agent CIDRs from pkg/ipmasq/ipmasq.go
 	require.ElementsMatch(
@@ -283,7 +282,7 @@ func TestAzureIPMasq(t *testing.T) {
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.10.1.5")
-	result, err := ipam.ipv4Allocator.Allocate(epipv4.AsSlice(), "test1", PoolDefault())
+	result, err := ipam.ipv4Allocator.Allocate(epipv4, "test1", PoolDefault())
 	require.NoError(t, err)
 	// The resulting CIDRs should contain the Azure interface CIDR and the default ip-masq-agent CIDRs
 	require.ElementsMatch(

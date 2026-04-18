@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -91,16 +91,16 @@ func newMultiPoolAllocators(p MultiPoolAllocatorParams) (Allocator, Allocator) {
 		}
 }
 
-func (c *multiPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, true)
+func (c *multiPoolAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
+	return c.manager.allocateIP(addr, owner, pool, c.family, true)
 }
 
-func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	return c.manager.allocateIP(ip, owner, pool, c.family, false)
+func (c *multiPoolAllocator) AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error) {
+	return c.manager.allocateIP(addr, owner, pool, c.family, false)
 }
 
-func (c *multiPoolAllocator) Release(ip net.IP, pool Pool) error {
-	return c.manager.releaseIP(ip, pool, c.family, true)
+func (c *multiPoolAllocator) Release(addr netip.Addr, pool Pool) error {
+	return c.manager.releaseIP(addr, pool, c.family, true)
 }
 
 func (c *multiPoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {

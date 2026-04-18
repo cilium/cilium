@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"go4.org/netipx"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -33,8 +35,8 @@ const (
 )
 
 // DeriveFamily derives the address family of an IP
-func DeriveFamily(ip net.IP) Family {
-	if ip.To4() == nil {
+func DeriveFamily(addr netip.Addr) Family {
+	if addr.Is6() {
 		return IPv6
 	}
 	return IPv4
@@ -130,11 +132,19 @@ func (ipam *IPAM) ConfigureAllocator() {
 		)
 
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
+			prefix, ok := netipx.FromStdIPNet(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
+			if !ok {
+				logging.Fatal(ipam.logger, "Invalid IPv6 allocation CIDR")
+			}
+			ipam.ipv6Allocator = newHostScopeAllocator(prefix)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
+			prefix, ok := netipx.FromStdIPNet(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
+			if !ok {
+				logging.Fatal(ipam.logger, "Invalid IPv4 allocation CIDR")
+			}
+			ipam.ipv4Allocator = newHostScopeAllocator(prefix)
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")

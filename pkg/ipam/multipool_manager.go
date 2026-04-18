@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -43,15 +42,14 @@ const (
 type ErrPoolNotReadyYet struct {
 	poolName Pool
 	family   Family
-	ip       net.IP
+	addr     netip.Addr
 }
 
 func (e *ErrPoolNotReadyYet) Error() string {
-	if e.ip == nil {
+	if !e.addr.IsValid() {
 		return fmt.Sprintf("unable to allocate from pool %q (family %s): pool not (yet) available", e.poolName, e.family)
-	} else {
-		return fmt.Sprintf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", e.ip, e.poolName, e.family)
 	}
+	return fmt.Sprintf("unable to reserve IP %s from pool %q (family %s): pool not (yet) available", e.addr, e.poolName, e.family)
 }
 
 func (e *ErrPoolNotReadyYet) Is(err error) bool {
@@ -725,10 +723,10 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	}
 
 	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
-	return &AllocationResult{IP: addr.AsSlice(), IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
+	return &AllocationResult{IP: addr, IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
 }
 
-func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
+func (m *multiPoolManager) allocateIP(addr netip.Addr, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
@@ -741,36 +739,29 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
-		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family, ip: ip}
+		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family, addr: addr}
 	}
 
-	addr, ok := netip.AddrFromSlice(ip)
-	if !ok {
-		return nil, fmt.Errorf("invalid IP address: %v", ip)
-	}
-	err := pool.allocate(addr.Unmap())
+	err := pool.allocate(addr)
 	if err != nil {
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, err
 	}
 
 	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
-	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
+	return &AllocationResult{IP: addr, IPPoolName: poolName}, nil
 }
 
-func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, upstreamSync bool) error {
+func (m *multiPoolManager) releaseIP(addr netip.Addr, poolName Pool, family Family, upstreamSync bool) error {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
 	pool := m.poolByFamilyLocked(poolName, family)
 	if pool == nil {
-		return fmt.Errorf("unable to release IP %s of unknown pool %q (family %s)", ip, poolName, family)
+		return fmt.Errorf("unable to release IP %s of unknown pool %q (family %s)", addr, poolName, family)
 	}
 
-	addr, ok := netip.AddrFromSlice(ip)
-	if ok {
-		pool.release(addr.Unmap())
-	}
+	pool.release(addr)
 	if upstreamSync {
 		m.k8sUpdater.Trigger()
 	}
