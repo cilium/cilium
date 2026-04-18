@@ -2233,7 +2233,7 @@
      - int
      - ``4244``
    * - :spelling:ignore:`hubble.preferIpv6`
-     - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
+     - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available. Deprecated: use top-level preferIpv6 instead.
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.redact`
@@ -3608,6 +3608,10 @@
      - Configure pprof listen port for cilium-agent
      - int
      - ``6060``
+   * - :spelling:ignore:`preferIpv6`
+     - Prefer IPv6 addresses over IPv4 when both are available for health probes and Hubble peer communication.
+     - bool
+     - ``false``
    * - :spelling:ignore:`preflight.affinity`
      - Affinity for cilium-preflight
      - object

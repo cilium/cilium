@@ -192,6 +192,10 @@ const (
 	// EnableIPv6 is the default value for IPv6 enablement
 	EnableIPv6 = true
 
+	// PreferIpv6 is the default value for preferring IPv6 addresses
+	// over IPv4 when both are available.
+	PreferIpv6 = false
+
 	// EnableIPv6NDP is the default value for IPv6 NDP support enablement
 	EnableIPv6NDP = false
 

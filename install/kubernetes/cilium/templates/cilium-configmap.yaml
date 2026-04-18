@@ -335,6 +335,10 @@ data:
   # address.
   enable-ipv6: {{ .Values.ipv6.enabled | quote }}
 
+{{- if eq .Values.preferIpv6 true }}
+  prefer-ipv6: "true"
+{{- end }}
+
 {{- if .Values.cleanState }}
   # If a serious issue occurs during Cilium startup, this
   # invasive option may be set to true to remove all persistent
@@ -1146,7 +1150,7 @@ data:
   hubble-drop-events-interval: {{ .Values.hubble.dropEventEmitter.interval | quote }}
   hubble-drop-events-reasons: {{ .Values.hubble.dropEventEmitter.reasons | join " " | quote }}
 {{- end }}
-{{- if or (eq .Values.hubble.preferIpv6 true) (eq .Values.ipv4.enabled false) }}
+{{- if or (eq .Values.hubble.preferIpv6 true) (eq .Values.preferIpv6 true) (eq .Values.ipv4.enabled false) }}
   hubble-prefer-ipv6: "true"
 {{- end }}
 {{- if (not (kindIs "invalid" .Values.hubble.skipUnknownCGroupIDs)) }}

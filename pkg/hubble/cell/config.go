@@ -77,6 +77,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	// Hubble TCP server configuration
 	flags.String("hubble-listen-address", def.ListenAddress, `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	flags.Bool("hubble-prefer-ipv6", def.PreferIpv6, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
+	flags.MarkDeprecated("hubble-prefer-ipv6", "Use --prefer-ipv6 instead. Will be removed in v1.20.")
 }
 
 func (cfg *config) normalize() {

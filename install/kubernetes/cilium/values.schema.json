@@ -5581,6 +5581,9 @@
       },
       "type": "object"
     },
+    "preferIpv6": {
+      "type": "boolean"
+    },
     "preflight": {
       "properties": {
         "affinity": {

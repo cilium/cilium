@@ -111,34 +111,34 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	}
 	s.RWMutex.Unlock()
 
-	nodesAdded := nodeElementSliceToNodeMap(resp.Payload.NodesAdded)
-	nodesRemoved := nodeElementSliceToNodeMap(resp.Payload.NodesRemoved)
+	nodesAdded := nodeElementSliceToNodeMap(resp.Payload.NodesAdded, option.Config.PreferIpv6)
+	nodesRemoved := nodeElementSliceToNodeMap(resp.Payload.NodesRemoved, option.Config.PreferIpv6)
 
 	return nodesAdded, nodesRemoved, nil
 }
 
 // nodeElementSliceToNodeMap returns a slice of models.NodeElement into a
 // nodeMap.
-func nodeElementSliceToNodeMap(nodeElements []*models.NodeElement) nodeMap {
+func nodeElementSliceToNodeMap(nodeElements []*models.NodeElement, preferIpv6 bool) nodeMap {
 	nodes := make(nodeMap)
 	for _, n := range nodeElements {
 		if n.PrimaryAddress != nil {
 			if n.PrimaryAddress.IPv4 != nil {
-				nodes[ipString(n.PrimaryAddress.IPv4.IP)] = NewHealthNode(n)
+				nodes[ipString(n.PrimaryAddress.IPv4.IP)] = NewHealthNode(n, preferIpv6)
 			}
 			if n.PrimaryAddress.IPv6 != nil {
-				nodes[ipString(n.PrimaryAddress.IPv6.IP)] = NewHealthNode(n)
+				nodes[ipString(n.PrimaryAddress.IPv6.IP)] = NewHealthNode(n, preferIpv6)
 			}
 		}
 		for _, addr := range n.SecondaryAddresses {
-			nodes[ipString(addr.IP)] = NewHealthNode(n)
+			nodes[ipString(addr.IP)] = NewHealthNode(n, preferIpv6)
 		}
 		if n.HealthEndpointAddress != nil {
 			if n.HealthEndpointAddress.IPv4 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPv4.IP)] = NewHealthNode(n)
+				nodes[ipString(n.HealthEndpointAddress.IPv4.IP)] = NewHealthNode(n, preferIpv6)
 			}
 			if n.HealthEndpointAddress.IPv6 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPv6.IP)] = NewHealthNode(n)
+				nodes[ipString(n.HealthEndpointAddress.IPv6.IP)] = NewHealthNode(n, preferIpv6)
 			}
 		}
 	}
