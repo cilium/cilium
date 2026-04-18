@@ -8,16 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 	"slices"
 	"strings"
 
-	"go4.org/netipx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
-	ipPkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -42,14 +39,13 @@ var (
 // ErrAllocatorNotFound is an error that should be used in case the node tries
 // to allocate a CIDR for an allocator that does not exist.
 type ErrAllocatorNotFound struct {
-	cidr          []*net.IPNet
+	cidrs         []netip.Prefix
 	allocatorType allocatorType
 }
 
 // Error returns the human-readable error for the ErrAllocatorNotFound
 func (e *ErrAllocatorNotFound) Error() string {
-	cidrStr := ipNetString(e.cidr)
-	return fmt.Sprintf("unable to allocate CIDR %s since allocator for %s addresses does not exist", cidrStr, e.allocatorType)
+	return fmt.Sprintf("unable to allocate CIDR %s since allocator for %s addresses does not exist", e.cidrs, e.allocatorType)
 }
 
 // ErrAllocatorFull ...
@@ -63,7 +59,7 @@ func (e *ErrAllocatorFull) Error() string {
 // ErrCIDRAllocated is an error that should be used when the requested CIDR
 // is already allocated.
 type ErrCIDRAllocated struct {
-	cidr *net.IPNet
+	cidr netip.Prefix
 }
 
 // Error returns the human-readable error for the ErrAllocatorNotFound
@@ -97,14 +93,15 @@ func (e ErrNoAllocators) Error() string {
 func parsePodCIDRs(podCIDRs []string) (*nodeCIDRs, error) {
 	var cidrs nodeCIDRs
 	for _, podCIDR := range podCIDRs {
-		ip, ipNet, err := net.ParseCIDR(podCIDR)
+		prefix, err := netip.ParsePrefix(podCIDR)
 		if err != nil {
 			return nil, err
 		}
-		if ipPkg.IsIPv4(ip) {
-			cidrs.v4PodCIDRs = append(cidrs.v4PodCIDRs, ipNet)
+		prefix = prefix.Masked()
+		if prefix.Addr().Is4() {
+			cidrs.v4PodCIDRs = append(cidrs.v4PodCIDRs, prefix)
 		} else {
-			cidrs.v6PodCIDRs = append(cidrs.v6PodCIDRs, ipNet)
+			cidrs.v6PodCIDRs = append(cidrs.v6PodCIDRs, prefix)
 		}
 	}
 	return &cidrs, nil
@@ -112,22 +109,28 @@ func parsePodCIDRs(podCIDRs []string) (*nodeCIDRs, error) {
 
 // nodeCIDRs is a wrapper that contains all the podCIDRs a node can have.
 type nodeCIDRs struct {
-	v4PodCIDRs, v6PodCIDRs []*net.IPNet
+	v4PodCIDRs, v6PodCIDRs []netip.Prefix
 }
 
-func ipNetString(ipNets []*net.IPNet) []string {
-	cidrs := make([]string, 0, len(ipNets))
-	for _, ipNet := range ipNets {
-		cidrs = append(cidrs, ipNet.String())
+// containsAll returns true if outer contains every prefix in inner.
+func containsAll(outer, inner []netip.Prefix) bool {
+	for _, p := range inner {
+		if !slices.Contains(outer, p) {
+			return false
+		}
 	}
-	return cidrs
+	return true
 }
 
 func (s *nodeCIDRs) String() string {
-	cidrs := make([]string, 0, len(s.v4PodCIDRs)+len(s.v6PodCIDRs))
-	cidrs = append(cidrs, ipNetString(s.v4PodCIDRs)...)
-	cidrs = append(cidrs, ipNetString(s.v6PodCIDRs)...)
-	return strings.Join(cidrs, ", ")
+	var b strings.Builder
+	sep := ""
+	for _, p := range slices.Concat(s.v4PodCIDRs, s.v6PodCIDRs) {
+		b.WriteString(sep)
+		b.WriteString(p.String())
+		sep = ", "
+	}
+	return b.String()
 }
 
 type k8sOp int
@@ -452,11 +455,11 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			// change and issue a k8sOpUpdate.
 			if nodeCIDRs, ok := n.nodes[node.Name]; ok {
 				cn.Spec.IPAM.PodCIDRs = make([]string, 0, len(nodeCIDRs.v4PodCIDRs)+len(nodeCIDRs.v6PodCIDRs))
-				for _, c := range nodeCIDRs.v4PodCIDRs {
-					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, c.String())
+				for _, p := range nodeCIDRs.v4PodCIDRs {
+					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, p.String())
 				}
-				for _, c := range nodeCIDRs.v6PodCIDRs {
-					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, c.String())
+				for _, p := range nodeCIDRs.v6PodCIDRs {
+					cn.Spec.IPAM.PodCIDRs = append(cn.Spec.IPAM.PodCIDRs, p.String())
 				}
 			}
 			err = nil
@@ -576,12 +579,11 @@ func (n *NodesPodCIDRManager) releaseIPNets(nodeName string) bool {
 	return true
 }
 
-func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []*net.IPNet) {
+func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAllocator, cidrsToRelease []netip.Prefix) {
 	if len(cidrAllocators) == 0 {
 		return
 	}
-	for _, ipNet := range cidrsToRelease {
-		prefix, _ := netipx.FromStdIPNet(ipNet)
+	for _, prefix := range cidrsToRelease {
 		for _, clusterCIDR := range cidrAllocators {
 			if !clusterCIDR.InRange(prefix) {
 				continue
@@ -590,11 +592,11 @@ func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAlloca
 			if err != nil {
 				n.logger.Error("failed to release cidr",
 					logfields.Error, err,
-					logfields.CIDR, ipNet,
+					logfields.CIDR, prefix,
 				)
 				continue
 			}
-			n.logger.Info("node released CIDRs", logfields.CIDR, ipNet)
+			n.logger.Info("node released CIDRs", logfields.CIDR, prefix)
 			break
 		}
 	}
@@ -607,19 +609,19 @@ func (n *NodesPodCIDRManager) releaseCIDRs(cidrAllocators []cidralloc.CIDRAlloca
 // In case an error is returned no CIDRs were allocated.
 // Needs n.Mutex to be held.
 func (n *NodesPodCIDRManager) reuseIPNets(
-	nodeName string, v4CIDR, v6CIDR []*net.IPNet,
+	nodeName string, v4CIDR, v6CIDR []netip.Prefix,
 ) (
 	newNodeCIDRs *nodeCIDRs, allocated bool, err error,
 ) {
 	if len(n.v4CIDRAllocators) == 0 && len(v4CIDR) != 0 {
 		return nil, false, &ErrAllocatorNotFound{
-			cidr:          v4CIDR,
+			cidrs:         v4CIDR,
 			allocatorType: v4AllocatorType,
 		}
 	}
 	if len(n.v6CIDRAllocators) == 0 && len(v6CIDR) != 0 {
 		return nil, false, &ErrAllocatorNotFound{
-			cidr:          v6CIDR,
+			cidrs:         v6CIDR,
 			allocatorType: v6AllocatorType,
 		}
 	}
@@ -635,27 +637,23 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		if hasV4CIDR {
 			if len(n.v4CIDRAllocators) == 0 {
 				return nil, false, &ErrAllocatorNotFound{
-					cidr:          oldNodeCIDRs.v4PodCIDRs,
+					cidrs:         oldNodeCIDRs.v4PodCIDRs,
 					allocatorType: v4AllocatorType,
 				}
 			}
-			if !cidr.ContainsAll(oldNodeCIDRs.v4PodCIDRs, v4CIDR) {
-				cidrStr := ipNetString(oldNodeCIDRs.v4PodCIDRs)
-				err := fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", cidrStr, v4CIDR)
-				return nil, false, err
+			if !containsAll(oldNodeCIDRs.v4PodCIDRs, v4CIDR) {
+				return nil, false, fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", oldNodeCIDRs.v4PodCIDRs, v4CIDR)
 			}
 		}
 		if hasV6CIDR {
 			if len(n.v6CIDRAllocators) == 0 {
 				return nil, false, &ErrAllocatorNotFound{
-					cidr:          oldNodeCIDRs.v6PodCIDRs,
+					cidrs:         oldNodeCIDRs.v6PodCIDRs,
 					allocatorType: v6AllocatorType,
 				}
 			}
-			if !cidr.ContainsAll(oldNodeCIDRs.v6PodCIDRs, v6CIDR) {
-				cidrStr := ipNetString(oldNodeCIDRs.v6PodCIDRs)
-				err := fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", cidrStr, v6CIDR)
-				return nil, false, err
+			if !containsAll(oldNodeCIDRs.v6PodCIDRs, v6CIDR) {
+				return nil, false, fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", oldNodeCIDRs.v6PodCIDRs, v6CIDR)
 			}
 		}
 		// We are only allowed to allocate new CIDRs if the node already has
@@ -685,7 +683,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		} else {
 			// If the node does not have an IP address assigned to it, we need
 			// to allocate it because we have allocators available.
-			var newv4CIDR *net.IPNet
+			var newv4CIDR netip.Prefix
 			v4RevertFunc, newv4CIDR, v4Err = allocateFirstFreeCIDR(n.v4CIDRAllocators)
 			v4CIDR = append(v4CIDR, newv4CIDR)
 		}
@@ -722,7 +720,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 		} else {
 			// If the node does not have an IP address assigned to it, we need
 			// to allocate it because we have allocators available.
-			var newv6CIDR *net.IPNet
+			var newv6CIDR netip.Prefix
 			_, newv6CIDR, v6Err = allocateFirstFreeCIDR(n.v6CIDRAllocators)
 			v6CIDR = append(v6CIDR, newv6CIDR)
 		}
@@ -775,12 +773,12 @@ func (n *NodesPodCIDRManager) reuseIPNets(
 // modified to the given cidrSets.
 // allocateIPNet iterates over cidrSet so a mutex must be held when calling
 // this function.
-func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, newCidrs []*net.IPNet) (revertFunc revert.RevertFunc, err error) {
+func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, newCidrs []netip.Prefix) (revertFunc revert.RevertFunc, err error) {
 	if len(cidrSets) == 0 {
 		// Return an error if the node tries to allocate a CIDR and
 		// we don't have a CIDR set for this CIDR type.
 		return nil, &ErrAllocatorNotFound{
-			cidr:          newCidrs,
+			cidrs:         newCidrs,
 			allocatorType: allType,
 		}
 	}
@@ -797,12 +795,11 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 	// available. 'err' will keep the error that should be returned at the end
 	// of the loop iterations.
 	for _, newCIDR := range newCidrs {
-		newPrefix, _ := netipx.FromStdIPNet(newCIDR)
 		var isAllocated bool
 		for _, cidrSet := range cidrSets {
 			// Do not even try to allocate if the cidrSet is full or if the
 			// newCIDR does not belong to the cidrSet.
-			if !cidrSet.InRange(newPrefix) {
+			if !cidrSet.InRange(newCIDR) {
 				err = fmt.Errorf("allocator not configured for the requested CIDR %s", newCIDR)
 				continue
 			}
@@ -812,7 +809,7 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 				err = fmt.Errorf("allocator %s full", cidrSet)
 				return nil, err
 			}
-			isAllocated, err = cidrSet.IsAllocated(newPrefix)
+			isAllocated, err = cidrSet.IsAllocated(newCIDR)
 			if err != nil {
 				return nil, err
 			}
@@ -822,13 +819,13 @@ func allocateIPNet(allType allocatorType, cidrSets []cidralloc.CIDRAllocator, ne
 				}
 			}
 			// Try to allocate this new CIDR
-			err = cidrSet.Occupy(newPrefix)
+			err = cidrSet.Occupy(newCIDR)
 			if err != nil {
 				return nil, err
 			}
 			revertStack.Push(func() error {
 				// In case of a follow up error release this new allocated CIDR.
-				return cidrSet.Release(newPrefix)
+				return cidrSet.Release(newCIDR)
 			})
 			break
 		}
@@ -873,7 +870,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 
 	var (
 		cidrs          nodeCIDRs
-		v4CIDR, v6CIDR *net.IPNet
+		v4CIDR, v6CIDR netip.Prefix
 	)
 
 	// Only allocate a v4 CIDR if the v4CIDR allocator is available
@@ -884,7 +881,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		}
 
 		n.logger.Debug("v4 allocated CIDR", logfields.CIDR, v4CIDR)
-		cidrs.v4PodCIDRs = []*net.IPNet{v4CIDR}
+		cidrs.v4PodCIDRs = []netip.Prefix{v4CIDR}
 
 		revertStack.Push(revertFunc)
 	}
@@ -895,7 +892,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		}
 
 		n.logger.Debug("v6 allocated CIDR", logfields.CIDR, v6CIDR)
-		cidrs.v6PodCIDRs = []*net.IPNet{v6CIDR}
+		cidrs.v6PodCIDRs = []netip.Prefix{v6CIDR}
 
 		revertStack.Push(revertFunc)
 	}
@@ -928,7 +925,7 @@ func getCIDRAllocatorsInfo(cidrAllocators []cidralloc.CIDRAllocator, netTypes st
 
 // allocateFirstFreeCIDR allocates the first CIDR available from the slice of
 // cidrAllocators.
-func allocateFirstFreeCIDR(cidrAllocators []cidralloc.CIDRAllocator) (revertFunc revert.RevertFunc, cidr *net.IPNet, err error) {
+func allocateFirstFreeCIDR(cidrAllocators []cidralloc.CIDRAllocator) (revertFunc revert.RevertFunc, prefix netip.Prefix, err error) {
 	var (
 		firstFreeAllocator *cidralloc.CIDRAllocator
 		revertStack        revert.RevertStack
@@ -941,15 +938,14 @@ func allocateFirstFreeCIDR(cidrAllocators []cidralloc.CIDRAllocator) (revertFunc
 		}
 	}
 	if firstFreeAllocator == nil {
-		return nil, nil, &ErrAllocatorFull{}
+		return nil, netip.Prefix{}, &ErrAllocatorFull{}
 	}
-	prefix, err := (*firstFreeAllocator).AllocateNext()
+	prefix, err = (*firstFreeAllocator).AllocateNext()
 	if err != nil {
-		return nil, nil, err
+		return nil, netip.Prefix{}, err
 	}
-	cidr = netipx.PrefixIPNet(prefix)
 	revertStack.Push(func() error {
 		return (*firstFreeAllocator).Release(prefix)
 	})
-	return revertStack.Revert, cidr, err
+	return revertStack.Revert, prefix, err
 }

@@ -5,7 +5,6 @@ package podcidr
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"sync/atomic"
 	"testing"
@@ -24,16 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-func mustNewCIDRs(cidrs ...string) []*net.IPNet {
-	ipnets := make([]*net.IPNet, 0, len(cidrs))
+func mustNewCIDRs(cidrs ...string) []netip.Prefix {
+	prefixes := make([]netip.Prefix, 0, len(cidrs))
 	for _, cidr := range cidrs {
-		_, ipNet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			panic(err)
-		}
-		ipnets = append(ipnets, ipNet)
+		prefixes = append(prefixes, netip.MustParsePrefix(cidr).Masked())
 	}
-	return ipnets
+	return prefixes
 }
 
 func mustNewTrigger(f func(), minInterval time.Duration) *trigger.Trigger {
@@ -562,8 +557,8 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 	}
 	type args struct {
 		nodeName string
-		v4CIDR   []*net.IPNet
-		v6CIDR   []*net.IPNet
+		v4CIDR   []netip.Prefix
+		v6CIDR   []netip.Prefix
 	}
 	tests := []struct {
 		name          string
