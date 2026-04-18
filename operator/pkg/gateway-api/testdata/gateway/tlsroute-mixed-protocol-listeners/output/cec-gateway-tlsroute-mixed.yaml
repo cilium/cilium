@@ -51,6 +51,41 @@ spec:
                   - upgradeType: websocket
                 useRemoteAddress: true
         - filterChainMatch:
+            transportProtocol: tls
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typedConfig:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                commonHttpProtocolOptions:
+                  maxStreamDuration: 0s
+                httpFilters:
+                  - name: envoy.filters.http.grpc_web
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+                  - name: envoy.filters.http.grpc_stats
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+                      emitFilterState: true
+                      enableUpstreamStats: true
+                  - name: envoy.filters.http.router
+                    typedConfig:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                internalAddressConfig: {}
+                rds:
+                  routeConfigName: listener-secure
+                statPrefix: listener-secure
+                streamIdleTimeout: 300s
+                upgradeConfigs:
+                  - upgradeType: websocket
+                useRemoteAddress: true
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificateSdsSecretConfigs:
+                  - name: /gateway-conformance-infra-tls-checks-certificate
+        - filterChainMatch:
             serverNames:
               - tls.example.com
             transportProtocol: tls
@@ -84,6 +119,8 @@ spec:
           name: "6"
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: listener-insecure
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: listener-secure
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tls-backend:443

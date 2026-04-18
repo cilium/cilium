@@ -13,6 +13,16 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tls-checks-certificate
     - name: tls
       port: 443
       protocol: TLS
