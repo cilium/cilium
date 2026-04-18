@@ -5,22 +5,20 @@ package cidralloc
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 )
 
 type CIDRAllocator interface {
 	fmt.Stringer
 
-	Occupy(cidr *net.IPNet) error
-	AllocateNext() (*net.IPNet, error)
-	Release(cidr *net.IPNet) error
-	IsAllocated(cidr *net.IPNet) (bool, error)
+	Occupy(prefix netip.Prefix) error
+	AllocateNext() (netip.Prefix, error)
+	Release(prefix netip.Prefix) error
+	IsAllocated(prefix netip.Prefix) (bool, error)
 	IsFull() bool
-	InRange(cidr *net.IPNet) bool
+	InRange(prefix netip.Prefix) bool
 	IsClusterCIDR(prefix netip.Prefix) bool
 	Prefix() netip.Prefix
 }
@@ -45,13 +43,13 @@ func (e *ErrCIDRCollision) Is(target error) bool {
 func NewCIDRSets(isV6 bool, strCIDRs []string, maskSize int) ([]CIDRAllocator, error) {
 	cidrAllocators := make([]CIDRAllocator, 0, len(strCIDRs))
 	for _, strCIDR := range strCIDRs {
-		addr, cidr, err := net.ParseCIDR(strCIDR)
+		prefix, err := netip.ParsePrefix(strCIDR)
 		if err != nil {
 			return nil, err
 		}
 		// Check if CIDRs collide with each other.
 		for _, cidrAllocator := range cidrAllocators {
-			if cidrAllocator.InRange(cidr) {
+			if cidrAllocator.InRange(prefix) {
 				return nil, &ErrCIDRCollision{
 					cidr:      strCIDR,
 					allocator: cidrAllocator,
@@ -59,13 +57,14 @@ func NewCIDRSets(isV6 bool, strCIDRs []string, maskSize int) ([]CIDRAllocator, e
 			}
 		}
 
+		addr := prefix.Addr()
 		switch {
-		case isV6 && ip.IsIPv4(addr):
-			return nil, fmt.Errorf("CIDR is not v6 family: %s", cidr)
-		case !isV6 && !ip.IsIPv4(addr):
-			return nil, fmt.Errorf("CIDR is not v4 family: %s", cidr)
+		case isV6 && addr.Is4():
+			return nil, fmt.Errorf("CIDR is not v6 family: %s", prefix)
+		case !isV6 && !addr.Is4():
+			return nil, fmt.Errorf("CIDR is not v4 family: %s", prefix)
 		}
-		cidrSet, err := cidrset.NewCIDRSet(cidr, maskSize)
+		cidrSet, err := cidrset.NewCIDRSet(prefix, maskSize)
 		if err != nil {
 			return nil, err
 		}

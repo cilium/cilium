@@ -51,42 +51,42 @@ func mustNewTrigger(f func(), minInterval time.Duration) *trigger.Trigger {
 }
 
 type mockCIDRAllocator struct {
-	OnOccupy       func(cidr *net.IPNet) error
-	OnAllocateNext func() (*net.IPNet, error)
-	OnRelease      func(cidr *net.IPNet) error
-	OnIsAllocated  func(cidr *net.IPNet) (bool, error)
+	OnOccupy       func(prefix netip.Prefix) error
+	OnAllocateNext func() (netip.Prefix, error)
+	OnRelease      func(prefix netip.Prefix) error
+	OnIsAllocated  func(prefix netip.Prefix) (bool, error)
 	OnIsFull       func() bool
-	OnInRange      func(cidr *net.IPNet) bool
+	OnInRange      func(prefix netip.Prefix) bool
 }
 
 func (d *mockCIDRAllocator) String() string {
 	return "clusterCIDR: 10.0.0.0/24, nodeMask: 24"
 }
 
-func (d *mockCIDRAllocator) Occupy(cidr *net.IPNet) error {
+func (d *mockCIDRAllocator) Occupy(prefix netip.Prefix) error {
 	if d.OnOccupy != nil {
-		return d.OnOccupy(cidr)
+		return d.OnOccupy(prefix)
 	}
 	panic("d.Occupy should not have been called!")
 }
 
-func (d *mockCIDRAllocator) AllocateNext() (*net.IPNet, error) {
+func (d *mockCIDRAllocator) AllocateNext() (netip.Prefix, error) {
 	if d.OnAllocateNext != nil {
 		return d.OnAllocateNext()
 	}
 	panic("d.AllocateNext should not have been called!")
 }
 
-func (d *mockCIDRAllocator) Release(cidr *net.IPNet) error {
+func (d *mockCIDRAllocator) Release(prefix netip.Prefix) error {
 	if d.OnRelease != nil {
-		return d.OnRelease(cidr)
+		return d.OnRelease(prefix)
 	}
 	panic("d.Release should not have been called!")
 }
 
-func (d *mockCIDRAllocator) IsAllocated(cidr *net.IPNet) (bool, error) {
+func (d *mockCIDRAllocator) IsAllocated(prefix netip.Prefix) (bool, error) {
 	if d.OnIsAllocated != nil {
-		return d.OnIsAllocated(cidr)
+		return d.OnIsAllocated(prefix)
 	}
 	panic("d.IsAllocated should not have been called!")
 }
@@ -98,9 +98,9 @@ func (d *mockCIDRAllocator) IsFull() bool {
 	panic("d.IsFull should not have been called!")
 }
 
-func (d *mockCIDRAllocator) InRange(cidr *net.IPNet) bool {
+func (d *mockCIDRAllocator) InRange(prefix netip.Prefix) bool {
 	if d.OnInRange != nil {
-		return d.OnInRange(cidr)
+		return d.OnInRange(prefix)
 	}
 	panic("d.InRange should not have been called!")
 }
@@ -178,12 +178,12 @@ func TestNodesPodCIDRManager_Delete(t *testing.T) {
 					canAllocateNodes: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnRelease: func(cidr *net.IPNet) error {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnRelease: func(cidr netip.Prefix) error {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 						},
@@ -331,8 +331,8 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 					canAllocateNodes: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
-								return mustNewCIDRs("10.10.0.0/24")[0], nil
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
+								return netip.MustParsePrefix("10.10.0.0/24"), nil
 							},
 							OnIsFull: func() bool {
 								return false
@@ -386,8 +386,8 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 					canAllocateNodes: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
-								return nil, fmt.Errorf("Allocator full!")
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
+								return netip.Prefix{}, fmt.Errorf("Allocator full!")
 							},
 							OnIsFull: func() bool {
 								return false
@@ -437,8 +437,8 @@ func TestNodesPodCIDRManager_Upsert(t *testing.T) {
 					canAllocateNodes: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
-								return nil, fmt.Errorf("Allocator full!")
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
+								return netip.Prefix{}, fmt.Errorf("Allocator full!")
 							},
 							OnIsFull: func() bool {
 								return false
@@ -619,18 +619,18 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					canAllocatePodCIDRs: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnOccupy: func(cidr *net.IPNet) error {
+							OnOccupy: func(cidr netip.Prefix) error {
 								onOccupyCallsv4++
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return nil
 							},
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv4++
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return false, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -640,18 +640,18 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnOccupy: func(cidr *net.IPNet) error {
+							OnOccupy: func(cidr netip.Prefix) error {
 								onOccupyCallsv6++
-								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 								return nil
 							},
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv6++
-								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 								return false, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -699,23 +699,23 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					canAllocatePodCIDRs: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv4++
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return false, nil
 							},
-							OnOccupy: func(cidr *net.IPNet) error {
+							OnOccupy: func(cidr netip.Prefix) error {
 								onOccupyCallsv4++
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return nil
 							},
-							OnRelease: func(cidr *net.IPNet) error {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnRelease: func(cidr netip.Prefix) error {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								releaseCallsv4++
 								return nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -725,8 +725,8 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 								return true
 							},
 							OnIsFull: func() bool {
@@ -834,9 +834,9 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 							OnIsFull: func() bool {
 								return false
 							},
-							OnAllocateNext: func() (*net.IPNet, error) {
+							OnAllocateNext: func() (netip.Prefix, error) {
 								onAllocateNextv6++
-								return mustNewCIDRs("fd00::/80")[0], nil
+								return netip.MustParsePrefix("fd00::/80"), nil
 							},
 						},
 					},
@@ -877,15 +877,15 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					canAllocatePodCIDRs: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv4++
 								return false, nil
 							},
-							OnOccupy: func(cidr *net.IPNet) error {
+							OnOccupy: func(cidr netip.Prefix) error {
 								onOccupyCallsv4++
 								return nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -895,11 +895,11 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv6++
 								return true, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -941,11 +941,11 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					canAllocatePodCIDRs: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv4++
 								return true, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -955,15 +955,15 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv6++
 								return false, nil
 							},
-							OnOccupy: func(cidr *net.IPNet) error {
+							OnOccupy: func(cidr netip.Prefix) error {
 								onOccupyCallsv6++
 								return nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -1005,11 +1005,11 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					canAllocatePodCIDRs: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv4++
 								return true, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -1019,11 +1019,11 @@ func TestNodesPodCIDRManager_allocateIPNets(t *testing.T) {
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+							OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 								onIsAllocatedCallsv6++
 								return true, nil
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
+							OnInRange: func(cidr netip.Prefix) bool {
 								return true
 							},
 							OnIsFull: func() bool {
@@ -1135,30 +1135,30 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 				return &fields{
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
 								allocateNextCallsv4++
-								return mustNewCIDRs("10.10.0.0/24")[0], nil
+								return netip.MustParsePrefix("10.10.0.0/24"), nil
 							},
 							OnIsFull: func() bool {
 								return false
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 						},
 					},
 					v6ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
 								allocateNextCallsv6++
-								return mustNewCIDRs("fd00::/80")[0], nil
+								return netip.MustParsePrefix("fd00::/80"), nil
 							},
 							OnIsFull: func() bool {
 								return false
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 						},
@@ -1194,20 +1194,20 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 				return &fields{
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
 						&mockCIDRAllocator{
-							OnAllocateNext: func() (ipNet *net.IPNet, err error) {
+							OnAllocateNext: func() (prefix netip.Prefix, err error) {
 								allocateNextCallsv4++
-								return mustNewCIDRs("10.10.0.0/24")[0], nil
+								return netip.MustParsePrefix("10.10.0.0/24"), nil
 							},
-							OnRelease: func(cidr *net.IPNet) error {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnRelease: func(cidr netip.Prefix) error {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								releaseCallsv4++
 								return nil
 							},
 							OnIsFull: func() bool {
 								return false
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 						},
@@ -1217,8 +1217,8 @@ func TestNodesPodCIDRManager_allocateNext(t *testing.T) {
 							OnIsFull: func() bool {
 								return true
 							},
-							OnInRange: func(cidr *net.IPNet) bool {
-								require.Equal(t, mustNewCIDRs("10.10.0.0/24")[0], cidr)
+							OnInRange: func(cidr netip.Prefix) bool {
+								require.Equal(t, netip.MustParsePrefix("10.10.0.0/24"), cidr)
 								return true
 							},
 						},
@@ -1313,13 +1313,13 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				onReleaseCalls = 0
 				cidrSet := []cidralloc.CIDRAllocator{
 					&mockCIDRAllocator{
-						OnRelease: func(cidr *net.IPNet) error {
+						OnRelease: func(cidr netip.Prefix) error {
 							onReleaseCalls++
-							require.Equal(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
+							require.Equal(t, netip.MustParsePrefix("10.0.0.0/16"), cidr)
 							return nil
 						},
-						OnInRange: func(cidr *net.IPNet) bool {
-							require.Equal(t, mustNewCIDRs("10.0.0.0/16")[0], cidr)
+						OnInRange: func(cidr netip.Prefix) bool {
+							require.Equal(t, netip.MustParsePrefix("10.0.0.0/16"), cidr)
 							return true
 						},
 					},
@@ -1348,13 +1348,13 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				onReleaseCalls = 0
 				cidrSet := []cidralloc.CIDRAllocator{
 					&mockCIDRAllocator{
-						OnRelease: func(cidr *net.IPNet) error {
+						OnRelease: func(cidr netip.Prefix) error {
 							onReleaseCalls++
-							require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+							require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 							return nil
 						},
-						OnInRange: func(cidr *net.IPNet) bool {
-							require.Equal(t, mustNewCIDRs("fd00::/80")[0], cidr)
+						OnInRange: func(cidr netip.Prefix) bool {
+							require.Equal(t, netip.MustParsePrefix("fd00::/80"), cidr)
 							return true
 						},
 					},
@@ -1955,14 +1955,14 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 	// v4 pool: Node A gets .0.0/24, Node B gets .1.0/24, Node C gets .2.0/24.
 	// Before the fix (see commit), Node B's .1.0/24 was freed and given to
 	// Node C.
-	v4Pool := []*net.IPNet{
-		mustNewCIDRs("10.10.0.0/24")[0],
-		mustNewCIDRs("10.10.1.0/24")[0],
-		mustNewCIDRs("10.10.2.0/24")[0],
+	v4Pool := []netip.Prefix{
+		netip.MustParsePrefix("10.10.0.0/24"),
+		netip.MustParsePrefix("10.10.1.0/24"),
+		netip.MustParsePrefix("10.10.2.0/24"),
 	}
 
 	v4Allocator := &mockCIDRAllocator{
-		OnInRange: func(cidr *net.IPNet) bool {
+		OnInRange: func(cidr netip.Prefix) bool {
 			for _, p := range v4Pool {
 				if cidr.String() == p.String() {
 					return true
@@ -1973,37 +1973,37 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 		OnIsFull: func() bool {
 			return len(v4Occupied) >= len(v4Pool)
 		},
-		OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+		OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 			return v4Occupied[cidr.String()], nil
 		},
-		OnOccupy: func(cidr *net.IPNet) error {
+		OnOccupy: func(cidr netip.Prefix) error {
 			v4Occupied[cidr.String()] = true
 			return nil
 		},
-		OnRelease: func(cidr *net.IPNet) error {
+		OnRelease: func(cidr netip.Prefix) error {
 			delete(v4Occupied, cidr.String())
 			return nil
 		},
-		OnAllocateNext: func() (*net.IPNet, error) {
+		OnAllocateNext: func() (netip.Prefix, error) {
 			for _, p := range v4Pool {
 				if !v4Occupied[p.String()] {
 					v4Occupied[p.String()] = true
 					return p, nil
 				}
 			}
-			return nil, fmt.Errorf("v4 allocator full")
+			return netip.Prefix{}, fmt.Errorf("v4 allocator full")
 		},
 	}
 
 	// v6 pool: fd00::/80 is the duplicate shared by Node A and Node B.
 	// fd01::/80 exists for fresh allocations i.e. for Node C.
-	v6Pool := []*net.IPNet{
-		mustNewCIDRs("fd00::/80")[0],
-		mustNewCIDRs("fd01::/80")[0],
+	v6Pool := []netip.Prefix{
+		netip.MustParsePrefix("fd00::/80"),
+		netip.MustParsePrefix("fd01::/80"),
 	}
 
 	v6Allocator := &mockCIDRAllocator{
-		OnInRange: func(cidr *net.IPNet) bool {
+		OnInRange: func(cidr netip.Prefix) bool {
 			for _, p := range v6Pool {
 				if cidr.String() == p.String() {
 					return true
@@ -2014,25 +2014,25 @@ func TestNodesPodCIDRManager_DuplicateIPv6CausesIPv4Duplication(t *testing.T) {
 		OnIsFull: func() bool {
 			return len(v6Occupied) >= len(v6Pool)
 		},
-		OnIsAllocated: func(cidr *net.IPNet) (bool, error) {
+		OnIsAllocated: func(cidr netip.Prefix) (bool, error) {
 			return v6Occupied[cidr.String()], nil
 		},
-		OnOccupy: func(cidr *net.IPNet) error {
+		OnOccupy: func(cidr netip.Prefix) error {
 			v6Occupied[cidr.String()] = true
 			return nil
 		},
-		OnRelease: func(cidr *net.IPNet) error {
+		OnRelease: func(cidr netip.Prefix) error {
 			delete(v6Occupied, cidr.String())
 			return nil
 		},
-		OnAllocateNext: func() (*net.IPNet, error) {
+		OnAllocateNext: func() (netip.Prefix, error) {
 			for _, p := range v6Pool {
 				if !v6Occupied[p.String()] {
 					v6Occupied[p.String()] = true
 					return p, nil
 				}
 			}
-			return nil, fmt.Errorf("v6 allocator full")
+			return netip.Prefix{}, fmt.Errorf("v6 allocator full")
 		},
 	}
 

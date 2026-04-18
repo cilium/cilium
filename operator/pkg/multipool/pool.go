@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"go4.org/netipx"
-
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 )
@@ -24,31 +22,21 @@ func allocFirstFreeCIDR(allocators []cidralloc.CIDRAllocator) (netip.Prefix, err
 			continue
 		}
 
-		ipnet, err := alloc.AllocateNext()
-		if err != nil {
-			return netip.Prefix{}, err
-		}
-
-		prefix, ok := netipx.FromStdIPNet(ipnet)
-		if !ok {
-			return netip.Prefix{}, fmt.Errorf("invalid cidr %s allocated", ipnet)
-		}
-		return prefix, nil
+		return alloc.AllocateNext()
 	}
 
 	return netip.Prefix{}, errPoolEmpty
 }
 
 func occupyCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error {
-	ipnet := netipx.PrefixIPNet(cidr)
 	for _, alloc := range allocators {
-		if !alloc.InRange(ipnet) {
+		if !alloc.InRange(cidr) {
 			continue
 		}
 		if alloc.IsFull() {
 			return errPoolEmpty
 		}
-		allocated, err := alloc.IsAllocated(ipnet)
+		allocated, err := alloc.IsAllocated(cidr)
 		if err != nil {
 			return err
 		}
@@ -56,20 +44,19 @@ func occupyCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error {
 			return fmt.Errorf("cidr %s has already been allocated", cidr)
 		}
 
-		return alloc.Occupy(ipnet)
+		return alloc.Occupy(cidr)
 	}
 
 	return fmt.Errorf("cidr %s is not part of the requested pool", cidr)
 }
 
 func releaseCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error {
-	ipnet := netipx.PrefixIPNet(cidr)
 	for _, alloc := range allocators {
-		if !alloc.InRange(ipnet) {
+		if !alloc.InRange(cidr) {
 			continue
 		}
 
-		allocated, err := alloc.IsAllocated(ipnet)
+		allocated, err := alloc.IsAllocated(cidr)
 		if err != nil {
 			return err
 		}
@@ -77,7 +64,7 @@ func releaseCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) error 
 			return nil // not an error to release a cidr twice
 		}
 
-		return alloc.Release(ipnet)
+		return alloc.Release(cidr)
 	}
 
 	return fmt.Errorf("released cidr %s was not part the pool", cidr)
@@ -93,9 +80,8 @@ func hasCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
 }
 
 func containsCIDR(allocators []cidralloc.CIDRAllocator, cidr netip.Prefix) bool {
-	ipnet := netipx.PrefixIPNet(cidr)
 	for _, alloc := range allocators {
-		if alloc.InRange(ipnet) {
+		if alloc.InRange(cidr) {
 			return true
 		}
 	}
