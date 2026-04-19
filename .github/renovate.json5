@@ -121,6 +121,11 @@
   "assignAutomerge": true,
   "packageRules": [
     {
+      // Dependency cooldown: skip versions published less than 5 days ago
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "minimumReleaseAge": "5 days"
+    },
+    {
       "matchPackageNames": [
         "bufbuild/buf", // Protocol buffer toolkit
         "docker.io/alpine/socat", // Alpine socat package
