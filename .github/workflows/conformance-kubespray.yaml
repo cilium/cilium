@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@be10a5aed245ff9df7e0a33b3d130b25dc03e80d # main
+        uses: cilium/cilium/.github/actions/set-commit-status@44f0fdb38f4f298726e38c484b6e5deb0ceafd77 # main
         with:
           sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
 
@@ -110,7 +110,7 @@ jobs:
       job_name: "Installation and Connectivity Test"
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@be10a5aed245ff9df7e0a33b3d130b25dc03e80d # main
+        uses: cilium/cilium/.github/actions/set-commit-status@44f0fdb38f4f298726e38c484b6e5deb0ceafd77 # main
         with:
           sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
 
