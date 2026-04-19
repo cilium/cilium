@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@main
+        uses: cilium/cilium/.github/actions/set-commit-status@be10a5aed245ff9df7e0a33b3d130b25dc03e80d # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -94,7 +94,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@main
+        uses: cilium/cilium/.github/actions/set-commit-status@be10a5aed245ff9df7e0a33b3d130b25dc03e80d # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -168,7 +168,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -271,7 +271,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@main
+        uses: cilium/cilium/.github/actions/set-commit-status@be10a5aed245ff9df7e0a33b3d130b25dc03e80d # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.integration-test.result }}
