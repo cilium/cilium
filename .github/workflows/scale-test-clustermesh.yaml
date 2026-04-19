@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@6663075ab783fa6a2f34847f57710975211b219f # main
+        uses: cilium/cilium/.github/actions/set-commit-status@31db219a378a296ff0b1f2c1f8cb6bf97abd2a47 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -96,7 +96,7 @@ jobs:
       job_name: "Install and Cluster Mesh Scale Test"
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@6663075ab783fa6a2f34847f57710975211b219f # main
+        uses: cilium/cilium/.github/actions/set-commit-status@31db219a378a296ff0b1f2c1f8cb6bf97abd2a47 # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
