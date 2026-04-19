@@ -98,8 +98,8 @@ require (
 	go.etcd.io/etcd/api/v3 v3.6.4
 	go.etcd.io/etcd/client/pkg/v3 v3.6.4
 	go.etcd.io/etcd/client/v3 v3.6.4
-	go.opentelemetry.io/otel v1.39.0
-	go.opentelemetry.io/otel/trace v1.39.0
+	go.opentelemetry.io/otel v1.41.0
+	go.opentelemetry.io/otel/trace v1.41.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
 	go.yaml.in/yaml/v3 v3.0.4
@@ -118,15 +118,15 @@ require (
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/ini.v1 v1.67.0
-	k8s.io/api v0.33.10
-	k8s.io/apiextensions-apiserver v0.33.10
-	k8s.io/apimachinery v0.33.10
-	k8s.io/cli-runtime v0.33.10
-	k8s.io/client-go v0.33.10
-	k8s.io/component-base v0.33.10
-	k8s.io/endpointslice v0.33.10
+	k8s.io/api v0.33.11
+	k8s.io/apiextensions-apiserver v0.33.11
+	k8s.io/apimachinery v0.33.11
+	k8s.io/cli-runtime v0.33.11
+	k8s.io/client-go v0.33.11
+	k8s.io/component-base v0.33.11
+	k8s.io/endpointslice v0.33.11
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.33.10
+	k8s.io/kubectl v0.33.11
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.1-0.20250611112659-17a60f668a0d
@@ -248,7 +248,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.32.0 // indirect
-	go.opentelemetry.io/otel/metric v1.39.0 // indirect
+	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
@@ -266,8 +266,8 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.33.10 // indirect
-	k8s.io/code-generator v0.33.10 // indirect
+	k8s.io/apiserver v0.33.11 // indirect
+	k8s.io/code-generator v0.33.11 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/controller-tools v0.17.3 // indirect
