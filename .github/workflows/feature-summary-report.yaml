@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@a0fa9ffaf9c862475a3edc7a03251a0c3f9af2e2 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@6663075ab783fa6a2f34847f57710975211b219f # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.summary_report.result }}

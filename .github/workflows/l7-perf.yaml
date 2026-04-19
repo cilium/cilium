@@ -65,7 +65,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.225.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.35.3
+  kubectl_version: v1.35.4
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 565.0.0
 
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Set initial commit status
-        uses: cilium/cilium/.github/actions/set-commit-status@a0fa9ffaf9c862475a3edc7a03251a0c3f9af2e2 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@6663075ab783fa6a2f34847f57710975211b219f # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -114,7 +114,7 @@ jobs:
           - benchmark
     steps:
       - name: Set commit status to pending
-        uses: cilium/cilium/.github/actions/set-commit-status@a0fa9ffaf9c862475a3edc7a03251a0c3f9af2e2 # main
+        uses: cilium/cilium/.github/actions/set-commit-status@6663075ab783fa6a2f34847f57710975211b219f # main
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
