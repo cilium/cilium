@@ -5,4 +5,4 @@ destination: ./tools/golangci-lint
 plugins:
 - module: 'sigs.k8s.io/kube-api-linter'
   # renovate: datasource=go depName=sigs.k8s.io/kube-api-linter
-  version: 'v0.0.0-20260408163332-73b2175ca510'
+  version: 'v0.0.0-20260416084302-2b3d1fe14578'
