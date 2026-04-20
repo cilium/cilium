@@ -193,30 +193,6 @@ __encap_with_nodeid_opt6(struct __ctx_buff *ctx,
 
 	return ctx_set_encap_info6(ctx, tunnel_endpoint, seclabel, opt, opt_len);
 }
-
-static __always_inline void
-set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
-{
-	memset(gopt, 0, sizeof(*gopt));
-	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
-	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
-	gopt->hdr.length = DSR_IPV4_GENEVE_OPT_LEN;
-	gopt->addr = addr;
-	gopt->port = port;
-}
-
-static __always_inline void
-set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
-		    struct geneve_dsr_opt6 *gopt)
-{
-	memset(gopt, 0, sizeof(*gopt));
-	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
-	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
-	gopt->hdr.length = DSR_IPV6_GENEVE_OPT_LEN;
-	ipv6_addr_copy_unaligned((union v6addr *)&gopt->addr, addr);
-
-	gopt->port = port;
-}
 #endif
 
 # if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
