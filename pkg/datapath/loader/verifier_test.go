@@ -89,56 +89,77 @@ func TestPrivilegedVerifier(t *testing.T) {
 		records.WriteToFile(path)
 	})
 
-	t.Run("LXC", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_lxc", kv, lxcLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "lxc", endpointProg, endpointObj, i, &records))
-			i++
-		}
-	})
+	for _, c := range collections {
+		c.Run(t, kv, &records)
+	}
+}
 
-	t.Run("Host", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_host", kv, hostLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "host", hostEndpointProg, hostEndpointObj, i, &records))
-			i++
-		}
-	})
+var collections = []collection{
+	{
+		name:             "LXC",
+		progDir:          "bpf_lxc",
+		loadPermutations: lxcLoadPermutations,
+		collection:       "lxc",
+		source:           endpointProg,
+		output:           endpointObj,
+	},
+	{
+		name:             "Host",
+		progDir:          "bpf_host",
+		loadPermutations: hostLoadPermutations,
+		collection:       "host",
+		source:           hostEndpointProg,
+		output:           hostEndpointObj,
+	},
+	{
+		name:             "Overlay",
+		progDir:          "bpf_overlay",
+		loadPermutations: overlayLoadPermutations,
+		collection:       "overlay",
+		source:           overlayProg,
+		output:           overlayObj,
+	},
+	{
+		name:             "Sock",
+		progDir:          "bpf_sock",
+		loadPermutations: sockLoadPermutations,
+		collection:       "sock",
+		source:           socketProg,
+		output:           socketObj,
+	},
+	{
+		name:             "Wireguard",
+		progDir:          "bpf_wireguard",
+		loadPermutations: wireguardLoadPermutations,
+		collection:       "wireguard",
+		source:           wireguardProg,
+		output:           wireguardObj,
+	},
+	{
+		name:             "XDP",
+		progDir:          "bpf_xdp",
+		loadPermutations: xdpLoadPermutations,
+		collection:       "xdp",
+		source:           xdpProg,
+		output:           xdpObj,
+	},
+}
 
-	t.Run("Overlay", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_overlay", kv, overlayLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "overlay", overlayProg, overlayObj, i, &records))
-			i++
-		}
-	})
+type collection struct {
+	name             string
+	progDir          string
+	loadPermutations *loadPermutationBuilder
+	collection       string
+	source           string
+	output           string
+}
 
-	t.Run("Sock", func(t *testing.T) {
+func (c *collection) Run(t *testing.T, kv kernelVersion, records *verifierComplexityRecords) {
+	t.Run(c.name, func(t *testing.T) {
 		t.Parallel()
 		i := 1
-		for perm := range buildPermutations("bpf_sock", kv, sockLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "sock", socketProg, socketObj, i, &records))
-			i++
-		}
-	})
-
-	t.Run("Wireguard", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_wireguard", kv, wireguardLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "wireguard", wireguardProg, wireguardObj, i, &records))
-			i++
-		}
-	})
-
-	t.Run("XDP", func(t *testing.T) {
-		t.Parallel()
-		i := 1
-		for perm := range buildPermutations("bpf_xdp", kv, xdpLoadPermutations) {
-			t.Run(strconv.Itoa(i), compileAndLoad(perm, "xdp", xdpProg, xdpObj, i, &records))
+		for perm := range buildPermutations(c.progDir, kv, c.loadPermutations) {
+			t.Run(strconv.Itoa(i), compileAndLoad(perm, c.collection, c.source, c.output, i, records))
 			i++
 		}
 	})
@@ -512,7 +533,7 @@ type buildPermutation struct {
 	loadPermutations iter.Seq[[]any]
 }
 
-func buildPermutations(progDir string, kernel kernelVersion, loadPerm loadPermutationBuilder) iter.Seq[buildPermutation] {
+func buildPermutations(progDir string, kernel kernelVersion, loadPerm *loadPermutationBuilder) iter.Seq[buildPermutation] {
 	return func(yield func(buildPermutation) bool) {
 		dir := path.Join(*flagCiliumBasePath, "bpf", "complexity-tests", kernel.String(), progDir)
 		entries, err := os.ReadDir(dir)
