@@ -16,7 +16,7 @@ cnt = 0
 
 
 @rule@
-position p1 : script:python() { p2[0].current_element not in ["identity_is_remote_node"] };
+position p1 : script:python() { p1[0].current_element not in ["identity_is_remote_node"] };
 expression e;
 @@
 
