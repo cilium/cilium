@@ -2897,7 +2897,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		default:
 			return DROP_UNKNOWN_CT;
 		}
-		if (backend_local) {
+		if (backend_local || svc->sip_inspect) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
 		}
