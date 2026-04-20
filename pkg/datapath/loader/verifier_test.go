@@ -144,7 +144,7 @@ func TestPrivilegedVerifier(t *testing.T) {
 	})
 }
 
-func compileAndLoad[T any](perm buildPermutation[T], collection, source, output string, build int, records *verifierComplexityRecords) func(t *testing.T) {
+func compileAndLoad(perm buildPermutation, collection, source, output string, build int, records *verifierComplexityRecords) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
@@ -507,13 +507,13 @@ func kernelVersionFromString(s string) (kernelVersion, error) {
 	}
 }
 
-type buildPermutation[T any] struct {
+type buildPermutation struct {
 	options          []string
-	loadPermutations iter.Seq[T]
+	loadPermutations iter.Seq[[]any]
 }
 
-func buildPermutations[T any](progDir string, kernel kernelVersion, loadPerm func() iter.Seq[T]) iter.Seq[buildPermutation[T]] {
-	return func(yield func(buildPermutation[T]) bool) {
+func buildPermutations(progDir string, kernel kernelVersion, loadPerm loadPermutationBuilder) iter.Seq[buildPermutation] {
+	return func(yield func(buildPermutation) bool) {
 		dir := path.Join(*flagCiliumBasePath, "bpf", "complexity-tests", kernel.String(), progDir)
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -529,12 +529,210 @@ func buildPermutations[T any](progDir string, kernel kernelVersion, loadPerm fun
 
 			optionsSlice := strings.Split(string(contents), "\n")
 
-			if !yield(buildPermutation[T]{
+			if !yield(buildPermutation{
 				options:          optionsSlice,
-				loadPermutations: loadPerm(),
+				loadPermutations: loadPerm.build(),
 			}) {
 				return
 			}
+		}
+	}
+}
+
+type loadPermutationBuilder struct {
+	constructors []func() any
+	options      []configOption
+}
+
+func (b *loadPermutationBuilder) addConstructor(constructor func() any) {
+	b.constructors = append(b.constructors, constructor)
+}
+
+func (b *loadPermutationBuilder) addOptions(options ...configOption) {
+	b.options = append(b.options, options...)
+}
+
+// build a sequence of configuration slices from the registered constructors and options.
+func (b *loadPermutationBuilder) build() iter.Seq[[]any] {
+	var alwaysSetters []configSetter
+	var incrementSetters []configSetter
+	var permuteSetters []configSetter
+
+	for _, option := range b.options {
+		switch option.typ {
+		case configAlways:
+			alwaysSetters = append(alwaysSetters, option.fn)
+		case configIncrement:
+			incrementSetters = append(incrementSetters, option.fn)
+		case configPermute:
+			permuteSetters = append(permuteSetters, option.fn)
+		case configIncrementOrPermute:
+			if testing.Short() {
+				incrementSetters = append(incrementSetters, option.fn)
+			} else {
+				permuteSetters = append(permuteSetters, option.fn)
+			}
+		default:
+			panic("unknown option type")
+		}
+	}
+
+	return func(yield func([]any) bool) {
+		// given a number of bools, returns a sequence of all unique permutations of those bools being true or false.
+		// If n=0, then a single empty slice is returned.
+		permute := func(n int) iter.Seq[[]bool] {
+			permutation := make([]bool, n)
+			return func(yield func([]bool) bool) {
+				for i := range uint64(1 << n) {
+					for j := range n {
+						permutation[j] = (i & (1 << j)) != 0
+					}
+					if !yield(permutation) {
+						return
+					}
+				}
+			}
+		}
+
+		// For each permutation of the `Permute` options, or just once if there are none.
+		for permutations := range permute(len(permuteSetters)) {
+			// For each incremental combination of the `Increment` options, or just once if there are none.
+			// it's len + 1, because we always want to yield the configuration with all options disabled, and then
+			// incrementally enable options until all are enabled.
+			for i := range len(incrementSetters) + 1 {
+				// Construct a configuration object from each registered constructor.
+				cfgs := make([]any, len(b.constructors))
+				for j, constructor := range b.constructors {
+					cfgs[j] = constructor()
+				}
+
+				for _, setter := range alwaysSetters {
+					for _, cfg := range cfgs {
+						setter(cfg, true)
+					}
+				}
+
+				for oi, setter := range incrementSetters {
+					for _, cfg := range cfgs {
+						setter(cfg, oi < i)
+					}
+				}
+
+				for oi, setter := range permuteSetters {
+					for _, cfg := range cfgs {
+						setter(cfg, permutations[oi])
+					}
+				}
+
+				if !yield(cfgs) {
+					return
+				}
+			}
+		}
+	}
+}
+
+type configType int
+
+const (
+	configAlways configType = iota
+	configIncrement
+	configPermute
+	configIncrementOrPermute
+)
+
+type configOption struct {
+	typ configType
+	fn  configSetter
+}
+
+type configSetter func(c any, v bool)
+
+func callWithT[T any](fn func(*T, bool)) configSetter {
+	return func(c any, v bool) {
+		if cfg, ok := c.(*T); ok {
+			fn(cfg, v)
+		}
+	}
+}
+
+// Always apply `fn` to the configuration, regardless of the permutation.
+func Always[T any](fn func(*T, bool)) configOption {
+	return configOption{typ: configAlways, fn: callWithT(fn)}
+}
+
+// Apply `fn` to the configuration, incrementally enabling the option for each permutation.
+// `fn` is always invoked, the boolean parameter indicates whether the option should be enabled for this permutation.
+func Increment[T any](fn func(*T, bool)) configOption {
+	return configOption{typ: configIncrement, fn: callWithT(fn)}
+}
+
+// Apply `fn` to the configuration, permuting the option on or off for each permutation.
+// `fn` is always invoked, the boolean parameter indicates whether the option should be enabled for this permutation.
+//
+// Note: permuting options exponentially increases the number of permutations to be checked.
+func Permute[T any](fn func(*T, bool)) configOption {
+	return configOption{typ: configPermute, fn: callWithT(fn)}
+}
+
+// When -short is set, use Increment behavior, otherwise use Permute behavior.
+func IncrementOrPermute[T any](fn func(*T, bool)) configOption {
+	return configOption{typ: configIncrementOrPermute, fn: callWithT(fn)}
+}
+
+func TestTable(t *testing.T) {
+	type configA struct {
+		enableA bool
+		enableB bool
+		enableC bool
+	}
+
+	type configB struct {
+		enableD bool
+		enableE bool
+		enableF bool
+	}
+
+	builder := loadPermutationBuilder{
+		constructors: []func() any{
+			func() any { return &configA{} },
+			func() any { return &configB{} },
+		},
+		options: []configOption{
+			Always(func(c *configA, _ bool) { c.enableA = true }),
+			Increment(func(c *configA, v bool) { c.enableB = v }),
+			Permute(func(c *configA, v bool) { c.enableC = v }),
+			Always(func(c *configB, _ bool) { c.enableD = true }),
+			Increment(func(c *configB, v bool) { c.enableE = v }),
+			Permute(func(c *configB, v bool) { c.enableF = v }),
+		},
+	}
+
+	result := slices.Collect(builder.build())
+	if len(result) != 12 {
+		t.Fatalf("expected 12 configurations, got %d", len(result))
+	}
+	expected := [][]any{
+		{&configA{true, false, false}, &configB{true, false, false}},
+		{&configA{true, true, false}, &configB{true, false, false}},
+		{&configA{true, true, false}, &configB{true, true, false}},
+		{&configA{true, false, true}, &configB{true, false, false}},
+		{&configA{true, true, true}, &configB{true, false, false}},
+		{&configA{true, true, true}, &configB{true, true, false}},
+		{&configA{true, false, false}, &configB{true, false, true}},
+		{&configA{true, true, false}, &configB{true, false, true}},
+		{&configA{true, true, false}, &configB{true, true, true}},
+		{&configA{true, false, true}, &configB{true, false, true}},
+		{&configA{true, true, true}, &configB{true, false, true}},
+		{&configA{true, true, true}, &configB{true, true, true}},
+	}
+	for i, cfg := range result {
+		gotA := cfg[0].(*configA)
+		gotB := cfg[1].(*configB)
+		expA := expected[i][0].(*configA)
+		expB := expected[i][1].(*configB)
+		if *gotA != *expA || *gotB != *expB {
+			t.Errorf("configuration %d does not match expected: got (%+v, %+v), want (%+v, %+v)", i, gotA, gotB, expA, expB)
 		}
 	}
 }
