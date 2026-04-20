@@ -305,7 +305,7 @@ func EndpointsResourceWithIndexers(logger *slog.Logger, lc cell.Lifecycle, cfg C
 		return nil, nil
 	}
 
-	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.WatchConfig.EnableHeadlessServiceWatch)
+	endpointSliceOptsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
 	if err != nil {
 		return nil, err
 	}
