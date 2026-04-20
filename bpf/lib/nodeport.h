@@ -181,6 +181,11 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
 		src_ip = 0;
+#ifdef ENABLE_IPV4
+	else
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
+#endif /* ENABLE_IPV4 */
 
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
