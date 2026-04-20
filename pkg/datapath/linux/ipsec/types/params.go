@@ -24,13 +24,13 @@ type Parameters struct {
 	// For OUT policies this is the resulting source address of an ESP encrypted
 	// packet.
 	// For IN/FWD this should identify the source SA address of the state which
-	// decrypted the the packet.
+	// decrypted the packet.
 	SourceTunnelIP *net.IP
 	// The destination security gateway IP used to define an IPsec tunnel mode SA
 	// For OUT policies this is the resulting destination address of an ESP encrypted
 	// packet.
 	// For IN/FWD this should identify the destination SA address of the state which
-	// decrypted the the packet.
+	// decrypted the packet.
 	DestTunnelIP *net.IP
 	// The ReqID used for the resulting XFRM policy/state
 	ReqID int
