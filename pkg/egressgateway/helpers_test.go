@@ -88,12 +88,13 @@ type policyGatewayParams struct {
 }
 
 type policyParams struct {
-	name             string
-	endpointLabels   map[string]string
-	nodeSelectors    map[string]string
-	destinationCIDRs []string
-	excludedCIDRs    []string
-	policyGwParams   []policyGatewayParams
+	name              string
+	endpointLabels    map[string]string
+	nodeSelectors     map[string]string
+	policyAnnotations map[string]string
+	destinationCIDRs  []string
+	excludedCIDRs     []string
+	policyGwParams    []policyGatewayParams
 }
 
 func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig) {
@@ -171,7 +172,8 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 
 	cegp := &v2.CiliumEgressGatewayPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: params.name,
+			Name:        params.name,
+			Annotations: params.policyAnnotations,
 		},
 		Spec: v2.CiliumEgressGatewayPolicySpec{
 			Selectors: []v2.EgressRule{

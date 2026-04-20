@@ -6,19 +6,23 @@ package egressgateway
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/google/uuid"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -28,6 +32,7 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
+	lbpinning "github.com/cilium/cilium/pkg/loadbalancer/pinning"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -142,6 +147,11 @@ type EgressGatewayTestSuite struct {
 	sysctl    sysctl.Sysctl
 }
 
+type fakeLbPinMapObservable struct{}
+
+func (fakeLbPinMapObservable) Observe(ctx context.Context, next func(lbpinning.LbPinMapUpdateEvent), complete func(error)) {
+}
+
 func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
@@ -175,6 +185,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		Nodes:             k.nodes,
 		Endpoints:         k.endpoints,
 		Sysctl:            k.sysctl,
+		LbPinMapEvents:    fakeLbPinMapObservable{},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, k.manager)
@@ -300,6 +311,82 @@ func TestPrivilegedEgressGatewayCEGPParser(t *testing.T) {
 	cegp, _ = newCEGP(&policy)
 	_, err = ParseCEGP(cegp)
 	require.Error(t, err)
+}
+
+func TestPrivilegedEgressPinnedGateway(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelInfo))
+
+	var jg job.Group
+
+	h := hive.New(
+		cell.Invoke(func(g job.Group) { jg = g }),
+	)
+
+	node1Addr, err := netip.ParseAddr(node1IP)
+	require.NoError(t, err)
+
+	node2Addr, err := netip.ParseAddr(node2IP)
+	require.NoError(t, err)
+
+	eventStream := lbpinning.NewLbPinMapEventStream()
+	k := setupEgressGatewayTestSuite(t)
+	k.manager.lbPinMapEvents = lbpinning.NewLbPinMapEventObservable(eventStream)
+
+	require.NoError(t, h.Start(logger, t.Context()))
+	t.Cleanup(func() { h.Stop(logger, t.Context()) })
+
+	lbPinTestSuite := lbpinning.NewPinningManagerTestSuite(t, node1, node1Addr, jg, logger, eventStream)
+
+	nodes := []lbpinning.NodeInfo{
+		{Name: node1, Ip: node1Addr},
+		{Name: node2, Ip: node2Addr},
+	}
+
+	nodeToPin := node2
+	nodeToPinIp := node2IP
+	lbPinTestSuite.Init(t, nodes, 2, lbpinning.AllServices, 3, nodeToPin)
+
+	k.policies.sync(t)
+	k.nodes.sync(t)
+	k.endpoints.sync(t)
+
+	policyMap4 := k.manager.policyMap4
+	egressGatewayManager := k.manager
+
+	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
+
+	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node2)
+
+	egressIP := "1.2.3.1"
+	destCidr := "0.0.0.0/0"
+
+	// Create a new policy
+	policy1 := policyParams{
+		name:             "policy-1",
+		endpointLabels:   ep1Labels,
+		destinationCIDRs: []string{destCidr},
+		policyGwParams: []policyGatewayParams{
+			{
+				egressIP: egressIP,
+			},
+		},
+		policyAnnotations: map[string]string{
+			annotation.ServicePinningUsed: "true",
+		},
+	}
+
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
+
+	assertEgressRules4(t, policyMap4, []egressRule{})
+
+	ep1, _ := newEndpointAndIdentity("ep-1", ep1IP, ep1IPv6, ep1Labels)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
+
+	assertEgressRules4(t, policyMap4, []egressRule{
+		{ep1IP, destCidr, egressIP, nodeToPinIp, 0},
+	})
 }
 
 func TestPrivilegedEgressGatewayManager(t *testing.T) {

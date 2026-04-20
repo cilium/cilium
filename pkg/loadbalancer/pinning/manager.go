@@ -33,6 +33,7 @@ type PinningParams struct {
 
 type PinningManager struct {
 	logger                  *slog.Logger
+	jobGroup                job.Group
 	services                resource.Resource[*slim_corev1.Service]
 	nodes                   resource.Resource[*slim_corev1.Node]
 	localNodeStore          *node.LocalNodeStore
@@ -48,6 +49,7 @@ type PinningManager struct {
 func newPinningManager(params PinningParams) *PinningManager {
 	return &PinningManager{
 		logger:                  params.Logger,
+		jobGroup:                params.JobGroup,
 		services:                params.Services,
 		nodes:                   params.Nodes,
 		lBMaps:                  params.LBMaps,
@@ -91,7 +93,7 @@ func (pm *PinningManager) handleServiceEvent(ctx context.Context, event resource
 				return eventDone(event, err)
 			}
 
-			serviceId := string(event.Object.UID)
+			serviceId := event.Object.Name
 
 			if event.Kind == resource.Upsert {
 				msg = addService{pinnedService{
@@ -246,11 +248,28 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 
 	defer pm.pinMapUpdateEventStream.complete(err)
 
+	if len(localNode.IPAddresses) == 0 {
+		pm.logger.Info(fmt.Sprintf("node '%s' has no assigned IP addresses, exiting pinning manager reconcile loop", localNode.Name))
+		return nil
+	}
+
 	nodeIp := localNode.GetNodeInternalIPv4().To4()
 
 	if nodeIp == nil {
 		return fmt.Errorf("node '%s' has no assigned IP address", localNode.Name)
 	}
+
+	pm.jobGroup.Add(job.Observer(
+		"pinning-service-observer",
+		pm.handleServiceEvent,
+		pm.services,
+	))
+
+	pm.jobGroup.Add(job.Observer(
+		"pinning-node-observer",
+		pm.handleNodeEvent,
+		pm.nodes,
+	))
 
 	localNodeIp, _ := netip.AddrFromSlice(nodeIp)
 
@@ -313,18 +332,6 @@ func (pm *PinningManager) reconcileLoop(ctx context.Context, health cell.Health)
 
 func registerPinningManager(params PinningParams) (*PinningManager, error) {
 	mng := newPinningManager(params)
-
-	params.JobGroup.Add(job.Observer(
-		"pinning-service-observer",
-		mng.handleServiceEvent,
-		params.Services,
-	))
-
-	params.JobGroup.Add(job.Observer(
-		"pinning-node-observer",
-		mng.handleNodeEvent,
-		params.Nodes,
-	))
 
 	params.JobGroup.Add(job.OneShot(
 		"pinning-reconciler-loop",

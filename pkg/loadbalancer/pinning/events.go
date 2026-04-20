@@ -14,7 +14,7 @@ type lbPinMapEventStream struct {
 	complete   func(error)
 }
 
-func newLbPinMapEventStream() *lbPinMapEventStream {
+func NewLbPinMapEventStream() *lbPinMapEventStream {
 	src, emit, complete := stream.Multicast[LbPinMapUpdateEvent]()
 
 	return &lbPinMapEventStream{
@@ -24,6 +24,6 @@ func newLbPinMapEventStream() *lbPinMapEventStream {
 	}
 }
 
-func newLbPinMapEventObservable(s *lbPinMapEventStream) ObservableLbPinMapUpdateEvent {
+func NewLbPinMapEventObservable(s *lbPinMapEventStream) ObservableLbPinMapUpdateEvent {
 	return s.observable
 }

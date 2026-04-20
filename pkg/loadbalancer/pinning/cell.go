@@ -11,9 +11,10 @@ import (
 var Cell = cell.Module(
 	"lb-service-node-pinning",
 	"Pins a service to a node according to specified rules",
-	cell.Provide(k8s.NodeResource),
 
-	cell.ProvidePrivate(newLbPinMapEventStream),
-	cell.Provide(newLbPinMapEventObservable),
+	cell.ProvidePrivate(k8s.NodeResource),
+	cell.ProvidePrivate(k8s.ServiceResource),
+	cell.ProvidePrivate(NewLbPinMapEventStream),
+	cell.Provide(NewLbPinMapEventObservable),
 	cell.Invoke(registerPinningManager),
 )
