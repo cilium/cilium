@@ -8,26 +8,18 @@ import (
 )
 
 var (
-	lxcLoadPermutations       loadPermutationBuilder
-	hostLoadPermutations      loadPermutationBuilder
-	overlayLoadPermutations   loadPermutationBuilder
-	sockLoadPermutations      loadPermutationBuilder
-	wireguardLoadPermutations loadPermutationBuilder
-	xdpLoadPermutations       loadPermutationBuilder
+	lxcLoadPermutations       = baseLXCPermutations()
+	hostLoadPermutations      = baseHostPermutations()
+	overlayLoadPermutations   = baseOverlayPermutations()
+	sockLoadPermutations      = baseSockPermutations()
+	wireguardLoadPermutations = baseWireguardPermutations()
+	xdpLoadPermutations       = baseXDPPermutations()
 )
 
-func init() {
-	baseLXCPermutations()
-	baseHostPermutations()
-	baseOverlayPermutations()
-	baseSockPermutations()
-	baseWireguardPermutations()
-	baseXDPPermutations()
-}
-
-func baseLXCPermutations() {
-	lxcLoadPermutations.addConstructor(func() any { return config.NewBPFLXC(*config.NewNode()) })
-	lxcLoadPermutations.addOptions(
+func baseLXCPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFLXC(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFLXC, _ bool) {
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
@@ -40,15 +32,17 @@ func baseLXCPermutations() {
 			t.EnableNetkit = false
 		}),
 
-		Permute(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
-		Permute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
-		Permute(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
+		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
+		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
+		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 	)
+	return b
 }
 
-func baseHostPermutations() {
-	hostLoadPermutations.addConstructor(func() any { return config.NewBPFHost(*config.NewNode()) })
-	hostLoadPermutations.addOptions(
+func baseHostPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFHost(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFHost, _ bool) {
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
@@ -60,45 +54,51 @@ func baseHostPermutations() {
 			t.EnableL2Announcements = true
 		}),
 
-		Permute(func(t *config.BPFHost, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
-		Permute(func(t *config.BPFHost, v bool) { t.EnableRemoteNodeMasquerade = v }),
-		Permute(func(t *config.BPFHost, v bool) {
+		Increment(func(t *config.BPFHost, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
+		Increment(func(t *config.BPFHost, v bool) { t.EnableRemoteNodeMasquerade = v }),
+		Increment(func(t *config.BPFHost, v bool) {
 			if v {
 				t.EthHeaderLength = 0
 			} else {
 				t.EthHeaderLength = 14
 			}
 		}),
-		Permute(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
+		Increment(func(t *config.BPFHost, v bool) { t.HybridRoutingEnabled = v }),
 	)
+	return b
 }
 
-func baseOverlayPermutations() {
-	overlayLoadPermutations.addConstructor(func() any { return config.NewBPFOverlay(*config.NewNode()) })
-	overlayLoadPermutations.addOptions(
+func baseOverlayPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFOverlay(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFOverlay, _ bool) {
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
 			t.EnableConntrackAccounting = true
 		}),
 	)
+	return b
 }
 
-func baseSockPermutations() {
-	sockLoadPermutations.addConstructor(func() any { return config.NewBPFSock(*config.NewNode()) })
-	sockLoadPermutations.addOptions(
+func baseSockPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFSock(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFSock, _ bool) {
 			t.Node.DebugLB = true
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 		}),
-		Permute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
+		IncrementOrPermute(func(t *config.BPFSock, v bool) { t.EnableLRP = v }),
 	)
+	return b
 }
 
-func baseWireguardPermutations() {
-	wireguardLoadPermutations.addConstructor(func() any { return config.NewBPFWireguard(*config.NewNode()) })
-	wireguardLoadPermutations.addOptions(
+func baseWireguardPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFWireguard(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFWireguard, _ bool) {
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
@@ -107,11 +107,13 @@ func baseWireguardPermutations() {
 			t.EnableIPv6Fragments = true
 		}),
 	)
+	return b
 }
 
-func baseXDPPermutations() {
-	xdpLoadPermutations.addConstructor(func() any { return config.NewBPFXDP(*config.NewNode()) })
-	xdpLoadPermutations.addOptions(
+func baseXDPPermutations() *loadPermutationBuilder {
+	b := new(loadPermutationBuilder)
+	b.addConstructor(func() any { return config.NewBPFXDP(*config.NewNode()) })
+	b.addOptions(
 		Always(func(t *config.BPFXDP, _ bool) {
 			t.Node.TracingIPOptionType = 1
 			t.Node.DebugLB = true
@@ -119,6 +121,7 @@ func baseXDPPermutations() {
 			t.EnableIPv4Fragments = true
 			t.EnableIPv6Fragments = true
 		}),
-		Permute(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
+		Increment(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
 	)
+	return b
 }
