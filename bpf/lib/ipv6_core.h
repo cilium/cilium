@@ -22,3 +22,24 @@ union v6addr {
 #define d1 d.d1
 #define d2 d.d2
 } __packed;
+
+static __always_inline void ipv6_addr_copy(union v6addr *dst,
+					   const union v6addr *src)
+{
+	memcpy(dst, src, sizeof(*dst));
+}
+
+static __always_inline void ipv6_addr_copy_unaligned(union v6addr *dst,
+						     const union v6addr *src)
+{
+	dst->d1 = src->d1;
+	dst->d2 = src->d2;
+}
+
+static __always_inline bool ipv6_addr_equals(const union v6addr *a,
+					     const union v6addr *b)
+{
+	if (a->d1 != b->d1)
+		return false;
+	return a->d2 == b->d2;
+}

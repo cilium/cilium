@@ -17,6 +17,8 @@
 #define ENCAP_IFINDEX 42
 #define TUNNEL_MODE
 
+#define FRONTEND_PORT		__bpf_htons(80)
+
 #define CLIENT_IP { .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT __bpf_htons(111)
 
@@ -42,9 +44,9 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 			    void *opt, __u32 size)
 {
 	struct geneve_dsr_opt6 *gopt = opt;
+	union v6addr zero_addr = {};
 
-	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
-	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
+	set_geneve_dsr_opt6(FRONTEND_PORT, &zero_addr, gopt);
 	return size;
 }
 

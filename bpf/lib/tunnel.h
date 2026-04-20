@@ -4,6 +4,8 @@
 #pragma once
 
 #include <linux/ipv6.h>
+
+#include <lib/ipv6_core.h>
 #include <lib/static_data.h>
 
 #define TUNNEL_PROTOCOL_VXLAN 1
@@ -43,6 +45,14 @@ struct geneve_opt_hdr {
 #endif
 };
 
+static __always_inline void
+set_geneve_dsr_opt_hdr(struct geneve_opt_hdr *hdr, __u8 length)
+{
+	hdr->opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
+	hdr->type = DSR_GENEVE_OPT_TYPE;
+	hdr->length = length;
+}
+
 struct geneve_dsr_opt4 {
 	struct geneve_opt_hdr hdr;
 	__be32 addr;
@@ -50,12 +60,33 @@ struct geneve_dsr_opt4 {
 	__u16 pad;
 };
 
+static __always_inline void
+set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
+{
+	memset(gopt, 0, sizeof(*gopt));
+
+	set_geneve_dsr_opt_hdr(&gopt->hdr, DSR_IPV4_GENEVE_OPT_LEN);
+	gopt->addr = addr;
+	gopt->port = port;
+}
+
 struct geneve_dsr_opt6 {
 	struct geneve_opt_hdr hdr;
 	struct in6_addr addr;
 	__be16 port;
 	__u16 pad;
 };
+
+static __always_inline void
+set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
+		    struct geneve_dsr_opt6 *gopt)
+{
+	memset(gopt, 0, sizeof(*gopt));
+
+	set_geneve_dsr_opt_hdr(&gopt->hdr, DSR_IPV6_GENEVE_OPT_LEN);
+	ipv6_addr_copy_unaligned((union v6addr *)&gopt->addr, addr);
+	gopt->port = port;
+}
 
 struct genevehdr {
 #ifdef __LITTLE_ENDIAN_BITFIELD
