@@ -109,6 +109,8 @@ In this scenario, there is no potential for compromise of the Cilium
 stack; in fact, Cilium provides several features that would allow users
 to limit the scope of such an attack:
 
+.. _workload_attacker_table:
+
 .. rst-class:: wrapped-table
 
 +-----------------+---------------------+--------------------------------+
@@ -130,35 +132,41 @@ to limit the scope of such an attack:
 | Cilium eBPF     | None                |                                |
 | programs        |                     |                                |
 +-----------------+---------------------+--------------------------------+
-| Network data    | None                | - Cilium's network policy can  |
-|                 |                     |   be used to provide           |
-|                 |                     |   least-privilege isolation    |
-|                 |                     |   between Kubernetes           |
-|                 |                     |   workloads, and between       |
-|                 |                     |   Kubernetes workloads and     |
-|                 |                     |   "external" endpoints running |
-|                 |                     |   outside the Kubernetes       |
-|                 |                     |   cluster, or running on the   |
-|                 |                     |   Kubernetes worker nodes.     |
-|                 |                     |   Users should ideally define  |
-|                 |                     |   specific allow rules that    |
-|                 |                     |   only permit expected         |
-|                 |                     |   communication between        |
-|                 |                     |   services.                    |
-|                 |                     | - Cilium's network             |
-|                 |                     |   connectivity will prevent an |
-|                 |                     |   attacker from observing the  |
-|                 |                     |   traffic intended for other   |
-|                 |                     |   workloads, or sending        |
-|                 |                     |   traffic that "spoofs" the    |
-|                 |                     |   identity of another pod,     |
-|                 |                     |   even if transparent          |
-|                 |                     |   encryption is not in use.    |
-|                 |                     |   Pods cannot send traffic     |
-|                 |                     |   that "spoofs" other pods due |
-|                 |                     |   to limits on the use of      |
-|                 |                     |   source IPs and limits on     |
-|                 |                     |   sending tunneled traffic.    |
+| Network data    | When using          | - Cilium's network policy can  |
+|                 | ``toFQDNs`` to      |   be used to provide           |
+|                 | define permitted    |   least-privilege isolation    |
+|                 | traffic, Cilium     |   between Kubernetes           |
+|                 | assumes that the    |   workloads, and between       |
+|                 | DNS servers used    |   Kubernetes workloads and     |
+|                 | by the cluster can  |   "external" endpoints running |
+|                 | be trusted to       |   outside the Kubernetes       |
+|                 | return correct      |   cluster, or running on the   |
+|                 | answers for policy  |   Kubernetes worker nodes.     |
+|                 | decisions. If those |   Users should ideally define  |
+|                 | DNS servers are     |   specific allow rules that    |
+|                 | compromised or      |   only permit expected         |
+|                 | malicious, they may |   communication between        |
+|                 | influence which IPs |   services.                    |
+|                 | Cilium learns and   | - Cilium's network             |
+|                 | allows for          |   connectivity will prevent an |
+|                 | ``toFQDNs``-based   |   attacker from observing the  |
+|                 | policy. For         |   traffic intended for other   |
+|                 | guidance on         |   workloads, or sending        |
+|                 | constraining that   |   traffic that "spoofs" the    |
+|                 | DNS trust boundary, |   identity of another pod,     |
+|                 | see :ref:`DNS       |   even if transparent          |
+|                 | Policy and IP       |   encryption is not in use.    |
+|                 | Discovery           |   Pods cannot send traffic     |
+|                 | <dns_discovery>`.   |   that "spoofs" other pods due |
+|                 | In cases where the  |   to limits on the use of      |
+|                 | DNS boundary is not |   source IPs and limits on     |
+|                 | constrained, a      |   sending tunneled traffic.    |
+|                 | workload attacker   |                                |
+|                 | may be able to use  |                                |
+|                 | control of a        |                                |
+|                 | malicious DNS       |                                |
+|                 | server to influence |                                |
+|                 | policy decisions.   |                                |
 +-----------------+---------------------+--------------------------------+
 | Observability   | None                | Cilium's Hubble flow-event     |
 | data            |                     | observability can be used to   |
@@ -717,6 +725,9 @@ production Kubernetes cluster with Cilium:
    and Hubble UI.
 #. Use `Tetragon`_ as a runtime security solution to rapidly detect unexpected
    behavior within your Kubernetes cluster.
+#. If using ``toFQDNs``-based network policies, strongly prefer intercepting DNS traffic
+   only to the cluster DNS service. See :ref:`the workload attacker table <workload_attacker_table>`
+   for details.
 
 If you have questions, suggestions, or would like to help improve Cilium's security
 posture, reach out to security@cilium.io.
