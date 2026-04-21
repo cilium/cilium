@@ -11,7 +11,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestIndexTLSRouteByGateway(t *testing.T) {
@@ -22,12 +21,12 @@ func TestIndexTLSRouteByGateway(t *testing.T) {
 	}{
 		{
 			name: "parentRef is Gateway",
-			obj: &gatewayv1alpha2.TLSRoute{
+			obj: &gatewayv1.TLSRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "valid-gateway",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.TLSRouteSpec{
+				Spec: gatewayv1.TLSRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -44,12 +43,12 @@ func TestIndexTLSRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef is a Gateway, nil namespace",
-			obj: &gatewayv1alpha2.TLSRoute{
+			obj: &gatewayv1.TLSRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "valid-gateway",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.TLSRouteSpec{
+				Spec: gatewayv1.TLSRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -65,12 +64,12 @@ func TestIndexTLSRouteByGateway(t *testing.T) {
 		},
 		{
 			name: "parentRef is not a Gateway",
-			obj: &gatewayv1alpha2.TLSRoute{
+			obj: &gatewayv1.TLSRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-parent",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.TLSRouteSpec{
+				Spec: gatewayv1.TLSRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{

@@ -140,7 +140,7 @@ func isKindAllowed(listener gatewayv1.Listener, route metav1.Object) bool {
 		if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
 			kind.Kind == kindHTTPRoute && routeKind == kindHTTPRoute {
 			return true
-		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1alpha2.GroupName) &&
+		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
 			kind.Kind == kindTLSRoute && routeKind == kindTLSRoute {
 			return true
 		} else if (kind.Group == nil || string(*kind.Group) == gatewayv1.GroupName) &&
@@ -188,7 +188,7 @@ func getSupportedRouteKinds(protocol gatewayv1.ProtocolType) []gatewayv1.RouteGr
 	case gatewayv1.TLSProtocolType:
 		return []gatewayv1.RouteGroupKind{
 			{
-				Group: GroupPtr(gatewayv1alpha2.GroupName),
+				Group: GroupPtr(gatewayv1.GroupName),
 				Kind:  kindTLSRoute,
 			},
 		}
@@ -217,7 +217,7 @@ func getGatewayKindForObject(obj metav1.Object) gatewayv1.Kind {
 		return kindHTTPRoute
 	case *gatewayv1.GRPCRoute:
 		return kindGRPCRoute
-	case *gatewayv1alpha2.TLSRoute:
+	case *gatewayv1.TLSRoute:
 		return kindTLSRoute
 	case *gatewayv1alpha2.UDPRoute:
 		return kindUDPRoute

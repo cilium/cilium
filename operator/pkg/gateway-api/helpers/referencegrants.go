@@ -7,12 +7,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
 // IsBackendReferenceAllowed returns true if the backend reference is allowed by the reference grant.
-func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.BackendRef, gvk schema.GroupVersionKind, grants []gatewayv1beta1.ReferenceGrant) bool {
+func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.BackendRef, gvk schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
 	if IsService(be.BackendObjectReference) {
 		return isReferenceAllowed(originatingNamespace, string(be.Name), be.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Service"), grants)
 	}
@@ -24,11 +23,11 @@ func IsBackendReferenceAllowed(originatingNamespace string, be gatewayv1.Backend
 }
 
 // IsSecretReferenceAllowed returns true if the secret reference is allowed by the reference grant.
-func IsSecretReferenceAllowed(originatingNamespace string, sr gatewayv1.SecretObjectReference, gvk schema.GroupVersionKind, grants []gatewayv1beta1.ReferenceGrant) bool {
+func IsSecretReferenceAllowed(originatingNamespace string, sr gatewayv1.SecretObjectReference, gvk schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
 	return isReferenceAllowed(originatingNamespace, string(sr.Name), sr.Namespace, gvk, corev1.SchemeGroupVersion.WithKind("Secret"), grants)
 }
 
-func isReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1.Namespace, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1beta1.ReferenceGrant) bool {
+func isReferenceAllowed(originatingNamespace, name string, namespace *gatewayv1.Namespace, fromGVK, toGVK schema.GroupVersionKind, grants []gatewayv1.ReferenceGrant) bool {
 	ns := NamespaceDerefOr(namespace, originatingNamespace)
 	if originatingNamespace == ns {
 		return true // same namespace is always allowed
