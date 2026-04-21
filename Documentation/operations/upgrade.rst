@@ -291,6 +291,18 @@ communicating via the proxy must reconnect to re-establish connections.
 .. _1.17_upgrade_notes:
 
 
+1.17.16 Upgrade Notes
+---------------------
+
+* ``CiliumLocalRedirectPolicy`` with ``addressMatcher`` will no longer override an
+  existing Service at the same frontend address. Previously, such a policy could
+  hijack traffic intended for the conflicting Service (including across namespaces)
+  and, on deletion, would leave the Service without a service-map entry. Users
+  relying on the legacy behavior should migrate to ``serviceMatcher``. As a
+  transient compatibility knob, setting ``--enable-lrp-address-matcher-override=true``
+  restores the pre-fix behavior; this flag is only available on v1.17, as newer
+  releases always refuse such conflicts.
+
 1.17.4 Upgrade Notes
 --------------------
 
