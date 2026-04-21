@@ -853,7 +853,7 @@ func Test_getNodeAddressesForGateway_HonorsNodeLabelSelectorExpressions(t *testi
 		).
 		Build()
 
-		r := &gatewayReconciler{
+	r := &gatewayReconciler{
 		Client: c,
 		cfg: translation.Config{
 			HostNetworkConfig: translation.HostNetworkConfig{
