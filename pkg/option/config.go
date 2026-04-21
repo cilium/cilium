@@ -174,9 +174,6 @@ const (
 	// Intended for operating cilium with CNI-compatible orchestrators other than Kubernetes. (default is true)
 	EnableK8s = "enable-k8s"
 
-	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
-	K8sAPIServer = "k8s-api-server"
-
 	// K8sAPIServerURLs is the kubernetes api address server url
 	K8sAPIServerURLs = "k8s-api-server-urls"
 

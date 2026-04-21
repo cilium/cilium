@@ -699,7 +699,6 @@ been registered with cobra:
       Ⓜ️ infra (Infrastructure):
         Ⓜ️ k8s-client (Kubernetes Client):
              ⚙️ (client.Config) {
-                 K8sAPIServer: (string) "",
                  K8sKubeConfigPath: (string) "",
                  K8sClientQPS: (float32) 0,
                  K8sClientBurst: (int) 0,

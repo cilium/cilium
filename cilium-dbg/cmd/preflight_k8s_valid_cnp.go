@@ -63,7 +63,7 @@ func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner
 
 	if !clientset.IsEnabled() {
 		return fmt.Errorf("Kubernetes client not configured. Please provide configuration via --%s or --%s",
-			option.K8sAPIServer, option.K8sKubeConfigPath)
+			option.K8sAPIServerURLs, option.K8sKubeConfigPath)
 	}
 
 	npValidator, err := v2_validation.NewNPValidator(logger)

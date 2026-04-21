@@ -401,6 +401,9 @@ from Cilium.
   removed in favor of ``--encryption-strict-egress-allow-remote-node-identities``
   (Helm ``encryption.strictMode.egress.allowRemoteNodeIdentities``).
 
+* The previously deprecated ``--k8s-api-server`` agent flag has been removed in
+  favor of ``--k8s-api-server-urls`` (Helm ``k8s.apiServerURLs`` value).
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
