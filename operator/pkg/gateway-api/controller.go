@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -45,94 +43,6 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 
 		return string(gwc.Spec.ControllerName) == controllerName
 	}
-}
-
-func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object, logger *slog.Logger) []*gatewayv1.Gateway {
-	scopedLog := logger.With(
-		logfields.Resource, obj.GetName(),
-	)
-
-	gwList := &gatewayv1.GatewayList{}
-	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
-		return nil
-	}
-
-	var gateways []*gatewayv1.Gateway
-	for _, gw := range gwList.Items {
-		for _, l := range gw.Spec.Listeners {
-			if l.TLS == nil {
-				continue
-			}
-
-			for _, cert := range l.TLS.CertificateRefs {
-				if !helpers.IsSecret(cert) {
-					continue
-				}
-				ns := helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace())
-				if string(cert.Name) == obj.GetName() && ns == obj.GetNamespace() {
-					gateways = append(gateways, &gw)
-				}
-			}
-		}
-	}
-	return gateways
-}
-
-func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object, logger *slog.Logger) []types.NamespacedName {
-	scopedLog := logger.With(
-		logfields.K8sNamespace, ns.GetName(),
-	)
-
-	gwList := &gatewayv1.GatewayList{}
-	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.WarnContext(ctx, "Unable to list Gateways", logfields.Error, err)
-		return nil
-	}
-
-	var gateways []types.NamespacedName
-	for _, gw := range gwList.Items {
-		for _, l := range gw.Spec.Listeners {
-			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
-				continue
-			}
-
-			switch *l.AllowedRoutes.Namespaces.From {
-			case gatewayv1.NamespacesFromAll:
-				gateways = append(gateways, client.ObjectKey{
-					Namespace: gw.GetNamespace(),
-					Name:      gw.GetName(),
-				})
-			case gatewayv1.NamespacesFromSame:
-				if ns.GetName() == gw.GetNamespace() {
-					gateways = append(gateways, client.ObjectKey{
-						Namespace: gw.GetNamespace(),
-						Name:      gw.GetName(),
-					})
-				}
-			case gatewayv1.NamespacesFromSelector:
-				if l.AllowedRoutes.Namespaces.Selector == nil {
-					scopedLog.WarnContext(ctx, "AllowedRoutes namespace set to Selector but no selector specified", logfields.Gateway, gw.GetName())
-					continue
-				}
-				nsList := &corev1.NamespaceList{}
-				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
-				if err != nil {
-					scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
-					return nil
-				}
-				for _, item := range nsList.Items {
-					if item.GetName() == ns.GetName() {
-						gateways = append(gateways, client.ObjectKey{
-							Namespace: gw.GetNamespace(),
-							Name:      gw.GetName(),
-						})
-					}
-				}
-			}
-		}
-	}
-	return gateways
 }
 
 // onlyStatusChanged returns true if and only if there is status change for underlying objects.

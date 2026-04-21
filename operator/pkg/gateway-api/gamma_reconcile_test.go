@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
@@ -90,7 +91,7 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					input := readInputDir(t, fmt.Sprintf("testdata/gamma/%s/input", tt.name))
 
 					c := fake.NewClientBuilder().
-						WithScheme(testScheme()).
+						WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 						WithObjects(append(base, input...)...).
 						WithIndex(&gatewayv1.HTTPRoute{}, indexers.GammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
 						WithIndex(&gatewayv1.GRPCRoute{}, indexers.GammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).

@@ -19,6 +19,7 @@ import (
 	gwconformanceconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 	gwconformance "sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -95,7 +96,7 @@ var (
 
 func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
-		WithScheme(testScheme()).
+		WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 		WithObjects(gwcFixture...).
 		WithObjects(cgwccFixture...).
 		WithStatusSubresource(&gatewayv1.GatewayClass{}).

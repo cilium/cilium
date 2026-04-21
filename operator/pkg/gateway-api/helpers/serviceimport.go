@@ -16,7 +16,7 @@ import (
 // and it is expected that it is registered only if the ServiceImport
 // CRD has been installed prior to the client setup.
 func HasServiceImportSupport(scheme *runtime.Scheme) bool {
-	return scheme.Recognizes(mcsapiv1beta1.SchemeGroupVersion.WithKind("ServiceImport"))
+	return scheme.Recognizes(mcsapiv1beta1.SchemeGroupVersion.WithKind(kindServiceImport))
 }
 
 func GetServiceName(svcImport *mcsapiv1beta1.ServiceImport) (string, error) {
