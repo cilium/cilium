@@ -277,7 +277,6 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		maglev.Cell,
 		lbmaps.Cell,
 		cell.Config(loadbalancer.DefaultUserConfig),
-		cell.Config(loadbalancer.DeprecatedConfig{}),
 		cell.Provide(
 			loadbalancer.NewBackendsTable,
 			statedb.RWTable[*loadbalancer.Backend].ToTable,
