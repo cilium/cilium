@@ -1117,12 +1117,6 @@ const (
 	// IPSecKeyFile is the name of the option for ipsec key file
 	IPSecKeyFile = "ipsec-key-file"
 
-	// EnableIPSecEncryptedOverlay is the name of the option which enables
-	// the EncryptedOverlay feature.
-	//
-	// This feature will encrypt overlay traffic before it leaves the cluster.
-	EnableIPSecEncryptedOverlay = "enable-ipsec-encrypted-overlay"
-
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = "use-cilium-internal-ip-for-ipsec"
 )

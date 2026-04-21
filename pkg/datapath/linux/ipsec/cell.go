@@ -97,7 +97,6 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	flags.Bool(option.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
 	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
-	flags.MarkDeprecated(option.EnableIPSecEncryptedOverlay, "Encrypted overlay is the default behavior for IPsec.")
 	flags.Bool(option.UseCiliumInternalIPForIPsec, def.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
 	flags.MarkHidden(option.UseCiliumInternalIPForIPsec)
 	flags.Bool(option.DNSProxyInsecureSkipTransparentModeCheck, def.DNSProxyInsecureSkipTransparentModeCheck, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")

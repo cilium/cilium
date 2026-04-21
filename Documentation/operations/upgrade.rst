@@ -385,6 +385,9 @@ from Cilium.
 * The previously deprecated ``--node-port-mode`` agent flag has been removed
   in favor of the ``--bpf-lb-mode`` (``loadBalancer.mode`` Helm value).
 
+* The previously deprecated and ignored ``--enable-ipsec-encrypted-overlay`` agent
+  flag (Helm ``encryption.ipsec.encryptedOverlay``) has been removed.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
