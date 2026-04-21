@@ -241,7 +241,7 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 		maps.MaxSockRevNat4MapEntries,
 		0,
 	)
-	require.NoError(tb, sockRevNat4Map.OpenOrCreate())
+	require.NoError(tb, sockRevNat4Map.CreateUnpinned())
 	sockRevNat6Map := bpf.NewMap(maps.SockRevNat6MapName,
 		ebpf.LRUHash,
 		&maps.SockRevNat6Key{},
@@ -249,7 +249,7 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 		maps.MaxSockRevNat6MapEntries,
 		0,
 	)
-	require.NoError(tb, sockRevNat6Map.OpenOrCreate())
+	require.NoError(tb, sockRevNat6Map.CreateUnpinned())
 	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockRevNat4Map, sockRevNat6Map)
 	require.NoError(tb, err)
 	tb.Cleanup(func() {
