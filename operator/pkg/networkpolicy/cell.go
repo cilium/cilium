@@ -82,7 +82,7 @@ func registerPolicyValidator(params PolicyParams) {
 	}
 
 	if !option.Config.EnableCiliumNetworkPolicy && !option.Config.EnableCiliumClusterwideNetworkPolicy {
-		params.Logger.Info(fmt.Sprintf("CNP / CCNP validator doesn't run when CNP and CCNP are disabled (%s=false AND %s=false)", option.EnableCiliumNetworkPolicy, option.EnableCiliumClusterwideNetworkPolicy))
+		params.Logger.Info(fmt.Sprintf("Skipping CNP/CCNP validator registration as both %s and %s are disabled", option.EnableCiliumNetworkPolicy, option.EnableCiliumClusterwideNetworkPolicy))
 		return
 	}
 
@@ -90,17 +90,22 @@ func registerPolicyValidator(params PolicyParams) {
 		params: &params,
 	}
 
-	params.Logger.Info("Registering CNP / CCNP validator")
-	params.JobGroup.Add(job.Observer(
-		"cnp-validation",
-		pv.handleCNPEvent,
-		params.CNPResource,
-	))
-	params.JobGroup.Add(job.Observer(
-		"ccnp-validation",
-		pv.handleCCNPEvent,
-		params.CCNPResource,
-	))
+	if option.Config.EnableCiliumNetworkPolicy {
+		params.Logger.Info("Registering CNP validator")
+		params.JobGroup.Add(job.Observer(
+			"cnp-validation",
+			pv.handleCNPEvent,
+			params.CNPResource,
+		))
+	}
+	if option.Config.EnableCiliumClusterwideNetworkPolicy {
+		params.Logger.Info("Registering CCNP validator")
+		params.JobGroup.Add(job.Observer(
+			"ccnp-validation",
+			pv.handleCCNPEvent,
+			params.CCNPResource,
+		))
+	}
 }
 
 func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Event[*cilium_api_v2.CiliumNetworkPolicy]) error {
