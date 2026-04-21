@@ -271,6 +271,20 @@ The above would only allow traffic going to ``169.254.169.254`` to be redirected
 with an AddressMatcher rule. A policy with a disallowed address will be rejected
 and a warning log message is emitted by cilium-agent.
 
+.. note::
+
+   AddressMatcher is intended for IPs that do not belong to a
+   Kubernetes Service. If the IP and port/protocol in
+   ``redirectFrontend.addressMatcher`` coincide with an existing
+   ``ClusterIP`` Service frontend, the policy is not applied to that
+   address. Cilium refuses to override a frontend owned by another
+   Service and logs::
+
+       LocalRedirectPolicy matches an address owned by an existing service => refusing to override
+
+   To redirect traffic destined for a Service, use `ServiceMatcher`_
+   instead.
+
 .. _ServiceMatcher:
 
 ServiceMatcher
