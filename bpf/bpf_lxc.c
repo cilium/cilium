@@ -2144,8 +2144,7 @@ out:
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY,
 		tail_ipv6_ct_ingress_policy_only, CT_INGRESS,
-		(is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)),
-		CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy)
+		1, CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy)
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
@@ -2465,7 +2464,7 @@ out:
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 		tail_ipv4_ct_ingress_policy_only, CT_INGRESS,
-		(is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)),
+		1,
 		CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY, tail_ipv4_policy)
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
