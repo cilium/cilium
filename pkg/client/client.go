@@ -463,12 +463,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "IPv4 BIG TCP:\t%s\n", status)
 	}
 
-	if sr.IPv4BigTCP != nil {
+	if sr.IPv6BigTCP != nil {
 		status := "Disabled"
-		if sr.IPv4BigTCP.Enabled {
-			max := fmt.Sprintf("[%d]", sr.IPv4BigTCP.MaxGSO)
-			if sr.IPv4BigTCP.MaxGRO != sr.IPv4BigTCP.MaxGSO {
-				max = fmt.Sprintf("[%d, %d]", sr.IPv4BigTCP.MaxGRO, sr.IPv4BigTCP.MaxGSO)
+		if sr.IPv6BigTCP.Enabled {
+			max := fmt.Sprintf("[%d]", sr.IPv6BigTCP.MaxGSO)
+			if sr.IPv6BigTCP.MaxGRO != sr.IPv6BigTCP.MaxGSO {
+				max = fmt.Sprintf("[%d, %d]", sr.IPv6BigTCP.MaxGRO, sr.IPv6BigTCP.MaxGSO)
 			}
 			status = fmt.Sprintf("Enabled\t%s", max)
 		}
