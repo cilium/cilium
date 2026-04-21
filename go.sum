@@ -1082,8 +1082,8 @@ sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4 h1:1L4MbmkgK6
 sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4/go.mod h1:60am2zg0nc5I1AMLtOPaKTESVdi9/E8SrLK09JN0md8=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4 h1:PflLDRUmlRD9v0vM75k8QtwxI0XeeqMC6V/6bLe5LN4=
 sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4/go.mod h1:IEVANHiCGLNsCWuPsZCJhCVzeWavUmxpJ8XgpTt9MpM=
-sigs.k8s.io/network-policy-api v0.1.8-0.20260408165732-72895f2a4a97 h1:r1zBPYVvoD+fKcP5lEjO2X45llNOjqv7ZMoZnu672U4=
-sigs.k8s.io/network-policy-api v0.1.8-0.20260408165732-72895f2a4a97/go.mod h1:hECyJyGmQo8QJBcOO2YzlLMcHACJ9hbRs1qS+Tmo1Yc=
+sigs.k8s.io/network-policy-api v0.2.0 h1:W/f0Y9VoeQdOWjX/h2gZyLH6gZ5LLEXmh/9wy9mQWKw=
+sigs.k8s.io/network-policy-api v0.2.0/go.mod h1:hECyJyGmQo8QJBcOO2YzlLMcHACJ9hbRs1qS+Tmo1Yc=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/structured-merge-diff/v6 v6.3.2 h1:kwVWMx5yS1CrnFWA/2QHyRVJ8jM6dBA80uLmm0wJkk8=

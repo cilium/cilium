@@ -141,7 +141,7 @@ require (
 	sigs.k8s.io/mcs-api v0.4.2-0.20260415161103-2525ee33f2a4
 	sigs.k8s.io/mcs-api/conformance v0.0.0-20260415161103-2525ee33f2a4
 	sigs.k8s.io/mcs-api/controllers v0.0.0-20260415161103-2525ee33f2a4
-	sigs.k8s.io/network-policy-api v0.1.8-0.20260408165732-72895f2a4a97
+	sigs.k8s.io/network-policy-api v0.2.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
