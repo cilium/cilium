@@ -565,7 +565,9 @@ func (m *manager) Start(ctx cell.HookContext) error {
 		if m.sharedCfg.InstallIptRules {
 			m.logger.Warn("iptables match socket is not available (try installing xt_socket kernel module)", logfields.Error, err)
 		}
-		if !m.sharedCfg.TunnelingEnabled {
+		// In hybrid mode, native routing paths also need this fallback since
+		// packets that skip tunnel still go through ip_forward().
+		if m.sharedCfg.RequiresNativeRouting {
 			// xt_socket module is needed to circumvent an explicit drop in ip_forward()
 			// logic for packets for which a local socket is found by ip early
 			// demux. xt_socket performs a local socket match and sets an skb mark on

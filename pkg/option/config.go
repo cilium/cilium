@@ -2066,8 +2066,9 @@ func (c *DaemonConfig) IptablesMasqueradingEnabled() bool {
 
 // NodeIpsetNeeded returns true if a node ipsets should be used to skip
 // masquerading for traffic to cluster nodes.
+// In hybrid mode, native routing paths need node ipsets for masquerade exemption.
 func (c *DaemonConfig) NodeIpsetNeeded() bool {
-	return !c.TunnelingEnabled() && c.IptablesMasqueradingEnabled()
+	return c.RequiresNativeRouting() && c.IptablesMasqueradingEnabled()
 }
 
 // NodeEncryptionEnabled returns true if node encryption is enabled
@@ -2277,6 +2278,12 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	}
 
 	if err := c.checkIPv6NativeRoutingCIDR(); err != nil {
+		return err
+	}
+
+	// In hybrid routing mode, native-routing-cidr must not be configured.
+	// Hybrid mode handles SNAT exclusion automatically based on subnet-topology.
+	if err := c.checkHybridModeNativeRoutingCIDR(); err != nil {
 		return err
 	}
 
@@ -3049,6 +3056,27 @@ func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
 		EnableIPv6Name, EnableIPv6Masquerade,
 		EnableIPMasqAgent,
 		RoutingMode, RoutingModeNative)
+}
+
+// checkHybridModeNativeRoutingCIDR validates that native-routing-cidr is not
+// configured in hybrid routing mode. In hybrid mode, SNAT exclusion is handled
+// automatically based on subnet-topology, so native-routing-cidr should not be used.
+func (c *DaemonConfig) checkHybridModeNativeRoutingCIDR() error {
+	if c.RoutingMode != RoutingModeHybrid {
+		return nil
+	}
+
+	if c.IPv4NativeRoutingCIDR != nil {
+		return fmt.Errorf("--%s cannot be used with --%s=%s. Hybrid mode handles SNAT exclusion automatically based on subnet-topology",
+			IPv4NativeRoutingCIDR, RoutingMode, RoutingModeHybrid)
+	}
+
+	if c.IPv6NativeRoutingCIDR != nil {
+		return fmt.Errorf("--%s cannot be used with --%s=%s. Hybrid mode handles SNAT exclusion automatically based on subnet-topology",
+			IPv6NativeRoutingCIDR, RoutingMode, RoutingModeHybrid)
+	}
+
+	return nil
 }
 
 func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {

@@ -33,6 +33,7 @@ var Cell = cell.Module(
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
+			RequiresNativeRouting:           cfg.RequiresNativeRouting(),
 			TunnelPort:                      tunnelCfg.Port(),
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
@@ -94,6 +95,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 type SharedConfig struct {
 	TunnelingEnabled                bool
+	RequiresNativeRouting           bool
 	TunnelPort                      uint16
 	NodeIpsetNeeded                 bool
 	IptablesMasqueradingIPv4Enabled bool

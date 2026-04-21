@@ -142,6 +142,17 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 				r.lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
 		}
 
+		// DSR is not supported in hybrid routing mode. Hybrid mode's native and tunnel
+		// paths have different requirements for DSR dispatch, making proper support
+		// complex. Users should use native or tunnel mode if DSR is needed.
+		if option.Config.RoutingMode == option.RoutingModeHybrid && r.lbConfig.LoadBalancerUsesDSR() {
+			return fmt.Errorf("--%s=%s is not supported with --%s=%s. DSR is incompatible with hybrid routing mode's mix of native and tunnel paths. Use --%s=%s or --%s=%s if DSR is required.",
+				option.LoadBalancerModeName, r.lbConfig.LBMode,
+				option.RoutingMode, option.RoutingModeHybrid,
+				option.RoutingMode, option.RoutingModeNative,
+				option.RoutingMode, option.RoutingModeTunnel)
+		}
+
 		if r.lbConfig.LoadBalancerUsesDSR() &&
 			r.lbConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve &&
 			r.tunnelConfig.EncapProtocol() != tunnel.Geneve {
