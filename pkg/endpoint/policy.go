@@ -118,9 +118,11 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string, scSnapshot poli
 // Must be called with the endpoint lock held for at least reading
 func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 	e.nextPolicyRevision = revision
-	e.UpdateLogger(map[string]any{
-		logfields.DesiredPolicyRevision: e.nextPolicyRevision,
-	})
+	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
+		e.UpdateLogger(map[string]any{
+			logfields.DesiredPolicyRevision: e.nextPolicyRevision,
+		})
+	}
 }
 
 type policyGenerateResult struct {
