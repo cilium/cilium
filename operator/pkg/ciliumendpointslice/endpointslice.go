@@ -38,11 +38,6 @@ const (
 	// dropped out of the queue.
 	maxRetries = 15
 
-	// CEPs are batched into a CES, based on its Identity
-	identityMode = "identity"
-	// CEPs are inserted into the largest, non-empty CiliumEndpointSlice
-	fcfsMode = "fcfs"
-
 	// Default CES Synctime, multiple consecutive syncs with k8s-apiserver are
 	// batched and synced together after a short delay.
 	DefaultCESSyncTime = 500 * time.Millisecond

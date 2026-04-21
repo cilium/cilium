@@ -377,6 +377,8 @@ from Cilium.
   ``hubble-redact-kafka-apikey`` agent flag have been removed as part of
   dropping Kafka support.
 
+* The previously deprecated and ignored ``--ces-slice-mode`` operator flag has been removed.
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 

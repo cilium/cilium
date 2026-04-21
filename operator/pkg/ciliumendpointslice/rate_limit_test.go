@@ -35,7 +35,6 @@ func TestSingleDynamicRateLimit(t *testing.T) {
 		Logger: hivetest.Logger(t),
 		Cfg: Config{
 			CESMaxCEPsInCES:           100,
-			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: "[{\"nodes\": 5, \"limit\": 15.0, \"burst\": 30}]",
 			CESControllerMode:         defaultMode,
 		},
@@ -74,7 +73,6 @@ func TestMultipleUnsortedDynamicRateLimit(t *testing.T) {
 		Logger: hivetest.Logger(t),
 		Cfg: Config{
 			CESMaxCEPsInCES:           100,
-			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: string(rlJson),
 			CESControllerMode:         defaultMode,
 		},
