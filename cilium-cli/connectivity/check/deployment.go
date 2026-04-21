@@ -1647,8 +1647,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[features.BGPControlPlane].Enabled && ct.Features[features.NodeWithoutCilium].Enabled {
-		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, frrDaemonSetNameName, metav1.GetOptions{})
+	if ct.Features[features.BGPControlPlane].Enabled && ct.Features[features.NodeWithoutCilium].Enabled &&
+		ct.params.TestNamespace == ct.params.SharedTestNamespace {
+		// NOTE: FRR daemonset should be deployed only once per node as it is running in the host network namespace,
+		// and multiple deployments could cause issues with binding to the same ports - so deploy it in the SharedTestNamespace.
+		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.SharedTestNamespace, frrDaemonSetNameName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s daemonset...", ct.clients.src.ClusterName(), frrDaemonSetNameName)
 			ds := NewFRRDaemonSet(ct.params)
@@ -2851,10 +2854,10 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	if ct.Features[features.BGPControlPlane].Enabled && ct.Features[features.NodeWithoutCilium].Enabled {
-		if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.Params().TestNamespace, frrDaemonSetNameName); err != nil {
+		if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.params.SharedTestNamespace, frrDaemonSetNameName); err != nil {
 			return err
 		}
-		frrPods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + frrDaemonSetNameName})
+		frrPods, err := ct.clients.dst.ListPods(ctx, ct.params.SharedTestNamespace, metav1.ListOptions{LabelSelector: "name=" + frrDaemonSetNameName})
 		if err != nil {
 			return fmt.Errorf("unable to list FRR pods: %w", err)
 		}

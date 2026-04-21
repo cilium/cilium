@@ -52,6 +52,7 @@ type Parameters struct {
 	AssumeCiliumVersion       string
 	CiliumNamespace           string
 	TestNamespace             string
+	SharedTestNamespace       string
 	TestNamespaceIndex        int
 	TestConcurrency           int
 	SingleNode                bool

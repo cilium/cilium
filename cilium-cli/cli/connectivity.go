@@ -324,9 +324,14 @@ func newConnectivityTests(
 	}
 
 	connTests := make([]*check.ConnectivityTest, 0, params.TestConcurrency)
+	sharedNamespace := ""
 	for i := range params.TestConcurrency {
 		params := params
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		if sharedNamespace == "" {
+			sharedNamespace = params.TestNamespace // use the first test ns for shared resources
+		}
+		params.SharedTestNamespace = sharedNamespace
 		params.TestNamespaceIndex = i
 		if params.ExternalTargetCANamespace == "" {
 			params.ExternalTargetCANamespace = params.TestNamespace
