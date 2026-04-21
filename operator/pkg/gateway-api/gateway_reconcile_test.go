@@ -21,12 +21,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/shortener"
 )
 
@@ -56,7 +58,7 @@ var (
 
 func Test_Conformance(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-	cecTranslator := translation.NewCECTranslator(translation.Config{
+	translatorCfg := translation.Config{
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
 		},
@@ -66,16 +68,14 @@ func Test_Conformance(t *testing.T) {
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: 60,
 		},
-	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
 		ServiceConfig: translation.ServiceConfig{
 			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
 		},
-	})
-
-	type gwDetails struct {
-		FullName types.NamespacedName
-		wantErr  bool
+	}
+	reconcilerCfg := translation.Config{
+		IPConfig: translation.IPConfig{
+			IPv4Enabled: true,
+		},
 	}
 
 	var (
@@ -284,133 +284,7 @@ func Test_Conformance(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base := readInputDir(t, "testdata/gateway/base")
-			input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
-
-			clientBuilder := fake.NewClientBuilder().
-				WithObjects(append(base, input...)...).
-				WithStatusSubresource(&corev1.Service{}).
-				WithStatusSubresource(&corev1.Namespace{}).
-				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
-				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
-				WithStatusSubresource(&gatewayv1.TLSRoute{}).
-				WithStatusSubresource(&gatewayv1.Gateway{}).
-				WithStatusSubresource(&gatewayv1.GatewayClass{}).
-				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
-
-			switch tt.disableServiceImport {
-			case true:
-				clientBuilder.WithScheme(testSchemeNoServiceImport())
-			case false:
-				clientBuilder.WithScheme(testScheme())
-			}
-
-			// Add any required indexes here
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
-			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
-
-			c := clientBuilder.Build()
-
-			r := &gatewayReconciler{
-				Client:     c,
-				translator: gatewayAPITranslator,
-				logger:     logger,
-			}
-
-			// Reconcile all related HTTPRoute objects
-			hrList := &gatewayv1.HTTPRouteList{}
-			err := c.List(t.Context(), hrList)
-			require.NoError(t, err)
-
-			// Reconcile all related TLSRoute objects
-			tlsrList := &gatewayv1.TLSRouteList{}
-			err = c.List(t.Context(), tlsrList)
-			require.NoError(t, err)
-
-			// Reconcile all related GRPCRoute objects
-			grpcrList := &gatewayv1.GRPCRouteList{}
-			err = c.List(t.Context(), grpcrList)
-			require.NoError(t, err)
-
-			// Reconcile all BackendTLSPolicy objects
-			btlspList := &gatewayv1.BackendTLSPolicyList{}
-			err = c.List(t.Context(), btlspList)
-			require.NoError(t, err)
-
-			for _, gwDetail := range tt.gateway {
-				// Reconcile the gateway under test
-				result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
-				require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error for Gateway %s. want: %t, got: %t", gwDetail.FullName.Name, gwDetail.wantErr, err != nil)
-				require.Equal(t, ctrl.Result{}, result)
-				// Checking the output for Gateway
-				actualGateway := &gatewayv1.Gateway{}
-				err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
-				// TODO(youngnick): controller-runtime has broken something with the fake client
-				// Bypass for now
-				actualGateway.TypeMeta = gatewayTypeMeta
-				require.NoError(t, err)
-				expectedGateway := &gatewayv1.Gateway{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
-				require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
-				if !gwDetail.wantErr {
-					// Checking the output for CiliumEnvoyConfig
-					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
-					err = c.Get(t.Context(), client.ObjectKey{
-						Namespace: gwDetail.FullName.Namespace,
-						Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
-					}, actualCEC)
-					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
-					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
-					require.NoError(t, err)
-					require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
-				}
-
-			}
-			// Checking the output for related HTTPRoute objects
-			for _, hr := range hrList.Items {
-				actualHR := &gatewayv1.HTTPRoute{}
-				err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
-				// TODO(youngnick): controller-runtime has broken something with the fake client
-				// Bypass for now
-				actualHR.TypeMeta = httpRouteTypeMeta
-				require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
-				expectedHR := &gatewayv1.HTTPRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
-				require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
-			}
-
-			for _, tlsr := range tlsrList.Items {
-				actualTLSR := &gatewayv1.TLSRoute{}
-				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
-				actualTLSR.TypeMeta = tlsRouteTypeMeta
-				require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
-				expectedTLSR := &gatewayv1.TLSRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
-				require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
-			}
-
-			for _, grpcr := range grpcrList.Items {
-				actualGRPCR := &gatewayv1.GRPCRoute{}
-				err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
-				actualGRPCR.TypeMeta = grpcRouteTypeMeta
-				require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
-				expectedGRPCR := &gatewayv1.GRPCRoute{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
-				require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
-			}
-
-			for _, btlsp := range btlspList.Items {
-				actualBTLSP := &gatewayv1.BackendTLSPolicy{}
-				err = c.Get(t.Context(), client.ObjectKeyFromObject(&btlsp), actualBTLSP)
-				actualBTLSP.TypeMeta = backendTLSPolicyTypeMeta
-				require.NoError(t, err, "error getting BackendTLSPolicy %s/%s: %v", btlsp.Namespace, btlsp.Name, err)
-				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
-				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
-				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
-			}
+			runGatewayConformanceTest(t, logger, tt.name, tt.gateway, translatorCfg, reconcilerCfg, tt.disableServiceImport)
 		})
 	}
 }
@@ -500,6 +374,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 
 			r := &gatewayReconciler{
 				Client: c,
+				cfg:    translation.Config{IPConfig: translation.IPConfig{IPv4Enabled: true}},
 				logger: hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)),
 			}
 
@@ -738,4 +613,264 @@ func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 		}
 	}
 	return backendServices
+}
+
+type gwDetails struct {
+	FullName types.NamespacedName
+	wantErr  bool
+}
+
+func runGatewayConformanceTest(t *testing.T, logger *slog.Logger, testName string, gateways []gwDetails, translatorCfg, reconcilerCfg translation.Config, disableServiceImport bool) {
+	t.Helper()
+
+	cecTranslator := translation.NewCECTranslator(translatorCfg)
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translatorCfg)
+	c := newGatewayConformanceClient(t, testName, disableServiceImport)
+	r := &gatewayReconciler{
+		Client:     c,
+		translator: gatewayAPITranslator,
+		cfg:        reconcilerCfg,
+		logger:     logger,
+	}
+
+	hrList := &gatewayv1.HTTPRouteList{}
+	require.NoError(t, c.List(t.Context(), hrList))
+
+	tlsrList := &gatewayv1alpha2.TLSRouteList{}
+	require.NoError(t, c.List(t.Context(), tlsrList))
+
+	grpcrList := &gatewayv1.GRPCRouteList{}
+	require.NoError(t, c.List(t.Context(), grpcrList))
+
+	btlspList := &gatewayv1.BackendTLSPolicyList{}
+	require.NoError(t, c.List(t.Context(), btlspList))
+
+	for _, gwDetail := range gateways {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
+		require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error for Gateway %s. want: %t, got: %t", gwDetail.FullName.Name, gwDetail.wantErr, err != nil)
+		require.Equal(t, ctrl.Result{}, result)
+
+		assertGatewayOutput(t, c, testName, gwDetail)
+		if !gwDetail.wantErr {
+			assertCECOutput(t, c, testName, gwDetail)
+		}
+	}
+
+	assertHTTPRoutesOutput(t, c, testName, hrList)
+	assertTLSRoutesOutput(t, c, testName, tlsrList)
+	assertGRPCRoutesOutput(t, c, testName, grpcrList)
+	assertBackendTLSPoliciesOutput(t, c, testName, btlspList)
+}
+
+func newGatewayConformanceClient(t *testing.T, testName string, disableServiceImport bool) client.Client {
+	t.Helper()
+
+	base := readInputDir(t, "testdata/gateway/base")
+	input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", testName))
+
+	clientBuilder := fake.NewClientBuilder().
+		WithObjects(append(base, input...)...).
+		WithStatusSubresource(&corev1.Service{}).
+		WithStatusSubresource(&corev1.Namespace{}).
+		WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+		WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
+		WithStatusSubresource(&gatewayv1.Gateway{}).
+		WithStatusSubresource(&gatewayv1.GatewayClass{}).
+		WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
+
+	if disableServiceImport {
+		clientBuilder.WithScheme(testSchemeNoServiceImport())
+	} else {
+		clientBuilder.WithScheme(testScheme())
+	}
+
+	clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
+	clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
+	clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
+	clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+
+	return clientBuilder.Build()
+}
+
+func assertGatewayOutput(t *testing.T, c client.Client, testName string, gwDetail gwDetails) {
+	t.Helper()
+
+	actualGateway := &gatewayv1.Gateway{}
+	err := c.Get(t.Context(), gwDetail.FullName, actualGateway)
+	actualGateway.TypeMeta = gatewayTypeMeta
+	require.NoError(t, err)
+
+	expectedGateway := &gatewayv1.Gateway{}
+	readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", testName, gwDetail.FullName.Name), expectedGateway)
+	require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
+}
+
+func assertCECOutput(t *testing.T, c client.Client, testName string, gwDetail gwDetails) {
+	t.Helper()
+
+	actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+	err := c.Get(t.Context(), client.ObjectKey{
+		Namespace: gwDetail.FullName.Namespace,
+		Name:      shortener.ShortenK8sResourceName(gatewayApiTranslation.CiliumGatewayPrefix + gwDetail.FullName.Name),
+	}, actualCEC)
+	require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
+
+	expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+	readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", testName, gwDetail.FullName.Name), expectedCEC)
+	require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+}
+
+func assertHTTPRoutesOutput(t *testing.T, c client.Client, testName string, hrList *gatewayv1.HTTPRouteList) {
+	t.Helper()
+
+	for _, hr := range hrList.Items {
+		actualHR := &gatewayv1.HTTPRoute{}
+		err := c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
+		actualHR.TypeMeta = httpRouteTypeMeta
+		require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
+
+		expectedHR := &gatewayv1.HTTPRoute{}
+		readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", testName, hr.Name), expectedHR)
+		require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
+	}
+}
+
+func assertTLSRoutesOutput(t *testing.T, c client.Client, testName string, tlsrList *gatewayv1alpha2.TLSRouteList) {
+	t.Helper()
+
+	for _, tlsr := range tlsrList.Items {
+		actualTLSR := &gatewayv1alpha2.TLSRoute{}
+		err := c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
+		actualTLSR.TypeMeta = tlsRouteTypeMeta
+		require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
+
+		expectedTLSR := &gatewayv1alpha2.TLSRoute{}
+		readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", testName, tlsr.Name), expectedTLSR)
+		require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
+	}
+}
+
+func assertGRPCRoutesOutput(t *testing.T, c client.Client, testName string, grpcrList *gatewayv1.GRPCRouteList) {
+	t.Helper()
+
+	for _, grpcr := range grpcrList.Items {
+		actualGRPCR := &gatewayv1.GRPCRoute{}
+		err := c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
+		actualGRPCR.TypeMeta = grpcRouteTypeMeta
+		require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
+
+		expectedGRPCR := &gatewayv1.GRPCRoute{}
+		readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", testName, grpcr.Name), expectedGRPCR)
+		require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
+	}
+}
+
+func assertBackendTLSPoliciesOutput(t *testing.T, c client.Client, testName string, btlspList *gatewayv1.BackendTLSPolicyList) {
+	t.Helper()
+
+	for _, btlsp := range btlspList.Items {
+		actualBTLSP := &gatewayv1.BackendTLSPolicy{}
+		err := c.Get(t.Context(), client.ObjectKeyFromObject(&btlsp), actualBTLSP)
+		actualBTLSP.TypeMeta = backendTLSPolicyTypeMeta
+		require.NoError(t, err, "error getting BackendTLSPolicy %s/%s: %v", btlsp.Namespace, btlsp.Name, err)
+
+		expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
+		readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", testName, btlsp.Name), expectedBTLSP)
+		require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
+	}
+}
+
+func Test_HostNetwork_Conformance(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	hostNetworkCfg := translation.Config{
+		RouteConfig: translation.RouteConfig{
+			HostNameSuffixMatch: true,
+		},
+		ListenerConfig: translation.ListenerConfig{
+			StreamIdleTimeoutSeconds: 300,
+		},
+		ClusterConfig: translation.ClusterConfig{
+			IdleTimeoutSeconds: 60,
+		},
+		ServiceConfig: translation.ServiceConfig{
+			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
+		},
+		HostNetworkConfig: translation.HostNetworkConfig{
+			Enabled: true,
+		},
+		IPConfig: translation.IPConfig{
+			IPv4Enabled: true,
+		},
+	}
+
+	reconcilerCfg := hostNetworkCfg
+
+	tests := []struct {
+		name    string
+		gateway []gwDetails
+	}{
+		{name: "hostnetwork-node-addresses", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}}}},
+		{name: "hostnetwork-all-nodes", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}}}},
+		{name: "hostnetwork-internal-ip-fallback", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "same-namespace", Namespace: "gateway-conformance-infra"}}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runGatewayConformanceTest(t, logger, tt.name, tt.gateway, hostNetworkCfg, reconcilerCfg, false)
+		})
+	}
+}
+
+func Test_getNodeAddressesForGateway_HonorsNodeLabelSelectorExpressions(t *testing.T) {
+	t.Parallel()
+
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(
+			&corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "worker-1",
+					Labels: map[string]string{"role": "gateway", "zone": "a"},
+				},
+				Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "203.0.113.1"}}},
+			},
+			&corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "worker-2",
+					Labels: map[string]string{"role": "gateway", "zone": "b"},
+				},
+				Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "203.0.113.2"}}},
+			},
+			&corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "worker-3",
+					Labels: map[string]string{"role": "other", "zone": "a"},
+				},
+				Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "203.0.113.3"}}},
+			},
+		).
+		Build()
+
+		r := &gatewayReconciler{
+		Client: c,
+		cfg: translation.Config{
+			HostNetworkConfig: translation.HostNetworkConfig{
+				Enabled: true,
+				NodeLabelSelector: &slim_metav1.LabelSelector{
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{{
+						Key:      "role",
+						Operator: slim_metav1.LabelSelectorOpIn,
+						Values:   []string{"gateway"},
+					}},
+				},
+			},
+			IPConfig: translation.IPConfig{IPv4Enabled: true},
+		},
+	}
+
+	ips, err := r.getNodeAddressesForGateway(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"203.0.113.1", "203.0.113.2"}, ips)
 }

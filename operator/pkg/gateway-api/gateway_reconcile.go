@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -18,6 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	utilsnet "k8s.io/utils/net"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +37,8 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	gwModel "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/pkg/annotation"
+	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -504,24 +509,36 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	}
 
 	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
 
 	var addresses []gatewayv1.GatewayStatusAddress
-	for _, s := range svc.Status.LoadBalancer.Ingress {
-		if len(s.IP) != 0 {
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeLoadBalancer:
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			return nil
+		}
+		for _, s := range svc.Status.LoadBalancer.Ingress {
+			if len(s.IP) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
+					Value: s.IP,
+				})
+			}
+			if len(s.Hostname) != 0 {
+				addresses = append(addresses, gatewayv1.GatewayStatusAddress{
+					Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
+					Value: s.Hostname,
+				})
+			}
+		}
+	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
+		nodeAddresses, err := r.getNodeAddressesForGateway(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get node addresses: %w", err)
+		}
+		for _, addr := range nodeAddresses {
 			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1.IPAddressType),
-				Value: s.IP,
-			})
-		}
-		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1.GatewayStatusAddress{
-				Type:  GatewayAddressTypePtr(gatewayv1.HostnameAddressType),
-				Value: s.Hostname,
+				Value: addr,
 			})
 		}
 	}
@@ -530,7 +547,6 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 		r.logger.InfoContext(ctx, "At least one valid address, marking gateway programmed", logfields.Resource, client.ObjectKeyFromObject(gw).String())
 		setGatewayProgrammed(gw, metav1.ConditionTrue, "Gateway Programmed", gatewayv1.GatewayReasonProgrammed)
 		for _, l := range gw.Status.Listeners {
-			// Is Listener Accepted?
 			accepted := false
 
 			for _, cond := range l.Conditions {
@@ -556,6 +572,67 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.
 	return nil
 }
 
+func (r *gatewayReconciler) getNodeAddressesForGateway(ctx context.Context) ([]string, error) {
+	var nodeSelector slim_labels.Selector
+
+	if r.cfg.HostNetworkConfig.Enabled && r.cfg.HostNetworkConfig.NodeLabelSelector != nil {
+		selector, err := slim_metav1.LabelSelectorAsSelector(r.cfg.HostNetworkConfig.NodeLabelSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse node label selector: %w", err)
+		}
+		nodeSelector = selector
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := r.Client.List(ctx, nodeList); err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	extIPs := sets.Set[string]{}
+	intIPs := sets.Set[string]{}
+
+	for _, node := range nodeList.Items {
+		if node.DeletionTimestamp != nil && !node.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if nodeSelector != nil && !nodeSelector.Matches(slim_labels.Set(node.Labels)) {
+			continue
+		}
+
+		for _, addr := range node.Status.Addresses {
+			switch addr.Type {
+			case corev1.NodeExternalIP:
+				if isAllowedIPFamily(addr.Address, r.cfg.IPConfig.IPv4Enabled, r.cfg.IPConfig.IPv6Enabled) {
+					extIPs.Insert(addr.Address)
+				}
+			case corev1.NodeInternalIP:
+				if isAllowedIPFamily(addr.Address, r.cfg.IPConfig.IPv4Enabled, r.cfg.IPConfig.IPv6Enabled) {
+					intIPs.Insert(addr.Address)
+				}
+			}
+		}
+	}
+
+	var ips []string
+	if extIPs.Len() > 0 {
+		ips = extIPs.UnsortedList()
+	} else {
+		ips = intIPs.UnsortedList()
+	}
+	slices.Sort(ips)
+	return ips, nil
+}
+
+func isAllowedIPFamily(addr string, ipv4Enabled, ipv6Enabled bool) bool {
+	if ipv4Enabled && utilsnet.IsIPv4String(addr) {
+		return true
+	}
+	if ipv6Enabled && utilsnet.IsIPv6String(addr) {
+		return true
+	}
+	return false
+}
+
 func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	if len(gw.Spec.Addresses) == 0 {
 		return nil
@@ -572,18 +649,30 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	}
 
 	svc := svcList.Items[0]
-	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		// Potential loadbalancer service isn't ready yet. No need to report as an error, because
-		// reconciliation should be triggered when the loadbalancer services gets updated.
-		return nil
-	}
-	addresses := make(map[string]struct{})
-	for _, addr := range svc.Status.LoadBalancer.Ingress {
-		addresses[addr.IP] = struct{}{}
+
+	var addressSet map[string]struct{}
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
+		nodeAddresses, err := r.getNodeAddressesForGateway(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get node addresses: %w", err)
+		}
+		addressSet = make(map[string]struct{})
+		for _, ip := range nodeAddresses {
+			addressSet[ip] = struct{}{}
+		}
+	default:
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			return nil
+		}
+		addressSet = make(map[string]struct{})
+		for _, addr := range svc.Status.LoadBalancer.Ingress {
+			addressSet[addr.IP] = struct{}{}
+		}
 	}
 
 	for _, addr := range gw.Spec.Addresses {
-		if _, ok := addresses[addr.Value]; !ok {
+		if _, ok := addressSet[addr.Value]; !ok {
 			return fmt.Errorf("static address %q can't be used", addr.Value)
 		}
 	}

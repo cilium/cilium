@@ -40,7 +40,7 @@ rules:
   verbs:
    # allow patching of the configmap to set annotations
   - patch
-{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) }}
+{{- if or .Values.operator.removeNodeTaints .Values.operator.setNodeNetworkStatus (include "hasDuration" .Values.operator.endpointGCInterval) .Values.gatewayAPI.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -393,7 +393,7 @@ rules:
   verbs:
   - get
   - list
-  - watch  
+  - watch
 {{- end }}
 {{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled }}
 - apiGroups:
