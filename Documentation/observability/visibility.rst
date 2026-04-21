@@ -45,7 +45,11 @@ permit all requests that match the L4 section of each rule:
           matchLabels:
             "k8s:io.kubernetes.pod.namespace": default
         egress:
-        - toPorts:
+        - toEndpoints:
+          - matchLabels:
+              "k8s:io.kubernetes.pod.namespace": kube-system
+              "k8s:k8s-app": kube-dns
+          toPorts:
           - ports:
             - port: "53"
               protocol: ANY
@@ -64,10 +68,11 @@ permit all requests that match the L4 section of each rule:
             rules:
               http: [{}]
 
-Based on the above policy, Cilium will pick up all TCP/UDP/53, TCP/80 and TCP/8080
-egress traffic from Pods in the ``default`` namespace and redirect it to the
-proxy (see :ref:`proxy_injection`) such that the output of ``cilium monitor`` or
-``hubble observe`` shows the L7 flow details.
+Based on the above policy, Cilium will pick up DNS traffic to ``kube-dns`` on
+port 53 and HTTP traffic on ports TCP/80 and TCP/8080 from Pods in the
+``default`` namespace and redirect it to the proxy (see :ref:`proxy_injection`)
+such that the output of ``cilium monitor`` or ``hubble observe`` shows the L7
+flow details.
 Below is the example of running ``hubble observe -f -t l7 -o compact`` command:
 
 ::
