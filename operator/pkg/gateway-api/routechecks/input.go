@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -30,7 +29,7 @@ type Input interface {
 	GetClient() client.Client
 	GetContext() context.Context
 	GetGVK() schema.GroupVersionKind
-	GetGrants() []gatewayv1beta1.ReferenceGrant
+	GetGrants() []gatewayv1.ReferenceGrant
 	GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error)
 	GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error)
 	GetHostnames() []gatewayv1.Hostname

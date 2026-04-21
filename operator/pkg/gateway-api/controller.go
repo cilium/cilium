@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -164,9 +163,9 @@ func onlyStatusChanged() predicate.Predicate {
 					return false
 				}
 				return !cmp.Equal(o.Status, n.Status, option)
-			case *gatewayv1alpha2.TLSRoute:
-				o, _ := e.ObjectOld.(*gatewayv1alpha2.TLSRoute)
-				n, ok := e.ObjectNew.(*gatewayv1alpha2.TLSRoute)
+			case *gatewayv1.TLSRoute:
+				o, _ := e.ObjectOld.(*gatewayv1.TLSRoute)
+				n, ok := e.ObjectNew.(*gatewayv1.TLSRoute)
 				if !ok {
 					return false
 				}

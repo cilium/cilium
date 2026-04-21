@@ -28,7 +28,7 @@ type GRPCRouteInput struct {
 	Ctx       context.Context
 	Logger    *slog.Logger
 	Client    client.Client
-	Grants    *gatewayv1beta1.ReferenceGrantList
+	Grants    *gatewayv1.ReferenceGrantList
 	GRPCRoute *gatewayv1.GRPCRoute
 
 	gateways      map[gatewayv1.ParentReference]*gatewayv1.Gateway
@@ -84,7 +84,7 @@ func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
 	return gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute")
 }
 
-func (g *GRPCRouteInput) GetGrants() []gatewayv1beta1.ReferenceGrant {
+func (g *GRPCRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
 	return g.Grants.Items
 }
 

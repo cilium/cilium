@@ -77,7 +77,7 @@ spec:
       tls:
         mode: Passthrough
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-more-specific-wc-hostname-x-1
@@ -93,7 +93,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-exact-hostname-x-2
@@ -109,7 +109,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-less-specific-wc-hostname-x-2
@@ -125,7 +125,7 @@ spec:
         - name: tls-backend-2
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-exact-hostname-x-3
@@ -141,7 +141,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-more-specific-wc-hostname-x-3
@@ -157,7 +157,7 @@ spec:
         - name: tls-backend-2
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-exact-hostname-x-4
@@ -173,7 +173,7 @@ spec:
         - name: tls-backend
           port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tlsroute-less-specific-wc-hostname-x-4

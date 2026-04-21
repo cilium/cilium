@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -70,7 +69,7 @@ func (r *gammaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch GRPCRoute linked to Service
 		Watches(&gatewayv1.GRPCRoute{}, r.enqueueRequestForOwningGRPCRoute(r.logger)).
 		// Watch for changes to Reference Grants
-		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
+		Watches(&gatewayv1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{})
 

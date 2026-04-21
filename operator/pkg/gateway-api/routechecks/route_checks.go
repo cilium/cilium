@@ -45,7 +45,7 @@ func CheckBackend(input Input, parentRef gatewayv1.ParentReference) (bool, error
 		for _, be := range rule.GetBackendRefs() {
 			if !helpers.IsService(be.BackendObjectReference) && !helpers.IsServiceImport(be.BackendObjectReference) {
 				input.SetParentCondition(parentRef, metav1.Condition{
-					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonInvalidKind),
 					Message: "Unsupported backend kind " + string(*be.Kind),

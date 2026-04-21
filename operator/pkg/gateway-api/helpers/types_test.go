@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestIsGammaService(t *testing.T) {
@@ -273,20 +272,20 @@ func TestGetConcreteObject(t *testing.T) {
 		{
 			name: "TLSRoute",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    TLSRouteKind,
 			},
-			want: &gatewayv1alpha2.TLSRoute{},
+			want: &gatewayv1.TLSRoute{},
 		},
 		{
 			name: "TLSRouteList",
 			gvk: schema.GroupVersionKind{
-				Group:   gatewayv1alpha2.GroupVersion.Group,
-				Version: gatewayv1alpha2.GroupVersion.Version,
+				Group:   gatewayv1.GroupVersion.Group,
+				Version: gatewayv1.GroupVersion.Version,
 				Kind:    TLSRouteListKind,
 			},
-			want: &gatewayv1alpha2.TLSRouteList{},
+			want: &gatewayv1.TLSRouteList{},
 		},
 	}
 	for _, tt := range tests {

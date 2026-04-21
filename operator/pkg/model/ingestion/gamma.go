@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -22,7 +21,7 @@ import (
 type GammaInput struct {
 	HTTPRoutes      []gatewayv1.HTTPRoute
 	GRPCRoutes      []gatewayv1.GRPCRoute
-	ReferenceGrants []gatewayv1beta1.ReferenceGrant
+	ReferenceGrants []gatewayv1.ReferenceGrant
 	Services        []corev1.Service
 }
 
@@ -59,7 +58,7 @@ func toGammaHTTPRoutes(
 	parentServices map[types.NamespacedName]model.FullyQualifiedResource,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
-	grants []gatewayv1beta1.ReferenceGrant,
+	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
 	var resHTTP []model.HTTPListener
 
@@ -203,7 +202,7 @@ func toGammaGRPCRoutes(
 	parentServices map[types.NamespacedName]model.FullyQualifiedResource,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
-	grants []gatewayv1beta1.ReferenceGrant,
+	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
 	var resGRPC []model.HTTPListener
 

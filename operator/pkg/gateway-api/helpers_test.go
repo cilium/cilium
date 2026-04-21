@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_isKindAllowed(t *testing.T) {
@@ -48,7 +47,7 @@ func Test_isKindAllowed(t *testing.T) {
 		},
 		{
 			name:     "TLSRoute is not allowed",
-			route:    &gatewayv1alpha2.TLSRoute{},
+			route:    &gatewayv1.TLSRoute{},
 			expected: false,
 		},
 	}
