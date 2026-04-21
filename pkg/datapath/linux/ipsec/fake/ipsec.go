@@ -53,7 +53,6 @@ func (a *Agent) Enabled() bool {
 
 type Config struct {
 	EnableIPsec                              bool
-	EncryptedOverlay                         bool
 	UseCiliumInternalIPForIPsec              bool
 	DNSProxyInsecureSkipTransparentModeCheck bool
 }

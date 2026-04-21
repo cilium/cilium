@@ -389,7 +389,6 @@ contributors across the globe, there is almost always someone available to help.
 | enableNonDefaultDenyPolicies | bool | `true` | Enable Non-Default-Deny policies |
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
-| encryption.ipsec.encryptedOverlay | bool | `false` | Enable IPsec encrypted overlay |
 | encryption.ipsec.interface | string | `""` | The interface to use for encrypted traffic. |
 | encryption.ipsec.keyFile | string | `"keys"` | Name of the key file inside the Kubernetes secret configured via secretName. |
 | encryption.ipsec.keyRotationDuration | string | `"5m"` | Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. |
