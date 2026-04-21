@@ -1244,7 +1244,7 @@ func TestBPFOps(t *testing.T) {
 		EnableNodeIPAM:       false,
 	}
 
-	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, loadbalancer.DeprecatedConfig{}, &option.DaemonConfig{})
+	cfg, _ := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, &option.DaemonConfig{})
 
 	var lbmaps maps.LBMaps
 	if testutils.IsPrivileged() {

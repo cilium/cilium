@@ -610,7 +610,7 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 
 	// Flush CT tables so that any entry with src port 6{0,1,2}000
-	// from previous tests with --node-port-algorithm=random
+	// from previous tests with --bpf-lb-algorithm=random
 	// won't interfere the backend selection.
 	for _, label := range []string{helpers.K8s1, helpers.K8s2} {
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)

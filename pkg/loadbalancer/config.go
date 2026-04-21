@@ -56,9 +56,6 @@ const (
 
 	LBAlgorithmName = "bpf-lb-algorithm"
 
-	// Deprecated option for setting [LBAlgorithm]
-	NodePortAlgName = "node-port-algorithm"
-
 	// LoadBalancerMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	LoadBalancerModeName = "bpf-lb-mode"
@@ -66,9 +63,6 @@ const (
 	// LoadBalancerModeAnnotation tells whether controller should check service
 	// level annotation for configuring bpf loadbalancing method (snat vs dsr).
 	LoadBalancerModeAnnotationName = "bpf-lb-mode-annotation"
-
-	// Deprecated option for setting [LoadBalancerMode]
-	NodePortModeName = "node-port-mode"
 
 	// LoadBalancerDSRDispatchName is the config option for setting the method for
 	// pushing packets to backends under DSR ("opt", "ipip", "geneve")
@@ -237,7 +231,6 @@ type UserConfig struct {
 // ConfigCell provides the [Config] and [ExternalConfig] configurations.
 var ConfigCell = cell.Group(
 	cell.Config(DefaultUserConfig),
-	cell.Config(DeprecatedConfig{}),
 	cell.Provide(
 		// Bridge options from [option.DaemonConfig] to [loadbalancer.ExternalConfig] to avoid
 		// direct dependency to DaemonConfig
@@ -264,28 +257,6 @@ func (c *Config) LoadBalancerUsesDSR() bool {
 	return c.LBMode == LBModeDSR ||
 		c.LBMode == LBModeHybrid ||
 		c.LBModeAnnotation
-}
-
-type DeprecatedConfig struct {
-	// NodePortAlg indicates which backend selection algorithm is used
-	// ("random" or "maglev")
-	NodePortAlg string `mapstructure:"node-port-algorithm"`
-
-	// NodePortMode indicates in which mode NodePort implementation should run
-	// ("snat", "dsr" or "hybrid")
-	NodePortMode string `mapstructure:"node-port-mode"`
-}
-
-func (DeprecatedConfig) Flags(flags *pflag.FlagSet) {
-	// Deprecated option for setting [LBAlgorithm]
-	flags.String(NodePortAlgName, "", "BPF load balancing algorithm (\"random\", \"maglev\")")
-	flags.MarkHidden(NodePortAlgName)
-	flags.MarkDeprecated(NodePortAlgName, "Use --"+LBAlgorithmName+" instead")
-
-	// Deprecated option for setting [LBMode]
-	flags.String(NodePortModeName, "", "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
-	flags.MarkHidden(NodePortModeName)
-	flags.MarkDeprecated(NodePortAlgName, "Use --"+LoadBalancerModeName+" instead")
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
@@ -352,7 +323,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
 // configuration for load-balancing.
-func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig DeprecatedConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
+func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
 	cfg.UserConfig = userConfig
 
 	if cfg.LBMapEntries <= 0 {
@@ -437,21 +408,9 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 		return Config{}, fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
 	}
 
-	if deprecatedConfig.NodePortAlg != "" {
-		cfg.LBAlgorithm = deprecatedConfig.NodePortAlg
-	}
-
 	if cfg.LBAlgorithm != LBAlgorithmRandom &&
 		cfg.LBAlgorithm != LBAlgorithmMaglev {
 		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LBAlgorithmName, cfg.LBAlgorithm)
-	}
-
-	if deprecatedConfig.NodePortMode != "" {
-		if cfg.LBMode != DefaultUserConfig.LBMode {
-			return Config{}, fmt.Errorf("both --%s and --%s were set. Use --%s instead.",
-				LoadBalancerModeName, NodePortModeName, LoadBalancerModeName)
-		}
-		cfg.LBMode = deprecatedConfig.NodePortMode
 	}
 
 	if cfg.LBMode != LBModeSNAT && cfg.LBMode != LBModeDSR && cfg.LBMode != LBModeHybrid {

@@ -93,7 +93,7 @@ func TestNewConfig_NodePortRange(t *testing.T) {
 			log := hivetest.Logger(t)
 			ucfg := DefaultUserConfig
 			ucfg.NodePortRange = tt.npRange
-			cfg, err := NewConfig(log, ucfg, DeprecatedConfig{}, &option.DaemonConfig{})
+			cfg, err := NewConfig(log, ucfg, &option.DaemonConfig{})
 
 			if tt.want.wantErr {
 				assert.Error(t, err)

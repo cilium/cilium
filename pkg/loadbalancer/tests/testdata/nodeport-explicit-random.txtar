@@ -1,4 +1,4 @@
-#! --bpf-lb-algorithm-annotation --node-port-algorithm=maglev --lb-test-fault-probability=0.0
+#! --bpf-lb-algorithm-annotation --bpf-lb-algorithm=maglev --lb-test-fault-probability=0.0
 
 # Add some node addresses
 db/insert node-addresses addrv4.yaml
@@ -22,7 +22,7 @@ db/cmp services services.table
 db/cmp frontends frontends.table
 
 # Check BPF maps
-# The first service uses default settings, which in this test means maglev due to --node-port-algorithm=maglev, while the second service has an explicit random annotation.
+# The first service uses default settings, which in this test means maglev due to --bpf-lb-algorithm=maglev, while the second service has an explicit random annotation.
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.expected lbmaps.actual
 

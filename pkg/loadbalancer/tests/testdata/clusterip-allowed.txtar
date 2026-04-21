@@ -1,4 +1,4 @@
-#! --bpf-lb-external-clusterip=true --node-port-algorithm=maglev
+#! --bpf-lb-external-clusterip=true --bpf-lb-algorithm=maglev
 
 # This test verifies that ClusterIP services are routable (i.e., can be accessed
 # from outside like a nodeWithoutCilium) when bpf-lb-external-clusterip is enabled.
