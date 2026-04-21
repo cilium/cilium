@@ -456,25 +456,11 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 		return Config{}, fmt.Errorf("--lb-reflector-wait-time must be greater than 0, got %s", cfg.ReflectorWaitTime)
 	}
 
-	/* FIXME:
-
-	if cfg.NodePortMode == option.NodePortModeDSR &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
-		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
+	if cfg.DSRDispatch != DSRDispatchOption &&
+		cfg.DSRDispatch != DSRDispatchIPIP &&
+		cfg.DSRDispatch != DSRDispatchGeneve {
+		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LoadBalancerDSRDispatchName, cfg.DSRDispatch)
 	}
-
-	if cfg.NodePortMode == option.NodePortModeHybrid &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
-		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
-	}
-
-	if cfg.LoadBalancerModeAnnotation &&
-		cfg.LoadBalancerDSRDispatch != option.DSRDispatchIPIP {
-		return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, cfg.LoadBalancerDSRDispatch)
-	}*/
 
 	return
 }
