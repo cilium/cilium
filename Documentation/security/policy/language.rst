@@ -974,6 +974,15 @@ query names or patterns of names (other DNS fields, such as query type, are not
 considered). This policy is effected via a DNS proxy, which is also used to
 collect IPs used to populate L3 `DNS based`_ ``toFQDNs`` rules.
 
+.. danger::
+
+   When using Layer 7 DNS policy, strongly prefer intercepting DNS traffic
+   only to the cluster DNS service, such as ``kube-dns``. Intercepting DNS
+   traffic to other resolvers broadens the trust boundary for DNS-based policy
+   decisions and may allow less-trusted DNS servers to influence the IPs
+   learned for ``toFQDNs`` rules. This recommendation aligns with the trust
+   assumption documented in :ref:`the threat model <workload_attacker_table>`.
+
 .. note::  While Layer 7 DNS policy can be applied without any other Layer 3
            rules, the presence of a Layer 7 rule (with its Layer 3 and 4
            components) will block other traffic.
@@ -1044,6 +1053,12 @@ DNS Proxy
   DNS requests, and must be specified separately. For details on how to enforce
   policy on DNS requests and configuring the DNS proxy, see `Layer 7
   Examples`_.
+
+  .. danger::
+
+   When this proxy is used together with ``toFQDNs``, the security model
+   assumes that the intercepted DNS responses come from trusted cluster DNS
+   servers; see :ref:`the threat model <workload_attacker_table>`.
 
   Only IPs in intercepted DNS responses to an application will be allowed in
   the Cilium policy rules. For a given domain name, IPs from responses to all
