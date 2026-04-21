@@ -90,8 +90,6 @@ func (e *Endpoint) UpdateLogger(fields map[string]any) {
 		e.loggerAttrs.Store(logfields.EndpointID, e.ID)
 		e.loggerAttrs.Store(logfields.ContainerID, e.GetShortContainerID())
 		e.loggerAttrs.Store(logfields.ContainerInterface, e.containerIfName)
-		e.loggerAttrs.Store(logfields.DatapathPolicyRevision, e.policyRevision)
-		e.loggerAttrs.Store(logfields.DesiredPolicyRevision, e.nextPolicyRevision)
 		e.loggerAttrs.Store(logfields.IPv4, e.GetIPv4Address())
 		e.loggerAttrs.Store(logfields.IPv6, e.GetIPv6Address())
 		e.loggerAttrs.Store(logfields.K8sPodName, e.GetK8sNamespaceAndPodName())

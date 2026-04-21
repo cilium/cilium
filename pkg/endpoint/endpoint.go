@@ -2398,9 +2398,11 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 
 	now := time.Now()
 	e.policyRevision = rev
-	e.UpdateLogger(map[string]any{
-		logfields.DatapathPolicyRevision: e.policyRevision,
-	})
+	if e.Options != nil && e.Options.IsEnabled(option.Debug) {
+		e.UpdateLogger(map[string]any{
+			logfields.DatapathPolicyRevision: e.policyRevision,
+		})
+	}
 	for ps := range e.policyRevisionSignals {
 		select {
 		case <-ps.ctx.Done():
