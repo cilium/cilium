@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -118,7 +119,7 @@ func makeGatewayCRD(gvk schema.GroupVersionKind) *apiextensionsv1.CustomResource
 // installRequiredCRDs creates the required Gateway API CRDs in the fake apiextensions client.
 func installRequiredCRDs(t *testing.T, fcs *k8sClient.FakeClientset) {
 	t.Helper()
-	for _, gvk := range requiredGVKs {
+	for _, gvk := range helpers.RequiredGVKs {
 		crd := makeGatewayCRD(gvk)
 		_, err := fcs.APIExtFakeClientset.ApiextensionsV1().CustomResourceDefinitions().Create(
 			t.Context(), crd, metav1.CreateOptions{},
@@ -173,7 +174,7 @@ func TestDiscoverCRDsWithRetry_TransientErrorThenSuccess(t *testing.T) {
 	var callCount atomic.Int32
 	fcs.APIExtFakeClientset.PrependReactor("get", "customresourcedefinitions",
 		func(action k8sTesting.Action) (bool, runtime.Object, error) {
-			if callCount.Add(1) <= int32(len(requiredGVKs)) {
+			if callCount.Add(1) <= int32(len(helpers.RequiredGVKs)) {
 				return true, nil, syscall.ECONNREFUSED
 			}
 			return false, nil, nil
@@ -188,7 +189,7 @@ func TestDiscoverCRDsWithRetry_TransientErrorThenSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, result.Enabled)
 	assert.Equal(t, cell.StatusOK, simpleHealth.Level)
-	assert.Greater(t, int(callCount.Load()), len(requiredGVKs))
+	assert.Greater(t, int(callCount.Load()), len(helpers.RequiredGVKs))
 }
 
 func TestDiscoverCRDsWithRetry_TransientErrorUntilTimeout(t *testing.T) {

@@ -63,19 +63,6 @@ var Cell = cell.Module(
 	cell.Provide(registerSecretSync),
 )
 
-var requiredGVKs = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.GatewayClassKind),
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.GatewayKind),
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.HTTPRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.GRPCRouteKind),
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.ReferenceGrantKind),
-}
-
-var optionalGVKs = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
-	mcsapiv1beta1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind),
-}
-
 // gatewayAPIPreconditions holds the result of Gateway API precondition checks.
 // This is provided privately and consumed by both initGatewayAPIController
 // and registerSecretSync to ensure consistent behavior.
@@ -130,8 +117,8 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logger *slog.Logger, health cell.Health) (*gatewayAPIPreconditions, error) {
 	logger.Info(
 		"Checking for required and optional GatewayAPI resources",
-		logfields.RequiredGVK, requiredGVKs,
-		logfields.OptionalGVK, optionalGVKs,
+		logfields.RequiredGVK, helpers.RequiredGVKs,
+		logfields.OptionalGVK, helpers.AllOptionalKinds,
 	)
 
 	// Configure exponential backoff for CRD discovery.
@@ -146,7 +133,7 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 	}
 
 	for {
-		installedKinds, err := checkCRDs(ctx, client, logger, requiredGVKs, optionalGVKs)
+		installedKinds, err := checkCRDs(ctx, client, logger, helpers.RequiredGVKs, helpers.AllOptionalKinds)
 		if err == nil {
 			health.OK("Gateway API CRDs discovered")
 			return &gatewayAPIPreconditions{

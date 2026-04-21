@@ -303,9 +303,9 @@ func Test_Conformance(t *testing.T) {
 
 			switch tt.disableServiceImport {
 			case true:
-				clientBuilder.WithScheme(testSchemeNoServiceImport())
+				clientBuilder.WithScheme(helpers.TestScheme(helpers.NoMCSOptionalKinds))
 			case false:
-				clientBuilder.WithScheme(testScheme())
+				clientBuilder.WithScheme(helpers.TestScheme(helpers.AllOptionalKinds))
 			}
 
 			// Add any required indexes here
@@ -497,7 +497,7 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 
 			objects := append([]client.Object{gw, svc, cec}, tc.objects...)
 			c := fake.NewClientBuilder().
-				WithScheme(testScheme()).
+				WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).
 				WithObjects(objects...).
 				Build()
 

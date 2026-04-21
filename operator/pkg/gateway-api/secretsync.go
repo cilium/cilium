@@ -58,7 +58,7 @@ func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandle
 }
 
 func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
-	gateways := getGatewaysForSecret(ctx, c, obj, logger)
+	gateways := helpers.GetGatewaysForSecret(ctx, c, obj, logger)
 	for _, gw := range gateways {
 		if hasMatchingController(ctx, c, controllerName, logger)(gw) {
 			return true

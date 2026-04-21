@@ -13,12 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,39 +24,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
-
-func testScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
-	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
-
-	registerGatewayAPITypesToScheme(scheme, optionalGVKs)
-
-	return scheme
-}
-
-func testSchemeNoServiceImport() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2alpha1.AddToScheme(scheme))
-	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
-
-	noMCSGVKs := []schema.GroupVersionKind{
-		gatewayv1.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
-	}
-
-	registerGatewayAPITypesToScheme(scheme, noMCSGVKs)
-
-	return scheme
-}
 
 var controllerTestFixture = []client.Object{
 	// Cilium Gateway Class
@@ -261,38 +224,9 @@ var controllerTestFixture = []client.Object{
 	},
 }
 
-var namespaceFixtures = []client.Object{
-	&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
-	},
-	&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "another-namespace",
-		},
-	},
-	&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "namespace-with-allowed-gateway-selector",
-			Labels: map[string]string{
-				"gateway": "allowed",
-			},
-		},
-	},
-	&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "namespace-with-disallowed-gateway-selector",
-			Labels: map[string]string{
-				"gateway": "disallowed",
-			},
-		},
-	},
-}
-
 func Test_hasMatchingController(t *testing.T) {
 	logger := hivetest.Logger(t)
-	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).WithObjects(controllerTestFixture...).Build()
 	fn := hasMatchingController(t.Context(), c, "io.cilium/gateway-controller", logger)
 
 	t.Run("invalid object", func(t *testing.T) {
@@ -321,7 +255,7 @@ func Test_hasMatchingController(t *testing.T) {
 
 func Test_gatewayReconcilePredicate(t *testing.T) {
 	logger := hivetest.Logger(t)
-	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
+	c := fake.NewClientBuilder().WithScheme(helpers.TestScheme(helpers.AllOptionalKinds)).WithObjects(controllerTestFixture...).Build()
 	predicate := gatewayOwnedByController(hasMatchingController(t.Context(), c, controllerName, logger))
 
 	t.Run("update keeps handoff reconcile when old gateway matched", func(t *testing.T) {
@@ -365,88 +299,6 @@ func Test_gatewayClassReconcilePredicate(t *testing.T) {
 			},
 		}))
 	})
-}
-
-func Test_getGatewaysForSecret(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
-	logger := hivetest.Logger(t)
-
-	t.Run("secret is used in gateway", func(t *testing.T) {
-		gwList := getGatewaysForSecret(t.Context(), c, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "tls-secret",
-				Namespace: "default",
-			},
-		}, logger)
-
-		require.Len(t, gwList, 1)
-		require.Equal(t, "valid-gateway", gwList[0].Name)
-	})
-
-	t.Run("secret is not used in gateway", func(t *testing.T) {
-		gwList := getGatewaysForSecret(t.Context(), c, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "tls-secret-not-used",
-				Namespace: "default",
-			},
-		}, logger)
-
-		require.Empty(t, gwList)
-	})
-}
-
-func Test_getGatewaysForNamespace(t *testing.T) {
-	c := fake.NewClientBuilder().
-		WithScheme(testScheme()).
-		WithObjects(namespaceFixtures...).
-		WithObjects(controllerTestFixture...).
-		Build()
-	logger := hivetest.Logger(t)
-
-	type args struct {
-		namespace string
-	}
-
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "with default namespace",
-			args: args{namespace: "default"},
-			want: []string{"gateway-from-all-namespaces", "gateway-from-same-namespace"},
-		},
-		{
-			name: "with another namespace",
-			args: args{namespace: "another-namespace"},
-			want: []string{"gateway-from-all-namespaces"},
-		},
-		{
-			name: "with namespace-with-allowed-gateway-selector",
-			args: args{namespace: "namespace-with-allowed-gateway-selector"},
-			want: []string{"gateway-from-all-namespaces", "gateway-with-namespaces-selector"},
-		},
-		{
-			name: "with namespace-with-disallowed-gateway-selector",
-			args: args{namespace: "namespace-with-disallowed-gateway-selector"},
-			want: []string{"gateway-from-all-namespaces"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gwList := getGatewaysForNamespace(t.Context(), c, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: tt.args.namespace,
-				},
-			}, logger)
-			names := make([]string, 0, len(gwList))
-			for _, gw := range gwList {
-				names = append(names, gw.Name)
-			}
-			require.ElementsMatch(t, tt.want, names)
-		})
-	}
 }
 
 func Test_success(t *testing.T) {
