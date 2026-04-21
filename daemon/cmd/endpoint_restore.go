@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -98,10 +99,16 @@ type endpointRestorerParams struct {
 	ConnectorConfig     connector.Config
 }
 
+type k8sWatcher interface {
+	WaitForCacheSync(resourceNames ...string)
+	GetCachedPod(namespace, name string) (*slim_corev1.Pod, error)
+}
+
 type endpointRestorer struct {
+	ctx                 context.Context
 	logger              *slog.Logger
 	stateDir            string
-	k8sWatcher          *watchers.K8sWatcher
+	k8sWatcher          k8sWatcher
 	clientset           k8sClient.Clientset
 	endpointCreator     endpointcreator.EndpointCreator
 	endpointManager     endpointmanager.EndpointManager
@@ -161,6 +168,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			restorer.ctx = ctx
 			if err := restorer.clearStaleCiliumEndpointVeths(); err != nil {
 				// log and continue
 				params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
@@ -357,8 +365,19 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 	r.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 	pod, err = r.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
 	if err != nil && k8serrors.IsNotFound(err) {
-		return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
-	} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
+		// Fall back to fetching from the API server to avoid race conditions
+		// where the informer cache has not yet synced the pod.
+		pod, err = r.clientset.Slim().CoreV1().Pods(ep.K8sNamespace).Get(r.ctx, ep.K8sPodName, metav1.GetOptions{})
+		if err != nil && k8serrors.IsNotFound(err) {
+			return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
+		} else if err != nil {
+			return fmt.Errorf("failed to get pod %s/%s from API server: %w", ep.K8sNamespace, ep.K8sPodName, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to get pod %s/%s from cache: %w", ep.K8sNamespace, ep.K8sPodName, err)
+	}
+
+	if pod.Spec.NodeName != nodeTypes.GetName() {
 		// if flag CiliumEndpointCRD is disabled,
 		// `GetCachedPod` may return endpoint has moved to another node.
 		return fmt.Errorf("Kubernetes pod %s/%s is not owned by this agent", ep.K8sNamespace, ep.K8sPodName)
