@@ -1,0 +1,163 @@
+# Verifies that a LocalRedirectPolicy using an addressMatcher does NOT
+# hijack an existing Service's frontend.
+
+hive start
+
+# kube-system/kube-dns already exists and owns 10.96.0.10:53/UDP.
+k8s/add kube-dns-service.yaml kube-dns-endpointslice.yaml
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+
+# Apply the LRP in lrp-test together with its backend pod that is not
+# yet Ready.
+k8s/add lrp-addr.yaml lrp-pod-not-ready.yaml
+db/cmp localredirectpolicies lrp.table
+db/cmp services services-with-lrp.table
+db/cmp frontends frontends-before.table
+
+# The pod becomes Ready. The frontend at 10.96.0.10:53/UDP is still
+# owned by kube-system/kube-dns, so the refuse-override path must kick
+# in and leave the frontend as a ClusterIP pointing to the kube-dns
+# endpoints.
+cp lrp-pod-not-ready.yaml lrp-pod-ready.yaml
+sed 'status: "False"' 'status: "True"' lrp-pod-ready.yaml
+k8s/update lrp-pod-ready.yaml
+db/cmp backends backends.table
+db/cmp frontends frontends-before.table
+
+# Removing the LRP tears down the pseudo-service and its backend, and
+# leaves kube-dns untouched.
+k8s/delete lrp-addr.yaml
+* db/empty localredirectpolicies
+db/cmp services services-before.table
+db/cmp frontends frontends-before.table
+db/cmp backends backends-after.table
+
+# ---
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: "lrp-test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "10.96.0.10"
+      toPorts:
+        - port: "53"
+          protocol: UDP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: lrp-test
+    toPorts:
+      - name: dns
+        port: "53"
+        protocol: UDP
+
+-- kube-dns-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+spec:
+  clusterIP: 10.96.0.10
+  clusterIPs:
+  - 10.96.0.10
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    k8s-app: kube-dns
+  sessionAffinity: None
+  type: ClusterIP
+
+-- kube-dns-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: kube-dns
+  name: kube-dns-abcde
+  namespace: kube-system
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.0.108
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker-0
+ports:
+- name: dns
+  port: 53
+  protocol: UDP
+
+-- lrp-pod-not-ready.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-test-pod
+  namespace: lrp-test
+  labels:
+    app.kubernetes.io/name: lrp-test
+spec:
+  containers:
+    - name: lrp-test
+      image: example/dns
+      ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Pending
+  podIP: 10.244.2.222
+  podIPs:
+  - ip: 10.244.2.222
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    type: Ready
+    status: "False"
+
+-- lrp.table --
+Name               Type     FrontendType      Frontends
+lrp-test/lrp-addr  address  addr-single-port  10.96.0.10:53/UDP
+
+-- services-before.table --
+Name                              Source
+kube-system/kube-dns              k8s
+
+-- services-with-lrp.table --
+Name                              Source
+kube-system/kube-dns              k8s
+lrp-test/lrp-addr:local-redirect  k8s
+
+-- frontends-before.table --
+Address             Type        ServiceName           PortName  Backends              RedirectTo  Status
+10.96.0.10:53/UDP   ClusterIP   kube-system/kube-dns  dns       10.244.0.108:53/UDP               Done
+
+-- backends.table --
+Address               Instances
+10.244.0.108:53/UDP   kube-system/kube-dns (dns)
+10.244.2.222:53/UDP   lrp-test/lrp-addr:local-redirect (dns)
+
+-- backends-after.table --
+Address               Instances
+10.244.0.108:53/UDP   kube-system/kube-dns (dns)
