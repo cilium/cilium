@@ -884,8 +884,15 @@ type replaceEndpointsEvent struct {
 
 func (replaceEndpointsEvent) isEvent() {}
 
-func endpointsEvents(log *slog.Logger, c client.Clientset) stream.Observable[event] {
-	lw := k8sUtils.ListerWatcherFromTyped(c.Slim().DiscoveryV1().EndpointSlices(""))
+func endpointsEvents(log *slog.Logger, c client.Clientset, cfg k8s.ConfigParams) (stream.Observable[event], error) {
+	optsModifier, err := utils.GetEndpointSliceListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
+	if err != nil {
+		return nil, err
+	}
+	lw := k8sUtils.ListerWatcherWithModifiers(
+		k8sUtils.ListerWatcherFromTyped(c.Slim().DiscoveryV1().EndpointSlices("")),
+		optsModifier,
+	)
 	return stream.Map(
 		k8s.ListerWatcherToObservable(lw),
 		func(ev k8s.CacheStoreEvent) event {
@@ -909,7 +916,7 @@ func endpointsEvents(log *slog.Logger, c client.Clientset) stream.Observable[eve
 			default:
 				panic(fmt.Sprintf("unexpected k8s.CacheStoreEventKind: %#v", ev.Kind))
 			}
-		})
+		}), nil
 }
 
 func serviceEvents(cs client.Clientset, cfg k8s.ConfigParams) (stream.Observable[event], error) {
@@ -953,9 +960,13 @@ func newEventStream(log *slog.Logger, cs client.Clientset, cfg k8s.ConfigParams)
 	if err != nil {
 		return nil, err
 	}
+	epsEvents, err := endpointsEvents(log, cs, cfg)
+	if err != nil {
+		return nil, err
+	}
 	return joinObservables(
 		svcEvents,
-		endpointsEvents(log, cs),
+		epsEvents,
 	), nil
 }
 
