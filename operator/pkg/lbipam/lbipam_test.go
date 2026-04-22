@@ -2092,6 +2092,92 @@ func TestPoolExtendWithPendingServices(t *testing.T) {
 	}
 }
 
+// TestPoolShrinkWithPendingServices tests that shrinking a pool does not reassign an IP
+// that is still valid for a service with pending requests.
+func TestPoolShrinkWithPendingServices(t *testing.T) {
+	poolA := &cilium_api_v2.CiliumLoadBalancerIPPool{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:              "pool-a",
+			UID:               poolAUID,
+			CreationTimestamp: meta_v1.Date(2022, 10, 16, 12, 00, 00, 0, time.UTC),
+		},
+		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
+			Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+				{
+					Start: "10.0.10.10",
+					Stop:  "10.0.10.11",
+				},
+			},
+		},
+	}
+	fixture := mkTestFixture(t, true, true)
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+	svcA = fixture.GetSvc("default", "service-a")
+	if len(svcA.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service A to receive exactly one ingress IP")
+	}
+
+	preferDualStack := slim_core_v1.IPFamilyPolicyPreferDualStack
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilyPolicy: &preferDualStack,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+				slim_core_v1.IPv6Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+	svcB = fixture.GetSvc("default", "service-b")
+	if len(svcB.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service B to receive exactly one ingress IP")
+	}
+
+	serviceBIP := svcB.Status.LoadBalancer.Ingress[0].IP
+
+	poolA = fixture.GetPool("pool-a")
+	poolA.Spec.Blocks = []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+		{
+			Start: serviceBIP,
+			Stop:  serviceBIP,
+		},
+	}
+	fixture.UpsertPool(t, poolA)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	svcB = fixture.GetSvc("default", "service-b")
+
+	if len(svcA.Status.LoadBalancer.Ingress) != 0 {
+		t.Fatal("Expected service A to lose its ingress after its IP was removed from the pool")
+	}
+
+	if len(svcB.Status.LoadBalancer.Ingress) != 1 {
+		t.Fatal("Expected service B to keep exactly one ingress IP")
+	}
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP != serviceBIP {
+		t.Fatalf("Expected service B to keep ingress IP %q, got %q", serviceBIP, svcB.Status.LoadBalancer.Ingress[0].IP)
+	}
+}
+
 // TestLBIPAM_serviceIPFamilyRequest tests that the correct IP address families are requested in the different
 // combinations of service spec fields and enabled families in the cluster.
 func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
