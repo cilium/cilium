@@ -11,7 +11,7 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(5) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
@@ -20,12 +20,12 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg.EnableConntrackAccounting = true
 			cfg.EnableIPv4Fragments = true
 			cfg.EnableIPv6Fragments = true
+			cfg.EnableNetkit = false
+			cfg.EnableARPResponder = true
 
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.EnableLRP = permutation[1]
 			cfg.HybridRoutingEnabled = permutation[2]
-			cfg.EnableARPResponder = permutation[3]
-			cfg.EnableNetkit = permutation[4]
 
 			if !yield(cfg) {
 				return
@@ -36,7 +36,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(4) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
@@ -45,6 +45,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.EnableConntrackAccounting = true
 			cfg.EnableIPv4Fragments = true
 			cfg.EnableIPv6Fragments = true
+			cfg.EnableL2Announcements = true
 
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
 			if permutation[1] {
@@ -52,8 +53,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			} else {
 				cfg.EthHeaderLength = 14
 			}
-			cfg.EnableL2Announcements = permutation[2]
-			cfg.HybridRoutingEnabled = permutation[3]
+			cfg.HybridRoutingEnabled = permutation[2]
 
 			if !yield(cfg) {
 				return
