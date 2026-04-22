@@ -278,6 +278,7 @@
 /.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/scale-test-egw.yaml @cilium/egress-gateway @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*reusable-greetings*.yml @cilium/github-sec @cilium/community 
 /.gitignore @cilium/contributing
 /.golangci.yaml @cilium/ci-structure
 /.mailmap @cilium/release-managers
