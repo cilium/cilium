@@ -41,10 +41,11 @@ type testParams struct {
 
 	LocalNodeStore *node.LocalNodeStore
 
-	ServiceTable  statedb.Table[*loadbalancer.Service]
-	FrontendTable statedb.Table[*loadbalancer.Frontend]
-	BackendTable  statedb.Table[*loadbalancer.Backend]
-	Nodes         statedb.Table[*node.LocalNode]
+	NodeAddressTable statedb.RWTable[tables.NodeAddress]
+	ServiceTable     statedb.Table[*loadbalancer.Service]
+	FrontendTable    statedb.Table[*loadbalancer.Frontend]
+	BackendTable     statedb.Table[*loadbalancer.Backend]
+	Nodes            statedb.Table[*node.LocalNode]
 }
 
 func fixture(t testing.TB) (p testParams) {
@@ -409,6 +410,81 @@ func TestWriter_Initializers(t *testing.T) {
 	require.NotEmpty(t, p.FrontendTable.PendingInitializers(firstTxn), "expected frontends to be uninitialized")
 	require.NotEmpty(t, p.BackendTable.PendingInitializers(firstTxn), "expected backends to be uninitialized")
 	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
+}
+
+func TestWriter_WildcardAddressReconciler(t *testing.T) {
+	p := fixture(t)
+
+	wildcardName := loadbalancer.NewServiceName("test", "wildcard")
+	otherName := loadbalancer.NewServiceName("test", "other")
+	wildcardAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(200), 2000, loadbalancer.ScopeExternal)
+	otherAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(201), 2001, loadbalancer.ScopeInternal)
+
+	// Add one wildcard-candidate frontend and one non-candidate frontend.
+	wtxn := p.Writer.WriteTxn()
+	require.NoError(t, p.Writer.UpsertServiceAndFrontends(
+		wtxn,
+		&loadbalancer.Service{Name: wildcardName, Source: source.Kubernetes},
+		loadbalancer.FrontendParams{
+			ServiceName: wildcardName,
+			Address:     wildcardAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: wildcardAddr.Port(),
+		},
+	))
+	require.NoError(t, p.Writer.UpsertServiceAndFrontends(
+		wtxn,
+		&loadbalancer.Service{Name: otherName, Source: source.Kubernetes},
+		loadbalancer.FrontendParams{
+			ServiceName: otherName,
+			Address:     otherAddr,
+			Type:        loadbalancer.SVCTypeClusterIP,
+			ServicePort: otherAddr.Port(),
+		},
+	))
+	wtxn.Commit()
+
+	// Mark both frontends as done so the reconciler has to push them back to pending.
+	wtxn = p.Writer.WriteTxn()
+	frontendTable, ok := any(p.FrontendTable).(statedb.RWTable[*loadbalancer.Frontend])
+	require.True(t, ok)
+	wildcardFE, _, found := p.FrontendTable.Get(wtxn, loadbalancer.FrontendByAddress(wildcardAddr))
+	require.True(t, found)
+	otherFE, _, found := p.FrontendTable.Get(wtxn, loadbalancer.FrontendByAddress(otherAddr))
+	require.True(t, found)
+
+	wildcardFE = wildcardFE.Clone()
+	wildcardFE.Status = reconciler.StatusDone()
+	_, _, err := frontendTable.Insert(wtxn, wildcardFE)
+	require.NoError(t, err)
+
+	otherFE = otherFE.Clone()
+	otherFE.Status = reconciler.StatusDone()
+	_, _, err = frontendTable.Insert(wtxn, otherFE)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	// Change the node-address set to trigger the wildcard address reconciler.
+	ntxn := p.DB.WriteTxn(p.NodeAddressTable)
+	_, _, err = p.NodeAddressTable.Insert(ntxn, tables.NodeAddress{
+		Addr:       intToAddr(250).Addr(),
+		Primary:    true,
+		DeviceName: "eth0",
+	})
+	require.NoError(t, err)
+	ntxn.Commit()
+
+	// Verify that only the wildcard candidate gets requeued to pending.
+	require.Eventually(t, func() bool {
+		txn := p.DB.ReadTxn()
+		wildcardFE, _, found := p.FrontendTable.Get(txn, loadbalancer.FrontendByAddress(wildcardAddr))
+		if !found || wildcardFE.Status.Kind != reconciler.StatusKindPending {
+			return false
+		}
+
+		otherFE, _, found := p.FrontendTable.Get(txn, loadbalancer.FrontendByAddress(otherAddr))
+		return found && otherFE.Status.Kind == reconciler.StatusKindDone
+	}, 5*time.Second, 100*time.Millisecond)
 }
 
 func TestWriter_SetBackends(t *testing.T) {

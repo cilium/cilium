@@ -41,4 +41,8 @@ var Cell = cell.Module(
 	// Register a background job to re-reconcile NodePort and HostPort frontends when
 	// the node addresses change.
 	cell.Invoke(registerNodePortAddressReconciler),
+
+	// Register a background job to re-reconcile wildcard-capable frontends when
+	// the node addresses change.
+	cell.Invoke(registerWildcardAddressReconciler),
 )
