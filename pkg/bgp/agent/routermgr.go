@@ -32,18 +32,21 @@ type BGPRouterManager interface {
 	// instances of BGP daemon running locally, then peers can be
 	// differentiated based on local AS number.
 	//
-	// This is a legacy method used by the REST API and will be replaced in
-	// the future.
+	// Deprecated: This is a legacy method used by the REST API and will be removed in the future.
 	GetPeersLegacy(ctx context.Context) ([]*models.BgpPeer, error)
 
 	// GetRoutesLegacy fetches BGP routes from underlying routing daemon's RIBs.
+	//
+	// Deprecated: This is a legacy method used by the REST API and will be removed in the future.
 	GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 
 	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
 	GetRoutes(ctx context.Context, req *GetRoutesRequest) (*GetRoutesResponse, error)
 
-	// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
-	GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
+	// GetRoutePoliciesLegacy fetches BGP routing policies from underlying routing daemon.
+	//
+	// Deprecated: This is a legacy method used by the REST API and will be removed in the future.
+	GetRoutePoliciesLegacy(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 
 	// Stop will stop all BGP instances and clean up local state.
 	Stop(ctx cell.HookContext) error

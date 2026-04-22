@@ -36,13 +36,13 @@ func (m *MockNodeLister) Get(name string) (*v1.Node, error) {
 var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
-	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
-	GetPeers_           func(ctx context.Context, req *agent.GetPeersRequest) (*agent.GetPeersResponse, error)
-	GetPeersLegacy_     func(ctx context.Context) ([]*models.BgpPeer, error)
-	GetRoutes_          func(ctx context.Context, req *agent.GetRoutesRequest) (*agent.GetRoutesResponse, error)
-	GetRoutesLegacy_    func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
-	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
-	Stop_               func(cell.HookContext) error
+	ReconcileInstances_     func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
+	GetPeers_               func(ctx context.Context, req *agent.GetPeersRequest) (*agent.GetPeersResponse, error)
+	GetPeersLegacy_         func(ctx context.Context) ([]*models.BgpPeer, error)
+	GetRoutes_              func(ctx context.Context, req *agent.GetRoutesRequest) (*agent.GetRoutesResponse, error)
+	GetRoutesLegacy_        func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	GetRoutePoliciesLegacy_ func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
+	Stop_                   func(cell.HookContext) error
 }
 
 func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {
@@ -65,8 +65,8 @@ func (m *MockBGPRouterManager) GetRoutesLegacy(ctx context.Context, params resta
 	return m.GetRoutesLegacy_(ctx, params)
 }
 
-func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
-	return m.GetRoutePolicies_(ctx, params)
+func (m *MockBGPRouterManager) GetRoutePoliciesLegacy(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+	return m.GetRoutePoliciesLegacy_(ctx, params)
 }
 
 func (m *MockBGPRouterManager) Stop(ctx cell.HookContext) error {

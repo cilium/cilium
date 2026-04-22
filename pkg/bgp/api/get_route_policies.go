@@ -29,7 +29,7 @@ func (h *getRoutePoliciesHandler) Handle(params restapi.GetBgpRoutePoliciesParam
 		return api.Error(http.StatusNotImplemented, agent.ErrBGPControlPlaneDisabled)
 	}
 
-	policies, err := h.controller.BGPMgr.GetRoutePolicies(params.HTTPRequest.Context(), params)
+	policies, err := h.controller.BGPMgr.GetRoutePoliciesLegacy(params.HTTPRequest.Context(), params)
 	if err != nil {
 		return api.Error(http.StatusInternalServerError, fmt.Errorf("failed to get route policies: %w", err))
 	}
