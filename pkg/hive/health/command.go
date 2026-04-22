@@ -4,6 +4,7 @@
 package health
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -80,6 +81,11 @@ func healthTreeCommand(db *statedb.DB, table statedb.Table[types.Status]) script
 
 			ss := getHealth(db, table, prefix, match, levels)
 			healthPkg.GetAndFormatModulesHealth(w, ss, true, "")
+
+			if (prefix != "" || match != "") && len(ss) == 0 {
+				return nil, errors.New("no health status found for the filter")
+			}
+
 			return nil, nil
 		},
 	)
