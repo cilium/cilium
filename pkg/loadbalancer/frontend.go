@@ -103,6 +103,17 @@ func (fe *Frontend) Clone() *Frontend {
 	return &fe2
 }
 
+// IsWildcardCandidate returns true if the frontend is structurally eligible
+// to parent a wildcard service entry.
+func IsWildcardCandidate(fe *Frontend) bool {
+	switch fe.Type {
+	case SVCTypeLoadBalancer, SVCTypeClusterIP:
+		return fe.Address.Scope() == ScopeExternal
+	default:
+		return false
+	}
+}
+
 func (fe *Frontend) TableHeader() []string {
 	return []string{
 		"Address",
