@@ -946,6 +946,13 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 }
 
 func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
+	// Propagate --namespace-labels / --namespace-annotations onto the
+	// CCNP helper namespaces so that cluster-wide policy admission
+	// controllers (e.g. Pod Security admission) treat them the same as
+	// the main test namespace created by deployNamespace. Without this,
+	// the ccnp1/ccnp2 namespaces are created without the caller's
+	// labels and the Pods inside fail to schedule under restrictive
+	// policy (see https://github.com/cilium/cilium-cli/issues/3173).
 	namespaceConfigs := []struct {
 		name string
 		obj  *corev1.Namespace
@@ -954,7 +961,9 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 			name: "cilium-test-ccnp1",
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp1",
+					Name:        "cilium-test-ccnp1",
+					Annotations: ct.params.NamespaceAnnotations,
+					Labels:      ct.params.NamespaceLabels,
 				},
 			},
 		},
@@ -962,7 +971,9 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 			name: "cilium-test-ccnp2",
 			obj: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cilium-test-ccnp2",
+					Name:        "cilium-test-ccnp2",
+					Annotations: ct.params.NamespaceAnnotations,
+					Labels:      ct.params.NamespaceLabels,
 				},
 			},
 		},
