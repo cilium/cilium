@@ -113,3 +113,7 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 		panic(fmt.Sprintf("Tried to get a concrete type that is not implemented, %s", schemaType.Kind))
 	}
 }
+
+func IsValidGammaService(svc *corev1.Service) bool {
+	return svc.Spec.Type == corev1.ServiceTypeClusterIP
+}
