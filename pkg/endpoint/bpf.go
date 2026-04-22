@@ -38,16 +38,11 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/cilium/cilium/pkg/version"
 )
 
 const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 330 * time.Second
-
-	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
-	// base64 form.
-	ciliumCHeaderPrefix = "CILIUM_BASE64_"
 )
 
 var (
@@ -84,7 +79,7 @@ func (e *Endpoint) callsMapPath() string {
 }
 
 // writeInformationalComments writes annotations to the specified writer,
-// including a base64 encoding of the endpoint object, and human-readable
+// including information about the endpoint, and human-readable
 // strings describing the configuration of the datapath.
 //
 // For configuration of actual datapath behavior, see WriteEndpointConfig().
@@ -95,22 +90,6 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 
 	fmt.Fprint(fw, "/*\n")
 	fmt.Fprintln(fw, " * This file is not using during compilation of endpoint programs.")
-
-	epStr64, err := e.base64()
-	if err == nil {
-		var verBase64 string
-		verBase64, err = version.Base64()
-		if err == nil {
-			// Current versions ignore the comment, but we need to retain it
-			// so that downgrades work.
-			fmt.Fprintln(fw, " * The line below is retained for backwards compatibility only.")
-			fmt.Fprintf(fw, " * %s%s:%s\n * \n", ciliumCHeaderPrefix,
-				verBase64, epStr64)
-		}
-	}
-	if err != nil {
-		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
-	}
 
 	if cid := e.GetContainerID(); cid == "" {
 		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.dockerNetworkID)

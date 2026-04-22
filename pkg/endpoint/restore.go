@@ -4,14 +4,10 @@
 package endpoint
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/netip"
 	"os"
@@ -78,7 +74,7 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 			logfields.Path, epDir,
 		)
 
-		state, err := findEndpointState(scopedLogger, epDir)
+		state, err := findEndpointState(epDir)
 		if err != nil {
 			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
 			failed++
@@ -113,51 +109,8 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 
 // findEndpointState finds the JSON representation of an endpoint's state in
 // a directory.
-//
-// It prefers reading from the endpoint state JSON file and falls back to
-// reading from the header.
-func findEndpointState(logger *slog.Logger, dir string) ([]byte, error) {
-	state, err := os.ReadFile(filepath.Join(dir, common.EndpointStateFileName))
-	if err == nil {
-		logger.Debug("Restore from JSON file")
-		return state, nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-
-	// Fall back to reading state from the C header.
-	// Remove this at some point in the far future.
-	f, err := os.Open(filepath.Join(dir, common.CHeaderFileName))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	logger.Debug("Restore from C header file")
-
-	br := bufio.NewReader(f)
-	var line []byte
-	for {
-		b, err := br.ReadBytes('\n')
-		if errors.Is(err, io.EOF) {
-			return nil, os.ErrNotExist
-		}
-		if err != nil {
-			return nil, err
-		}
-		if bytes.Contains(b, []byte(ciliumCHeaderPrefix)) {
-			line = b
-			break
-		}
-	}
-
-	epSlice := bytes.Split(line, []byte{':'})
-	if len(epSlice) != 2 {
-		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", line)
-	}
-
-	return base64.StdEncoding.AppendDecode(nil, epSlice[1])
+func findEndpointState(dir string) ([]byte, error) {
+	return os.ReadFile(filepath.Join(dir, common.EndpointStateFileName))
 }
 
 // partitionEPDirNamesByRestoreStatus partitions the provided list of directory

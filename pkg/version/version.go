@@ -4,8 +4,6 @@
 package version
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"runtime"
@@ -70,15 +68,6 @@ func FromString(versionString string) CiliumVersion {
 var GetCiliumVersion = sync.OnceValue(func() CiliumVersion {
 	return FromString(Version)
 })
-
-// Base64 returns the version in a base64 format.
-func Base64() (string, error) {
-	jsonBytes, err := json.Marshal(Version)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(jsonBytes), nil
-}
 
 // ParseKernelVersion converts a version string to semver.Version.
 func ParseKernelVersion(ver string) (semver.Version, error) {

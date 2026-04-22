@@ -5,7 +5,6 @@ package endpoint
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -941,15 +940,6 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 		}
 	}
 	e.UpdateLogger(nil)
-}
-
-// base64 returns the endpoint in a base64 format.
-func (e *Endpoint) base64() (string, error) {
-	jsonBytes, err := e.MarshalJSON()
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(jsonBytes), nil
 }
 
 // FilterEPDir returns a list of directories' names that possible belong to an endpoint.
