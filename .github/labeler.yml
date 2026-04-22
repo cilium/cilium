@@ -28,3 +28,9 @@ sig/policy:
     - pkg/identity/**
     - pkg/proxy/dns.go
     - test/**/net_policies.go
+feature/k8s-gateway-api:
+  - changed-files:
+      - Documentation/network/servicemesh/gateway-api/**
+      - operator/pkg/gateway-api/**
+      - operator/pkg/model/**
+      - vendor/sigs.k8s.io/gateway-api/**
