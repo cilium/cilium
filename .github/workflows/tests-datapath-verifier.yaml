@@ -234,6 +234,7 @@ jobs:
   merge-and-diff:
     name: Merge & Diff
     needs: setup-and-test
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout pull request branch (NOT TRUSTED)
