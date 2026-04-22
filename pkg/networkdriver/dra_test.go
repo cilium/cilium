@@ -488,18 +488,23 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 	assert.Equal(t, "Ready", claim.Status.Devices[0].Conditions[0].Type)
 	assert.Equal(t, metav1.ConditionTrue, claim.Status.Devices[0].Conditions[0].Status)
 
-	curLocalNode, err := cs.CiliumFakeClientset.CiliumV2().CiliumNodes().Get(t.Context(), localNodeName, metav1.GetOptions{})
-	assert.NoError(t, err)
-
-	assert.Equal(t, []ipamtypes.IPAMPoolRequest{
-		{
-			Pool: ipPoolName,
-			Needed: ipamtypes.IPAMPoolDemand{
-				IPv4Addrs: 1,
-				IPv6Addrs: 1,
+	var curLocalNode *v2.CiliumNode
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		var err error
+		curLocalNode, err = cs.CiliumFakeClientset.CiliumV2().CiliumNodes().Get(t.Context(), localNodeName, metav1.GetOptions{})
+		assert.NoError(c, err)
+		assert.Equal(c, []ipamtypes.IPAMPoolRequest{
+			{
+				Pool: ipPoolName,
+				Needed: ipamtypes.IPAMPoolDemand{
+					IPv4Addrs: 1,
+					IPv6Addrs: 1,
+				},
 			},
-		},
-	}, curLocalNode.Spec.IPAM.ResourcePools.Requested)
+		}, curLocalNode.Spec.IPAM.ResourcePools.Requested)
+		assert.Len(c, curLocalNode.Spec.IPAM.ResourcePools.Allocated, 1)
+	}, 10*time.Second, 100*time.Millisecond)
+	assert.NotNil(t, curLocalNode)
 	assert.Len(t, curLocalNode.Spec.IPAM.ResourcePools.Allocated, 1)
 	assert.Equal(t, ipPoolName, curLocalNode.Spec.IPAM.ResourcePools.Allocated[0].Pool)
 
