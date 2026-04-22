@@ -201,12 +201,12 @@ type Route struct {
 
 type DeviceConfig struct {
 	NetworkConfig string       `json:"networkConfig,omitempty"`
-	IPv4Addr      netip.Prefix `json:"ipv4Addr"`
-	IPv6Addr      netip.Prefix `json:"ipv6Addr"`
-	IPPool        string       `json:"ip-pool"`
-	Routes        []Route      `json:"routes"`
-	Vlan          uint16
-	PodIfName     string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+	IPv4Addr      netip.Prefix `json:"ipv4Addr,omitempty"`
+	IPv6Addr      netip.Prefix `json:"ipv6Addr,omitempty"`
+	IPPool        string       `json:"ip-pool,omitempty"`
+	Routes        []Route      `json:"routes,omitempty"`
+	Vlan          uint16       `json:"vlan,omitempty"`
+	PodIfName     string       `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 }
 
 func (d *DeviceConfig) Empty() bool {
