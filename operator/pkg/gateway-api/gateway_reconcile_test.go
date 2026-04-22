@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
@@ -31,8 +32,9 @@ import (
 )
 
 var (
-	gatewayv1APIVersion = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
-	gatewayTypeMeta     = metav1.TypeMeta{
+	gatewayv1APIVersion       = gatewayv1.GroupVersion.Group + "/" + gatewayv1.GroupVersion.Version
+	gatewayv1alpha2APIVersion = gatewayv1alpha2.GroupVersion.Group + "/" + gatewayv1alpha2.GroupVersion.Version
+	gatewayTypeMeta           = metav1.TypeMeta{
 		Kind:       "Gateway",
 		APIVersion: gatewayv1APIVersion,
 	}
@@ -46,7 +48,7 @@ var (
 	}
 	tlsRouteTypeMeta = metav1.TypeMeta{
 		Kind:       "TLSRoute",
-		APIVersion: gatewayv1APIVersion,
+		APIVersion: gatewayv1alpha2APIVersion,
 	}
 	backendTLSPolicyTypeMeta = metav1.TypeMeta{
 		Kind:       "BackendTLSPolicy",
@@ -293,7 +295,7 @@ func Test_Conformance(t *testing.T) {
 				WithStatusSubresource(&corev1.Namespace{}).
 				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
 				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
-				WithStatusSubresource(&gatewayv1.TLSRoute{}).
+				WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
 				WithStatusSubresource(&gatewayv1.Gateway{}).
 				WithStatusSubresource(&gatewayv1.GatewayClass{}).
 				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
@@ -309,7 +311,7 @@ func Test_Conformance(t *testing.T) {
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
 			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 
 			c := clientBuilder.Build()
 
@@ -325,7 +327,7 @@ func Test_Conformance(t *testing.T) {
 			require.NoError(t, err)
 
 			// Reconcile all related TLSRoute objects
-			tlsrList := &gatewayv1.TLSRouteList{}
+			tlsrList := &gatewayv1alpha2.TLSRouteList{}
 			err = c.List(t.Context(), tlsrList)
 			require.NoError(t, err)
 
@@ -383,11 +385,11 @@ func Test_Conformance(t *testing.T) {
 			}
 
 			for _, tlsr := range tlsrList.Items {
-				actualTLSR := &gatewayv1.TLSRoute{}
+				actualTLSR := &gatewayv1alpha2.TLSRoute{}
 				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
 				actualTLSR.TypeMeta = tlsRouteTypeMeta
 				require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
-				expectedTLSR := &gatewayv1.TLSRoute{}
+				expectedTLSR := &gatewayv1alpha2.TLSRoute{}
 				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
 				require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
 			}

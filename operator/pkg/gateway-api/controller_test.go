@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -55,7 +56,7 @@ func testSchemeNoServiceImport() *runtime.Scheme {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
 	noMCSGVKs := []schema.GroupVersionKind{
-		gatewayv1.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
+		gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
 	}
 
 	registerGatewayAPITypesToScheme(scheme, noMCSGVKs)
@@ -799,8 +800,8 @@ func Test_onlyStatusChanged(t *testing.T) {
 			name: "no change in TLSRoute status",
 			args: args{
 				evt: event.UpdateEvent{
-					ObjectOld: &gatewayv1.TLSRoute{},
-					ObjectNew: &gatewayv1.TLSRoute{},
+					ObjectOld: &gatewayv1alpha2.TLSRoute{},
+					ObjectNew: &gatewayv1alpha2.TLSRoute{},
 				},
 			},
 			expected: false,
@@ -809,9 +810,9 @@ func Test_onlyStatusChanged(t *testing.T) {
 			name: "change in TLSRoute status",
 			args: args{
 				evt: event.UpdateEvent{
-					ObjectOld: &gatewayv1.TLSRoute{},
-					ObjectNew: &gatewayv1.TLSRoute{
-						Status: gatewayv1.TLSRouteStatus{
+					ObjectOld: &gatewayv1alpha2.TLSRoute{},
+					ObjectNew: &gatewayv1alpha2.TLSRoute{
+						Status: gatewayv1alpha2.TLSRouteStatus{
 							RouteStatus: gatewayv1.RouteStatus{
 								Parents: []gatewayv1.RouteParentStatus{
 									{
@@ -841,8 +842,8 @@ func Test_onlyStatusChanged(t *testing.T) {
 			name: "only change LastTransitionTime in TLSRoute status",
 			args: args{
 				evt: event.UpdateEvent{
-					ObjectOld: &gatewayv1.TLSRoute{
-						Status: gatewayv1.TLSRouteStatus{
+					ObjectOld: &gatewayv1alpha2.TLSRoute{
+						Status: gatewayv1alpha2.TLSRouteStatus{
 							RouteStatus: gatewayv1.RouteStatus{
 								Parents: []gatewayv1.RouteParentStatus{
 									{
@@ -864,8 +865,8 @@ func Test_onlyStatusChanged(t *testing.T) {
 							},
 						},
 					},
-					ObjectNew: &gatewayv1.TLSRoute{
-						Status: gatewayv1.TLSRouteStatus{
+					ObjectNew: &gatewayv1alpha2.TLSRoute{
+						Status: gatewayv1alpha2.TLSRouteStatus{
 							RouteStatus: gatewayv1.RouteStatus{
 								Parents: []gatewayv1.RouteParentStatus{
 									{

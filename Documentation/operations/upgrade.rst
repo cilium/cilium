@@ -377,14 +377,6 @@ from Cilium.
   ``hubble-redact-kafka-apikey`` agent flag have been removed as part of
   dropping Kafka support.
 
-* The previously deprecated and ignored ``--ces-slice-mode`` operator flag has been removed.
-
-* The previously deprecated ``--node-port-algorithm`` agent flag has been removed
-  in favor of ``--bpf-lb-algorithm`` (``loadBalancer.algorithm`` Helm value).
-
-* The previously deprecated ``--node-port-mode`` agent flag has been removed
-  in favor of the ``--bpf-lb-mode`` (``loadBalancer.mode`` Helm value).
-
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 

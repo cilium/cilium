@@ -49,4 +49,3 @@
 "cmdref/cilium-dbg_policy_validate.md" "operations/upgrade.rst"
 "security/policy/language.rst" "security/policy/index.rst"
 "security/kafka.rst" "security/index.rst"
-"network/pod-mac-address.rst" "network/pod-annotations.rst"

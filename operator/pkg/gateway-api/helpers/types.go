@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
 
@@ -101,9 +102,9 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 
 	switch kind {
 	case TLSRouteKind:
-		return &gatewayv1.TLSRoute{}
+		return &gatewayv1alpha2.TLSRoute{}
 	case TLSRouteListKind:
-		return &gatewayv1.TLSRouteList{}
+		return &gatewayv1alpha2.TLSRouteList{}
 	case ServiceImportKind:
 		return &mcsapiv1beta1.ServiceImport{}
 	case ServiceImportListKind:

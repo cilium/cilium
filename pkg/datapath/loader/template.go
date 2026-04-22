@@ -109,7 +109,7 @@ func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
 	return templatePolicyVerdictFilter
 }
 
-func (*templateCfg) GetRTInfo() uint32 {
+func (*templateCfg) GetFibTableID() uint32 {
 	return 0
 }
 

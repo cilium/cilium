@@ -119,7 +119,6 @@ type EndpointFrontend interface {
 	GetIfIndex() int
 	GetParentIfIndex() int
 	GetID() uint64
-	GetRTInfo() uint32
 	IPv4Address() netip.Addr
 	IPv6Address() netip.Addr
 	GetIdentity() identity.NumericIdentity
@@ -169,7 +168,6 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 		NodeMAC:       nodeMAC,
 		SecID:         e.GetIdentity().Uint32(), // Host byte-order
 		ParentIfIndex: uint32(e.GetParentIfIndex()),
-		RTInfo:        e.GetRTInfo(),
 	}
 
 	if e.IsAtHostNS() {
@@ -191,11 +189,12 @@ type pad2uint32 [2]uint32
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/eps.h>
 type EndpointInfo struct {
-	IfIndex       uint32        `align:"ifindex"`
-	Unused        uint16        `align:"unused"`
-	LxcID         uint16        `align:"lxc_id"`
-	Flags         uint32        `align:"flags"`
-	RTInfo        uint32        `align:"rt_info"`
+	IfIndex uint32 `align:"ifindex"`
+	Unused  uint16 `align:"unused"`
+	LxcID   uint16 `align:"lxc_id"`
+	Flags   uint32 `align:"flags"`
+	// go alignment
+	_             uint32
 	MAC           mac.Uint64MAC `align:"mac"`
 	NodeMAC       mac.Uint64MAC `align:"node_mac"`
 	SecID         uint32        `align:"sec_id"`
@@ -228,7 +227,7 @@ func (v *EndpointInfo) String() string {
 		return "(localhost)"
 	}
 
-	return fmt.Sprintf("id=%-5d sec_id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s parent_ifindex=%-3d rt_info:%d",
+	return fmt.Sprintf("id=%-5d sec_id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s parent_ifindex=%-3d",
 		v.LxcID,
 		v.SecID,
 		v.Flags,
@@ -236,7 +235,6 @@ func (v *EndpointInfo) String() string {
 		v.MAC,
 		v.NodeMAC,
 		v.ParentIfIndex,
-		v.RTInfo,
 	)
 }
 

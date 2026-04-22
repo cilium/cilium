@@ -461,7 +461,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		CiliumEndpointUID:        e.ciliumEndpointUID,
 		Properties:               e.properties,
 		NetnsCookie:              e.NetNsCookie,
-		RTInfo:                   e.rtInfo,
+		FIBTableID:               e.fibTableID,
 	}
 }
 
@@ -589,9 +589,8 @@ type serializableEndpoint struct {
 	// NetnsCookie is the network namespace cookie of the Endpoint.
 	NetnsCookie uint64
 
-	// RTInfo is a routing domain identifier, typically a FIB table ID, used
-	// for pod egress routing.
-	RTInfo uint32
+	// FIBTableID is the FIB routing table ID for egress lookups.
+	FIBTableID uint32
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -655,5 +654,5 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 		ep.properties = map[string]any{}
 	}
 	ep.NetNsCookie = r.NetnsCookie
-	ep.rtInfo = r.RTInfo
+	ep.fibTableID = r.FIBTableID
 }

@@ -17,8 +17,6 @@
 #define ENCAP_IFINDEX 42
 #define TUNNEL_MODE
 
-#define FRONTEND_PORT		__bpf_htons(80)
-
 #define CLIENT_IP v4_pod_one
 #define CLIENT_PORT __bpf_htons(111)
 
@@ -45,7 +43,8 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 {
 	struct geneve_dsr_opt4 *gopt = opt;
 
-	set_geneve_dsr_opt4(FRONTEND_PORT, 0, gopt);
+	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
+	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
 	return size;
 }
 

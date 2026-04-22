@@ -48,8 +48,7 @@ type LoadTimeConfig interface {
 	// GetPropertyValue returns the endpoint property value for this key.
 	GetPropertyValue(key string) any
 
-	// GetRTInfo returns the routing domain info for the pod.
-	GetRTInfo() uint32
+	GetFibTableID() uint32
 
 	// RequireARPPassthrough returns true if the datapath must implement
 	// ARP passthrough for this endpoint

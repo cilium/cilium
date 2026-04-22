@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
@@ -25,8 +27,8 @@ type TLSRouteInput struct {
 	Ctx      context.Context
 	Logger   *slog.Logger
 	Client   client.Client
-	Grants   *gatewayv1.ReferenceGrantList
-	TLSRoute *gatewayv1.TLSRoute
+	Grants   *gatewayv1beta1.ReferenceGrantList
+	TLSRoute *gatewayv1alpha2.TLSRoute
 
 	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
 }
@@ -53,7 +55,7 @@ func (t *TLSRouteInput) SetAllParentCondition(condition metav1.Condition) {
 	}
 }
 
-func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
+func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range t.TLSRoute.Status.RouteStatus.Parents {
 		if reflect.DeepEqual(parent.ParentRef, parentRef) {
@@ -65,14 +67,14 @@ func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferenc
 		t.TLSRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(t.TLSRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
-	t.TLSRoute.Status.RouteStatus.Parents = append(t.TLSRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
+	t.TLSRoute.Status.RouteStatus.Parents = append(t.TLSRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
 		ParentRef:      parentRef,
 		ControllerName: controllerName,
 		Conditions:     updates,
 	})
 }
 
-func (t *TLSRouteInput) GetGrants() []gatewayv1.ReferenceGrant {
+func (t *TLSRouteInput) GetGrants() []gatewayv1beta1.ReferenceGrant {
 	return t.Grants.Items
 }
 
@@ -81,7 +83,7 @@ func (t *TLSRouteInput) GetNamespace() string {
 }
 
 func (t *TLSRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1.SchemeGroupVersion.WithKind("TLSRoute")
+	return gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute")
 }
 
 func (t *TLSRouteInput) GetRules() []GenericRule {
@@ -102,7 +104,7 @@ func (t *TLSRouteInput) GetContext() context.Context {
 
 // TLSRouteRule is used to implement the GenericRule interface for TLSRoute
 type TLSRouteRule struct {
-	Rule gatewayv1.TLSRouteRule
+	Rule gatewayv1alpha2.TLSRouteRule
 }
 
 func (t *TLSRouteRule) GetBackendRefs() []gatewayv1.BackendRef {

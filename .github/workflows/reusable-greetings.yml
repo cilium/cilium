@@ -1,0 +1,102 @@
+name: Reusable Greetings
+
+on:
+  workflow_call:
+    inputs:
+      pr_message:
+        description: 'Message to post for PR contributors'
+        required: false
+        type: string
+        default: |
+          👋 Welcome to the Cilium and eBPF community! 🐝
+
+          Thanks and congrats 🎉 for opening your first PR here! We're excited to have you contributing.
+
+          **Before merge, please ensure:**
+          - ✅ **DCO Sign-off** — All commits signed with `git commit -s` ([DCO](https://developercertificate.org/))
+          - ✅ **Read** [Submitting a pull request](https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#submitting-a-pull-request)
+
+          📬 If you're using Cilium in your organization, please [add your name to our Adopters list](https://github.com/cilium/cilium/blob/main/USERS.md). 🙏 It really helps the project gain momentum and credibility — a small contribution back with a big impact.
+
+          **Resources:**
+          - Join the [weekly Cilium community meeting](https://docs.cilium.io/en/stable/community/community/#weekly-community-meeting) to join the development conversation or bring up community issues
+          - If you are new to eBPF, please learn more on our community website: https://ebpf.io 🐝
+          -  If you are new to Cilium, we have great [getting started guides](https://cilium.readthedocs.io/en/stable/gettingstarted/)
+          -  Subscribe to eCHO News for your bi-weekly [Cilium and eBPF update](https://cilium.io/newsletter/)
+          -  Slack is the best place to start conversation. Please check the channel descriptions and pinned items for see which [channel to post a message in](https://docs.cilium.io/en/stable/community/community/#slack)
+          -  Get hands on learning with interactive [courses and labs](https://cilium.io/labs/categories/getting-started/)
+          -  To get Cilium enterprise support or other matters, see the [enterprise page](https://cilium.io/enterprise/)
+
+      issue_message:
+        description: 'Message to post for issue creators'
+        required: false
+        type: string
+        default: |
+          👋 Welcome to the Cilium and eBPF community! 🐝
+
+          Thanks and congrats 🎉 for opening your first issue here! Every issue helps make Cilium better. Please review the [triage process](https://docs.cilium.io/en/latest/contributing/development/reviewers_committers/triage/) to understand how the project works through issues.
+
+          📬 If you're using Cilium in your organization, please [add your name to our Adopters list](https://github.com/cilium/cilium/blob/main/USERS.md). 🙏 It really helps the project gain momentum and credibility — a small contribution back with a big impact.
+
+          **Resources:**
+          - Join the [weekly Cilium community meeting](https://docs.cilium.io/en/stable/community/community/#weekly-community-meeting) to join the development conversation or bring up community issues
+          - If you are new to eBPF, please learn more on our community website: https://ebpf.io 🐝
+          -  If you are new to Cilium, we have great [getting started guides](https://cilium.readthedocs.io/en/stable/gettingstarted/)
+          -  Subscribe to eCHO News for your bi-weekly [Cilium and eBPF update](https://cilium.io/newsletter/)
+          -  Slack is the best place to start conversation. Please check the channel descriptions and pinned items for see which [channel to post a message in](https://docs.cilium.io/en/stable/community/community/#slack)
+          -  Get hands on learning with interactive [courses and labs](https://cilium.io/labs/categories/getting-started/)
+          -  To get Cilium enterprise support or other matters, see the [enterprise page](https://cilium.io/enterprise/)
+
+permissions:
+  contents: read
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Greet contributor
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          PR_MESSAGE: ${{ inputs.pr_message }}
+          ISSUE_MESSAGE: ${{ inputs.issue_message }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const author = context.payload.pull_request?.user?.login || context.payload.issue?.user?.login;
+            const isPR = !!context.payload.pull_request;
+            const itemNumber = context.payload.pull_request?.number || context.payload.issue?.number;
+
+            if (!author || !itemNumber) {
+              console.log('Could not determine author or item number');
+              return;
+            }
+
+            // Skip bots
+            if (author.endsWith('[bot]') || author === 'dependabot' || author === 'github-actions') {
+              console.log(`Skipping bot: ${author}`);
+              return;
+            }
+
+            // Check if this is the author's first issue/PR in this repo
+            const searchType = isPR ? 'pr' : 'issue';
+            const query = `repo:${owner}/${repo} author:${author} type:${searchType}`;
+            const { data: searchResult } = await github.rest.search.issuesAndPullRequests({ q: query, per_page: 2 });
+            if (searchResult.total_count > 1) {
+              console.log(`${author} already has ${searchResult.total_count} ${searchType}s — skipping greeting`);
+              return;
+            }
+
+            console.log(`First-time greeting for ${author} on ${isPR ? 'PR' : 'issue'} #${itemNumber}`);
+
+            const message = isPR ? process.env.PR_MESSAGE : process.env.ISSUE_MESSAGE;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: itemNumber,
+              body: message
+            });
+
+            console.log('Greeting posted successfully');
