@@ -54,7 +54,7 @@ func BGPPRoutePolicies(bgpMgr agent.BGPRouterManager) script.Cmd {
 					asn64 := int64(asn)
 					params.RouterAsn = &asn64
 				}
-				policies, err := bgpMgr.GetRoutePolicies(s.Context(), params)
+				policies, err := bgpMgr.GetRoutePoliciesLegacy(s.Context(), params)
 				if err != nil {
 					return "", "", err
 				}

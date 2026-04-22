@@ -397,8 +397,8 @@ func (m *BGPRouterManager) asnExistsInInstances(asn int64) bool {
 	return false
 }
 
-// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
-func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+// GetRoutePoliciesLegacy fetches BGP routing policies from underlying routing daemon.
+func (m *BGPRouterManager) GetRoutePoliciesLegacy(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
 	m.RLock()
 	defer m.RUnlock()
 
