@@ -5,6 +5,7 @@ package utils
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"testing"
 
@@ -526,9 +527,12 @@ func TestSanitizePodLabels(t *testing.T) {
 
 func TestStripPodLabels(t *testing.T) {
 	tests := []struct {
-		name   string
-		labels map[string]string
-		want   map[string]string
+		name string
+
+		labels             map[string]string
+		additionalPrefixes []string
+
+		want map[string]string
 	}{
 		{
 			name: "no stripped labels",
@@ -561,10 +565,38 @@ func TestStripPodLabels(t *testing.T) {
 				"app": "foo",
 			},
 		},
+		{
+			name: "Additional owned prefixes unset",
+			labels: map[string]string{
+				"corp.acme.vendor-feature": "qux",
+				"io.cilium.k8s.something":  "cilium internal",
+			},
+			want: map[string]string{
+				"corp.acme.vendor-feature": "qux",
+			},
+		},
+		{
+			name: "Additional owned prefixes provided",
+			labels: map[string]string{
+				"app":                      "foo",
+				"io.cilium.k8s.something":  "cilium internal",
+				"corp.acme.vendor-feature": "qux",
+			},
+			additionalPrefixes: []string{
+				"corp.acme",
+			},
+			want: map[string]string{
+				"app": "foo",
+			},
+		},
 	}
 
+	original := slices.Clone(CiliumOwnedLabelPrefixes)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			CiliumOwnedLabelPrefixes = tt.additionalPrefixes
+			defer func() { CiliumOwnedLabelPrefixes = original }()
+
 			got := StripPodSpecialLabels(tt.labels)
 			assert.Equal(t, tt.want, got)
 		})

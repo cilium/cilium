@@ -197,12 +197,22 @@ type nameLabelsGetter interface {
 	GetLabels() map[string]string
 }
 
+// CiliumOwnedLabelPrefixes contains a list of additional prefixes which are stripped by RemoveCiliumLabels.
+// Vendors might add additional labels to this slices in an init() function.
+var CiliumOwnedLabelPrefixes []string
+
 // RemoveCiliumLabels returns a copy of the given labels map, without the labels owned by Cilium.
 func RemoveCiliumLabels(labels map[string]string) map[string]string {
 	res := map[string]string{}
+nextLabel:
 	for k, v := range labels {
 		if strings.HasPrefix(k, k8sconst.LabelPrefix) {
-			continue
+			continue nextLabel
+		}
+		for _, prefix := range CiliumOwnedLabelPrefixes {
+			if strings.HasPrefix(k, prefix) {
+				continue nextLabel
+			}
 		}
 		res[k] = v
 	}
