@@ -49,10 +49,10 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	scopedLog := r.logger.With(
 		logfields.Resource, req.NamespacedName,
 	)
-	scopedLog.InfoContext(ctx, "Reconciling Gateway")
+
+	original := &gatewayv1.Gateway{}
 
 	// Step 1: Retrieve the Gateway
-	original := &gatewayv1.Gateway{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
@@ -61,7 +61,14 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
-	// Ensure that any existing EndpointSlice from a previous version gets deleted (dummy ingress endpoints are no longer required)
+	// check if the gateway should be reconciled by Cilium operator
+	if string(original.Spec.GatewayClassName) != gatewayClassName {
+		scopedLog.InfoContext(ctx, "controller name does not match", gatewayClass, original.Spec.GatewayClassName)
+		return controllerruntime.Success()
+	}
+
+	scopedLog.InfoContext(ctx, "Reconciling Gateway")
+	//	 Ensure that any existing EndpointSlice from a previous version gets deleted (dummy ingress endpoints are no longer required)
 	// This can be removed in v1.21
 	if err := r.ensureEndpointSliceDeleted(ctx, types.NamespacedName{Namespace: original.Namespace, Name: shortener.ShortenK8sResourceName(gwModel.CiliumGatewayPrefix + original.Name)}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to ensure EndpointSlice deleted", logfields.Error, err)

@@ -23,7 +23,8 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName = "io.cilium/gateway-controller"
+	controllerName   = "io.cilium/gateway-controller"
+	gatewayClassName = "cilium"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
