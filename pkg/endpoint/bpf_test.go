@@ -87,27 +87,48 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	}
 
 	var buf bytes.Buffer
-	file, err := os.CreateTemp("", "cilium_ep_bench_")
+	memoryBacked := func() (io.Writer, func() error) {
+		return &buf, func() error { buf.Reset(); return nil }
+	}
+
+	f, err := os.CreateTemp("", "cilium_ep_bench_")
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer file.Close()
+	defer f.Close()
+
+	fileBacked := func() (io.Writer, func() error) {
+		return f, func() error {
+			_, err := f.Seek(0, io.SeekStart)
+			return err
+		}
+	}
 
 	benchmarks := []struct {
-		name   string
-		output io.Writer
-		write  writeFunc
+		name       string
+		outputFunc func() (io.Writer, func() error)
+		write      writeFunc
 	}{
-		{"in-memory-info", &buf, targetComments},
-		{"in-memory-cfg", &buf, targetConfig},
-		{"to-disk-info", file, targetComments},
-		{"to-disk-cfg", file, targetConfig},
+		{"in-memory-info", memoryBacked, targetComments},
+		{"in-memory-cfg", memoryBacked, targetConfig},
+		{"to-disk-info", fileBacked, targetComments},
+		{"to-disk-cfg", fileBacked, targetConfig},
 	}
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
+			output, reset := bm.outputFunc()
+			// Prewarn caches, buffers and the golang JSON marshaller. Since we use b.Loop() this will not be counted
+			if err := bm.write(output); err != nil {
+				b.Fatal(err)
+			}
+
 			for b.Loop() {
-				if err := bm.write(bm.output); err != nil {
+				// Reset buffer/file offset to avoid allocating unbounded amounts of memory or disk
+				if err := reset(); err != nil {
+					b.Fatal(err)
+				}
+				if err := bm.write(output); err != nil {
 					b.Fatal(err)
 				}
 			}
