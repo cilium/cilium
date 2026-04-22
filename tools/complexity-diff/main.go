@@ -179,7 +179,7 @@ func colorAbsoluteValue(program string, i int, p float64) string {
 		return texOrange(s)
 	}
 
-	return texGreen(s)
+	return texNoColor(s)
 }
 
 func colorAbsoluteValueExponential(program string, i int, p float64) string {
@@ -191,7 +191,7 @@ func colorAbsoluteValueExponential(program string, i int, p float64) string {
 		return texOrange(s)
 	}
 
-	return texGreen(s)
+	return texNoColor(s)
 }
 
 func texNoColor(s string) string {
