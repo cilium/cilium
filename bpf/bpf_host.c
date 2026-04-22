@@ -147,13 +147,13 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err)
 {
-	struct ct_buffer6 __maybe_unused ct_buffer = {};
+	struct ct_buffer6 __maybe_unused *ct_buffer;
 	bool __maybe_unused need_hostfw = false;
 	bool __maybe_unused is_host_id = false;
 	bool __maybe_unused skip_host_firewall = false;
+	int ret, zero __maybe_unused = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -211,10 +211,14 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (skip_host_firewall)
 		goto skip_host_firewall;
 
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+
 	if (from_host) {
-		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, ct_buffer)) {
+			if (unlikely(ct_buffer->ret < 0))
+				return ct_buffer->ret;
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
 		}
@@ -223,17 +227,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv6_host_policy_ingress_lookup(ctx, ip6, ct_buffer)) {
+			if (unlikely(ct_buffer->ret < 0))
+				return ct_buffer->ret;
 			need_hostfw = true;
 		}
-	}
-	if (need_hostfw) {
-		__u32 zero = 0;
-
-		if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)
-			return DROP_INVALID_TC_BUFFER;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
@@ -598,11 +596,12 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-	struct ct_buffer4 __maybe_unused ct_buffer = {};
+	struct ct_buffer4 __maybe_unused *ct_buffer;
 	bool __maybe_unused need_hostfw = false;
 	bool __maybe_unused is_host_id = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	int zero __maybe_unused = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -640,11 +639,15 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
+	if (!ct_buffer)
+		return DROP_INVALID_TC_BUFFER;
+
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
-		if (ipv4_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip4, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv4_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip4, ct_buffer)) {
+			if (unlikely(ct_buffer->ret < 0))
+				return ct_buffer->ret;
 			need_hostfw = true;
 			is_host_id = secctx == HOST_ID;
 		}
@@ -654,17 +657,11 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			return DROP_INVALID;
 
 		/* We're on the ingress path of the native device. */
-		if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
+		if (ipv4_host_policy_ingress_lookup(ctx, ip4, ct_buffer)) {
+			if (unlikely(ct_buffer->ret < 0))
+				return ct_buffer->ret;
 			need_hostfw = true;
 		}
-	}
-	if (need_hostfw) {
-		__u32 zero = 0;
-
-		if (map_update_elem(&cilium_tail_call_buffer4, &zero, &ct_buffer, 0) < 0)
-			return DROP_INVALID_TC_BUFFER;
 	}
 
 	ctx_store_meta(ctx, CB_FROM_HOST,
