@@ -1584,43 +1584,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 }
 
 func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
-	revalidate := func(sv *ServiceView) error {
-		err := ipam.stripInvalidAllocations(sv)
-		if err != nil {
-			return fmt.Errorf("stripInvalidAllocations: %w", err)
-		}
-
-		// Check for each ingress, if its IP has been allocated by us. If it isn't check if we can allocate that IP.
-		// If we can't, strip the ingress from the service.
-		svModifiedStatus, err := ipam.stripOrImportIngresses(sv)
-		if err != nil {
-			return fmt.Errorf("stripOrImportIngresses: %w", err)
-		}
-
-		// Attempt to satisfy this service in particular now. We do this now instead of relying on
-		// ipam.satisfyServices to avoid updating the service twice in quick succession.
-		if !sv.isSatisfied() {
-			modified, err := ipam.satisfyService(sv)
-			if err != nil {
-				return fmt.Errorf("satisfyService: %w", err)
-			}
-			if modified {
-				svModifiedStatus = true
-			}
-		}
-
-		// If any of the steps above changed the service object, update the object.
-		if svModifiedStatus {
-			err := ipam.patchSvcStatus(ctx, sv)
-			if err != nil {
-				return fmt.Errorf("patchSvcStatus: %w", err)
-			}
-		}
-
-		ipam.serviceStore.Upsert(sv)
-
-		return nil
-	}
+	serviceViews := make([]*ServiceView, 0, len(ipam.serviceStore.satisfied)+len(ipam.serviceStore.unsatisfied))
 
 	// We want to first revalidate all satisfied services.
 	// This helps in case when pool's CIDR was widened
@@ -1628,15 +1592,54 @@ func (ipam *LBIPAM) revalidateAllServices(ctx context.Context) error {
 	// In this case, we want to revalidate satisfied services first,
 	// so that we can reallocate the same IPs from the newly widened CIDR.
 	for _, sv := range ipam.serviceStore.satisfied {
-		if err := revalidate(sv); err != nil {
-			return fmt.Errorf("revalidate: %w", err)
-		}
+		serviceViews = append(serviceViews, sv)
 	}
 
 	for _, sv := range ipam.serviceStore.unsatisfied {
-		if err := revalidate(sv); err != nil {
-			return fmt.Errorf("revalidate: %w", err)
+		serviceViews = append(serviceViews, sv)
+	}
+
+	statusModified := make(map[*ServiceView]bool, len(serviceViews))
+
+	// Re-import any still-valid ingresses for all services before allocating fresh IPs.
+	// This prevents services with removed IPs from stealing addresses that are still valid
+	// for other services during pool shrink or similar range updates.
+	for _, sv := range serviceViews {
+		err := ipam.stripInvalidAllocations(sv)
+		if err != nil {
+			return fmt.Errorf("revalidate: stripInvalidAllocations: %w", err)
 		}
+
+		modified, err := ipam.stripOrImportIngresses(sv)
+		if err != nil {
+			return fmt.Errorf("revalidate: stripOrImportIngresses: %w", err)
+		}
+		if modified {
+			statusModified[sv] = true
+		}
+
+		ipam.serviceStore.Upsert(sv)
+	}
+
+	for _, sv := range serviceViews {
+		if !sv.isSatisfied() {
+			modified, err := ipam.satisfyService(sv)
+			if err != nil {
+				return fmt.Errorf("revalidate: satisfyService: %w", err)
+			}
+			if modified {
+				statusModified[sv] = true
+			}
+		}
+
+		if statusModified[sv] {
+			err := ipam.patchSvcStatus(ctx, sv)
+			if err != nil {
+				return fmt.Errorf("revalidate: patchSvcStatus: %w", err)
+			}
+		}
+
+		ipam.serviceStore.Upsert(sv)
 	}
 
 	return nil
