@@ -238,11 +238,12 @@ func (c *config) toAgentConfig() Config {
 			NodeEncryptionOptOutLabels:   "",
 		},
 
-		StateDir:         "",
-		EnableIPv4:       true,
-		EnableIPv6:       true,
-		TunnelingEnabled: c.RoutingMode != option.RoutingModeNative,
-		EncryptNode:      false,
+		StateDir:              "",
+		EnableIPv4:            true,
+		EnableIPv6:            true,
+		TunnelingEnabled:      c.RoutingMode != option.RoutingModeNative,
+		RequiresNativeRouting: c.RoutingMode != option.RoutingModeTunnel,
+		EncryptNode:           false,
 	}
 }
 
@@ -285,6 +286,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 
 	for _, c := range []config{
 		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
+		{"HybridRouting", option.RoutingModeHybrid, false, nativeRoutingAllowedIPs},
 		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
@@ -484,6 +486,7 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 
 	for _, c := range []config{
 		{"NativeRouting", option.RoutingModeNative, false, nativeRoutingAllowedIPs},
+		{"HybridRouting", option.RoutingModeHybrid, false, nativeRoutingAllowedIPs},
 		{"TunnelRouting With Fallback", option.RoutingModeTunnel, true, nativeRoutingAllowedIPs},
 		{"TunnelRouting Without Fallback", option.RoutingModeTunnel, false, tunnelRoutingAllowedIPs},
 	} {
