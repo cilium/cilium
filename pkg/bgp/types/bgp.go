@@ -143,52 +143,52 @@ type ResetAllNeighborsRequest struct {
 // PeerState contains status information for a BGP peer
 type PeerState struct {
 	// Name of the peer
-	Name string
+	Name string `json:"name,omitempty"`
 
 	// Address of the peer
-	Address netip.Addr
+	Address netip.Addr `json:"peer-address,omitempty"`
 
 	// TCP port number of peer
 	// Maximum: 65535
 	// Minimum: 1
-	Port int64
+	Port int64 `json:"peer-port,omitempty"`
 
 	// Peer AS Number
-	PeerAsn int64
+	PeerAsn int64 `json:"peer-asn,omitempty"`
 
 	// Local AS Number
-	LocalAsn int64
+	LocalAsn int64 `json:"local-asn,omitempty"`
 
 	// BGP peer state
-	SessionState SessionState
+	SessionState SessionState `json:"session-state,omitempty"`
 
 	// The rest of the fields are only valid if SessionState is Established
 
 	// Time since the BGP session was established
-	Uptime time.Duration
+	Uptime time.Duration `json:"uptime-nanoseconds,omitempty"`
 
 	// BGP peer address family states. All configured address families are present here.
-	Families []PeerFamilyState
+	Families []PeerFamilyState `json:"families"`
 
 	// Contains information for peer timers settings.
-	Timers PeerTimers
+	Timers PeerTimers `json:"timers"`
 
 	// Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
 	// 1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
 	//
-	EbgpMultihopTTL int64
+	EbgpMultihopTTL int64 `json:"ebgp-multihop-ttl,omitempty"`
 
 	// Graceful restart capability
-	GracefulRestart BgpGracefulRestart
+	GracefulRestart BgpGracefulRestart `json:"graceful-restart,omitempty"`
 
 	// Capabilities announced by the local peer
-	LocalCapabilities []bgp.ParameterCapabilityInterface
+	LocalCapabilities []bgp.ParameterCapabilityInterface `json:"local-capabilities"`
 
 	// Capabilities announced by the remote peer
-	RemoteCapabilities []bgp.ParameterCapabilityInterface
+	RemoteCapabilities []bgp.ParameterCapabilityInterface `json:"remote-capabilities"`
 
 	// Set when a TCP password is configured for communications with this peer
-	TCPPasswordEnabled bool
+	TCPPasswordEnabled bool `json:"tcp-password-enabled,omitempty"`
 }
 
 // PeerTimers contains information for peer timers settings.
@@ -196,45 +196,45 @@ type PeerTimers struct {
 	// Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2)
 	// The applied value holds the value that is in effect on the current BGP session.
 	//
-	AppliedHoldTime time.Duration
+	AppliedHoldTime time.Duration `json:"applied-hold-nanoseconds,omitempty"`
 
 	// Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8)
 	// The applied value holds the value that is in effect on the current BGP session.
 	//
-	AppliedKeepAliveTime time.Duration
+	AppliedKeepAliveTime time.Duration `json:"applied-keep-alive-nanoseconds,omitempty"`
 
 	// Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2)
 	// The configured value will be used for negotiation with the peer during the BGP session establishment.
 	//
-	ConfiguredHoldTime time.Duration
+	ConfiguredHoldTime time.Duration `json:"configured-hold-nanoseconds,omitempty"`
 
 	// Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8)
 	// The applied value may be different than the configured value, as it depends on the negotiated hold time interval.
 	//
-	ConfiguredKeepAliveTime time.Duration
+	ConfiguredKeepAliveTime time.Duration `json:"configured-keep-alive-nanoseconds,omitempty"`
 
 	// Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8)
-	ConnectRetryTime time.Duration
+	ConnectRetryTime time.Duration `json:"connect-retry-nanoseconds,omitempty"`
 }
 
 // PeerFamilyState contains status information for a specific address family.
 type PeerFamilyState struct {
 	Family
-	ReceivedRoutes   uint64
-	AcceptedRoutes   uint64
-	AdvertisedRoutes uint64
+	ReceivedRoutes   uint64 `json:"received,omitempty"`
+	AcceptedRoutes   uint64 `json:"accepted,omitempty"`
+	AdvertisedRoutes uint64 `json:"advertised,omitempty"`
 }
 
 // BgpGracefulRestart BGP graceful restart parameters negotiated with the peer.
 type BgpGracefulRestart struct {
 	// When set, graceful restart capability is negotiated for all AFI/SAFIs of
 	// this peer.
-	Enabled bool
+	Enabled bool `json:"enabled,omitempty"`
 
 	// This is the time advertised to peer for the BGP session to be re-established
 	// after a restart. After this period, peer will remove stale routes.
 	// (RFC 4724 section 4.2)
-	RestartTime time.Duration
+	RestartTime time.Duration `json:"restart-time-nanoseconds,omitempty"`
 }
 
 // PathRequest contains parameters for advertising or withdrawing a Path
@@ -543,8 +543,8 @@ type ServerParameters struct {
 //
 // +deepequal-gen=true
 type Family struct {
-	Afi  Afi
-	Safi Safi
+	Afi  Afi  `json:"afi,omitempty"`
+	Safi Safi `json:"safi,omitempty"`
 }
 
 func (f Family) String() string {

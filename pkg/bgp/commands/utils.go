@@ -32,7 +32,7 @@ func addOutFileFlag(fs *pflag.FlagSet) {
 }
 
 func addFormatFlag(fs *pflag.FlagSet) {
-	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table or detailed)")
+	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table, json or detailed)")
 }
 
 func getCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *os.File, err error) {
