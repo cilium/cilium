@@ -60,6 +60,48 @@ var kindRestrictedGateway = &gatewayv1.Gateway{
 	},
 }
 
+// Gateway fixture with restrictive Selector listener first, permissive All
+// listener second. Used to test that CheckGatewayAllowedForNamespace does not
+// early-return on a Selector failure before checking remaining listeners.
+var mixedNamespaceGateway = &gatewayv1.Gateway{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "mixed-ns-gateway",
+		Namespace: "default",
+	},
+	Spec: gatewayv1.GatewaySpec{
+		GatewayClassName: "cilium",
+		Listeners: []gatewayv1.Listener{
+			{
+				Name:     "http-selector",
+				Port:     8082,
+				Protocol: gatewayv1.HTTPProtocolType,
+				Hostname: ptr.To[gatewayv1.Hostname]("*.http-selector.io"),
+				AllowedRoutes: &gatewayv1.AllowedRoutes{
+					Namespaces: &gatewayv1.RouteNamespaces{
+						From: ptr.To(gatewayv1.NamespacesFromSelector),
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"kubernetes.io/metadata.name": "default",
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:     "http-all",
+				Port:     8081,
+				Protocol: gatewayv1.HTTPProtocolType,
+				Hostname: ptr.To[gatewayv1.Hostname]("*.http-all.io"),
+				AllowedRoutes: &gatewayv1.AllowedRoutes{
+					Namespaces: &gatewayv1.RouteNamespaces{
+						From: ptr.To(gatewayv1.NamespacesFromAll),
+					},
+				},
+			},
+		},
+	},
+}
+
 // Gateway fixture with no kind restrictions on any listener.
 var noKindRestrictedGateway = &gatewayv1.Gateway{
 	ObjectMeta: metav1.ObjectMeta{
@@ -228,7 +270,13 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(gatewayFixtures...).
+		WithObjects(mixedNamespaceGateway).
 		WithObjects(namespaceFixture...).
+		WithObjects(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cross-ns",
+			},
+		}).
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
@@ -600,6 +648,48 @@ func TestCheckGatewayAllowedForNamespace(t *testing.T) {
 				},
 			},
 			want: false,
+		},
+		{
+			name: "selector-first then all-second without sectionName, cross-namespace (allowed by all listener)",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "cross-ns",
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:      "mixed-ns-gateway",
+					Namespace: ptr.To[gatewayv1.Namespace]("default"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "selector-first then all-second with sectionName targeting all listener (allowed)",
+			args: args{
+				input: &HTTPRouteInput{
+					Client: c,
+					HTTPRoute: &gatewayv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "cross-ns",
+						},
+						Spec: gatewayv1.HTTPRouteSpec{
+							Hostnames: []gatewayv1.Hostname{
+								"*.http-all.io",
+							},
+						},
+					},
+				},
+				parentRef: gatewayv1.ParentReference{
+					Name:        "mixed-ns-gateway",
+					Namespace:   ptr.To[gatewayv1.Namespace]("default"),
+					SectionName: ptr.To[gatewayv1.SectionName]("http-all"),
+				},
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {
