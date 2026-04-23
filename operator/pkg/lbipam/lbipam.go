@@ -96,7 +96,7 @@ type lbIPAMParams struct {
 func newLBIPAM(params lbIPAMParams) *LBIPAM {
 	lbIPAM := &LBIPAM{
 		lbIPAMParams: params,
-		pools:        make(map[string]*cilium_api_v2.CiliumLoadBalancerIPPool),
+		pools:        make(map[string]*LBPool),
 		rangesStore:  newRangesStore(),
 		serviceStore: NewServiceStore(),
 	}
@@ -108,7 +108,7 @@ func newLBIPAM(params lbIPAMParams) *LBIPAM {
 type LBIPAM struct {
 	lbIPAMParams
 
-	pools        map[string]*cilium_api_v2.CiliumLoadBalancerIPPool
+	pools        poolStore
 	rangesStore  rangesStore
 	serviceStore serviceStore
 }
@@ -120,7 +120,7 @@ func (ipam *LBIPAM) restart() {
 	}
 
 	// Reset all stored state
-	ipam.pools = make(map[string]*cilium_api_v2.CiliumLoadBalancerIPPool)
+	ipam.pools = newPoolStore()
 	ipam.rangesStore = newRangesStore()
 	ipam.serviceStore = NewServiceStore()
 
@@ -308,16 +308,16 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2.Cilium
 	var err error
 	if existingPool, exists := ipam.pools[pool.GetName()]; exists {
 		// Spec hasn't changed, nothing to do
-		if existingPool.Spec.DeepEqual(&pool.Spec) {
+		if existingPool.k8s.Spec.DeepEqual(&pool.Spec) {
 			return nil
 		} else {
 			ipam.logger.Info("Updated Pool spec",
 				logfields.PoolName, pool.GetName(),
-				logfields.PoolOldSpec, existingPool.Spec,
+				logfields.PoolOldSpec, existingPool.k8s.Spec,
 				logfields.PoolNewSpec, pool.Spec)
 		}
 
-		err = ipam.handlePoolModified(ctx, pool)
+		err = ipam.handlePoolModified(ctx, existingPool, pool)
 		if err != nil {
 			return fmt.Errorf("handlePoolModified: %w", err)
 		}
@@ -575,10 +575,10 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		}
 
 		// If service no longer matches the pool selector, remove allocation
-		if pool.Spec.ServiceSelector != nil {
-			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
+		if pool.k8s.Spec.ServiceSelector != nil {
+			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.k8s.Spec.ServiceSelector)
 			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("making selector from pool '%s' label selector", pool.Name))
+				errs = errors.Join(errs, fmt.Errorf("making selector from pool '%s' label selector", pool.k8s.Name))
 				continue
 			}
 
@@ -1202,7 +1202,7 @@ func (ipam *LBIPAM) setSVCSatisfiedCondition(
 }
 
 func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip netip.Addr) (lbRange *LBRange, foundPool bool, err error) {
-	for _, r := range ipam.rangesStore.ranges {
+	for r := range ipam.pools.Ranges() {
 		if r.Disabled() {
 			continue
 		}
@@ -1219,10 +1219,10 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip netip.Addr) (lbRange *LBRa
 
 		foundPool = true
 
-		if pool.Spec.ServiceSelector != nil {
-			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
+		if pool.k8s.Spec.ServiceSelector != nil {
+			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.k8s.Spec.ServiceSelector)
 			if err != nil {
-				return nil, false, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.Name, err)
+				return nil, false, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.k8s.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -1270,7 +1270,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 	err error,
 ) {
 	full := false
-	for _, lbRange := range ipam.rangesStore.ranges {
+	for lbRange := range ipam.pools.Ranges() {
 		// If the range is disabled we can't allocate new IPs from it.
 		if lbRange.Disabled() {
 			continue
@@ -1295,10 +1295,10 @@ func (ipam *LBIPAM) allocateIPAddress(
 		}
 
 		// If there is no selector, all services match
-		if pool.Spec.ServiceSelector != nil {
-			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
+		if pool.k8s.Spec.ServiceSelector != nil {
+			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.k8s.Spec.ServiceSelector)
 			if err != nil {
-				return netip.Addr{}, nil, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.Name, err)
+				return netip.Addr{}, nil, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.k8s.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -1389,29 +1389,29 @@ func (ipam *LBIPAM) serviceIPFamilyRequest(svc *slim_core_v1.Service) (IPv4Reque
 }
 
 // Handle the addition of a new IPPool
-func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
+func (ipam *LBIPAM) handleNewPool(ctx context.Context, k8sPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
 	// Sanity check that we do not yet know about this pool.
-	if _, found := ipam.pools[pool.GetName()]; found {
+	if _, found := ipam.pools[k8sPool.GetName()]; found {
 		ipam.logger.WarnContext(ctx,
-			fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", pool.GetName()),
-			logfields.PoolName, pool.GetName())
+			fmt.Sprintf("LB IPPool '%s' has been created, but a LB IP Pool with the same name already exists", k8sPool.GetName()),
+			logfields.PoolName, k8sPool.GetName())
 		return nil
 	}
 
-	ipam.pools[pool.GetName()] = pool
-	for _, ipBlock := range pool.Spec.Blocks {
+	pool := &LBPool{k8s: k8sPool}
+	for _, ipBlock := range k8sPool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(ipBlock)
 		if err != nil {
 			return fmt.Errorf("error parsing ip block: %w", err)
 		}
 
-		lbRange, err := NewLBRange(from, to, pool)
+		lbRange, err := NewLBRange(from, to, k8sPool)
 		if err != nil {
 			return fmt.Errorf("error making LB Range for '%s': %w", ipBlock.Cidr, err)
 		}
 
 		// If AllowFirstLastIPs is no, mark the first and last IP as allocated upon range creation.
-		if fromCidr && pool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo {
+		if fromCidr && k8sPool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo {
 			from, to := lbRange.alloc.Range()
 
 			// If the first and last IPs are the same or adjacent, we would reserve the entire range.
@@ -1422,8 +1422,10 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2.Ciliu
 			}
 		}
 
-		ipam.rangesStore.Add(lbRange)
+		pool.ranges = append(pool.ranges, lbRange)
 	}
+
+	ipam.pools[pool.GetName()] = pool
 
 	// Unmark new pools so they get a conflict: False condition set, otherwise kubectl will report a blank field.
 	ipam.unmarkPool(ctx, pool)
@@ -1458,21 +1460,18 @@ func ipRangeFromBlock(block cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock) (to, 
 	return from, to, false, nil
 }
 
-func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
-	changedAllowFirstLastIPs := false
-	if existingPool, ok := ipam.pools[pool.GetName()]; ok {
-		changedAllowFirstLastIPs = (existingPool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo) !=
-			(pool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo)
-	}
+func (ipam *LBIPAM) handlePoolModified(ctx context.Context, existingPool *LBPool, newK8sPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
+	changedAllowFirstLastIPs := (existingPool.k8s.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo) !=
+		(newK8sPool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo)
 
-	ipam.pools[pool.GetName()] = pool
+	existingPool.k8s = newK8sPool
 
 	type rng struct {
 		from, to netip.Addr
 		fromCidr bool
 	}
 	var newRanges []rng
-	for _, newBlock := range pool.Spec.Blocks {
+	for _, newBlock := range newK8sPool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(newBlock)
 		if err != nil {
 			return fmt.Errorf("error parsing ip block: %w", err)
@@ -1485,11 +1484,9 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 		})
 	}
 
-	existingRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
-	existingRanges = slices.Clone(existingRanges)
-
 	// Remove existing ranges that no longer exist
-	for _, extRange := range existingRanges {
+	for i := len(existingPool.ranges) - 1; i >= 0; i-- {
+		extRange := existingPool.ranges[i]
 		found := false
 		fromCidr := false
 		for _, newRange := range newRanges {
@@ -1503,7 +1500,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 		if found {
 			// If the AllowFirstLastIPs state changed
 			if fromCidr && changedAllowFirstLastIPs {
-				if pool.Spec.AllowFirstLastIPs != cilium_api_v2.AllowFirstLastIPNo {
+				if newK8sPool.Spec.AllowFirstLastIPs != cilium_api_v2.AllowFirstLastIPNo {
 					// If we are allowing first and last IPs again, free them for allocation
 					from, to := extRange.alloc.Range()
 
@@ -1529,7 +1526,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 		}
 
 		// Remove allocations from services if the ranges no longer exist
-		ipam.rangesStore.Delete(extRange)
+		existingPool.ranges = slices.Delete(existingPool.ranges, i, i+1)
 		ipam.deleteRangeAllocations(extRange)
 	}
 	// no need to reconcile services now after ranges deletion, we are gonna reconcile
@@ -1538,7 +1535,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 	// Add new ranges that were added
 	for _, newRange := range newRanges {
 		found := false
-		for _, extRange := range existingRanges {
+		for _, extRange := range existingPool.ranges {
 			if extRange.EqualCIDR(newRange.from, newRange.to) {
 				found = true
 				break
@@ -1549,13 +1546,13 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 			continue
 		}
 
-		newLBRange, err := NewLBRange(newRange.from, newRange.to, pool)
+		newLBRange, err := NewLBRange(newRange.from, newRange.to, newK8sPool)
 		if err != nil {
 			return fmt.Errorf("error while making new LB range for range '%s - %s': %w", newRange.from, newRange.to, err)
 		}
 
 		// If AllowFirstLastIPs is no, mark the first and last IP as allocated upon range creation.
-		if newRange.fromCidr && pool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo {
+		if newRange.fromCidr && newK8sPool.Spec.AllowFirstLastIPs == cilium_api_v2.AllowFirstLastIPNo {
 			from, to := newLBRange.alloc.Range()
 
 			// If the first and last IPs are the same or adjacent, we would reserve the entire range.
@@ -1566,12 +1563,11 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2.
 			}
 		}
 
-		ipam.rangesStore.Add(newLBRange)
+		existingPool.ranges = append(existingPool.ranges, newLBRange)
 	}
 
-	existingRanges, _ = ipam.rangesStore.GetRangesForPool(pool.GetName())
-	for _, extRange := range existingRanges {
-		extRange.externallyDisabled = pool.Spec.Disabled
+	for _, extRange := range existingPool.ranges {
+		extRange.externallyDisabled = newK8sPool.Spec.Disabled
 	}
 
 	// This is a heavy operation, but pool modification should happen rarely
@@ -1649,8 +1645,8 @@ func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
 	ipam.logger.DebugContext(ctx, "Updating pool counts")
 	for _, pool := range ipam.pools {
 		if ipam.updatePoolCounts(pool) {
-			ipam.logger.DebugContext(ctx, fmt.Sprintf("Pool counts of '%s' changed, patching", pool.Name))
-			err := ipam.patchPoolStatus(ctx, pool)
+			ipam.logger.DebugContext(ctx, fmt.Sprintf("Pool counts of '%s' changed, patching", pool.GetName()))
+			err := ipam.patchPoolStatus(ctx, pool.k8s)
 			if err != nil {
 				return fmt.Errorf("patchPoolStatus: %w", err)
 			}
@@ -1663,9 +1659,7 @@ func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
 	return nil
 }
 
-func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2.CiliumLoadBalancerIPPool) (modifiedPoolStatus bool) {
-	ranges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
-
+func (ipam *LBIPAM) updatePoolCounts(pool *LBPool) (modifiedPoolStatus bool) {
 	type IPCounts struct {
 		// Total is the total amount of allocatable IPs
 		Total *big.Int
@@ -1679,7 +1673,7 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2.CiliumLoadBalancerIPPoo
 		Total:     big.NewInt(0),
 		Available: big.NewInt(0),
 	}
-	for _, lbRange := range ranges {
+	for _, lbRange := range pool.ranges {
 		used, available := lbRange.alloc.Stats()
 
 		totalCounts.Total = totalCounts.Total.Add(totalCounts.Total, available)
@@ -1699,13 +1693,13 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2.CiliumLoadBalancerIPPoo
 		totalCounts.Used += used
 	}
 
-	totalChanged := ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String())
-	availableChanged := ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String())
-	usedChanged := ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10))
+	totalChanged := ipam.setPoolCondition(pool.k8s, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String())
+	availableChanged := ipam.setPoolCondition(pool.k8s, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String())
+	usedChanged := ipam.setPoolCondition(pool.k8s, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10))
 
 	available, _ := new(big.Float).SetInt(totalCounts.Available).Float64()
-	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(available)
-	ipam.metrics.UsedIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Used))
+	ipam.metrics.AvailableIPs.WithLabelValues(pool.GetName()).Set(available)
+	ipam.metrics.UsedIPs.WithLabelValues(pool.GetName()).Set(float64(totalCounts.Used))
 
 	return totalChanged || availableChanged || usedChanged
 }
@@ -1812,15 +1806,15 @@ func (ipam *LBIPAM) reconcileServicesAfterRangeDeletion(ctx context.Context, svc
 	return errors.Join(errs...)
 }
 
-func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, pool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
-	ipam.metrics.AvailableIPs.DeleteLabelValues(pool.Name)
-	ipam.metrics.UsedIPs.DeleteLabelValues(pool.Name)
+func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, k8sPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
+	ipam.metrics.AvailableIPs.DeleteLabelValues(k8sPool.GetName())
+	ipam.metrics.UsedIPs.DeleteLabelValues(k8sPool.GetName())
+
+	pool := ipam.pools[k8sPool.GetName()]
 
 	var svsModified []*ServiceView
-	poolRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
-	for _, poolRange := range slices.Clone(poolRanges) {
+	for _, poolRange := range pool.ranges {
 		// Remove allocations from services if the ranges no longer exist
-		ipam.rangesStore.Delete(poolRange)
 		svsModified = append(svsModified, ipam.deleteRangeAllocations(poolRange)...)
 	}
 
@@ -1844,13 +1838,11 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 
 	// Mark any pools that conflict as conflicting
 	for _, poolOuter := range ipam.pools {
-		if isPoolConflicting(poolOuter) {
+		if isPoolConflicting(poolOuter.k8s) {
 			continue
 		}
 
-		outerRanges, _ := ipam.rangesStore.GetRangesForPool(poolOuter.GetName())
-
-		if conflicting, rangeA, rangeB := areRangesInternallyConflicting(outerRanges); conflicting {
+		if conflicting, rangeA, rangeB := areRangesInternallyConflicting(poolOuter.ranges); conflicting {
 			err := ipam.markPoolConflicting(ctx, poolOuter, poolOuter, rangeA, rangeB)
 			if err != nil {
 				return fmt.Errorf("markPoolConflicting: %w", err)
@@ -1863,15 +1855,14 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 				continue
 			}
 
-			if isPoolConflicting(poolInner) {
+			if isPoolConflicting(poolInner.k8s) {
 				continue
 			}
 
-			innerRanges, _ := ipam.rangesStore.GetRangesForPool(poolInner.GetName())
-			if conflicting, outerRange, innerRange := areRangesConflicting(outerRanges, innerRanges); conflicting {
+			if conflicting, outerRange, innerRange := areRangesConflicting(poolOuter.ranges, poolInner.ranges); conflicting {
 				// If two pools are conflicting, disable/mark the newest pool
 
-				if poolOuter.CreationTimestamp.Before(&poolInner.CreationTimestamp) {
+				if poolOuter.k8s.CreationTimestamp.Before(&poolInner.k8s.CreationTimestamp) {
 					err := ipam.markPoolConflicting(ctx, poolInner, poolOuter, innerRange, outerRange)
 					if err != nil {
 						return fmt.Errorf("markPoolConflicting: %w", err)
@@ -1890,14 +1881,12 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 
 	// un-mark pools that no longer conflict
 	for _, poolOuter := range ipam.pools {
-		if !isPoolConflicting(poolOuter) {
+		if !isPoolConflicting(poolOuter.k8s) {
 			continue
 		}
 
-		outerRanges, _ := ipam.rangesStore.GetRangesForPool(poolOuter.GetName())
-
 		// If the pool is still internally conflicting, don't un-mark
-		if conflicting, _, _ := areRangesInternallyConflicting(outerRanges); conflicting {
+		if conflicting, _, _ := areRangesInternallyConflicting(poolOuter.ranges); conflicting {
 			continue
 		}
 
@@ -1907,8 +1896,7 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 				continue
 			}
 
-			innerRanges, _ := ipam.rangesStore.GetRangesForPool(poolInner.GetName())
-			if conflicting, _, _ := areRangesConflicting(outerRanges, innerRanges); conflicting {
+			if conflicting, _, _ := areRangesConflicting(poolOuter.ranges, poolInner.ranges); conflicting {
 				poolConflict = true
 				break
 			}
@@ -1926,11 +1914,10 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 	// Count the number of conflicting pools and update the metric.
 	var conflictingPools float64
 	for _, pool := range ipam.pools {
-		lbRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
 		// When a pool is marked as conflicting, all of its lbRanges are
 		// internally disabled. Therefore, checking a single lbRange
 		// is sufficient to conclude that the pool is conflicting.
-		if len(lbRanges) > 0 && lbRanges[0].internallyDisabled {
+		if len(pool.ranges) > 0 && pool.ranges[0].internallyDisabled {
 			conflictingPools++
 		}
 	}
@@ -1943,41 +1930,40 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 // markPoolConflicting marks the targetPool as "Conflicting" in its status and disables all of its ranges internally.
 func (ipam *LBIPAM) markPoolConflicting(
 	ctx context.Context,
-	targetPool, collisionPool *cilium_api_v2.CiliumLoadBalancerIPPool,
+	targetPool, collisionPool *LBPool,
 	targetRange, collisionRange *LBRange,
 ) error {
 	// If the target pool is already marked conflicting, than there is no need to re-add a condition
-	if isPoolConflicting(targetPool) {
+	if isPoolConflicting(targetPool.k8s) {
 		return nil
 	}
 
 	ipam.logger.WarnContext(ctx,
 		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
-			targetPool.Name,
+			targetPool.GetName(),
 			ipNetStr(targetRange),
 			ipNetStr(collisionRange),
-			collisionPool.Name),
-		logfields.PoolName1, targetPool.Name,
+			collisionPool.GetName()),
+		logfields.PoolName1, targetPool.GetName(),
 		logfields.PoolRange1, ipNetStr(targetRange),
 		logfields.PoolName2, ipNetStr(collisionRange),
-		logfields.PoolRange2, collisionPool.Name,
+		logfields.PoolRange2, collisionPool.GetName(),
 	)
 
 	conflictMessage := fmt.Sprintf(
 		"Pool conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
 		ipNetStr(targetRange),
 		ipNetStr(collisionRange),
-		collisionPool.Name,
+		collisionPool.GetName(),
 	)
 
 	// Mark all ranges of the pool as internally disabled so we will not allocate from them.
-	targetPoolRanges, _ := ipam.rangesStore.GetRangesForPool(targetPool.GetName())
-	for _, poolRange := range targetPoolRanges {
+	for _, poolRange := range targetPool.ranges {
 		poolRange.internallyDisabled = true
 	}
 
-	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionTrue, "cidr_overlap", conflictMessage) {
-		err := ipam.patchPoolStatus(ctx, targetPool)
+	if ipam.setPoolCondition(targetPool.k8s, ciliumPoolConflict, meta_v1.ConditionTrue, "cidr_overlap", conflictMessage) {
+		err := ipam.patchPoolStatus(ctx, targetPool.k8s)
 		if err != nil {
 			return fmt.Errorf("patchPoolStatus: %w", err)
 		}
@@ -1987,15 +1973,14 @@ func (ipam *LBIPAM) markPoolConflicting(
 }
 
 // unmarkPool removes the "Conflicting" status from the pool and removes the internally disabled flag from its ranges
-func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2.CiliumLoadBalancerIPPool) error {
+func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *LBPool) error {
 	// Re-enabled all ranges
-	targetPoolRanges, _ := ipam.rangesStore.GetRangesForPool(targetPool.GetName())
-	for _, poolRange := range targetPoolRanges {
+	for _, poolRange := range targetPool.ranges {
 		poolRange.internallyDisabled = false
 	}
 
-	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
-		err := ipam.patchPoolStatus(ctx, targetPool)
+	if ipam.setPoolCondition(targetPool.k8s, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
+		err := ipam.patchPoolStatus(ctx, targetPool.k8s)
 		if err != nil {
 			return fmt.Errorf("patchPoolStatus: %w", err)
 		}

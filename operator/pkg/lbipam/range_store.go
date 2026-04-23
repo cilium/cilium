@@ -13,48 +13,13 @@ import (
 )
 
 type rangesStore struct {
-	ranges                     []*LBRange
-	poolToRanges               map[string][]*LBRange
 	sharingKeyToServiceViewIPs map[string][]*ServiceViewIP
 }
 
 func newRangesStore() rangesStore {
 	return rangesStore{
-		poolToRanges:               make(map[string][]*LBRange),
 		sharingKeyToServiceViewIPs: make(map[string][]*ServiceViewIP),
 	}
-}
-
-func (rs *rangesStore) Delete(lbRange *LBRange) {
-	idx := slices.Index(rs.ranges, lbRange)
-	if idx != -1 {
-		rs.ranges = slices.Delete(rs.ranges, idx, idx+1)
-	}
-
-	poolRanges := rs.poolToRanges[lbRange.originPool]
-
-	idx = slices.Index(poolRanges, lbRange)
-	if idx != -1 {
-		poolRanges = slices.Delete(poolRanges, idx, idx+1)
-	}
-
-	if len(poolRanges) > 0 {
-		rs.poolToRanges[lbRange.originPool] = poolRanges
-	} else {
-		delete(rs.poolToRanges, lbRange.originPool)
-	}
-}
-
-func (rs *rangesStore) Add(lbRange *LBRange) {
-	rs.ranges = append(rs.ranges, lbRange)
-	poolRanges := rs.poolToRanges[lbRange.originPool]
-	poolRanges = append(poolRanges, lbRange)
-	rs.poolToRanges[lbRange.originPool] = poolRanges
-}
-
-func (rs *rangesStore) GetRangesForPool(name string) ([]*LBRange, bool) {
-	ranges, found := rs.poolToRanges[name]
-	return ranges, found
 }
 
 func (rs *rangesStore) GetServiceViewIPsForSharingKey(sk string) ([]*ServiceViewIP, bool) {
