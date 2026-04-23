@@ -455,7 +455,16 @@ func toAgentSessionState(s gobgp.PeerState_SessionState) types.SessionState {
 	}
 }
 
-func toAgentCap(s []*anypb.Any) []*models.BgpCapabilities {
+func toAgentCap(s []*anypb.Any) []bgp.ParameterCapabilityInterface {
+	caps, err := apiutil.UnmarshalCapabilities(s)
+	if err != nil {
+		return nil
+	}
+
+	return caps
+}
+
+func toAgentCapLegacy(s []*anypb.Any) []*models.BgpCapabilities {
 	caps, err := apiutil.UnmarshalCapabilities(s)
 	if err != nil {
 		return nil
