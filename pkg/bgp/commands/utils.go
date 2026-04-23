@@ -17,6 +17,8 @@ import (
 const (
 	outFileFlag       = "out"
 	outFileFlagShort  = "o"
+	formatFlag        = "format"
+	formatFlagShort   = "f"
 	instanceFlag      = "instance"
 	instanceFlagShort = "i"
 
@@ -29,7 +31,11 @@ func addOutFileFlag(fs *pflag.FlagSet) {
 	fs.StringP(outFileFlag, outFileFlagShort, "", "File to write to instead of stdout")
 }
 
-func getCmdTabWriter(s *script.State) (tw *tabwriter.Writer, buf *strings.Builder, f *os.File, err error) {
+func addFormatFlag(fs *pflag.FlagSet) {
+	fs.StringP(formatFlag, formatFlagShort, "table", "Format to write in (table or detailed)")
+}
+
+func getCmdWriter(s *script.State) (writer io.Writer, buf *strings.Builder, f *os.File, err error) {
 	fileName := ""
 	fileName, err = s.Flags.GetString(outFileFlag)
 	if err != nil {
@@ -37,7 +43,6 @@ func getCmdTabWriter(s *script.State) (tw *tabwriter.Writer, buf *strings.Builde
 	}
 
 	buf = &strings.Builder{}
-	var writer io.Writer
 	if fileName == "" {
 		// will write to string buffer
 		writer = buf
@@ -51,6 +56,9 @@ func getCmdTabWriter(s *script.State) (tw *tabwriter.Writer, buf *strings.Builde
 		writer = f
 	}
 
-	tw = tabwriter.NewWriter(writer, tabMinWidth, 0, tabPadding, tabPaddingChar, 0)
 	return
+}
+
+func getCmdTabWriter(writer io.Writer) *tabwriter.Writer {
+	return tabwriter.NewWriter(writer, tabMinWidth, 0, tabPadding, tabPaddingChar, 0)
 }
