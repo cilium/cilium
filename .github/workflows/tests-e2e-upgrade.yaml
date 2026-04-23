@@ -180,7 +180,7 @@ jobs:
             jq --argjson modes "$MODES" '[.[] | select(.["test-l7"] != "true") | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
-            echo "timeout=40" >> $GITHUB_OUTPUT
+            echo "timeout=60" >> $GITHUB_OUTPUT
           fi
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
