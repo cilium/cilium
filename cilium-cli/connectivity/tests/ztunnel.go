@@ -54,12 +54,13 @@ const (
 
 // scenarioConfig defines the configuration for a ztunnel test scenario
 type scenarioConfig struct {
-	name             string
-	clientEnrollment enrollmentStatus
-	serverEnrollment enrollmentStatus
-	location         podLocation
-	sameNamespace    bool
-	expectEncryption bool
+	name                  string
+	clientEnrollment      enrollmentStatus
+	serverEnrollment      enrollmentStatus
+	location              podLocation
+	requiredCiliumVersion string
+	sameNamespace         bool
+	expectEncryption      bool
 }
 
 // ztunnelTestBase provides shared functionality for all ztunnel test scenarios
@@ -138,48 +139,52 @@ func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
 // ZTunnelEnrolledToUnenrolledSameNode tests plain traffic from enrolled client to unenrolled server on same node
 func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
-		name:             "enrolled-to-unenrolled-same-node",
-		clientEnrollment: enrolled,
-		serverEnrollment: unenrolled,
-		location:         sameNode,
-		sameNamespace:    false,
-		expectEncryption: false,
+		name:                  "enrolled-to-unenrolled-same-node",
+		clientEnrollment:      enrolled,
+		serverEnrollment:      unenrolled,
+		location:              sameNode,
+		sameNamespace:         false,
+		expectEncryption:      false,
+		requiredCiliumVersion: ">=1.20.0",
 	})
 }
 
 // ZTunnelEnrolledToUnenrolledDifferentNode tests plain traffic from enrolled client to unenrolled server on different nodes
 func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
-		name:             "enrolled-to-unenrolled-different-node",
-		clientEnrollment: enrolled,
-		serverEnrollment: unenrolled,
-		location:         differentNode,
-		sameNamespace:    false,
-		expectEncryption: false,
+		name:                  "enrolled-to-unenrolled-different-node",
+		clientEnrollment:      enrolled,
+		serverEnrollment:      unenrolled,
+		location:              differentNode,
+		sameNamespace:         false,
+		expectEncryption:      false,
+		requiredCiliumVersion: ">=1.20.0",
 	})
 }
 
 // ZTunnelUnenrolledToEnrolledSameNode tests plain traffic from unenrolled client to enrolled server on same node
 func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-same-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         sameNode,
-		sameNamespace:    false,
-		expectEncryption: false,
+		name:                  "unenrolled-to-enrolled-same-node",
+		clientEnrollment:      unenrolled,
+		serverEnrollment:      enrolled,
+		location:              sameNode,
+		sameNamespace:         false,
+		expectEncryption:      false,
+		requiredCiliumVersion: ">=1.20.0",
 	})
 }
 
 // ZTunnelUnenrolledToEnrolledDifferentNode tests plain traffic from unenrolled client to enrolled server on different nodes
 func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
 	return newZTunnelTest(scenarioConfig{
-		name:             "unenrolled-to-enrolled-different-node",
-		clientEnrollment: unenrolled,
-		serverEnrollment: enrolled,
-		location:         differentNode,
-		sameNamespace:    false,
-		expectEncryption: false,
+		name:                  "unenrolled-to-enrolled-different-node",
+		clientEnrollment:      unenrolled,
+		serverEnrollment:      enrolled,
+		location:              differentNode,
+		sameNamespace:         false,
+		expectEncryption:      false,
+		requiredCiliumVersion: ">=1.20.0",
 	})
 }
 
@@ -217,6 +222,10 @@ func newZTunnelTest(config scenarioConfig) check.Scenario {
 
 func (s *ztunnelTestBase) Name() string {
 	return s.config.name
+}
+
+func (s *ztunnelTestBase) RequiredCiliumVersion() string {
+	return s.config.requiredCiliumVersion
 }
 
 // getNamespaceForEnrollment determines which namespace to use based on enrollment and pod type.
