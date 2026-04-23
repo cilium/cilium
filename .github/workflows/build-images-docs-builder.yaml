@@ -155,7 +155,9 @@ jobs:
     needs: [build-and-push, prepare-update]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    environment: docs-builder
+    environment:
+      name: docs-builder
+      deployment: false
     steps:
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
