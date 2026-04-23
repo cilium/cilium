@@ -6,6 +6,7 @@ package commands
 import (
 	"cmp"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
@@ -65,6 +66,14 @@ func BGPPeersCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					PrintPeerStatesTable(tw, res.Instances, noUptime)
 
 					tw.Flush()
+				case "json":
+					out, err := json.MarshalIndent(res.Instances, "", "  ")
+					if err != nil {
+						return "", "", fmt.Errorf("json marshal failed: %w", err)
+					}
+					if _, err := w.Write(out); err != nil {
+						return "", "", err
+					}
 				case "detailed":
 					PrintPeerStatesDetailed(w, res.Instances, noUptime)
 				default:

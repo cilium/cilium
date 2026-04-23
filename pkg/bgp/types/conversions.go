@@ -44,6 +44,14 @@ func (s SessionState) String() string {
 	}
 }
 
+func (s SessionState) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + s.String() + "\""), nil
+}
+
+func (s SessionState) MarshalYAML() (any, error) {
+	return s.String(), nil
+}
+
 // Afi is address family identifier
 type Afi uint32
 

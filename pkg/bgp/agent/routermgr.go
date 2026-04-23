@@ -65,8 +65,8 @@ type GetPeersResponse struct {
 
 // InstancePeerStates holds peer states for a specific BGP instance.
 type InstancePeerStates struct {
-	Name  string
-	Peers []types.PeerState
+	Name  string            `json:"name,omitempty"`
+	Peers []types.PeerState `json:"peers,omitempty"`
 }
 
 // GetRoutesRequest is a request for GetRoutes method.
