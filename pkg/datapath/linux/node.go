@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,6 +19,8 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -35,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	subnetmap "github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -77,6 +81,9 @@ type linuxNodeHandler struct {
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
+	db          *statedb.DB
+	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry]
+
 	kprCfg kpr.KPRConfig
 
 	ipsecCfg ipsecTypes.Config
@@ -100,13 +107,15 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
+	db *statedb.DB,
+	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
 ) (node.Handler, node.IDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore, db, subnetTable)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -131,6 +140,8 @@ func newNodeHandler(
 	ipsecAgent ipsecTypes.Agent,
 	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
+	db *statedb.DB,
+	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -147,6 +158,8 @@ func newNodeHandler(
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
+		db:                   db,
+		subnetTable:          subnetTable,
 	}
 }
 
@@ -431,6 +444,10 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix netip.Prefix, isLocalNode bool
 		return err
 	}
 	if err := route.Delete(nodeRoute); err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return nil
+		}
+
 		n.log.Warn("Unable to delete route",
 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
 		return err
@@ -469,10 +486,8 @@ func (n *linuxNodeHandler) updateOrRemoveNodeRoutes(old, new []netip.Prefix, isL
 		}
 	}
 	for _, prefix := range removedAuxRoutes {
-		if rt, _ := n.lookupNodeRoute(prefix, isLocalNode); rt != nil {
-			if err := n.deleteNodeRoute(prefix, isLocalNode); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove aux route %q: %w", prefix, err))
-			}
+		if err := n.deleteNodeRoute(prefix, isLocalNode); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to remove aux route %q: %w", prefix, err))
 		}
 	}
 	return errs
@@ -560,39 +575,52 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		return errs
 	}
 
-	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(newNode) {
-		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
-		}
-		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv6: %w", err))
-		}
-		return errs
+	// In hybrid mode, insert pod CIDRs into the subnet table so that the
+	// eBPF datapath can map pod IPs to the correct subnet group.
+	if n.hybridMode() {
+		n.insertPodCIDRSubnetEntries(newNode)
 	}
 
-	if n.enableEncapsulation(newNode) {
+	installTunnelRoutes := n.enableEncapsulation(newNode)
+	installDirectRoutes := n.nodeConfig.EnableAutoDirectRouting && !installTunnelRoutes
+
+	if installTunnelRoutes {
 		if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))
 		}
 		if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv6: %w", err))
 		}
+	}
 
-		return errs
-	} else if firstAddition {
+	if installDirectRoutes {
+		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
+		}
+		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv6: %w", err))
+		}
+	}
+
+	// Hybrid mode can switch between tunnel and direct routing, so we need to clean up stale routes in both cases.
+	if !installTunnelRoutes && (firstAddition || n.hybridMode()) {
 		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv4 route: %w", err))
-				}
+			if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to clean up stale tunnel route for ipv4: %w", err))
 			}
 		}
 		for _, ipv6AllocCIDR := range newAllIP6AllocCidrs {
-			if rt, _ := n.lookupNodeRoute(ipv6AllocCIDR, isLocalNode); rt != nil {
-				if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to apply initial sync (no encapsulation): delete ipv6 route: %w", err))
-				}
+			if err := n.deleteNodeRoute(ipv6AllocCIDR, isLocalNode); err != nil {
+				errs = errors.Join(errs, fmt.Errorf("failed to clean up stale tunnel route for ipv6: %w", err))
 			}
+		}
+	}
+	if !installDirectRoutes && (firstAddition || n.hybridMode()) {
+		if err := n.deleteAllDirectRoutes(newAllIP4AllocCidrs, newIP4); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to clean up stale direct route for ipv4: %w", err))
+		}
+		if err := n.deleteAllDirectRoutes(newAllIP6AllocCidrs, newIP6); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to clean up stale direct route for ipv6: %w", err))
 		}
 	}
 
@@ -625,6 +653,11 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		return nil
 	}
 
+	// In hybrid mode, remove pod CIDRs from the subnet table.
+	if n.hybridMode() {
+		n.deletePodCIDRSubnetEntries(oldNode)
+	}
+
 	oldIP4 := oldNode.GetNodeIP(false)
 	oldIP6 := oldNode.GetNodeIP(true)
 
@@ -632,7 +665,11 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	oldAllIP6AllocCidrs := cidrsToPrefixes(oldNode.GetIPv6AllocCIDRs())
 
 	var errs error
-	if n.nodeConfig.EnableAutoDirectRouting && !n.enableEncapsulation(oldNode) {
+
+	deleteTunnelRoutes := n.enableEncapsulation(oldNode)
+	deleteDirectRoutes := n.nodeConfig.EnableAutoDirectRouting && !deleteTunnelRoutes
+
+	if deleteDirectRoutes || n.hybridMode() {
 		if n.nodeConfig.EnableIPv4 {
 			for _, prefix := range oldAllIP4AllocCidrs {
 				if err := n.deleteDirectRoute(prefix, oldIP4); err != nil {
@@ -649,7 +686,7 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 		}
 	}
 
-	if n.enableEncapsulation(oldNode) {
+	if deleteTunnelRoutes || n.hybridMode() {
 		if n.nodeConfig.EnableIPv4 {
 			for _, prefix := range oldAllIP4AllocCidrs {
 				if err := n.deleteNodeRoute(prefix, false); err != nil {
@@ -717,7 +754,14 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 	n.nodeConfig = newConfig
 
 	if n.enableEncapsulation == nil {
-		n.enableEncapsulation = func(*nodeTypes.Node) bool { return n.nodeConfig.EnableEncapsulation }
+		n.enableEncapsulation = func(node *nodeTypes.Node) bool {
+			if n.hybridMode() {
+				// Check if the node requires a tunnel route based on subnet topology.
+				// Nodes in the same subnet group as local node use native routing.
+				return n.nodeRequiresTunnelRoute(node)
+			}
+			return n.nodeConfig.EnableEncapsulation
+		}
 	}
 
 	if err := n.updateOrRemoveNodeRoutes(cidrsToPrefixes(prevConfig.AuxiliaryPrefixes), cidrsToPrefixes(newConfig.AuxiliaryPrefixes), true); err != nil {
@@ -866,6 +910,153 @@ func deleteDefaultLocalRule(family int) error {
 	}
 
 	return nil
+}
+
+func (n *linuxNodeHandler) hybridMode() bool {
+	return n.nodeConfig.EnableEncapsulation && n.nodeConfig.RequiresNativeRouting
+}
+
+// nodeRequiresTunnelRoute returns true if the remote node's pod CIDRs do not
+// share any subnet group with the local node's pod CIDRs, based on the
+// user-configured subnet topology. Per the hybrid-routing CFP, native routing
+// is decided by looking up the source and destination pod IPs (not node IPs)
+// against the subnet topology, so group membership is a property of pod CIDRs.
+//
+// If any local pod CIDR and any remote pod CIDR resolve to the same non-zero
+// group, native routing is possible between those pods and no tunnel route is
+// required to the remote node. Otherwise, tunnel encapsulation is required.
+func (n *linuxNodeHandler) nodeRequiresTunnelRoute(remoteNode *nodeTypes.Node) bool {
+	if remoteNode == nil {
+		return true
+	}
+
+	ln, err := n.localNodeStore.Get(context.Background())
+	if err != nil {
+		return true
+	}
+
+	// Collect the set of subnet groups that the local node's pod CIDRs belong to.
+	localGroups := make(map[uint32]struct{})
+	collectGroups := func(cidrs []*cidr.CIDR) {
+		for _, c := range cidrs {
+			addr, ok := netip.AddrFromSlice(c.IP)
+			if !ok {
+				continue
+			}
+			if gid := n.lookupSubnetID(addr); gid != 0 {
+				localGroups[gid] = struct{}{}
+			}
+		}
+	}
+	collectGroups(ln.GetIPv4AllocCIDRs())
+	collectGroups(ln.GetIPv6AllocCIDRs())
+
+	if len(localGroups) == 0 {
+		return true
+	}
+
+	// If any remote pod CIDR falls into a group shared with the local node,
+	// native routing can be used and no tunnel route is required.
+	matchesLocalGroup := func(cidrs []*cidr.CIDR) bool {
+		for _, c := range cidrs {
+			addr, ok := netip.AddrFromSlice(c.IP)
+			if !ok {
+				continue
+			}
+			if gid := n.lookupSubnetID(addr); gid != 0 {
+				if _, ok := localGroups[gid]; ok {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if matchesLocalGroup(remoteNode.GetIPv4AllocCIDRs()) ||
+		matchesLocalGroup(remoteNode.GetIPv6AllocCIDRs()) {
+		return false
+	}
+	return true
+}
+
+// lookupSubnetID returns the subnet group identity for the given IP address
+// by iterating the subnet topology table. Returns 0 if not found.
+func (n *linuxNodeHandler) lookupSubnetID(addr netip.Addr) uint32 {
+	if n.db == nil || n.subnetTable == nil {
+		return 0
+	}
+	txn := n.db.ReadTxn()
+	entry, _, found := n.subnetTable.Get(txn, subnetmap.SubnetLPMIndex.Query(addr))
+	if found {
+		return entry.Value
+	}
+	return 0
+}
+
+// insertPodCIDRSubnetEntries inserts the node's pod CIDRs into the subnet table
+// using the group identity associated with each pod CIDR's prefix, so the eBPF
+// datapath can map pod IPs to the correct subnet group.
+//
+// Each pod CIDR is looked up independently against the admin-configured subnet
+// topology: if a pod CIDR falls within a configured group, it is inserted under
+// that group; otherwise it is skipped.
+func (n *linuxNodeHandler) insertPodCIDRSubnetEntries(node *nodeTypes.Node) {
+	if n.db == nil || n.subnetTable == nil {
+		return
+	}
+
+	wtx := n.db.WriteTxn(n.subnetTable)
+	defer wtx.Commit()
+
+	insertCIDR := func(c *cidr.CIDR) {
+		addr, ok := netip.AddrFromSlice(c.IP)
+		if !ok {
+			return
+		}
+		groupID := n.lookupSubnetID(addr)
+		if groupID == 0 {
+			return
+		}
+		ones, _ := c.Mask.Size()
+		p := netip.PrefixFrom(addr, ones)
+		n.subnetTable.Insert(wtx, subnetmap.NewSubnetEntry(p, groupID))
+	}
+
+	for _, c := range node.GetIPv4AllocCIDRs() {
+		insertCIDR(c)
+	}
+	for _, c := range node.GetIPv6AllocCIDRs() {
+		insertCIDR(c)
+	}
+}
+
+// deletePodCIDRSubnetEntries removes the node's pod CIDRs from the subnet table.
+func (n *linuxNodeHandler) deletePodCIDRSubnetEntries(node *nodeTypes.Node) {
+	if n.db == nil || n.subnetTable == nil {
+		return
+	}
+
+	wtx := n.db.WriteTxn(n.subnetTable)
+	defer wtx.Commit()
+
+	for _, c := range node.GetIPv4AllocCIDRs() {
+		prefix, ok := netip.AddrFromSlice(c.IP)
+		if !ok {
+			continue
+		}
+		ones, _ := c.Mask.Size()
+		p := netip.PrefixFrom(prefix, ones)
+		n.subnetTable.Delete(wtx, subnetmap.SubnetTableEntry{Key: p})
+	}
+
+	for _, c := range node.GetIPv6AllocCIDRs() {
+		prefix, ok := netip.AddrFromSlice(c.IP)
+		if !ok {
+			continue
+		}
+		ones, _ := c.Mask.Size()
+		p := netip.PrefixFrom(prefix, ones)
+		n.subnetTable.Delete(wtx, subnetmap.SubnetTableEntry{Key: p})
+	}
 }
 
 func (n *linuxNodeHandler) OverrideEnableEncapsulation(fn func(*nodeTypes.Node) bool) {
