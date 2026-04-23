@@ -9,10 +9,23 @@ import (
 	"net/netip"
 
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
 )
 
 const TableName = "subnet-identities"
+
+var (
+	SubnetPrimaryIndex = statedb.Index[SubnetTableEntry, netip.Prefix]{
+		Name: "key",
+		FromObject: func(t SubnetTableEntry) index.KeySet {
+			return index.NewKeySet(index.NetIPPrefix(t.Key))
+		},
+		FromKey:    index.NetIPPrefix,
+		FromString: index.NetIPPrefixString,
+		Unique:     true,
+	}
+)
 
 type SubnetTableEntry struct {
 	Key netip.Prefix
@@ -76,6 +89,7 @@ func newSubnetEntryTable(db *statedb.DB) (statedb.RWTable[SubnetTableEntry], err
 	return statedb.NewTable(
 		db,
 		TableName,
+		SubnetPrimaryIndex,
 		SubnetLPMIndex,
 	)
 }
