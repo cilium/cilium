@@ -1485,8 +1485,8 @@ func (m *manager) installForwardChainRulesIpX(prog runnable, ifName, localDelive
 
 func (m *manager) installMasqueradeRules(
 	prog iptablesInterface, nativeDevices []string,
-	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
-) error {
+	localDeliveryInterface, snatDstExclusionCIDR,
+	allocRange, hostMasqueradeIP string) error {
 	devices := nativeDevices
 
 	if prog.getMode() == "nft" {
@@ -1544,7 +1544,7 @@ func (m *manager) installMasqueradeRules(
 		// * Non-tunnel mode:
 		//   * May not be targeted to an IP in the cluster range
 		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
-			m.cfg.IPTablesRandomFully)
+			m.cfg.IPTablesRandomFully, m.sharedCfg.NATExcludedPorts, m.sharedCfg.NATMinSNATPort)
 		for _, cmd := range cmds {
 			if err := prog.runProg(cmd); err != nil {
 				return err
@@ -1575,15 +1575,24 @@ func (m *manager) installMasqueradeRules(
 		// * Must be targeted for the ifName interface
 		// * Must be targeted to an IP that is not local
 		// * May not already be originating from the node's pod CIDR.
-		if err := prog.runProg([]string{
+		//
+		// The source port is constrained to [NATMinSNATPort, 65535] minus any
+		// Cilium-managed ports (tunnel, WireGuard) so that the
+		// kernel NAT allocator cannot pick a port already owned by a Cilium
+		// kernel socket (e.g. VXLAN UDP/8472).
+		preArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"!", "-s", allocRange,
 			"!", "-d", allocRange,
 			"-o", defaults.HostDevice,
-			"-m", "comment", "--comment", "cilium host->cluster masquerade",
-			"-j", "SNAT", "--to-source", hostMasqueradeIP}); err != nil {
-			return err
+		}
+
+		for _, cmd := range hostSNATCmds(preArgs, "cilium host->cluster masquerade", hostMasqueradeIP,
+			m.sharedCfg.NATExcludedPorts, m.sharedCfg.NATMinSNATPort) {
+			if err := prog.runProg(cmd); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1600,14 +1609,20 @@ func (m *manager) installMasqueradeRules(
 	// The following conditions must be met:
 	// * Must be targeted for local endpoint
 	// * Must be from 127.0.0.1
-	if err := prog.runProg([]string{
-		"-t", "nat",
-		"-A", ciliumPostNatChain,
-		"-s", loopbackAddr,
-		"-o", localDeliveryInterface,
-		"-m", "comment", "--comment", "cilium host->cluster from " + loopbackAddr + " masquerade",
-		"-j", "SNAT", "--to-source", hostMasqueradeIP}); err != nil {
-		return err
+	{
+		preArgs := []string{
+			"-t", "nat",
+			"-A", ciliumPostNatChain,
+			"-s", loopbackAddr,
+			"-o", localDeliveryInterface,
+		}
+
+		for _, cmd := range hostSNATCmds(preArgs, "cilium host->cluster from "+loopbackAddr+" masquerade", hostMasqueradeIP,
+			m.sharedCfg.NATExcludedPorts, m.sharedCfg.NATMinSNATPort) {
+			if err := prog.runProg(cmd); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Masquerade all traffic that originated from a local
@@ -1626,15 +1641,19 @@ func (m *manager) installMasqueradeRules(
 	//    on the same node
 	//  - some proxy if source and server are on the same node
 	if !m.sharedCfg.EnableEndpointRoutes {
-		if err := prog.runProg([]string{
+		preArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
 			"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
 			"-o", localDeliveryInterface,
 			"-m", "conntrack", "--ctstate", "DNAT",
-			"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
-			"-j", "SNAT", "--to-source", hostMasqueradeIP}); err != nil {
-			return err
+		}
+
+		for _, cmd := range hostSNATCmds(preArgs, "hairpin traffic that originated from a local pod", hostMasqueradeIP,
+			m.sharedCfg.NATExcludedPorts, m.sharedCfg.NATMinSNATPort) {
+			if err := prog.runProg(cmd); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2170,41 +2189,253 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 	return cmds
 }
 
-func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
-	masqueradeInterfaces []string, iptablesRandomFully bool) [][]string {
+// snatPortSegment is a contiguous port range [lo, hi] used as an SNAT source-port band.
+type snatPortSegment struct{ lo, hi uint16 }
+
+// buildSNATPortSegments returns the contiguous port segments covering
+// [natMinSNATPort, 65535] with every port in natExcludedPorts (that falls
+// within that range) carved out. natExcludedPorts must be sorted ascending.
+//
+// If there are no effective excluded ports within the range the returned slice
+// contains exactly one segment spanning the whole range. Callers that need
+// backwards-compatible "no constraint" behaviour should check
+// len(natExcludedPorts) == 0 before calling.
+func buildSNATPortSegments(natExcludedPorts []uint16, natMinSNATPort uint16) []snatPortSegment {
+	var segs []snatPortSegment
+	lo := natMinSNATPort
+	exhausted := false
+
+	for _, p := range natExcludedPorts {
+		if p < natMinSNATPort {
+			continue
+		}
+
+		if p > lo {
+			segs = append(segs, snatPortSegment{lo, p - 1})
+		}
+
+		if p == 65535 {
+			exhausted = true
+			break
+		}
+
+		lo = p + 1
+	}
+
+	if !exhausted {
+		segs = append(segs, snatPortSegment{lo, 65535})
+	}
+
+	return segs
+}
+
+// snatTargetWithPortRange returns the iptables --to-source value for an IP
+// address constrained to the given port segment: "IP:lo-hi" for IPv4 or
+// "[IPv6]:lo-hi" for IPv6. If seg is nil the plain IP is returned (no port
+// constraint).
+func snatTargetWithPortRange(ip string, seg *snatPortSegment) string {
+	if seg == nil {
+		return ip
+	}
+
+	// IPv6 addresses must be bracketed when a port range is appended.
+	if strings.Contains(ip, ":") {
+		return fmt.Sprintf("[%s]:%d-%d", ip, seg.lo, seg.hi)
+	}
+
+	return fmt.Sprintf("%s:%d-%d", ip, seg.lo, seg.hi)
+}
+
+// hostSNATCmds returns the iptables rule fragments for a host-side
+// SNAT --to-source rule, split across the effective port segments to exclude
+// Cilium-managed ports. preArgs are the match args (everything before -j).
+// comment is the --comment string. hostMasqueradeIP is the source IP.
+//
+// When there are no effective excluded ports above natMinSNATPort the function
+// returns a single rule with the plain IP and no port range (backwards
+// compatible). When there are excluded ports in range, it emits per-protocol
+// rules (tcp + udp) with the port-range segments, plus a plain SNAT catch-all
+// for other protocols. iptables requires an explicit -p when a port range is
+// given with --to-source; a protocol-agnostic rule with a port range is
+// rejected by iptables v1.8+.
+func hostSNATCmds(preArgs []string, comment, hostMasqueradeIP string,
+	natExcludedPorts []uint16, natMinSNATPort uint16) [][]string {
+
+	// Count effective excluded ports inside the NAT range.
+	effectiveExcluded := 0
+	for _, p := range natExcludedPorts {
+		if p >= natMinSNATPort {
+			effectiveExcluded++
+		}
+	}
+
+	snatAction := func(target string) []string {
+		return []string{
+			"-m", "comment", "--comment", comment,
+			"-j", "SNAT", "--to-source", target,
+		}
+	}
+
+	if effectiveExcluded == 0 {
+		// No effective excluded ports — emit a single unconstrained rule.
+		cmd := append(append([]string{}, preArgs...), snatAction(hostMasqueradeIP)...)
+		return [][]string{cmd}
+	}
+
+	segs := buildSNATPortSegments(natExcludedPorts, natMinSNATPort)
+	if len(segs) == 0 {
+		// All ports excluded — fall back to unconstrained (should never happen in practice).
+		cmd := append(append([]string{}, preArgs...), snatAction(hostMasqueradeIP)...)
+		return [][]string{cmd}
+	}
+
+	var cmds [][]string
+	for _, proto := range []string{"tcp", "udp"} {
+		for i, seg := range segs {
+			target := snatTargetWithPortRange(hostMasqueradeIP, &seg)
+			remaining := len(segs) - i
+			var matchArgs []string
+
+			if remaining > 1 {
+				matchArgs = []string{
+					"-m", "statistic",
+					"--mode", "nth",
+					"--every", strconv.Itoa(remaining),
+					"--packet", "0",
+				}
+			}
+
+			// the `append([]string{},...` is to avoid modifying the preArgs array.
+			cmd := append(append([]string{}, preArgs...), "-p", proto)
+			cmd = append(cmd, matchArgs...)
+			cmd = append(cmd, snatAction(target)...)
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	// Catch-all for non-TCP/UDP protocols: plain SNAT with no port range.
+	cmd := append(append([]string{}, preArgs...), snatAction(hostMasqueradeIP)...)
+	cmds = append(cmds, cmd)
+
+	return cmds
+}
+
+func allEgressMasqueradeCmds(
+	allocRange string, snatDstExclusionCIDR string,
+	masqueradeInterfaces []string, iptablesRandomFully bool,
+	natExcludedPorts []uint16, natMinSNATPort uint16) [][]string {
 	preArgs := []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
 		"!", "-d", snatDstExclusionCIDR,
 	}
 
-	postArgs := []string{
-		"-m", "comment", "--comment", "cilium masquerade non-cluster",
-		"-j", "MASQUERADE",
+	// Build the set of MASQUERADE postArgs. When natExcludedPorts is non-empty,
+	// we split the ephemeral port range around the excluded ports using the
+	// statistic module so that no single connection can use an excluded port as
+	// its SNAT source port.
+	//
+	// MASQUERADE --to-ports requires an explicit protocol (-p tcp or -p udp),
+	// so we emit per-protocol rules for TCP and UDP, plus a plain MASQUERADE
+	// for other protocols (ICMP, SCTP, etc.) that don't have a source port.
+	//
+	// For N excluded ports there are N+1 range segments. The statistic module
+	// distributes connections across rules: rule K matches 1/(N+1-K) of
+	// remaining connections with --every (N+1-K) --packet 0, so that together
+	// all rules cover the full range with each connection landing in exactly one.
+	buildPostArgSets := func() [][]string {
+		if len(natExcludedPorts) == 0 {
+			return [][]string{masqueradePostArgs(iptablesRandomFully, "", "")}
+		}
+
+		segs := buildSNATPortSegments(natExcludedPorts, natMinSNATPort)
+
+		// Count effective excluded ports (those at or above the floor).
+		effectiveExcluded := 0
+		for _, p := range natExcludedPorts {
+			if p >= natMinSNATPort {
+				effectiveExcluded++
+			}
+		}
+
+		// No effective excluded ports in the NAT range — use plain MASQUERADE (backwards compatible).
+		// Also handles the degenerate case where all ports are excluded.
+		if effectiveExcluded == 0 || len(segs) == 0 {
+			return [][]string{masqueradePostArgs(iptablesRandomFully, "", "")}
+		}
+
+		// Emit protocol-specific rules for TCP and UDP (--to-ports requires -p),
+		// plus one plain MASQUERADE catch-all for other protocols.
+		var postArgSets [][]string
+		for _, proto := range []string{"tcp", "udp"} {
+			for i, seg := range segs {
+				portRange := fmt.Sprintf("%d-%d", seg.lo, seg.hi)
+				remaining := len(segs) - i
+				var args []string
+
+				if remaining > 1 {
+					args = []string{
+						"-m", "statistic",
+						"--mode", "nth",
+						"--every", strconv.Itoa(remaining),
+						"--packet", "0",
+					}
+				}
+
+				args = append(args, masqueradePostArgs(iptablesRandomFully, proto, portRange)...)
+				postArgSets = append(postArgSets, args)
+			}
+		}
+
+		// Catch-all for non-TCP/UDP protocols (no --to-ports needed).
+		postArgSets = append(postArgSets, masqueradePostArgs(iptablesRandomFully, "", ""))
+
+		return postArgSets
+	}
+
+	postArgSets := buildPostArgSets()
+
+	buildCmdsForTarget := func(targetArgs []string) [][]string {
+		cmds := make([][]string, 0, len(postArgSets))
+		for _, postArgs := range postArgSets {
+			cmd := append(append([]string{}, preArgs...), targetArgs...)
+			cmd = append(cmd, postArgs...)
+			cmds = append(cmds, cmd)
+		}
+
+		return cmds
 	}
 
 	if len(masqueradeInterfaces) == 0 {
-		cmd := append(preArgs,
-			"-s", allocRange,
-			"!", "-o", "cilium_+",
-		)
-		cmd = append(cmd, postArgs...)
-		if iptablesRandomFully {
-			cmd = append(cmd, "--random-fully")
-		}
-		return [][]string{cmd}
+		targetArgs := []string{"-s", allocRange, "!", "-o", "cilium_+"}
+		return buildCmdsForTarget(targetArgs)
 	}
 
-	cmds := make([][]string, 0, len(masqueradeInterfaces))
+	var cmds [][]string
 	for _, inf := range masqueradeInterfaces {
-		cmd := append(preArgs, "-o", inf)
-		cmd = append(cmd, postArgs...)
-		if iptablesRandomFully {
-			cmd = append(cmd, "--random-fully")
-		}
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, buildCmdsForTarget([]string{"-o", inf})...)
 	}
 	return cmds
+}
+
+// masqueradePostArgs returns the MASQUERADE action args, optionally with a
+// protocol (-p tcp/udp), --to-ports range, and --random-fully.
+func masqueradePostArgs(randomFully bool, proto, portRange string) []string {
+	var args []string
+	if proto != "" {
+		args = append(args, "-p", proto)
+	}
+
+	args = append(args, "-m", "comment", "--comment", "cilium masquerade non-cluster", "-j", "MASQUERADE")
+	if portRange != "" {
+		args = append(args, "--to-ports", portRange)
+	}
+
+	if randomFully {
+		args = append(args, "--random-fully")
+	}
+
+	return args
 }
 
 // hostNoTrackMultiPorts installs or removes a notrack rule matching multiple ports.

@@ -4,12 +4,15 @@
 package iptables
 
 import (
+	"slices"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,6 +33,7 @@ var Cell = cell.Module(
 		tunnelCfg tunnel.Config,
 		ipsecCfg ipsec.Config,
 		wgConfig wgTypes.Config,
+		lbConfig lb.Config,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
@@ -50,10 +54,33 @@ var Cell = cell.Module(
 			EnableL7Proxy:               cfg.EnableL7Proxy,
 			InstallIptRules:             cfg.InstallIptRules,
 			EnableWireguard:             wgConfig.Enabled(),
+			NATExcludedPorts:            buildIptablesNATExcludedPorts(tunnelCfg, wgConfig),
+			NATMinSNATPort:              lbConfig.NodePortMax + 1,
 		}
 	}),
 	cell.Provide(newManager),
 )
+
+// buildIptablesNATExcludedPorts returns the sorted list of UDP ports owned by
+// Cilium kernel sockets that must not be selected as SNAT source ports by
+// iptables MASQUERADE rules. These ports are injected into split --to-ports
+// ranges so the kernel's NAT never picks them.
+func buildIptablesNATExcludedPorts(tunnelCfg tunnel.Config, wgConfig wgTypes.Config) []uint16 {
+	var ports []uint16
+
+	if tunnelCfg.Port() != 0 {
+		ports = append(ports, tunnelCfg.Port())
+	}
+
+	if wgConfig.Enabled() {
+		ports = append(ports, wgTypes.ListenPort)
+	}
+
+	// Keep sorted for deterministic rule generation.
+	slices.Sort(ports)
+
+	return ports
+}
 
 type Config struct {
 	// IPTablesLockTimeout defines the "-w" iptables option when the
@@ -112,4 +139,13 @@ type SharedConfig struct {
 	EnableL7Proxy               bool
 	InstallIptRules             bool
 	EnableWireguard             bool
+
+	// NATExcludedPorts is the sorted list of UDP ports owned by Cilium kernel
+	// sockets (VXLAN, Geneve, WireGuard) that must not be used
+	// as SNAT source ports in iptables MASQUERADE rules.
+	NATExcludedPorts []uint16
+
+	// NATMinSNATPort is the lower bound of the port range used for MASQUERADE
+	// --to-ports. Mirrors the BPF SNAT range: NodePortMax+1 (typically 32768).
+	NATMinSNATPort uint16
 }
