@@ -1,0 +1,71 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kind-restricted-multi-listener
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: HTTPRoute
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tls-checks-certificate
+    - name: grpcs
+      port: 50051
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: GRPCRoute
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tls-checks-certificate
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-via-section-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: kind-restricted-multi-listener
+      namespace: gateway-conformance-infra
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /kind-allowed
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-via-section-name
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: kind-restricted-multi-listener
+      namespace: gateway-conformance-infra
+      sectionName: grpcs
+  rules:
+    - matches:
+        - method:
+            service: com.example.KindAllowed
+            method: Check
+      backendRefs:
+        - name: grpc-infra-backend-v1
+          port: 8080
