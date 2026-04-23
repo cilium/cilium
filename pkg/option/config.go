@@ -2008,6 +2008,11 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.RoutingMode != RoutingModeNative
 }
 
+// RequiresNativeRouting returns true if the agent needs to use native routing to implement some features.
+func (c *DaemonConfig) RequiresNativeRouting() bool {
+	return c.RoutingMode == RoutingModeNative || c.RoutingMode == RoutingModeHybrid
+}
+
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled, ipsecEnabled bool) bool {
@@ -2023,7 +2028,7 @@ func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wiregua
 	}
 
 	// No need to handle rev-NAT xlations in wireguard with tunneling enabled.
-	if c.TunnelingEnabled() {
+	if !c.RequiresNativeRouting() {
 		return false
 	}
 
@@ -2245,10 +2250,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	}
 
 	switch c.RoutingMode {
-	case RoutingModeNative, RoutingModeTunnel:
+	case RoutingModeNative, RoutingModeTunnel, RoutingModeHybrid:
 	default:
-		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q}",
-			c.RoutingMode, RoutingModeTunnel, RoutingModeNative)
+		return fmt.Errorf("invalid routing mode %q, valid modes = {%q, %q, %q}",
+			c.RoutingMode, RoutingModeTunnel, RoutingModeNative, RoutingModeHybrid)
 	}
 
 	cinfo := clustermeshTypes.ClusterInfo{
@@ -3007,7 +3012,7 @@ func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
 	if c.EnableIPMasqAgent {
 		return nil
 	}
-	if c.TunnelingEnabled() {
+	if !c.RequiresNativeRouting() {
 		return nil
 	}
 	if c.IPAMMode() == ipamOption.IPAMENI || c.IPAMMode() == ipamOption.IPAMAlibabaCloud {
@@ -3034,7 +3039,7 @@ func (c *DaemonConfig) checkIPv6NativeRoutingCIDR() error {
 	if c.EnableIPMasqAgent {
 		return nil
 	}
-	if c.TunnelingEnabled() {
+	if !c.RequiresNativeRouting() {
 		return nil
 	}
 	return fmt.Errorf(
