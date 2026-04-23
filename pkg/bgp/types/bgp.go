@@ -148,16 +148,16 @@ type PeerState struct {
 	// Address of the peer
 	Address netip.Addr
 
-	// Local AS Number
-	LocalAsn int64
-
-	// Peer AS Number
-	PeerAsn int64
-
 	// TCP port number of peer
 	// Maximum: 65535
 	// Minimum: 1
 	Port int64
+
+	// Peer AS Number
+	PeerAsn int64
+
+	// Local AS Number
+	LocalAsn int64
 
 	// BGP peer state
 	SessionState SessionState
@@ -169,6 +169,52 @@ type PeerState struct {
 
 	// BGP peer address family states. All configured address families are present here.
 	Families []PeerFamilyState
+
+	// Contains information for peer timers settings.
+	Timers PeerTimers
+
+	// Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
+	// 1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
+	//
+	EbgpMultihopTTL int64
+
+	// Graceful restart capability
+	GracefulRestart BgpGracefulRestart
+
+	// Capabilities announced by the local peer
+	LocalCapabilities []bgp.ParameterCapabilityInterface
+
+	// Capabilities announced by the remote peer
+	RemoteCapabilities []bgp.ParameterCapabilityInterface
+
+	// Set when a TCP password is configured for communications with this peer
+	TCPPasswordEnabled bool
+}
+
+// PeerTimers contains information for peer timers settings.
+type PeerTimers struct {
+	// Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2)
+	// The applied value holds the value that is in effect on the current BGP session.
+	//
+	AppliedHoldTime time.Duration
+
+	// Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8)
+	// The applied value holds the value that is in effect on the current BGP session.
+	//
+	AppliedKeepAliveTime time.Duration
+
+	// Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2)
+	// The configured value will be used for negotiation with the peer during the BGP session establishment.
+	//
+	ConfiguredHoldTime time.Duration
+
+	// Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8)
+	// The applied value may be different than the configured value, as it depends on the negotiated hold time interval.
+	//
+	ConfiguredKeepAliveTime time.Duration
+
+	// Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8)
+	ConnectRetryTime time.Duration
 }
 
 // PeerFamilyState contains status information for a specific address family.
@@ -177,6 +223,18 @@ type PeerFamilyState struct {
 	ReceivedRoutes   uint64
 	AcceptedRoutes   uint64
 	AdvertisedRoutes uint64
+}
+
+// BgpGracefulRestart BGP graceful restart parameters negotiated with the peer.
+type BgpGracefulRestart struct {
+	// When set, graceful restart capability is negotiated for all AFI/SAFIs of
+	// this peer.
+	Enabled bool
+
+	// This is the time advertised to peer for the BGP session to be re-established
+	// after a restart. After this period, peer will remove stale routes.
+	// (RFC 4724 section 4.2)
+	RestartTime time.Duration
 }
 
 // PathRequest contains parameters for advertising or withdrawing a Path
