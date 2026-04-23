@@ -200,6 +200,10 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-backend-protocol-websocket", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-cross-namespace", gateway: []gwDetails{gatewayBackendNamespace}},
 		{
+			name:    "httproute-allowed-kind-by-section-name",
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "kind-restricted-multi-listener", Namespace: "gateway-conformance-infra"}}},
+		},
+		{
 			name:    "httproute-disallowed-kind",
 			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}}},
 		},
