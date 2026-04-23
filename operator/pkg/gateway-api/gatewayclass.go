@@ -8,19 +8,16 @@ import (
 	"fmt"
 	"log/slog"
 
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -56,36 +53,8 @@ func (r *gatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gatewayv1.GatewayClass{},
 			builder.WithPredicates(predicate.NewPredicateFuncs(matchesControllerName(controllerName)))).
-		Watches(&v2alpha1.CiliumGatewayClassConfig{}, r.enqueueRequestForCiliumGatewayClassConfig()).
+		Watches(&v2alpha1.CiliumGatewayClassConfig{}, watchhandlers.EnqueueRequestForCiliumGatewayClassConfig(r.Client, r.logger)).
 		Complete(r)
-}
-
-func (r *gatewayClassReconciler) enqueueRequestForCiliumGatewayClassConfig() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(r.enqueueFromIndex(gatewayClassConfigMapIndexName))
-}
-
-func (r *gatewayClassReconciler) enqueueFromIndex(index string) handler.MapFunc {
-	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := r.logger.With(
-			logfields.Resource, client.ObjectKeyFromObject(o),
-		)
-		list := &gatewayv1.GatewayClassList{}
-
-		if err := r.Client.List(ctx, list, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
-		}); err != nil {
-			scopedLog.ErrorContext(ctx, "Failed to list related GatewayClass", logfields.Error, err)
-			return []reconcile.Request{}
-		}
-
-		requests := make([]reconcile.Request, 0, len(list.Items))
-		for _, item := range list.Items {
-			c := client.ObjectKeyFromObject(&item)
-			requests = append(requests, reconcile.Request{NamespacedName: c})
-			scopedLog.InfoContext(ctx, "Enqueued GatewayClass for resource", gatewayClass, c)
-		}
-		return requests
-	}
 }
 
 func matchesControllerName(controllerName string) func(object client.Object) bool {

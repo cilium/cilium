@@ -1162,6 +1162,8 @@ const (
 
 	GammaService = "gammaService"
 
+	GatewayClass = "GatewayClass"
+
 	Kind = "kind"
 
 	RequiredGVK = "requiredGVK"

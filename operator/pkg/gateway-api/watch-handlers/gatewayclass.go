@@ -7,12 +7,14 @@ import (
 	"context"
 	"log/slog"
 
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -49,4 +51,32 @@ func EnqueueRequestForOwningGatewayClass(c client.Client, logger slog.Logger) ha
 		}
 		return reqs
 	})
+}
+
+func EnqueueRequestForCiliumGatewayClassConfig(c client.Client, logger *slog.Logger) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(enqueueGatewayClassFromIndex(c, logger, indexers.GatewayClassCiliumGatewayClassConfigsIndex))
+}
+
+func enqueueGatewayClassFromIndex(c client.Client, logger *slog.Logger, index string) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
+		scopedLog := logger.With(
+			logfields.Resource, client.ObjectKeyFromObject(o),
+		)
+		list := &gatewayv1.GatewayClassList{}
+
+		if err := c.List(ctx, list, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to list related GatewayClass", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		requests := make([]reconcile.Request, 0, len(list.Items))
+		for _, item := range list.Items {
+			c := client.ObjectKeyFromObject(&item)
+			requests = append(requests, reconcile.Request{NamespacedName: c})
+			scopedLog.InfoContext(ctx, "Enqueued GatewayClass for resource", logfields.GatewayClass, c)
+		}
+		return requests
+	}
 }
