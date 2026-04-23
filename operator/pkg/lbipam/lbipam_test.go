@@ -52,8 +52,7 @@ func TestConflictResolution(t *testing.T) {
 	}
 
 	// All ranges of a conflicting pool must be disabled
-	poolBRanges, _ := fixture.lbipam.rangesStore.GetRangesForPool("pool-b")
-	for _, r := range poolBRanges {
+	for _, r := range fixture.lbipam.pools["pool-b"].ranges {
 		if !r.internallyDisabled {
 			t.Fatalf("Range '%s' from pool B hasn't been disabled", ipNetStr(r))
 		}
@@ -431,7 +430,7 @@ func TestSharingKey(t *testing.T) {
 
 	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -466,7 +465,7 @@ func TestSharingKey(t *testing.T) {
 		t.Error("Expected service to receive the same IP as service-a")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -517,7 +516,7 @@ func TestSharingKey(t *testing.T) {
 	fixture.DeleteSvc(t, svcB)
 
 	// The IP is released because service-b is no longer using it
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
 		t.Fatal("Service IP hasn't been released")
 	}
 
@@ -596,14 +595,14 @@ func TestSharingKey(t *testing.T) {
 	fixture.DeleteSvc(t, svcC)
 
 	// The IP is not released because service-b is still using it
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP2)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP2)); !has {
 		t.Fatal("Service IP has been released")
 	}
 
 	fixture.DeleteSvc(t, svcB)
 
 	// The IP is released because service-b is no longer using it
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP2)); has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP2)); has {
 		t.Fatal("Service IP hasn't been released")
 	}
 }
@@ -642,7 +641,7 @@ func TestRegressionSharedKeyReaddBug(t *testing.T) {
 
 	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -677,7 +676,7 @@ func TestRegressionSharedKeyReaddBug(t *testing.T) {
 		t.Error("Expected service to receive the same IP as service-a")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -698,7 +697,7 @@ func TestRegressionSharedKeyReaddBug(t *testing.T) {
 		t.Error("Expected service to receive the same IP as service-a")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 }
@@ -739,7 +738,7 @@ func TestSharingCrossNamespace(t *testing.T) {
 
 	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -775,7 +774,7 @@ func TestSharingCrossNamespace(t *testing.T) {
 		t.Error("Expected service to receive the same IP as service-a")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -858,13 +857,13 @@ func TestServiceDelete(t *testing.T) {
 
 	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
 	fixture.DeleteSvc(t, svcA)
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
 		t.Fatal("Service IP hasn't been released")
 	}
 	ipsUsed = getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
@@ -997,11 +996,11 @@ func TestAllocOnInit(t *testing.T) {
 		t.Error("Expected service to receive exactly one ingress IP")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
 		t.Fatal("Expected the imported IP to be allocated")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
 		t.Fatal("Expected the imported IP to be allocated")
 	}
 }
@@ -1332,7 +1331,7 @@ func TestChangeServiceType(t *testing.T) {
 		t.Error("Expected service to have no conditions")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(assignedIP)); has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr(assignedIP)); has {
 		t.Fatal("Expected assigned IP to be released")
 	}
 }
@@ -1768,7 +1767,7 @@ func TestDisablePool(t *testing.T) {
 	poolA.Spec.Disabled = true
 	fixture.UpsertPool(t, poolA)
 
-	if !fixture.lbipam.rangesStore.ranges[0].externallyDisabled {
+	if !fixture.lbipam.pools["pool-a"].ranges[0].externallyDisabled {
 		t.Fatal("The range has not been externally disabled")
 	}
 
@@ -2472,15 +2471,15 @@ func TestRemoveRequestedIP(t *testing.T) {
 		t.Error("Expected service to receive exactly two ingress IPs")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
 		t.Fatal("Expected IP '10.0.10.123' to be allocated")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
 		t.Fatal("Expected IP '10.0.10.124' to be allocated")
 	}
 
-	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.125")); has {
+	if _, has := fixture.lbipam.pools["pool-a"].ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.125")); has {
 		t.Fatal("Expected IP '10.0.10.125' to be released")
 	}
 }
