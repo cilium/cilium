@@ -38,6 +38,12 @@ gobgp/wait-state -s server3 fd00:10:99:7::6 ESTABLISHED
 bgp/peers --no-uptime -o bgp-peers.actual
 * cmp bgp-peers.expected bgp-peers.actual
 
+# Test peers detailed
+bgp/peers --no-uptime -f detailed -o bgp-peers-detailed.actual
+sed 'name:.*' 'name: <redacted>' bgp-peers-detailed.actual
+sed 'software-version:.*' 'software-version: <redacted>' bgp-peers-detailed.actual
+* cmp bgp-peers-detailed.expected bgp-peers-detailed.actual
+
 # Test route-policies
 bgp/route-policies -o bgp-route-policies.actual
 * cmp bgp-route-policies.expected bgp-route-policies.actual
@@ -160,6 +166,237 @@ instance1   peer0   established     -        ipv4-unicast   1          1        
                                              ipv6-unicast   1          1          1
             peer1   established     -        ipv4-unicast   1          1          1
                                              ipv6-unicast   1          1          1
+-- bgp-peers-detailed.expected --
+Instance: instance0
+  Peer: peer0
+    Address: fd00:10:99:7::1
+    Port: 1790
+    PeerAsn: 65000
+    LocalAsn: 65000
+    Session State: established
+    Address Families:
+      ipv4/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+      ipv6/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+    Timers:
+      Hold Time:
+        Configured: 1m30s
+        Applied: 1m30s
+      Keep Alive Time:
+        Configured: 30s
+        Applied: 30s
+      Connect Retry Time: 1s
+    Ebgp Multihop TTL: 1
+    Graceful Restart:
+      Enabled: false
+    Local Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      4-octet-as
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    Remote Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      graceful-restart
+      4-octet-as
+      add-path:
+        ipv4-unicast: receive
+        ipv6-unicast: receive
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    TCP Password Enabled: false
+  Peer: peer1
+    Address: fd00:10:99:7::2
+    Port: 1790
+    PeerAsn: 65000
+    LocalAsn: 65000
+    Session State: established
+    Address Families:
+      ipv4/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+      ipv6/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+    Timers:
+      Hold Time:
+        Configured: 1m30s
+        Applied: 1m30s
+      Keep Alive Time:
+        Configured: 30s
+        Applied: 30s
+      Connect Retry Time: 1s
+    Ebgp Multihop TTL: 1
+    Graceful Restart:
+      Enabled: false
+    Local Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      4-octet-as
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    Remote Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      graceful-restart
+      4-octet-as
+      add-path:
+        ipv4-unicast: receive
+        ipv6-unicast: receive
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    TCP Password Enabled: false
+Instance: instance1
+  Peer: peer0
+    Address: fd00:10:99:7::3
+    Port: 1790
+    PeerAsn: 65001
+    LocalAsn: 65001
+    Session State: established
+    Address Families:
+      ipv4/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+      ipv6/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+    Timers:
+      Hold Time:
+        Configured: 1m30s
+        Applied: 1m30s
+      Keep Alive Time:
+        Configured: 30s
+        Applied: 30s
+      Connect Retry Time: 1s
+    Ebgp Multihop TTL: 1
+    Graceful Restart:
+      Enabled: false
+    Local Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      4-octet-as
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    Remote Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      graceful-restart
+      4-octet-as
+      add-path:
+        ipv4-unicast: receive
+        ipv6-unicast: receive
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    TCP Password Enabled: false
+  Peer: peer1
+    Address: fd00:10:99:7::4
+    Port: 1790
+    PeerAsn: 65001
+    LocalAsn: 65001
+    Session State: established
+    Address Families:
+      ipv4/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+      ipv6/unicast:
+        Received Routes: 1
+        Accepted Routes: 1
+        Advertised Routes: 1
+    Timers:
+      Hold Time:
+        Configured: 1m30s
+        Applied: 1m30s
+      Keep Alive Time:
+        Configured: 30s
+        Applied: 30s
+      Connect Retry Time: 1s
+    Ebgp Multihop TTL: 1
+    Graceful Restart:
+      Enabled: false
+    Local Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      4-octet-as
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    Remote Capabilities:
+      multiprotocol:
+        ipv4-unicast
+      multiprotocol:
+        ipv6-unicast
+      route-refresh
+      extended-nexthop:
+        nlri: ipv4-unicast, nexthop: ipv6
+      graceful-restart
+      4-octet-as
+      add-path:
+        ipv4-unicast: receive
+        ipv6-unicast: receive
+      fqdn:
+        name: <redacted>
+        domain: 
+      software-version: <redacted>
+    TCP Password Enabled: false
 -- bgp-route-policies.expected --
 Instance    Policy Name          Type     Match Peers       Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
 instance0   allow-local          import                                                                      accept       
