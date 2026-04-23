@@ -75,10 +75,17 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 			state.Address = addr
 			state.LocalAsn = int64(peer.Conf.LocalAsn)
 			state.PeerAsn = int64(peer.Conf.PeerAsn)
+			state.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
 		}
 
 		if peer.State != nil {
+			if peer.Conf.PeerAsn == 0 { // if peerAsn is not set, use peer state peerAsn
+				state.PeerAsn = int64(peer.State.PeerAsn)
+			}
+
 			state.SessionState = toAgentSessionState(peer.State.SessionState)
+			state.LocalCapabilities = toAgentCap(peer.State.LocalCap)
+			state.RemoteCapabilities = toAgentCap(peer.State.RemoteCap)
 
 			// Uptime is time since session got established. It is
 			// calculated by difference in time from uptime
@@ -93,6 +100,36 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 				continue
 			}
 			state.Families = append(state.Families, toAgentAfiSafiState(afiSafi.State))
+		}
+
+		if peer.EbgpMultihop != nil && peer.EbgpMultihop.Enabled {
+			state.EbgpMultihopTTL = int64(peer.EbgpMultihop.MultihopTtl)
+		} else {
+			state.EbgpMultihopTTL = int64(v2.DefaultBGPEBGPMultihopTTL) // defaults to 1 if not enabled
+		}
+
+		if peer.Timers != nil {
+			tConfig := peer.Timers.Config
+			tState := peer.Timers.State
+			if tConfig != nil {
+				state.Timers.ConnectRetryTime = time.Duration(tConfig.ConnectRetry) * time.Second
+				state.Timers.ConfiguredHoldTime = time.Duration(tConfig.HoldTime) * time.Second
+				state.Timers.ConfiguredKeepAliveTime = time.Duration(tConfig.KeepaliveInterval) * time.Second
+			}
+			if tState != nil {
+				if tState.NegotiatedHoldTime != 0 {
+					state.Timers.AppliedHoldTime = time.Duration(tState.NegotiatedHoldTime) * time.Second
+				}
+				if tState.KeepaliveInterval != 0 {
+					state.Timers.AppliedKeepAliveTime = time.Duration(tState.KeepaliveInterval) * time.Second
+				}
+			}
+		}
+
+		state.GracefulRestart = types.BgpGracefulRestart{}
+		if peer.GracefulRestart != nil {
+			state.GracefulRestart.Enabled = peer.GracefulRestart.Enabled
+			state.GracefulRestart.RestartTime = time.Duration(peer.GracefulRestart.RestartTime) * time.Second
 		}
 
 		res.Peers = append(res.Peers, state)
@@ -156,8 +193,8 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 			}
 
 			peerState.SessionState = toAgentSessionState(peer.State.SessionState).String()
-			peerState.LocalCapabilities = toAgentCap(peer.State.LocalCap)
-			peerState.RemoteCapabilities = toAgentCap(peer.State.RemoteCap)
+			peerState.LocalCapabilities = toAgentCapLegacy(peer.State.LocalCap)
+			peerState.RemoteCapabilities = toAgentCapLegacy(peer.State.RemoteCap)
 
 			// Uptime is time since session got established.
 			// It is calculated by difference in time from uptime timestamp till now.
