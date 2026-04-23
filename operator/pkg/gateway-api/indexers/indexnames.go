@@ -40,4 +40,8 @@ const (
 	// This is then be used by the Service reconciler to only retrieve any GRPCRoutes that have that specific
 	// Service as a parent.
 	GammaGRPCRouteParentRefsIndex = "gammaGRPCRouteParentRefs"
+
+	// Indexes GatewayClassCiliumGatewayClassConfigsIndex indexes GatewayClass by the CiliumGatewayClassConfig
+	// that it refers to.
+	GatewayClassCiliumGatewayClassConfigsIndex = "gatewayClassCiliumGatewayClassConfigsIndex"
 )
