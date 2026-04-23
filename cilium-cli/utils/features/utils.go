@@ -3,7 +3,12 @@
 
 package features
 
-import "net"
+import (
+	"net"
+	"net/netip"
+
+	"github.com/cilium/cilium/pkg/subnet"
+)
 
 type IPFamily int
 
@@ -103,4 +108,40 @@ func ComputeFailureExceptions(defaultExceptions, inputExceptions []string) []str
 		}
 	}
 	return exceptionList
+}
+
+// SameSubnet returns true if given two IP addresses belong to the same subnet, based on the subnet-topology.
+func SameSubnet(ip1, ip2, topology string) bool {
+	if topology == "" {
+		return false
+	}
+
+	parsedIP1, err := netip.ParseAddr(ip1)
+	if err != nil {
+		return false
+	}
+	parsedIP2, err := netip.ParseAddr(ip2)
+	if err != nil {
+		return false
+	}
+
+	entries, err := subnet.DecodeTopology(topology)
+	if err != nil {
+		return false
+	}
+
+	var group1, group2 uint32
+	for _, entry := range entries {
+		if entry.Key.Contains(parsedIP1) {
+			group1 = entry.Value
+		}
+		if entry.Key.Contains(parsedIP2) {
+			group2 = entry.Value
+		}
+		if group1 != 0 && group1 == group2 {
+			return true
+		}
+	}
+
+	return false
 }
