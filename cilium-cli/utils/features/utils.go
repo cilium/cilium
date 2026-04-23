@@ -3,7 +3,11 @@
 
 package features
 
-import "net"
+import (
+	"net"
+	"net/netip"
+	"strings"
+)
 
 type IPFamily int
 
@@ -103,4 +107,57 @@ func ComputeFailureExceptions(defaultExceptions, inputExceptions []string) []str
 		}
 	}
 	return exceptionList
+}
+
+// SameSubnet returns true if given two IP addresses belong to the same subnet, based on the subnet-topology.
+func SameSubnet(ip1, ip2, topology string) bool {
+	if topology == "" {
+		return false
+	}
+
+	parsedIP1, err := netip.ParseAddr(ip1)
+	if err != nil {
+		return false
+	}
+	parsedIP2, err := netip.ParseAddr(ip2)
+	if err != nil {
+		return false
+	}
+
+	// Split topology into groups of directly connected subnets (separated by ';')
+	groups := strings.SplitSeq(topology, ";")
+
+	for group := range groups {
+		// Split each group into individual CIDRs (separated by ',')
+		cidrs := strings.Split(group, ",")
+
+		ip1InGroup := false
+		ip2InGroup := false
+
+		for _, cidrStr := range cidrs {
+			cidrStr = strings.TrimSpace(cidrStr)
+			if cidrStr == "" {
+				continue
+			}
+
+			prefix, err := netip.ParsePrefix(cidrStr)
+			if err != nil {
+				continue
+			}
+
+			if prefix.Contains(parsedIP1) {
+				ip1InGroup = true
+			}
+			if prefix.Contains(parsedIP2) {
+				ip2InGroup = true
+			}
+		}
+
+		// If both IPs are in the same directly connected group, return true
+		if ip1InGroup && ip2InGroup {
+			return true
+		}
+	}
+
+	return false
 }
