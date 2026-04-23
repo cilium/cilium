@@ -339,6 +339,7 @@ jobs:
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
+          path: untrusted
 
       - name: Install cilium-cli
         uses: cilium/cilium-cli@2c40f81b9180be6a5e52b8caf7f1de75202ec0fc # v0.19.4
@@ -354,14 +355,14 @@ jobs:
         shell: bash
         run: |
           cid=$(docker create ${{ env.CILIUM_CLI_IMAGE_REPO }}:${{ needs.setup-vars.outputs.SHA }} ls)
-          docker cp $cid:/usr/local/bin/cilium "$PWD/cilium-cli-bin"
+          docker cp $cid:/usr/local/bin/cilium "untrusted/cilium-cli-bin"
           docker rm $cid
 
       - name: Copy cilium-cli from released binary
         if: ${{ env.CILIUM_CLI_VERSION != '' }}
         shell: bash
         run: |
-          cp /usr/local/bin/cilium "$PWD/cilium-cli-bin"
+          cp /usr/local/bin/cilium "untrusted/cilium-cli-bin"
 
       - name: Install helm
         shell: bash
@@ -370,7 +371,7 @@ jobs:
           HELM_VERSION=v3.13.1
           wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          mv ./linux-amd64/helm ./helm
+          mv ./linux-amd64/helm untrusted/helm
 
       - name: Provision LVH VMs
         id: provision-vh-vms
@@ -380,7 +381,7 @@ jobs:
           install-dependencies: true
           image-version: ${{ matrix.kernel }}
           images-folder-parent: "/tmp"
-          host-mount: ./
+          host-mount: untrusted/
           cpu: 4
           mem: 12G
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
@@ -434,7 +435,7 @@ jobs:
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
-          cd test
+          cd untrusted/test
           /home/runner/go/bin/ginkgo build
           strip test.test
           tar -cz test.test -f test.tgz
@@ -444,15 +445,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p /tmp/.ginkgo-build/
-          if [ -f test/test.tgz ]; then
-            cp test/test.tgz /tmp/.ginkgo-build/
+          if [ -f untrusted/test/test.tgz ]; then
+            cp untrusted/test/test.tgz /tmp/.ginkgo-build/
             echo "file copied"
           fi
 
       - name: Copy Ginkgo binary
         shell: bash
         run: |
-          cd test/
+          cd untrusted/test/
           tar -xf /tmp/.ginkgo-build/test.tgz
 
       - name: Run tests
@@ -529,6 +530,7 @@ jobs:
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
+          cd untrusted
           sudo chown $USER:$USER -R ./test
           find . -type f -iname 'feature-status-*.json' | while IFS= read -r file; do
             basename_file=$(basename "$file")
@@ -551,9 +553,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p cilium-junits
-          cd test/
+          cd untrusted/test/
           junit_filename="${{ env.job_name }}.xml"
-          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+          for filename in *.xml; do cp "${filename}" "../../cilium-junits/${junit_filename}"; done;
 
       - name: Upload artifacts
         if: ${{ !success() }}
