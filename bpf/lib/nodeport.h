@@ -1374,8 +1374,11 @@ static __always_inline int nodeport_svc_lb6(
 
 		/* See IPv4 codepath for comments. */
 		if (CONFIG(enable_tproxy) ||
-		    CONFIG(proxy_redirect_via_cilium_net))
-			return ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+		    CONFIG(proxy_redirect_via_cilium_net)) {
+			ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
+			ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
+			return ret;
+		}
 
 		cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 		ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
@@ -2671,10 +2674,12 @@ static __always_inline int nodeport_svc_lb4(
 		 * or when attaching the BPF program to a bridge network device.
 		 */
 		if (CONFIG(enable_tproxy) ||
-		    CONFIG(proxy_redirect_via_cilium_net))
-			return ctx_redirect_to_proxy_hairpin_ipv4(
+		    CONFIG(proxy_redirect_via_cilium_net)) {
+			ret = ctx_redirect_to_proxy_hairpin_ipv4(
 				ctx, ip4, proxy_port);
-
+			ctx->mark = ctx_load_meta(ctx, CB_PROXY_MAGIC);
+			return ret;
+		}
 		/* Pass the packet straight to the proxy, without redirecting via
 		 * cilium_host.
 		 */
