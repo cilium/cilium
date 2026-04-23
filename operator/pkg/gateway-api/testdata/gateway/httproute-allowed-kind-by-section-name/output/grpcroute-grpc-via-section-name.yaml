@@ -1,0 +1,38 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  creationTimestamp: null
+  name: grpc-via-section-name
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+    - name: kind-restricted-multi-listener
+      namespace: gateway-conformance-infra
+      sectionName: grpcs
+  rules:
+    - matches:
+        - method:
+            service: com.example.KindAllowed
+            method: Check
+      backendRefs:
+        - name: grpc-infra-backend-v1
+          port: 8080
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted GRPCRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: kind-restricted-multi-listener
+        namespace: gateway-conformance-infra
+        sectionName: grpcs
