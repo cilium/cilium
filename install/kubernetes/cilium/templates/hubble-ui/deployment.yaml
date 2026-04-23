@@ -110,7 +110,7 @@ spec:
           value: "8090"
         {{- if .Values.hubble.relay.tls.server.enabled }}
         - name: FLOWS_API_ADDR
-          value: "hubble-relay:443"
+          value: "hubble-relay.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:443"
         - name: TLS_TO_RELAY_ENABLED
           value: "true"
         - name: TLS_RELAY_SERVER_NAME
@@ -123,7 +123,7 @@ spec:
           value: /var/lib/hubble-ui/certs/client.key
         {{- else }}
         - name: FLOWS_API_ADDR
-          value: "hubble-relay:80"
+          value: "hubble-relay.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:80"
         {{- end }}
         {{- with .Values.hubble.ui.backend.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
