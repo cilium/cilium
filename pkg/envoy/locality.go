@@ -16,7 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 )
 
-const localityClusterName = "/cilium-locality-cluster"
+// Keep the constant public to make it accessible in downstream repos.
+const LocalityClusterName = "/cilium-locality-cluster"
 
 func getLocalNodeZone(localNodeStore *node.LocalNodeStore) (string, error) {
 	if localNodeStore == nil {
@@ -41,7 +42,7 @@ func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, conne
 	if bs.ClusterManager == nil {
 		bs.ClusterManager = &envoy_config_bootstrap.ClusterManager{}
 	}
-	bs.ClusterManager.LocalClusterName = localityClusterName
+	bs.ClusterManager.LocalClusterName = LocalityClusterName
 	bs.StaticResources.Clusters = append(bs.StaticResources.Clusters, newLocalityCluster(connectTimeout))
 
 	if zone != "" {
@@ -52,7 +53,7 @@ func appendEmbeddedLocalityBootstrap(bs *envoy_config_bootstrap.Bootstrap, conne
 // newLocalityCluster defines the internal EDS-backed local cluster Envoy uses for locality-aware routing.
 func newLocalityCluster(connectTimeout int64) *envoy_config_cluster.Cluster {
 	return &envoy_config_cluster.Cluster{
-		Name:                 localityClusterName,
+		Name:                 LocalityClusterName,
 		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
 		ConnectTimeout:       &durationpb.Duration{Seconds: connectTimeout},
 		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
@@ -73,7 +74,7 @@ func newLocalityCluster(connectTimeout int64) *envoy_config_cluster.Cluster {
 					},
 				},
 			},
-			ServiceName: localityClusterName,
+			ServiceName: LocalityClusterName,
 		},
 		LbPolicy: envoy_config_cluster.Cluster_ROUND_ROBIN,
 	}
