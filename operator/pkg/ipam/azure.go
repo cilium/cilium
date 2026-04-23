@@ -49,8 +49,8 @@ var azureDefaultConfig = AzureConfig{
 
 func (cfg AzureConfig) Flags(flags *pflag.FlagSet) {
 	flags.String(operatorOption.AzureSubscriptionID, azureDefaultConfig.AzureSubscriptionID, "Subscription ID to access Azure API")
-	flags.String(operatorOption.AzureResourceGroup, azureDefaultConfig.AzureResourceGroup, "Resource group to use for Azure IPAM")
-	flags.String(operatorOption.AzureUserAssignedIdentityID, azureDefaultConfig.AzureUserAssignedIdentityID, "ID of the user assigned identity used to auth with the Azure API")
+	flags.String(operatorOption.AzureResourceGroup, azureDefaultConfig.AzureResourceGroup, "Resource group containing the cluster nodes, defaults to cilium operator's own resource group retrieved via Azure Instance Metadata Service (IMDS)")
+	flags.String(operatorOption.AzureUserAssignedIdentityID, azureDefaultConfig.AzureUserAssignedIdentityID, "Client ID (UUID) of the user-assigned managed identity used to auth with the Azure API")
 	flags.Bool(operatorOption.AzureUsePrimaryAddress, azureDefaultConfig.AzureUsePrimaryAddress, "Use Azure IP address from interface's primary IPConfigurations")
 }
 
