@@ -19,7 +19,7 @@ status:
   - conditions:
     - lastTransitionTime: "2025-07-01T06:20:17Z"
       message: HTTPRoute is not allowed to attach to this Gateway due to namespace
-        selector restrictions
+        restrictions
       reason: NotAllowedByListeners
       status: "False"
       type: Accepted
