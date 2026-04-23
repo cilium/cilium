@@ -76,18 +76,36 @@ spec:
           routes:
             - match:
                 pathSeparatedPrefix: /scheme-https-and-port-8443
+                headers:
+                - invertMatch: true
+                  name: X-Forwarded-Proto
+                  stringMatch:
+                    exact: https
+                    ignoreCase: true
               redirect:
                 hostRedirect: example.org
                 portRedirect: 8443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme-https-and-port-nil
+                headers:
+                - invertMatch: true
+                  name: X-Forwarded-Proto
+                  stringMatch:
+                    exact: https
+                    ignoreCase: true
               redirect:
                 hostRedirect: example.org
                 portRedirect: 443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme-https-and-port-443
+                headers:
+                - invertMatch: true
+                  name: X-Forwarded-Proto
+                  stringMatch:
+                    exact: https
+                    ignoreCase: true
               redirect:
                 hostRedirect: example.org
                 portRedirect: 443

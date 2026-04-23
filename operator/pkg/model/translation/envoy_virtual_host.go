@@ -237,6 +237,9 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
+			if hRoutes[0].RequestRedirect.Scheme != nil {
+				route.Match.Headers = append(route.Match.Headers, getRouteRedirectMatch(*hRoutes[0].RequestRedirect.Scheme))
+			}
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
 			route.Action = getRouteAction(&r, backends, r.BackendHTTPFilters, r.Rewrite, r.RequestMirrors)
@@ -499,6 +502,21 @@ func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort ui
 
 	return &envoy_config_route_v3.Route_Redirect{
 		Redirect: redirectAction,
+	}
+}
+
+func getRouteRedirectMatch(match string) *envoy_config_route_v3.HeaderMatcher {
+	return &envoy_config_route_v3.HeaderMatcher{
+		Name: "X-Forwarded-Proto",
+		HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+			StringMatch: &envoy_type_matcher_v3.StringMatcher{
+				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+					Exact: match,
+				},
+				IgnoreCase: true,
+			},
+		},
+		InvertMatch: true,
 	}
 }
 

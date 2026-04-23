@@ -383,6 +383,12 @@ func (r *HTTPRoute) GetMatchKey() string {
 		sb.WriteString("|")
 	}
 
+	if r.RequestRedirect != nil && r.RequestRedirect.Scheme != nil {
+		sb.WriteString("redirect:")
+		sb.WriteString("true")
+		sb.WriteString("|")
+	}
+
 	return sb.String()
 }
 
