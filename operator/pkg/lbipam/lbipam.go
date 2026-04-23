@@ -1027,31 +1027,31 @@ func (ipam *LBIPAM) satisfyGenericIPRequests(sv *ServiceView) (statusModified bo
 
 	// Missing an IPv4 address, lets attempt to allocate an address
 	if sv.RequestedFamilies.IPv4 && !hasIPv4 {
-		statusModified, err = ipam.satisfyGenericIPv4Requests(sv)
+		statusModified, err = ipam.satisfyGenericRequest(sv, IPv4Family)
 		if err != nil {
-			return statusModified, fmt.Errorf("satisfyGenericIPv4Requests: %w", err)
+			return statusModified, fmt.Errorf("satisfyGenericRequest: %w", err)
 		}
 	}
 
 	// Missing an IPv6 address, lets attempt to allocate an address
 	if sv.RequestedFamilies.IPv6 && !hasIPv6 {
-		statusModified, err = ipam.satisfyGenericIPv6Requests(sv)
+		statusModified, err = ipam.satisfyGenericRequest(sv, IPv6Family)
 		if err != nil {
-			return statusModified, fmt.Errorf("satisfyGenericIPv6Requests: %w", err)
+			return statusModified, fmt.Errorf("satisfyGenericRequest: %w", err)
 		}
 	}
 
 	return statusModified, nil
 }
 
-func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified bool, err error) {
+func (ipam *LBIPAM) satisfyGenericRequest(sv *ServiceView, family AddressFamily) (statusModified bool, err error) {
 	if sv.SharingKey != "" {
 		// If the service has a sharing key, check if it exists in the `rangeStore` via the index.
 		sharingGroupIPs, _ := ipam.rangesStore.GetServiceViewIPsForSharingKey(sv.SharingKey)
 		// If it exists, we go to the `LBRange` and get the list of `ServiceViews`.
 		for _, sharingGroupIP := range sharingGroupIPs {
-			// We only want to allocate IPv4 addresses from the sharing key pool
-			if isIPv6(sharingGroupIP.IP) {
+			// Only attempt to share IPs of the same address family
+			if addressFamilyOfIP(sharingGroupIP.IP) != family {
 				continue
 			}
 
@@ -1080,7 +1080,7 @@ func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified 
 	}
 
 	// Unable to share an already allocated IP, so lets allocate a new one
-	newIP, lbRange, err := ipam.allocateIPAddress(sv, IPv4Family)
+	newIP, lbRange, err := ipam.allocateIPAddress(sv, family)
 	if err != nil && !errors.Is(err, ipalloc.ErrFull) {
 		return statusModified, fmt.Errorf("allocateIPAddress: %w", err)
 	}
@@ -1099,73 +1099,6 @@ func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified 
 
 		if ipam.setSVCSatisfiedCondition(sv, false, reason, message) {
 			statusModified = true
-		}
-	}
-
-	return statusModified, nil
-}
-
-func (ipam *LBIPAM) satisfyGenericIPv6Requests(sv *ServiceView) (statusModified bool, err error) {
-	allocatedFromSharingKey := false
-	if sv.SharingKey != "" {
-		// If the service has a sharing key, check if it exists in the `rangeStore` via the index.
-		serviceViewIPs, foundServiceViewIP := ipam.rangesStore.GetServiceViewIPsForSharingKey(sv.SharingKey)
-		if foundServiceViewIP && len(serviceViewIPs) > 0 {
-			// If it exists, we go to the `LBRange` and get the list of `ServiceViews`.
-			for _, serviceViewIP := range serviceViewIPs {
-				// We only want to allocate IPv6 addresses from the sharing key pool
-				if !isIPv6(serviceViewIP.IP) {
-					continue
-				}
-				lbRangePtr := serviceViewIP.Origin
-				if lbRangePtr == nil {
-					continue
-				}
-				lbRange := *lbRangePtr
-				serviceViews, foundServiceViewsPtr := lbRange.alloc.Get(serviceViewIP.IP)
-				if !foundServiceViewsPtr || len(serviceViews) == 0 {
-					continue
-				}
-				// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
-				compatible := true
-				for _, serviceView := range serviceViews {
-					if c, _ := serviceView.isCompatible(sv); !c {
-						compatible = false
-						break
-					}
-				}
-				// if it is, add the service view to the list, and satisfy the IP
-				if compatible {
-					sv.AllocatedIPs = append(sv.AllocatedIPs, *serviceViewIP)
-					serviceViews = append(serviceViews, sv)
-					lbRange.alloc.Update(serviceViewIP.IP, serviceViews)
-					allocatedFromSharingKey = true
-					break
-				}
-			}
-		}
-	}
-	if !allocatedFromSharingKey {
-		newIP, lbRange, err := ipam.allocateIPAddress(sv, IPv6Family)
-		if err != nil && !errors.Is(err, ipalloc.ErrFull) {
-			return statusModified, fmt.Errorf("allocateIPAddress: %w", err)
-		}
-		if newIP.Compare(netip.Addr{}) != 0 {
-			sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
-				IP:     newIP,
-				Origin: lbRange,
-			})
-		} else {
-			reason := "no_pool"
-			message := "There are no enabled CiliumLoadBalancerIPPools that match this service"
-			if errors.Is(err, ipalloc.ErrFull) {
-				reason = "out_of_ips"
-				message = "All enabled CiliumLoadBalancerIPPools that match this service ran out of allocatable IPs"
-			}
-
-			if ipam.setSVCSatisfiedCondition(sv, false, reason, message) {
-				statusModified = true
-			}
 		}
 	}
 
@@ -1260,6 +1193,13 @@ const (
 	IPv4Family AddressFamily = "IPv4"
 	IPv6Family AddressFamily = "IPv6"
 )
+
+func addressFamilyOfIP(ip netip.Addr) AddressFamily {
+	if isIPv6(ip) {
+		return IPv6Family
+	}
+	return IPv4Family
+}
 
 func (ipam *LBIPAM) allocateIPAddress(
 	sv *ServiceView,
