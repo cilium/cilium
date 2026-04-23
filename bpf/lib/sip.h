@@ -17,7 +17,7 @@ static inline __u8 is_sip(const char *cur, const char *data_end)
 
 	// 8 bytes with space
 	static const __u64 options = 0x20736e6f6974706f; // "options "
-	static const __u64 message = 0x206567637373656d; // "message "
+	static const __u64 message = 0x206567617373656d; // "message "
 	static const __u64 publish = 0x206873696c627570; // "publish "
 
 	// 7 bytes with space
@@ -97,7 +97,7 @@ __u32 sip_inspect(struct __ctx_buff *ctx)
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
-	if (data + 64 >= data_end)
+	if (data + 32 >= data_end)
 		return NOT_FOUND;
 
 	eth = data;
@@ -108,6 +108,9 @@ __u32 sip_inspect(struct __ctx_buff *ctx)
 		return NOT_FOUND;
 
 	iph = (void *)(eth + 1);
+
+  if (iph->protocol != IPPROTO_UDP)
+    return NOT_FOUND;
 
 	if ((void *)(iph + 1) >= data_end)
 		return NOT_FOUND;
