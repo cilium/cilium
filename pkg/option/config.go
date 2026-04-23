@@ -687,17 +687,6 @@ const (
 	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
 	L2AnnouncerRetryPeriod = "l2-announcements-retry-period"
 
-	// EnableEncryptionStrictMode is the name of the option to enable strict encryption mode.
-	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
-
-	// EncryptionStrictModeCIDR is the CIDR in which the strict encryption mode should be enforced.
-	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
-
-	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
-	// This is required when tunneling is used
-	// or direct routing is used and the node CIDR and pod CIDR overlap.
-	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
-
 	// EnableEncryptionStrictModeEgress enables strict mode encryption enforcement for egress traffic.
 	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
 	EnableEncryptionStrictModeEgress = "enable-encryption-strict-mode-egress"
@@ -2607,27 +2596,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
 			logging.Fatal(logger, fmt.Sprintf("%s requires both --%s and --%s enabled", EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name))
 		}
-	}
-
-	// This code block is for deprecated options and will be removed in Cilium 1.20.
-	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
-	if encryptionStrictModeEnabled {
-		if c.EnableIPv6 {
-			logger.Info("Encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
-		}
-
-		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
-		c.EncryptionStrictEgressCIDR, err = netip.ParsePrefix(strictCIDR)
-		if err != nil {
-			logging.Fatal(logger, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR), logfields.Error, err)
-		}
-
-		if !c.EncryptionStrictEgressCIDR.Addr().Is4() {
-			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR))
-		}
-
-		c.EncryptionStrictEgressAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
-		c.EnableEncryptionStrictModeEgress = encryptionStrictModeEnabled
 	}
 
 	encryptionStrictModeEgressEnabled := vp.GetBool(EnableEncryptionStrictModeEgress)

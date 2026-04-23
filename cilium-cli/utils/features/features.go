@@ -399,7 +399,7 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[EncryptionStrictModeEgress] = Status{
-		// EncryptionStrictMode is deprecated, but we still support it for backwards compatibility until Cilium 1.17
+		// EncryptionStrictMode is deprecated, but we still support it for backwards compatibility until Cilium 1.19
 		// is EOL.
 		Enabled: cm.Data[string(EncryptionStrictMode)] == "true" || cm.Data[string(EncryptionStrictModeEgress)] == "true",
 	}

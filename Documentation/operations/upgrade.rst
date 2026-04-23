@@ -388,6 +388,19 @@ from Cilium.
 * The previously deprecated and ignored ``--enable-ipsec-encrypted-overlay`` agent
   flag (Helm ``encryption.ipsec.encryptedOverlay``) has been removed.
 
+* The previously deprecated ``--enable-encryption-strict-mode`` agent flag
+  (Helm ``encryption.strictMode.enabled``) has been removed in favor of
+  ``--enable-encryption-strict-mode-egress`` (Helm ``encryption.strictMode.egress.enabled``).
+
+* The previously deprecated ``--encryption-strict-mode-cidr`` agent flag
+  (Helm ``encryption.strictMode.cidrs``) has been removed in favor of
+  ``--encryption-strict-egress-cidr"`` (Helm ``encryption.strictMode.egress.cidrs``).
+
+* The previously deprecated ``--encryption-strict-mode-allow-remote-node-identities``
+  agent flag (Helm ``encryption.strictMode.allowRemoteNodeIdentities``) has been
+  removed in favor of ``--encryption-strict-egress-allow-remote-node-identities``
+  (Helm ``encryption.strictMode.egress.allowRemoteNodeIdentities``).
+
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
 
