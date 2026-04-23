@@ -1063,7 +1063,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	if !option.Config.RequiresNativeRouting() && option.Config.EnableAutoDirectRouting {
-		logging.Fatal(logger, fmt.Sprintf("%s cannot be used with tunneling. Packets must be routed through the tunnel device.", option.EnableAutoDirectRoutingName))
+		logging.Fatal(logger, fmt.Sprintf("%s requires native or hybrid routing mode.", option.EnableAutoDirectRoutingName))
 	}
 
 	initClockSourceOption(logger)
@@ -1089,7 +1089,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
 		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
 		if !option.Config.RequiresNativeRouting() {
-			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6))
+			logging.Fatal(logger, fmt.Sprintf("%s and %s require native or hybrid routing mode.", option.LocalRouterIPv4, option.LocalRouterIPv6))
 		}
 	}
 

@@ -249,83 +249,40 @@ func TestEnabledFunctions(t *testing.T) {
 	require.Equal(t, ipamOption.IPAMENI, d.IPAMMode())
 }
 
-func TestTunnelingEnabled(t *testing.T) {
+func TestRoutingModeHelpers(t *testing.T) {
 	tests := []struct {
-		name        string
-		routingMode string
-		expected    bool
+		name           string
+		routingMode    string
+		expectedTunnel bool
+		expectedNative bool
 	}{
 		{
-			name:        "native mode - tunneling disabled",
-			routingMode: RoutingModeNative,
-			expected:    false,
+			name:           "native mode - tunneling disabled and native routing required",
+			routingMode:    RoutingModeNative,
+			expectedTunnel: false,
+			expectedNative: true,
 		},
 		{
-			name:        "tunnel mode - tunneling enabled",
-			routingMode: RoutingModeTunnel,
-			expected:    true,
+			name:           "tunnel mode - tunneling enabled and native routing not required",
+			routingMode:    RoutingModeTunnel,
+			expectedTunnel: true,
+			expectedNative: false,
 		},
 		{
-			name:        "hybrid mode - tunneling enabled",
-			routingMode: RoutingModeHybrid,
-			expected:    true,
+			name:           "hybrid mode - tunneling enabled and native routing required",
+			routingMode:    RoutingModeHybrid,
+			expectedTunnel: true,
+			expectedNative: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &DaemonConfig{RoutingMode: tt.routingMode}
-			assert.Equal(t, tt.expected, d.TunnelingEnabled())
+			assert.Equal(t, tt.expectedTunnel, d.TunnelingEnabled())
+			assert.Equal(t, tt.expectedNative, d.RequiresNativeRouting())
 		})
 	}
-}
-
-func TestRequiresNativeRouting(t *testing.T) {
-	tests := []struct {
-		name        string
-		routingMode string
-		expected    bool
-	}{
-		{
-			name:        "native mode - requires native routing",
-			routingMode: RoutingModeNative,
-			expected:    true,
-		},
-		{
-			name:        "tunnel mode - does not require native routing",
-			routingMode: RoutingModeTunnel,
-			expected:    false,
-		},
-		{
-			name:        "hybrid mode - requires native routing",
-			routingMode: RoutingModeHybrid,
-			expected:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			d := &DaemonConfig{RoutingMode: tt.routingMode}
-			assert.Equal(t, tt.expected, d.RequiresNativeRouting())
-		})
-	}
-}
-
-func TestHybridRoutingModeProperties(t *testing.T) {
-	// Hybrid mode must enable BOTH tunneling and native routing.
-	// This is the key invariant that distinguishes it from native and tunnel modes.
-	d := &DaemonConfig{RoutingMode: RoutingModeHybrid}
-	assert.True(t, d.TunnelingEnabled(), "hybrid mode must have tunneling enabled")
-	assert.True(t, d.RequiresNativeRouting(), "hybrid mode must require native routing")
-
-	// Verify native and tunnel modes don't have this dual property.
-	native := &DaemonConfig{RoutingMode: RoutingModeNative}
-	assert.False(t, native.TunnelingEnabled())
-	assert.True(t, native.RequiresNativeRouting())
-
-	tunnel := &DaemonConfig{RoutingMode: RoutingModeTunnel}
-	assert.True(t, tunnel.TunnelingEnabled())
-	assert.False(t, tunnel.RequiresNativeRouting())
 }
 
 func TestLocalAddressExclusion(t *testing.T) {

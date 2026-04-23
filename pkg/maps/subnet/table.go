@@ -5,10 +5,10 @@ package subnet
 
 import (
 	"fmt"
+	"iter"
 	"net/netip"
 
 	"github.com/cilium/statedb"
-	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
 )
 
@@ -62,15 +62,13 @@ func (s SubnetTableEntry) getStatus() reconciler.Status {
 	return s.Status
 }
 
-// SubnetIndex is the primary index for SubnetEntry, indexing by Prefix.
-var SubnetIndex = statedb.Index[SubnetTableEntry, netip.Prefix]{
+// SubnetLPMIndex is the primary index for SubnetEntry, indexing by Prefix.
+var SubnetLPMIndex = statedb.NetIPPrefixIndex[SubnetTableEntry]{
 	Name: "prefix",
-	FromObject: func(s SubnetTableEntry) index.KeySet {
-		return index.NewKeySet(index.NetIPPrefix(s.Key))
+	FromObject: func(s SubnetTableEntry) iter.Seq[netip.Prefix] {
+		return statedb.Just(s.Key)
 	},
-	FromKey:    index.NetIPPrefix,
-	FromString: index.NetIPPrefixString,
-	Unique:     true,
+	Unique: true,
 }
 
 // newSubnetEntryTable creates and registers the subnet entry table in stateDB.
@@ -78,6 +76,6 @@ func newSubnetEntryTable(db *statedb.DB) (statedb.RWTable[SubnetTableEntry], err
 	return statedb.NewTable(
 		db,
 		TableName,
-		SubnetIndex,
+		SubnetLPMIndex,
 	)
 }
