@@ -32,6 +32,14 @@ type ConditionalScenario interface {
 	Requirements() []features.Requirement
 }
 
+// VersionedScenario is a test scenario which requires a specific Cilium
+// version range. If the running Cilium version does not match the constraint,
+// the test scenario is skipped.
+type VersionedScenario interface {
+	Scenario
+	RequiredCiliumVersion() string
+}
+
 type ScenarioBase struct {
 	filepath string
 }

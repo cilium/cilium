@@ -204,6 +204,25 @@ func (t *Test) scenarioRequirements(s Scenario) (bool, string) {
 	return t.Context().Features.MatchRequirements(reqs...)
 }
 
+// scenarioVersion returns true if the running Cilium version is within the
+// range specified by a VersionedScenario. Scenarios that do not implement
+// VersionedScenario are always considered in range.
+func (t *Test) scenarioVersion(s Scenario) (bool, string) {
+	vs, ok := s.(VersionedScenario)
+	if !ok {
+		return true, ""
+	}
+	constraint := vs.RequiredCiliumVersion()
+	if constraint == "" {
+		return true, ""
+	}
+	vr := versioncheck.MustCompile(constraint)
+	if !vr(t.Context().CiliumVersion) {
+		return false, fmt.Sprintf("requires Cilium version %s but running %s", constraint, t.Context().CiliumVersion)
+	}
+	return true, ""
+}
+
 // Context returns the enclosing context of the Test.
 func (t *Test) Context() *ConnectivityTest {
 	return t.ctx
@@ -377,6 +396,11 @@ func (t *Test) Run(ctx context.Context, index int) error {
 		}
 
 		if req, reason := t.scenarioRequirements(s); !req {
+			t.skip(s, reason)
+			continue
+		}
+
+		if ver, reason := t.scenarioVersion(s); !ver {
 			t.skip(s, reason)
 			continue
 		}
