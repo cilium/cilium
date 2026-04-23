@@ -72,13 +72,14 @@ func BGPRoutesCmd(bgpMgr agent.BGPRouterManager) script.Cmd {
 					return "", "", err
 				}
 
-				tw, buf, f, err := getCmdTabWriter(s)
+				w, buf, f, err := getCmdWriter(s)
 				if err != nil {
 					return "", "", err
 				}
 				if f != nil {
 					defer f.Close()
 				}
+				tw := getCmdTabWriter(w)
 
 				res, err := bgpMgr.GetRoutes(s.Context(), req)
 				if err != nil {
