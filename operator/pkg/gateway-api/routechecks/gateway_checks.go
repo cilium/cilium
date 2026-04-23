@@ -59,22 +59,11 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 				return false, fmt.Errorf("unable to list namespaces: %w", err)
 			}
 
-			allowed := false
 			for _, ns := range nsList.Items {
 				if ns.Name == input.GetNamespace() {
-					allowed = true
+					return true, nil
 				}
 			}
-			if !allowed {
-				input.SetParentCondition(parentRef, metav1.Condition{
-					Type:    "Accepted",
-					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
-					Message: input.GetGVK().Kind + " is not allowed to attach to this Gateway due to namespace selector restrictions",
-				})
-				return false, nil
-			}
-			return true, nil
 		}
 	}
 	if hasNamespaceRestriction {
