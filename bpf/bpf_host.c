@@ -1339,6 +1339,18 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
+	/* Load the ethertype just once: */
+	validate_ethertype(ctx, &proto);
+
+	/* Trace before clearing skb->cb */
+#ifdef ENABLE_IPSEC
+	if (magic == MARK_MAGIC_ENCRYPT)
+		send_trace_notify(ctx, TRACE_FROM_STACK,
+				  ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY), UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, 0, proto);
+#endif /* ENABLE_IPSEC */
+
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
@@ -1354,17 +1366,6 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	else if (magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
 #endif
-
-	/* Load the ethertype just once: */
-	validate_ethertype(ctx, &proto);
-
-#ifdef ENABLE_IPSEC
-	if (magic == MARK_MAGIC_ENCRYPT)
-		send_trace_notify(ctx, TRACE_FROM_STACK,
-				  ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY), UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-				  TRACE_REASON_ENCRYPTED, 0, proto);
-#endif /* ENABLE_IPSEC */
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
