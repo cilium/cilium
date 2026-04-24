@@ -37,33 +37,40 @@ type verifierComplexityRecord struct {
 func main() {
 	diffFile := flag.String("diff-file", "", "File to store the complexity diff")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: go run ./tools/complexity-diff [flags] <old> <new>\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: go run ./tools/complexity-diff [flags] <old> [new]\n")
 		flag.PrintDefaults()
 	}
 
 	flag.Parse()
-	if flag.NArg() < 2 {
+	if flag.NArg() == 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	oldFile := flag.Arg(0)
-	newFile := flag.Arg(1)
 
 	oldRecords, err := loadRecords(oldFile)
 	if err != nil {
 		panic(err)
 	}
-	newRecords, err := loadRecords(newFile)
-	if err != nil {
-		panic(err)
-	}
 
-	printDiffRecords(oldRecords, newRecords)
-	printCurrentState(newRecords)
-	if *diffFile != "" {
-		dumpDiffRecords(oldRecords, newRecords, *diffFile)
+	if flag.NArg() == 2 {
+		newFile := flag.Arg(1)
+		newRecords, err := loadRecords(newFile)
+		if err != nil {
+			panic(err)
+		}
+
+		printDiffRecords(oldRecords, newRecords)
+		if *diffFile != "" {
+			dumpDiffRecords(oldRecords, newRecords, *diffFile)
+		}
+
+		// If two files were given, then printCurrentState() should run on the second,
+		// with the new records.
+		oldRecords = newRecords
 	}
+	printCurrentState(oldRecords)
 }
 
 func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord) {
