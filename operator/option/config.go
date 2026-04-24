@@ -46,9 +46,6 @@ const (
 	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
-	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
-	IPAMAutoCreateCiliumPodIPPools = "auto-create-cilium-pod-ip-pools"
-
 	// AWS options
 
 	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
@@ -189,11 +186,6 @@ type OperatorConfig struct {
 	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags map[string]string
 
-	// IPAM Operator options
-
-	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
-	IPAMAutoCreateCiliumPodIPPools map[string]string
-
 	// KubeProxyReplacement is required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
 	KubeProxyReplacement bool
@@ -267,8 +259,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:                 make([]string, 0),
-	IPAMSubnetsTags:                make(map[string]string),
-	IPAMInstanceTags:               make(map[string]string),
-	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
+	IPAMSubnetsIDs:   make([]string, 0),
+	IPAMSubnetsTags:  make(map[string]string),
+	IPAMInstanceTags: make(map[string]string),
 }
