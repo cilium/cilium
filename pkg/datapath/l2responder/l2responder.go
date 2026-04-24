@@ -286,23 +286,25 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	}
 
 	// Loop over all map values, use the desired entries index to see which we want to delete.
-	var toDelete []*l2respondermap.L2ResponderKey
+	// Note: IterateWithCallback reuses the same key pointer across iterations,
+	// so we must copy the key values rather than storing pointers.
+	var toDelete []l2respondermap.L2ResponderKey
 	arMap.IterateWithCallback(func(key *l2respondermap.L2ResponderKey, _ *l2respondermap.L2ResponderStats) {
 		e, found := desiredMap[*key]
 		if !found {
-			toDelete = append(toDelete, key)
+			toDelete = append(toDelete, *key)
 			return
 		}
 		e.satisfied = true
 		desiredMap[*key] = e
 	})
-	var toDelete6 []*l2v6respondermap.L2V6ResponderKey
+	var toDelete6 []l2v6respondermap.L2V6ResponderKey
 	ndMap.IterateWithCallback(func(key *l2v6respondermap.L2V6ResponderKey, _ *l2respondermap.L2ResponderStats) {
 		currMcMACMap.Add(int(key.IfIndex), netip.AddrFrom16(key.IP))
 
 		e, found := desiredMap6[*key]
 		if !found {
-			toDelete6 = append(toDelete6, key)
+			toDelete6 = append(toDelete6, *key)
 			return
 		}
 		e.satisfied = true
