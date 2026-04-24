@@ -395,6 +395,26 @@ func newService(name string, selector map[string]string, labels map[string]strin
 }
 
 func newLocalReadinessProbe(port int, path string) *corev1.Probe {
+	return newLocalReadinessProbeWithThresholds(port, path, readinessProbeThresholds{
+		InitialDelaySeconds: 1,
+		PeriodSeconds:       1,
+		FailureThreshold:    3,
+	})
+}
+
+// readinessProbeThresholds controls the timing and tolerance of a readiness probe.
+type readinessProbeThresholds struct {
+	// InitialDelaySeconds is how long to wait after container start before
+	// the first probe is issued.
+	InitialDelaySeconds int
+	// PeriodSeconds is how often the probe is run.
+	PeriodSeconds int
+	// FailureThreshold is the number of consecutive failures before the
+	// container is considered not-ready and restarted.
+	FailureThreshold int
+}
+
+func newLocalReadinessProbeWithThresholds(port int, path string, t readinessProbeThresholds) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -405,9 +425,9 @@ func newLocalReadinessProbe(port int, path string) *corev1.Probe {
 		},
 		TimeoutSeconds:      int32(2),
 		SuccessThreshold:    int32(1),
-		PeriodSeconds:       int32(1),
-		InitialDelaySeconds: int32(1),
-		FailureThreshold:    int32(3),
+		PeriodSeconds:       int32(t.PeriodSeconds),
+		InitialDelaySeconds: int32(t.InitialDelaySeconds),
+		FailureThreshold:    int32(t.FailureThreshold),
 	}
 }
 
@@ -1513,17 +1533,21 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			// in case if test concurrency is > 1 port must be unique for each test namespace
 			port := ct.Params().ExternalDeploymentPort
 			echoExternalDeployment := newDeployment(deploymentParameters{
-				Name:           echoExternalNodeDeploymentName,
-				Kind:           kindEchoExternalNodeName,
-				Port:           port,
-				NamedPort:      fmt.Sprintf("http-%d", port),
-				HostPort:       port,
-				Image:          ct.params.JSONMockImage,
-				Labels:         map[string]string{"external": "echo"},
-				Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
-				NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
-				ReadinessProbe: newLocalReadinessProbe(port, "/"),
-				HostNetwork:    true,
+				Name:         echoExternalNodeDeploymentName,
+				Kind:         kindEchoExternalNodeName,
+				Port:         port,
+				NamedPort:    fmt.Sprintf("http-%d", port),
+				HostPort:     port,
+				Image:        ct.params.JSONMockImage,
+				Labels:       map[string]string{"external": "echo"},
+				Annotations:  ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
+				NodeSelector: map[string]string{"cilium.io/no-schedule": "true"},
+				ReadinessProbe: newLocalReadinessProbeWithThresholds(port, "/", readinessProbeThresholds{
+					InitialDelaySeconds: 5,
+					PeriodSeconds:       2,
+					FailureThreshold:    10,
+				}),
+				HostNetwork: true,
 				Tolerations: append(
 					[]corev1.Toleration{
 						{Operator: corev1.TolerationOpExists},
