@@ -27,6 +27,8 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Set environment variables
+      uses: ./.github/actions/set-env-variables
     - id: set-defaults
       shell: bash
       run: |
