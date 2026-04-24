@@ -21,12 +21,6 @@ const (
 
 	// PprofPortOperator is the default value for pprof in the operator
 	PprofPortOperator = 6061
-
-	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
-	DefaultProxyIdleTimeoutSeconds = 60
-
-	// DefaultProxyStreamIdleTimeoutSeconds is the default value for the proxy stream idle timeout
-	DefaultProxyStreamIdleTimeoutSeconds = 300
 )
 
 const (
@@ -68,12 +62,6 @@ const (
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
 
-	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
-	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
-
-	// ProxyStreamIdleTimeoutSeconds is the stream timeout for proxy connections to upstream clusters
-	ProxyStreamIdleTimeoutSeconds = "proxy-stream-idle-timeout-seconds"
-
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
@@ -108,12 +96,6 @@ type OperatorConfig struct {
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
 
-	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
-	ProxyIdleTimeoutSeconds int
-
-	// ProxyStreamIdleTimeoutSeconds is the stream idle timeout for the proxy to upstream cluster
-	ProxyStreamIdleTimeoutSeconds int
-
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -126,14 +108,6 @@ type OperatorConfig struct {
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
-	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
-	if c.ProxyIdleTimeoutSeconds == 0 {
-		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
-	}
-	c.ProxyStreamIdleTimeoutSeconds = vp.GetInt(ProxyStreamIdleTimeoutSeconds)
-	if c.ProxyStreamIdleTimeoutSeconds == 0 {
-		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
-	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)

@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
@@ -25,9 +24,29 @@ var Cell = cell.Module(
 		LoadBalancerL7Ports:     []string{},
 		LoadBalancerL7Algorithm: "round_robin",
 	}),
+	cell.Config(defaultEnvoyProxyTimeouts),
 	cell.Invoke(registerL7LoadBalancingController),
 	cell.Provide(func(r l7LoadBalancerConfig) LoadBalancerConfig { return r }),
 )
+
+// EnvoyProxyTimeouts holds the upstream timeout values used by the operator
+// when translating Ingress and Gateway API resources into CiliumEnvoyConfig.
+type EnvoyProxyTimeouts struct {
+	ProxyIdleTimeoutSeconds       int
+	ProxyStreamIdleTimeoutSeconds int
+}
+
+var defaultEnvoyProxyTimeouts = EnvoyProxyTimeouts{
+	ProxyIdleTimeoutSeconds:       60,
+	ProxyStreamIdleTimeoutSeconds: 300,
+}
+
+func (c EnvoyProxyTimeouts) Flags(flags *pflag.FlagSet) {
+	flags.Int("proxy-idle-timeout-seconds", defaultEnvoyProxyTimeouts.ProxyIdleTimeoutSeconds,
+		"Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests.")
+	flags.Int("proxy-stream-idle-timeout-seconds", defaultEnvoyProxyTimeouts.ProxyStreamIdleTimeoutSeconds,
+		"Set Envoy HTTP stream idle timeout in seconds. A stream is considered idle when there is no upstream or downstream activity.")
+}
 
 type l7LoadBalancerConfig struct {
 	LoadBalancerL7          string
@@ -55,6 +74,7 @@ type l7LoadbalancerParams struct {
 	Logger             *slog.Logger
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             l7LoadBalancerConfig
+	ProxyTimeouts      EnvoyProxyTimeouts
 }
 
 func registerL7LoadBalancingController(params l7LoadbalancerParams) error {
@@ -70,8 +90,8 @@ func registerL7LoadBalancingController(params l7LoadbalancerParams) error {
 		params.Config.LoadBalancerL7Algorithm,
 		params.Config.LoadBalancerL7Ports,
 		10,
-		operatorOption.Config.ProxyIdleTimeoutSeconds,
-		operatorOption.Config.ProxyStreamIdleTimeoutSeconds,
+		params.ProxyTimeouts.ProxyIdleTimeoutSeconds,
+		params.ProxyTimeouts.ProxyStreamIdleTimeoutSeconds,
 		agentOption.Config.EnableIPv4,
 		agentOption.Config.EnableIPv6,
 	)
