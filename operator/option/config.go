@@ -6,7 +6,6 @@ package option
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,22 +58,6 @@ const (
 	// primary IPConfiguration
 	AzureUsePrimaryAddress = "azure-use-primary-address"
 
-	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
-	// force acquire leadership
-	LeaderElectionLeaseDuration = "leader-election-lease-duration"
-
-	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
-	// will retry refreshing leadership before giving up the lock.
-	LeaderElectionRenewDeadline = "leader-election-renew-deadline"
-
-	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
-	// tries of the actions in operator HA deployment.
-	LeaderElectionRetryPeriod = "leader-election-retry-period"
-
-	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
-	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
-	LeaderElectionResourceLockTimeout = "leader-election-resource-lock-timeout"
-
 	// AlibabaCloud options
 
 	// AlibabaCloudVPCID allows user to specific vpc
@@ -112,22 +95,6 @@ type OperatorConfig struct {
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
-	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
-	// force acquire leadership in Cilium Operator HA deployment.
-	LeaderElectionLeaseDuration time.Duration
-
-	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
-	// will retry refreshing leadership in before giving up the lock.
-	LeaderElectionRenewDeadline time.Duration
-
-	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
-	// retries of the actions in operator HA deployment.
-	LeaderElectionRetryPeriod time.Duration
-
-	// LeaderElectionResourceLockTimeout is the timeout for the HTTP requests to acquire/renew
-	// the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2).
-	LeaderElectionResourceLockTimeout time.Duration
-
 	// IPAM options
 
 	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
@@ -158,10 +125,6 @@ type OperatorConfig struct {
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
-	c.LeaderElectionLeaseDuration = vp.GetDuration(LeaderElectionLeaseDuration)
-	c.LeaderElectionRenewDeadline = vp.GetDuration(LeaderElectionRenewDeadline)
-	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
-	c.LeaderElectionResourceLockTimeout = vp.GetDuration(LeaderElectionResourceLockTimeout)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {

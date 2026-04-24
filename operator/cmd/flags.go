@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -160,22 +159,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(vp, option.CMDRef)
-
-	flags.Duration(operatorOption.LeaderElectionLeaseDuration, 15*time.Second,
-		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")
-	option.BindEnv(vp, operatorOption.LeaderElectionLeaseDuration)
-
-	flags.Duration(operatorOption.LeaderElectionRenewDeadline, 10*time.Second,
-		"Duration that current acting master will retry refreshing leadership in before giving up the lock")
-	option.BindEnv(vp, operatorOption.LeaderElectionRenewDeadline)
-
-	flags.Duration(operatorOption.LeaderElectionRetryPeriod, 2*time.Second,
-		"Duration that LeaderElector clients should wait between retries of the actions")
-	option.BindEnv(vp, operatorOption.LeaderElectionRetryPeriod)
-
-	flags.Duration(operatorOption.LeaderElectionResourceLockTimeout, 0,
-		"Timeout for the HTTP requests to acquire/renew the leader election resource lock. When set to 0, defaults to max(1s, RenewDeadline/2)")
-	option.BindEnv(vp, operatorOption.LeaderElectionResourceLockTimeout)
 
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
