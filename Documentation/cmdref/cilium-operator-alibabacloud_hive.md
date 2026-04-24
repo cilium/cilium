@@ -86,6 +86,10 @@ cilium-operator-alibabacloud hive [flags]
       --kvstore-lease-ttl duration                                 Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-max-consecutive-quorum-errors uint                 Max acceptable kvstore consecutive quorum errors before recreating the etcd connection (default 2)
       --kvstore-opt stringToString                                 Key-value store options e.g. etcd.address=127.0.0.1:4001 (default [])
+      --leader-election-lease-duration duration                    Duration that non-leader candidates will wait to force acquire leadership (default 15s)
+      --leader-election-renew-deadline duration                    Duration that current acting master will retry refreshing leadership before giving up the lock (default 10s)
+      --leader-election-resource-lock-timeout duration             Timeout for HTTP requests to acquire/renew the leader election resource lock. When 0, defaults to max(1s, renew-deadline/2)
+      --leader-election-retry-period duration                      Duration the LeaderElector clients should wait between tries of actions (default 2s)
       --limit-ipam-api-burst int                                   Upper burst limit when accessing external APIs (default 20)
       --limit-ipam-api-qps float                                   Queries per second limit when accessing external IPAM APIs (default 4)
       --loadbalancer-l7 string                                     Enable L7 loadbalancer capabilities for services via L7 proxy. Applicable values: envoy

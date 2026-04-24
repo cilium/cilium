@@ -409,6 +409,8 @@ func Operator() cell.Cell {
 		"operator",
 		"Cilium Operator",
 
+		cell.Config(defaultLeaderElectionConfig),
+
 		Infrastructure,
 		ControlPlane,
 
@@ -479,12 +481,12 @@ func Execute(cmd *cobra.Command) {
 	}
 }
 
-func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, leCfg leaderElectionConfig) {
 	var wg sync.WaitGroup
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			wg.Go(func() {
-				runOperator(log, llc, clientset, shutdowner)
+				runOperator(log, llc, clientset, shutdowner, leCfg)
 			})
 			return nil
 		},
@@ -533,7 +535,7 @@ func doCleanup() {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capability in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, leCfg leaderElectionConfig) {
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
@@ -566,9 +568,9 @@ func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clie
 	// NewFromKubeconfig behavior. Users with high-latency control planes can
 	// override this with --leader-election-resource-lock-timeout.
 	rlConfig := *clientset.RestConfig()
-	rlTimeout := operatorOption.Config.LeaderElectionResourceLockTimeout
+	rlTimeout := leCfg.ResourceLockTimeout
 	if rlTimeout == 0 {
-		rlTimeout = max(time.Second, operatorOption.Config.LeaderElectionRenewDeadline/2)
+		rlTimeout = max(time.Second, leCfg.RenewDeadline/2)
 	}
 	rlConfig.Timeout = rlTimeout
 	leaderElectionClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(&rlConfig, "leader-election"))
@@ -595,9 +597,9 @@ func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clie
 		Lock:            leResourceLock,
 		ReleaseOnCancel: true,
 
-		LeaseDuration: operatorOption.Config.LeaderElectionLeaseDuration,
-		RenewDeadline: operatorOption.Config.LeaderElectionRenewDeadline,
-		RetryPeriod:   operatorOption.Config.LeaderElectionRetryPeriod,
+		LeaseDuration: leCfg.LeaseDuration,
+		RenewDeadline: leCfg.RenewDeadline,
+		RetryPeriod:   leCfg.RetryPeriod,
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
