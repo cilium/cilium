@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -2785,140 +2786,142 @@ func TestLBIPAMStartupRestartShutdown(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	var (
-		fakeClientset *k8sFakeClient.FakeClientset
-		counters      *testCounters
-	)
-	testHive := hive.New(
-		// Cell under test
-		Cell,
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			fakeClientset *k8sFakeClient.FakeClientset
+			counters      *testCounters
+		)
+		testHive := hive.New(
+			// Cell under test
+			Cell,
 
-		// Dependencies
-		k8sFakeClient.FakeClientCell(),
-		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{
-				EnableBGPControlPlane: true,
-			}
-		}),
-		cell.Provide(k8s.DefaultServiceWatchConfig),
-		cell.Config(k8s.DefaultConfig),
-		cell.Provide(
-			k8s.ServiceResource,
-			operator_k8s.LBIPPoolsResource,
-		),
+			// Dependencies
+			k8sFakeClient.FakeClientCell(),
+			cell.Provide(func() *option.DaemonConfig {
+				return &option.DaemonConfig{
+					EnableBGPControlPlane: true,
+				}
+			}),
+			cell.Provide(k8s.DefaultServiceWatchConfig),
+			cell.Config(k8s.DefaultConfig),
+			cell.Provide(
+				k8s.ServiceResource,
+				operator_k8s.LBIPPoolsResource,
+			),
 
-		// Expose cells for testing
-		cell.Provide(func() *testCounters {
-			return &testCounters{}
-		}),
-		cell.Invoke(func(
-			tc *testCounters,
-			cf *k8sFakeClient.FakeClientset,
-		) {
-			counters = tc
-			fakeClientset = cf
-		}),
-	)
+			// Expose cells for testing
+			cell.Provide(func() *testCounters {
+				return &testCounters{}
+			}),
+			cell.Invoke(func(
+				tc *testCounters,
+				cf *k8sFakeClient.FakeClientset,
+			) {
+				counters = tc
+				fakeClientset = cf
+			}),
+		)
 
-	tlog := hivetest.Logger(t)
-	err := testHive.Start(tlog, t.Context())
-	require.NoError(t, err)
+		tlog := hivetest.Logger(t)
+		err := testHive.Start(tlog, t.Context())
+		require.NoError(t, err)
 
-	// Create a service which shouldn't be processed
-	fakeK8s := fakeClientset.SlimFakeClientset.CoreV1()
-	fakePools := fakeClientset.CiliumFakeClientset.CiliumV2().CiliumLoadBalancerIPPools()
-	_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
-		ObjectMeta: slim_meta_v1.ObjectMeta{
-			Name: "service-a",
-		},
-		Spec: slim_core_v1.ServiceSpec{
-			Type: slim_core_v1.ServiceTypeLoadBalancer,
-		},
-	}, meta_v1.CreateOptions{})
-	require.NoError(t, err)
+		// Create a service which shouldn't be processed
+		fakeK8s := fakeClientset.SlimFakeClientset.CoreV1()
+		fakePools := fakeClientset.CiliumFakeClientset.CiliumV2().CiliumLoadBalancerIPPools()
+		_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name: "service-a",
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
+			},
+		}, meta_v1.CreateOptions{})
+		require.NoError(t, err)
 
-	// We should be initializing
-	require.EventuallyWithT(t, func(collect *assert.CollectT) {
-		assert.Equal(collect, int64(1), counters.initializing.Load())
-	}, 5*time.Second, 100*time.Millisecond)
-	// But never finish initializing or processing any service events
-	require.Never(t, func() bool {
-		return counters.initialized.Load() != 0 || counters.serviceEvents.Load() != 0
-	}, 3*time.Second, 100*time.Millisecond)
+		// We should be initializing
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int64(1), counters.initializing.Load())
+		}, 5*time.Second, 100*time.Millisecond)
+		// But never finish initializing or processing any service events
+		require.Never(t, func() bool {
+			return counters.initialized.Load() != 0 || counters.serviceEvents.Load() != 0
+		}, 3*time.Second, 100*time.Millisecond)
 
-	// Create a pool, this should wake up LBIPAM
-	_, err = fakePools.Create(t.Context(), &cilium_api_v2.CiliumLoadBalancerIPPool{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "pool-a",
-		},
-		Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
-			Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
-				{
-					Cidr: "10.0.0.0/24",
+		// Create a pool, this should wake up LBIPAM
+		_, err = fakePools.Create(t.Context(), &cilium_api_v2.CiliumLoadBalancerIPPool{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: "pool-a",
+			},
+			Spec: cilium_api_v2.CiliumLoadBalancerIPPoolSpec{
+				Blocks: []cilium_api_v2.CiliumLoadBalancerIPPoolIPBlock{
+					{
+						Cidr: "10.0.0.0/24",
+					},
 				},
 			},
-		},
-	}, meta_v1.CreateOptions{})
-	require.NoError(t, err)
+		}, meta_v1.CreateOptions{})
+		require.NoError(t, err)
 
-	require.EventuallyWithT(t, func(collect *assert.CollectT) {
-		// We should now finish initializing
-		assert.Equal(collect, int64(1), counters.initialized.Load())
-		// Processed the pool event
-		assert.GreaterOrEqual(collect, counters.poolEvents.Load(), int64(1))
-		// And the service event
-		assert.GreaterOrEqual(collect, counters.serviceEvents.Load(), int64(1))
-	}, 5*time.Second, 100*time.Millisecond)
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			// We should now finish initializing
+			assert.Equal(collect, int64(1), counters.initialized.Load())
+			// Processed the pool event
+			assert.GreaterOrEqual(collect, counters.poolEvents.Load(), int64(1))
+			// And the service event
+			assert.GreaterOrEqual(collect, counters.serviceEvents.Load(), int64(1))
+		}, 5*time.Second, 100*time.Millisecond)
 
-	svc1, err := fakeK8s.Services("default").Get(t.Context(), "service-a", meta_v1.GetOptions{})
-	require.NoError(t, err)
-
-	require.Len(t, svc1.Status.LoadBalancer.Ingress, 1)
-
-	require.Equal(t, int64(0), counters.restarted.Load())
-
-	// Now delete the pool, this should cause LBIPAM to go dormant
-	err = fakePools.Delete(t.Context(), "pool-a", meta_v1.DeleteOptions{})
-	require.NoError(t, err)
-
-	require.EventuallyWithT(t, func(collect *assert.CollectT) {
-		// Assert the IP has been removed from service-a
 		svc1, err := fakeK8s.Services("default").Get(t.Context(), "service-a", meta_v1.GetOptions{})
-		assert.NoError(collect, err)
-		assert.Empty(collect, svc1.Status.LoadBalancer.Ingress)
-		// Assert we restarted
-		assert.Equal(collect, int64(1), counters.restarted.Load())
-		// And are initialing again
-		assert.Equal(collect, int64(2), counters.initializing.Load())
-	}, 5*time.Second, 100*time.Millisecond)
+		require.NoError(t, err)
 
-	// But we do not initialize for a second time
-	require.Never(t, func() bool {
-		return counters.initialized.Load() > 1
-	}, 3*time.Second, 100*time.Millisecond)
+		require.Len(t, svc1.Status.LoadBalancer.Ingress, 1)
 
-	curServiceEvents := counters.serviceEvents.Load()
+		require.Equal(t, int64(0), counters.restarted.Load())
 
-	// Create a second service
-	_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
-		ObjectMeta: slim_meta_v1.ObjectMeta{
-			Name: "service-b",
-		},
-	}, meta_v1.CreateOptions{})
-	require.NoError(t, err)
+		// Now delete the pool, this should cause LBIPAM to go dormant
+		err = fakePools.Delete(t.Context(), "pool-a", meta_v1.DeleteOptions{})
+		require.NoError(t, err)
 
-	// We should not process the new service
-	require.Never(t, func() bool {
-		return counters.serviceEvents.Load() > curServiceEvents
-	}, 3*time.Second, 100*time.Millisecond)
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			// Assert the IP has been removed from service-a
+			svc1, err := fakeK8s.Services("default").Get(t.Context(), "service-a", meta_v1.GetOptions{})
+			assert.NoError(collect, err)
+			assert.Empty(collect, svc1.Status.LoadBalancer.Ingress)
+			// Assert we restarted
+			assert.Equal(collect, int64(1), counters.restarted.Load())
+			// And are initialing again
+			assert.Equal(collect, int64(2), counters.initializing.Load())
+		}, 5*time.Second, 100*time.Millisecond)
 
-	err = testHive.Stop(tlog, t.Context())
-	require.NoError(t, err)
+		// But we do not initialize for a second time
+		require.Never(t, func() bool {
+			return counters.initialized.Load() > 1
+		}, 3*time.Second, 100*time.Millisecond)
 
-	// Assert we did not process any services during shutdown
-	require.Never(t, func() bool {
-		return counters.serviceEvents.Load() > curServiceEvents
-	}, 3*time.Second, 100*time.Millisecond)
+		curServiceEvents := counters.serviceEvents.Load()
+
+		// Create a second service
+		_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name: "service-b",
+			},
+		}, meta_v1.CreateOptions{})
+		require.NoError(t, err)
+
+		// We should not process the new service
+		require.Never(t, func() bool {
+			return counters.serviceEvents.Load() > curServiceEvents
+		}, 3*time.Second, 100*time.Millisecond)
+
+		err = testHive.Stop(tlog, t.Context())
+		require.NoError(t, err)
+
+		// Assert we did not process any services during shutdown
+		require.Never(t, func() bool {
+			return counters.serviceEvents.Load() > curServiceEvents
+		}, 3*time.Second, 100*time.Millisecond)
+	})
 }
 
 func TestLBIPAMRestartOnFullPool(t *testing.T) {
