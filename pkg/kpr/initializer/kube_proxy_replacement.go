@@ -127,12 +127,18 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 			return fmt.Errorf("XDP acceleration cannot be used with an IPv6 underlay")
 		}
 
-		if option.Config.TunnelingEnabled() && r.tunnelConfig.EncapProtocol() == tunnel.VXLAN &&
-			r.lbConfig.LoadBalancerUsesDSR() {
-			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", r.lbConfig.LBMode, tunnel.VXLAN)
+		if option.Config.TunnelingEnabled() && r.tunnelConfig.EncapProtocol() == tunnel.VXLAN {
+			if r.lbConfig.LBMode != loadbalancer.LBModeSNAT {
+				return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", r.lbConfig.LBMode, tunnel.VXLAN)
+			}
+			if r.lbConfig.LBModeAnnotation && r.lbConfig.DSRDispatch != loadbalancer.DSRDispatchIPIP {
+				return fmt.Errorf("Only --%s=%s is supported with %s tunneling when --%s is set",
+					loadbalancer.LoadBalancerDSRDispatchName, loadbalancer.DSRDispatchIPIP,
+					tunnel.VXLAN, loadbalancer.LoadBalancerModeAnnotationName)
+			}
 		}
 
-		if option.Config.TunnelingEnabled() && r.lbConfig.LoadBalancerUsesDSR() &&
+		if option.Config.TunnelingEnabled() && r.lbConfig.LBMode != loadbalancer.LBModeSNAT &&
 			r.lbConfig.DSRDispatch != loadbalancer.DSRDispatchGeneve {
 			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
 				r.lbConfig.LBMode, loadbalancer.DSRDispatchGeneve)
