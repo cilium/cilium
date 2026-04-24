@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/ciliumpod"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -49,7 +49,6 @@ func TestScript(t *testing.T) {
 	// Override the settings for testing purposes
 	wqRateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[nodeName](10*time.Millisecond, 10*time.Millisecond)
 	kvstoreUpsertQueueDelay = 0 * time.Second
-	operatorOption.Config.CiliumPodLabels = "k8s-app=cilium"
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		h := hive.New(
@@ -66,6 +65,7 @@ func TestScript(t *testing.T) {
 
 			k8sClient.FakeClientCell(),
 			operatorK8s.ResourcesCell,
+			ciliumpod.Cell,
 
 			Cell,
 		)

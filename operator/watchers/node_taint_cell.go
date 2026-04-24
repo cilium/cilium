@@ -12,10 +12,11 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/ciliumpod"
 	"github.com/cilium/cilium/pkg/defaults"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // NodeTaintSyncCell manages node taints and conditions based on Cilium pod
@@ -30,8 +31,6 @@ var NodeTaintSyncCell = cell.Module(
 )
 
 // NodeTaintSyncConfig holds the configuration owned by the node taint sync cell.
-// CiliumK8sNamespace and CiliumPodLabels are shared with other cells and
-// therefore remain in OperatorConfig.
 type NodeTaintSyncConfig struct {
 	TaintSyncWorkers       int
 	RemoveCiliumNodeTaints bool
@@ -63,7 +62,8 @@ type nodeTaintSyncParams struct {
 	Logger      *slog.Logger
 	Lifecycle   cell.Lifecycle
 	Clientset   k8sClient.Clientset
-	OperatorCfg *operatorOption.OperatorConfig
+	AgentConfig *option.DaemonConfig
+	PodCfg      ciliumpod.Config
 
 	Cfg NodeTaintSyncConfig
 }
@@ -78,12 +78,13 @@ func registerNodeTaintSync(p nodeTaintSyncParams) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &nodeTaintSync{
-		ctx:         ctx,
-		cancel:      cancel,
-		clientset:   p.Clientset,
-		operatorCfg: p.OperatorCfg,
-		cfg:         p.Cfg,
-		logger:      p.Logger,
+		ctx:          ctx,
+		cancel:       cancel,
+		clientset:    p.Clientset,
+		ciliumPodNS:  p.PodCfg.ResolveNamespace(p.AgentConfig.K8sNamespace),
+		ciliumLabels: p.PodCfg.Labels,
+		cfg:          p.Cfg,
+		logger:       p.Logger,
 	}
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: s.start,
@@ -96,23 +97,24 @@ type nodeTaintSync struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	clientset   k8sClient.Clientset
-	operatorCfg *operatorOption.OperatorConfig
-	cfg         NodeTaintSyncConfig
-	logger      *slog.Logger
+	clientset    k8sClient.Clientset
+	ciliumPodNS  string
+	ciliumLabels string
+	cfg          NodeTaintSyncConfig
+	logger       *slog.Logger
 }
 
 func (s *nodeTaintSync) start(ctx cell.HookContext) error {
 	s.logger.InfoContext(ctx,
 		"Managing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes",
-		logfields.K8sNamespace, s.operatorCfg.CiliumK8sNamespace,
-		logfields.LabelSelectorFlagOption, s.operatorCfg.CiliumPodLabels,
+		logfields.K8sNamespace, s.ciliumPodNS,
+		logfields.LabelSelectorFlagOption, s.ciliumLabels,
 		logfields.RemoveCiliumNodeTaintsFlagOption, s.cfg.RemoveCiliumNodeTaints,
 		logfields.SetCiliumNodeTaintsFlagOption, s.cfg.SetCiliumNodeTaints,
 		logfields.SetCiliumIsUpConditionFlagOption, s.cfg.SetCiliumIsUpCondition,
 	)
 	HandleNodeTolerationAndTaints(&s.wg, s.clientset, s.ctx.Done(), s.logger, s.cfg,
-		s.operatorCfg.CiliumK8sNamespace, s.operatorCfg.CiliumPodLabels)
+		s.ciliumPodNS, s.ciliumLabels)
 	return nil
 }
 

@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
+	"github.com/cilium/cilium/operator/pkg/ciliumpod"
 	"github.com/cilium/cilium/operator/pkg/client"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
@@ -310,6 +311,11 @@ var (
 
 		// Integrates the controller-runtime library and provides its components via Hive.
 		controllerruntime.Cell,
+
+		// Shared configuration identifying the Cilium agent pods in the cluster
+		// (namespace and label selector). Consumed by ingress, nodesgc and the
+		// node taint sync cell.
+		ciliumpod.Cell,
 
 		// Cilium Gateway API controller that manages the Gateway API related CRDs.
 		gatewayapi.Cell,

@@ -8,11 +8,9 @@ import (
 	"log/slog"
 
 	"github.com/spf13/viper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -69,13 +67,6 @@ const (
 	// KubeProxyReplacement is equivalent to the cilium-agent option, and
 	// is used to provide hints for misconfiguration.
 	KubeProxyReplacement = "kube-proxy-replacement"
-
-	// CiliumK8sNamespace is the namespace where Cilium pods are running.
-	CiliumK8sNamespace = "cilium-pod-namespace"
-
-	// CiliumPodLabels specifies the pod labels that Cilium pods is running
-	// with.
-	CiliumPodLabels = "cilium-pod-labels"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -95,30 +86,12 @@ type OperatorConfig struct {
 
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
-
-	// CiliumK8sNamespace is the namespace where Cilium pods are running.
-	CiliumK8sNamespace string
-
-	// CiliumPodLabels specifies the pod labels that Cilium pods is running
-	// with.
-	CiliumPodLabels string
 }
 
 // Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
-	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
-
-	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
-
-	if c.CiliumK8sNamespace == "" {
-		if option.Config.K8sNamespace == "" {
-			c.CiliumK8sNamespace = metav1.NamespaceDefault
-		} else {
-			c.CiliumK8sNamespace = option.Config.K8sNamespace
-		}
-	}
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
