@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"maps"
 	"os"
@@ -34,13 +35,20 @@ type verifierComplexityRecord struct {
 }
 
 func main() {
-	if len(os.Args) != 4 {
-		panic("usage: complexity-diff <old> <new> <diff>")
+	diffFile := flag.String("diff-file", "", "File to store the complexity diff")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: go run ./tools/complexity-diff [flags] <old> <new>\n")
+		flag.PrintDefaults()
 	}
 
-	oldFile := os.Args[1]
-	newFile := os.Args[2]
-	diffFile := os.Args[3]
+	flag.Parse()
+	if flag.NArg() < 2 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	oldFile := flag.Arg(0)
+	newFile := flag.Arg(1)
 
 	oldRecords, err := loadRecords(oldFile)
 	if err != nil {
@@ -53,7 +61,9 @@ func main() {
 
 	printDiffRecords(oldRecords, newRecords)
 	printCurrentState(newRecords)
-	dumpDiffRecords(oldRecords, newRecords, diffFile)
+	if *diffFile != "" {
+		dumpDiffRecords(oldRecords, newRecords, *diffFile)
+	}
 }
 
 func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord) {
