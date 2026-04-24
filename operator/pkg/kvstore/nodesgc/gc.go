@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/ciliumpod"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -64,6 +64,7 @@ func newGC(in struct {
 
 	Config      Config
 	ClusterInfo cmtypes.ClusterInfo
+	PodCfg      ciliumpod.Config
 
 	WQMetricsProvider workqueue.MetricsProvider
 
@@ -78,7 +79,7 @@ func newGC(in struct {
 		return nil, nil
 	}
 
-	selector, err := labels.Parse(operatorOption.Config.CiliumPodLabels)
+	selector, err := in.PodCfg.Selector()
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse cilium pod selector: %w", err)
 	}
