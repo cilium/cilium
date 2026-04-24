@@ -257,7 +257,7 @@ jobs:
       if: ${{ github.event_name == 'workflow_dispatch' }}
       run: |
         cat ./artifacts/*/verifier-complexity-pull.json | jq -s 'add' > ./artifacts/verifier-complexity-pull.json
-        go run ./tools/complexity-diff ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json ./artifacts/complexity-diff.json >> $GITHUB_STEP_SUMMARY
+        go run ./tools/complexity-diff -diff-file ./artifacts/complexity-diff.json ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json >> $GITHUB_STEP_SUMMARY
 
     - name: Remove per-kernel results from workspace
       run: |
