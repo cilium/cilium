@@ -1818,6 +1818,49 @@ unreliable until the node is restarted. If this becomes an issue, consider disab
 
 Replacing these maps with BPF socket storage (:gh-issue:`42658`) would resolve this issue.
 
+Connection drops during service backend termination
+***************************************************
+
+In Kubernetes environment, ``Service`` backends are represented by ``EndpointSlice`` objects that usually correspond
+to ``Pod`` objects. When a Pod is deleted (HPA scale-down, rolling update, etc.), two operations are triggered **simultaneously**:
+
+- The ``EndpointSlice`` endpoint is updated to ``Terminating``, instructing CNIs to stop sending traffic to it.
+- Kubelet sends a ``SIGTERM`` to the pod's containers.
+
+Because of that, the application may start refusing connections before Cilium can stop directing traffic
+to the Pod. This can lead to dropped connections and client errors. As of Kubernetes 1.36, Kubelet can't coordinate with
+EndpointSlice updates due to architectural limitations. At the same time, it's not ideal to implement application-side
+workarounds. For example, web application frameworks **should** immediately refuse connections when they receive
+a ``TERM`` signal, given that semantically, the application shouldn't know that it's running in a Kubernetes environment.
+
+You can mitigate this by defining ``preStop`` in your Pod spec. The following example delays delivery of the ``TERM``
+signal to application containers by 2 seconds, giving Cilium more time to react to the EndpointSlice status change:
+
+.. code-block:: yaml
+
+  lifecycle:
+    preStop: # Kubernetes 1.29+
+      sleep:
+        seconds: 2
+
+The required delay depends on the type of Service being terminated. For ``LoadBalancer`` Services, you may need a
+higher value (for example, 10 seconds) to give the external load balancer enough time to stop sending traffic to the
+node. For ``ClusterIP`` Services, a lower value (for example, 1 second) may be sufficient. Experiment with different
+values to find the best setting for your application.
+
+You can read more here:
+
+    * `Pod Termination Flow <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-flow>`__: Item 3 mentions the concurrency issue.
+    * `Termination process for Pods and their endpoints <https://kubernetes.io/docs/tutorials/services/pods-and-endpoint-termination-flow/>`__: Suggests using ``preStop`` for graceful termination.
+
+.. admonition:: Remember
+  :class: attention
+
+  ``preStop`` must be a lower number than ``terminationGracePeriodSeconds``, because its time is counted within this
+  very same grace period. Adjust it accordingly based on your applications needs, otherwise you may end up given too
+  little time for your applications to handle the graceful shutdown.
+
+
 .. _Limitations:
 
 Limitations
