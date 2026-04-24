@@ -1660,6 +1660,126 @@ func TestSharedServicesUpdateSharingKeyAndRequestedIP(t *testing.T) {
 	}
 }
 
+// TestSharingClusters tests that when there are 4 services with the same sharing key (A, B, C and D) where A and B
+// are compatible and C and D are compatible but not with A and B, we end up with 2 IPs assigned.
+func TestSharingClusters(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(t, true, false)
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 80,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 81,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcC := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-c",
+			Namespace: "default",
+			UID:       serviceCUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 80,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcC)
+
+	svcD := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-d",
+			Namespace: "default",
+			UID:       serviceDUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 81,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcD)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	svcB = fixture.GetSvc("default", "service-b")
+	svcC = fixture.GetSvc("default", "service-c")
+	svcD = fixture.GetSvc("default", "service-d")
+
+	require.Len(t, svcA.Status.LoadBalancer.Ingress, 1)
+	require.Len(t, svcB.Status.LoadBalancer.Ingress, 1)
+	require.Len(t, svcC.Status.LoadBalancer.Ingress, 1)
+	require.Len(t, svcD.Status.LoadBalancer.Ingress, 1)
+
+	ipAB := svcA.Status.LoadBalancer.Ingress[0].IP
+	ipCD := svcC.Status.LoadBalancer.Ingress[0].IP
+
+	require.Equal(t, ipAB, svcB.Status.LoadBalancer.Ingress[0].IP)
+	require.Equal(t, ipCD, svcD.Status.LoadBalancer.Ingress[0].IP)
+	require.NotEqual(t, ipAB, ipCD)
+
+	require.NotNil(t, net.ParseIP(ipAB).To4())
+	require.NotNil(t, net.ParseIP(ipCD).To4())
+
+	ipsUsed := getPoolStatusCount(fixture.GetPool("pool-a"), ciliumPoolIPsUsedCondition)
+	require.Equal(t, "2", ipsUsed)
+
+	fixture.DeleteSvc(t, svcA)
+	fixture.DeleteSvc(t, svcB)
+	fixture.DeleteSvc(t, svcC)
+	fixture.DeleteSvc(t, svcD)
+}
+
 // TestAddPool tests that adding a new pool will satisfy services.
 func TestAddPool(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
@@ -3030,4 +3150,71 @@ func getPoolStatusCount(pool *cilium_api_v2.CiliumLoadBalancerIPPool, condType s
 		}
 	}
 	return ""
+}
+
+func TestIntersects(t *testing.T) {
+	type test struct {
+		name       string
+		from1, to1 string
+		from2, to2 string
+		expected   bool
+	}
+	tests := []test{
+		{
+			name:  "no overlap right",
+			from1: "10.0.0.0", to1: "10.0.0.10",
+			from2: "10.0.0.11", to2: "10.0.0.20",
+			expected: false,
+		},
+		{
+			name:  "right edge overlap",
+			from1: "10.0.0.0", to1: "10.0.0.10",
+			from2: "10.0.0.10", to2: "10.0.0.20",
+			expected: true,
+		},
+		{
+			name:  "right overlap",
+			from1: "10.0.0.0", to1: "10.0.0.10",
+			from2: "10.0.0.5", to2: "10.0.0.20",
+			expected: true,
+		},
+		{
+			name:  "full overlap",
+			from1: "10.0.0.0", to1: "10.0.0.10",
+			from2: "10.0.0.0", to2: "10.0.0.10",
+			expected: true,
+		},
+		{
+			name:  "left overlap",
+			from1: "10.0.0.5", to1: "10.0.0.20",
+			from2: "10.0.0.0", to2: "10.0.0.10",
+			expected: true,
+		},
+		{
+			name:  "left edge overlap",
+			from1: "10.0.0.10", to1: "10.0.0.20",
+			from2: "10.0.0.0", to2: "10.0.0.10",
+			expected: true,
+		},
+		{
+			name:  "no overlap left",
+			from1: "10.0.0.11", to1: "10.0.0.20",
+			from2: "10.0.0.0", to2: "10.0.0.10",
+			expected: false,
+		},
+	}
+
+	for _, subT := range tests {
+		t.Run(subT.name, func(tt *testing.T) {
+			from1 := netip.MustParseAddr(subT.from1)
+			from2 := netip.MustParseAddr(subT.from2)
+			to1 := netip.MustParseAddr(subT.to1)
+			to2 := netip.MustParseAddr(subT.to2)
+
+			got := intersect(from1, to1, from2, to2)
+			if got != subT.expected {
+				tt.Fatalf("%s, %s-%s / %s-%s, got: %v, expected %v", subT.name, from1, to1, from2, to2, got, subT.expected)
+			}
+		})
+	}
 }

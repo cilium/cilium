@@ -96,8 +96,8 @@ type lbIPAMParams struct {
 func newLBIPAM(params lbIPAMParams) *LBIPAM {
 	lbIPAM := &LBIPAM{
 		lbIPAMParams: params,
-		pools:        make(map[string]*LBPool),
-		rangesStore:  newRangesStore(),
+		pools:        newPoolStore(),
+		sharingIndex: newSharingIndex(),
 		serviceStore: NewServiceStore(),
 	}
 	return lbIPAM
@@ -109,7 +109,7 @@ type LBIPAM struct {
 	lbIPAMParams
 
 	pools        poolStore
-	rangesStore  rangesStore
+	sharingIndex sharingIndex
 	serviceStore serviceStore
 }
 
@@ -121,7 +121,7 @@ func (ipam *LBIPAM) restart() {
 
 	// Reset all stored state
 	ipam.pools = newPoolStore()
-	ipam.rangesStore = newRangesStore()
+	ipam.sharingIndex = newSharingIndex()
 	ipam.serviceStore = NewServiceStore()
 
 	// Re-start the main goroutine
@@ -547,23 +547,13 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	// Remove bad allocations which are no longer valid
 	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
 		alloc := sv.AllocatedIPs[allocIdx]
+		cluster, _ := alloc.Origin.alloc.Get(alloc.IP)
 
 		releaseAllocIP := func() {
 			ipam.logger.Debug(fmt.Sprintf("removing allocation '%s' from '%s'", alloc.IP, sv.Key))
-			sharingGroup, _ := alloc.Origin.alloc.Get(alloc.IP)
-
-			idx := slices.Index(sharingGroup, sv)
-			if idx != -1 {
-				sharingGroup = slices.Delete(sharingGroup, idx, idx+1)
-			}
-
-			if len(sharingGroup) == 0 {
+			if empty := cluster.Remove(sv); empty {
 				alloc.Origin.alloc.Free(alloc.IP)
-				ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &alloc)
-			} else {
-				alloc.Origin.alloc.Update(alloc.IP, sharingGroup)
 			}
-
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
 		}
 
@@ -588,9 +578,8 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 		}
 
-		// Check if all AllocatedIPs that are part of a sharing group, if this service is still compatible with them.
-		// If this service is no longer compatible, we have to remove the IP from the sharing group and re-allocate.
-		if !ipam.checkSharingGroupCompatibility(sv) {
+		// Check if the service is still compatible with the cluster sharing this IP. If it isn't, remove the allocation
+		if compatible, _ := cluster.IsCompatible(sv); !compatible {
 			releaseAllocIP()
 			continue
 		}
@@ -629,26 +618,6 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	}
 
 	return errs
-}
-
-func (ipam *LBIPAM) checkSharingGroupCompatibility(sv *ServiceView) bool {
-	for _, allocIP := range sv.AllocatedIPs {
-		sharedViews, _ := allocIP.Origin.alloc.Get(allocIP.IP)
-		if len(sharedViews) == 1 {
-			// The allocation isn't shared, we can continue
-			continue
-		}
-
-		for _, sharedView := range sharedViews {
-			if sv != sharedView {
-				if c, _ := sharedView.isCompatible(sv); !c {
-					return false
-				}
-			}
-		}
-	}
-
-	return true
 }
 
 func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool, err error) {
@@ -714,8 +683,8 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				continue
 			}
 
-			serviceViews := []*ServiceView{sv}
-			err = lbRange.alloc.Alloc(ip, serviceViews)
+			sharingCluster := &sharingCluster{Services: []*ServiceView{sv}, SVIP: ServiceViewIP{IP: ip, Origin: lbRange}}
+			err = lbRange.alloc.Alloc(ip, sharingCluster)
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
 					ipam.logger.Warn(
@@ -730,15 +699,9 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 
 				return statusModified, fmt.Errorf("error while attempting to allocate IP '%s'", ingress.IP)
 			}
-
-			sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
-				IP:     ip,
-				Origin: lbRange,
-			})
-
-			// If the `ServiceView` has a sharing key, add the IP to the `rangeStore` index
+			sv.AllocatedIPs = append(sv.AllocatedIPs, sharingCluster.SVIP)
 			if sv.SharingKey != "" {
-				ipam.rangesStore.AddServiceViewIPForSharingKey(sv.SharingKey, &sv.AllocatedIPs[len(sv.AllocatedIPs)-1])
+				ipam.sharingIndex.Add(sv.SharingKey, sharingCluster)
 			}
 		}
 
@@ -798,9 +761,9 @@ func getSVCRequestedIPs(log *slog.Logger, svc *slim_core_v1.Service) []netip.Add
 	})
 }
 
-func getSVCSharingKey(svc *slim_core_v1.Service) string {
+func getSVCSharingKey(svc *slim_core_v1.Service) sharingKey {
 	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingKey, annotation.LBIPAMSharingKeyAlias); val != "" {
-		return val
+		return sharingKey(val)
 	}
 	return ""
 }
@@ -821,29 +784,24 @@ func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
 
 	// Remove all allocations for this service
 	for _, alloc := range sv.AllocatedIPs {
-		// Even if a service doesn't have a sharing key, each allocation is a sharing group
-		sharingGroupIPs, found := alloc.Origin.alloc.Get(alloc.IP)
+		// Even if a service doesn't have a sharing key, each allocation is a sharing cluster
+		cluster, found := alloc.Origin.alloc.Get(alloc.IP)
 		if !found {
 			continue
 		}
 
-		// Remove this IP from the sharing group
-		i := slices.Index(sharingGroupIPs, sv)
+		// Remove this IP from the sharing cluster
+		i := slices.Index(cluster.Services, sv)
 		if i != -1 {
-			sharingGroupIPs = slices.Delete(sharingGroupIPs, i, i+1)
+			cluster.Services = slices.Delete(cluster.Services, i, i+1)
 		}
 
-		// If there are still IPs in the group, update the allocation, otherwise free the IP
-		if len(sharingGroupIPs) > 0 {
-			alloc.Origin.alloc.Update(alloc.IP, sharingGroupIPs)
-		} else {
+		// If all services have been removed from the sharing cluster, free the IP.
+		if len(cluster.Services) == 0 {
 			alloc.Origin.alloc.Free(alloc.IP)
-			// The `ServiceView` has a sharing key, remove the IP from the `rangeStore` index
+			// The `ServiceView` has a sharing key, remove the IP from the sharing index
 			if sv.SharingKey != "" {
-				ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &ServiceViewIP{
-					IP:     alloc.IP,
-					Origin: alloc.Origin,
-				})
+				ipam.sharingIndex.Remove(sv.SharingKey, cluster)
 			}
 		}
 
@@ -907,11 +865,6 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 				IP: alloc.IP.String(),
 			})
 			statusModified = true
-
-			// If the `ServiceView` has a sharing key, add the IP to the `rangeStore` index
-			if sv.SharingKey != "" {
-				ipam.rangesStore.AddServiceViewIPForSharingKey(sv.SharingKey, &alloc)
-			}
 		}
 	}
 
@@ -954,7 +907,7 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			continue
 		}
 
-		if serviceViews, exists := lbRange.alloc.Get(reqIP); exists {
+		if cluster, exists := lbRange.alloc.Get(reqIP); exists {
 			// The IP is already assigned to another service, if we have a sharing key we might be able to share it.
 			if sv.SharingKey == "" {
 				msg := fmt.Sprintf("The IP '%s' is already allocated to another service", reqIP)
@@ -965,36 +918,21 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 				continue
 			}
 
-			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
-			// This also checks if the sharing key is the same
-			compatible := true
-			incompatibilityReason := ""
-			for _, serviceView := range serviceViews {
-				if c, r := serviceView.isCompatible(sv); !c {
-					compatible = false
-					incompatibilityReason = r
-					break
-				}
-			}
-			// if it is, add the service view to the list, and satisfy the IP
-			if !compatible {
+			// Check if the service is compatible with the services sharing the IP.
+			if compatible, reason := cluster.IsCompatible(sv); !compatible {
 				// The IP was requested and a sharing key was provided, but the service isn't compatible with one of the services sharing the IP.
-				msg := fmt.Sprintf("The IP '%s' is already allocated to an incompatible service. Reason: %s", reqIP, incompatibilityReason)
+				msg := fmt.Sprintf("The IP '%s' is already allocated to an incompatible service. Reason: %s", reqIP, reason)
 				reason := "already_allocated_incompatible_service"
 				if ipam.setSVCSatisfiedCondition(sv, false, reason, msg) {
 					statusModified = true
 				}
 				continue
 			}
-			serviceViews = append(serviceViews, sv)
-			err = lbRange.alloc.Update(reqIP, serviceViews)
-			if err != nil {
-				ipam.logger.Error(fmt.Sprintf("Error while attempting to update IP '%s'", reqIP), logfields.Error, err)
-				continue
-			}
+			cluster.Services = append(cluster.Services, sv)
 		} else {
 			ipam.logger.Debug(fmt.Sprintf("Allocate '%s' for '%s'", reqIP, sv.Key))
-			err = lbRange.alloc.Alloc(reqIP, []*ServiceView{sv})
+			sharingCluster := &sharingCluster{Services: []*ServiceView{sv}}
+			err = lbRange.alloc.Alloc(reqIP, sharingCluster)
 			if err != nil {
 				if errors.Is(err, ipalloc.ErrInUse) {
 					return statusModified, fmt.Errorf("ipalloc.Alloc: %w", err)
@@ -1003,6 +941,8 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 				ipam.logger.Error("Unable to allocate IP", logfields.Error, err)
 				continue
 			}
+
+			ipam.sharingIndex.Add(sv.SharingKey, sharingCluster)
 		}
 
 		sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
@@ -1046,49 +986,32 @@ func (ipam *LBIPAM) satisfyGenericIPRequests(sv *ServiceView) (statusModified bo
 
 func (ipam *LBIPAM) satisfyGenericRequest(sv *ServiceView, family AddressFamily) (statusModified bool, err error) {
 	if sv.SharingKey != "" {
-		// If the service has a sharing key, check if it exists in the `rangeStore` via the index.
-		sharingGroupIPs, _ := ipam.rangesStore.GetServiceViewIPsForSharingKey(sv.SharingKey)
-		// If it exists, we go to the `LBRange` and get the list of `ServiceViews`.
-		for _, sharingGroupIP := range sharingGroupIPs {
+		// Check if we can share an already allocated IP in the same sharing group.
+		for _, sharingCluster := range ipam.sharingIndex.Get(sv.SharingKey) {
 			// Only attempt to share IPs of the same address family
-			if addressFamilyOfIP(sharingGroupIP.IP) != family {
+			if addressFamilyOfIP(sharingCluster.SVIP.IP) != family {
 				continue
-			}
-
-			serviceViews, _ := sharingGroupIP.Origin.alloc.Get(sharingGroupIP.IP)
-			if len(serviceViews) == 0 {
-				continue
-			}
-
-			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
-			compatible := true
-			for _, serviceView := range serviceViews {
-				if c, _ := serviceView.isCompatible(sv); !c {
-					compatible = false
-					break
-				}
 			}
 
 			// if it is, add the service view to the list, and satisfy the IP
-			if compatible {
-				sv.AllocatedIPs = append(sv.AllocatedIPs, *sharingGroupIP)
-				serviceViews = append(serviceViews, sv)
-				sharingGroupIP.Origin.alloc.Update(sharingGroupIP.IP, serviceViews)
+			if compatible, _ := sharingCluster.IsCompatible(sv); compatible {
+				sv.AllocatedIPs = append(sv.AllocatedIPs, sharingCluster.SVIP)
+				sharingCluster.Add(sv)
 				return statusModified, nil
 			}
 		}
 	}
 
 	// Unable to share an already allocated IP, so lets allocate a new one
-	newIP, lbRange, err := ipam.allocateIPAddress(sv, family)
+	newSharingCluster, err := ipam.allocateIPAddress(sv, family)
 	if err != nil && !errors.Is(err, ipalloc.ErrFull) {
 		return statusModified, fmt.Errorf("allocateIPAddress: %w", err)
 	}
-	if newIP.Compare(netip.Addr{}) != 0 {
-		sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
-			IP:     newIP,
-			Origin: lbRange,
-		})
+	if newSharingCluster != nil {
+		sv.AllocatedIPs = append(sv.AllocatedIPs, newSharingCluster.SVIP)
+		if sv.SharingKey != "" {
+			ipam.sharingIndex.Add(sv.SharingKey, newSharingCluster)
+		}
 	} else {
 		reason := "no_pool"
 		message := "There are no enabled CiliumLoadBalancerIPPools that match this service"
@@ -1204,11 +1127,7 @@ func addressFamilyOfIP(ip netip.Addr) AddressFamily {
 func (ipam *LBIPAM) allocateIPAddress(
 	sv *ServiceView,
 	family AddressFamily,
-) (
-	newIP netip.Addr,
-	chosenRange *LBRange,
-	err error,
-) {
+) (*sharingCluster, error) {
 	full := false
 	for lbRange := range ipam.pools.Ranges() {
 		// If the range is disabled we can't allocate new IPs from it.
@@ -1238,7 +1157,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		if pool.k8s.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.k8s.Spec.ServiceSelector)
 			if err != nil {
-				return netip.Addr{}, nil, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.k8s.Name, err)
+				return nil, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.k8s.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -1247,7 +1166,8 @@ func (ipam *LBIPAM) allocateIPAddress(
 		}
 
 		// Attempt to allocate the next IP from this range.
-		newIp, err := lbRange.alloc.AllocAny([]*ServiceView{sv})
+		sharingCluster := &sharingCluster{Services: []*ServiceView{sv}}
+		newIp, err := lbRange.alloc.AllocAny(sharingCluster)
 		if err != nil {
 			// If the range is full, mark it.
 			if errors.Is(err, ipalloc.ErrFull) {
@@ -1258,15 +1178,19 @@ func (ipam *LBIPAM) allocateIPAddress(
 			ipam.logger.Error("Allocate next IP from lb range", logfields.Error, err)
 			continue
 		}
+		sharingCluster.SVIP = ServiceViewIP{
+			IP:     newIp,
+			Origin: lbRange,
+		}
 
-		return newIp, lbRange, nil
+		return sharingCluster, nil
 	}
 
 	if full {
-		return netip.Addr{}, nil, ipalloc.ErrFull
+		return nil, ipalloc.ErrFull
 	}
 
-	return netip.Addr{}, nil, nil
+	return nil, nil
 }
 
 // serviceIPFamilyRequest checks which families of IP addresses are requested

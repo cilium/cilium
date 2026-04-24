@@ -65,7 +65,7 @@ type ServiceView struct {
 	Generation int64
 	Status     *slim_core_v1.ServiceStatus
 
-	SharingKey            string
+	SharingKey            sharingKey
 	SharingCrossNamespace []string
 	// These required to determine if a service conflicts with another for sharing an ip
 	ExternalTrafficPolicy slim_core_v1.ServiceExternalTrafficPolicy
