@@ -6,6 +6,7 @@ package types
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
@@ -27,6 +28,9 @@ func testConfRead(t *testing.T, confContent string, netconf *NetConf) {
 
 	netConf, err := ReadNetConf(p)
 	require.NoError(t, err)
+
+	// PluginConfig is verified separately (TestReadCNIConfPluginConfig); strip it here for fixture parity.
+	netConf.PluginConfig = nil
 
 	require.Equal(t, netConf, netconf)
 }
@@ -310,4 +314,104 @@ func TestReadCNIConfError(t *testing.T) {
 
 	_, err = ReadNetConf(p)
 	require.Error(t, err)
+}
+
+func TestReadCNIConfPluginConfig(t *testing.T) {
+	// Conflist with delegated IPAM fields ("ranges"/"dataDir") not modeled by
+	// NetConf.IPAM, PluginConfig.Bytes must preserve them verbatim.
+	conflist := `{
+  "cniVersion": "1.0.0",
+  "name": "cilium",
+  "plugins": [
+    {
+      "type": "cilium-cni",
+      "ipam": {
+        "type": "host-local",
+        "ranges": [[{"subnet": "10.10.0.0/24"}]],
+        "dataDir": "/var/lib/cni/networks/cilium"
+      }
+    }
+  ]
+}`
+
+	p := filepath.Join(t.TempDir(), "conflist")
+	require.NoError(t, os.WriteFile(p, []byte(conflist), 0644))
+
+	nc, err := ReadNetConf(p)
+	require.NoError(t, err)
+
+	// Typed field is populated.
+	require.Equal(t, "host-local", nc.IPAM.Type)
+
+	// PluginConfig pairs the typed parse with verbatim bytes.
+	require.NotNil(t, nc.PluginConfig)
+	require.NotNil(t, nc.PluginConfig.Network)
+	require.Equal(t, "cilium-cni", nc.PluginConfig.Network.Type)
+
+	// Verbatim bytes preserve unknown plugin-specific fields and inject conflist name/cniVersion.
+	require.NotEmpty(t, nc.PluginConfig.Bytes)
+	raw := string(nc.PluginConfig.Bytes)
+	require.Contains(t, raw, `"ranges"`)
+	require.Contains(t, raw, `"10.10.0.0/24"`)
+	require.Contains(t, raw, `"dataDir"`)
+	require.Contains(t, raw, `"/var/lib/cni/networks/cilium"`)
+	require.Contains(t, raw, `"name":"cilium"`)
+	require.Contains(t, raw, `"cniVersion":"1.0.0"`)
+}
+
+func TestLoadNetConfPluginConfig(t *testing.T) {
+	// LoadNetConf is the cilium-cni plugin's bytes-entry path; it does not populate
+	// PluginConfig (only the daemon's ReadNetConf path does, for delegated IPAM).
+	in := []byte(`{
+  "cniVersion": "1.0.0",
+  "name": "cilium",
+  "type": "cilium-cni",
+  "ipam": {
+    "type": "host-local",
+    "ranges": [[{"subnet": "10.10.0.0/24"}]]
+  }
+}`)
+	nc, err := LoadNetConf(in)
+	require.NoError(t, err)
+	require.Nil(t, nc.PluginConfig)
+}
+
+func TestReadCNIConfPluginConfigChained(t *testing.T) {
+	// Conflist with cilium-cni chained after another plugin. Verifies:
+	//   1. We find cilium-cni even when it is not the first plugin.
+	//   2. PluginConfig.Bytes carries ONLY the cilium-cni block, not sibling
+	//      plugins (delegated IPAM exec must not see portmap config).
+	conflist := `{
+  "cniVersion": "1.0.0",
+  "name": "cilium",
+  "plugins": [
+    {
+      "type": "portmap",
+      "capabilities": {"portMappings": true}
+    },
+    {
+      "type": "cilium-cni",
+      "ipam": {
+        "type": "host-local",
+        "ranges": [[{"subnet": "10.10.0.0/24"}]]
+      }
+    }
+  ]
+}`
+
+	p := filepath.Join(t.TempDir(), "conflist")
+	require.NoError(t, os.WriteFile(p, []byte(conflist), 0644))
+
+	nc, err := ReadNetConf(p)
+	require.NoError(t, err)
+
+	require.NotNil(t, nc.PluginConfig)
+	require.Equal(t, "cilium-cni", nc.PluginConfig.Network.Type)
+
+	raw := string(nc.PluginConfig.Bytes)
+	require.Contains(t, raw, `"type":"cilium-cni"`)
+	require.Contains(t, raw, `"host-local"`)
+	// Sibling plugin must not leak into the cilium-cni block.
+	require.NotContains(t, raw, "portmap")
+	require.NotContains(t, raw, "portMappings")
 }

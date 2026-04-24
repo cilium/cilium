@@ -74,6 +74,12 @@ func (c *cniConfigManager) ExternalRoutingEnabled() bool {
 	return c.config.CNIExternalRouting
 }
 
+// GetDelegatedIPAMCNIBinPath returns the path to the CNI bin directory
+// used for delegated IPAM plugin invocations.
+func (c *cniConfigManager) GetDelegatedIPAMCNIBinPath() string {
+	return c.config.DelegatedIPAMCNIBinPath
+}
+
 // GetCustomNetConf returns the parsed custom CNI configuration, if provided
 // (In other words, the value to --read-cni-conf).
 // Otherwise, returns nil.
