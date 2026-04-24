@@ -146,8 +146,6 @@ cilium-operator-generic [flags]
       --set-cilium-node-taints                                     Set node taint "node.cilium.io/agent-not-ready" on Kubernetes nodes if Cilium is scheduled but not up and running
       --shell-sock-path string                                     Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                          When true, Kubernetes Custom Resource Definitions will not be created
-      --subnet-ids-filter strings                                  Subnets IDs (separated by commas)
-      --subnet-tags-filter map                                     Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --synchronize-k8s-nodes                                      Perform GC of stale node entries from the KVStore (default true)
       --synchronize-k8s-services                                   Synchronize Kubernetes services to kvstore (default true)
       --taint-sync-workers int                                     Number of workers used to synchronize node taints and conditions (default 10)

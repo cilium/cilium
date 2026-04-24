@@ -36,6 +36,8 @@ type AllocatorAWS struct {
 	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
 	AWSMaxResultsPerCall         int32
+	SubnetsIDs                   []string
+	SubnetsTags                  map[string]string
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
@@ -91,7 +93,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, aMetrics e
 	if err != nil {
 		return err
 	}
-	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
+	subnetsFilters := ec2shim.NewSubnetsFilters(a.SubnetsTags, a.SubnetsIDs)
 	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	eniCreationTags := a.ENITags

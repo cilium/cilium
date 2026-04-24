@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam/allocator/aws"
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -44,6 +43,8 @@ type AWSConfig struct {
 	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
 	AWSMaxResultsPerCall         int32
+	IPAMSubnetsIDs               []string          `mapstructure:"subnet-ids-filter"`
+	IPAMSubnetsTags              map[string]string `mapstructure:"subnet-tags-filter"`
 }
 
 var awsDefaultConfig = AWSConfig{
@@ -56,21 +57,26 @@ var awsDefaultConfig = AWSConfig{
 	AWSUsePrimaryAddress:         false,
 	EC2APIEndpoint:               "",
 	AWSMaxResultsPerCall:         0,
+	IPAMSubnetsIDs:               nil,
+	IPAMSubnetsTags:              nil,
 }
 
 func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(operatorOption.AWSReleaseExcessIPs, awsDefaultConfig.AWSReleaseExcessIPs, "Enable releasing excess free IP addresses from AWS ENI.")
-	flags.Int(operatorOption.ExcessIPReleaseDelay, awsDefaultConfig.ExcessIPReleaseDelay, "Number of seconds operator would wait before it releases an IP previously marked as excess")
-	flags.Bool(operatorOption.AWSEnablePrefixDelegation, awsDefaultConfig.AWSEnablePrefixDelegation, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
-	flags.StringToString(operatorOption.ENITags, awsDefaultConfig.ENITags,
+	flags.Bool("aws-release-excess-ips", awsDefaultConfig.AWSReleaseExcessIPs, "Enable releasing excess free IP addresses from AWS ENI.")
+	flags.Int("excess-ip-release-delay", awsDefaultConfig.ExcessIPReleaseDelay, "Number of seconds operator would wait before it releases an IP previously marked as excess")
+	flags.Bool("aws-enable-prefix-delegation", awsDefaultConfig.AWSEnablePrefixDelegation, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
+	flags.StringToString("eni-tags", awsDefaultConfig.ENITags,
 		"ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
-	flags.StringToString(operatorOption.ENIGarbageCollectionTags, awsDefaultConfig.ENIGarbageCollectionTags,
+	flags.StringToString("eni-gc-tags", awsDefaultConfig.ENIGarbageCollectionTags,
 		"Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected")
-	flags.Duration(operatorOption.ENIGarbageCollectionInterval, awsDefaultConfig.ENIGarbageCollectionInterval,
+	flags.Duration("eni-gc-interval", awsDefaultConfig.ENIGarbageCollectionInterval,
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
-	flags.Bool(operatorOption.AWSUsePrimaryAddress, awsDefaultConfig.AWSUsePrimaryAddress, "Allows for using primary address of the ENI for allocations on the node")
-	flags.String(operatorOption.EC2APIEndpoint, awsDefaultConfig.EC2APIEndpoint, "AWS API endpoint for the EC2 service")
-	flags.Int32(operatorOption.AWSMaxResultsPerCall, awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
+	flags.Bool("aws-use-primary-address", awsDefaultConfig.AWSUsePrimaryAddress, "Allows for using primary address of the ENI for allocations on the node")
+	flags.String("ec2-api-endpoint", awsDefaultConfig.EC2APIEndpoint, "AWS API endpoint for the EC2 service")
+	flags.Int32("aws-max-results-per-call", awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
+	flags.StringSlice("subnet-ids-filter", awsDefaultConfig.IPAMSubnetsIDs, "Subnets IDs (separated by commas)")
+	flags.StringToString("subnet-tags-filter", awsDefaultConfig.IPAMSubnetsTags,
+		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 }
 
 type awsParams struct {
@@ -104,6 +110,8 @@ func startAWSAllocator(p awsParams) {
 		AWSUsePrimaryAddress:         p.AwsCfg.AWSUsePrimaryAddress,
 		EC2APIEndpoint:               p.AwsCfg.EC2APIEndpoint,
 		AWSMaxResultsPerCall:         p.AwsCfg.AWSMaxResultsPerCall,
+		SubnetsIDs:                   p.AwsCfg.IPAMSubnetsIDs,
+		SubnetsTags:                  p.AwsCfg.IPAMSubnetsTags,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
 		LimitIPAMAPIBurst:            p.Cfg.LimitIPAMAPIBurst,
 		LimitIPAMAPIQPS:              p.Cfg.LimitIPAMAPIQPS,
