@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -43,17 +44,18 @@ import (
 type infraIPAllocatorParams struct {
 	cell.In
 
-	Logger         *slog.Logger
-	JobGroup       job.Group
-	DaemonConfig   *option.DaemonConfig
-	Config         config
-	DB             *statedb.DB
-	Routes         statedb.Table[*datapathTables.Route]
-	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
-	NodeAddressing node.Addressing
-	LocalNodeStore *node.LocalNodeStore
-	MTU            mtu.MTU
-	IPAM           *ipam.IPAM
+	Logger           *slog.Logger
+	JobGroup         job.Group
+	DaemonConfig     *option.DaemonConfig
+	Config           config
+	DB               *statedb.DB
+	Routes           statedb.Table[*datapathTables.Route]
+	NodeAddrs        statedb.Table[datapathTables.NodeAddress]
+	NodeAddressing   node.Addressing
+	LocalNodeStore   *node.LocalNodeStore
+	MTU              mtu.MTU
+	IPAM             *ipam.IPAM
+	CNIConfigManager cni.CNIConfigManager
 }
 
 type InfraIPAllocator interface {
@@ -65,16 +67,17 @@ var _ InfraIPAllocator = &infraIPAllocator{}
 
 // infraIPAllocator is responsible to create infra related IPs (router, ingress & health)
 type infraIPAllocator struct {
-	logger         *slog.Logger
-	jobGroup       job.Group
-	daemonConfig   *option.DaemonConfig
-	config         config
-	db             *statedb.DB
-	routes         statedb.Table[*datapathTables.Route]
-	nodeAddressing node.Addressing
-	localNodeStore *node.LocalNodeStore
-	mtuManager     mtu.MTU
-	ipAllocator    ipamAllocator
+	logger           *slog.Logger
+	jobGroup         job.Group
+	daemonConfig     *option.DaemonConfig
+	config           config
+	db               *statedb.DB
+	routes           statedb.Table[*datapathTables.Route]
+	nodeAddressing   node.Addressing
+	localNodeStore   *node.LocalNodeStore
+	mtuManager       mtu.MTU
+	ipAllocator      ipamAllocator
+	cniConfigManager cni.CNIConfigManager
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -90,16 +93,17 @@ type ipamAllocator interface {
 
 func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 	return &infraIPAllocator{
-		logger:         params.Logger,
-		jobGroup:       params.JobGroup,
-		daemonConfig:   params.DaemonConfig,
-		config:         params.Config,
-		db:             params.DB,
-		routes:         params.Routes,
-		nodeAddressing: params.NodeAddressing,
-		localNodeStore: params.LocalNodeStore,
-		mtuManager:     params.MTU,
-		ipAllocator:    params.IPAM,
+		logger:           params.Logger,
+		jobGroup:         params.JobGroup,
+		daemonConfig:     params.DaemonConfig,
+		config:           params.Config,
+		db:               params.DB,
+		routes:           params.Routes,
+		nodeAddressing:   params.NodeAddressing,
+		localNodeStore:   params.LocalNodeStore,
+		mtuManager:       params.MTU,
+		ipAllocator:      params.IPAM,
+		cniConfigManager: params.CNIConfigManager,
 	}
 }
 
@@ -429,9 +433,15 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 	return nil
 }
 
-func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
+func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
 	if !r.daemonConfig.EnableEnvoyConfig {
 		return nil
+	}
+
+	// When using delegated IPAM, ingress IPs are allocated via the external
+	// CNI IPAM plugin rather than the internal allocator.
+	if r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin {
+		return r.allocateIngressIPsWithDelegatedIPAMExec(ctx, newDefaultCNIExec())
 	}
 
 	ingressIPv4 := oldV4IngressIP
@@ -563,7 +573,13 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 		return fmt.Errorf("failed to allocate service loopback IPs: %w", err)
 	}
 
-	if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
+	// When envoy config is disabled but delegated IPAM is in use,
+	// clean up any stale ingress IPs from a previous run.
+	if !r.daemonConfig.EnableEnvoyConfig && r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin {
+		r.deallocateIngressIPsWithDelegatedIPAMExec(ctx, newDefaultCNIExec())
+	}
+
+	if err := r.allocateIngressIPs(ctx, localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
 		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 

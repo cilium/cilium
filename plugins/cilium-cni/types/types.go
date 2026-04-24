@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/containernetworking/cni/libcni"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
@@ -32,6 +33,10 @@ type NetConf struct {
 	LogFormat      string                 `json:"log-format"`
 	LogFile        string                 `json:"log-file"`
 	ChainingMode   string                 `json:"chaining-mode"`
+
+	// PluginConfig is intentionally redundant with the typed fields above, it carries the verbatim plugin bytes
+	// for delegated IPAM exec invoked by cilium-agent, preserving plugin-specific IPAM fields not modeled by NetConf.
+	PluginConfig *libcni.PluginConfig `json:"-"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration
@@ -64,8 +69,8 @@ func parsePrevResult(n *NetConf) (*NetConf, error) {
 	return n, nil
 }
 
-// ReadNetConf reads a CNI configuration file and returns the corresponding
-// NetConf structure
+// ReadNetConf reads a CNI configuration file and returns the corresponding NetConf.
+// For conflists, NetConf.PluginConfig is populated best-effort for delegated IPAM use.
 func ReadNetConf(path string) (*NetConf, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -76,6 +81,22 @@ func ReadNetConf(path string) (*NetConf, error) {
 	if err := json.Unmarshal(b, netConfList); err == nil {
 		for _, plugin := range netConfList.Plugins {
 			if plugin.Type == "cilium-cni" {
+				// Best-effort: capture libcni plugin block bytes (with conflist name/cniVersion injected) for delegated IPAM.
+				if confList, lerr := libcni.NetworkConfFromBytes(b); lerr == nil {
+					for _, p := range confList.Plugins {
+						if p.Network == nil || p.Network.Type != "cilium-cni" {
+							continue
+						}
+						injected, ierr := libcni.InjectConf(p, map[string]any{
+							"name":       confList.Name,
+							"cniVersion": confList.CNIVersion,
+						})
+						if ierr == nil {
+							plugin.PluginConfig = injected
+						}
+						break
+					}
+				}
 				return parsePrevResult(plugin)
 			}
 		}
@@ -85,7 +106,7 @@ func ReadNetConf(path string) (*NetConf, error) {
 }
 
 // LoadNetConf unmarshals a Cilium network configuration from JSON and returns
-// a NetConf together with the CNI version
+// a NetConf together with the CNI version.
 func LoadNetConf(bytes []byte) (*NetConf, error) {
 	n := &NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {

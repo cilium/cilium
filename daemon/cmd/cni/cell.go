@@ -27,13 +27,14 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	WriteCNIConfWhenReady string
-	ReadCNIConf           string
-	CNIChainingMode       string
-	CNILogFile            string
-	CNIExclusive          bool
-	CNIChainingTarget     string
-	CNIExternalRouting    bool
+	WriteCNIConfWhenReady  string
+	ReadCNIConf            string
+	CNIChainingMode        string
+	CNILogFile             string
+	CNIExclusive           bool
+	CNIChainingTarget      string
+	CNIExternalRouting     bool
+	DelegatedIPAMCNIBinPath string
 }
 
 type CNIConfigManager interface {
@@ -53,16 +54,21 @@ type CNIConfigManager interface {
 	// ExternalRoutingEnabled returns true if the chained plugin implements
 	// routing for Endpoints (Pods).
 	ExternalRoutingEnabled() bool
+
+	// GetDelegatedIPAMCNIBinPath returns the path to the CNI bin directory
+	// used for delegated IPAM plugin invocations.
+	GetDelegatedIPAMCNIBinPath() string
 }
 
 var defaultConfig = Config{
-	WriteCNIConfWhenReady: "",
-	ReadCNIConf:           "",
-	CNIChainingMode:       "none",
-	CNILogFile:            "/var/run/cilium/cilium-cni.log",
-	CNIExclusive:          false,
-	CNIChainingTarget:     "",
-	CNIExternalRouting:    false,
+	WriteCNIConfWhenReady:   "",
+	ReadCNIConf:             "",
+	CNIChainingMode:         "none",
+	CNILogFile:              "/var/run/cilium/cilium-cni.log",
+	CNIExclusive:            false,
+	CNIChainingTarget:       "",
+	CNIExternalRouting:      false,
+	DelegatedIPAMCNIBinPath: "/host/opt/cni/bin",
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -73,6 +79,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.CNIChainingTarget, defaultConfig.CNIChainingTarget, "CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.")
 	flags.Bool(option.CNIExclusive, defaultConfig.CNIExclusive, "Whether to remove other CNI configurations")
 	flags.Bool(option.CNIExternalRouting, defaultConfig.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
+	flags.String(option.DelegatedIPAMCNIBinPath, defaultConfig.DelegatedIPAMCNIBinPath, "Path to the CNI bin directory for delegated IPAM plugin invocations")
 }
 
 func enableConfigManager(lc cell.Lifecycle, logger *slog.Logger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {

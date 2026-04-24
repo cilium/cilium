@@ -17,11 +17,13 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -43,7 +45,8 @@ var (
 type localIdentityRestorerParams struct {
 	cell.In
 
-	Logger *slog.Logger
+	Logger       *slog.Logger
+	DaemonConfig *option.DaemonConfig
 
 	// The global identity allocator is not yet initialized here at injection time
 	// That happens in the daemon init via InitIdentityAllocator(). Only the local identity
@@ -185,6 +188,12 @@ func (d *LocalIdentityRestorer) restoreIPCache(ipCache *ipcache.IPCache, localPr
 	for prefix, nid := range localPrefixes {
 		// Restore Ingress IPs as necessary
 		if nid == identity.ReservedIdentityIngress {
+			// With delegated IPAM, ingress IPs are owned by the external plugin, do not
+			// restore stale IPs from the previous ipcache state.
+			if d.params.DaemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin {
+				d.params.Logger.Info("Skipping ingress IP restoration with delegated IPAM", logfields.Ingress, prefix)
+				continue
+			}
 			metaUpdates = append(metaUpdates, ipcache.MU{
 				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
 				Source:   source.Restored,

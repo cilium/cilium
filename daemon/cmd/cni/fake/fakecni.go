@@ -8,25 +8,38 @@ import (
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
-type FakeCNIConfigManager struct{}
+type FakeCNIConfigManager struct {
+	MTU                 int
+	ChainingMode        string
+	ExternalRouting     bool
+	CustomNetConf       *cnitypes.NetConf
+	DelegatedIPAMCNIBinDir string
+}
 
 func (f *FakeCNIConfigManager) GetMTU() int {
-	return 0
+	return f.MTU
 }
 
 // GetChainingMode returns the configured CNI chaining mode
 func (f *FakeCNIConfigManager) GetChainingMode() string {
-	return "none"
+	if f.ChainingMode == "" {
+		return "none"
+	}
+	return f.ChainingMode
 }
 
-func (c *FakeCNIConfigManager) ExternalRoutingEnabled() bool {
-	return false
+func (f *FakeCNIConfigManager) ExternalRoutingEnabled() bool {
+	return f.ExternalRouting
 }
 
 func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
-	return nil
+	return f.CustomNetConf
 }
 
 func (f *FakeCNIConfigManager) Status() *models.Status {
 	return nil
+}
+
+func (f *FakeCNIConfigManager) GetDelegatedIPAMCNIBinPath() string {
+	return f.DelegatedIPAMCNIBinDir
 }
