@@ -51,6 +51,12 @@ func main() {
 		panic(err)
 	}
 
+	printDiffRecords(oldRecords, newRecords)
+	printCurrentState(newRecords)
+	dumpDiffRecords(oldRecords, newRecords, diffFile)
+}
+
+func printDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord) {
 	diffRecords := calcDiffRecords(oldRecords, newRecords, true)
 
 	minMaxInsnsProcessed := calcMinMax(diffRecords, func(r verifierComplexityRecord) int {
@@ -67,28 +73,32 @@ func main() {
 		return r.MapCount
 	})
 	printTop15MinMax("largest differences by map count", minMaxMapCount, percentMapCount, colorRelativeChange)
+}
 
+func printCurrentState(newRecords map[string]verifierComplexityRecord) {
 	var sortedNewRecords []verifierComplexityRecord
 	for _, key := range slices.Sorted(maps.Keys(newRecords)) {
 		sortedNewRecords = append(sortedNewRecords, newRecords[key])
 	}
 
-	minMaxInsnsProcessed = calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
+	minMaxInsnsProcessed := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.InsnsProcessed
 	})
 	printTop15MinMax("largest instructions processed", minMaxInsnsProcessed, percentInsnsProcessed, colorAbsoluteValueExponential)
 
-	minMaxStackDepth = calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
+	minMaxStackDepth := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.StackDepth
 	})
 	printTop15MinMax("largest stack depth", minMaxStackDepth, percentStackDepth, colorAbsoluteValue)
 
-	minMaxMapCount = calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
+	minMaxMapCount := calcMinMax(sortedNewRecords, func(r verifierComplexityRecord) int {
 		return r.MapCount
 	})
 	printTop15MinMax("largest map count", minMaxMapCount, percentMapCount, colorAbsoluteValue)
+}
 
-	diffRecords = calcDiffRecords(oldRecords, newRecords, false)
+func dumpDiffRecords(oldRecords, newRecords map[string]verifierComplexityRecord, diffFile string) {
+	diffRecords := calcDiffRecords(oldRecords, newRecords, false)
 
 	// Sort diff records to be more logically grouped for human consumption, even though its JSON.
 	sort.Slice(diffRecords, func(i, j int) bool {
