@@ -16,7 +16,6 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -40,6 +39,10 @@ func init() {
 	))
 }
 
+// autoCreateCiliumPodIPPoolsFlag is the flag name used to pre-declare
+// CiliumPodIPPool resources to be auto-created on startup.
+const autoCreateCiliumPodIPPoolsFlag = "auto-create-cilium-pod-ip-pools"
+
 type MultiPoolConfig struct {
 	AutoCreatePools map[string]string `mapstructure:"auto-create-cilium-pod-ip-pools"`
 }
@@ -49,7 +52,7 @@ var multiPoolDefaultConfig = MultiPoolConfig{
 }
 
 func (cfg MultiPoolConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringToString(operatorOption.IPAMAutoCreateCiliumPodIPPools, multiPoolDefaultConfig.AutoCreatePools,
+	flags.StringToString(autoCreateCiliumPodIPPoolsFlag, multiPoolDefaultConfig.AutoCreatePools,
 		"Automatically create CiliumPodIPPool resources on startup. "+
 			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
 }
@@ -112,7 +115,7 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 		v4PoolSpec, v6PoolSpec, err := multipool.ParsePoolSpec(poolSpecStr)
 		if err != nil {
 			logger.ErrorContext(ctx,
-				fmt.Sprintf("Failed to parse IP pool spec in %q flag", operatorOption.IPAMAutoCreateCiliumPodIPPools),
+				fmt.Sprintf("Failed to parse IP pool spec in %q flag", autoCreateCiliumPodIPPoolsFlag),
 				logfields.PoolName, poolName,
 				logfields.PoolSpec, poolSpecStr,
 				logfields.Error, err)
