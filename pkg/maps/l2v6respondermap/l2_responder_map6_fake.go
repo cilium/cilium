@@ -37,8 +37,12 @@ func (fm *fakeMap) Delete(ip netip.Addr, ifIndex uint32) error {
 }
 
 func (fm *fakeMap) IterateWithCallback(cb IterateCallback) error {
+	var key L2V6ResponderKey
+	var val l2respondermap.L2ResponderStats
 	for k, v := range fm.entries {
-		cb(&k, &v)
+		key = k
+		val = v
+		cb(&key, &val)
 	}
 
 	return nil

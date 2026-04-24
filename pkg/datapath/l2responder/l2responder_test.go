@@ -85,6 +85,7 @@ var (
 	ip3     = netip.MustParseAddr("3.4.5.6")
 	ipv6_1  = netip.MustParseAddr("fd01::c0a8:0")
 	ipv6_2  = netip.MustParseAddr("fd02::c0a8:0")
+	ipv6_3  = netip.MustParseAddr("fd03::c0a8:0")
 	ns_mac  = mac.MustParseMAC("33:33:ff:a8:00:00")
 	origin1 = resource.Key{Name: "abc"}
 )
@@ -524,6 +525,123 @@ func TestIpv6McasMAC(t *testing.T) {
 
 	_, ok = macRem[key]
 	assert.True(t, ok, "expected key %v to exist in map", key)
+}
+
+// Regression test for https://github.com/cilium/cilium/issues/45068
+func TestFullReconciliationPointerReuse(t *testing.T) {
+	type mapOps struct {
+		create func(ip netip.Addr, ifIndex uint32) error
+		lookup func(ip netip.Addr, ifIndex uint32) (any, error)
+	}
+
+	for _, tt := range []struct {
+		name     string
+		ips      [3]netip.Addr
+		ipLabels [3]string
+		mapOpsFn func(fix *fixture) mapOps
+	}{
+		{
+			name:     "v4",
+			ips:      [3]netip.Addr{ip1, ip2, ip3},
+			ipLabels: [3]string{"ip1", "ip2", "ip3"},
+			mapOpsFn: func(fix *fixture) mapOps {
+				return mapOps{
+					create: fix.respondermap.Create,
+					lookup: func(ip netip.Addr, ifIndex uint32) (any, error) {
+						return fix.respondermap.Lookup(ip, ifIndex)
+					},
+				}
+			},
+		},
+		{
+			name:     "v6",
+			ips:      [3]netip.Addr{ipv6_1, ipv6_2, ipv6_3},
+			ipLabels: [3]string{"ipv6_1", "ipv6_2", "ipv6_3"},
+			mapOpsFn: func(fix *fixture) mapOps {
+				return mapOps{
+					create: fix.respondermap6.Create,
+					lookup: func(ip netip.Addr, ifIndex uint32) (any, error) {
+						return fix.respondermap6.Lookup(ip, ifIndex)
+					},
+				}
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fix := newFixture(t)
+			ops := tt.mapOpsFn(fix)
+
+			fix.mockNetlink.LinkByNameFn = func(name string) (netlink.Link, error) {
+				return &mockLink{
+					attr: netlink.LinkAttrs{Index: ifidx1},
+				}, nil
+			}
+
+			// Add IP1 only as desired entry in state DB. Therefore, IP2 and IP3
+			// are rogue entries that should be removed from the BPF map.
+			txn := fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+			_, _, err := fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
+				L2AnnounceKey: tables.L2AnnounceKey{
+					IP:               tt.ips[0],
+					NetworkInterface: if1,
+				},
+				Origins: []resource.Key{origin1},
+			})
+			assert.NoError(t, err)
+			txn.Commit()
+
+			for _, ip := range tt.ips {
+				assert.NoError(t, ops.create(ip, ifidx1))
+			}
+
+			err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+			assert.NoError(t, err)
+
+			stats, err := ops.lookup(tt.ips[0], ifidx1)
+			assert.NoError(t, err)
+			assert.NotNil(t, stats, "desired entry %s was wrongly deleted from BPF map", tt.ipLabels[0])
+
+			stats, err = ops.lookup(tt.ips[1], ifidx1)
+			assert.NoError(t, err)
+			assert.Nil(t, stats, "rogue entry %s was not deleted from BPF map", tt.ipLabels[1])
+
+			stats, err = ops.lookup(tt.ips[2], ifidx1)
+			assert.NoError(t, err)
+			assert.Nil(t, stats, "rogue entry %s was not deleted from BPF map", tt.ipLabels[2])
+
+			// Now add also IP2 as desired entry in state DB. Therefore, IP3 is
+			// the only rogue entry that should be removed from the BPF map.
+			txn = fix.stateDB.WriteTxn(fix.proxyNeighborTable)
+			_, _, err = fix.proxyNeighborTable.Insert(txn, &tables.L2AnnounceEntry{
+				L2AnnounceKey: tables.L2AnnounceKey{
+					IP:               tt.ips[1],
+					NetworkInterface: if1,
+				},
+				Origins: []resource.Key{origin1},
+			})
+			assert.NoError(t, err)
+			txn.Commit()
+
+			for _, ip := range tt.ips {
+				assert.NoError(t, ops.create(ip, ifidx1))
+			}
+
+			err = fix.reconciler.fullReconciliation(fix.stateDB.ReadTxn())
+			assert.NoError(t, err)
+
+			stats, err = ops.lookup(tt.ips[0], ifidx1)
+			assert.NoError(t, err)
+			assert.NotNil(t, stats, "desired entry %s was wrongly deleted from BPF map", tt.ipLabels[0])
+
+			stats, err = ops.lookup(tt.ips[1], ifidx1)
+			assert.NoError(t, err)
+			assert.NotNil(t, stats, "desired entry %s was wrongly deleted from BPF map", tt.ipLabels[1])
+
+			stats, err = ops.lookup(tt.ips[2], ifidx1)
+			assert.NoError(t, err)
+			assert.Nil(t, stats, "rogue entry %s was not deleted from BPF map", tt.ipLabels[2])
+		})
+	}
 }
 
 type mockNeighborNetlink struct {
