@@ -518,7 +518,7 @@ static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	enum ct_scope scope = SCOPE_BIDIR;					\
-	struct ct_buffer4 ct_buffer = {};					\
+	struct ct_buffer4 *ct_buffer;						\
 	struct ipv4_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
 	void *data, *data_end;							\
@@ -528,16 +528,21 @@ int NAME(struct __ctx_buff *ctx)						\
 	__u32 zero = 0;								\
 	void *map;								\
 										\
-	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
-	tuple = (struct ipv4_ct_tuple *)&ct_buffer.tuple;			\
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);		\
+	if (!ct_buffer)								\
+		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
+					  ext_err);				\
 										\
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))		\
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
+	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;			\
+										\
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
 										\
 	tuple->nexthdr = ip4->protocol;						\
 	tuple->daddr = ip4->daddr;						\
 	tuple->saddr = ip4->saddr;						\
-	ct_buffer.l4_off = ETH_HLEN + ipv4_hdrlen(ip4);				\
+	ct_buffer->l4_off = ETH_HLEN + ipv4_hdrlen(ip4);			\
 										\
 	map = select_ct_map4(ctx, DIR, tuple);					\
 	if (!map)								\
@@ -563,14 +568,11 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
-				   DIR, scope, ct_state,			\
-				   &ct_buffer.monitor);				\
-	if (ct_buffer.ret < 0)							\
-		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
-	if (map_update_elem(&cilium_tail_call_buffer4, &zero, &ct_buffer, 0) < 0)	\
-		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
-					  ext_err);				\
+	ct_buffer->ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer->l4_off,	\
+				    DIR, scope, ct_state,			\
+				    &ct_buffer->monitor);			\
+	if (ct_buffer->ret < 0)							\
+		return drop_for_direction(ctx, DIR, ct_buffer->ret, ext_err);	\
 										\
 	if (CONDITION)								\
 		ret = tail_call_internal(ctx, TARGET_ID, &ext_err);		\
@@ -589,7 +591,7 @@ static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	enum ct_scope scope = SCOPE_BIDIR;					\
-	struct ct_buffer6 ct_buffer = {};					\
+	struct ct_buffer6 *ct_buffer;						\
 	int ret = CTX_ACT_OK, hdrlen;						\
 	struct ipv6_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
@@ -598,10 +600,15 @@ int NAME(struct __ctx_buff *ctx)						\
 	__s8 ext_err = 0;							\
 	__u32 zero = 0;								\
 										\
-	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
-	tuple = (struct ipv6_ct_tuple *)&ct_buffer.tuple;			\
+	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);		\
+	if (!ct_buffer)								\
+		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
+					  ext_err);				\
 										\
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))		\
+	ct_state = (struct ct_state *)&ct_buffer->ct_state;			\
+	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;			\
+										\
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
 										\
 	tuple->nexthdr = ip6->nexthdr;						\
@@ -609,11 +616,11 @@ int NAME(struct __ctx_buff *ctx)						\
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);		\
 										\
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr,		\
-					   &ct_buffer.fraginfo);		\
+					   &ct_buffer->fraginfo);		\
 	if (hdrlen < 0)								\
 		return drop_for_direction(ctx, DIR, hdrlen, ext_err);		\
 										\
-	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
+	ct_buffer->l4_off = ETH_HLEN + hdrlen;					\
 										\
 	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
 		struct ct_state ct_state_new = {};				\
@@ -629,15 +636,11 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,		\
-				   ct_buffer.fraginfo, ct_buffer.l4_off, DIR,	\
-				   scope, ct_state, &ct_buffer.monitor);	\
-	if (ct_buffer.ret < 0)							\
-		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
-										\
-	if (map_update_elem(&cilium_tail_call_buffer6, &zero, &ct_buffer, 0) < 0)	\
-		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER,	\
-					  ext_err);				\
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,	\
+				    ct_buffer->fraginfo, ct_buffer->l4_off, DIR,\
+				    scope, ct_state, &ct_buffer->monitor);	\
+	if (ct_buffer->ret < 0)							\
+		return drop_for_direction(ctx, DIR, ct_buffer->ret, ext_err);	\
 										\
 	if (CONDITION)								\
 		ret = tail_call_internal(ctx, TARGET_ID, &ext_err);		\
