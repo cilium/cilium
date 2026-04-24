@@ -23,14 +23,6 @@ import (
 func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags := cmd.Flags()
 
-	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMSubnetsTags),
-		operatorOption.IPAMSubnetsTags, "Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
-	option.BindEnv(vp, operatorOption.IPAMSubnetsTags)
-
-	flags.StringSliceVar(&operatorOption.Config.IPAMSubnetsIDs, operatorOption.IPAMSubnetsIDs, operatorOption.Config.IPAMSubnetsIDs,
-		"Subnets IDs (separated by commas)")
-	option.BindEnv(vp, operatorOption.IPAMSubnetsIDs)
-
 	flags.Var(option.NewMapOptions(&operatorOption.Config.IPAMInstanceTags), operatorOption.IPAMInstanceTags,
 		"EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(vp, operatorOption.IPAMInstanceTags)

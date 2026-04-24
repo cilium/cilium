@@ -36,58 +36,12 @@ const (
 
 	// IPAM options
 
-	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
-	IPAMSubnetsIDs = "subnet-ids-filter"
-
-	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
-	IPAMSubnetsTags = "subnet-tags-filter"
-
 	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
 	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
-	// AWS options
-
-	// AWSReleaseExcessIPs allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AWS EC2 service.
-	AWSReleaseExcessIPs = "aws-release-excess-ips"
-
-	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
-	// Defaults to 180 secs
-	ExcessIPReleaseDelay = "excess-ip-release-delay"
-
-	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
-	// IP addresses. Allows for increased pod density on nodes.
-	AWSEnablePrefixDelegation = "aws-enable-prefix-delegation"
-
-	// ENITags are the tags that will be added to every ENI created by the
-	// AWS ENI IPAM.
-	ENITags = "eni-tags"
-
-	// ENIGarbageCollectionTags is a tag that will be added to every ENI
-	// created by the AWS ENI IPAM.
-	// Any stale and unattached ENIs with this tag will be garbage
-	// collected by the operator.
-	ENIGarbageCollectionTags = "eni-gc-tags"
-
-	// ENIGarbageCollectionInterval defines the interval of ENI GC
-	ENIGarbageCollectionInterval = "eni-gc-interval"
-
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
-
-	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
-	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
-	EC2APIEndpoint = "ec2-api-endpoint"
-
-	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
-	// node
-	AWSUsePrimaryAddress = "aws-use-primary-address"
-
-	// AWSMaxResultsPerCall is the maximum number of results per AWS API call for DescribeNetworkInterfaces
-	// and DescribeSecurityGroups. Set to 0 to let AWS determine the optimal page size.
-	AWSMaxResultsPerCall = "aws-max-results-per-call"
 
 	// Azure options
 
@@ -176,12 +130,6 @@ type OperatorConfig struct {
 
 	// IPAM options
 
-	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
-	IPAMSubnetsIDs []string
-
-	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
-	IPAMSubnetsTags map[string]string
-
 	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
 	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags map[string]string
@@ -240,16 +188,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Option maps and slices
 
-	if m := vp.GetStringSlice(IPAMSubnetsIDs); len(m) != 0 {
-		c.IPAMSubnetsIDs = m
-	}
-
-	if m, err := command.GetStringMapStringE(vp, IPAMSubnetsTags); err != nil {
-		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMSubnetsTags, err))
-	} else {
-		c.IPAMSubnetsTags = m
-	}
-
 	if m, err := command.GetStringMapStringE(vp, IPAMInstanceTags); err != nil {
 		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMInstanceTags, err))
 	} else {
@@ -259,7 +197,5 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:   make([]string, 0),
-	IPAMSubnetsTags:  make(map[string]string),
 	IPAMInstanceTags: make(map[string]string),
 }
