@@ -601,7 +601,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		} else {
 			// No specific requests have been made, check if we have ingresses from un-requested families.
 
-			if isIPv6(alloc.IP) {
+			if alloc.IP.Is6() {
 				// Service has an IPv6 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv6 {
 					releaseAllocIP()
@@ -660,7 +660,7 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				}
 			}
 
-			if isIPv6(ip) {
+			if ip.Is6() {
 				if !sv.RequestedFamilies.IPv6 {
 					continue
 				}
@@ -958,7 +958,7 @@ func (ipam *LBIPAM) satisfyGenericIPRequests(sv *ServiceView) (statusModified bo
 	hasIPv4 := false
 	hasIPv6 := false
 	for _, allocated := range sv.AllocatedIPs {
-		if isIPv6(allocated.IP) {
+		if allocated.IP.Is6() {
 			hasIPv6 = true
 		} else {
 			hasIPv4 = true
@@ -1118,7 +1118,7 @@ const (
 )
 
 func addressFamilyOfIP(ip netip.Addr) AddressFamily {
-	if isIPv6(ip) {
+	if ip.Is6() {
 		return IPv6Family
 	}
 	return IPv4Family
@@ -1136,7 +1136,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		}
 
 		// Skip this range if it doesn't match the requested address family
-		if _, to := lbRange.alloc.Range(); isIPv6(to) {
+		if _, to := lbRange.alloc.Range(); to.Is6() {
 			if family == IPv4Family {
 				continue
 			}
@@ -1895,10 +1895,6 @@ func (ipam *LBIPAM) patchPoolStatus(ctx context.Context, pool *cilium_api_v2.Cil
 		}, "status")
 
 	return err
-}
-
-func isIPv6(ip netip.Addr) bool {
-	return ip.BitLen() == 128
 }
 
 func RangeFromPrefix(prefix netip.Prefix) (netip.Addr, netip.Addr) {
