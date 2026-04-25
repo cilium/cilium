@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
@@ -30,35 +31,35 @@ func TestAzureInterfaceCIDR(t *testing.T) {
 	tests := []struct {
 		name  string
 		iface azureTypes.AzureInterface
-		want  string
+		want  netip.Prefix
 	}{
 		{
 			name: "new operator: Subnet.CIDR populated, flat CIDR mirrored",
 			iface: azureTypes.AzureInterface{
-				Subnet: azureTypes.AzureSubnet{CIDR: "10.0.0.0/24"},
-				CIDR:   "10.0.0.0/24", //nolint:staticcheck // exercises the dual-write path
+				Subnet: azureTypes.AzureSubnet{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24"))},
+				CIDR:   iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")), //nolint:staticcheck // exercises the dual-write path
 			},
-			want: "10.0.0.0/24",
+			want: netip.MustParsePrefix("10.0.0.0/24"),
 		},
 		{
 			name: "old operator: only flat CIDR set, fallback used",
 			iface: azureTypes.AzureInterface{
-				CIDR: "10.0.0.0/24", //nolint:staticcheck // exercises the legacy-only path
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")), //nolint:staticcheck // exercises the legacy-only path
 			},
-			want: "10.0.0.0/24",
+			want: netip.MustParsePrefix("10.0.0.0/24"),
 		},
 		{
 			name: "Subnet.CIDR wins when fields disagree",
 			iface: azureTypes.AzureInterface{
-				Subnet: azureTypes.AzureSubnet{CIDR: "10.0.1.0/24"},
-				CIDR:   "10.0.0.0/24", //nolint:staticcheck // exercises preference order
+				Subnet: azureTypes.AzureSubnet{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/24"))},
+				CIDR:   iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")), //nolint:staticcheck // exercises preference order
 			},
-			want: "10.0.1.0/24",
+			want: netip.MustParsePrefix("10.0.1.0/24"),
 		},
 		{
-			name:  "neither field set: empty string",
+			name:  "neither field set: zero Prefix",
 			iface: azureTypes.AzureInterface{},
-			want:  "",
+			want:  netip.Prefix{},
 		},
 	}
 	for _, tt := range tests {
@@ -197,8 +198,11 @@ func TestAzureIPMasq(t *testing.T) {
 			ID:      "azure-interface-1",
 			Name:    "eth0",
 			MAC:     "00:00:5e:00:53:01",
-			Gateway: "10.10.1.1",
-			Subnet:  azureTypes.AzureSubnet{ID: "subnet-1", CIDR: "10.10.1.0/24"},
+			Gateway: iputil.AddrFrom(netip.MustParseAddr("10.10.1.1")),
+			Subnet: azureTypes.AzureSubnet{
+				ID:   "subnet-1",
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.1.0/24")),
+			},
 			Addresses: []azureTypes.AzureAddress{
 				{IP: "10.10.1.5", State: azureTypes.StateSucceeded},
 			},

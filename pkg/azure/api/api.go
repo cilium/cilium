@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -342,7 +343,7 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 				i.Subnet.ID = *ip.Properties.Subnet.ID
 				if subnet, ok := subnets[i.Subnet.ID]; ok {
 					if subnet.CIDR.IsValid() {
-						i.Subnet.CIDR = subnet.CIDR.String()
+						i.Subnet.CIDR = iputil.PrefixFrom(subnet.CIDR)
 						i.CIDR = i.Subnet.CIDR //nolint:staticcheck // transitional, see https://github.com/cilium/cilium/issues/46074
 					}
 					i.Gateway = deriveGatewayIP(subnet.CIDR.Addr())
@@ -374,8 +375,8 @@ func parseInterface(iface *armnetwork.Interface, subnets ipamTypes.SubnetMap, us
 // deriveGatewayIP finds the default gateway for a given Azure subnet.
 // inspired by pkg/ipam/crd.go (as AWS, Azure reserves the first subnet IP for the gw).
 // Ref: https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq#are-there-any-restrictions-on-using-ip-addresses-within-these-subnets
-func deriveGatewayIP(subnetIP netip.Addr) string {
-	return subnetIP.Next().String()
+func deriveGatewayIP(subnetIP netip.Addr) iputil.Addr {
+	return iputil.AddrFrom(subnetIP.Next())
 }
 
 // GetInstances returns the list of all instances including all attached

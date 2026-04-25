@@ -4,6 +4,7 @@
 package types
 
 import (
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -30,8 +31,6 @@ const (
 // custom resource along with an Azure specification when the node registers
 // itself to the Kubernetes cluster.
 // This struct is embedded into v2.CiliumNode
-//
-// +k8s:deepcopy-gen=true
 type AzureSpec struct {
 	// InterfaceName is the name of the interface the cilium-operator
 	// will use to allocate all the IPs on
@@ -42,8 +41,6 @@ type AzureSpec struct {
 
 // AzureStatus is the status of Azure addressing of the node.
 // This struct is embedded into v2.CiliumNode
-//
-// +k8s:deepcopy-gen=true
 type AzureStatus struct {
 	// Interfaces is the list of interfaces on the node
 	//
@@ -72,15 +69,17 @@ type AzureAddress struct {
 // the AWS and Alibaba patterns).
 type AzureSubnet struct {
 	// ID is the resource ID of the subnet
+	//
+	// +optional
 	ID string `json:"id,omitempty"`
 
 	// CIDR is the CIDR range associated with the subnet
-	CIDR string `json:"cidr,omitempty"`
+	//
+	// +optional
+	CIDR iputil.Prefix `json:"cidr,omitzero"`
 }
 
 // AzureInterface represents an Azure Interface
-//
-// +k8s:deepcopy-gen=true
 type AzureInterface struct {
 	// ID is the identifier
 	//
@@ -126,7 +125,7 @@ type AzureInterface struct {
 	// Gateway is the interface's subnet's default route
 	//
 	// +optional
-	Gateway string `json:"gateway"`
+	Gateway iputil.Addr `json:"gateway"`
 
 	// CIDR is the range that the interface belongs to.
 	//
@@ -135,7 +134,7 @@ type AzureInterface struct {
 	// TODO(https://github.com/cilium/cilium/issues/46074): remove once the migration window closes.
 	//
 	// +optional
-	CIDR string `json:"cidr,omitempty"`
+	CIDR iputil.Prefix `json:"cidr,omitzero"`
 
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
