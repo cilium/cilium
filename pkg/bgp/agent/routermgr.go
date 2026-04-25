@@ -77,6 +77,22 @@ type GetRoutesResponse struct {
 	Instances []InstanceRoutes
 }
 
+// GetRoutePoliciesRequest is a request for GetRoutePolicies method.
+type GetRoutePoliciesRequest struct {
+	InstanceName string
+}
+
+// GetRoutePoliciesResponse is the response type for GetRoutePolicies method.
+type GetRoutePoliciesResponse struct {
+	Instances []InstanceRoutePolicies
+}
+
+// InstanceRoutePolicies holds route policies for a specific BGP instance.
+type InstanceRoutePolicies struct {
+	Name          string
+	RoutePolicies []*types.RoutePolicy
+}
+
 // InstanceRoutes holds routes for a specific BGP instance.
 type InstanceRoutes struct {
 	InstanceName string
