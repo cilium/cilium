@@ -48,4 +48,11 @@ spec:
   {{- if and .Values.ingressController.service.externalTrafficPolicy (not .Values.ingressController.hostNetwork.enabled) }}
   externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
   {{- end }}
+  {{- if .Values.ingressController.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.ingressController.service.ipFamilyPolicy }}
+  {{- end }}
+  {{ if .Values.ingressController.service.ipFamilies }}
+  ipFamilies:
+    {{ toYaml .Values.ingressController.service.ipFamilies | nindent 4 }}
+  {{- end }}
 {{- end }}

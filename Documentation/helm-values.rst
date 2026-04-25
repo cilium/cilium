@@ -2835,7 +2835,7 @@
    * - :spelling:ignore:`ingressController.service`
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
+     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"ipFamilies":null,"ipFamilyPolicy":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
    * - :spelling:ignore:`ingressController.service.allocateLoadBalancerNodePorts`
      - Configure if node port allocation is required for LB service ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
      - string
@@ -2850,6 +2850,14 @@
      - ``"Cluster"``
    * - :spelling:ignore:`ingressController.service.insecureNodePort`
      - Configure a specific nodePort for insecure HTTP traffic on the shared LB service
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ingressController.service.ipFamilies`
+     - Configure specific ipFamilies on the shared LB service
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ingressController.service.ipFamilyPolicy`
+     - Configure a specific ipFamilyPolicy on the shared LB service
      - string
      - ``nil``
    * - :spelling:ignore:`ingressController.service.labels`
