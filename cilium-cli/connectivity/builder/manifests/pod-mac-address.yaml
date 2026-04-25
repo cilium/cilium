@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: specific-mac-address
+  namespace: cilium-test
+  annotations:
+    cni.cilium.io/mac-address: e2:9c:30:38:52:61
+  labels:
+    specific-mac-address: specific-mac-address
+spec:
+  containers:
+  - name: specific-mac-address
+    image: quay.io/cilium/alpine-curl:latest
+    command: ["sleep", "infinity"]
+  terminationGracePeriodSeconds: 0
