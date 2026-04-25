@@ -1,0 +1,192 @@
+#! --lb-test-fault-probability=0.0
+# Regression test for issue #44730: BPF LB map key collision between HostPort and LoadBalancer.
+#
+# When L2 ServiceLB (k3s/RKE2) assigns the node's own IP as the LoadBalancer external
+# IP, and a pod on that node has a HostPort at the same port, both produce the same BPF
+# key (<node-ip>:<port>/TCP). The reconciler expands the HostPort 0.0.0.0:<port> entry
+# to every node address, silently overwriting the LoadBalancer BPF entry. The 30-minute
+# prune cycle (WithPruning) re-triggers the full reconciliation, reproducing the flip.
+#
+# This test verifies that the fix prevents the collision: the LoadBalancer entry at
+# 1.1.1.1:80/TCP must remain FLAGS=LoadBalancer even after a HostPort pod is added and
+# even after a forced prune cycle.
+
+# Add a node address. This same IP will be used as the LoadBalancer external IP below
+# to simulate L2 ServiceLB assigning the node IP to the LoadBalancer service.
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+hive start
+
+# Add the LoadBalancer service. The LoadBalancer external IP is 1.1.1.1, which is the
+# node address. The BPF entry for 1.1.1.1:80/TCP should show FLAGS=LoadBalancer.
+k8s/add service.yaml endpointslice.yaml
+db/cmp services services.table
+* db/cmp frontends frontends_service_only.table
+* db/cmp backends backends.table
+
+# Verify the initial correct BPF state: 1.1.1.1:80/TCP must be a LoadBalancer entry.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_service_only.expected lbmaps.actual
+grep 'FLAGS=LoadBalancer$' lbmaps.actual
+! grep '1.1.1.1:80.*HostPort' lbmaps.actual
+
+# Add a pod with hostPort=80 (no explicit HostIP, so it expands to all node addresses).
+# The HostPort frontend 0.0.0.0:80/TCP will try to expand to 1.1.1.1:80/TCP, but must
+# be blocked because that address is owned by the LoadBalancer service.
+k8s/add pod.yaml
+
+# Wait for the HostPort frontend to reach Done state before checking the BPF maps.
+* db/cmp frontends frontends_with_hostport.table
+
+# Dump BPF maps and verify that the LoadBalancer entry has NOT been overwritten.
+# 1.1.1.1:80/TCP must still show FLAGS=LoadBalancer, not FLAGS=HostPort.
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_with_hostport.expected lbmaps.actual
+grep 'FLAGS=LoadBalancer$' lbmaps.actual
+! grep '1.1.1.1:80.*FLAGS=HostPort' lbmaps.actual
+
+# Simulate the 30-minute prune cycle. The fix must survive re-reconciliation of all
+# frontends; the LoadBalancer entry must still take priority over HostPort expansion.
+lb/prune
+lb/maps-dump lbmaps.actual
+* cmp lbmaps_with_hostport.expected lbmaps.actual
+grep 'FLAGS=LoadBalancer$' lbmaps.actual
+! grep '1.1.1.1:80.*FLAGS=HostPort' lbmaps.actual
+
+# Cleanup
+k8s/delete service.yaml endpointslice.yaml pod.yaml
+
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: eth0
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    eth0
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy   Flags
+test/echo   k8s      http=80    Cluster
+
+-- frontends_service_only.table --
+Address               Type          ServiceName   PortName   Backends            Status
+1.1.1.1:80/TCP        LoadBalancer  test/echo     http       10.244.1.1:80/TCP   Done
+10.96.50.104:80/TCP   ClusterIP     test/echo     http       10.244.1.1:80/TCP   Done
+
+-- frontends_with_hostport.table --
+Address               Type          Status   ServiceName
+0.0.0.0:80/TCP        HostPort      Done     default/svclb-traefik:host-port:80:bbbbbbbb-2e9b-4c61-8454-ae81344876d8
+1.1.1.1:80/TCP        LoadBalancer  Done     test/echo
+10.96.50.104:80/TCP   ClusterIP     Done     test/echo
+
+-- backends.table --
+Service    Address            NodeName
+test/echo  10.244.1.1:80/TCP  nodeport-worker
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.1.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: svclb-traefik
+  namespace: default
+  uid: bbbbbbbb-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: svclb
+    name: svclb-traefik
+    ports:
+    - containerPort: 8080
+      hostPort: 80
+      protocol: TCP
+  nodeName: testnode
+  restartPolicy: Always
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.2
+  podIPs:
+  - ip: 10.244.1.2
+
+-- lbmaps_service_only.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=1.1.1.1:80
+REV: ID=2 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=1.1.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps_with_hostport.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:8080/TCP STATE=active
+REV: ID=1 ADDR=1.1.1.1:80
+REV: ID=2 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=0.0.0.0:80
+SVC: ID=0 ADDR=1.1.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=1 ADDR=1.1.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=0.0.0.0:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable

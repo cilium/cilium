@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -28,6 +30,7 @@ import (
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
 	config loadbalancer.Config
+	log    *slog.Logger
 
 	nodeName string
 
@@ -54,6 +57,7 @@ const LocalClusterID = 0
 type writerParams struct {
 	cell.In
 
+	Log           *slog.Logger
 	Config        loadbalancer.Config
 	DB            *statedb.DB
 	NodeAddresses statedb.Table[tables.NodeAddress]
@@ -68,6 +72,7 @@ type writerParams struct {
 func NewWriter(p writerParams) (*Writer, error) {
 	w := &Writer{
 		config:           p.Config,
+		log:              p.Log,
 		nodeName:         nodeTypes.GetName(),
 		db:               p.DB,
 		bes:              p.Backends,
@@ -293,6 +298,22 @@ func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.Frontend
 	return old, err
 }
 
+// isNodePortConflict reports whether addr is a NodePort-eligible node address within the NodePort range.
+// Such a frontend would suppress NodePort expansion and cause a gap after deletion. See #44730.
+func (w *Writer) isNodePortConflict(txn statedb.ReadTxn, addr loadbalancer.L3n4Addr) bool {
+	port := addr.Port()
+	if port < w.config.NodePortMin || port > w.config.NodePortMax {
+		return false
+	}
+	ip := addr.AddrCluster().Addr()
+	for na := range w.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
+		if na.Addr == ip {
+			return true
+		}
+	}
+	return false
+}
+
 // validateFrontends checks that the frontends being added are not already owned by other
 // services.
 func (w *Writer) validateFrontends(txn WriteTxn, fes ...loadbalancer.FrontendParams) error {
@@ -309,6 +330,23 @@ func (w *Writer) validateFrontends(txn WriteTxn, fes ...loadbalancer.FrontendPar
 // UpsertServiceAndFrontends upserts the service and updates the set of associated frontends.
 // Any frontends that do not exist in the new set are deleted.
 func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Service, fes ...loadbalancer.FrontendParams) error {
+	// Filter out LB/ExternalIP frontends conflicting with NodePort expansion. See #44730.
+	filtered := fes[:0] // reuse the backing array
+	for _, fe := range fes {
+		if (fe.Type == loadbalancer.SVCTypeLoadBalancer || fe.Type == loadbalancer.SVCTypeExternalIPs) &&
+			w.isNodePortConflict(txn, fe.Address) {
+			w.log.Warn("Skipping LB/ExternalIP frontend conflicting with NodePort",
+				logfields.Address, fe.Address,
+				logfields.ServiceName, svc.Name,
+				logfields.NodePortMin, w.config.NodePortMin,
+				logfields.NodePortMax, w.config.NodePortMax,
+			)
+			continue
+		}
+		filtered = append(filtered, fe)
+	}
+	fes = filtered
+
 	if err := w.validateFrontends(txn, fes...); err != nil {
 		return err
 	}
