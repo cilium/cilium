@@ -112,6 +112,7 @@ type BPFOps struct {
 	log       rateLimitingLogger
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
+	frontends statedb.Table[*loadbalancer.Frontend]
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
@@ -186,6 +187,7 @@ type bpfOpsParams struct {
 	Maglev         *maglev.Maglev
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
+	Frontends      statedb.Table[*loadbalancer.Frontend]
 }
 
 const (
@@ -203,6 +205,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 		LBMaps:    p.LBMaps,
 		db:        p.DB,
 		nodeAddrs: p.NodeAddresses,
+		frontends: p.Frontends,
 	}
 	ops.setLastUpdatedAt()
 
@@ -336,7 +339,7 @@ func beValueToAddr(beValue maps.BackendValue) loadbalancer.L3n4Addr {
 }
 
 // Delete implements reconciler.Operations.
-func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
+func (ops *BPFOps) Delete(_ context.Context, txn statedb.ReadTxn, _ statedb.Revision, fe *loadbalancer.Frontend) error {
 	ops.mu.Lock()
 	defer ops.mu.Unlock()
 	defer ops.setLastUpdatedAt()
@@ -345,14 +348,15 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 		return nil
 	}
 
+	isExpansion := fe.Type == loadbalancer.SVCTypeNodePort ||
+		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified()
+
 	if err := ops.deleteFrontend(fe); err != nil {
 		ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 		return err
 	}
 
-	if fe.Type == loadbalancer.SVCTypeNodePort ||
-		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified() {
-
+	if isExpansion {
 		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
 		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
 		addrs := ops.nodePortAddrByPort[key]
@@ -364,6 +368,10 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 				fe.Address.Port(),
 				fe.Address.Scope(),
 			)
+			// Skip addresses owned by a primary frontend. See #44730.
+			if ops.isPrimaryFrontend(txn, fe.Address) {
+				continue
+			}
 			if err := ops.deleteFrontend(fe); err != nil {
 				ops.log.Warn("Deleting frontend failed, retrying", logfields.Error, err)
 				return err
@@ -373,6 +381,22 @@ func (ops *BPFOps) Delete(_ context.Context, _ statedb.ReadTxn, _ statedb.Revisi
 	}
 
 	return nil
+}
+
+// isPrimaryFrontend reports whether addr is owned by a non-expansion frontend. See #44730.
+func (ops *BPFOps) isPrimaryFrontend(txn statedb.ReadTxn, addr loadbalancer.L3n4Addr) bool {
+	// Ports in the NodePort range cannot have a primary LB/ExternalIP frontend:
+	// isNodePortConflict in writer.go rejects them before they reach statedb.
+	port := addr.Port()
+	if port >= ops.cfg.NodePortMin && port <= ops.cfg.NodePortMax {
+		return false
+	}
+	existing, _, found := ops.frontends.Get(txn, loadbalancer.FrontendByAddress(addr))
+	if !found {
+		return false
+	}
+	return !(existing.Type == loadbalancer.SVCTypeNodePort ||
+		(existing.Type == loadbalancer.SVCTypeHostPort && existing.Address.AddrCluster().IsUnspecified()))
 }
 
 func (ops *BPFOps) deleteRestoredQuarantinedBackends(fe loadbalancer.L3n4Addr, bes ...loadbalancer.L3n4Addr) {
@@ -710,26 +734,34 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		return err
 	}
 
-	if fe.Type == loadbalancer.SVCTypeNodePort ||
-		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified() {
+	isExpansion := fe.Type == loadbalancer.SVCTypeNodePort ||
+		fe.Type == loadbalancer.SVCTypeHostPort && fe.Address.AddrCluster().IsUnspecified()
+
+	if isExpansion {
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
 		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
 		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
 		old := sets.New(ops.nodePortAddrByPort[key]...)
 
-		// Collect the node addresses suitable for NodePort that match the IP family of
-		// the frontend.
-		nodePortAddrs := statedb.Collect(
-			statedb.Filter(
-				statedb.Map(
-					ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)),
-					func(addr tables.NodeAddress) netip.Addr { return addr.Addr }),
-				func(addr netip.Addr) bool {
-					return addr.Is6() == fe.Address.IsIPv6()
-				},
-			),
-		)
+		// Collect matching node addresses, skipping those owned by a primary frontend. See #44730.
+		var nodePortAddrs []netip.Addr
+		for na := range ops.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)) {
+			if na.Addr.Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			feAddr := loadbalancer.NewL3n4Addr(
+				fe.Address.Protocol(),
+				cmtypes.AddrClusterFrom(na.Addr, 0),
+				fe.Address.Port(),
+				fe.Address.Scope(),
+			)
+			if ops.isPrimaryFrontend(txn, feAddr) {
+				old.Delete(na.Addr)
+				continue
+			}
+			nodePortAddrs = append(nodePortAddrs, na.Addr)
+		}
 
 		// Create the NodePort/HostPort frontends with the node addresses.
 		for _, addr := range nodePortAddrs {
@@ -750,7 +782,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 			old.Delete(addr)
 		}
 
-		// Delete orphan NodePort/HostPort frontends
+		// Delete orphan NodePort/HostPort frontends.
 		for addr := range old {
 			fe = fe.Clone()
 			fe.Address = loadbalancer.NewL3n4Addr(
@@ -759,6 +791,9 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 				fe.Address.Port(),
 				fe.Address.Scope(),
 			)
+			if ops.isPrimaryFrontend(txn, fe.Address) {
+				continue
+			}
 			if err := ops.deleteFrontend(fe); err != nil {
 				ops.log.Warn("Deleting orphan frontend failed",
 					logfields.Error, err,
