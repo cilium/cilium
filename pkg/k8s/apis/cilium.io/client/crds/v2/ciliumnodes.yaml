@@ -557,6 +557,7 @@ spec:
 
                             Deprecated: use Subnet.CIDR. Retained for one release so agent/operator
                             rolling upgrades work in either order.
+                          format: cidr
                           type: string
                         gateway:
                           description: Gateway is the interface's subnet's default
@@ -588,6 +589,7 @@ spec:
                             cidr:
                               description: CIDR is the CIDR range associated with
                                 the subnet
+                              format: cidr
                               type: string
                             id:
                               description: ID is the resource ID of the subnet
