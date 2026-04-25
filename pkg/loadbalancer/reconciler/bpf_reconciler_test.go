@@ -1265,6 +1265,8 @@ func TestBPFOps(t *testing.T) {
 	db := statedb.New()
 	nodeAddrs, err := tables.NewNodeAddressTable(db)
 	require.NoError(t, err)
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err)
 	wtxn := db.WriteTxn(nodeAddrs)
 	for _, n := range nodePortAddrs {
 		na := tables.NodeAddress{
@@ -1332,7 +1334,7 @@ func TestBPFOps(t *testing.T) {
 				} else {
 					err := ops.Delete(
 						context.TODO(),
-						nil, // ReadTxn (unused)
+						db.ReadTxn(),
 						0,
 						&frontend,
 					)
@@ -1417,6 +1419,7 @@ func TestBPFOps(t *testing.T) {
 					Maglev:         maglev,
 					DB:             db,
 					NodeAddresses:  nodeAddrs,
+					Frontends:      frontends,
 				}
 
 				ops := newBPFOps(p)
@@ -1443,6 +1446,7 @@ func TestBPFOps(t *testing.T) {
 				Maglev:         maglev,
 				DB:             db,
 				NodeAddresses:  nodeAddrs,
+				Frontends:      frontends,
 			}
 			ops := newBPFOps(p)
 			runTests(ops, setWithAlgo.testCaseSet, setWithAlgo.algo, addr, true)
