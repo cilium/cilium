@@ -13,6 +13,7 @@ import (
 
 	// Required so SetID() resolves the Azure resource-ID parser.
 	_ "github.com/cilium/cilium/pkg/azure/types/azureid"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -55,8 +56,8 @@ func TestParseInterface(t *testing.T) {
 		expectedIP       string
 		expectedAddrs    []string
 		expectedSubnetID string
-		expectedCIDR     string
-		expectedGateway  string
+		expectedCIDR     iputil.Prefix
+		expectedGateway  iputil.Addr
 	}{
 		{
 			name: "primary and secondaries, usePrimary=false",
@@ -70,8 +71,8 @@ func TestParseInterface(t *testing.T) {
 			expectedIP:       "10.0.0.4",
 			expectedAddrs:    []string{"10.0.0.5", "10.0.0.6"},
 			expectedSubnetID: subnetID,
-			expectedCIDR:     "10.0.0.0/24",
-			expectedGateway:  "10.0.0.1",
+			expectedCIDR:     iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			expectedGateway:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 		{
 			name: "primary and secondaries, usePrimary=true",
@@ -85,8 +86,8 @@ func TestParseInterface(t *testing.T) {
 			expectedIP:       "10.0.0.4",
 			expectedAddrs:    []string{"10.0.0.4", "10.0.0.5", "10.0.0.6"},
 			expectedSubnetID: subnetID,
-			expectedCIDR:     "10.0.0.0/24",
-			expectedGateway:  "10.0.0.1",
+			expectedCIDR:     iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			expectedGateway:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 		{
 			name:             "only primary, usePrimary=false, subnet derived from primary",
@@ -96,8 +97,8 @@ func TestParseInterface(t *testing.T) {
 			expectedIP:       "10.0.0.4",
 			expectedAddrs:    nil,
 			expectedSubnetID: subnetID,
-			expectedCIDR:     "10.0.0.0/24",
-			expectedGateway:  "10.0.0.1",
+			expectedCIDR:     iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			expectedGateway:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 		{
 			name:          "no IPConfigurations",
@@ -117,8 +118,8 @@ func TestParseInterface(t *testing.T) {
 			expectedIP:       "",
 			expectedAddrs:    []string{"10.0.0.5", "10.0.0.6"},
 			expectedSubnetID: subnetID,
-			expectedCIDR:     "10.0.0.0/24",
-			expectedGateway:  "10.0.0.1",
+			expectedCIDR:     iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			expectedGateway:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 		{
 			name: "nil Primary pointer treated as non-primary",
@@ -135,8 +136,8 @@ func TestParseInterface(t *testing.T) {
 			expectedIP:       "",
 			expectedAddrs:    []string{"10.0.0.5"},
 			expectedSubnetID: subnetID,
-			expectedCIDR:     "10.0.0.0/24",
-			expectedGateway:  "10.0.0.1",
+			expectedCIDR:     iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24")),
+			expectedGateway:  iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 	}
 
