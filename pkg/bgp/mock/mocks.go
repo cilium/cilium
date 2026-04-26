@@ -41,6 +41,7 @@ type MockBGPRouterManager struct {
 	GetPeersLegacy_         func(ctx context.Context) ([]*models.BgpPeer, error)
 	GetRoutes_              func(ctx context.Context, req *agent.GetRoutesRequest) (*agent.GetRoutesResponse, error)
 	GetRoutesLegacy_        func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	GetRoutePolicies_       func(ctx context.Context, params *agent.GetRoutePoliciesRequest) (*agent.GetRoutePoliciesResponse, error)
 	GetRoutePoliciesLegacy_ func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 	Stop_                   func(cell.HookContext) error
 }
@@ -63,6 +64,10 @@ func (m *MockBGPRouterManager) GetRoutes(ctx context.Context, req *agent.GetRout
 
 func (m *MockBGPRouterManager) GetRoutesLegacy(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
 	return m.GetRoutesLegacy_(ctx, params)
+}
+
+func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params *agent.GetRoutePoliciesRequest) (*agent.GetRoutePoliciesResponse, error) {
+	return m.GetRoutePolicies_(ctx, params)
 }
 
 func (m *MockBGPRouterManager) GetRoutePoliciesLegacy(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {

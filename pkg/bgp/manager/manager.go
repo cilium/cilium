@@ -397,6 +397,32 @@ func (m *BGPRouterManager) asnExistsInInstances(asn int64) bool {
 	return false
 }
 
+// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
+func (m *BGPRouterManager) GetRoutePolicies(ctx context.Context, params *agent.GetRoutePoliciesRequest) (*agent.GetRoutePoliciesResponse, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	if !m.running {
+		return nil, fmt.Errorf("bgp router manager is not running")
+	}
+
+	var res agent.GetRoutePoliciesResponse
+	for _, i := range m.BGPInstances {
+		if params.InstanceName != "" && i.Name != params.InstanceName {
+			continue // return policies matching provided instance name only
+		}
+		rs, err := i.Router.GetRoutePolicies(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res.Instances = append(res.Instances, agent.InstanceRoutePolicies{
+			Name:          i.Name,
+			RoutePolicies: rs.Policies,
+		})
+	}
+	return &res, nil
+}
+
 // GetRoutePoliciesLegacy fetches BGP routing policies from underlying routing daemon.
 func (m *BGPRouterManager) GetRoutePoliciesLegacy(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
 	m.RLock()
