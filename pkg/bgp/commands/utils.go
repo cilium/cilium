@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	outFileFlag      = "out"
-	outFileFlagShort = "o"
+	outFileFlag       = "out"
+	outFileFlagShort  = "o"
+	instanceFlag      = "instance"
+	instanceFlagShort = "i"
 
 	tabPadding     = 3
 	tabMinWidth    = 5

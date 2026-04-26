@@ -26,7 +26,8 @@ type BGPCommands map[string]script.Cmd
 
 func NewBGPCommands(bgpMgr agent.BGPRouterManager) BGPCommands {
 	return map[string]script.Cmd{
-		"bgp/peers":  BGPPeersCmd(bgpMgr),
-		"bgp/routes": BGPRoutesCmd(bgpMgr),
+		"bgp/peers":          BGPPeersCmd(bgpMgr),
+		"bgp/routes":         BGPRoutesCmd(bgpMgr),
+		"bgp/route-policies": BGPRoutePoliciesCmd(bgpMgr),
 	}
 }
