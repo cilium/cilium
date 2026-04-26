@@ -43,6 +43,9 @@ type BGPRouterManager interface {
 	// GetRoutes fetches BGP routes from underlying routing daemon's RIBs.
 	GetRoutes(ctx context.Context, req *GetRoutesRequest) (*GetRoutesResponse, error)
 
+	// GetRoutePolicies fetches BGP routing policies from underlying routing daemon.
+	GetRoutePolicies(ctx context.Context, params *GetRoutePoliciesRequest) (*GetRoutePoliciesResponse, error)
+
 	// GetRoutePoliciesLegacy fetches BGP routing policies from underlying routing daemon.
 	//
 	// Deprecated: This is a legacy method used by the REST API and will be removed in the future.
