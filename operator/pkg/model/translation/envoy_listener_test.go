@@ -10,10 +10,65 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
+
+func Test_toFilterChainMatch(t *testing.T) {
+	tests := []struct {
+		name                string
+		hostNames           []string
+		expectedServerNames []string
+	}{
+		{
+			name:                "nil input",
+			hostNames:           nil,
+			expectedServerNames: nil,
+		},
+		{
+			name:                "single hostname",
+			hostNames:           []string{"foo.example.com"},
+			expectedServerNames: []string{"foo.example.com"},
+		},
+		{
+			name:                "multiple distinct hostnames",
+			hostNames:           []string{"foo.example.com", "bar.example.com"},
+			expectedServerNames: []string{"bar.example.com", "foo.example.com"},
+		},
+		{
+			name:                "wildcard hostname returns empty serverNames",
+			hostNames:           []string{"*"},
+			expectedServerNames: nil,
+		},
+		{
+			name:                "wildcard among others returns empty serverNames",
+			hostNames:           []string{"foo.example.com", "*"},
+			expectedServerNames: nil,
+		},
+		{
+			name:                "duplicate hostnames from multi-port listeners are deduplicated",
+			hostNames:           []string{"*.example.test", "*.example.test"},
+			expectedServerNames: []string{"*.example.test"},
+		},
+		{
+			name:                "triple duplicates are deduplicated",
+			hostNames:           []string{"a.example.com", "b.example.com", "a.example.com"},
+			expectedServerNames: []string{"a.example.com", "b.example.com"},
+		},
+	}
+
+	for _, tC := range tests {
+		t.Run(tC.name, func(t *testing.T) {
+			got := toFilterChainMatch(tC.hostNames)
+			require.NotNil(t, got)
+			assert.Equal(t, "tls", got.TransportProtocol)
+			assert.Equal(t, tC.expectedServerNames, got.ServerNames,
+				"serverNames must be sorted and deduplicated")
+		})
+	}
+}
 
 func Test_getHostNetworkListenerAddresses(t *testing.T) {
 	testCases := []struct {
