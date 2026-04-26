@@ -91,17 +91,13 @@ func PrintBGPRoutePoliciesTable(tw *tabwriter.Writer, instances []agent.Instance
 		}
 	}
 
-	// Sort by Instance, PolicyName, Type for better deduplication
+	// Sort by Instance, PolicyName
 	slices.SortFunc(rows, func(a, b row) int {
 		c := strings.Compare(a.Instance, b.Instance)
 		if c != 0 {
 			return c
 		}
-		c = strings.Compare(a.PolicyName, b.PolicyName)
-		if c != 0 {
-			return c
-		}
-		return strings.Compare(a.Type, b.Type)
+		return strings.Compare(a.PolicyName, b.PolicyName)
 	})
 
 	rows = slices.Insert(rows, 0, row{
@@ -184,7 +180,7 @@ func formatIPAddrArray(arr []netip.Addr) string {
 	}
 	res := strings.Builder{}
 	for _, ip := range arr {
-		res.WriteString("{" + ip.String() + "}" + "} ")
+		res.WriteString("{" + ip.String() + "} ")
 	}
 	return strings.TrimSpace(res.String())
 }

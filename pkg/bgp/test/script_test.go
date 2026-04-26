@@ -86,7 +86,6 @@ func TestPrivilegedScript(t *testing.T) {
 
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var err error
-		var bgpMgr agent.BGPRouterManager
 		var lbWriter *writer.Writer
 
 		// parse the shebang arguments in the script
@@ -159,7 +158,6 @@ func TestPrivilegedScript(t *testing.T) {
 				},
 			),
 			cell.Invoke(func(m agent.BGPRouterManager) {
-				bgpMgr = m
 				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
 			}),
 			cell.Invoke(func(w *writer.Writer) {
@@ -204,7 +202,6 @@ func TestPrivilegedScript(t *testing.T) {
 		require.NoError(t, err, "ScriptCommands")
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
-		maps.Insert(cmds, maps.All(commands.BGPScriptCmds(bgpMgr)))
 		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
 
 		return &script.Engine{

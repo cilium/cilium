@@ -38,6 +38,10 @@ gobgp/wait-state -s server3 fd00:10:99:7::6 ESTABLISHED
 bgp/peers --no-uptime -o bgp-peers.actual
 * cmp bgp-peers.expected bgp-peers.actual
 
+# Test route-policies
+bgp/route-policies -o bgp-route-policies.actual
+* cmp bgp-route-policies.expected bgp-route-policies.actual
+
 # Test IPv4 loc-rib
 bgp/routes loc ipv4 unicast --no-age -o bgp-routes-loc-ipv4-unicast.actual
 * cmp bgp-routes-loc-ipv4-unicast.expected bgp-routes-loc-ipv4-unicast.actual
@@ -156,6 +160,18 @@ instance1   peer0   established     -        ipv4-unicast   1          1        
                                              ipv6-unicast   1          1          1
             peer1   established     -        ipv4-unicast   1          1          1
                                              ipv6-unicast   1          1          1
+-- bgp-route-policies.expected --
+Instance    Policy Name          Type     Match Peers       Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
+instance0   allow-local          import                                                                      accept       
+instance0   peer0-ipv4-PodCIDR   export   fd00:10:99:7::1                    10.244.0.0/24 (24..24)          accept       
+instance0   peer0-ipv6-PodCIDR   export   fd00:10:99:7::1                    fd00:10:244::/64 (64..64)       accept       
+instance0   peer1-ipv4-PodCIDR   export   fd00:10:99:7::2                    10.244.0.0/24 (24..24)          accept       
+instance0   peer1-ipv6-PodCIDR   export   fd00:10:99:7::2                    fd00:10:244::/64 (64..64)       accept       
+instance1   allow-local          import                                                                      accept       
+instance1   peer0-ipv4-PodCIDR   export   fd00:10:99:7::3                    10.244.0.0/24 (24..24)          accept       
+instance1   peer0-ipv6-PodCIDR   export   fd00:10:99:7::3                    fd00:10:244::/64 (64..64)       accept       
+instance1   peer1-ipv4-PodCIDR   export   fd00:10:99:7::4                    10.244.0.0/24 (24..24)          accept       
+instance1   peer1-ipv6-PodCIDR   export   fd00:10:99:7::4                    fd00:10:244::/64 (64..64)       accept       
 -- bgp-routes-loc-ipv4-unicast.expected --
 Instance    Prefix          NextHop   Best   Age
 instance0   10.244.0.0/24   0.0.0.0   true   -
