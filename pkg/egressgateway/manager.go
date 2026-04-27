@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
@@ -159,6 +160,9 @@ type Manager struct {
 	reconciliationEventsCount atomic.Uint64
 
 	sysctl sysctl.Sysctl
+
+	db          *statedb.DB
+	deviceTable statedb.Table[*tables.Device]
 }
 
 type Params struct {
@@ -176,6 +180,9 @@ type Params struct {
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
 	Sysctl            sysctl.Sysctl
+
+	DB          *statedb.DB
+	DeviceTable statedb.Table[*tables.Device]
 
 	Lifecycle cell.Lifecycle
 }
@@ -239,6 +246,8 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
 		sysctl:                        p.Sysctl,
+		db:                            p.DB,
+		deviceTable:                   p.DeviceTable,
 		nodesAddresses2Labels:         make(map[string]map[string]string),
 	}
 

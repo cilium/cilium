@@ -6,7 +6,6 @@ package egressgateway
 import (
 	"fmt"
 	"hash/fnv"
-	"log/slog"
 	"net/netip"
 	"slices"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/netdevice"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -141,7 +141,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			gwc.gatewayIP = addr
 
 			if node.IsLocal() {
-				err := gwc.deriveFromPolicyGatewayConfig(manager.logger, &policyGwc, config.v6Needed)
+				err := gwc.deriveFromPolicyGatewayConfig(manager, &policyGwc, config.v6Needed)
 				if err != nil {
 					manager.logger.Error(
 						"Failed to derive policy gateway configuration",
@@ -174,7 +174,7 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 // deriveFromPolicyGatewayConfig retrieves all the missing gateway configuration
 // data (such as egress IP or interface) given a policy egress gateway config
-func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc *policyGatewayConfig, v6Needed bool) error {
+func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(manager *Manager, gc *policyGatewayConfig, v6Needed bool) error {
 	var err error
 	var egressIP4, egressIP6 netip.Addr
 
@@ -188,12 +188,17 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		// interface as egress IPs
 		gwc.ifaceName = gc.iface
 
-		iface, err := safenetlink.LinkByName(gwc.ifaceName)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
-		}
+		dev, _, found := manager.deviceTable.Get(manager.db.ReadTxn(), tables.DeviceNameIndex.Query(gc.iface))
+		if found {
+			gwc.egressIfindex = uint32(dev.Index)
+		} else {
+			iface, err := safenetlink.LinkByName(gwc.ifaceName)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve egress interface %s: %w", gc.iface, err)
+			}
 
-		gwc.egressIfindex = uint32(iface.Attrs().Index)
+			gwc.egressIfindex = uint32(iface.Attrs().Index)
+		}
 
 		egressIP4, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
@@ -240,7 +245,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 	default:
 		// If the gateway config doesn't specify any egress IP or interface, use the
 		// interface with the IPv4 default route
-		iface, err := route.NodeDeviceWithDefaultRoute(logger, true, false)
+		iface, err := route.NodeDeviceWithDefaultRoute(manager.logger, true, false)
 		if err != nil {
 			return fmt.Errorf("failed to find interface with IPv4 default route: %w", err)
 		}
@@ -254,7 +259,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(logger *slog.Logger, gc 
 		}
 
 		if v6Needed {
-			iface, err := route.NodeDeviceWithDefaultRoute(logger, false, true)
+			iface, err := route.NodeDeviceWithDefaultRoute(manager.logger, false, true)
 			if err != nil {
 				return fmt.Errorf("failed to find interface with IPv6 default route: %w", err)
 			}
