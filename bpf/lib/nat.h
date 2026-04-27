@@ -1820,7 +1820,21 @@ struct {
 	__type(value, struct trace_ctx);
 } trace_ctx_storage __section_maps_btf;
 
+/* These helpers are global (`__noinline __weak`) BPF subprograms which reduce
+ * program complexity introduced in cilium/cilium#45007.
+ *
+ * The verifier validates the ctx argument of a BPF-to-BPF call via the
+ * `bpf_ctx_convert` anchor in vmlinux BTF. On kernels missing that anchor
+ * (e.g. Raspberry Pi OS arm64; cilium/cilium#45224) the load fails with
+ * "btf_vmlinux is malformed". HaveBPFGlobalFuncCtxArg in
+ * pkg/datapath/linux/probes detects this and emits the
+ * BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED opt-out to fall back to inlining.
+ */
+#ifdef BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED
+static __always_inline int
+#else
 __noinline __weak int
+#endif
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 fraginfo_t fraginfo __maybe_unused,
 			 int l4_off __maybe_unused)
@@ -1958,7 +1972,14 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	return ret;
 }
 
+/* See the comment on snat_v6_needs_masquerade above for why this linkage is
+ * conditional on BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED.
+ */
+#ifdef BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED
+static __always_inline int
+#else
 __noinline __weak int
+#endif
 snat_v6_nat(struct __ctx_buff *ctx, fraginfo_t fraginfo, int off, __s8 *ext_err)
 {
 	struct ipv6_nat_entry *state = NULL;

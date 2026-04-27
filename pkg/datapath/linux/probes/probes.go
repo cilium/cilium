@@ -73,6 +73,12 @@ type ProgramHelper struct {
 
 type FeatureProbes struct {
 	ProgramHelpers map[ProgramHelper]bool
+	// BPFGlobalFuncCtxArgUnsupported is true when the kernel cannot verify a
+	// BPF-to-BPF call whose argument is a program context pointer (e.g.
+	// struct __sk_buff *), i.e. when HaveBPFGlobalFuncCtxArg returns
+	// ErrNotSupported. It maps directly onto the
+	// BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED opt-out macro emitted in features.h.
+	BPFGlobalFuncCtxArgUnsupported bool
 }
 
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
@@ -655,6 +661,35 @@ var HaveFibLookupSrc = sync.OnceValue(func() error {
 	return nil
 })
 
+// HaveBPFGlobalFuncCtxArg returns nil if the running kernel can verify a
+// BPF-to-BPF call whose argument is a program context pointer (e.g.
+// struct __sk_buff *).
+//
+// The kernel verifier validates ctx arguments via btf_validate_prog_ctx_type(),
+// which dereferences the bpf_ctx_convert anchor in vmlinux BTF. Some downstream
+// kernels (e.g. Raspberry Pi OS arm64) ship without CONFIG_DEBUG_INFO_BTF=y
+// and lack vmlinux BTF entirely, causing this lookup to fail with
+// "btf_vmlinux is malformed" and the verifier to reject any global BPF
+// function with a ctx argument.
+//
+// See cilium/cilium#45224 for the original report.
+var HaveBPFGlobalFuncCtxArg = sync.OnceValue(func() error {
+	objs := &bpfgen.ProbesGlobalFuncObjects{}
+	err := bpfgen.LoadProbesGlobalFuncObjects(objs, &ebpf.CollectionOptions{})
+	if err != nil {
+		// Treat verifier rejections as ErrNotSupported: that's the
+		// expected outcome on kernels with incomplete vmlinux BTF.
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			return fmt.Errorf("loading probe: %w: %w", err, ErrNotSupported)
+		}
+		return fmt.Errorf("loading probe: %w", err)
+	}
+	defer objs.Close()
+
+	return nil
+})
+
 // CreateHeaderFiles creates C header files with macros indicating which BPF
 // features are available in the kernel.
 func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
@@ -712,13 +747,28 @@ func ExecuteHeaderProbes(logger *slog.Logger) *FeatureProbes {
 		probes.ProgramHelpers[ph] = (HaveProgramHelper(logger, ph.Program, ph.Helper) == nil)
 	}
 
+	// ErrNotSupported (expected on kernels with incomplete vmlinux BTF,
+	// cilium/cilium#45224) sets the opt-out and inlines a few helpers in
+	// nat.h. Other errors log at debug and leave the opt-out unset: the
+	// global-function path works on virtually every supported kernel, so an
+	// unexpected probe failure shouldn't silently degrade verifier complexity
+	// when the feature is actually available.
+	if err := HaveBPFGlobalFuncCtxArg(); errors.Is(err, ErrNotSupported) {
+		probes.BPFGlobalFuncCtxArgUnsupported = true
+	} else if err != nil {
+		logger.Debug("BPF global function ctx arg probe failed",
+			logfields.Error, err,
+		)
+	}
+
 	return &probes
 }
 
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_SET_RETVAL": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_SET_RETVAL":                     probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"BPF_GLOBAL_FUNC_CTX_ARG_UNSUPPORTED": probes.BPFGlobalFuncCtxArgUnsupported,
 	}
 
 	return writeFeatureHeader(writer, features, true)

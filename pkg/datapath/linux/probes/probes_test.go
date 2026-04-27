@@ -151,3 +151,8 @@ func TestPrivilegedHaveFibLookupSrc(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "6.7", "BPF_FIB_LOOKUP_SRC")
 	assert.NoError(t, HaveFibLookupSrc())
 }
+
+func TestPrivilegedHaveBPFGlobalFuncCtxArg(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	assert.NoError(t, HaveBPFGlobalFuncCtxArg())
+}
