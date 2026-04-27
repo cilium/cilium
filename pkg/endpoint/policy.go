@@ -50,44 +50,41 @@ func (e *Endpoint) PreviousMapState() *policy.MapState {
 	return e.desiredPolicy.GetMapState()
 }
 
-// GetNamedPort returns the port for the given name.
+// GetNamedPort returns one port for the given name.
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
-	if ingress {
-		// Ingress only needs the ports of the POD itself
-		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
-	}
-	// egress needs named ports of the destination pods
-	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto, idents)
-}
+	var port uint16
+	var err error
+	var dir string
 
-func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto u8proto.U8proto) uint16 {
-	port, err := npMap.GetNamedPort(name, proto)
+	if ingress {
+		dir = "ingress"
+		// Ingress only needs the ports of the POD itself
+		port, err = e.GetK8sPorts().GetNamedPort(name, proto)
+	} else {
+		dir = "egress"
+		// egress needs named ports of the destination security identities
+		port, err = e.namedPortsGetter.GetNamedPorts().GetNamedPort(name, proto, idents)
+		// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the
+		// port name is likely not scheduled yet.
+		if err != nil && errors.Is(err, types.ErrUnknownNamedPort) {
+			err = nil
+		}
+	}
 	if err != nil && e.logLimiter.Allow() {
 		e.getLogger().Warn(
 			"Skipping named port",
 			logfields.Error, err,
 			logfields.PortName, name,
 			logfields.Protocol, proto,
-			logfields.TrafficDirection, "ingress",
+			logfields.TrafficDirection, dir,
 		)
 	}
 	return port
 }
 
-func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) uint16 {
-	port, err := npMap.GetNamedPort(name, proto, idents)
-	// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the port name
-	// is likely not scheduled yet.
-	if err != nil && !errors.Is(err, types.ErrUnknownNamedPort) && e.logLimiter.Allow() {
-		e.getLogger().Warn(
-			"Skipping named port",
-			logfields.Error, err,
-			logfields.PortName, name,
-			logfields.Protocol, proto,
-			logfields.TrafficDirection, "egress",
-		)
-	}
-	return port
+// GetEgressNamedPorts returns destination ports for the given name scoped to destIdentities.
+func (e *Endpoint) GetEgressNamedPorts(name string, proto u8proto.U8proto, destIdentities iter.Seq[identity.NumericIdentity]) types.NidPortSeq {
+	return e.namedPortsGetter.GetNamedPorts().GetNamedPorts(name, proto, destIdentities)
 }
 
 // proxyID returns a unique string to identify a proxy mapping,

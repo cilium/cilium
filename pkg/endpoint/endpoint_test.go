@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ import (
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -44,6 +46,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 )
@@ -811,6 +814,49 @@ func TestProxyID(t *testing.T) {
 	require.Empty(t, id)
 	require.Equal(t, uint16(0), port)
 	require.Equal(t, u8proto.ANY, proto)
+}
+
+type testNamedPortsGetter struct {
+	npm ciliumTypes.NamedPortMultiMap
+}
+
+func (g testNamedPortsGetter) GetNamedPorts() ciliumTypes.NamedPortMultiMap {
+	return g.npm
+}
+
+func TestGetEgressNamedPorts(t *testing.T) {
+	namedPorts := ciliumTypes.NewNamedPortMultiMap()
+	nid := identityPkg.NumericIdentity(101)
+	require.True(t, namedPorts.Update(nid, nil, ciliumTypes.NamedPortMap{
+		"http": ciliumTypes.PortProto{Port: 8080, Proto: u8proto.TCP},
+	}))
+	require.True(t, namedPorts.Update(nid, nil, ciliumTypes.NamedPortMap{
+		"http": ciliumTypes.PortProto{Port: 9090, Proto: u8proto.TCP},
+	}))
+
+	e := &Endpoint{
+		namedPortsGetter: testNamedPortsGetter{npm: namedPorts},
+	}
+
+	portsByNID := map[identityPkg.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identityPkg.NumericIdentity{nid, 102})) {
+		portsByNID[destID] = append(portsByNID[destID], port)
+	}
+	require.Equal(t, map[identityPkg.NumericIdentity][]uint16{
+		nid: {8080, 9090},
+	}, portsByNID)
+
+	portsByNID = map[identityPkg.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.UDP, slices.Values([]identityPkg.NumericIdentity{nid})) {
+		portsByNID[destID] = append(portsByNID[destID], port)
+	}
+	require.Empty(t, portsByNID)
+
+	portsByNID = map[identityPkg.NumericIdentity][]uint16{}
+	for destID, port := range e.GetEgressNamedPorts("http", u8proto.TCP, slices.Values([]identityPkg.NumericIdentity{102})) {
+		portsByNID[destID] = append(portsByNID[destID], port)
+	}
+	require.Empty(t, portsByNID)
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {
