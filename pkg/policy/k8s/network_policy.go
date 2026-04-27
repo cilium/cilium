@@ -21,7 +21,7 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 
 	rules, err := k8s.ParseNetworkPolicy(p.log, clusterName, k8sNP)
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Kubernetes), metrics.LabelValueUpdateOperation, metrics.LabelValueOutcomeFailure).Inc()
 		p.log.Error(
 			"Error while parsing k8s kubernetes NetworkPolicy",
 			logfields.Error, err,

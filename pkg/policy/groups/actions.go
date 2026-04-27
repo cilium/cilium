@@ -175,7 +175,7 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 
 func reportDerivedPolicyChangeMetrics(op string, err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(string(source.Generated), op, metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(string(source.Generated), op, metrics.LabelValueOutcomeFailure).Inc()
 	} else {
 		metrics.PolicyChangeTotal.WithLabelValues(string(source.Generated), op, metrics.LabelValueOutcomeSuccess).Inc()
 	}
