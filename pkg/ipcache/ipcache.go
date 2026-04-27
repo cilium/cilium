@@ -691,9 +691,13 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	oldK8sMeta := ipc.getK8sMetadata(ip)
 	oldEndpointFlags := ipc.getEndpointFlagsRLocked(ip)
 	var newHostIP net.IP
+	var cidrEncryptKey uint8
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
 	callbackListeners := true
+	newK8sMeta := oldK8sMeta
+	newEndpointFlags := oldEndpointFlags
+	newEncryptKey := encryptKey
 
 	var err error
 	if cidrCluster, err = cmtypes.ParsePrefixCluster(ip); err == nil {
@@ -714,7 +718,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		// restore its mapping with the listeners if that was the case.
 		cidrClusterStr := cidrCluster.String()
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
-			newHostIP, _ = ipc.getHostIPCacheRLocked(cidrClusterStr)
+			newHostIP, cidrEncryptKey = ipc.getHostIPCacheRLocked(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				ipc.logger.Debug(
 					"Removal of endpoint IP revives shadowed CIDR to identity mapping",
@@ -724,6 +728,12 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 				ipc.ipToIdentityCache[cidrClusterStr] = cidrIdentity
 				oldIdentity = &cachedIdentity
 				newIdentity = cidrIdentity
+				// The revived mapping is the CIDR entry, not the deleted
+				// endpoint IP. Report the CIDR's current metadata/flags/key
+				// to listeners so they don't observe stale pod-scoped data.
+				newK8sMeta = ipc.getK8sMetadata(cidrClusterStr)
+				newEndpointFlags = ipc.getEndpointFlagsRLocked(cidrClusterStr)
+				newEncryptKey = cidrEncryptKey
 			} else {
 				// The endpoint IP and the CIDR were associated with the same
 				// identity and host IP. Nothing changes for the listeners.
@@ -765,7 +775,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, cidrCluster, oldHostIP, newHostIP,
-				oldIdentity, newIdentity, encryptKey, oldK8sMeta, oldEndpointFlags)
+				oldIdentity, newIdentity, newEncryptKey, newK8sMeta, newEndpointFlags)
 		}
 	}
 
