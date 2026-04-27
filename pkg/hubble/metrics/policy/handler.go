@@ -115,8 +115,6 @@ func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 			subType = "dns"
 		case l7.GetHttp() != nil:
 			subType = "http"
-		case l7.GetKafka() != nil:
-			subType = "kafka"
 		}
 	}
 	match := fmt.Sprintf("l7/%s", subType)
