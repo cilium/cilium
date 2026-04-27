@@ -15,27 +15,24 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/identity"
-	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/podendpointsource"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -87,6 +84,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
+//
+// Endpoint data is obtained from [podendpointsource.Source]. The manager only
+// consumes the typed event stream.
 type Manager struct {
 	logger *slog.Logger
 
@@ -108,17 +108,11 @@ type Manager struct {
 	// nodesResource allows reading node CRD from k8s.
 	ciliumNodes resource.Resource[*cilium_api_v2.CiliumNode]
 
-	// endpoints allows reading endpoint CRD from k8s.
-	endpoints resource.Resource[*k8sTypes.CiliumEndpoint]
-
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
-	// epDataStore stores endpointId to endpoint metadata mapping
-	epDataStore map[endpointID]*endpointMetadata
-
-	// identityAllocator is used to fetch identity labels for endpoint updates
-	identityAllocator identityCache.IdentityAllocator
+	// epDataStore stores endpoint metadata by pod key.
+	epDataStore map[endpointKey]*endpointMetadata
 
 	// policyMap4 communicates the active IPv4 policies to the datapath.
 	policyMap4   egressmap.PolicyMap4
@@ -156,22 +150,22 @@ type Params struct {
 
 	Logger *slog.Logger
 
-	Config            Config
-	DaemonConfig      *option.DaemonConfig
-	TunnelConfig      tunnel.Config
-	IdentityAllocator identityCache.IdentityAllocator
-	PolicyMap4        egressmap.PolicyMap4
-	PolicyMap4V2      egressmap.PolicyMap4V2
-	PolicyMap6        egressmap.PolicyMap6
-	Policies          resource.Resource[*Policy]
-	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
-	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
-	Sysctl            sysctl.Sysctl
+	Config       Config
+	DaemonConfig *option.DaemonConfig
+	TunnelConfig tunnel.Config
+	PodEndpoints podendpointsource.Source
+	PolicyMap4   egressmap.PolicyMap4
+	PolicyMap4V2 egressmap.PolicyMap4V2
+	PolicyMap6   egressmap.PolicyMap6
+	Policies     resource.Resource[*Policy]
+	Nodes        resource.Resource[*cilium_api_v2.CiliumNode]
+	Sysctl       sysctl.Sysctl
 
 	DB          *statedb.DB
 	DeviceTable statedb.Table[*tables.Device]
 
 	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
 }
 
 func NewEgressGatewayManager(p Params) (out struct {
@@ -188,10 +182,6 @@ func NewEgressGatewayManager(p Params) (out struct {
 
 	if dcfg.IdentityAllocationMode != option.IdentityAllocationModeCRD {
 		return out, fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
-	}
-
-	if dcfg.EnableCiliumEndpointSlice {
-		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
 	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
@@ -224,15 +214,13 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		logger:                        p.Logger,
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
-		epDataStore:                   make(map[endpointID]*endpointMetadata),
-		identityAllocator:             p.IdentityAllocator,
+		epDataStore:                   make(map[endpointKey]*endpointMetadata),
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap4:                    p.PolicyMap4,
 		policyMap4V2:                  p.PolicyMap4V2,
 		policyMap6:                    p.PolicyMap6,
 		policies:                      p.Policies,
 		ciliumNodes:                   p.Nodes,
-		endpoints:                     p.Endpoints,
 		sysctl:                        p.Sysctl,
 		db:                            p.DB,
 		deviceTable:                   p.DeviceTable,
@@ -257,6 +245,15 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 
 	manager.reconciliationTrigger = t
 
+	// Source replay replaces the old "endpoints synced" signal.
+	if p.PodEndpoints != nil {
+		p.JobGroup.Add(job.Observer(
+			"egressgateway-endpoint-events",
+			manager.handleEndpointEvent,
+			p.PodEndpoints,
+		))
+	}
+
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -265,12 +262,10 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 			wg.Go(func() {
 				manager.processEvents(ctx)
 			})
-
 			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
-
 			wg.Wait()
 			return nil
 		},
@@ -295,26 +290,38 @@ func (manager *Manager) eventBitmapIsSet(events ...eventType) bool {
 	return false
 }
 
-// getIdentityLabels waits for the global identities to be populated to the cache,
-// then looks up identity by ID from the cached identity allocator and return its labels.
-func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
-	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(context.Background()); err != nil {
-		return nil, fmt.Errorf("failed to wait for initial global identities: %w", err)
+// handleEndpointEvent mirrors pod endpoint events into epDataStore.
+func (manager *Manager) handleEndpointEvent(_ context.Context, ev podendpointsource.Event) error {
+	manager.Lock()
+	defer manager.Unlock()
+
+	switch ev.Kind {
+	case podendpointsource.EventKindUpsert:
+		ep := ev.Endpoint
+		manager.epDataStore[endpointKey(ep.Key)] = &endpointMetadata{
+			key:    endpointKey(ep.Key),
+			labels: ep.Labels,
+			ips:    ep.IPs,
+			nodeIP: ep.NodeIP,
+		}
+		manager.setEventBitmap(eventUpdateEndpoint)
+	case podendpointsource.EventKindDelete:
+		if _, ok := manager.epDataStore[endpointKey(ev.Endpoint.Key)]; !ok {
+			return nil
+		}
+		delete(manager.epDataStore, endpointKey(ev.Endpoint.Key))
+		manager.setEventBitmap(eventDeleteEndpoint)
 	}
 
-	identity := manager.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
-	if identity == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return identity.Labels, nil
+	manager.reconciliationTrigger.TriggerWithReason("endpoint changed")
+	return nil
 }
 
-// processEvents spawns a goroutine that waits for the agent to
-// sync with k8s and then runs the first reconciliation.
+// processEvents waits for policy and node sync before first reconciliation.
 func (manager *Manager) processEvents(ctx context.Context) {
-	var policySync, nodeSync, endpointSync bool
+	var policySync, nodeSync bool
 	maybeTriggerReconcile := func() {
-		if !policySync || !nodeSync || !endpointSync {
+		if !policySync || !nodeSync {
 			return
 		}
 
@@ -330,18 +337,8 @@ func (manager *Manager) processEvents(ctx context.Context) {
 		manager.reconciliationTrigger.TriggerWithReason("k8s sync done")
 	}
 
-	// here we try to mimic the same exponential backoff retry logic used by
-	// the identity allocator, where the minimum retry timeout is set to 20
-	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
-	// ~20 minutes)
-	endpointsRateLimit := workqueue.NewTypedItemExponentialFailureRateLimiter[resource.WorkItem](
-		time.Millisecond*20,
-		time.Minute*20,
-	)
-
 	policyEvents := manager.policies.Events(ctx)
 	nodeEvents := manager.ciliumNodes.Events(ctx)
-	endpointEvents := manager.endpoints.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
 
 	for {
 		select {
@@ -364,15 +361,6 @@ func (manager *Manager) processEvents(ctx context.Context) {
 				event.Done(nil)
 			} else {
 				manager.handleNodeEvent(event)
-			}
-
-		case event := <-endpointEvents:
-			if event.Kind == resource.Sync {
-				endpointSync = true
-				maybeTriggerReconcile()
-				event.Done(nil)
-			} else {
-				manager.handleEndpointEvent(event)
 			}
 		}
 	}
@@ -420,7 +408,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		)
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
+	config.updateMatchedEndpointKeys(manager.epDataStore, manager.nodesAddresses2Labels)
 
 	manager.policyConfigs[config.id] = config
 
@@ -453,90 +441,6 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 
 	manager.setEventBitmap(eventDeletePolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
-}
-
-func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
-	var epData *endpointMetadata
-	var err error
-	var identityLabels labels.Labels
-
-	manager.Lock()
-	defer manager.Unlock()
-
-	logger := manager.logger.With(
-		logfields.K8sEndpointName, endpoint.Name,
-		logfields.K8sNamespace, endpoint.Namespace,
-		logfields.K8sUID, endpoint.UID,
-	)
-
-	if endpoint.Identity == nil {
-		logger.Warn(
-			"Endpoint is missing identity metadata, skipping update to egress policy.",
-		)
-		return nil
-	}
-
-	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		logger.Warn(
-			"Failed to get identity labels for endpoint",
-			logfields.Error, err,
-		)
-		return err
-	}
-
-	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		logger.Error(
-			"Failed to get valid endpoint metadata, skipping update to egress policy.",
-			logfields.Error, err,
-		)
-		return nil
-	}
-
-	if _, ok := manager.epDataStore[epData.id]; ok {
-		logger.Debug(
-			"Updated CiliumEndpoint",
-			logfields.Error, err,
-		)
-	} else {
-		logger.Debug(
-			"Added CiliumEndpoint",
-			logfields.Error, err,
-		)
-	}
-
-	manager.epDataStore[epData.id] = epData
-
-	manager.setEventBitmap(eventUpdateEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
-
-	return nil
-}
-
-func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
-	manager.Lock()
-	defer manager.Unlock()
-
-	manager.logger.Debug(
-		"Deleted CiliumEndpoint",
-		logfields.K8sEndpointName, endpoint.Name,
-		logfields.K8sNamespace, endpoint.Namespace,
-		logfields.K8sUID, endpoint.UID,
-	)
-	delete(manager.epDataStore, endpoint.UID)
-
-	manager.setEventBitmap(eventDeleteEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
-}
-
-func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
-	endpoint := event.Object
-
-	if event.Kind == resource.Upsert {
-		event.Done(manager.addEndpoint(endpoint))
-	} else {
-		manager.deleteEndpoint(endpoint)
-		event.Done(nil)
-	}
 }
 
 // handleNodeEvent takes care of node upserts and removals.
@@ -580,9 +484,9 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 	manager.reconciliationTrigger.TriggerWithReason("node updated")
 }
 
-func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
+func (manager *Manager) updatePoliciesMatchedEndpointKeys() {
 	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
+		policy.updateMatchedEndpointKeys(manager.epDataStore, manager.nodesAddresses2Labels)
 	}
 }
 
@@ -874,7 +778,7 @@ func (manager *Manager) reconcileLocked() {
 	// we don't know which k8s events/resources were received during the
 	// initial k8s sync
 	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventUpdateNode, eventDeleteNode, eventK8sSyncDone):
-		manager.updatePoliciesMatchedEndpointIDs()
+		manager.updatePoliciesMatchedEndpointKeys()
 	}
 
 	if manager.eventBitmapIsSet(eventK8sSyncDone, eventAddPolicy, eventDeletePolicy, eventUpdateNode, eventDeleteNode) {
