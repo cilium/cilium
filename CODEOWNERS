@@ -659,6 +659,7 @@ Makefile* @cilium/build
 /pkg/nodeipamconfig @cilium/sig-ipam
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
+/pkg/podendpointsource/ @cilium/ipcache @cilium/egress-gateway
 /pkg/policy @cilium/sig-policy
 /pkg/policy/api/ @cilium/api @cilium/sig-policy
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
