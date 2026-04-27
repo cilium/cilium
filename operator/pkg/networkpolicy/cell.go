@@ -20,12 +20,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -124,13 +122,11 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 
 	var errs error
 	if newPol.Spec != nil {
-		errs = errors.Join(errs, checkEndpointSelectorNamespace(newPol.Spec, pol.Namespace))
-		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, newPol.Spec.SanitizeWithNamespace(pol.Namespace))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, checkEndpointSelectorNamespace(r, pol.Namespace))
-		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, r.SanitizeWithNamespace(pol.Namespace))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
@@ -225,29 +221,6 @@ func (pv *policyValidator) checkMutalAuthUsage(spec *api.Rule) error {
 		}
 	}
 	return nil
-}
-
-// checkEndpointSelectorNamespace checks whether the EndpointSelector in a rule
-// contains an illegal namespace match. The EndpointSelector always applies in the
-// namespace of the policy resource, so specifying a different namespace is invalid.
-func checkEndpointSelectorNamespace(rule *api.Rule, namespace string) error {
-	if rule.EndpointSelector.LabelSelector == nil {
-		return nil
-	}
-
-	podPrefixLbl := labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	userNamespace, present := rule.EndpointSelector.GetMatch(podPrefixLbl)
-	if !present {
-		return nil
-	}
-
-	// The namespace match is valid if it matches the policy namespace, or
-	// if no namespace is specified (cluster-wide policy).
-	if namespace == "" || (len(userNamespace) == 1 && userNamespace[0] == namespace) {
-		return nil
-	}
-
-	return fmt.Errorf("EndpointSelector must not specify namespace %q; it always applies in the policy namespace %q", userNamespace, namespace)
 }
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
