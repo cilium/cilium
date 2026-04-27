@@ -30,6 +30,16 @@ type IPCacheTestSuite struct {
 	Allocator       *testidentity.MockIdentityAllocator
 }
 
+func getNamedPorts(npm types.NamedPortMultiMap, name string, proto u8proto.U8proto, nid identityPkg.NumericIdentity) []uint16 {
+	var ports []uint16
+	for resultNID, port := range npm.GetNamedPorts(name, proto, slices.Values([]identityPkg.NumericIdentity{nid})) {
+		if resultNID == nid {
+			ports = append(ports, port)
+		}
+	}
+	return ports
+}
+
 func setupIPCacheTestSuite(tb testing.TB) *IPCacheTestSuite {
 	s := &IPCacheTestSuite{
 		Allocator:     testidentity.NewMockIdentityAllocator(nil),
@@ -254,7 +264,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		PodName:   "app1",
 		NamedPorts: types.NamedPortMap{
 			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
-			"dns":  types.PortProto{Port: 53},
+			"dns":  types.PortProto{Port: 53, Proto: u8proto.TCP},
 		},
 	}
 
@@ -285,7 +295,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	port, err := npm.GetNamedPort("http", u8proto.TCP, idents)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", u8proto.ANY, idents)
+	port, err = npm.GetNamedPort("dns", u8proto.TCP, idents)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
@@ -309,7 +319,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		PodName:   "app2",
 		NamedPorts: types.NamedPortMap{
 			"https": types.PortProto{Port: 443, Proto: u8proto.TCP},
-			"dns":   types.PortProto{Port: 53},
+			"dns":   types.PortProto{Port: 53, Proto: u8proto.TCP},
 		},
 	}
 
@@ -338,7 +348,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	port, err = npm.GetNamedPort("http", u8proto.TCP, idents)
 	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", u8proto.ANY, idents)
+	port, err = npm.GetNamedPort("dns", u8proto.TCP, idents)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 	idents2 := slices.Values([]identityPkg.NumericIdentity{identity2})
@@ -352,7 +362,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
 
-	port, err = npm.GetNamedPort("dns", u8proto.ANY, idents2)
+	port, err = npm.GetNamedPort("dns", u8proto.TCP, idents2)
 	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 	port, err = npm.GetNamedPort("https", u8proto.TCP, idents2)
@@ -497,6 +507,59 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		ips = s.IPIdentityCache.LookupByIdentity(identities[index])
 		require.Nil(t, ips)
 	}
+
+	// Test conflicting concrete ports for the same named port and numeric
+	// identity. GetNamedPort reports the conflict, and GetNamedPorts does
+	// not return an unusable mapping.
+	multiNID := identityPkg.NumericIdentity(88)
+	multiIdentity := Identity{
+		ID:     multiNID,
+		Source: source.Kubernetes,
+	}
+	multiIP1 := "10.2.0.1"
+	multiIP2 := "10.2.0.2"
+	multiMeta1 := K8sMetadata{
+		Namespace: "default",
+		PodName:   "multi-1",
+		NamedPorts: types.NamedPortMap{
+			"http-alt": types.PortProto{Port: 8080, Proto: u8proto.TCP},
+		},
+	}
+	multiMeta2 := K8sMetadata{
+		Namespace: "default",
+		PodName:   "multi-2",
+		NamedPorts: types.NamedPortMap{
+			"http-alt": types.PortProto{Port: 9090, Proto: u8proto.TCP},
+		},
+	}
+	namedPortsChanged, err = s.IPIdentityCache.Upsert(multiIP1, nil, 0, &multiMeta1, multiIdentity)
+	require.NoError(t, err)
+	require.True(t, namedPortsChanged)
+	namedPortsChanged, err = s.IPIdentityCache.Upsert(multiIP2, nil, 0, &multiMeta2, multiIdentity)
+	require.NoError(t, err)
+	require.True(t, namedPortsChanged)
+
+	npm = s.IPIdentityCache.GetNamedPorts()
+	require.NotNil(t, npm)
+	ports := getNamedPorts(npm, "http-alt", u8proto.TCP, multiNID)
+	require.Nil(t, ports)
+	port, err = npm.GetNamedPort("http-alt", u8proto.TCP, slices.Values([]identityPkg.NumericIdentity{multiNID}))
+	require.Equal(t, types.ErrDuplicateNamedPorts, err)
+	require.Equal(t, uint16(0), port)
+
+	namedPortsChanged = s.IPIdentityCache.Delete(multiIP1, source.Kubernetes)
+	require.True(t, namedPortsChanged)
+	npm = s.IPIdentityCache.GetNamedPorts()
+	require.NotNil(t, npm)
+	ports = getNamedPorts(npm, "http-alt", u8proto.TCP, multiNID)
+	require.Equal(t, []uint16{9090}, ports)
+
+	namedPortsChanged = s.IPIdentityCache.Delete(multiIP2, source.Kubernetes)
+	require.True(t, namedPortsChanged)
+	npm = s.IPIdentityCache.GetNamedPorts()
+	require.NotNil(t, npm)
+	ports = getNamedPorts(npm, "http-alt", u8proto.TCP, multiNID)
+	require.Nil(t, ports)
 
 	require.Len(t, s.IPIdentityCache.ipToIdentityCache, 1)
 	require.Len(t, s.IPIdentityCache.identityToIPCache, 1)

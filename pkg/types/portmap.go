@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
@@ -34,8 +34,24 @@ type PortProto struct {
 // NamedPortMap maps port names to port numbers and protocols.
 type NamedPortMap map[string]PortProto
 
-// PortProtoSet maps PortProto to a map of numeric identities to their reference counts.
-type PortProtoSet map[PortProto]map[identity.NumericIdentity]int
+// PortProtoSet maps numeric identity and protocol to the resolved port for one
+// named port.
+type PortProtoSet map[nidProtoKey]namedPortRef
+
+type nidProtoKey struct {
+	nid   identity.NumericIdentity
+	proto u8proto.U8proto
+}
+
+type namedPortRef struct {
+	port uint16
+	refs int
+
+	// dupes links duplicate port definitions for the same name, numeric
+	// identity, and protocol. This is expected only while a cluster transitions
+	// between identity label schemes during upgrades or downgrades.
+	dupes *namedPortRef
+}
 
 // Equal returns true if the PortProtoSets are equal.
 func (pps PortProtoSet) Equal(other PortProtoSet) bool {
@@ -43,53 +59,123 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 		return false
 	}
 
-	for pp, epCounts := range pps {
-		otherEpCounts, exists := other[pp]
-		if !exists || len(epCounts) != len(otherEpCounts) {
+	for key, ref := range pps {
+		otherRef, exists := other[key]
+		if !exists || !ref.Equal(otherRef) {
 			return false
-		}
-		for nid, count := range epCounts {
-			otherCount, epExists := otherEpCounts[nid]
-			if !epExists || count != otherCount {
-				return false
-			}
 		}
 	}
 	return true
 }
 
 // Add increments the reference count for the numeric identity associated with the PortProto.
-// Returns true if the numeric identity was not previously in the map (count was 0).
+// Returns true if the named port mapping changed for the numeric identity.
 func (pps PortProtoSet) Add(pp PortProto, nid identity.NumericIdentity) bool {
-	epCounts, ok := pps[pp]
-	if !ok {
-		epCounts = make(map[identity.NumericIdentity]int)
-		pps[pp] = epCounts
+	if pp.Port == 0 {
+		return false
 	}
-	return counter.Counter[identity.NumericIdentity](epCounts).Add(nid)
+	key := nidProtoKey{nid: nid, proto: pp.Proto}
+	ref, ok := pps[key]
+	if !ok {
+		pps[key] = namedPortRef{port: pp.Port, refs: 1}
+		return true
+	}
+	for cur := &ref; ; cur = cur.dupes {
+		if cur.port == pp.Port {
+			cur.refs++
+			pps[key] = ref // update list head, as it may have changed
+			return false
+		}
+		if cur.dupes == nil {
+			cur.dupes = &namedPortRef{port: pp.Port, refs: 1}
+			pps[key] = ref // update list head, as it may have changed
+			return true
+		}
+	}
 }
 
-// Delete decrements the reference count for the numeric identity associated with the PortProto.
-// It returns true if the numeric identity was deleted.
+// Delete decrements the reference count for the numeric identity associated
+// with the PortProto. Returns true if the set of ports for the numeric
+// identity changed.
 func (pps PortProtoSet) Delete(pp PortProto, nid identity.NumericIdentity) bool {
-	epCounts, ok := pps[pp]
+	key := nidProtoKey{nid: nid, proto: pp.Proto}
+	ref, ok := pps[key]
 	if !ok {
 		return false
 	}
-	deleted := counter.Counter[identity.NumericIdentity](epCounts).Delete(nid)
-	if deleted && len(epCounts) == 0 {
-		delete(pps, pp)
+
+	var prev *namedPortRef
+	for cur := &ref; cur != nil; prev, cur = cur, cur.dupes {
+		if cur.port == pp.Port {
+			if cur.refs > 1 {
+				cur.refs--
+				pps[key] = ref // update list head, as it may have changed
+				return false
+			}
+			// refs became zero, unlink
+			if prev != nil {
+				prev.dupes = cur.dupes
+				pps[key] = ref // update list head, as it may have changed
+				return true
+			}
+			if cur.dupes != nil {
+				ref = *cur.dupes
+				pps[key] = ref // update list head, as it may have changed
+				return true
+			}
+			// can't unlink the head; delete the map entry instead
+			delete(pps, key)
+			return true
+		}
 	}
-	return deleted
+	return false
 }
+
+// LookupPort returns the single usable port in the chain, or duplicate=true if
+// the chain contains multiple distinct non-zero ports.
+func (ref namedPortRef) LookupPort() (port uint16, ok, duplicate bool) {
+	for cur := &ref; cur != nil; cur = cur.dupes {
+		if port != 0 && port != cur.port {
+			return 0, false, true
+		}
+		port = cur.port
+	}
+	return port, true, false
+}
+
+// Equal reports whether two namedPortRef chains have the same port/refcount
+// sequence.
+func (ref namedPortRef) Equal(other namedPortRef) bool {
+	if ref.port != other.port || ref.refs != other.refs {
+		return false
+	}
+	switch {
+	case ref.dupes == nil && other.dupes == nil:
+		return true
+	case ref.dupes == nil || other.dupes == nil:
+		return false
+	default:
+		return ref.dupes.Equal(*other.dupes)
+	}
+}
+
+type NidPortSeq iter.Seq2[identity.NumericIdentity, uint16]
+
+func emptyNidPortSeq(func(identity.NumericIdentity, uint16) bool) {}
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
 type NamedPortMultiMap interface {
-	// GetNamedPort returns the port number for the named port, if any.
+	// GetNamedPort returns the port number for the named port, if any. proto
+	// must be a concrete protocol; u8proto.ANY does not match named ports.
 	GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error)
 
-	// Len returns the number of Name->PortProtoSet mappings known.
+	// GetNamedPorts returns the port numbers for the named port, if any, by
+	// numeric identity. proto must be a concrete protocol; u8proto.ANY does
+	// not match named ports.
+	GetNamedPorts(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) NidPortSeq
+
+	// Len returns the number of named port/protocol mappings known.
 	Len() int
 }
 
@@ -122,22 +208,21 @@ func (npm *namedPortMultiMap) Update(nid identity.NumericIdentity, old, new Name
 		newPP, exists := new[name]
 		if !exists || oldPP != newPP {
 			if pps, ok := npm.m[name]; ok {
-				if deleted := pps.Delete(oldPP, nid); deleted {
+				if pps.Delete(oldPP, nid) {
 					namedPortsChanged = true
+					if len(pps) == 0 {
+						delete(npm.m, name)
+					}
 				}
 			}
 		}
 	}
 
-	// Clean up empty PortProtoSets from the main map
-	for name, pps := range npm.m {
-		if len(pps) == 0 {
-			delete(npm.m, name)
-		}
-	}
-
 	// Handle additions: Ports in new but not in old, or changed.
 	for name, newPP := range new {
+		if newPP.Port == 0 {
+			continue
+		}
 		oldPP, exists := old[name]
 		if !exists || newPP != oldPP {
 			pps, ok := npm.m[name]
@@ -218,6 +303,8 @@ func (npm NamedPortMap) GetNamedPort(name string, proto u8proto.U8proto) (uint16
 }
 
 // GetNamedPort returns the port number for the named port, if any.
+// Numeric identities that have no named port mapping are skipped.
+// If the numeric identities resolve to different ports, ErrDuplicateNamedPorts is returned.
 func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) (uint16, error) {
 	if npm == nil {
 		return 0, ErrNilMap
@@ -227,44 +314,106 @@ func (npm *namedPortMultiMap) GetNamedPort(name string, proto u8proto.U8proto, n
 	if npm.m == nil {
 		return 0, ErrNilMap
 	}
+	if proto == u8proto.ANY {
+		return 0, ErrIncompatibleProtocol
+	}
 	pps, ok := npm.m[name]
 	if !ok {
 		// Return an error the caller can filter out as this happens only for egress policy
 		// and it is likely the destination POD with the port name is simply not scheduled yet.
 		return 0, ErrUnknownNamedPort
 	}
-	// Find if there is a single port that has no proto conflict and no zero port value.
-	// Numeric identities that have no named port mapping are skipped.
-	port := uint16(0)
-	err := ErrUnknownNamedPort
-	for pp, nidSet := range pps {
-		// Check if this PortProto is defined by any of the target numeric identities
-		validNID := false
-		for nid := range nids {
-			if _, exists := nidSet[nid]; exists {
-				validNID = true
-				break
-			}
-		}
-		if !validNID {
-			continue // Skip if PortProto is not from the target identities
-		}
-
-		if pp.Proto != 0 && proto != pp.Proto {
-			err = ErrIncompatibleProtocol
-			continue // conflicting proto
-		}
-		if pp.Port == 0 {
-			err = ErrNamedPortIsZero
-			continue // zero port
-		}
-		if port != 0 && pp.Port != port {
+	// Find if there is a single port for the given identities.
+	var result uint16
+	for nid := range nids {
+		port, ok, duplicate := pps.lookupNamedPort(proto, nid)
+		if duplicate {
 			return 0, ErrDuplicateNamedPorts
 		}
-		port = pp.Port
+		if !ok {
+			continue
+		}
+		if result != 0 && result != port {
+			return 0, ErrDuplicateNamedPorts
+		}
+		result = port
 	}
-	if port == 0 {
-		return 0, err
+	if result == 0 {
+		return 0, ErrUnknownNamedPort
 	}
-	return port, nil
+	return result, nil
+}
+
+// GetNamedPorts returns an iterator to numeric identity / port number pairs for the given
+// 'nids'. Numeric identities in "nids" are skipped in the output iterator if there is no named port
+// mapping for that specific identity, or if there are more than one port defined for the identity.
+// Note that this differs slightly from GetNamedPort that will return a port number if no more than
+// one port is defined for all the given identities, even if some of the identities would not have
+// any port defined for the name and protocol.
+func (npm *namedPortMultiMap) GetNamedPorts(name string, proto u8proto.U8proto, nids iter.Seq[identity.NumericIdentity]) NidPortSeq {
+	if npm == nil {
+		return emptyNidPortSeq
+	}
+	if proto == u8proto.ANY {
+		return emptyNidPortSeq
+	}
+	npm.RLock()
+	defer npm.RUnlock()
+	if npm.m == nil {
+		return emptyNidPortSeq
+	}
+	pps, ok := npm.m[name]
+	if !ok {
+		return emptyNidPortSeq
+	}
+	var resultNIDs []identity.NumericIdentity
+	var resultPorts []uint16
+	for nid := range nids {
+		port, ok, duplicate := pps.lookupNamedPort(proto, nid)
+		if !ok || duplicate {
+			continue
+		}
+		resultNIDs = append(resultNIDs, nid)
+		resultPorts = append(resultPorts, port)
+	}
+
+	return func(yield func(identity.NumericIdentity, uint16) bool) {
+		for i, nid := range resultNIDs {
+			if !yield(nid, resultPorts[i]) {
+				return
+			}
+		}
+	}
+}
+
+func (s NidPortSeq) Ports() []uint16 {
+	portSet := map[uint16]struct{}{}
+	var port uint16
+	for _, port = range s {
+		portSet[port] = struct{}{}
+	}
+	if len(portSet) == 0 {
+		return nil
+	}
+	if len(portSet) == 1 {
+		return []uint16{port}
+	}
+
+	ports := make([]uint16, 0, len(portSet))
+	for port := range portSet {
+		ports = append(ports, port)
+	}
+	slices.Sort(ports)
+	return ports
+}
+
+func (pps PortProtoSet) lookupNamedPort(proto u8proto.U8proto, nid identity.NumericIdentity) (port uint16, ok, duplicate bool) {
+	if nid == 0 {
+		return 0, false, false
+	}
+	ref, ok := pps[nidProtoKey{nid: nid, proto: proto}]
+	if !ok {
+		return 0, false, false
+	}
+	return ref.LookupPort()
 }
